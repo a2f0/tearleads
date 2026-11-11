@@ -83,8 +83,9 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 
 ## Billing
 
-- [RevenueCat billing](developer/revenuecat-billing.md) and
-  [native stores](developer/revenuecat-native-stores.md).
+- [RevenueCat billing](developer/revenuecat-billing.md),
+  [native stores](developer/revenuecat-native-stores.md), and
+  [changing plans](developer/billing-plan-changes.md).
 - [Stripe checkout client](developer/stripe-checkout-client.md).
 - [Payment provider MCP and CLI operations](developer/payment-provider-mcp.md).
 - [Billing history](developer/billing-history.md),

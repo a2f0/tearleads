@@ -7,6 +7,7 @@ import {
   type OrganizationBillingStatus,
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
+import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq, inArray, or } from "drizzle-orm";
 import {
@@ -15,6 +16,7 @@ import {
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
+import { startsLaterBillingPeriod } from "./stripePeriodMatch";
 
 type StripeResolutionSource = "durable" | "provider";
 
@@ -24,6 +26,8 @@ export type ImmutableStripeStoreOrgResolution =
       identifiers: readonly string[];
       organizationId: string;
       priceId: string | null;
+      /** Capacity of the bound Price alone. */
+      priceSeatCount: number | null;
       seatCount: number | null;
       source: StripeResolutionSource;
     }
@@ -85,6 +89,10 @@ async function resolveDurableStripeStoreOrganizationId(
   }
   const rows = await db
     .select({
+      appliedPaidCapacity: organizationBillingStripeSeats.appliedPaidCapacity,
+      billingPeriodEndsAt: organizationBillingStripeSeats.billingPeriodEndsAt,
+      billingPeriodStartsAt:
+        organizationBillingStripeSeats.billingPeriodStartsAt,
       organizationId: organizationBillingStripeSeats.organizationId,
       priceId: organizationBillingStripeSeats.priceId,
       subscriptionId: organizationBillingStripeSeats.subscriptionId,
@@ -109,15 +117,111 @@ async function resolveDurableStripeStoreOrganizationId(
   ) {
     return { kind: "error" };
   }
-  const tier = getSyncBillingTierForStripePrice(binding.priceId, deps);
+  const priceSeatCount =
+    getSyncBillingTierForStripePrice(binding.priceId, deps)?.seatLimit ?? null;
   return {
     identifiers,
     kind: "resolved",
     organizationId: binding.organizationId,
     priceId: binding.priceId,
-    seatCount: tier?.seatLimit ?? null,
+    priceSeatCount,
+    seatCount: durableSeatCount(event, binding, priceSeatCount),
     source: "durable",
   };
+}
+
+/**
+ * The capacity a grant for the bound subscription licenses. The bound Price
+ * is what the subscription renews at, which a scheduled smaller plan lowers
+ * before renewal (workflows/billing/stripePlanChange.ts). Only an event that
+ * starts a later period than the one bound (a renewal) grants that Price's
+ * capacity alone; any event within the paid period, including an extension
+ * that moves its end, keeps the capacity paid for it, so seats are never
+ * taken away before the renewal.
+ */
+function durableSeatCount(
+  event: RevenueCatWebhookEvent,
+  binding: {
+    readonly appliedPaidCapacity: number;
+    readonly billingPeriodEndsAt: Date | null;
+    readonly billingPeriodStartsAt: Date | null;
+  },
+  priceSeatCount: number | null,
+): number | null {
+  if (priceSeatCount === null) {
+    return null;
+  }
+  const paid = getSyncBillingTierForSeatCount(binding.appliedPaidCapacity);
+  return paid && eventInPaidPeriod(event, binding)
+    ? Math.max(priceSeatCount, paid.seatLimit)
+    : priceSeatCount;
+}
+
+/**
+ * Recomputes a durable resolution's capacity from the seat row as it is now,
+ * under the billing lock its writers take: a plan change that landed after
+ * the event was resolved (an upgrade's paid capacity) must not be overwritten
+ * by the earlier read. Null when the bound Price changed since, which the
+ * caller retries.
+ */
+export async function lockedDurableStripeSeatCount(input: {
+  readonly event: RevenueCatWebhookEvent;
+  readonly executor: DatabaseSession;
+  readonly resolution: Extract<
+    ImmutableStripeStoreOrgResolution,
+    { kind: "resolved" }
+  >;
+}): Promise<number | null> {
+  const [binding] = await input.executor
+    .select({
+      appliedPaidCapacity: organizationBillingStripeSeats.appliedPaidCapacity,
+      billingPeriodEndsAt: organizationBillingStripeSeats.billingPeriodEndsAt,
+      billingPeriodStartsAt:
+        organizationBillingStripeSeats.billingPeriodStartsAt,
+      priceId: organizationBillingStripeSeats.priceId,
+    })
+    .from(organizationBillingStripeSeats)
+    .where(
+      eq(
+        organizationBillingStripeSeats.organizationId,
+        input.resolution.organizationId,
+      ),
+    )
+    .limit(1);
+  if (!binding || binding.priceId !== input.resolution.priceId) {
+    return null;
+  }
+  return durableSeatCount(
+    input.event,
+    binding,
+    input.resolution.priceSeatCount,
+  );
+}
+
+/**
+ * Whether the event belongs to the bound paid period (or an earlier one).
+ * Only an event that starts a later period, its purchase half a period or
+ * more after the bound start, is a renewal; RevenueCat's timestamps for one
+ * period trail Stripe's by far less. An event that shows no start cannot be
+ * told from an extension, which reports only a later end, so it keeps the
+ * paid period.
+ */
+function eventInPaidPeriod(
+  event: RevenueCatWebhookEvent,
+  binding: {
+    readonly billingPeriodEndsAt: Date | null;
+    readonly billingPeriodStartsAt: Date | null;
+  },
+): boolean {
+  const startsAt = binding.billingPeriodStartsAt;
+  return (
+    event.purchased_at_ms == null ||
+    startsAt === null ||
+    !startsLaterBillingPeriod(event.purchased_at_ms, {
+      endsAt: binding.billingPeriodEndsAt,
+      startsAt,
+    })
+  );
 }
 
 /** Resolves an immutable candidate; locked database validation happens later. */
@@ -160,6 +264,7 @@ export async function resolveImmutableStripeStoreOrganizationId(
     kind: "resolved",
     organizationId: providerResolution.organizationId,
     priceId: providerResolution.priceId,
+    priceSeatCount: providerResolution.seatCount,
     seatCount: providerResolution.seatCount,
     source: "provider",
   };

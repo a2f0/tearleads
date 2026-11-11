@@ -184,30 +184,6 @@ containers through their projections, or reads group policy history for the
 founding heads. A provisioned container's projection is read on its first
 write instead.
 
-The November 10, 2026 lifecycle measurements separate startup and reconnect
-from provisioning and offline replay:
-
-- [`PaneRestartRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx)
-  measures 23 requests after disposing the SDK and reopening the same local
-  SQLite database: 2 organization-policy reads, 1 public history read, 2
-  parent-lane queries, 3 document listings, 3 container and 3 document
-  projections, 6 read-only syncs, and one ticket, membership and billing read.
-- [`PaneReconnectRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx)
-  measures 22 requests with nothing pending: 3 organization-policy reads, 4
-  parent-lane queries, 1 listing, 1 container and 3 document projections, 8
-  read-only syncs, one ticket and one membership read. Creating a folder from
-  another session while disconnected raises the resync to 30: respectively
-  5 policy reads, 6 parent-lane queries, 2 listings, 2 container and 4 document
-  projections, 9 read-only syncs, and the same ticket and membership reads.
-  Neither reconnect reads public history or group policies, nor replays writes.
-
-These are per-route ceilings as well as observed counts for two folders and two
-notes. The tests await the real socket acknowledgement and catch-up, not just
-network quiet, and verify durable queues and resulting data. See
-[the lifecycle budgets](../request-budgets.md#pane-lifecycle-budgets) for the
-complete route table, the extra-request negative control, and the distinction
-between SDK restart on retained test storage and a browser/process restart.
-
 A cold Org Manager open uses three requests: one read-model read, one
 organization-policy read and one Admins-policy read
 ([`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)).
@@ -215,6 +191,22 @@ An active peer reconciles an ungranted group change with four policy/read-model
 requests and no container or document fanout; its unchanged Admins stage needs
 no read
 ([`DualPaneProvider.activePeerRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx)).
+
+[`PaneRestartRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx)
+measures and caps a persisted-database pane restart at 23 requests, including
+two organization-policy reads and one public history read.
+[`PaneReconnectRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx)
+measures and caps an unchanged reconnect at 22 requests (three organization-policy
+reads) and discovery of one peer-created folder at 30 (five organization-policy
+reads). Both reconnects measured one memberships read and one WebSocket ticket
+request, with no public history or group-policy reads; these are upper bounds,
+not required minimum counts. All three fixtures contain two user folders and
+two notes and exclude pending mutations. Only the reconnect slices await the
+real acknowledged reconnect sweep; restart uses the initial connection and
+checks for late requests after network quiet. The unchanged and peer-create
+reconnects use different host profiles, so their totals are not an incremental
+cost comparison. See the
+[per-route budgets and persistence boundary](../request-budgets.md#restart-and-reconnect).
 
 [`GroupMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx)
 measures 8 requests for creating the first group and 5 for a later one (one

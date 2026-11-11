@@ -83,6 +83,7 @@ export class ApiClient extends ApiClientAreas {
   createStripeCheckoutSession = this.billing.createStripeCheckoutSession;
   createStripePortal = this.billing.createStripePortal;
   cancelStripeSubscription = this.billing.cancelStripeSubscription;
+  changeStripePlan = this.billing.changeStripePlan;
   startOrganizationTrial = this.billing.startOrganizationTrial;
 
   // Root operator reads and suspensions.

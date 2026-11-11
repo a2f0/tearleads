@@ -1,198 +1,205 @@
-import { afterEach, expect, spyOn, test } from "bun:test";
-import { act, waitFor } from "@testing-library/react";
+import { afterEach, expect, test } from "bun:test";
+import type { Tearleads } from "@tearleads/client-sdk";
+import { waitFor } from "@testing-library/react";
+import invariant from "invariant";
+import { useEffect } from "react";
 import {
   generatePaneKeyPairFromMenu,
+  getExplorerSidebarItem,
   getExplorerSidebarItemsByName,
+  getPaneRoot,
+  getPaneUserId,
   readPaneRecoveryKey,
+  renderDualPane,
   restorePaneFromRecoveryKey,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
 import {
   createChildContainer,
   openExplorer,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
+import { requestPath } from "../../../../test/helpers/dualPaneRequestSummary";
 import {
   listProxiedApiRequests,
   MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/msw/server";
 import {
-  expectLifecycleRequestBoundary,
-  PANE_RECONNECT_BUDGET,
-  PANE_REMOTE_RECONNECT_BUDGET,
-} from "../../../../test/helpers/paneLifecycleRequestBudgets";
-import {
-  expectCachedLifecycleNotes,
-  expectNoPendingPaneWrites,
-  provisionLifecyclePane,
+  expectLifecycleNotes,
+  expectLifecycleReads,
+  expectNoLateLifecycleRequests,
+  observeReconnectSweep,
   renderLifecyclePane,
+  seedLifecycleTree,
   setLifecycleNetworkMode,
+  unmountLifecyclePane,
   waitForLifecycleConnection,
-  waitForLifecycleNotesHydration,
-} from "../../../../test/helpers/paneLifecycleRequestFixture";
+} from "../../../../test/helpers/paneLifecycleTestUtils";
 import {
   cleanupPaneTestEnvironment,
-  createTestHostConfig,
   waitForPaneRuntimeToSettle,
 } from "../../../../test/helpers/paneTestUtils";
-import { expectProxiedApiRequestBudget } from "../../../../test/helpers/proxiedApiRequestBudget";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { type PaneSide, usePaneSide } from "../dual-pane";
 
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
-for (const remoteChange of [false, true]) {
-  test(`settled pane reconnect ${remoteChange ? "with a remote folder" : "with nothing pending"} has a complete request budget`, async () => {
-    useTestApiAppHandlers();
-    const reader = renderLifecyclePane(createTestHostConfig());
-    await provisionLifecyclePane(reader);
-    const writer = remoteChange
-      ? renderLifecyclePane(createTestHostConfig(), "right")
-      : null;
-    if (writer) {
-      await generatePaneKeyPairFromMenu(writer.pane);
-      await restorePaneFromRecoveryKey(
-        writer.pane,
-        await readPaneRecoveryKey(reader.pane),
-      );
-      await waitForLifecycleConnection(writer.sdk);
-      await openExplorer(writer.pane);
-      await act(() => waitForLifecycleNotesHydration(writer.sdk));
-      await expectCachedLifecycleNotes(writer.sdk);
-      await waitForPaneRuntimeToSettle();
-      expect(writer.sdk.database.id).not.toBe(reader.sdk.database.id);
-      expect(writer.sdk.session.authToken).not.toBe(
-        reader.sdk.session.authToken,
-      );
-      await expectNoPendingPaneWrites(writer.sdk);
-    }
-    await waitForPaneRuntimeToSettle();
-    await expectNoPendingPaneWrites(reader.sdk);
-    const generation = reader.sdk.events.connectionGeneration;
-    const disconnectStart = listProxiedApiRequests().length;
-    await setLifecycleNetworkMode(reader, true);
-    await waitForPaneRuntimeToSettle();
-    expect(listProxiedApiRequests().slice(disconnectStart)).toEqual([]);
-
-    if (writer) {
-      const createStart = listProxiedApiRequests().length;
-      await createChildContainer(writer.pane, "Created during disconnect");
-      await waitFor(
-        () =>
-          expect(
-            listProxiedApiRequests()
-              .slice(createStart)
-              .some(
-                (request) =>
-                  request.method === "POST" &&
-                  request.status === 200 &&
-                  request.url.endsWith("/containers/with-metadata-document"),
-              ),
-          ).toBe(true),
-        { timeout: 20_000 },
-      );
-      await expectNoPendingPaneWrites(writer.sdk);
-      await waitForPaneRuntimeToSettle();
-      expect(reader.sdk.events.connected).toBe(false);
+test("a settled pane reconnects with no pending local work", async () => {
+  useTestApiAppHandlers();
+  const fixture = renderLifecyclePane();
+  await seedLifecycleTree(fixture.pane);
+  const sdk = fixture.sdk();
+  await waitForLifecycleConnection(sdk, 1);
+  expect(
+    await sdk.containerContents.documentQueries().listPendingWrites(),
+  ).toEqual([]);
+  using sweep = observeReconnectSweep(sdk);
+  await measureWorkflowRequests({
+    label: "disconnect without pending work",
+    budget: { total: 0, byRequest: {} },
+    mutations: [],
+    operation: async () => {
+      await setLifecycleNetworkMode(fixture.pane, true);
+      await waitFor(() => expect(sdk.events.connected).toBe(false));
+    },
+  });
+  const requests = await measureWorkflowRequests({
+    label: "reconnect without pending work",
+    budget: {
+      total: 22,
+      byRequest: {
+        "POST /auth/ws-ticket": 1,
+        "GET /organization-memberships": 1,
+        "GET /organizations/:organizationId/billing": 0,
+        "POST /containers/parent-lanes/query": 4,
+        "POST /containers/documents/query": 1,
+        "GET /principals/organization/:organizationId/policy": 3,
+        "GET /principals/group/:groupId/policy": 0,
+        "GET /principals/history": 0,
+        "GET /containers/:containerId/writer-projection": 1,
+        "GET /documents/:documentId/writer-projection": 3,
+        "POST /documents/:documentId/sync": 8,
+      },
+    },
+    mutations: [],
+    operation: async () => {
+      await setLifecycleNetworkMode(fixture.pane, false);
+      await waitForLifecycleConnection(sdk, 2);
+      await sweep.wait();
       expect(
-        getExplorerSidebarItemsByName(reader.pane, "Created during disconnect"),
+        await sdk.containerContents.documentQueries().listPendingWrites(),
       ).toEqual([]);
-      expect(
-        reader.sdk.deviceFirst
-          .open()
-          .containerStore.getSnapshot()
-          .nodes.some((node) => node.name === "Created during disconnect"),
-      ).toBe(false);
-    }
-    await expectNoPendingPaneWrites(reader.sdk);
-    // The socket catch-up runs outside coordinator lanes. Observe its real
-    // promise instead of treating an HTTP-quiet gap mid-crawl as settlement.
-    const catchup = spyOn(
-      reader.sdk.deviceFirst.open().reconciler,
-      "reconcileNow",
-    );
-    const budget = remoteChange
-      ? PANE_REMOTE_RECONNECT_BUDGET
-      : PANE_RECONNECT_BUDGET;
-    try {
-      const requests = await measureWorkflowRequests({
-        label: remoteChange
-          ? "pane reconnect remote folder"
-          : "pane reconnect nothing pending",
-        budget,
-        mutations: [],
-        operation: async () => {
-          await setLifecycleNetworkMode(reader, false);
-          expect(reader.sdk.events.connectionGeneration).toBe(generation + 1);
-          await waitFor(() => expect(catchup).toHaveBeenCalledTimes(1));
-          await act(async () => {
-            for (const result of catchup.mock.results) {
-              expect(result.type).toBe("return");
-              if (result.type === "return") await result.value;
-            }
-          });
-          if (writer) {
-            await waitFor(
-              () =>
-                expect(
-                  getExplorerSidebarItemsByName(
-                    reader.pane,
-                    "Created during disconnect",
-                  ),
-                ).toHaveLength(1),
-              { timeout: 20_000 },
-            );
-            const remoteFolder = writer.sdk.deviceFirst
-              .open()
-              .containerStore.getSnapshot()
-              .nodes.find((node) => node.name === "Created during disconnect");
-            expect(remoteFolder).toBeDefined();
-            expect(
-              reader.sdk.deviceFirst
-                .open()
-                .containerStore.getSnapshot()
-                .nodes.find((node) => node.name === "Created during disconnect")
-                ?.id,
-            ).toBe(remoteFolder?.id);
-          }
-          await expectNoPendingPaneWrites(reader.sdk);
-          await expectCachedLifecycleNotes(reader.sdk);
-        },
-      });
-      expectLifecycleRequestBoundary(requests, budget);
-      if (!remoteChange) {
-        // A real extra read must trip the per-route guard even with spare total
-        // capacity. This control is deliberately outside the measured reconnect.
-        const extra = await measureWorkflowRequests({
-          label: "negative control extra memberships read",
-          budget: {
-            total: 1,
-            byRequest: { "GET /organization-memberships": 1 },
-          },
-          mutations: [],
-          operation: () =>
-            reader.sdk.organizations.memberships
-              .refresh()
-              .then(() => undefined),
-        });
-        expect(extra).toHaveLength(1);
-        expect(() =>
-          expectProxiedApiRequestBudget(
-            "negative control",
-            [...requests, ...extra],
-            {
-              ...budget,
-              total: budget.total + 1,
-            },
-          ),
-        ).toThrow("budget for GET /organization-memberships: 2 > 1");
-      }
-      expect(
-        requests.every(
-          (request) =>
-            request.authorization === `Bearer ${reader.sdk.session.authToken}`,
-        ),
-      ).toBe(true);
-    } finally {
-      catchup.mockRestore();
-    }
-  }, 90_000);
+    },
+  });
+  expectLifecycleReads(requests);
+  await expectNoLateLifecycleRequests();
+  await expectLifecycleNotes(fixture.pane);
+  await unmountLifecyclePane(fixture);
+}, 60_000);
+
+function PeerSdkProbe({ sdks }: { sdks: Map<PaneSide, Tearleads> }) {
+  const sdk = useTearleads();
+  const side = usePaneSide();
+  useEffect(() => {
+    sdks.set(side, sdk);
+  }, [sdks, side, sdk]);
+  return null;
 }
+
+test("reconnect discovers one folder created by a peer while disconnected", async () => {
+  useTestApiAppHandlers();
+  const sdks = new Map<PaneSide, Tearleads>();
+  const view = renderDualPane({
+    autoProvisionRight: false,
+    children: <PeerSdkProbe sdks={sdks} />,
+  });
+  const observer = getPaneRoot(view, "left");
+  const peer = getPaneRoot(view, "right");
+  await seedLifecycleTree(observer);
+  // A second session of the same identity has its own database and no sharing
+  // mutations. Its one folder create is outside the reconnect measurement.
+  await generatePaneKeyPairFromMenu(peer);
+  await restorePaneFromRecoveryKey(peer, await readPaneRecoveryKey(observer));
+  await openExplorer(peer);
+  await expectLifecycleNotes(peer);
+  expect(getPaneUserId(peer)).toBe(getPaneUserId(observer));
+  const observerSdk = sdks.get("left");
+  const peerSdk = sdks.get("right");
+  invariant(observerSdk && peerSdk, "Expected both pane SDKs");
+  expect(observerSdk.session.authToken).not.toBe(peerSdk.session.authToken);
+  await waitForLifecycleConnection(observerSdk, 1);
+  await waitForLifecycleConnection(peerSdk, 1);
+  expect(
+    await observerSdk.containerContents.documentQueries().listPendingWrites(),
+  ).toEqual([]);
+  using sweep = observeReconnectSweep(observerSdk);
+  await setLifecycleNetworkMode(observer, true);
+  await waitFor(() => expect(observerSdk.events.connected).toBe(false));
+  const createStart = listProxiedApiRequests().length;
+  await createChildContainer(peer, "Created during disconnect");
+  await waitFor(() => {
+    expect(
+      listProxiedApiRequests()
+        .slice(createStart)
+        .filter(
+          (request) =>
+            request.method === "POST" &&
+            request.status === 200 &&
+            requestPath(request.url) === "/containers/with-metadata-document",
+        ),
+    ).toHaveLength(1);
+  });
+  await waitForPaneRuntimeToSettle();
+  await expectNoLateLifecycleRequests();
+  expect(
+    getExplorerSidebarItemsByName(observer, "Created during disconnect"),
+  ).toHaveLength(0);
+
+  const requests = await measureWorkflowRequests({
+    label: "reconnect after peer folder create",
+    budget: {
+      total: 30,
+      byRequest: {
+        "POST /auth/ws-ticket": 1,
+        "GET /organization-memberships": 1,
+        "GET /organizations/:organizationId/billing": 0,
+        "POST /containers/parent-lanes/query": 6,
+        "POST /containers/documents/query": 2,
+        "GET /principals/organization/:organizationId/policy": 5,
+        "GET /principals/group/:groupId/policy": 0,
+        "GET /principals/history": 0,
+        "GET /containers/:containerId/writer-projection": 2,
+        "GET /documents/:documentId/writer-projection": 4,
+        "POST /documents/:documentId/sync": 9,
+      },
+    },
+    mutations: [],
+    operation: async () => {
+      await setLifecycleNetworkMode(observer, false);
+      await waitForLifecycleConnection(observerSdk, 2);
+      await sweep.wait();
+      expect(
+        await observerSdk.containerContents
+          .documentQueries()
+          .listPendingWrites(),
+      ).toEqual([]);
+      await waitFor(() =>
+        expect(
+          getExplorerSidebarItem(observer, "Created during disconnect"),
+        ).toBeTruthy(),
+      );
+    },
+  });
+  expectLifecycleReads(requests);
+  await expectNoLateLifecycleRequests();
+  // Count the whole window, but prove it contains only the observer's traffic.
+  expect(
+    requests.every(
+      (request) =>
+        request.authorization === `Bearer ${observerSdk.session.authToken}`,
+    ),
+  ).toBe(true);
+  await unmountLifecyclePane({ view, pane: observer, sdk: () => observerSdk });
+  expect(peerSdk.events.connected).toBe(false);
+  await expectNoLateLifecycleRequests();
+}, 60_000);

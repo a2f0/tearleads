@@ -392,6 +392,8 @@ async function reconcileSeatAssignments(input: {
 /** Reconciles stable assignments against roster membership and licensed capacity. */
 export async function reconcileOrganizationBillingSeats(input: {
   readonly executor: DatabaseSession;
+  /** Newly paid capacity, such as a Stripe upgrade, recorded as its own event. */
+  readonly licensedSeatCount?: number;
   readonly now?: Date;
   readonly organizationId: string;
   readonly source: BillingSeatSource;
@@ -413,10 +415,9 @@ export async function reconcileOrganizationBillingSeats(input: {
     executor: input.executor,
     groupId: billing.adminGroupId,
   });
-  const requiredSeatCount = requiredLicensedSeatCount(
-    billing,
-    activeUserIds.length,
-  );
+  const requiredSeatCount =
+    input.licensedSeatCount ??
+    requiredLicensedSeatCount(billing, activeUserIds.length);
   const openAssignments = await listOpenSeatAssignments({
     executor: input.executor,
     organizationId: input.organizationId,

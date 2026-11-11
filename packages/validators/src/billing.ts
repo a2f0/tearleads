@@ -8,6 +8,17 @@ export const BILLING_ERROR_CODES = {
    * reload the options and choose again.
    */
   checkoutPlanUnavailable: "billing_checkout_plan_unavailable",
+  /**
+   * The upgrade's prorated charge did not go through: the card was declined
+   * or needs authentication. Its invoice was voided and nothing changed.
+   */
+  planChangePaymentFailed: "billing_plan_change_payment_failed",
+  /**
+   * The plan cannot be changed to now: it does not cover the roster or is not
+   * offered, the organization has no active Stripe subscription, or another
+   * plan change is still being applied. Nothing changed.
+   */
+  planChangeUnavailable: "billing_plan_change_unavailable",
   rosterOverCapacity: "billing_roster_over_capacity",
 } as const;
 

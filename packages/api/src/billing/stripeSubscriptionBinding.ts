@@ -28,6 +28,8 @@ export interface StripeSubscriptionBinding {
   readonly intervalCount: number | null;
   readonly organizationId: string | null;
   readonly paymentMethodBillingEmail: string | null;
+  /** The open invoice of an unpaid plan upgrade, or null. */
+  readonly pendingInvoiceId: string | null;
   readonly priceId: string | null;
   readonly seatQuantity: number | null;
   readonly status: string | null;
@@ -43,7 +45,9 @@ const subscriptionFieldsSchema = z.looseObject({
   current_period_start: providerFieldSchema,
   customer: providerFieldSchema,
   default_payment_method: providerFieldSchema,
+  latest_invoice: providerFieldSchema,
   metadata: providerFieldSchema,
+  pending_update: providerFieldSchema,
   status: providerFieldSchema,
 });
 
@@ -177,6 +181,12 @@ export async function getSubscriptionBinding(
         subscription.default_payment_method,
       )?.billing_details.email ?? null,
     priceId,
+    // Only a plan upgrade whose payment did not go through leaves a pending
+    // update (billing/stripePlanUpgrade.ts); its invoice is the latest.
+    pendingInvoiceId:
+      subscription.pending_update == null
+        ? null
+        : readStripeReferenceId(subscription.latest_invoice),
     seatQuantity: itemQuantity === 1 ? (tier?.seatLimit ?? null) : null,
     status: readProviderString(subscription.status),
     subscriptionItemId: readProviderString(item.id),

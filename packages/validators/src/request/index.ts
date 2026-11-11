@@ -159,11 +159,14 @@ export {
 export {
   isStripeCheckoutRequest,
   isStripeCheckoutSessionRequest,
+  isStripePlanChangeRequest,
   isStripeReturnUrlRequest,
   type StripeCheckoutRequest,
   StripeCheckoutRequestSchema,
   type StripeCheckoutSessionRequest,
   StripeCheckoutSessionRequestSchema,
+  type StripePlanChangeRequest,
+  StripePlanChangeRequestSchema,
   type StripeReturnUrlRequest,
   StripeReturnUrlRequestSchema,
 } from "./stripeCheckout";

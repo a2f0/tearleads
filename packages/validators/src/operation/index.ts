@@ -317,11 +317,14 @@ export {
 } from "./rootSuspension";
 export {
   cancelStripeSubscriptionOperation,
+  changeStripePlanOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,
   createStripePortalOperation,
   getStripeCheckoutOptionsOperation,
   isCancelStripeSubscriptionOperationResponse,
+  isChangeStripePlanOperationRequest,
+  isChangeStripePlanOperationResponse,
   isCreateStripeCheckoutOperationRequest,
   isCreateStripeCheckoutOperationResponse,
   isCreateStripeCheckoutSessionOperationRequest,
