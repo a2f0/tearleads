@@ -38,6 +38,9 @@ import type {
  *   change access level, though rotation may rewrap them at the same level.
  * - `profileDocumentId`: Optional encrypted document containing org-scoped
  *   profile fields such as customizable display name.
+ * - `provisioning*`: User-bound exact-request replay for ordinary creates.
+ *   Stored atomically with genesis; registration and replacements use their
+ *   own provisioning protocols. Prechange databases are reset, not backfilled.
  * - `createdAt`: Server-side insertion timestamp.
  */
 export const organizations = pgTable(
@@ -48,6 +51,11 @@ export const organizations = pgTable(
     memberGroupId: uuid("member_group_id").notNull(),
     rootContainerId: uuid("root_container_id").notNull(),
     profileDocumentId: uuid("profile_document_id"),
+    provisioningUserId: uuid("provisioning_user_id"),
+    provisioningRequestSha256: text("provisioning_request_sha256"),
+    provisioningResponse: jsonb("provisioning_response").$type<
+      Record<string, unknown>
+    >(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

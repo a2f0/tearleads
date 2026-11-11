@@ -36,7 +36,10 @@ export function createOrganizationCreateRoute({
           ),
         );
       } catch (error) {
-        return respondToStatusError(c, error, OrganizationProvisioningError);
+        return respondToStatusError(c, error, OrganizationProvisioningError, {
+          status: 410,
+          code: "organization_creation_purged",
+        });
       }
     },
   );

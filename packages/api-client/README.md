@@ -37,6 +37,24 @@ failures.
 - [API request cost](../../docs/developer/api-request-cost.md) covers the
   request metrics and server timing.
 
+## Organization creation results
+
+`createOrganizationResult(request)` preserves the validated `RequestResult`
+(including failure status and registered code). `createOrganization(request)`
+continues to return the successful response or `null`.
+
+Only HTTP 410 with `code: "organization_creation_purged"` certifies that an
+ordinary create committed and its organization was irreversibly purged. The
+server validates the current signer, authenticated user and exact request hash
+before issuing it. The SDK releases that exact pending attempt under its
+identity guard and returns `null`; only a later deliberate invocation may mint
+fresh artifacts. Disabled membership, scheduled deletion, generic 4xx,
+malformed bodies and transport failures retain the pending attempt.
+
+Purge removes the retained ordinary bootstrap response along with remote data,
+not its user/hash binding. That binding suffices for terminal certification;
+registration, replacement and native-restore protocols are unchanged.
+
 ## Tests
 
 ```sh

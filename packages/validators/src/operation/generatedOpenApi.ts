@@ -900,7 +900,7 @@ export type paths = {
         put?: never;
         /**
          * Create an organization
-         * @description Provisions an additional organization for the signed-in user, who becomes its founding administrator: reserved `Admins` and `Members` groups, root container, signed policies, and metadata documents in one transaction. It also creates the replacement for the caller's purged personal organization, which must use a fresh organization id.
+         * @description Provisions an additional organization for the signed-in user, who becomes its founding administrator: reserved `Admins` and `Members` groups, root container, signed policies, and metadata documents in one transaction. It also creates the replacement for the caller's purged personal organization, which must use a fresh organization id. An exact ordinary-create replay returns HTTP 410 with organization_creation_purged only after current signer and user/request binding validation proves that its previously committed organization was purged. Reversible unavailability and other failures do not certify abandonment.
          */
         post: operations["organizations.create"];
         delete?: never;
@@ -8789,6 +8789,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Gone */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "organization_creation_purged";
+                        error: string;
+                    };
                 };
             };
             /** @description Internal Server Error */

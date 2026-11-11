@@ -2,7 +2,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { OrganizationProvisioningResponse } from "@tearleads/validators/response";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
-import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import { createExecSql } from "../../data/sqlite/sqlSchema";
 import type { OrganizationProvisioningArtifacts } from "./organizationProvisioningArtifacts";
 import { persistRegistrationBootstrapFromExecSql } from "./persistRegistrationBootstrap";
@@ -34,6 +34,10 @@ type PersistOrganizationProvisioningStateInput = Pick<
   | "rosterProfileBootstrap"
   | "systemContainerBootstraps"
 > & {
+  /** @internal Runs inside the guarded bootstrap transaction, never after commit. */
+  readonly completeProvisioningAttempt?:
+    | ((execSql: ExecSql) => Promise<void>)
+    | undefined;
   /** Forwarded to the bootstrap persist's in-mutex currency check. */
   readonly canStartDurableMutation?: (() => boolean) | undefined;
   /** @internal Forwarded to the bootstrap persist; test-only seam. */
@@ -267,6 +271,7 @@ export async function persistOrganizationProvisioningState(
         acknowledgedAccessHeads: artifacts.acknowledgedAccessHeads,
         authoredDiscoveryHeads: artifacts.authoredDiscoveryHeads,
         canStartDurableMutation: input.canStartDurableMutation,
+        completeProvisioningAttempt: input.completeProvisioningAttempt,
         onPersistQueued: input.onPersistQueued,
         containerId: input.containerId,
         documentProjectors: input.documentProjectors,

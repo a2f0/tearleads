@@ -75,9 +75,8 @@ for (const restartBeforeRetry of [false, true]) {
       expectNoSecurityIncidents(world);
     });
 
-    // Reproduced as an ordinary failing test on both API backends. A fix must
-    // adopt the first organization, not hide its discovered root.
-    test.failing("#2893 retry adopts one committed organization on server and device", () => {
+    // The same response-loss regression now passes on both API backends.
+    test("#2893 retry adopts one committed organization on server and device", () => {
       expect({
         retry: observed.retry,
         server: observed.afterRetryServerIds.filter(
@@ -108,7 +107,7 @@ describe("#2893 exact plain request replay", () => {
   afterAll(() => world?.dispose());
 
   test("an exact signed replay does not insert another server organization", () => {
-    expect(observed.status).toBe(409);
+    expect(observed.status).toBe(200);
     expect(observed.submitted).toEqual(observed.created);
     expect(observed.afterReplayServerIds.sort()).toEqual(
       [...observed.initialServerIds, observed.created.organizationId].sort(),
@@ -116,7 +115,7 @@ describe("#2893 exact plain request replay", () => {
     expectNoSecurityIncidents(world);
   });
 
-  test.failing("#2893 accepts an exact plain create replay", () => {
+  test("#2893 accepts an exact plain create replay", () => {
     expect({ status: observed.status, body: observed.body }).toMatchObject({
       status: 200,
       body: {

@@ -1,6 +1,8 @@
 export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
 /**
- * Current local schema. v14 added identity pin provenance
+ * Current local schema. v16 adds durable ordinary creation intents
+ * (`organization_provisioning_attempts.creation_intent`); older backups may
+ * contain the obsolete table without that required column. v14 added identity pin provenance
  * (`trusted_user_identity_pins.provenance`), which older backups cannot
  * supply without guessing how each pin was trusted; v13 folded one-row-per-key side tables and the
  * structural intent tables into their host rows and `local_intents`; v12
@@ -12,7 +14,7 @@ export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
  * verified manifest bundle cache; v9 changed the organization read-model table
  * shapes.
  */
-export const BACKUP_FORMAT_VERSION = 15;
+export const BACKUP_FORMAT_VERSION = 16;
 
 export type BackupSqlValue = string | number | null;
 export type BackupSqlRow = Record<string, BackupSqlValue>;

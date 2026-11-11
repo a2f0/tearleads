@@ -139,6 +139,16 @@ acknowledgement. They clear only unchanged unreadable bytes, without HTTP or pin
 changes. Org Manager offers the same confirmed discard action.
 See [principal policy outcomes](../principal-policy-outcomes.md) for scope and limits.
 
+Ordinary `session.createOrganization` calls durably coalesce unresolved attempts
+for the same identity and full inputs, including concurrent calls and retries
+after reopening SQLite. A retry can adopt an earlier committed organization;
+successful local acknowledgement permits a later identical call to create anew.
+Only a validated, request-bound irreversible-purge refusal releases a failed
+attempt, without automatically issuing a fresh create. Ambiguous failures retain
+it. Unlike pending policy mutations, creation has no public abandon/discard API;
+an unusable attempt can block identical inputs indefinitely. See
+[organization creation retries](../../request-budgets.md#organization-creation-retries).
+
 A container's first direct grant has the matching precondition: the chain above
 it must be current, since its new grantee could not repair it; the API refuses
 one below a stale chain with `container_ancestor_rekeys_required`.
