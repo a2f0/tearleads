@@ -126,10 +126,12 @@ function collectViolations(
 
 const trustedIdentityRawAdapter =
   "packages/client-sdk/src/data/trustedUserIdentity/apiAdapter.ts";
-const trustedIdentityServiceGateway =
-  "packages/client-sdk/src/data/trustedUserIdentity/service.ts";
-const trustedIdentityTypesGateway =
-  "packages/client-sdk/src/data/trustedUserIdentity/types.ts";
+const trustedIdentityBrandGateways = new Set([
+  "packages/client-sdk/src/data/trustedUserIdentity/service.ts",
+  "packages/client-sdk/src/data/trustedUserIdentity/types.ts",
+  "packages/client-sdk/src/data/trustedUserIdentity/pinnedIdentity.ts",
+  "packages/client-sdk/src/data/trustedUserIdentity/pinnedResolution.ts",
+]);
 
 function collectTrustedIdentityBoundaryViolations(
   filePath: string,
@@ -156,8 +158,7 @@ function collectTrustedIdentityBoundaryViolations(
       : isClientSdk
         ? []
         : ["OrganizationUserRecipient"]),
-    ...(normalizedPath.endsWith(trustedIdentityServiceGateway) ||
-    normalizedPath.endsWith(trustedIdentityTypesGateway)
+    ...(trustedIdentityBrandGateways.has(normalizedPath)
       ? []
       : ["brandTrustedUserIdentity"]),
     "createMockApiTrustedUserIdentityResolver",
