@@ -18,7 +18,6 @@ import { createPendingUpdateFields } from "../../../../data/documents/documentSy
 import { sqlDocumentsPersistence as documents } from "../../../../data/persistence/documents/documentsPersistence";
 import { createExecSql } from "../../../../data/sqlite/sqlSchema";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
-
 import { setDocumentStructuredFields, setDocumentText } from "../mutations";
 import { pendingDeltaSinceBase, persistDocument } from "../persistence";
 import { createDocumentStoreState } from "../state";
