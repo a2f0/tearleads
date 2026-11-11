@@ -147,7 +147,7 @@ test("history describes grants, permission and role changes, removals, and key r
   const afterGrant = await data.advanceDirectory(data.afterAddition, granted);
   const upgraded = await data.advanceGroup(
     granted,
-    [{ userId: data.targetUserId, role: "admin" }],
+    granted.currentProjection.map((member) => ({ ...member, role: "admin" })),
     [{ containerId, accessLevel: "write" }],
   );
   const afterUpgrade = await data.advanceDirectory(afterGrant, upgraded);

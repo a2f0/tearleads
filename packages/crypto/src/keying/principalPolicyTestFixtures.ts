@@ -18,12 +18,12 @@ import {
 } from "../principalState";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import { AES_GCM_TAG_BYTES } from "../symmetric";
+import { computeUserIdentityBundleFingerprint } from "../userIdentityBundle";
 import type {
   KeyingVerificationCode,
   KeyingVerificationResult,
   PrincipalPolicyBundle,
   PrincipalPolicySignedState,
-  PrincipalPolicySignerPublicKey,
   PrincipalPolicyStateChainEntry,
 } from "./index";
 
@@ -38,39 +38,57 @@ export function expectVerificationError<T>(
   expect(result.error.code).toBe(code);
 }
 
+export const POLICY_FIXTURE_IDENTITY_TRUST_DOMAIN = "https://api.example.test";
+
+export function policyMember(
+  identity: {
+    readonly userId: string;
+    readonly identityBundleFingerprint: string;
+  },
+  role: PrincipalProjectionMember["role"] = "member",
+): PrincipalProjectionMember {
+  return {
+    userId: identity.userId,
+    role,
+    identityBundleFingerprint: identity.identityBundleFingerprint,
+  };
+}
+
 function projectionWithAdmin(
-  signerUserId: string,
+  signer: Awaited<ReturnType<typeof createPolicySigner>>,
   members: readonly PrincipalStateMember[],
 ): PrincipalProjectionMember[] {
-  const projectionByMember = new Map<string, PrincipalProjectionMember>();
-
-  projectionByMember.set(signerUserId, {
-    userId: signerUserId,
-    role: "admin",
-  });
-
-  for (const member of members) {
-    const key = member.userId;
-    if (projectionByMember.has(key)) {
-      continue;
-    }
-
-    projectionByMember.set(key, { userId: member.userId, role: "member" });
+  if (members.some((member) => member.userId !== signer.userId)) {
+    throw new Error(
+      "Provide an explicit policyMember projection for every non-signer identity",
+    );
   }
-
-  return Array.from(projectionByMember.values());
+  return [policyMember(signer, "admin")];
 }
 
 export async function createPolicySigner(
   userId = "user-admin",
-): Promise<
-  ReturnType<typeof generateSigningSeedAndKeyPair> &
-    PrincipalPolicySignerPublicKey
-> {
+  options: {
+    readonly identityTrustDomain?: string;
+    readonly kemKeyPair?: ReturnType<typeof generateKemSeedAndKeyPair>;
+  } = {},
+) {
   const signing = generateSigningSeedAndKeyPair();
+  const kemKeyPair = options.kemKeyPair ?? generateKemSeedAndKeyPair();
+  const identityTrustDomain =
+    options.identityTrustDomain ?? POLICY_FIXTURE_IDENTITY_TRUST_DOMAIN;
   return {
     ...signing,
     userId,
+    kemKeyPair,
+    identityTrustDomain,
+    identityBundleFingerprint: await computeUserIdentityBundleFingerprint({
+      identityTrustDomain,
+      userId,
+      signingPublicKey: signing.signingPublicKey,
+      encapsulationPublicKey: kemKeyPair.publicKey,
+    }),
+    encapsulationKeyFingerprint: await toFingerprint(kemKeyPair.publicKey),
     signingKeyFingerprint: await toFingerprint(signing.signingPublicKey),
     signingPublicKey: signing.signingPublicKey,
   };
@@ -98,7 +116,9 @@ export async function signPolicyState(input: {
   const principalKeyPair =
     input.principalKeyPair ?? generateKemSeedAndKeyPair();
   const projection =
-    input.projection ?? projectionWithAdmin(input.signer.userId, input.members);
+    input.projection ?? projectionWithAdmin(input.signer, input.members);
+  // Root-only policy tests do not decrypt these envelopes. Tests authenticating
+  // recipient keys must provide memberEnvelopes made with their real identities.
   const memberEnvelopes =
     input.memberEnvelopes ??
     (await Promise.all(

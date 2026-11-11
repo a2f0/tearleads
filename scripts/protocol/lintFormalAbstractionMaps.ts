@@ -63,6 +63,8 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/local-trust/QueuedDocumentCreate.md": 1,
   "formal/local-trust/DocumentMovePlacement.md": 1,
   "formal/local-trust/DurableIdentityBinding.md": 1,
+  "formal/local-trust/MemberIdentityCommitment.md": 1,
+  "formal/local-trust/MemberIdentityChain.md": 1,
   "formal/realtime/ContainerInterest.md": 1,
   "formal/realtime/OrganizationReadModelStamps.md": 1,
 };

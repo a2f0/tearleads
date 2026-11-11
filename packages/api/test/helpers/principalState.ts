@@ -15,6 +15,10 @@ import {
 } from "../../src/access/write/principalStateStore";
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
 import { storeVerifiedPrincipalDirectoryBindings } from "../../src/workflows/principals/storeVerifiedPrincipalDirectoryBindings";
+import {
+  type FixtureProjectionMember,
+  registeredProjection,
+} from "./policyProjection";
 
 export function storePrincipalState(
   input: PrincipalStateBundleInput,
@@ -42,11 +46,11 @@ export function storePrincipalState(
   });
 }
 
-export function createProjectionWithAdminSigner(
+export async function createProjectionWithAdminSigner(
   signerUserId: string,
   members: ReadonlyArray<PrincipalStateMember>,
-): PrincipalProjectionMember[] {
-  const projectionByMember = new Map<string, PrincipalProjectionMember>();
+): Promise<PrincipalProjectionMember[]> {
+  const projectionByMember = new Map<string, FixtureProjectionMember>();
 
   projectionByMember.set(signerUserId, {
     userId: signerUserId,
@@ -65,7 +69,7 @@ export function createProjectionWithAdminSigner(
   }
 
   return normalizePrincipalProjectionMembers(
-    Array.from(projectionByMember.values()),
+    await registeredProjection(Array.from(projectionByMember.values())),
   );
 }
 
@@ -85,19 +89,22 @@ export function toPrincipalStateExternalAuthority(
 export async function signPrincipalStateBundle(
   input: Omit<
     PrincipalStateHeaderInput,
-    "externalAuthority" | "grants" | "memberEnvelopes"
+    "externalAuthority" | "grants" | "memberEnvelopes" | "projection"
   > & {
+    projection: readonly FixtureProjectionMember[];
     externalAuthority?: PrincipalStateHeaderInput["externalAuthority"];
     grants?: PrincipalStateHeaderInput["grants"];
     memberEnvelopes?: PrincipalStateHeaderInput["memberEnvelopes"];
     signingPrivateKey: Uint8Array;
   },
 ): Promise<PrincipalStateBundleInput> {
+  const projection = await registeredProjection(input.projection);
   const memberEnvelopes = input.memberEnvelopes ?? [];
   const grants = input.grants ?? [];
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       ...input,
+      projection,
       externalAuthority: input.externalAuthority ?? null,
       grants,
       memberEnvelopes,
@@ -112,7 +119,7 @@ export async function signPrincipalStateBundle(
       ciphertext: input.payloadCiphertext,
       ciphertextHash: state.payloadCiphertextHash,
     },
-    projection: normalizePrincipalProjectionMembers(input.projection),
+    projection: normalizePrincipalProjectionMembers(projection),
     grants,
     memberEnvelopes,
   };

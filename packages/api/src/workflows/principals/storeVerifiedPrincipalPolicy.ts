@@ -12,6 +12,7 @@ import {
   verifyStoredPrincipalPolicyForStateWithExecutor,
 } from "./getCurrentPrincipalPolicy";
 import { withPrincipalHistorySuccessorStep } from "./principalHistoryExecution";
+import { assertPrincipalIdentityBundles } from "./principalIdentityBundles";
 import { storeVerifiedPrincipalDirectoryBindings } from "./storeVerifiedPrincipalDirectoryBindings";
 
 /**
@@ -24,8 +25,15 @@ import { storeVerifiedPrincipalDirectoryBindings } from "./storeVerifiedPrincipa
 export async function storeVerifiedPrincipalPolicyInTransaction(
   input: PrincipalStateBundleInput,
   tx: DatabaseTransaction,
-  options?: StoreVerifiedPrincipalStateOptions,
+  options: StoreVerifiedPrincipalStateOptions & {
+    readonly identityTrustDomain: string;
+  },
 ): Promise<StoredPrincipalState> {
+  await assertPrincipalIdentityBundles({
+    ...input,
+    executor: tx,
+    identityTrustDomain: options.identityTrustDomain,
+  });
   const previous = await getCurrentPrincipalState(
     input.state.principalType,
     input.state.principalId,

@@ -11,7 +11,7 @@ import {
   historyHead,
 } from "./principalPolicyHistoryTestFixtures";
 import type { PrincipalPolicyHistoryInput } from "./principalPolicyHistoryTypes";
-import { signPolicyState } from "./principalPolicyTestFixtures";
+import { policyMember, signPolicyState } from "./principalPolicyTestFixtures";
 
 let fixture: Awaited<ReturnType<typeof historyFixture>>;
 let firstFrontier: readonly (string | null)[];
@@ -311,7 +311,7 @@ test.each([
     "invalid member",
     () => ({
       ...fixture.first.entry,
-      projection: [{ userId: fixture.signer.userId, role: "owner" }],
+      projection: [{ ...policyMember(fixture.signer), role: "owner" }],
     }),
   ],
   ["invalid grants array", () => ({ ...fixture.first.entry, grants: null })],
@@ -341,7 +341,7 @@ test("authenticated entries still enforce signed state and projection commitment
     },
     {
       ...fixture.first.entry,
-      projection: [{ userId: fixture.signer.userId, role: "member" }],
+      projection: [policyMember(fixture.signer)],
     },
   ]) {
     const result = await restore({ ...progress(), previous: entry });

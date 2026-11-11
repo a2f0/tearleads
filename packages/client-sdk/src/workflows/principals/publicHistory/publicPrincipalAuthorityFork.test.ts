@@ -18,7 +18,7 @@ beforeAll(async () => {
   // admin. Later uncited pages cannot repair an unchecked cached authority.
   const owned = await history.advanceGroup(
     history.created,
-    [{ userId: history.signerUserId, role: "admin" }],
+    history.admin.currentProjection,
     [],
   );
   const independent = await signedPrincipalPolicyBundle({

@@ -28,6 +28,7 @@ import {
   type BackupSummary,
   type BackupTable,
 } from "./localBackupFormat";
+import { assertCurrentBackupPayload } from "./localBackupPayload";
 import type { DocumentPurgeCheckpointConflictError } from "./terminalSecurityAnchorBackupMerge";
 
 export type BackupProgressPhase =
@@ -179,6 +180,7 @@ async function readBackupPayload({
     onProgress,
   });
 
+  validateBackupSchema({ indexes, tables });
   const storageKeys = await listReferencedBlobStorageKeys({
     execSql,
     tableNames,
@@ -309,6 +311,7 @@ async function restoreValidatedBackupPayload({
   onProgress,
   payload,
 }: RestoreBackupPayloadInput): Promise<BackupSummary> {
+  assertCurrentBackupPayload(payload);
   validateBackupSchema(payload.database);
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await preflightSecurityAnchorRestore({

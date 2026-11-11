@@ -63,6 +63,7 @@ export async function createRemovalFixture(
     signingKeyPair.signingPublicKey,
   );
   const initialRequest = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     metadataKey: testGroupMetadataKey(organizationId),
     creatorEncapsulationKeyPair: remainingUserKem,
     groupId,
@@ -74,6 +75,7 @@ export async function createRemovalFixture(
   const initialPolicy = await policyBundleFromInitialRequest(initialRequest);
   const adminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: remainingUserKem,
       groupId: adminGroupId,
@@ -131,6 +133,7 @@ export async function createRemovalFixture(
   let organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId,
       encapsulationPublicKey: remainingUserKem.publicKey,
       groupHeads: [

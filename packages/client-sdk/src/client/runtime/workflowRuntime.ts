@@ -43,6 +43,7 @@ import {
   type PrincipalMutationApi,
 } from "./principalMutationApi";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
+import { reuseIfShallowEqual } from "./runtimeInputReuse";
 import type { SyncBillingGate } from "./syncBillingGate";
 
 type HostWorkflowRuntimeUtilInput = Omit<
@@ -64,6 +65,7 @@ export interface Runtime {
 }
 
 export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
+  readonly identityTrustDomain: string | null;
   readonly apiClient: PrincipalMutationApi;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly withPrincipalHistoryProtection?:
@@ -376,6 +378,29 @@ function sessionScopeChanged(
   );
 }
 
+function runtimeInputUtilities(
+  dependencies: WorkflowRuntimeDependencies,
+  util: WorkflowRuntimeUtilInput | undefined,
+): WorkflowRuntimeUtilInput {
+  if (
+    !util ||
+    util.log !== dependencies.log ||
+    util.logError !== dependencies.logError ||
+    util.reportSecurityIncident !== dependencies.reportSecurityIncident
+  ) {
+    util = {
+      isRemoteSyncBlocked: (organizationId) =>
+        dependencies.syncBillingGate?.isBlockedForOrganization(
+          organizationId,
+        ) ?? false,
+      log: dependencies.log,
+      logError: dependencies.logError,
+      reportSecurityIncident: dependencies.reportSecurityIncident,
+    };
+  }
+  return util;
+}
+
 function createRuntimeInputFactory(
   dependencies: WorkflowRuntimeDependencies,
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
@@ -430,24 +455,10 @@ function createRuntimeInputFactory(
       serverEventsPendingConnectAttempt:
         dependencies.events.pendingConnectAttempt,
     });
-    if (
-      !util ||
-      util.log !== dependencies.log ||
-      util.logError !== dependencies.logError ||
-      util.reportSecurityIncident !== dependencies.reportSecurityIncident
-    ) {
-      util = {
-        isRemoteSyncBlocked: (organizationId) =>
-          dependencies.syncBillingGate?.isBlockedForOrganization(
-            organizationId,
-          ) ?? false,
-        log: dependencies.log,
-        logError: dependencies.logError,
-        reportSecurityIncident: dependencies.reportSecurityIncident,
-      };
-    }
+    util = runtimeInputUtilities(dependencies, util);
 
     return {
+      identityTrustDomain: dependencies.identityTrustDomain,
       apiClient: bindMutationApi(),
       auth,
       crypto,
@@ -477,24 +488,4 @@ function createRuntimeInputFactory(
     },
     workflowInput,
   };
-}
-
-/**
- * Reuses the current runtime-input group when every field of the freshly
- * constructed `next` literal is reference-equal, so unchanged groups keep a
- * stable identity across runtime reads.
- */
-function reuseIfShallowEqual<T extends object>(
-  current: T | undefined,
-  next: T,
-): T {
-  if (!current) {
-    return next;
-  }
-  for (const key of Object.keys(next)) {
-    if (Reflect.get(current, key) !== Reflect.get(next, key)) {
-      return next;
-    }
-  }
-  return current;
 }

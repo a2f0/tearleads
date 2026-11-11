@@ -61,6 +61,7 @@ test("registration bootstrap projects the organization profile document", async 
 
   try {
     const response = await registerIdentity({
+      identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId: crypto.randomUUID(),
       dbClient: execSqlClientFromExecSql(execSql),
@@ -111,6 +112,7 @@ test("no-projector hosts keep the stable org profile title", async () => {
 
   try {
     const response = await registerIdentity({
+      identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId: crypto.randomUUID(),
       dbClient: execSqlClientFromExecSql(execSql),
@@ -152,6 +154,7 @@ test("a later save cannot overwrite the fallback title", async () => {
 
   try {
     const response = await registerIdentity({
+      identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId: crypto.randomUUID(),
       dbClient: execSqlClientFromExecSql(execSql),

@@ -3,13 +3,13 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   revenuecatWebhookEvents,
-  users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createOrganizationRequestBody } from "../../../test/helpers/api";
+import { getDefaultOrganizationId } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { playReplacementApiDeps } from "../../../test/helpers/revenuecatPlayReplacement";
 import { runCreateOrganizationWorkflow } from "../organizations/createOrganization";
@@ -23,17 +23,17 @@ async function registerBuyer(): Promise<{
 }> {
   const user = createTestUser();
   await registerUser(user);
-  const [registered] = await db
-    .select({ personalOrganizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-  invariant(registered, "expected registered user");
-  return { personalOrganizationId: registered.personalOrganizationId, user };
+  const personalOrganizationId = await getDefaultOrganizationId(user.userId);
+  return { personalOrganizationId, user };
 }
 
 async function createOrganization(user: TestUser): Promise<string> {
   const request = await createOrganizationRequestBody(user);
-  const created = await runCreateOrganizationWorkflow(db, request);
+  const created = await runCreateOrganizationWorkflow(
+    db,
+    request,
+    "http://localhost",
+  );
   return created.organizationId;
 }
 

@@ -3,6 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { readTestGroupName } from "../../../../test/helpers/groupMetadata";
 import { createGroupNameDirectory } from "../../../../test/helpers/groupNameDirectory";
+import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
 import { loadOrganizationExternalAdminPolicy } from "../../principals/externalAdminPolicy";
 import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
@@ -116,13 +117,23 @@ test("a directory group that fails verification fails closed", async () => {
     "group-name-uniqueness-verify",
   );
   try {
+    const intruder = await createFixtureUserIdentity({ userId: "intruder" });
+    const resolveIdentity = directory.resolveTrustedUserIdentity;
+    directory.resolveTrustedUserIdentity = async (userId) =>
+      userId === intruder.identity.userId
+        ? intruder.identity
+        : resolveIdentity(userId);
     // Same head, tampered projection: the signed projection root no longer
     // matches, so the group cannot vouch for any name.
     directory.servedGroups["group-1"] = {
       ...directory.operatorsPolicy,
       currentProjection: [
         ...directory.operatorsPolicy.currentProjection,
-        { role: "member", userId: "intruder" },
+        {
+          role: "member",
+          userId: "intruder",
+          identityBundleFingerprint: intruder.identityBundleFingerprint,
+        },
       ],
     };
     await expect(assertUnique("Finance")).rejects.toBeInstanceOf(

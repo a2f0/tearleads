@@ -44,6 +44,7 @@ test("principal policy sync authorizes empty group bundles from verified organiz
       principalId: adminGroupId,
       policy: (
         await buildInitialGroupPolicyRequest({
+          identityTrustDomain: "https://api.example.test",
           creatorEncapsulationKeyPair: encapsulationKeyPair,
           groupId: adminGroupId,
           name: "Admins",
@@ -57,6 +58,7 @@ test("principal policy sync authorizes empty group bundles from verified organiz
       principalId: groupId,
       policy: (
         await buildInitialGroupPolicyRequest({
+          identityTrustDomain: "https://api.example.test",
           creatorEncapsulationKeyPair: encapsulationKeyPair,
           externalAuthority: {
             principalType: "group",
@@ -78,6 +80,7 @@ test("principal policy sync authorizes empty group bundles from verified organiz
     const organizationPolicy = await principalPolicyBundleFromInitialPolicy({
       principalId: organizationId,
       policy: await buildInitialOrganizationPolicyRequest({
+        identityTrustDomain: "https://api.example.test",
         adminGroupId,
         encapsulationPublicKey: encapsulationKeyPair.publicKey,
         groupHeads: [

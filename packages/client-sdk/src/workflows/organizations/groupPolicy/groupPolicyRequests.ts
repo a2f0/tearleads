@@ -12,6 +12,7 @@ import type {
   PrincipalProjectionMemberRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
+import { createPrincipalProjectionMember } from "../../../data/principals/principalIdentityCommitments";
 import { principalSecretKeyMatchesState } from "../../../data/principals/principalKeyValidation";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { TrustedUserIdentity } from "../../../data/trustedUserIdentity";
@@ -19,10 +20,7 @@ import {
   rewrapProjectionMemberEnvelopes,
   toRecipientEntries,
 } from "../principalPolicy/principalPolicyRecipients";
-import {
-  signedGroupPolicyRequest,
-  userProjectionMember,
-} from "../principalPolicy/principalPolicyRequest";
+import { signedGroupPolicyRequest } from "../principalPolicy/principalPolicyRequest";
 import { isDirectGroupAdmin } from "./groupMutationAuthorization";
 import {
   type BuildGroupMembershipMutationInput,
@@ -192,8 +190,8 @@ export async function buildAddGroupUserPolicyRequest(
 
       const projection = [
         ...currentProjection,
-        userProjectionMember(
-          input.targetUser.userId,
+        await createPrincipalProjectionMember(
+          input.targetUser,
           input.isOrganizationAdminsGroup ? "admin" : "member",
         ),
       ];

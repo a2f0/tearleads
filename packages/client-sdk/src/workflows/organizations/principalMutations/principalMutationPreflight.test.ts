@@ -39,6 +39,7 @@ test.each([
     const signing = generateSigningSeedAndKeyPair();
     const signingFingerprint = await toFingerprint(signing.signingPublicKey);
     const input = {
+      identityTrustDomain: "https://api.example.test",
       accessLevel: "read" as const,
       author: {
         organizationId: "organization",

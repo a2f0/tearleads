@@ -68,6 +68,7 @@ export async function addOrganizationMember(input: {
     ...currentProjection.map((projectionMember) => ({
       userId: projectionMember.userId,
       role: projectionMember.role,
+      identityBundleFingerprint: projectionMember.identityBundleFingerprint,
     })),
     {
       userId: input.member.userId,

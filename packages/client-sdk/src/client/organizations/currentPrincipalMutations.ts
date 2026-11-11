@@ -19,12 +19,14 @@ import {
 } from "../../workflows/organizations/trustedOrganizationUsers";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { preparePrincipalContainerMutations } from "./principalContainerMutations";
+import type { GroupMemberAdmission } from "./recipientAdmission";
 
 type CurrentGroupMutation =
   | {
       readonly kind: "add";
       readonly expectedGroupName: string;
       readonly targetUserId: string;
+      readonly admission: GroupMemberAdmission;
     }
   | {
       readonly kind: "remove";
@@ -88,22 +90,27 @@ export function createCurrentPrincipalMutation(
                   : undefined,
             }),
         });
+        const members = await admitCurrentMembers(groupId, context, mutation);
+        const stillCurrent = () =>
+          context.stillCurrent() && (members?.stillCurrent() ?? true);
         const primary = await prepareChange(context, mutation);
+        assertProjectionVerificationCurrent(stillCurrent);
         let member: Awaited<ReturnType<typeof prepareChange>> | undefined;
-        if (mutation.kind === "add" && groupId !== context.memberGroupId) {
-          const members = await context.loadGroup(context.memberGroupId);
-          if (
-            !members.currentPolicy.currentProjection.some(
-              (entry) => entry.userId === mutation.targetUserId,
-            )
-          ) {
-            member = await prepareChange(members, {
-              ...mutation,
-              expectedGroupName: "Members",
-            });
-          }
+        if (
+          mutation.kind === "add" &&
+          members &&
+          groupId !== context.memberGroupId &&
+          !members.currentPolicy.currentProjection.some(
+            (entry) => entry.userId === mutation.targetUserId,
+          )
+        ) {
+          await mutation.admission(members.currentPolicy);
+          member = await prepareChange(members, {
+            ...mutation,
+            expectedGroupName: "Members",
+          });
         }
-        assertProjectionVerificationCurrent(context.stillCurrent);
+        assertProjectionVerificationCurrent(stillCurrent);
         const response = await commitCurrentGroupPolicyMutation({
           ...input,
           apiClient: input.runtime.apiClient,
@@ -119,6 +126,22 @@ export function createCurrentPrincipalMutation(
         };
       },
     );
+}
+
+async function admitCurrentMembers(
+  groupId: string,
+  context: RuntimeCurrentGroupMutationContext,
+  mutation: CurrentGroupMutation,
+) {
+  if (mutation.kind !== "add") return undefined;
+  const members =
+    groupId === context.memberGroupId
+      ? context
+      : await context.loadGroup(context.memberGroupId);
+  await mutation.admission(members.currentPolicy);
+  assertProjectionVerificationCurrent(context.stillCurrent);
+  assertProjectionVerificationCurrent(members.stillCurrent);
+  return members;
 }
 
 async function buildCurrentMutationRequest(

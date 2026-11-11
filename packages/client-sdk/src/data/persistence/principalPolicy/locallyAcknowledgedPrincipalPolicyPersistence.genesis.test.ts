@@ -21,6 +21,7 @@ import {
 async function policyFixture() {
   const signing = generateSigningSeedAndKeyPair();
   const request = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
     groupId: crypto.randomUUID(),
     name: "Genesis guard",

@@ -11,12 +11,12 @@ import {
   ReferencedPrincipalStateResponseSchema,
 } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
+import { createIdentityBoundRouteApp } from "../../../test/helpers/identityBoundRouteApp";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { prepareOrganizationPolicyAdvance } from "../../../test/helpers/organizationPolicyOutcome";
 import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
-import { createRouteApp } from "../../routeApp";
 
 test("a lost standalone directory acknowledgement survives a later directory head", async () => {
   const actor = createTestUser();
@@ -29,7 +29,7 @@ test("a lost standalone directory acknowledgement survives a later directory hea
   const { body } = prepared;
   const { state } = body;
   const published: Record<string, unknown>[] = [];
-  const routeApp = createRouteApp({
+  const routeApp = createIdentityBoundRouteApp({
     publish: async (event) => {
       published.push(event);
     },

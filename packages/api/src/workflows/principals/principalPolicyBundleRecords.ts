@@ -30,6 +30,7 @@ function toProjectionResponse(
   return projection.map((member) => ({
     userId: member.userId,
     role: member.role,
+    identityBundleFingerprint: member.identityBundleFingerprint,
   }));
 }
 

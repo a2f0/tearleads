@@ -13,9 +13,11 @@ import {
 } from "@tearleads/crypto";
 import {
   createPolicySigner,
+  policyMember,
   signPolicyState,
 } from "@tearleads/crypto/principal-policy-test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
 
 export async function principalHistoryPreparationFixture(
   options: {
@@ -28,7 +30,7 @@ export async function principalHistoryPreparationFixture(
 ) {
   const signer =
     options.signer ?? (await createPolicySigner(crypto.randomUUID()));
-  const userKey = generateKemSeedAndKeyPair();
+  const userKey = signer.kemKeyPair;
   await db
     .insert(users)
     .values({
@@ -42,21 +44,26 @@ export async function principalHistoryPreparationFixture(
     .onConflictDoNothing();
   const principalId = crypto.randomUUID();
   const principalKeyPair = generateKemSeedAndKeyPair();
-  const ordinaryUserId = crypto.randomUUID();
+  const ordinary = await createPolicySigner(crypto.randomUUID(), {
+    identityTrustDomain: signer.identityTrustDomain,
+  });
+  if (options.initiallyOrdinaryMember)
+    await db.insert(users).values({
+      id: ordinary.userId,
+      fingerprint: ordinary.signingKeyFingerprint,
+      signingPublicKey: bytesToBase64(ordinary.signingPublicKey),
+      encapsulationPublicKey: bytesToBase64(ordinary.kemKeyPair.publicKey),
+      encapsulationKeyFingerprint: ordinary.encapsulationKeyFingerprint,
+      defaultOrganizationId: crypto.randomUUID(),
+    });
   const entries: Awaited<ReturnType<typeof signPolicyState>>[] = [];
   for (let version = 1; version <= (options.versions ?? 4); version++) {
     const projection = options.externalAuthority
       ? []
       : [
-          { userId: signer.userId, role: "admin" as const },
+          policyMember(signer, "admin"),
           ...(options.initiallyOrdinaryMember
-            ? [
-                {
-                  userId: ordinaryUserId,
-                  role:
-                    version === 1 ? ("member" as const) : ("admin" as const),
-                },
-              ]
+            ? [policyMember(ordinary, version === 1 ? "member" : "admin")]
             : []),
         ];
     const entry = await signPolicyState({
@@ -65,6 +72,12 @@ export async function principalHistoryPreparationFixture(
       principalKeyPair,
       members: projection.map(({ userId }) => ({ userId })),
       projection,
+      memberEnvelopes: (
+        await createPrincipalMemberEnvelopes({
+          principalSecretKey: principalKeyPair.secretKey,
+          projection,
+        })
+      ).memberEnvelopes,
       version,
       signedAt: new Date(Date.UTC(2026, 8, 12) + version * 1000).toISOString(),
       prevStateHash: entries.at(-1)?.state.stateHash ?? null,

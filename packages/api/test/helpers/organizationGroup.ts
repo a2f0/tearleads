@@ -14,6 +14,7 @@ import invariant from "invariant";
 import { getCurrentPrincipalState } from "../../src/access/read/principalStateStore";
 import { routeApp } from "../../src/routeApp";
 import { loadOrganizationGroupMetadataKey } from "./organizationMetadataContainer";
+import { registeredProjection } from "./policyProjection";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
 import {
   buildOrganizationGroupDeletionRequest,
@@ -46,20 +47,22 @@ export async function createGroupRequest(input: {
   invariant(organization, "expected actor organization");
   const principalKem = generateKemSeedAndKeyPair();
   const includeActor = input.includeActorAsAdmin ?? true;
-  const projection = normalizePrincipalProjectionMembers([
-    ...(includeActor
-      ? [
-          {
-            userId: input.actor.userId,
-            role: "admin" as const,
-          },
-        ]
-      : []),
-    ...(input.additionalMembers ?? []).map((member) => ({
-      userId: member.userId,
-      role: "member" as const,
-    })),
-  ]);
+  const projection = normalizePrincipalProjectionMembers(
+    await registeredProjection([
+      ...(includeActor
+        ? [
+            {
+              userId: input.actor.userId,
+              role: "admin" as const,
+            },
+          ]
+        : []),
+      ...(input.additionalMembers ?? []).map((member) => ({
+        userId: member.userId,
+        role: "member" as const,
+      })),
+    ]),
+  );
   const payloadCiphertext = await encryptGroupMetadata({
     key:
       input.metadataKey ??

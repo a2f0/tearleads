@@ -4,6 +4,7 @@ import {
   boundedPositiveIntegerSchema,
   loosePlainObject,
   nonNegativeIntegerSchema,
+  sha256HexStringSchema,
 } from "../schema";
 
 export const PrincipalStateExternalAuthorityResponseSchema = loosePlainObject({
@@ -49,6 +50,7 @@ export type PrincipalStateResponse = z.infer<
 >;
 
 export const PrincipalProjectionMemberResponseSchema = loosePlainObject({
+  identityBundleFingerprint: sha256HexStringSchema,
   role: z.literal(["member", "admin"]),
   userId: z.string(),
 });

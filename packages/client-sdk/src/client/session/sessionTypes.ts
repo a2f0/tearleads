@@ -15,6 +15,7 @@ import type {
 export type { SessionRegistrationRefusal } from "./sessionIdentityTrust";
 
 export interface SessionDependencies {
+  identityTrustDomain: string | null;
   api: ApiClient;
   database: Database;
   documentProjectors?: DocumentProjectorRegistryInput | undefined;

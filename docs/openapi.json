@@ -6104,6 +6104,12 @@
             "items": {
               "type": "object",
               "properties": {
+                "identityBundleFingerprint": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]+$",
+                  "type": "string"
+                },
                 "role": {
                   "type": "string",
                   "enum": [
@@ -6117,6 +6123,7 @@
                 }
               },
               "required": [
+                "identityBundleFingerprint",
                 "role",
                 "userId"
               ],
@@ -7918,6 +7925,12 @@
       "PrincipalProjectionMemberResponse": {
         "type": "object",
         "properties": {
+          "identityBundleFingerprint": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string"
+          },
           "role": {
             "type": "string",
             "enum": [
@@ -7930,6 +7943,7 @@
           }
         },
         "required": [
+          "identityBundleFingerprint",
           "role",
           "userId"
         ],
@@ -8410,6 +8424,12 @@
             "items": {
               "type": "object",
               "properties": {
+                "identityBundleFingerprint": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]+$",
+                  "type": "string"
+                },
                 "role": {
                   "type": "string",
                   "enum": [
@@ -8423,6 +8443,7 @@
                 }
               },
               "required": [
+                "identityBundleFingerprint",
                 "role",
                 "userId"
               ],

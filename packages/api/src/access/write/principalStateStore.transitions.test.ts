@@ -104,7 +104,13 @@ test("storeVerifiedPrincipalState keeps external authority off direct and member
   );
   await expect(
     storeVerifiedPrincipalState(
-      await initialState(crypto.randomUUID()),
+      await initialState(
+        (
+          await createPrincipalStateSigner(
+            generateSigningSeedAndKeyPair().signingPublicKey,
+          )
+        ).signerUserId,
+      ),
       db,
       options,
     ),
@@ -183,7 +189,11 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
   const signer = await createPrincipalStateSigner(signingPublicKey);
   const { publicKey } = generateKemSeedAndKeyPair();
   const principalId = crypto.randomUUID();
-  const removedUserId = crypto.randomUUID();
+  const removedUserId = (
+    await createPrincipalStateSigner(
+      generateSigningSeedAndKeyPair().signingPublicKey,
+    )
+  ).signerUserId;
   const initialState = await storeVerifiedPrincipalState(
     await signPrincipalState(
       {

@@ -1,5 +1,6 @@
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import type { CreateOrganizationResponse } from "@tearleads/validators/response";
+import { resolveApiIdentityTrustDomain } from "../../apiIdentityTrustDomain";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { runCreateOrganizationWorkflow } from "../../workflows/organizations/createOrganization";
 import { OrganizationProvisioningError } from "../../workflows/organizations/provisionOrganizationError";
@@ -21,6 +22,7 @@ export async function createOrganization(
   authenticatedUserId: string,
   authenticatedSessionId: string,
   input: CreateOrganizationRequest,
+  requestUrl?: string,
 ): Promise<CreateOrganizationResponse> {
   if (input.userId !== authenticatedUserId) {
     throw new OrganizationProvisioningError(
@@ -28,7 +30,11 @@ export async function createOrganization(
       403,
     );
   }
-  const response = await runCreateOrganizationWorkflow(runtime.db, input);
+  const response = await runCreateOrganizationWorkflow(
+    runtime.db,
+    input,
+    resolveApiIdentityTrustDomain(runtime.identityTrustDomain, requestUrl),
+  );
 
   // The transaction has committed a brand-new root that this user's other
   // sessions do not know to list yet. Reuse the same user-scoped discovery hint

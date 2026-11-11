@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createMutationResponseFromRequest,
@@ -31,7 +30,11 @@ test("a group share does not acknowledge a policy after its generation expires d
   const memberGroupId = "generation-race-members";
   const initialGroupPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
-      creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
+      identityTrustDomain: "https://api.example.test",
+      creatorEncapsulationKeyPair: {
+        publicKey: parent.encapsulationPublicKey,
+        secretKey: parent.secretKey,
+      },
       groupId,
       name: "Admins",
       signerUserId: author.signerUserId,
@@ -43,6 +46,7 @@ test("a group share does not acknowledge a policy after its generation expires d
   let organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     parent.projection.organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: groupId,
       encapsulationPublicKey: parent.encapsulationPublicKey,
       groupHeads: [
@@ -154,7 +158,11 @@ test("a missing group grant returns null when projection verification expires", 
   const memberGroupId = "expired-preparation-members";
   const groupPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
-      creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
+      identityTrustDomain: "https://api.example.test",
+      creatorEncapsulationKeyPair: {
+        publicKey: parent.encapsulationPublicKey,
+        secretKey: parent.secretKey,
+      },
       groupId,
       name: "Admins",
       signerUserId: author.signerUserId,
@@ -165,6 +173,7 @@ test("a missing group grant returns null when projection verification expires", 
   const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     parent.projection.organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: groupId,
       encapsulationPublicKey: parent.encapsulationPublicKey,
       groupHeads: [

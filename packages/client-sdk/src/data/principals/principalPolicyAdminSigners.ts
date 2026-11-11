@@ -1,4 +1,5 @@
 import {
+  computeUserIdentityBundleFingerprint,
   KeyingVerificationError,
   type KeyingVerificationResult,
   type PrincipalPolicyCheckpoint,
@@ -9,6 +10,7 @@ import {
   verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { TrustedUserIdentityResolver } from "../trustedUserIdentity";
 
 export function principalPolicyReferenceFromBundle(
   bundle: Pick<PrincipalPolicyBundleResponse, "currentState">,
@@ -132,6 +134,7 @@ export async function verifyPrincipalPolicyBundleWithExternalOrganizationAdmins(
  * for anything else: the caller caches nothing either way.
  */
 export async function externalAuthorityCouldAuthorize(input: {
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly expectedReference: ReferencedPrincipalHead;
   readonly localCheckpoint?: PrincipalPolicyCheckpoint | null | undefined;
@@ -157,13 +160,24 @@ export async function externalAuthorityCouldAuthorize(input: {
       head.keyFingerprint,
     ]);
     const projection = optimistic.get(key)?.projection ?? [];
+    const identity = await input.resolveTrustedUserIdentity(state.signerUserId);
+    if (!identity) return false;
+    const identityBundleFingerprint =
+      await computeUserIdentityBundleFingerprint(identity);
     optimistic.set(key, {
       head,
       projection: projection.some(
         (member) => member.userId === state.signerUserId,
       )
         ? projection
-        : [...projection, { userId: state.signerUserId, role: "admin" }],
+        : [
+            ...projection,
+            {
+              userId: state.signerUserId,
+              role: "admin",
+              identityBundleFingerprint,
+            },
+          ],
     });
   }
   const [first] = optimistic.values();

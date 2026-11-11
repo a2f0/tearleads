@@ -4,6 +4,7 @@ import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
 } from "../../../test/helpers/internalRuntimeFixtures";
+import { createDomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "../../data/trustedUserIdentity";
@@ -33,8 +34,10 @@ async function admissionRuntime(name: string) {
     identityTrustDomain: LINK_TRUST_DOMAIN,
     remoteSource: { invalidate: () => {}, load: async () => fixture.remote },
   });
+  const domainScope = createDomainScope();
   const runtime = createInternalRuntimeFixture(() =>
     createWorkflowInputFixture({
+      domainScope,
       apiClient: createMockApiClient({}),
       auth: { organizationId: ORGANIZATION_ID, userId: "admin" },
       execSql: database.execSql,
@@ -123,8 +126,10 @@ async function switchingAdmissionRuntime(name: string) {
     identityTrustDomain: LINK_TRUST_DOMAIN,
     remoteSource: { invalidate: () => {}, load: async () => fixture.remote },
   });
+  const domainScope = createDomainScope();
   const runtime = createInternalRuntimeFixture(() =>
     createWorkflowInputFixture({
+      domainScope,
       apiClient: createMockApiClient({}),
       auth: { organizationId: ORGANIZATION_ID, userId: "admin" },
       execSql: current,

@@ -7,6 +7,7 @@ import {
 import { base64ToBytes } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
+import { resolveApiIdentityTrustDomain } from "../../apiIdentityTrustDomain";
 import {
   isDuplicateRegistrationFingerprintError,
   RegistrationError,
@@ -36,6 +37,7 @@ export async function registerUser(
   input: RegistrationRequest,
   options: {
     readonly sourceIpAddress?: string | null | undefined;
+    readonly requestUrl?: string;
   } = {},
 ): Promise<RegistrationResponse> {
   const signingKeyBytes = base64ToBytes(input.signingPublicKey);
@@ -44,6 +46,10 @@ export async function registerUser(
   const encapsulationFingerprint = await toFingerprint(encapsulationKeyBytes);
 
   const result = await runRegistrationWorkflow(runtime.db, input, {
+    identityTrustDomain: resolveApiIdentityTrustDomain(
+      runtime.identityTrustDomain,
+      options.requestUrl,
+    ),
     encapsulationFingerprint,
     encapsulationKeyBytes,
     fingerprint,

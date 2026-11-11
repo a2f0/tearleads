@@ -25,7 +25,7 @@ import { reclaimUnpublishedPrincipalHistoryStages } from "./principalHistoryUnpu
 /** A stage's verification work; its retention hints are written by persistence. */
 export type PrincipalHistoryStage = Omit<
   typeof principalHistoryStages.$inferSelect,
-  "scopeId" | "touchedAt" | "rootHash"
+  "scopeId" | "touchedAt" | "rootHash" | "identityBundleFormat"
 >;
 
 const principalHistoryStageColumns = {

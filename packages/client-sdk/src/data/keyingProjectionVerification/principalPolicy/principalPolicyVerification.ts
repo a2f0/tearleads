@@ -15,6 +15,7 @@ import {
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
 } from "../../principals/organizationAuthorityDescriptor";
+import { assertPrincipalIdentityCommitments } from "../../principals/principalIdentityCommitments";
 import {
   organizationAdminExternalAuthority,
   principalPolicyReferenceFromBundle,
@@ -116,6 +117,13 @@ async function collectPrincipalPolicySignerPublicKeys(input: {
     });
   }
 
+  await assertPrincipalIdentityCommitments({
+    projections: [
+      ...input.bundle.previousStates.map((entry) => entry.projection),
+      input.bundle.currentProjection,
+    ],
+    resolveTrustedUserIdentity: input.resolveUserKey,
+  });
   return [...signerPublicKeysByKey.values()];
 }
 
@@ -319,7 +327,13 @@ async function verifyReferencedPrincipalPolicy(input: {
   // Scoped recovery carries organization, dependency and lifetime bindings.
   // A bare policy cache entry cannot replace those bindings.
   const recovered = await resolveReferencedPrincipalPolicy(input);
-  if (recovered) return recovered;
+  if (recovered) {
+    await assertPrincipalIdentityCommitments({
+      projections: [recovered.projection],
+      resolveTrustedUserIdentity: input.resolveUserKey,
+    });
+    return recovered;
+  }
   const cacheKey = referencedPrincipalPolicyKey(input.reference);
   const cachedPolicy = input.principalPolicyCache.get(cacheKey);
   const execSql = input.checkpointContext.execSql;
@@ -338,6 +352,10 @@ async function verifyReferencedPrincipalPolicy(input: {
       );
     }
     if (verifiedPrincipalPolicyMeetsCheckpoint(cachedPolicy, localCheckpoint)) {
+      await assertPrincipalIdentityCommitments({
+        projections: [cachedPolicy.projection],
+        resolveTrustedUserIdentity: input.resolveUserKey,
+      });
       observePrincipalPolicy(
         input.checkpointContext,
         cachedPolicy,

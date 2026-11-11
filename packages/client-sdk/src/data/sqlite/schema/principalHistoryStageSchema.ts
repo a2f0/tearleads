@@ -17,6 +17,9 @@ export const principalHistoryStages = sqliteTable(
     id: text("id").primaryKey(),
     organizationId: text("organization_id").notNull(),
     scopeId: text("scope_id").notNull(),
+    identityBundleFormat: integer("identity_bundle_format")
+      .notNull()
+      .default(1),
     currentJson: text("current_json").notNull(),
     afterVersion: integer("after_version").notNull(),
     complete: integer("complete", { mode: "boolean" }).notNull(),
@@ -52,7 +55,12 @@ export const principalHistoryStages = sqliteTable(
 export const principalHistoryStageTables: ReadonlyArray<SqlTableSchema> = [
   {
     ...defineSqlTableSchema(principalHistoryStages),
-    requiredColumns: ["scope_id", "touched_at", "root_hash"],
+    requiredColumns: [
+      "scope_id",
+      "touched_at",
+      "root_hash",
+      "identity_bundle_format",
+    ],
   },
   ...principalHistoryRetentionTables,
 ];

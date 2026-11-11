@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  computeUserIdentityBundleFingerprint,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
@@ -16,6 +17,7 @@ test("buildInitialGroupPolicyRequest creates an admin-only initial group policy"
   );
 
   const request = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: encapsulationKeyPair,
     groupId,
     name: " Operators ",
@@ -31,6 +33,12 @@ test("buildInitialGroupPolicyRequest creates an admin-only initial group policy"
   expect(request.initialGroupPolicy.projection).toEqual([
     {
       userId: userId,
+      identityBundleFingerprint: await computeUserIdentityBundleFingerprint({
+        identityTrustDomain: "https://api.example.test",
+        userId: userId,
+        signingPublicKey: signingKeyPair.signingPublicKey,
+        encapsulationPublicKey: encapsulationKeyPair.publicKey,
+      }),
       role: "admin",
     },
   ]);
@@ -47,6 +55,7 @@ test("buildInitialGroupPolicyRequest can create an externally-administered empty
   );
 
   const request = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: encapsulationKeyPair,
     groupId,
     includeSignerAsAdmin: false,

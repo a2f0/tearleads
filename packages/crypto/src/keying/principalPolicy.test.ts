@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "../encapsulation/generateKeyPair";
 import type { PrincipalProjectionMember } from "../principalState";
+import { computeUserIdentityBundleFingerprint } from "../userIdentityBundle";
 import {
   getPrincipalPolicyTransitionMismatch,
   verifyPrincipalPolicyBundle,
@@ -10,11 +11,30 @@ import {
   createBundle,
   createPolicySigner,
   expectVerificationError,
+  policyMember,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
 
+test("policy signer fixtures commit their actual signing and KEM identity", async () => {
+  const signer = await createPolicySigner("fixture-user");
+  expect(signer.identityBundleFingerprint).toMatch(/^[0-9a-f]{64}$/);
+  expect(signer.identityBundleFingerprint).toBe(
+    await computeUserIdentityBundleFingerprint({
+      identityTrustDomain: "https://api.example.test",
+      userId: signer.userId,
+      signingPublicKey: signer.signingPublicKey,
+      encapsulationPublicKey: signer.kemKeyPair.publicKey,
+    }),
+  );
+  const other = await createPolicySigner("fixture-user");
+  expect(other.identityBundleFingerprint).not.toBe(
+    signer.identityBundleFingerprint,
+  );
+});
+
 test("verifyPrincipalPolicyBundle accepts additive membership without key epoch advance", async () => {
   const signer = await createPolicySigner();
+  const bob = await createPolicySigner("user-bob");
   const principalId = "group-additive";
   const principalKeyPair = generateKemSeedAndKeyPair();
   const first = await signPolicyState({
@@ -30,7 +50,8 @@ test("verifyPrincipalPolicyBundle accepts additive membership without key epoch 
     principalKeyPair,
     version: 2,
     prevStateHash: first.state.stateHash,
-    members: [{ userId: signer.userId }, { userId: "user-bob" }],
+    members: [{ userId: signer.userId }, { userId: bob.userId }],
+    projection: [policyMember(signer, "admin"), policyMember(bob)],
     signer,
   });
 
@@ -97,6 +118,7 @@ test("verifyPrincipalPolicyBundle accepts additive membership without key epoch 
 
 test("verifyPrincipalPolicyBundle rejects direct member removal without a new key epoch", async () => {
   const signer = await createPolicySigner();
+  const bob = await createPolicySigner("user-bob");
   const principalId = "group-direct-shrink";
   const principalKeyPair = generateKemSeedAndKeyPair();
   const first = await signPolicyState({
@@ -104,7 +126,8 @@ test("verifyPrincipalPolicyBundle rejects direct member removal without a new ke
     principalKeyPair,
     version: 1,
     prevStateHash: null,
-    members: [{ userId: signer.userId }, { userId: "user-bob" }],
+    members: [{ userId: signer.userId }, { userId: bob.userId }],
+    projection: [policyMember(signer, "admin"), policyMember(bob)],
     signer,
   });
   const second = await signPolicyState({
@@ -126,27 +149,16 @@ test("verifyPrincipalPolicyBundle rejects direct member removal without a new ke
 
 test("verifyPrincipalPolicyBundle rejects role demotion and same-epoch key changes", async () => {
   const signer = await createPolicySigner();
+  const bob = await createPolicySigner("user-bob");
   const principalId = "group-role-shrink";
   const principalKeyPair = generateKemSeedAndKeyPair();
   const firstProjection: PrincipalProjectionMember[] = [
-    {
-      userId: signer.userId,
-      role: "admin",
-    },
-    {
-      userId: "user-bob",
-      role: "admin",
-    },
+    policyMember(signer, "admin"),
+    policyMember(bob, "admin"),
   ];
   const demotedProjection: PrincipalProjectionMember[] = [
-    {
-      userId: signer.userId,
-      role: "admin",
-    },
-    {
-      userId: "user-bob",
-      role: "member",
-    },
+    policyMember(signer, "admin"),
+    policyMember(bob, "member"),
   ];
   const first = await signPolicyState({
     principalId,
@@ -154,7 +166,7 @@ test("verifyPrincipalPolicyBundle rejects role demotion and same-epoch key chang
     projection: firstProjection,
     version: 1,
     prevStateHash: null,
-    members: [{ userId: signer.userId }, { userId: "user-bob" }],
+    members: [{ userId: signer.userId }, { userId: bob.userId }],
     signer,
   });
   const demoted = await signPolicyState({
@@ -163,7 +175,7 @@ test("verifyPrincipalPolicyBundle rejects role demotion and same-epoch key chang
     projection: demotedProjection,
     version: 2,
     prevStateHash: first.state.stateHash,
-    members: [{ userId: signer.userId }, { userId: "user-bob" }],
+    members: [{ userId: signer.userId }, { userId: bob.userId }],
     signer,
   });
 
@@ -186,9 +198,10 @@ test("verifyPrincipalPolicyBundle rejects role demotion and same-epoch key chang
   const sameEpochKeyChange = await signPolicyState({
     principalId,
     principalKeyPair: generateKemSeedAndKeyPair(),
+    projection: firstProjection,
     version: 2,
     prevStateHash: first.state.stateHash,
-    members: [{ userId: signer.userId }, { userId: "user-bob" }],
+    members: [{ userId: signer.userId }, { userId: bob.userId }],
     signer,
   });
   const keyChangeResult = await verifyPrincipalPolicyBundle({
@@ -203,13 +216,15 @@ test("verifyPrincipalPolicyBundle rejects role demotion and same-epoch key chang
 
 test("verifyPrincipalPolicyBundle accepts shrink with a rotated key epoch", async () => {
   const signer = await createPolicySigner();
+  const bob = await createPolicySigner("user-bob");
   const principalId = "group-rotated-shrink";
   const first = await signPolicyState({
     principalId,
     principalKeyPair: generateKemSeedAndKeyPair(),
     version: 1,
     prevStateHash: null,
-    members: [{ userId: signer.userId }, { userId: "user-bob" }],
+    members: [{ userId: signer.userId }, { userId: bob.userId }],
+    projection: [policyMember(signer, "admin"), policyMember(bob)],
     signer,
   });
   const second = await signPolicyState({
@@ -232,6 +247,7 @@ test("verifyPrincipalPolicyBundle accepts shrink with a rotated key epoch", asyn
 
 test("verifyPrincipalPolicyBundle rejects rollback and equivocation against local checkpoints", async () => {
   const signer = await createPolicySigner();
+  const bob = await createPolicySigner("user-bob");
   const principalId = "group-checkpoints";
   const principalKeyPair = generateKemSeedAndKeyPair();
   const first = await signPolicyState({
@@ -247,7 +263,8 @@ test("verifyPrincipalPolicyBundle rejects rollback and equivocation against loca
     principalKeyPair,
     version: 2,
     prevStateHash: first.state.stateHash,
-    members: [{ userId: signer.userId }, { userId: "user-bob" }],
+    members: [{ userId: signer.userId }, { userId: bob.userId }],
+    projection: [policyMember(signer, "admin"), policyMember(bob)],
     signer,
   });
   const alternateFirst = await signPolicyState({
@@ -313,14 +330,10 @@ test("verifyPrincipalPolicyBundle rejects membership roots that do not match the
     prevStateHash: null,
     members: [{ userId: signer.userId }],
     projection: [
-      {
-        userId: signer.userId,
-        role: "admin",
-      },
-      {
-        userId: "user-hidden-from-membership-root",
-        role: "member",
-      },
+      policyMember(signer, "admin"),
+      policyMember(
+        await createPolicySigner("user-hidden-from-membership-root"),
+      ),
     ],
     signer,
   });

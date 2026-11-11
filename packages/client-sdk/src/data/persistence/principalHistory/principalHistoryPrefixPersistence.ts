@@ -19,7 +19,7 @@ import { reclaimCompletedPrincipalHistoryStages } from "./principalHistoryStageR
 
 export type PrincipalHistoryPrefix = Omit<
   typeof principalHistoryPrefixes.$inferSelect,
-  "rootHash"
+  "rootHash" | "identityBundleFormat"
 >;
 
 const principalHistoryPrefixColumns = {

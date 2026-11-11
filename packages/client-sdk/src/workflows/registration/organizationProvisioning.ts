@@ -17,6 +17,7 @@ import type {
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import { encodeOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
+import { createPrincipalProjectionMember } from "../../data/principals/principalIdentityCommitments";
 import { resolveDocumentCreateAuthor } from "../documents";
 import { groupPolicyMutationHead } from "../organizations/groupPolicy/groupPolicyMutationHead";
 import {
@@ -53,6 +54,7 @@ interface OrganizationProvisioningPrincipalPolicies {
  * is identical for both flows.
  */
 export interface OrganizationProvisioningArtifactsInput {
+  identityTrustDomain: string;
   encapsulationKeyPair: EncapsulationKeyPair;
   organizationProfileName?: string | undefined;
   /**
@@ -70,6 +72,7 @@ export interface OrganizationProvisioningArtifactsInput {
 }
 
 export async function buildInitialOrganizationPolicyRequest(input: {
+  identityTrustDomain: string;
   adminGroupId: string;
   groupHeads: readonly ReferencedPrincipalHead[];
   encapsulationPublicKey: Uint8Array;
@@ -86,10 +89,15 @@ export async function buildInitialOrganizationPolicyRequest(input: {
     input.encapsulationPublicKey,
   );
   const projection = [
-    {
-      userId: input.userId,
-      role: "admin" as const,
-    },
+    await createPrincipalProjectionMember(
+      {
+        userId: input.userId,
+        identityTrustDomain: input.identityTrustDomain,
+        signingPublicKey: input.signingKeyPair.signingPublicKey,
+        encapsulationPublicKey: input.encapsulationPublicKey,
+      },
+      "admin",
+    ),
   ];
   const payloadCiphertext = encodeOrganizationAuthorityDescriptor({
     version: 2,
@@ -155,6 +163,7 @@ export async function buildInitialOrganizationPolicyRequest(input: {
 }
 
 async function createOrganizationPrincipalPolicies(input: {
+  identityTrustDomain: string;
   encapsulationKeyPair: EncapsulationKeyPair;
   organizationMetadataContainerId: string;
   rootContainerId: string;
@@ -166,6 +175,7 @@ async function createOrganizationPrincipalPolicies(input: {
     input.signingKeyPair.signingPublicKey,
   );
   const initialAdminGroup = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: input.identityTrustDomain,
     creatorEncapsulationKeyPair: input.encapsulationKeyPair,
     groupId: crypto.randomUUID(),
     grants: [
@@ -182,6 +192,7 @@ async function createOrganizationPrincipalPolicies(input: {
     signingKeyPair: input.signingKeyPair,
   });
   const initialMemberGroup = await buildInitialMemberGroupPolicyRequest({
+    identityTrustDomain: input.identityTrustDomain,
     creatorEncapsulationKeyPair: input.encapsulationKeyPair,
     groupId: crypto.randomUUID(),
     grants: [
@@ -196,6 +207,7 @@ async function createOrganizationPrincipalPolicies(input: {
   });
   const initialOrganizationPolicy = await buildInitialOrganizationPolicyRequest(
     {
+      identityTrustDomain: input.identityTrustDomain,
       adminGroupId: initialAdminGroup.groupId,
       encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
       groupHeads: await Promise.all([
@@ -254,11 +266,8 @@ export async function buildOrganizationProvisioningArtifacts(
     organizationId,
     signingFingerprint,
   } = await createOrganizationPrincipalPolicies({
-    encapsulationKeyPair: input.encapsulationKeyPair,
+    ...input,
     organizationMetadataContainerId,
-    rootContainerId: input.rootContainerId,
-    signingKeyPair: input.signingKeyPair,
-    userId: input.userId,
   });
   const author = requireOrganizationProvisioningAuthor({
     organizationId,

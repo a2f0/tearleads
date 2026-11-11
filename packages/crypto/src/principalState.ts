@@ -76,6 +76,7 @@ function encodeNormalizedPrincipalProjectionMembers(
       normalizedMembers.map((member) => ({
         userId: member.userId,
         role: member.role,
+        identityBundleFingerprint: member.identityBundleFingerprint,
       })),
     ),
   );
@@ -358,19 +359,35 @@ export function normalizePrincipalStateMembers(
 }
 
 export function derivePrincipalProjectionMembers(
-  members: ReadonlyArray<PrincipalStateMember>,
+  members: ReadonlyArray<
+    Pick<PrincipalProjectionMember, "userId" | "identityBundleFingerprint">
+  >,
 ): PrincipalProjectionMember[] {
-  return normalizePrincipalStateMembers(members).map((member) => ({
-    userId: member.userId,
-    role: "member",
-  }));
+  return normalizePrincipalProjectionMembers(
+    members.map((member) => ({ ...member, role: "member" })),
+  );
 }
 
 export function normalizePrincipalProjectionMembers(
   members: ReadonlyArray<PrincipalProjectionMember>,
 ): PrincipalProjectionMember[] {
   return members
-    .map((member) => ({ userId: member.userId, role: member.role }))
+    .map((member) => {
+      if (
+        typeof member.identityBundleFingerprint !== "string" ||
+        !/^[a-f0-9]{64}$/u.test(member.identityBundleFingerprint)
+      ) {
+        throwPrincipalPolicyValidationError(
+          "invalid_shape",
+          "Principal projection identity bundle fingerprint must be lowercase SHA-256",
+        );
+      }
+      return {
+        userId: member.userId,
+        role: member.role,
+        identityBundleFingerprint: member.identityBundleFingerprint,
+      };
+    })
     .sort(comparePrincipalProjectionMembers);
 }
 

@@ -1,26 +1,23 @@
-import type { ApiClient } from "@tearleads/api-client";
-import {
-  type ContainerAccessLevel,
-  KeyingVerificationError,
-} from "@tearleads/crypto";
 import type {
-  CurrentPrincipalMemberEnvelopesResponse,
-  PrincipalStateResponse,
-} from "@tearleads/validators/response";
+  ContainerAccessLevel,
+  ReferencedPrincipalHead,
+} from "@tearleads/crypto";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
-import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
-import { requireOrganizationGroupHead } from "../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "../../data/trustedUserIdentity";
-import { loadCurrentOrganizationAuthority } from "../../workflows/organizations/currentOrganizationAuthority";
 import {
   isRosterVouchedRecipient,
   type RosterAdmissionEvidence,
 } from "../../workflows/organizations/memberships/rosterVouchedAdmission";
-import { createRuntimePrincipalPolicyCurrentResolver } from "../../workflows/principals/runtimePolicyRecovery";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { currentOrganizationMutation } from "./principalMutationScope";
+import { createRosterAdmissionEvidence } from "./rosterAdmissionEvidence";
+
+export { loadServedStateEnvelopes } from "./rosterAdmissionEvidence";
 
 type AdmissionRuntimeService = Pick<
   InternalRuntime,
@@ -28,91 +25,10 @@ type AdmissionRuntimeService = Pick<
 >;
 
 /**
- * The server's member envelopes for one state, or null when it has no such
- * state. A response that fails its schema or names another state is served
- * material failing verification, so it surfaces as a `KeyingVerificationError`
- * for incident reporting; other failures stay availability errors.
- */
-export async function loadServedStateEnvelopes(
-  reader: Pick<ApiClient, "getPrincipalMemberEnvelopesResult">,
-  state: Pick<
-    PrincipalStateResponse,
-    "principalId" | "principalType" | "stateHash"
-  >,
-): Promise<CurrentPrincipalMemberEnvelopesResponse | null> {
-  const result = await reader.getPrincipalMemberEnvelopesResult(
-    state.principalType,
-    state.principalId,
-    state.stateHash,
-  );
-  if (result.ok) return result.data;
-  if (result.kind === "http" && result.status === 404) return null;
-  if (result.kind === "shape")
-    throw new KeyingVerificationError("invalid_shape", result.message);
-  result.report();
-  throw new Error(result.message);
-}
-
-function createRosterAdmissionEvidence(
-  service: AdmissionRuntimeService,
-  admittingExecSql: ExecSql,
-  organizationId: string,
-): RosterAdmissionEvidence | null {
-  const { runtime, stillCurrent } = currentOrganizationMutation(service);
-  const resolve = createRuntimePrincipalPolicyCurrentResolver(runtime);
-  if (!resolve) return null;
-  return {
-    async loadCurrentMembers() {
-      const authority = await loadCurrentOrganizationAuthority({
-        execSql: runtime.infra.execSql,
-        organizationId,
-        resolveCurrentPolicy: resolve,
-        stillCurrent,
-      });
-      const { memberGroupId } = authority.descriptor;
-      const members = await authority.readGroup(memberGroupId);
-      assertProjectionVerificationCurrent(members.stillCurrent);
-      return {
-        envelopes: members.current.currentMemberEnvelopes.envelopes,
-        head: requireOrganizationGroupHead(authority.descriptor, memberGroupId),
-      };
-    },
-    async loadHistoryPage(head, beforeVersion) {
-      const resolved = await resolve({
-        organizationId,
-        reference: head,
-        preferLocalCurrent: true,
-        stillCurrent,
-        historyPage: beforeVersion === undefined ? {} : { beforeVersion },
-      });
-      assertProjectionVerificationCurrent(resolved.stillCurrent);
-      if (!resolved.historyPage)
-        throw new Error("Verified Members history page is missing");
-      return resolved.historyPage;
-    },
-    async loadPin(userId) {
-      const pin = await service.identityLinks.loadAdmissionPin(
-        userId,
-        admittingExecSql,
-      );
-      return pin
-        ? {
-            encapsulationKeyFingerprint:
-              pin.identity.encapsulationKeyFingerprint,
-            signingKeyFingerprint: pin.identity.signingKeyFingerprint,
-            verified: pin.verified,
-          }
-        : null;
-    },
-    loadStateEnvelopes: (state) =>
-      loadServedStateEnvelopes(runtime.apiClient, state),
-  };
-}
-
-/**
  * Whether the signed roster vouches for `userId` on this device. First sight
  * pins the keys the server serves as observed, and the roster must then vouch
- * for exactly that encryption key. Served material that fails verification is
+ * for exactly that domain-scoped signing and encapsulation identity bundle.
+ * Served material that fails verification is
  * recorded as a security incident before the error propagates.
  */
 export function isReportedRosterVouchedRecipient(input: {
@@ -137,32 +53,22 @@ export function isReportedRosterVouchedRecipient(input: {
   );
 }
 
-/**
- * Admits a folder share recipient, against the trust store of the database
- * the admitting runtime writes: a pin that a verified identity link or this
- * device's own keys established, or, for a read share only, the active
- * organization's signed roster vouching for their encryption key
- * (`isRosterVouchedRecipient`). Vouching never authenticates the recipient's
- * signing key, so it cannot back write or admin access, whose signed actions
- * would be checked against that key. Throws the original
- * `UnverifiedUserIdentityError` when nothing admits.
- */
-export async function requireShareRecipient(
+type RecipientAdmission =
+  | { readonly status: "verified" }
+  | { readonly status: "roster"; readonly head: ReferencedPrincipalHead };
+
+async function requireOrganizationRecipient(
   service: AdmissionRuntimeService,
   admittingExecSql: ExecSql,
   userId: string,
-  accessLevel: ContainerAccessLevel,
-): Promise<void> {
+): Promise<RecipientAdmission> {
   try {
     await service.identityLinks.requireVerified(userId, admittingExecSql);
+    return { status: "verified" };
   } catch (error) {
     const runtime = service.workflowInput();
     const organizationId = runtime.auth.organizationId;
-    if (
-      !(error instanceof UnverifiedUserIdentityError) ||
-      accessLevel !== "read" ||
-      !organizationId
-    )
+    if (!(error instanceof UnverifiedUserIdentityError) || !organizationId)
       throw error;
     const evidence = createRosterAdmissionEvidence(
       service,
@@ -170,13 +76,100 @@ export async function requireShareRecipient(
       organizationId,
     );
     if (!evidence) throw error;
+    let head: ReferencedPrincipalHead | undefined;
     const vouched = await isReportedRosterVouchedRecipient({
-      evidence,
+      evidence: {
+        ...evidence,
+        async loadCurrentMembers() {
+          const members = await evidence.loadCurrentMembers();
+          head = members.head;
+          return members;
+        },
+      },
       organizationId,
       reportSecurityIncident: runtime.util.reportSecurityIncident,
       resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
       userId,
     });
-    if (!vouched) throw error;
+    if (!vouched || !head) throw error;
+    return { status: "roster", head };
   }
+}
+
+function admissionLifetime(service: AdmissionRuntimeService, execSql: ExecSql) {
+  const scope = currentOrganizationMutation(service);
+  return () => {
+    if (scope.runtime.infra.execSql !== execSql || !scope.stillCurrent())
+      throw new DatabaseUnavailableError(
+        "The active identity or database changed while admitting this user. Try again.",
+      );
+  };
+}
+
+/** Full-bundle roster authentication admits read, write, and admin shares. */
+export async function requireShareRecipient(
+  service: AdmissionRuntimeService,
+  admittingExecSql: ExecSql,
+  userId: string,
+  _accessLevel: ContainerAccessLevel,
+): Promise<void> {
+  const assertCurrent = admissionLifetime(service, admittingExecSql);
+  assertCurrent();
+  await requireOrganizationRecipient(service, admittingExecSql, userId);
+  assertCurrent();
+}
+
+export type GroupMemberAdmission = (
+  members: Pick<
+    PrincipalPolicyBundleResponse,
+    "currentState" | "currentProjection"
+  >,
+) => Promise<void>;
+
+/** The proof is usable only at its exact Members head, within this runtime. */
+export async function requireGroupMemberAdmission(
+  service: AdmissionRuntimeService,
+  admittingExecSql: ExecSql,
+  userId: string,
+): Promise<GroupMemberAdmission> {
+  const assertCurrent = admissionLifetime(service, admittingExecSql);
+  assertCurrent();
+  const admission = await requireOrganizationRecipient(
+    service,
+    admittingExecSql,
+    userId,
+  );
+  assertCurrent();
+  return async (members) => {
+    assertCurrent();
+    if (!members.currentProjection.some((member) => member.userId === userId)) {
+      // A retry may find the user removed since the proof. Enrollment still
+      // requires this device's self/link anchor, never an earlier roster proof.
+      await service.identityLinks.requireVerified(userId, admittingExecSql);
+    } else if (
+      admission.status === "roster" &&
+      !principalHeadMatchesReference(members.currentState, admission.head)
+    ) {
+      throw new UnverifiedUserIdentityError(userId);
+    }
+    assertCurrent();
+  };
+}
+
+/** Capture the mutation scope before obtaining its head-bound admission proof. */
+export async function admitGroupMutation(
+  service: AdmissionRuntimeService,
+  userId: string,
+) {
+  const mutation = currentOrganizationMutation(service);
+  const admission = await requireGroupMemberAdmission(
+    service,
+    mutation.runtime.infra.execSql,
+    userId,
+  );
+  if (!mutation.stillCurrent())
+    throw new DatabaseUnavailableError(
+      "The active database changed while admitting this user. Try again.",
+    );
+  return { ...mutation, admission };
 }

@@ -19,7 +19,10 @@ import {
   policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import {
+  createFixtureUserIdentity,
+  createTestTrustedUserIdentity,
+} from "../../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
@@ -57,6 +60,7 @@ test("group creation and deletion persist authenticated organization directory s
   const memberGroupId = crypto.randomUUID();
   const builtinGroup = (groupId: string, name: string) =>
     buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       creatorEncapsulationKeyPair: creatorKem,
       groupId,
       name,
@@ -75,6 +79,7 @@ test("group creation and deletion persist authenticated organization directory s
   let organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId,
       encapsulationPublicKey: creatorKem.publicKey,
       groupHeads: [
@@ -162,6 +167,7 @@ test("group creation and deletion persist authenticated organization directory s
 
   try {
     const createdGroup = await createOrganizationGroup({
+      identityTrustDomain: "https://api.example.test",
       metadataAccess: testGroupMetadataAccess(organizationId),
       apiClient,
       creatorEncapsulationKeyPair: creatorKem,
@@ -298,6 +304,7 @@ test("group add and remove policy builders preserve additive epochs and rotate s
     signingKeyPair.signingPublicKey,
   );
   const initialRequest = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: creatorKem,
     groupId: crypto.randomUUID(),
     name: "Operators",
@@ -413,6 +420,7 @@ test("group mutation builders reject tampered server policy projections", async 
     signingKeyPair.signingPublicKey,
   );
   const initialRequest = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: creatorKem,
     groupId: crypto.randomUUID(),
     name: "Operators",
@@ -427,6 +435,9 @@ test("group mutation builders reject tampered server policy projections", async 
       ...initialPolicy.currentProjection,
       {
         userId: "server-injected-user",
+        identityBundleFingerprint: (
+          await createFixtureUserIdentity({ userId: "server-injected-user" })
+        ).identityBundleFingerprint,
         role: "admin",
       },
     ],

@@ -8,11 +8,13 @@ import { createListenerSet } from "../runtime/listenerSet";
 import {
   emptySessionSnapshot,
   mergeSessionContext,
+  registrationSessionResult,
   sessionSnapshotsEqual,
 } from "./sessionContext";
 import {
   registrationKeyAlreadyBound,
   requireRegistrationIdentityPinner,
+  requireSessionTrustDomain,
   requireUserIdentityAvailable,
   SessionIdentityAcknowledgments,
 } from "./sessionIdentityTrust";
@@ -306,6 +308,7 @@ class SessionService implements Session {
     let response: Awaited<ReturnType<typeof registerIdentityWorkflow>>;
     try {
       response = await registerIdentityWorkflow({
+        identityTrustDomain: requireSessionTrustDomain(this.dependencies),
         apiClient: this.dependencies.api,
         containerId,
         dbClient,
@@ -350,12 +353,7 @@ class SessionService implements Session {
       signingFingerprint: identitySnapshot.signingFingerprint,
     });
 
-    return {
-      challenge: response.challenge,
-      containerId: response.rootContainerId,
-      organizationId: response.organizationId,
-      userId: response.userId,
-    };
+    return registrationSessionResult(response);
   }
 
   async createOrganization(

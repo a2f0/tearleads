@@ -19,6 +19,7 @@ test("access-set shrink preserves membership while rotating the group key", asyn
   );
   const initialPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       creatorEncapsulationKeyPair: memberKem,
       grants: [{ accessLevel: "read", containerId: revokedContainerId }],
       groupId: crypto.randomUUID(),

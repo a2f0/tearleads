@@ -26,7 +26,11 @@ import {
   principalPolicyBundleFromState,
   signedPrincipalPolicyBundle,
 } from "./principalPolicyFixtures";
-import { createMockApiTrustedUserIdentityResolver } from "./trustedUserIdentity";
+import {
+  createFixtureUserIdentity,
+  createMockApiTrustedUserIdentityResolver,
+  fixtureProjectionMember,
+} from "./trustedUserIdentity";
 
 type CacheReferencedPoliciesOptions = Omit<
   CacheReferencedPrincipalPoliciesOptions,
@@ -76,22 +80,29 @@ export function cacheReferencedPolicies(
 
 async function memberEnvelopesForProjection(
   projection: readonly PrincipalProjectionMember[],
+  identities: Map<
+    string,
+    Awaited<ReturnType<typeof createFixtureUserIdentity>>
+  >,
 ) {
   return Promise.all(
-    projection.map(async (member, index) => ({
-      userId: member.userId,
-      memberKeyFingerprint: await toFingerprint(
-        new TextEncoder().encode(member.userId),
-      ),
-      kemCipherText: bytesToBase64(
-        new Uint8Array(ML_KEM1024_CIPHERTEXT_BYTES).fill(index + 1),
-      ),
-      wrappedKey: bytesToBase64(
-        new Uint8Array(ML_KEM1024_SECRET_KEY_BYTES + AES_GCM_TAG_BYTES).fill(
-          index + 1,
+    projection.map(async (member, index) => {
+      const identity = identities.get(member.userId);
+      if (!identity)
+        throw new Error(`Missing fixture identity: ${member.userId}`);
+      return {
+        userId: member.userId,
+        memberKeyFingerprint: identity.identity.encapsulationKeyFingerprint,
+        kemCipherText: bytesToBase64(
+          new Uint8Array(ML_KEM1024_CIPHERTEXT_BYTES).fill(index + 1),
         ),
-      ),
-    })),
+        wrappedKey: bytesToBase64(
+          new Uint8Array(ML_KEM1024_SECRET_KEY_BYTES + AES_GCM_TAG_BYTES).fill(
+            index + 1,
+          ),
+        ),
+      };
+    }),
   );
 }
 
@@ -149,36 +160,31 @@ export function predecessorBundleFromSuccessor(
   };
 }
 
-interface PolicySignerKeyResponse {
-  userId: string;
-  signingPublicKey: string;
-  signingKeyFingerprint: string;
-  encapsulationPublicKey: string;
-  encapsulationKeyFingerprint: string;
-}
-
-export async function createPrincipalPolicyBundle(): Promise<{
-  bundle: PrincipalPolicyBundleResponse;
-  signerKeyResponse: PolicySignerKeyResponse;
-}> {
+export async function createPrincipalPolicyBundle() {
   const principalKem = generateKemSeedAndKeyPair();
   const principalKeyFingerprint = await toFingerprint(principalKem.publicKey);
   const signerUserId = "signer-user-1";
   const { signingPublicKey: signerPublicKey, signingPrivateKey } =
     generateSigningSeedAndKeyPair();
   const signerUserKeyFingerprint = await toFingerprint(signerPublicKey);
+  const signer = await createFixtureUserIdentity({
+    userId: signerUserId,
+    signingPublicKey: signerPublicKey,
+  });
+  const alice = await createFixtureUserIdentity({ userId: "alice" });
+  const bob = await createFixtureUserIdentity({ userId: "bob" });
+  const identities = new Map(
+    [signer, alice, bob].map((fixture) => [fixture.identity.userId, fixture]),
+  );
   const currentProjection = [
-    {
-      userId: signerUserId,
-      role: "admin" as const,
-    },
-    {
-      userId: "alice",
-      role: "member" as const,
-    },
+    fixtureProjectionMember(signer, "admin"),
+    fixtureProjectionMember(alice, "member"),
   ];
   const bundle = await signedPrincipalPolicyBundle({
-    memberEnvelopes: await memberEnvelopesForProjection(currentProjection),
+    memberEnvelopes: await memberEnvelopesForProjection(
+      currentProjection,
+      identities,
+    ),
     payloadCiphertext: "ciphertext-1",
     projection: currentProjection,
     signing: {
@@ -199,29 +205,30 @@ export async function createPrincipalPolicyBundle(): Promise<{
 
   return {
     bundle,
-    signerKeyResponse: {
-      userId: signerUserId,
-      signingPublicKey: bytesToBase64(signerPublicKey),
-      signingKeyFingerprint: signerUserKeyFingerprint,
-      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-      encapsulationKeyFingerprint: principalKeyFingerprint,
-    },
+    signerKeyResponse: signer.response,
+    getUserIdentity: async (userId: string) =>
+      identities.get(userId)?.response ?? null,
   };
 }
 
 export async function createSuccessorPrincipalPolicyBundle(
   options: { shrinkWithoutRotation?: boolean } = {},
-): Promise<{
-  bundle: PrincipalPolicyBundleResponse;
-  previousBundle: PrincipalPolicyBundleResponse;
-  signerKeyResponse: PolicySignerKeyResponse;
-}> {
+) {
   const principalKem = generateKemSeedAndKeyPair();
   const principalKeyFingerprint = await toFingerprint(principalKem.publicKey);
   const signerUserId = "signer-user-1";
   const { signingPublicKey: signerPublicKey, signingPrivateKey } =
     generateSigningSeedAndKeyPair();
   const signerUserKeyFingerprint = await toFingerprint(signerPublicKey);
+  const signer = await createFixtureUserIdentity({
+    userId: signerUserId,
+    signingPublicKey: signerPublicKey,
+  });
+  const alice = await createFixtureUserIdentity({ userId: "alice" });
+  const bob = await createFixtureUserIdentity({ userId: "bob" });
+  const identities = new Map(
+    [signer, alice, bob].map((fixture) => [fixture.identity.userId, fixture]),
+  );
   const signing = {
     principalType: "group" as const,
     principalId: "group-1",
@@ -233,17 +240,14 @@ export async function createSuccessorPrincipalPolicyBundle(
     signerUserKeyFingerprint,
   };
   const previousProjection = [
-    {
-      userId: signerUserId,
-      role: "admin" as const,
-    },
-    {
-      userId: "alice",
-      role: "member" as const,
-    },
+    fixtureProjectionMember(signer, "admin"),
+    fixtureProjectionMember(alice, "member"),
   ];
   const previousBundle = await signedPrincipalPolicyBundle({
-    memberEnvelopes: await memberEnvelopesForProjection(previousProjection),
+    memberEnvelopes: await memberEnvelopesForProjection(
+      previousProjection,
+      identities,
+    ),
     payloadCiphertext: "ciphertext-1",
     projection: previousProjection,
     signing: {
@@ -255,25 +259,17 @@ export async function createSuccessorPrincipalPolicyBundle(
     signingPrivateKey,
   });
   const currentProjection = [
-    {
-      userId: signerUserId,
-      role: "admin" as const,
-    },
+    fixtureProjectionMember(signer, "admin"),
     ...(options.shrinkWithoutRotation
       ? []
-      : [
-          {
-            userId: "alice",
-            role: "member" as const,
-          },
-        ]),
-    {
-      userId: "bob",
-      role: "member" as const,
-    },
+      : [fixtureProjectionMember(alice, "member")]),
+    fixtureProjectionMember(bob, "member"),
   ];
   const bundle = await signedPrincipalPolicyBundle({
-    memberEnvelopes: await memberEnvelopesForProjection(currentProjection),
+    memberEnvelopes: await memberEnvelopesForProjection(
+      currentProjection,
+      identities,
+    ),
     payloadCiphertext: "ciphertext-2",
     previousStates: [
       {
@@ -295,13 +291,9 @@ export async function createSuccessorPrincipalPolicyBundle(
   return {
     bundle,
     previousBundle,
-    signerKeyResponse: {
-      userId: signerUserId,
-      signingPublicKey: bytesToBase64(signerPublicKey),
-      signingKeyFingerprint: signerUserKeyFingerprint,
-      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-      encapsulationKeyFingerprint: principalKeyFingerprint,
-    },
+    signerKeyResponse: signer.response,
+    getUserIdentity: async (userId: string) =>
+      identities.get(userId)?.response ?? null,
   };
 }
 
@@ -332,6 +324,17 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(
   const outsiderSigningKeyFingerprint = await toFingerprint(
     outsiderSigningPublicKey,
   );
+  const admin = await createFixtureUserIdentity({
+    userId: adminUserId,
+    signingPublicKey: adminSigningPublicKey,
+  });
+  const outsider = await createFixtureUserIdentity({
+    userId: outsiderUserId,
+    signingPublicKey: outsiderSigningPublicKey,
+  });
+  const identities = new Map(
+    [admin, outsider].map((fixture) => [fixture.identity.userId, fixture]),
+  );
   const signing = {
     principalType: "group" as const,
     principalId: "group-1",
@@ -341,17 +344,14 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(
     externalAuthority: null,
   };
   const previousProjection = [
-    {
-      userId: adminUserId,
-      role: "admin" as const,
-    },
-    {
-      userId: outsiderUserId,
-      role: "member" as const,
-    },
+    fixtureProjectionMember(admin, "admin"),
+    fixtureProjectionMember(outsider, "member"),
   ];
   const previousBundle = await signedPrincipalPolicyBundle({
-    memberEnvelopes: await memberEnvelopesForProjection(previousProjection),
+    memberEnvelopes: await memberEnvelopesForProjection(
+      previousProjection,
+      identities,
+    ),
     payloadCiphertext: "ciphertext-1",
     projection: previousProjection,
     signing: {
@@ -366,14 +366,12 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(
   });
   const currentProjection = options.successorKeepsMembers
     ? previousProjection
-    : [
-        {
-          userId: outsiderUserId,
-          role: "admin" as const,
-        },
-      ];
+    : [fixtureProjectionMember(outsider, "admin")];
   const bundle = await signedPrincipalPolicyBundle({
-    memberEnvelopes: await memberEnvelopesForProjection(currentProjection),
+    memberEnvelopes: await memberEnvelopesForProjection(
+      currentProjection,
+      identities,
+    ),
     payloadCiphertext: "ciphertext-2",
     previousStates: [
       {
@@ -397,28 +395,9 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(
 
   return {
     bundle,
-    signerKeyResponses: new Map([
-      [
-        adminUserId,
-        {
-          userId: adminUserId,
-          signingPublicKey: bytesToBase64(adminSigningPublicKey),
-          signingKeyFingerprint: adminSigningKeyFingerprint,
-          encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-          encapsulationKeyFingerprint: principalKeyFingerprint,
-        },
-      ],
-      [
-        outsiderUserId,
-        {
-          userId: outsiderUserId,
-          signingPublicKey: bytesToBase64(outsiderSigningPublicKey),
-          signingKeyFingerprint: outsiderSigningKeyFingerprint,
-          encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-          encapsulationKeyFingerprint: principalKeyFingerprint,
-        },
-      ],
-    ]),
+    signerKeyResponses: new Map(
+      [...identities].map(([userId, fixture]) => [userId, fixture.response]),
+    ),
   };
 }
 

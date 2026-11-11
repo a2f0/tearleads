@@ -130,6 +130,17 @@ in the prior projection or, for org-scoped updates, independently proven members
 of the reserved `Admins` group. Clients verify the complete bundle again before
 caching or key use.
 
+Every projection member is `{userId, role, identityBundleFingerprint}`. The
+fingerprint is required lowercase SHA-256 of the complete
+[identity-link bundle](../developer/trusted-user-identity.md#signed-member-identity-commitments),
+including the deployment trust domain and both public keys. `projectionRoot`
+commits this field; `membershipRoot` remains an ID-set commitment. Continuing
+members must retain the same bundle even across role or principal-key changes.
+Genesis groups and organizations use the same contract. The API recomputes
+the bundle from registered keys in its configured domain; clients compare it
+with their pinned bundle. Missing commitments are not a legacy format to infer
+or backfill.
+
 Public keys and envelope fields use canonical base64 and exact
 [ML-KEM-1024](../cipher-suites.md#ml-kem-1024-key-encapsulation) sizes: 1568-byte
 public keys/ciphertexts and a 3184-byte wrapped secret plus AES-GCM tag.

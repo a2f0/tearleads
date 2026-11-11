@@ -73,7 +73,7 @@ async function preparePublication(
   } = await restoreAcknowledgedPrincipalPredecessor(options, predecessor);
   const expectedHead = await checks.authoredHead(request);
   const keys = await collectPrincipalPolicySignerPublicKeys({
-    bundle: { currentState: current.currentState, previousStates: [] },
+    bundle: { ...current, previousStates: [] },
     resolveTrustedUserIdentity: options.resolveTrustedUserIdentity,
   });
   assertProjectionVerificationCurrent(stillCurrent);

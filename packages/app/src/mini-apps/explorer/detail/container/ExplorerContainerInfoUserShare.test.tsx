@@ -167,77 +167,80 @@ async function openUserShare(view: ReturnType<typeof render>) {
   pickOption(view, "Share with", "User");
 }
 
-test("a direct user share sends the chosen roster user and permission", async () => {
-  const shareCalls: Array<[string, string, ContainerShareAccessLevel]> = [];
-  const view = renderPanel(async (containerId, userId, accessLevel) => {
-    shareCalls.push([containerId, userId, accessLevel]);
-    return true;
-  });
-  await openUserShare(view);
+test.each(["read", "write", "admin"] as const)(
+  "a roster share delegates %s admission to the SDK",
+  async (accessLevel) => {
+    const shareCalls: Array<[string, string, ContainerShareAccessLevel]> = [];
+    const view = renderPanel(async (containerId, userId, accessLevel) => {
+      shareCalls.push([containerId, userId, accessLevel]);
+      return true;
+    });
+    await openUserShare(view);
 
-  const userOptions = openMenuOptions(view, "User");
-  expect(
-    userOptions.map(
-      (option) =>
-        option.querySelector(".mini-app-select-menu-label")?.textContent,
-    ),
-  ).toEqual(["Bob", "Carol"]);
-  // No user is preselected: Share waits for an explicit pick.
-  expect(
-    view.getByRole("button", { name: "Share" }).hasAttribute("disabled"),
-  ).toBe(true);
-  const carol = userOptions[1];
-  if (!carol) {
-    throw new Error("Expected the Carol option.");
-  }
-  fireEvent.click(carol);
-  pickOption(view, "Permission", "read");
-  fireEvent.click(view.getByRole("button", { name: "Share" }));
-
-  await waitFor(() => {
-    expect(shareCalls).toEqual([["container-1", "user-carol", "read"]]);
-  });
-  const grants = view
-    .getByRole("heading", { name: "Principal Grants" })
-    .closest("section");
-  if (!(grants instanceof HTMLElement)) {
-    throw new Error("Expected the grants section.");
-  }
-  await waitFor(() => {
-    expect(within(grants).getByText("Carol")).toBeTruthy();
-  });
-  expect(within(grants).getByText("Erin")).toBeTruthy();
-});
-
-// Without a verified link, write or admin access is refused outright, and read
-// access only when the signed roster does not vouch for the recipient; each
-// refusal names its own fix instead of a generic failure.
-test("an unverified recipient's refusal names the fix for the chosen access", async () => {
-  const view = renderPanel(async (_containerId, userId) => {
-    throw new UnverifiedUserIdentityError(userId);
-  });
-  await openUserShare(view);
-  pickOption(view, "User", "Bob");
-  fireEvent.click(view.getByRole("button", { name: "Share" }));
-
-  await waitFor(() => {
+    const userOptions = openMenuOptions(view, "User");
     expect(
-      view.getByText(
-        "Verify this person's identity link to give them write or admin access. Without it you can share read-only.",
+      userOptions.map(
+        (option) =>
+          option.querySelector(".mini-app-select-menu-label")?.textContent,
       ),
-    ).toBeTruthy();
-  });
-
-  pickOption(view, "Permission", "read");
-  fireEvent.click(view.getByRole("button", { name: "Share" }));
-  await waitFor(() => {
+    ).toEqual(["Bob", "Carol"]);
+    // No user is preselected: Share waits for an explicit pick.
     expect(
-      view.getByText(
-        "Verify this person's identity link before sharing with them.",
-      ),
-    ).toBeTruthy();
-  });
-});
+      view.getByRole("button", { name: "Share" }).hasAttribute("disabled"),
+    ).toBe(true);
+    const carol = userOptions[1];
+    if (!carol) {
+      throw new Error("Expected the Carol option.");
+    }
+    fireEvent.click(carol);
+    pickOption(view, "Permission", accessLevel);
+    fireEvent.click(view.getByRole("button", { name: "Share" }));
+
+    await waitFor(() => {
+      expect(shareCalls).toEqual([["container-1", "user-carol", accessLevel]]);
+    });
+    const grants = view
+      .getByRole("heading", { name: "Principal Grants" })
+      .closest("section");
+    if (!(grants instanceof HTMLElement)) {
+      throw new Error("Expected the grants section.");
+    }
+    await waitFor(() => {
+      expect(within(grants).getByText("Carol")).toBeTruthy();
+    });
+    expect(within(grants).getByText("Erin")).toBeTruthy();
+  },
+);
+
+// A directory choice never proves identity. All permissions pass through SDK
+// admission; refusal must not promise that lowering access bypasses it.
+test.each(["read", "write", "admin"] as const)(
+  "a refused %s share asks for an identity link without granting access",
+  async (accessLevel) => {
+    const view = renderPanel(async (_containerId, userId) => {
+      throw new UnverifiedUserIdentityError(userId);
+    });
+    await openUserShare(view);
+    pickOption(view, "User", "Bob");
+    pickOption(view, "Permission", accessLevel);
+    fireEvent.click(view.getByRole("button", { name: "Share" }));
+
+    await waitFor(() => {
+      expect(
+        view.getByText(
+          "This device could not authenticate the recipient. Verify their identity link and try sharing again.",
+        ),
+      ).toBeTruthy();
+    });
+
+    const grants = view
+      .getByRole("heading", { name: "Principal Grants" })
+      .closest("section");
+    if (!(grants instanceof HTMLElement))
+      throw new Error("Expected grants section");
+    expect(within(grants).queryByText("Bob")).toBeNull();
+  },
+);
 
 // A roster refresh can drop the chosen person (disabled here). The pick must
 // clear rather than move to another member, so Share cannot reach the wrong

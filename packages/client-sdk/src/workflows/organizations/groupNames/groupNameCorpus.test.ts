@@ -20,6 +20,7 @@ async function createBaseBundle() {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   return policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
       groupId: "name-corpus-group",
       name: "Operators",

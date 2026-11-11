@@ -7,6 +7,7 @@ import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   computePrincipalStateHash,
+  computeUserIdentityBundleFingerprint,
   deriveContainerKekWrappingPublicKey,
   derivePrincipalRecipientKeyEpochId,
   generateKemSeedAndKeyPair,
@@ -29,6 +30,7 @@ import {
 } from "../../../../test/helpers/containerFixtures";
 import { createProjectionPolicyEvidence } from "../../../../test/helpers/projectionPolicyEvidence";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
+import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 import {
   ensurePrincipalPolicyTables,
@@ -39,6 +41,7 @@ async function createGroupPrincipalPolicyBundle(input: {
   memberRecipientPublicKeys: Array<{
     userId: string;
     publicKey: Uint8Array;
+    signingPublicKey: Uint8Array;
   }>;
   members: Array<{ userId: string }>;
   principalId: string;
@@ -52,17 +55,40 @@ async function createGroupPrincipalPolicyBundle(input: {
     signerKeyFingerprint: string;
     signerPrivateKey: Uint8Array;
     signerUserId: string;
+    signingPublicKey: Uint8Array;
   };
 }): Promise<PrincipalPolicyBundleResponse> {
   const currentProjection = [
     {
       userId: input.signer.signerUserId,
+      identityBundleFingerprint: await computeUserIdentityBundleFingerprint({
+        identityTrustDomain: "https://api.example.test",
+        userId: input.signer.signerUserId,
+        signingPublicKey: input.signer.signingPublicKey,
+        encapsulationPublicKey: input.signer.recipientPublicKey,
+      }),
       role: "admin" as const,
     },
-    ...input.members.map((member) => ({
-      userId: member.userId,
-      role: "member" as const,
-    })),
+    ...(await Promise.all(
+      input.members.map(async (member) => {
+        const recipient = input.memberRecipientPublicKeys.find(
+          (entry) => entry.userId === member.userId,
+        );
+        if (!recipient) throw new Error("Missing member recipient key");
+        return {
+          userId: member.userId,
+          role: "member" as const,
+          identityBundleFingerprint: await computeUserIdentityBundleFingerprint(
+            {
+              identityTrustDomain: "https://api.example.test",
+              userId: member.userId,
+              signingPublicKey: recipient.signingPublicKey,
+              encapsulationPublicKey: recipient.publicKey,
+            },
+          ),
+        };
+      }),
+    )),
   ];
   const payloadCiphertext = `${input.principalId}-payload`;
   const recipients = [
@@ -157,11 +183,16 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
   const groupKem = generateKemSeedAndKeyPair();
   const groupMemberKem = generateKemSeedAndKeyPair();
   const groupMemberUserId = "group-member-user";
+  const groupMember = await createFixtureUserIdentity({
+    userId: groupMemberUserId,
+    encapsulationPublicKey: groupMemberKem.publicKey,
+  });
   const groupBundle = await createGroupPrincipalPolicyBundle({
     memberRecipientPublicKeys: [
       {
         userId: groupMemberUserId,
         publicKey: groupMemberKem.publicKey,
+        signingPublicKey: groupMember.identity.signingPublicKey,
       },
     ],
     members: [{ userId: groupMemberUserId }],
@@ -171,6 +202,7 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
     signer: {
       ...parent.author,
       recipientPublicKey: parent.encapsulationPublicKey,
+      signingPublicKey: parent.signingPublicKey,
     },
   });
   const groupHead = {
@@ -303,8 +335,9 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
       },
     ],
   };
-  const resolveProjectionUserKey =
-    createParentProjectionUserKeyResolver(parent);
+  const resolveParent = createParentProjectionUserKeyResolver(parent);
+  const resolveProjectionUserKey = async (userId: string) =>
+    userId === groupMemberUserId ? groupMember.identity : resolveParent(userId);
   const { close, execSql } = await createTestExecSql(
     "managed-principal-projection-verification",
   );

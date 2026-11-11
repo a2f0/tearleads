@@ -221,6 +221,7 @@ export async function validatePrincipalPolicyBundleForCache(input: {
         // evidence could authorize keeps its unauthorized refusal.
         if (
           await externalAuthorityCouldAuthorize({
+            resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
             bundle: input.bundle,
             expectedReference: input.reference,
             localCheckpoint: input.localCheckpoint,

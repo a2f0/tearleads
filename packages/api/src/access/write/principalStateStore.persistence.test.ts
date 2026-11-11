@@ -20,7 +20,11 @@ test("storeVerifiedPrincipalState persists signed state and epoch key", async ()
     generateSigningSeedAndKeyPair();
   const signer = await createPrincipalStateSigner(signingPublicKey);
   const principalId = crypto.randomUUID();
-  const secondMemberId = crypto.randomUUID();
+  const secondMemberId = (
+    await createPrincipalStateSigner(
+      generateSigningSeedAndKeyPair().signingPublicKey,
+    )
+  ).signerUserId;
   const signedState = await signPrincipalState(
     {
       principalType: "group",

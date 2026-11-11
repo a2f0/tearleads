@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
@@ -12,18 +13,31 @@ test("overlapping identical acknowledgements both retain the same publication wi
     let prepared = 0;
     const restoredBoth = Promise.withResolvers<void>();
     const entries = f.publication.entries.map((entry) =>
-      entry.request.state.principalType !== "organization"
+      entry.request.state.principalType !== "group"
         ? entry
         : {
             ...entry,
             recovery: {
               ...entry.recovery,
-              resolveTrustedUserIdentity: async (userId: string) => {
-                // Identity lookup happens after restoring the last predecessor.
-                // Hold both writers here so neither observes a newer prefix.
+              loadExternalAuthority: async (
+                references: readonly ReferencedPrincipalHead[],
+              ) => {
+                // Authority preparation follows predecessor restoration and
+                // identity verification. Pause both publications here, once
+                // per operation, regardless of how many identities are read.
+                const prefixes = await f.db
+                  .select()
+                  .from(principalHistoryPrefixes);
+                expect(
+                  prefixes.find(
+                    (prefix) =>
+                      JSON.parse(prefix.headJson).principalId ===
+                      entry.request.state.principalId,
+                  )?.version,
+                ).toBe(entry.predecessor?.version);
                 if (++prepared === 2) restoredBoth.resolve();
                 await restoredBoth.promise;
-                return history.resolveTrustedUserIdentity(userId);
+                return entry.recovery.loadExternalAuthority?.(references);
               },
             },
           },
@@ -32,6 +46,10 @@ test("overlapping identical acknowledgements both retain the same publication wi
       retainAcknowledgedPrincipalCurrents({ ...f.publication, entries }),
       retainAcknowledgedPrincipalCurrents({ ...f.publication, entries }),
     ]);
+    for (const result of results) {
+      if (result.status !== "fulfilled") throw result.reason;
+      expect(result.value.map((policy) => policy.version)).toEqual([67, 67]);
+    }
     expect(prepared).toBe(2);
     expect(
       results.filter((result) => result.status === "fulfilled"),

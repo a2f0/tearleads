@@ -22,8 +22,9 @@ import {
   readContainerParentLanePage,
   requestSingleContainerParentLane,
 } from "../../../test/helpers/containerParentLaneQuery";
+import { identityBoundRouteApp as routeApp } from "../../../test/helpers/identityBoundRouteApp";
+import { API_TEST_IDENTITY_TRUST_DOMAIN } from "../../../test/helpers/policyProjection";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { routeApp } from "../../routeApp";
 
 async function makeDevice(
   user: ReturnType<typeof createTestUser>,
@@ -32,6 +33,7 @@ async function makeDevice(
 ) {
   const sdk = new Tearleads({
     apiBaseUrl,
+    identityTrustDomain: API_TEST_IDENTITY_TRUST_DOMAIN,
     blobStoreFactory: () => createMemoryBlobStore(),
     database: {
       client: {

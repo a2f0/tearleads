@@ -75,7 +75,9 @@ async function createChain() {
     signedAt: "2026-09-12T00:00:00.000Z",
   });
   const storedFirst = await db.transaction((tx) =>
-    storeVerifiedPrincipalPolicyInTransaction(first, tx),
+    storeVerifiedPrincipalPolicyInTransaction(first, tx, {
+      identityTrustDomain: "http://localhost",
+    }),
   );
   const second = await signPrincipalStateBundle({
     ...base,
@@ -90,7 +92,9 @@ test("the stored bundle is re-verified from rows before a state commits", async 
   const { principalId, second, storedFirst } = await createChain();
   expect(storedFirst.version).toBe(1);
   const storedSecond = await db.transaction((tx) =>
-    storeVerifiedPrincipalPolicyInTransaction(second, tx),
+    storeVerifiedPrincipalPolicyInTransaction(second, tx, {
+      identityTrustDomain: "http://localhost",
+    }),
   );
   expect(storedSecond.version).toBe(2);
   expect(
@@ -114,7 +118,9 @@ test("a stored predecessor that no longer verifies blocks its successor before c
     );
   await expect(
     db.transaction((tx) =>
-      storeVerifiedPrincipalPolicyInTransaction(second, tx),
+      storeVerifiedPrincipalPolicyInTransaction(second, tx, {
+        identityTrustDomain: "http://localhost",
+      }),
     ),
   ).rejects.toThrow("Stored principal policy failed integrity verification");
   expect(

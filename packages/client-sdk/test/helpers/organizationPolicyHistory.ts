@@ -29,7 +29,11 @@ import {
   projectionDirectoryPayload,
   projectionPolicySource,
 } from "./projectionPolicyHistory";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
+import {
+  createFixtureUserIdentity,
+  createTestTrustedUserIdentity,
+  trustedUserIdentityFromResponse,
+} from "./trustedUserIdentity";
 
 export function policySnapshot(
   bundle: PrincipalPolicyBundleResponse,
@@ -80,6 +84,7 @@ async function signGroupPolicy(
 ): Promise<PrincipalPolicyBundleResponse> {
   return policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       ...signingFields(signer),
       creatorEncapsulationKeyPair: signer.creatorEncapsulationKeyPair,
       groupId: crypto.randomUUID(),
@@ -144,12 +149,14 @@ export async function signOrganizationHistory() {
     signingKeyPair,
   };
   const targetUserId = crypto.randomUUID();
+  const target = await createFixtureUserIdentity({ userId: targetUserId });
   const admin = await signGroupPolicy(signer, "Admins", null);
   const members = await signGroupPolicy(signer, "Members", null);
   const created = await signGroupPolicy(signer, "Private support name", admin);
   const initial = await organizationPolicyBundleFromInitialRequest(
     signer.organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: admin.currentState.principalId,
       memberGroupId: members.currentState.principalId,
       groupHeads: [principalPolicyHead(admin), principalPolicyHead(members)],
@@ -167,7 +174,13 @@ export async function signOrganizationHistory() {
   const added = await signedPrincipalPolicyBundle({
     memberEnvelopes: [],
     payloadCiphertext: created.currentPayload.ciphertext,
-    projection: [{ userId: targetUserId, role: "member" }],
+    projection: [
+      {
+        userId: targetUserId,
+        role: "member",
+        identityBundleFingerprint: target.identityBundleFingerprint,
+      },
+    ],
     previousStates: [
       {
         state: created.currentState,
@@ -196,6 +209,7 @@ export async function signOrganizationHistory() {
     members,
     signer,
     targetUserId,
+    targetIdentityResponse: target.response,
   };
 }
 
@@ -237,7 +251,11 @@ export function organizationHistoryFixtureFrom(history: OrganizationHistory) {
     next: PrincipalPolicyBundleResponse | null,
   ) => advanceDirectoryPolicy({ admin, created, next, previous, signer });
   const resolveTrustedUserIdentity = async (userId: string) =>
-    userId === signer.signerUserId ? signerIdentity : null;
+    userId === signer.signerUserId
+      ? signerIdentity
+      : userId === history.targetUserId
+        ? trustedUserIdentityFromResponse(history.targetIdentityResponse)
+        : null;
   const projectionBundles = [
     initial,
     afterCreation,

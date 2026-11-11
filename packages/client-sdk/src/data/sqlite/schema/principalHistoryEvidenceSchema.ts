@@ -19,6 +19,9 @@ export const principalHistoryPrefixes = sqliteTable(
     scopeId: text("scope_id").primaryKey(),
     organizationId: text("organization_id").notNull(),
     version: integer("version").notNull(),
+    identityBundleFormat: integer("identity_bundle_format")
+      .notNull()
+      .default(1),
     headJson: text("head_json").notNull(),
     currentJson: text("current_json").notNull(),
     progress: text("progress").notNull(),
@@ -50,6 +53,9 @@ export const principalHistoryEntries = sqliteTable(
     scopeId: text("scope_id").notNull(),
     organizationId: text("organization_id").notNull(),
     leafHash: text("leaf_hash").notNull(),
+    identityBundleFormat: integer("identity_bundle_format")
+      .notNull()
+      .default(1),
     entryJson: text("entry_json").notNull(),
   },
   (table) => [
@@ -97,9 +103,12 @@ export const principalHistoryNodes = sqliteTable(
 export const principalHistoryEvidenceTables = [
   {
     ...defineSqlTableSchema(principalHistoryPrefixes),
-    requiredColumns: ["current_json", "root_hash"],
+    requiredColumns: ["current_json", "root_hash", "identity_bundle_format"],
   },
-  defineSqlTableSchema(principalHistoryEntries),
+  {
+    ...defineSqlTableSchema(principalHistoryEntries),
+    requiredColumns: ["identity_bundle_format"],
+  },
   {
     ...defineSqlTableSchema(principalHistoryNodes),
     requiredColumns: ["reference_count"],

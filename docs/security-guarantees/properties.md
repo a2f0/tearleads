@@ -66,7 +66,11 @@ Policy verification requires the current signed state contract.
 
 ### Principal Payload And Projection Binding
 
-The principal state's `projectionRoot` must match the supplied projection. The
+The principal state's `projectionRoot` commits each member's user ID, role, and
+required `identityBundleFingerprint`, the complete
+[identity-link bundle commitment](../developer/trusted-user-identity.md#signed-member-identity-commitments).
+It must match the supplied projection; continuing members cannot change that
+bundle. `membershipRoot` remains an ID-set commitment. The
 state's `payloadCiphertextHash` must match the supplied encrypted payload. The
 state's `memberCount` must match the projection length. Its
 `memberEnvelopesRoot` must match the canonical exact envelope set.

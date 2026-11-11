@@ -34,6 +34,7 @@ test("registration binds a device-first root with locally hydrated metadata", as
     expect(local.container.organizationId).toBe("");
 
     const response = await registerIdentity({
+      identityTrustDomain: "https://api.example.test",
       apiClient: {
         registerUser: (...args) => respondToRegistration(args),
       },

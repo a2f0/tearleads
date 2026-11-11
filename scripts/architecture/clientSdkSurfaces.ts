@@ -35,6 +35,7 @@ const principalsDataSurface = [
   "principalHistoryProtection",
   "principalHistoryRuntime",
   "principalHistoryScopeProtection",
+  "principalIdentityCommitments",
   "principalKeyValidation",
   "principalMutationJournal",
   "principalMutationJournalRecord",

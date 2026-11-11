@@ -53,6 +53,7 @@ test("isRegistrationRequest", () => {
     },
     projection: [
       {
+        identityBundleFingerprint: "a".repeat(64),
         userId: userId,
         role: "admin" as const,
       },

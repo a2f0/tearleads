@@ -4,6 +4,7 @@ import {
   principalMembershipProjection,
   principalStates,
 } from "@tearleads/api-shared/schema";
+import { createPolicySigner } from "@tearleads/crypto/principal-policy-test-fixtures";
 import { isPrincipalPolicyPageResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { principalHistoryPreparationFixture } from "../../../test/helpers/principalHistoryPreparation";
@@ -130,6 +131,8 @@ test("later pages recheck live access rather than borrowing the pinned policy's 
     stateHash: head.stateHash,
     userId: attacker,
     role: "admin",
+    identityBundleFingerprint: (await createPolicySigner(attacker))
+      .identityBundleFingerprint,
   });
   await expect(
     readPrepared({

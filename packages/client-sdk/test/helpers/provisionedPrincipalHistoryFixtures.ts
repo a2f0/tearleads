@@ -141,6 +141,7 @@ export async function provisionOrganization(input: {
 }): Promise<CreateOrganizationRequest> {
   const captured: { request?: CreateOrganizationRequest } = {};
   await createOrganization({
+    identityTrustDomain: "https://api.example.test",
     apiClient: {
       createOrganization: async (value) => {
         captured.request = value;

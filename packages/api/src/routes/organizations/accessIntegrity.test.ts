@@ -9,6 +9,7 @@ import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
+import { registeredProjection } from "../../../test/helpers/policyProjection";
 import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
@@ -35,12 +36,15 @@ test("organization access rejects database-injected membership", async () => {
   );
   invariant(memberState, "expected Members policy state");
 
+  const [outsiderProjection] = await registeredProjection([
+    { userId: outsider.userId, role: "member" },
+  ]);
+  invariant(outsiderProjection, "expected outsider identity");
   await db.insert(principalMembershipProjection).values({
     principalType: "group",
     principalId: organization.memberGroupId,
     stateHash: memberState.stateHash,
-    userId: outsider.userId,
-    role: "member",
+    ...outsiderProjection,
   });
 
   const response = await routeApp.request(

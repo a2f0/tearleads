@@ -54,7 +54,11 @@ async function signGroupSuccessor(actor: TestUser, groupId: string) {
   invariant(payload, "expected the group payload");
   const projection = (
     await listCurrentPrincipalProjectionMembers("group", groupId, db)
-  ).map(({ role, userId }) => ({ role, userId }));
+  ).map(({ role, userId, identityBundleFingerprint }) => ({
+    role,
+    userId,
+    identityBundleFingerprint,
+  }));
   const principalKem = generateKemSeedAndKeyPair();
   const { memberEnvelopes, stateMembers } =
     await createPrincipalMemberEnvelopes({
@@ -95,6 +99,10 @@ async function signGroupSuccessor(actor: TestUser, groupId: string) {
 // and SQLite) / 134 (Postgres), commit 155 / 159. After: 117 / 119 and
 // 133 / 137. Once policy writes acknowledged heads instead of re-reading the
 // stored bundle: 114 / 116 and 127 / 131.
+// Full member-identity validation adds two set reads per operation (group and
+// organization policies): measured 116 / 129 on both PGlite and SQLite, versus
+// 114 / 127 with only that guard removed. Preserve PostgreSQL's existing two /
+// four transaction-control allowances; those are allowances, not measured here.
 test("group create and group policy commit stay within their statement budgets", async () => {
   const actor = createTestUser();
   await registerUser(actor);
@@ -121,6 +129,6 @@ test("group create and group policy commit stay within their statement budgets",
     }),
   );
 
-  expect(create).toBeLessThanOrEqual(116);
-  expect(commit).toBeLessThanOrEqual(131);
+  expect(create).toBeLessThanOrEqual(118);
+  expect(commit).toBeLessThanOrEqual(133);
 });

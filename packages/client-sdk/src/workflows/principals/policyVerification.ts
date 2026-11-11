@@ -1,5 +1,6 @@
 import type { PrincipalPolicySignerPublicKey } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { assertPrincipalIdentityCommitments } from "../../data/principals/principalIdentityCommitments";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
@@ -61,7 +62,7 @@ async function loadTrustedSignerPublicKey(input: {
 export async function collectPrincipalPolicySignerPublicKeys(input: {
   readonly bundle: Pick<
     PrincipalPolicyBundleResponse,
-    "currentState" | "previousStates"
+    "currentState" | "previousStates" | "currentProjection"
   >;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<
@@ -96,6 +97,13 @@ export async function collectPrincipalPolicySignerPublicKeys(input: {
     signerPublicKeysByKey.set(cacheKey, remoteSignerPublicKey.signerPublicKey);
   }
 
+  await assertPrincipalIdentityCommitments({
+    projections: [
+      ...input.bundle.previousStates.map((entry) => entry.projection),
+      input.bundle.currentProjection,
+    ],
+    resolveTrustedUserIdentity,
+  });
   return {
     signerPublicKeys: Array.from(signerPublicKeysByKey.values()),
   };

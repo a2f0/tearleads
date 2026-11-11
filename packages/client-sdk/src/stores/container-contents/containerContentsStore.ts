@@ -238,7 +238,7 @@ function createContainerSharingMethods(
         async (isCurrent) => {
           // Sharing admits the recipient, so a pin observed on first sight is
           // not enough: a verified identity link (or this device's keys) must
-          // have established it, or, for a read share, the signed roster. The
+          // have established it, or the full-bundle signed roster. The
           // check runs inside the write scope, which must still be current
           // once it returns.
           await state.runtime.requireVerifiedRecipient(userId, accessLevel);

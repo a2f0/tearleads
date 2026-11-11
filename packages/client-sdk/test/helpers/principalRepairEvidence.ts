@@ -14,6 +14,7 @@ export async function principalRepairEvidence(
   const { author, signingPublicKey } = input;
   const bundle = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
       groupId: crypto.randomUUID(),
       name: "Repair fixture",

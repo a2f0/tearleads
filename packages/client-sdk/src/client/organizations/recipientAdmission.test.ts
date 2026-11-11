@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { createFixtureUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import type { SecurityIncidentContext } from "../../data/shared/securityIncidents";
 import {
   isReportedRosterVouchedRecipient,
@@ -56,6 +57,7 @@ test("roster evidence that fails verification is recorded before the share fails
     "Members state envelopes do not match the signed state",
   );
 
+  const carol = await createFixtureUserIdentity({ userId: "carol" });
   const admission = isReportedRosterVouchedRecipient({
     evidence: {
       loadCurrentMembers: async () => {
@@ -65,8 +67,9 @@ test("roster evidence that fails verification is recorded before the share fails
         throw new Error("Unexpected history read");
       },
       loadPin: async () => ({
-        encapsulationKeyFingerprint: "a".repeat(64),
-        signingKeyFingerprint: "carol-signing",
+        encapsulationKeyFingerprint: carol.identity.encapsulationKeyFingerprint,
+        signingKeyFingerprint: carol.identity.signingKeyFingerprint,
+        identityBundleFingerprint: carol.identityBundleFingerprint,
         verified: false,
       }),
       loadStateEnvelopes: async () => null,
@@ -76,7 +79,8 @@ test("roster evidence that fails verification is recorded before the share fails
       events.push("reported");
       reports.push({ context, error });
     },
-    resolveTrustedUserIdentity: async () => ({ userId: "carol" }),
+    resolveTrustedUserIdentity: async (userId) =>
+      userId === carol.identity.userId ? carol.identity : null,
     userId: "carol",
   }).catch((error: unknown) => {
     events.push("rejected");

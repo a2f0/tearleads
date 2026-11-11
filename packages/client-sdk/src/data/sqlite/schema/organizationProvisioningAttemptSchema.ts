@@ -1,4 +1,9 @@
-import { sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
 
 /**
@@ -20,6 +25,9 @@ export const organizationProvisioningAttempts = sqliteTable(
     userId: text("user_id").notNull(),
     organizationId: text("organization_id").notNull(),
     rootContainerId: text("root_container_id").notNull(),
+    identityBundleFormat: integer("identity_bundle_format")
+      .notNull()
+      .default(1),
     serializedArtifacts: text("serialized_artifacts").notNull(),
     creationIntent: text("creation_intent"),
     createdAt: text("created_at").notNull(),
@@ -36,7 +44,7 @@ export const organizationProvisioningAttemptTables: ReadonlyArray<SqlTableSchema
   [
     {
       ...defineSqlTableSchema(organizationProvisioningAttempts),
-      requiredColumns: ["creation_intent"],
+      requiredColumns: ["creation_intent", "identity_bundle_format"],
     },
   ];
 

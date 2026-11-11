@@ -56,6 +56,14 @@ export function requireUserIdentityAvailable(
   return onUserIdentityAvailable;
 }
 
+export function requireSessionTrustDomain(input: {
+  readonly identityTrustDomain: string | null;
+}): string {
+  if (!input.identityTrustDomain)
+    throw new Error("Identity trust domain is unavailable");
+  return input.identityTrustDomain;
+}
+
 export function requireRegistrationIdentityPinner(input: {
   readonly identity: Identity;
   readonly identitySnapshot: IdentitySnapshot;

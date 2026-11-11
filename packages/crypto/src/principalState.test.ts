@@ -3,6 +3,10 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { generateKemSeedAndKeyPair } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
 import {
+  createPolicySigner,
+  policyMember,
+} from "./keying/principalPolicyTestFixtures";
+import {
   buildPrincipalStateSigningInput,
   computePrincipalMembershipRoot,
   computePrincipalProjectionRoot,
@@ -27,6 +31,9 @@ test("signPrincipalState normalizes members and produces a verifiable state hash
       userId: "alice",
     },
   ];
+  const alice = await createPolicySigner("alice");
+  const bob = await createPolicySigner("bob");
+  const projection = derivePrincipalProjectionMembers([bob, alice]);
   const signedState = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -38,7 +45,7 @@ test("signPrincipalState normalizes members and produces a verifiable state hash
       keyFingerprint: await toFingerprint(publicKey),
       members,
       memberEnvelopes: [],
-      projection: derivePrincipalProjectionMembers(members),
+      projection,
       grants: [],
       payloadCiphertext: "ciphertext-1",
       externalAuthority: null,
@@ -56,6 +63,16 @@ test("signPrincipalState normalizes members and produces a verifiable state hash
     true,
   );
   expect(await computePrincipalStateHash(signedState)).toHaveLength(64);
+  const canonicalProjection = [policyMember(alice), policyMember(bob)];
+  expect(projection).toEqual(canonicalProjection);
+  expect(signedState.projectionRoot).toBe(
+    await toFingerprint(
+      new TextEncoder().encode(JSON.stringify(canonicalProjection)),
+    ),
+  );
+  expect(await computePrincipalProjectionRoot([...projection].reverse())).toBe(
+    signedState.projectionRoot,
+  );
 });
 
 test("signPrincipalState computes membershipRoot and key fingerprint from normalized inputs", async () => {
@@ -89,7 +106,11 @@ test("signPrincipalState computes membershipRoot and key fingerprint from normal
       keyFingerprint: await toFingerprint(publicKey),
       members,
       memberEnvelopes: [],
-      projection: derivePrincipalProjectionMembers(members),
+      projection: derivePrincipalProjectionMembers(
+        await Promise.all(
+          members.map(({ userId }) => createPolicySigner(userId)),
+        ),
+      ),
       grants: [],
       payloadCiphertext: "ciphertext-2",
       externalAuthority: null,
@@ -164,20 +185,13 @@ test("principal roots reject duplicate members after normalization", async () =>
     ]),
   ).rejects.toThrow("Principal state cannot contain duplicate members");
 
+  const team = await createPolicySigner("team");
+  const alice = await createPolicySigner("alice");
   await expect(
     computePrincipalProjectionRoot([
-      {
-        userId: "team",
-        role: "member",
-      },
-      {
-        userId: "alice",
-        role: "member",
-      },
-      {
-        userId: "team",
-        role: "admin",
-      },
+      policyMember(team),
+      policyMember(alice),
+      policyMember(team, "admin"),
     ]),
   ).rejects.toThrow(
     "Principal state projection cannot contain duplicate members",
@@ -204,7 +218,11 @@ test("verifySignedPrincipalState rejects tampered membership roots", async () =>
       keyFingerprint: await toFingerprint(publicKey),
       members,
       memberEnvelopes: [],
-      projection: derivePrincipalProjectionMembers(members),
+      projection: derivePrincipalProjectionMembers(
+        await Promise.all(
+          members.map(({ userId }) => createPolicySigner(userId)),
+        ),
+      ),
       grants: [],
       payloadCiphertext: "ciphertext-3",
       externalAuthority: null,

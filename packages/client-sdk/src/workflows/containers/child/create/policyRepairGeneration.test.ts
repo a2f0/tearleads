@@ -102,6 +102,7 @@ test("container creation consumes a sixteen-bundle page and its remainder, then 
       bundles.push(
         await policyBundleFromInitialRequest(
           await buildInitialGroupPolicyRequest({
+            identityTrustDomain: "https://api.example.test",
             creatorEncapsulationKeyPair: memberKem,
             groupId: `group-${index}`,
             name: `Group ${index}`,
@@ -118,6 +119,7 @@ test("container creation consumes a sixteen-bundle page and its remainder, then 
     const organizationBundle = await organizationPolicyBundleFromInitialRequest(
       author.organizationId,
       await buildInitialOrganizationPolicyRequest({
+        identityTrustDomain: "https://api.example.test",
         adminGroupId: "group-0",
         memberGroupId: "group-1",
         organizationId: author.organizationId,

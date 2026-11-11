@@ -13,9 +13,9 @@ The system does not provide a universal guarantee that an honest client can
 detect every compromised-server behavior. A compromised server can still deny
 service, omit state, replay older valid state when the client has no
 [checkpoint](../glossary/sync.md#checkpoint), show split views to different clients
-without gossip or witnessing, or substitute identity keys on first contact with
-a user whose [identity link](../glossary/principals.md#identity-link) the client
-has not verified.
+without gossip or witnessing, or substitute identity keys on first contact
+without an independent anchor or an authenticated
+[Members chain](../developer/trusted-user-identity.md#roster-vouching).
 
 The confidentiality boundary is:
 
@@ -51,13 +51,15 @@ within that trust domain and checked in the same durable transaction. A new
 session without restored acknowledgments cannot bind a known signing identity to
 a different user. Later substitutions hard-fail, and policy verification also
 checks the signing fingerprint in signed state. Verifying signed state pins a
-referenced user on first sight (`observed`); only an independently exchanged
-identity link (`link`) or the device's own keys (`self`) admit a user as a
-contact, roster or group member, or share recipient. A read-only share
-recipient can also be admitted by the organization's signed roster when an
-admin this device verified signed the Members state that admitted them, for the
-encryption key that state commits. Neither mechanism proves global
-currentness.
+referenced user on first sight (`observed`). An independently exchanged
+[identity link](../glossary/principals.md#identity-link) (`link`) or the device's
+own keys (`self`) are admission anchors. Existing Members may also receive
+group membership and read, write, or admin shares through signed Members
+history that commits their complete identity bundle and reaches such an anchor.
+New or disabled Members enrollment, contacts, and roster-profile creation
+still require direct `self`/`link` trust. Chain admission trusts the assertions
+of every vouching admin, including careless or malicious ones; it does not
+upgrade pin provenance. Neither mechanism proves global currentness.
 
 ## Root And System Destinations
 

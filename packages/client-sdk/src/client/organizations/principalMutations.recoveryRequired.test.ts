@@ -39,7 +39,11 @@ for (const missing of ["custody", "pages"] as const) {
       try {
         const pending = {
           add: () =>
-            addUserToOrganizationGroup({ ...input, targetUserId: "peer" }),
+            addUserToOrganizationGroup({
+              admission: async () => {},
+              ...input,
+              targetUserId: "peer",
+            }),
           remove: () =>
             removeUserFromOrganizationGroup({
               ...input,

@@ -72,13 +72,16 @@ an expected setup-only batch, and `resume` continues with the queued audit work.
   Every suggested fix carries an explicit no-brick check. Prefer server-side
   enforcement at commit.
 - **Default out of scope:** equivocation and split view; cold-start rollback on
-  a device with no checkpoint; first-sight (`observed`) identity pins of
-  referenced users; key transparency,
+  a device with no checkpoint; first-sight (`observed`) identities without an
+  independent anchor or authenticated Members chain; false bindings vouched for
+  by trusted administrators; key transparency,
   witnesses, and semantic currentness (#2186 or its successor); pure
   availability or withholding; DoS and rate limits; residuals that
   `docs/security-guarantees/` already accepts.
 - **Documentation is a claim.** Anything `docs/security-guarantees/` promises
   that the code does not implement is a finding.
+- Pin-conflict bypasses and Members-chain admission without a `self`/`link`
+  anchor remain in scope; chain admission does not upgrade pin provenance.
 
 ## 1. Establish the baseline
 

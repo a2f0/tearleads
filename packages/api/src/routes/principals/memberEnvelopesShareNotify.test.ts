@@ -31,7 +31,7 @@ async function signSoloGroupState(
   actor: ReturnType<typeof createTestUser>,
   principalId: string,
 ) {
-  const projection = createProjectionWithAdminSigner(actor.userId, [
+  const projection = await createProjectionWithAdminSigner(actor.userId, [
     { userId: actor.userId },
   ]);
   const groupKem = generateKemSeedAndKeyPair();

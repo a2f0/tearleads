@@ -108,11 +108,17 @@ next step.
 ```
 
 Default `<EXCLUSIONS>`: equivocation and split view; cold-start rollback on a
-device with no checkpoint; first-sight (`observed`) pins of signers and other
-referenced users no identity link verified; key transparency,
+device with no checkpoint; first-sight (`observed`) identities without an
+independent anchor or authenticated Members chain; false bindings vouched for
+by trusted administrators; key transparency,
 witnesses, and semantic currentness (#2186 or its successor); pure availability
 or withholding; DoS and rate limits; residuals documented as accepted in
 `docs/security-guarantees/`; plus any exclusions the user added.
+
+Do not exclude pin-conflict bypasses or Members-chain admission without an
+independent `self`/`link` anchor. Chain admission authenticates the complete
+bundle for existing-member group adds and read/write/admin shares; it does not
+upgrade pin provenance or authorize new/disabled Members enrollment.
 
 Fill `<KNOWN_ISSUES>` with slice-relevant entries from the saved index, using
 the audit issues, their closing comments, and the "Not in scope" or follow-up

@@ -83,11 +83,7 @@ test("a user whose identity no link verified is not imported", async () => {
     expect(await store.importVerifiedUser("peer-user")).toBeNull();
     expect(requested).toEqual(["peer-user"]);
     expect(store.getSnapshot().entries).toEqual([]);
-    expect(
-      await runtime.documents.infra.execSql(
-        "SELECT COUNT(*) AS count FROM documents",
-      ),
-    ).toEqual([{ count: 0 }]);
+    expect(await countDocuments(runtime.documents.infra.execSql)).toBe(0);
   } finally {
     runtime.close();
   }

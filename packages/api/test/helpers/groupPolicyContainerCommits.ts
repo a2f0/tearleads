@@ -65,7 +65,7 @@ export async function putGroupPrincipalPolicy(input: {
   const members = [...(input.members ?? [{ userId: input.actor.userId }])];
   const projection = [
     ...(input.projection ??
-      createProjectionWithAdminSigner(input.actor.userId, members)),
+      (await createProjectionWithAdminSigner(input.actor.userId, members))),
   ];
   const isInitialState =
     (input.version ?? 1) === 1 && (input.prevStateHash ?? null) === null;

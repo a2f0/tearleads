@@ -7,6 +7,7 @@ import {
 } from "../../src/adapters/blobObjectStore";
 import type { ApiServiceRuntime } from "../../src/services/runtime";
 import { createRegistrationRequestBody } from "./api/submitRegistration";
+import { API_TEST_IDENTITY_TRUST_DOMAIN } from "./policyProjection";
 
 export function createServiceTestRuntime(
   db: ApiServiceRuntime["db"] = defaultDb,
@@ -17,6 +18,7 @@ export function createServiceTestRuntime(
   const values = new Map<string, string>();
 
   return {
+    identityTrustDomain: API_TEST_IDENTITY_TRUST_DOMAIN,
     blobObjectStore: overrides.blobObjectStore ?? createMemoryBlobObjectStore(),
     db,
     documentSyncCursorHmacKey: "tearleads-test-document-sync-cursor-hmac-key",

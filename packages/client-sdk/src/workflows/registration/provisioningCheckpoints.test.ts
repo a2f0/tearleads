@@ -195,6 +195,7 @@ test("organization provisioning pins every acknowledged access and policy head",
   try {
     const response = requireCoreResponse(
       await createOrganization({
+        identityTrustDomain: "https://api.example.test",
         apiClient: {
           createOrganization: async (value) => {
             request = value;
@@ -226,6 +227,7 @@ test("an incomplete provisioning acknowledgement persists no bootstrap state", a
   try {
     await expect(
       createOrganization({
+        identityTrustDomain: "https://api.example.test",
         apiClient: {
           createOrganization: async (value) => {
             request = value;

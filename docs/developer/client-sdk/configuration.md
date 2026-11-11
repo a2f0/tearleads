@@ -28,7 +28,7 @@ Client capabilities:
 | `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, exact-head history from verified policy storage, server-authoritative billing eligibility, and the user's own memberships with per-organization sync pauses (`memberships`; see [organization memberships](../../organization-memberships.md)) |
 | `tearleads.root` | platform-operator identity and organization lookups (paged directories and rosters, sessions, billing with the latest 50 billing events, data usage), the ops-health report, RevenueCat webhook deliveries, the root audit trail, and identity suspension, offered only when the session is root |
-| `tearleads.userIdentities` | identity-link `createLink` / `verifyLink`; `resolveVerified` and `createLinkFor` (link- or self-established pins only); the only way to admit a user |
+| `tearleads.userIdentities` | identity-link `createLink` / `verifyLink`; `resolveVerified` and `createLinkFor` (link- or self-established pins only); independent anchors for direct or Members-chain admission |
 | `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
 Prefer instance services so document and container stores share the active
@@ -291,8 +291,11 @@ trash bin, that every new organization is created with.
 `principalMutationTimeoutMs` (default 60 seconds) in
 [policy outcomes](../principal-policy-outcomes.md).
 
-HTTP uses `apiBaseUrl`; see [SDK hosting](../sdk-hosting.md) and
-[identity trust](../trusted-user-identity.md).
+HTTP uses `apiBaseUrl`; see [SDK hosting](../sdk-hosting.md).
+`identityTrustDomain` overrides the canonical API base URL for identity pins,
+links, and signed member bundle commitments. It must match the API's configured
+domain, including base paths; see
+[identity trust configuration](../trusted-user-identity.md#trust-domain-configuration).
 Use `database.client` for a SQLite worker client that implements
 `ExecSqlClientLike`; the SDK creates the canonical `ExecSql` adapter from it.
 Use `database.execSql` only when the host already owns executor construction.

@@ -1,6 +1,7 @@
 import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
 import type { TestUser } from "@tearleads/test-utils";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { API_TEST_IDENTITY_TRUST_DOMAIN } from "./policyProjection";
 
 /** A real member store; remote writes stay parked so its queued rename survives. */
 export async function createRehomeMemberStore(input: {
@@ -12,6 +13,7 @@ export async function createRehomeMemberStore(input: {
   const errors: unknown[] = [];
   const sdk = new Tearleads({
     apiBaseUrl: input.apiBaseUrl,
+    identityTrustDomain: API_TEST_IDENTITY_TRUST_DOMAIN,
     blobStoreFactory: () => createMemoryBlobStore(),
     database: { execSql: database.execSql, id: "rehome-member" },
     identityProvisioning: "manual",

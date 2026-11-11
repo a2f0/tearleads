@@ -51,7 +51,13 @@ function toPrincipalHistoryEntry(
 ): PrincipalPolicyStateChainEntry {
   return {
     state: toPrincipalStateResponse(entry.state),
-    projection: entry.projection.map(({ userId, role }) => ({ userId, role })),
+    projection: entry.projection.map(
+      ({ userId, role, identityBundleFingerprint }) => ({
+        userId,
+        role,
+        identityBundleFingerprint,
+      }),
+    ),
     grants: entry.grants.map(({ containerId, accessLevel }) => ({
       containerId,
       accessLevel,

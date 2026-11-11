@@ -6,6 +6,7 @@ import {
   createBundle,
   createPolicySigner,
   expectVerificationError,
+  policyMember,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
 
@@ -47,16 +48,20 @@ test.each([3, 2 ** 31 - 1, Number.MAX_SAFE_INTEGER])(
   async (keyEpoch) => {
     const signer = await createPolicySigner();
     const shared = { principalId: "epoch-jump", signer };
-    const members = [{ userId: signer.userId }, { userId: "removed" }];
+    const removed = await createPolicySigner("removed");
+    const projection = [policyMember(signer, "admin"), policyMember(removed)];
+    const members = projection.map(({ userId }) => ({ userId }));
     const first = await signPolicyState({
       ...shared,
       members,
+      projection,
       version: 1,
       prevStateHash: null,
     });
     const jump = await signPolicyState({
       ...shared,
       members,
+      projection,
       version: 2,
       prevStateHash: first.state.stateHash,
       keyEpoch,
@@ -90,6 +95,7 @@ test.each([3, 2 ** 31 - 1, Number.MAX_SAFE_INTEGER])(
     const second = await signPolicyState({
       ...shared,
       members,
+      projection,
       version: 2,
       prevStateHash: first.state.stateHash,
       keyEpoch: 2,

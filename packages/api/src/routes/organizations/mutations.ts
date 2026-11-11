@@ -46,6 +46,7 @@ export function createOrganizationMutationsRoute({
             organizationId,
             c.get("session").userId,
             c.req.valid("json"),
+            c.req.url,
           ),
         );
       } catch (error) {
@@ -81,6 +82,7 @@ export function createOrganizationMutationsRoute({
             groupId,
             c.get("session").userId,
             c.req.valid("json"),
+            c.req.url,
           ),
         );
       } catch (error) {

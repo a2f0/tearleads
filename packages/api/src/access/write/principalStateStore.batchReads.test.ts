@@ -194,8 +194,16 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
   const signer = await createPrincipalStateSigner(signingPublicKey);
   const firstPrincipalId = crypto.randomUUID();
   const secondPrincipalId = crypto.randomUUID();
-  const firstMemberId = crypto.randomUUID();
-  const secondMemberId = crypto.randomUUID();
+  const firstMemberId = (
+    await createPrincipalStateSigner(
+      generateSigningSeedAndKeyPair().signingPublicKey,
+    )
+  ).signerUserId;
+  const secondMemberId = (
+    await createPrincipalStateSigner(
+      generateSigningSeedAndKeyPair().signingPublicKey,
+    )
+  ).signerUserId;
   const firstKem = generateKemSeedAndKeyPair();
   const secondKem = generateKemSeedAndKeyPair();
   const firstProjection = [

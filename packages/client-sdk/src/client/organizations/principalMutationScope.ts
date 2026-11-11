@@ -17,6 +17,7 @@ export function currentOrganizationMutation(
         (allowTokenRenewal
           ? current.apiClient === runtime.apiClient
           : service.sessionGeneration === sessionGeneration) &&
+        current.identityTrustDomain === runtime.identityTrustDomain &&
         current.infra.dbStatus === "ready" &&
         current.infra.execSql === runtime.infra.execSql &&
         current.state.domainScope === runtime.state.domainScope &&

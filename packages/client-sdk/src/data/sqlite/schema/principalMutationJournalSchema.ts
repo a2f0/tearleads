@@ -1,4 +1,4 @@
-import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { defineSqlTableSchema } from "../sqlTableSchema";
 
 /** Authored work survives cache resets and remains until its outcome is known. */
@@ -7,11 +7,17 @@ export const principalMutationJournal = sqliteTable(
   {
     scopeId: text("scope_id").primaryKey(),
     organizationId: text("organization_id").notNull(),
+    identityBundleFormat: integer("identity_bundle_format")
+      .notNull()
+      .default(1),
     serializedRequest: text("serialized_request").notNull(),
     signature: text("signature").notNull(),
   },
 );
 
 export const principalMutationJournalTables = [
-  defineSqlTableSchema(principalMutationJournal),
+  {
+    ...defineSqlTableSchema(principalMutationJournal),
+    requiredColumns: ["identity_bundle_format"],
+  },
 ];

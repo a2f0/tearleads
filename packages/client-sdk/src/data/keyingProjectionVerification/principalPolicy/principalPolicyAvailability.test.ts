@@ -18,6 +18,7 @@ test("an unavailable organization signer defers external authorization without a
   const organization = await principalPolicyBundleFromInitialPolicy({
     principalId: organizationId,
     policy: await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: fixture.admin.currentState.principalId,
       memberGroupId: fixture.subject.currentState.principalId,
       groupHeads: [

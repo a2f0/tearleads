@@ -50,12 +50,14 @@ export async function createRotatedGroupPolicy(input: {
   initialMemberKem?: EncapsulationKeyPair | undefined;
   initialUserId?: string | undefined;
   memberKem: EncapsulationKeyPair;
+  memberSigningPublicKey?: Uint8Array;
   signingPublicKey: Uint8Array;
   userId: string;
 }) {
   const groupId = "cold-login-group";
   const initialUserId = input.initialUserId ?? input.userId;
   const initialRequest = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: input.initialMemberKem ?? input.memberKem,
     grants: [{ accessLevel: "read", containerId: input.containerId }],
     groupId,
@@ -73,6 +75,9 @@ export async function createRotatedGroupPolicy(input: {
     groupId,
     groupKem: generateKemSeedAndKeyPair(),
     memberPublicKey: input.memberKem.publicKey,
+    ...(input.memberSigningPublicKey
+      ? { memberSigningPublicKey: input.memberSigningPublicKey }
+      : {}),
     previousBundle: initial,
     signedAt: new Date(
       Date.parse(initial.currentState.signedAt) + 1_000,

@@ -73,6 +73,7 @@ test("ordinary retry survives closing SQLite and rolls back an unsuccessful comp
   };
   const create = () =>
     createOrganization({
+      identityTrustDomain: "https://api.example.test",
       ...creator,
       apiClient,
       dbClient: connection.dbClient,
@@ -138,6 +139,7 @@ test("concurrent ordinary calls adopt one intent and both complete bootstrap", a
     ReturnType<typeof respondToOrganizationProvisioning>
   >();
   const input = {
+    identityTrustDomain: "https://api.example.test",
     ...creator,
     dbClient: connection.dbClient,
     apiClient: {
@@ -192,6 +194,7 @@ test("pending ordinary attempts are scoped by the whole creation intent and user
     },
   };
   const input = {
+    identityTrustDomain: "https://api.example.test",
     ...creator,
     apiClient,
     dbClient: connection.dbClient,
@@ -203,7 +206,10 @@ test("pending ordinary attempts are scoped by the whole creation intent and user
       ...input,
       rosterProfileNickname: "Different nickname",
     });
-    await createOrganization({ ...input, userId: crypto.randomUUID() });
+    await createOrganization({
+      ...input,
+      userId: crypto.randomUUID(),
+    });
     await createOrganization(input);
     expect(requests[3]).toEqual(requests[0]);
     expect(
@@ -223,6 +229,7 @@ test("acknowledgement binds an unprovisioned device-first root", async () => {
   const connection = await openConnection(`/${crypto.randomUUID()}.db`);
   try {
     const response = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       ...identity(),
       dbClient: connection.dbClient,
       apiClient: {
@@ -267,6 +274,7 @@ test("ordinary adoption preserves later metadata and fills only missing bootstra
   const connection = await openConnection(`/${crypto.randomUUID()}.db`);
   const requests: CreateOrganizationRequest[] = [];
   const input = {
+    identityTrustDomain: "https://api.example.test",
     ...identity(),
     dbClient: connection.dbClient,
     apiClient: {

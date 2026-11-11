@@ -25,6 +25,9 @@ export const principalPolicyBundles = sqliteTable(
     principalId: text("principal_id").notNull(),
     stateHash: text("state_hash").notNull(),
     isCurrent: integer("is_current", { mode: "boolean" }).notNull(),
+    identityBundleFormat: integer("identity_bundle_format")
+      .notNull()
+      .default(1),
     currentStateJson: text("current_state_json").notNull(),
     currentPayloadJson: text("current_payload_json").notNull(),
     currentProjectionJson: text("current_projection_json").notNull(),
@@ -103,7 +106,10 @@ export const principalPolicyCheckpointTable = {
 };
 
 export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(principalPolicyBundles),
+  {
+    ...defineSqlTableSchema(principalPolicyBundles),
+    requiredColumns: ["identity_bundle_format"],
+  },
   defineSqlTableSchema(principalPolicyBundleReferences),
   principalPolicyCheckpointTable,
   ...principalHistoryStageTables,

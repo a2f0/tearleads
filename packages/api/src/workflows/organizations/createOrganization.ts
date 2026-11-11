@@ -29,17 +29,12 @@ import {
 import { validateOrganizationReplacementAuthorization } from "./organizationReplacementAuthorization";
 import {
   type OrganizationProvisioningSigner,
-  type ProvisionOrganizationOptions,
   provisionOrganizationInTransaction,
   toOrganizationProvisioningError,
 } from "./provisionOrganization";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
 import { toOrganizationProvisioningResponse } from "./provisionOrganizationResponse";
 import { validateOrganizationProvisioningInput } from "./provisionOrganizationValidation";
-
-const ADDITIONAL_ORGANIZATION_OPTIONS: ProvisionOrganizationOptions = {
-  initialBilling: "local",
-};
 
 function nativeRestoreRequestSha256(input: CreateOrganizationRequest): string {
   return sha256Hex(
@@ -278,6 +273,7 @@ async function finalizeReplacementDefaultOrganization(
 export async function runCreateOrganizationWorkflow(
   db: ApiDatabase,
   input: CreateOrganizationRequest,
+  identityTrustDomain: string,
 ): Promise<CreateOrganizationResponse> {
   if (
     input.nativeSubscriptionRestore &&
@@ -339,7 +335,7 @@ export async function runCreateOrganizationWorkflow(
         tx,
         input,
         signer,
-        ADDITIONAL_ORGANIZATION_OPTIONS,
+        { initialBilling: "local", identityTrustDomain },
       );
       const response: CreateOrganizationResponse = {
         ...toOrganizationProvisioningResponse(input.userId, provisioned),

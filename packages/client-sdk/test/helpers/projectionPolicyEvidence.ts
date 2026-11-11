@@ -28,6 +28,7 @@ export async function createProjectionPolicyEvidence(input: {
   };
   const members = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       name: "Members",
       groupId: crypto.randomUUID(),
       creatorEncapsulationKeyPair: input.encapsulationKeyPair,
@@ -40,6 +41,7 @@ export async function createProjectionPolicyEvidence(input: {
     input.admins ??
     (await policyBundleFromInitialRequest(
       await buildInitialGroupPolicyRequest({
+        identityTrustDomain: "https://api.example.test",
         name: "Admins",
         groupId: crypto.randomUUID(),
         creatorEncapsulationKeyPair: input.encapsulationKeyPair,
@@ -51,6 +53,7 @@ export async function createProjectionPolicyEvidence(input: {
   const organization = await organizationPolicyBundleFromInitialRequest(
     input.author.organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: admins.currentState.principalId,
       memberGroupId: members.currentState.principalId,
       groupHeads: [

@@ -16,7 +16,7 @@ test("principal policy sync hard-fails without fetching or repairing an invalid 
   );
 
   try {
-    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
     await ensurePrincipalPolicyTables(execSql);
     await savePrincipalPolicyBundle(
       execSql,
@@ -40,7 +40,7 @@ test("principal policy sync hard-fails without fetching or repairing an invalid 
           policyReadCount += 1;
           return bundle;
         },
-        getUserIdentity: async () => signerKeyResponse,
+        getUserIdentity,
         references: [referencedPrincipalStateFromBundle(bundle)],
       }),
     ).rejects.toMatchObject({

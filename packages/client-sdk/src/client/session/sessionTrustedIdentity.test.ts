@@ -31,6 +31,7 @@ async function createLoginHarness(
   const identity = createIdentity({}, noIdentityChange, () => undefined);
   await setGeneratedIdentity(identity);
   const session = createSession({
+    identityTrustDomain: "https://api.example.test",
     api,
     database: new Database(),
     identity,
@@ -195,6 +196,7 @@ test("registration does not publish server context before local identity trust",
     "Local identity does not match its durable pin",
   );
   const session = createSession({
+    identityTrustDomain: "https://api.example.test",
     api,
     boundUserIdForSigningKey: async () => null,
     database: new Database({

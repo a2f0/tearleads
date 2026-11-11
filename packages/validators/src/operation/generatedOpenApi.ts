@@ -3466,6 +3466,7 @@ export type components = {
             })[];
             /** @description The complete membership with roles after this state. */
             projection: ({
+                identityBundleFingerprint: string;
                 /** @enum {string} */
                 role: "member" | "admin";
                 userId: string;
@@ -3896,6 +3897,7 @@ export type components = {
         };
         /** @description One member of a principal and their role. */
         PrincipalProjectionMemberResponse: {
+            identityBundleFingerprint: string;
             /** @enum {string} */
             role: "member" | "admin";
             userId: string;
@@ -4058,6 +4060,7 @@ export type components = {
             })[];
             /** @description The complete membership with roles after this state. */
             projection: ({
+                identityBundleFingerprint: string;
                 /** @enum {string} */
                 role: "member" | "admin";
                 userId: string;

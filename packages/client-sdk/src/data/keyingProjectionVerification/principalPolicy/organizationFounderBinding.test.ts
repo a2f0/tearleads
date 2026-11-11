@@ -42,6 +42,7 @@ test.each([1, 2])(
       const impostor = await organizationPolicyBundleFromInitialRequest(
         artifacts.organizationId,
         await buildInitialOrganizationPolicyRequest({
+          identityTrustDomain: "https://api.example.test",
           organizationId: artifacts.organizationId,
           adminGroupId: artifacts.initialAdminGroup.groupId,
           memberGroupId: artifacts.initialMemberGroup.groupId,

@@ -36,6 +36,7 @@ export async function createCurrentShareMetadataFixture(
   const signerUserId = crypto.randomUUID();
   const signer = { signerUserId, signingFingerprint, signingKeyPair };
   const artifacts = await buildOrganizationProvisioningArtifacts({
+    identityTrustDomain: "https://api.example.test",
     encapsulationKeyPair: keyPair,
     signingKeyPair,
     userId: signerUserId,
@@ -61,6 +62,7 @@ export async function createCurrentShareMetadataFixture(
   };
   const group = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       ...signer,
       creatorEncapsulationKeyPair: keyPair,
       groupId: crypto.randomUUID(),

@@ -223,7 +223,13 @@ test("a late-delivered group successor is accepted, and a regression, a removed 
       prevStateHash: adminV1.state.stateHash,
       keyEpoch: 2,
       members: [{ userId: replacementAdmin.userId }],
-      projection: [{ userId: replacementAdmin.userId, role: "admin" }],
+      projection: [
+        {
+          userId: replacementAdmin.userId,
+          role: "admin",
+          identityBundleFingerprint: replacementAdmin.identityBundleFingerprint,
+        },
+      ],
       signer: removedAdmin,
     }),
   );

@@ -26,7 +26,10 @@ import {
   policyBundleFromInitialRequest,
   policyReceiptFromBundle,
 } from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import {
+  createFixtureUserIdentity,
+  createTestTrustedUserIdentity,
+} from "../../../../test/helpers/trustedUserIdentity";
 import {
   acknowledgeGroupPolicyBundle,
   acknowledgeGroupPolicyState,
@@ -43,6 +46,7 @@ async function acknowledgementFixture() {
     signingKeyPair.signingPublicKey,
   );
   const initialRequest = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: creatorKem,
     groupId: crypto.randomUUID(),
     name: "Operators",
@@ -175,12 +179,16 @@ test("group policy state acknowledgement rejects a version gap", async () => {
 
 test("group policy acknowledgements reject altered projection and envelopes", async () => {
   const fixture = await acknowledgementFixture();
+  const injected = await createFixtureUserIdentity({
+    userId: crypto.randomUUID(),
+  });
   const alteredRequest: PutPrincipalPolicyRequest = {
     ...fixture.mutation,
     projection: [
       ...fixture.mutation.projection,
       {
-        userId: crypto.randomUUID(),
+        userId: injected.identity.userId,
+        identityBundleFingerprint: injected.identityBundleFingerprint,
         role: "member",
       },
     ],

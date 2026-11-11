@@ -30,6 +30,7 @@ afterEach(cleanup);
 async function fixture() {
   const signing = generateSigningSeedAndKeyPair();
   const group = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
     groupId: crypto.randomUUID(),
     builtinRole: "admins",

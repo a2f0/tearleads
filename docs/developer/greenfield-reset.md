@@ -35,6 +35,32 @@ Authoritative details:
 [production Postgres](../../terraform/stacks/prod/postgres/README.md), and
 [blob storage](../../terraform/modules/r2-object-storage/README.md).
 
+## Identity-bound principal format
+
+The complete member identity commitment introduced by
+[#2847](https://github.com/a2f0/tearleads/issues/2847) is a reset-only protocol
+change. Every signed principal projection now requires
+`identityBundleFingerprint`, bound into its `projectionRoot`. Filling an old
+row from today's identity endpoint would change the signed projection; there
+is no backfill, legacy-envelope fallback, or mixed-format rollout.
+
+Before deploying this format to an existing environment, separately authorize
+and perform the selected environment's reset. Apply the regenerated Postgres or
+SQLite baseline, deploy matching API and client builds, and use fresh client
+databases. The API identity trust domain and every client's configured domain
+must agree, including any API base path; see
+[identity trust configuration](trusted-user-identity.md#trust-domain-configuration).
+
+Old local principal caches, saved history, pending principal mutations, and
+organization provisioning attempts cannot be resumed under the new format.
+The SDK refuses obsolete tables before changing them. Local backup version 17
+requires the new projection format and rejects older backups; relabeling an old
+backup is not a migration. Do not silently erase identity pins or checkpoints
+to bypass a refusal. Clearing local data is an explicit security reset, as
+described under [existing client devices](#external-and-operational-state-to-address).
+
+Merging the format change does not perform or authorize a deployed-data reset.
+
 ## Preflight before downtime
 
 Use a new private run directory, `umask 077`, and a lock identifying the active

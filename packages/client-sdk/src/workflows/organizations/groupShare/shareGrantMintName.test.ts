@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
@@ -31,7 +30,11 @@ test("minting a group grant without the chosen name fails closed", async () => {
   const groupId = "group-1";
   const groupPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
-      creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
+      identityTrustDomain: "https://api.example.test",
+      creatorEncapsulationKeyPair: {
+        publicKey: parent.encapsulationPublicKey,
+        secretKey: parent.secretKey,
+      },
       groupId,
       name: "Admins",
       signerUserId: author.signerUserId,
@@ -42,6 +45,7 @@ test("minting a group grant without the chosen name fails closed", async () => {
   const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     parent.projection.organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: groupId,
       encapsulationPublicKey: parent.encapsulationPublicKey,
       groupHeads: [

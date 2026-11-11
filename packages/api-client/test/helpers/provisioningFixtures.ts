@@ -34,7 +34,9 @@ function initialPolicy(
         wrappedKey: "wrapped-key",
       },
     ],
-    projection: [{ role: "admin", userId }],
+    projection: [
+      { identityBundleFingerprint: "a".repeat(64), role: "admin", userId },
+    ],
     state: {
       encapsulationPublicKey: "public-key",
       externalAuthority: null,

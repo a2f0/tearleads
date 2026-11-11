@@ -281,8 +281,21 @@ checks that persistent
 [fingerprint-to-user bindings](../docs/developer/trusted-user-identity.md#pinning)
 survive session recreation and stay unique per
 [trust domain](../docs/glossary/principals.md#identity-trust-domain), and that only
-[link or self pins](../docs/glossary/principals.md#identity-pin) admit. See the
+[link or self pins](../docs/glossary/principals.md#identity-pin) directly admit
+identities and new roster enrollments. See the
 [mapping and boundaries](./local-trust/DurableIdentityBinding.md).
+
+### Members Identity Commitments and Admission
+
+[MemberIdentityCommitment](./local-trust/MemberIdentityCommitment.md) checks that
+the signed group/organization projection commits the complete identity-link
+bundle and that continuing members cannot change it.
+[MemberIdentityChain](./local-trust/MemberIdentityChain.md) adds operation-local
+transitive authentication from self/link roots through earlier Members admission
+events, including departed signers. Its two configurations check twenty explicit
+scenario machines, resource bounds, unsafe-admission refusal, and eventual
+acceptance of valid bounded proofs. Neither model is a cryptographic proof or
+an implementation-trace replay; persistent pin provenance remains unchanged.
 
 ### Queued Document Creation
 

@@ -173,6 +173,7 @@ test("owned page bytes and returned snapshots cannot alter verified progress", a
   const projection = result.value.currentEntry.projection as {
     userId: string;
     role: "admin" | "member";
+    identityBundleFingerprint: string;
   }[];
   projection.splice(0);
   expect(

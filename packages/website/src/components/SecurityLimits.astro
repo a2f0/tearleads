@@ -12,7 +12,7 @@ import SectionHeader from "./SectionHeader.astro";
 const limits = [
   {
     term: "First contact establishes trust",
-    body: "Each device pins the first identity bundle it accepts and rejects later changes. Adding someone to Contacts, the roster, or a group, or sharing a folder with them, requires their identity link, whose keys are checked before anything is added, so send links through a channel you already trust. Checking a signer still trusts the service's first answer, and a server that substitutes a key there can show a false signer, though that key cannot be used to add anyone. A link does not prove that a key is still current.",
+    body: "Each device rejects changes to pinned identity keys. Adding contacts or enrolling new or returning organization members requires directly verified identity links. Existing members can receive group membership or read, write, and admin shares through signed Members history rooted in the device's own keys or a verified link. This trusts every vouching administrator, including their mistakes or malice. First-sight signer checks alone cannot admit someone. Exchange links through a trusted channel; neither links nor chains prove currentness.",
   },
   {
     term: "Checkpoints cover what a device has seen",

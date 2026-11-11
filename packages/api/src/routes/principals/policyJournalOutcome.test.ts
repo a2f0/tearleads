@@ -11,6 +11,7 @@ import {
 import { createTestExecSql, createTestUser } from "@tearleads/test-utils";
 import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { identityBoundRouteApp as routeApp } from "../../../test/helpers/identityBoundRouteApp";
 import {
   buildOrganizationGroupPolicyCommitRequest,
   createPolicyTestGroup,
@@ -20,7 +21,6 @@ import {
 import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
-import { routeApp } from "../../routeApp";
 
 test("SDK journal recovers a lost HTTP acknowledgement after a later policy commit", async () => {
   const actor = createTestUser();

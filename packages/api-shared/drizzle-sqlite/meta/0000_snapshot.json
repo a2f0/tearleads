@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "23a9cbd6-01e2-4243-a18c-a25d6645141a",
+  "id": "0f2f5991-fc87-444b-959d-7604ebec7f9c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_events": {
@@ -4147,6 +4147,13 @@
         },
         "user_id": {
           "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "identity_bundle_fingerprint": {
+          "name": "identity_bundle_fingerprint",
           "type": "text",
           "primaryKey": false,
           "notNull": true,

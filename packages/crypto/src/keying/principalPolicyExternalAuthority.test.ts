@@ -6,6 +6,7 @@ import {
   createBundle,
   createPolicySigner,
   expectVerificationError,
+  policyMember,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
 
@@ -43,10 +44,7 @@ test("verifyPrincipalPolicyBundle accepts external admin signers for successors 
   });
   const secondProjection: PrincipalProjectionMember[] = [
     ...first.entry.projection,
-    {
-      userId: externalAdmin.userId,
-      role: "member",
-    },
+    policyMember(externalAdmin, "member"),
   ];
   const second = await signPolicyState({
     principalId,
@@ -95,12 +93,7 @@ test("verifyPrincipalPolicyBundle accepts external admin signers for successors 
     version: 1,
     prevStateHash: null,
     members: [{ userId: principalAdmin.userId }],
-    projection: [
-      {
-        userId: principalAdmin.userId,
-        role: "admin",
-      },
-    ],
+    projection: [policyMember(principalAdmin, "admin")],
     externalAuthority: adminHead,
     signer: externalAdmin,
   });
@@ -130,12 +123,7 @@ test("historical admin authority permits writes until a newer citation is observ
     prevStateHash: adminV1.state.stateHash,
     keyEpoch: 2,
     members: [{ userId: replacementAdmin.userId }],
-    projection: [
-      {
-        userId: replacementAdmin.userId,
-        role: "admin",
-      },
-    ],
+    projection: [policyMember(replacementAdmin, "admin")],
     signer: removedAdmin,
   });
   const toHead = (state: typeof adminV1.state) => ({

@@ -25,6 +25,7 @@ export async function organizationAdoptionFixture() {
   const founder = await createFounder();
   const requests: CreateOrganizationRequest[] = [];
   const input = {
+    identityTrustDomain: "https://api.example.test",
     dbClient: execSqlClientFromExecSql(execSql),
     encapsulationKeyPair: founder.encapsulationKeyPair,
     signingKeyPair: founder.signingKeyPair,

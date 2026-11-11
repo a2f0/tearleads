@@ -1,169 +1,85 @@
 import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import type { CurrentPrincipalMemberEnvelopesResponse } from "@tearleads/validators/response";
 import {
-  AES_GCM_TAG_BYTES,
-  computePrincipalMemberEnvelopesRoot,
-  KeyingVerificationError,
-  ML_KEM1024_CIPHERTEXT_BYTES,
-  ML_KEM1024_SECRET_KEY_BYTES,
-  type ReferencedPrincipalHead,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
-import type {
-  CurrentPrincipalMemberEnvelopesResponse,
-  PrincipalMemberEnvelopeResponse,
-  PrincipalPolicyStateChainEntryResponse,
-} from "@tearleads/validators/response";
-import {
-  isRosterVouchedRecipient,
-  type RosterAdmissionEvidence,
-  type RosterAdmissionPin,
-} from "./rosterVouchedAdmission";
+  evidence,
+  GOOD_KEY,
+  membersHistory,
+  pin,
+  SUBSTITUTED_KEY,
+  VERIFIED_ADMIN_A,
+} from "./rosterAdmission.testFixtures";
+import { isRosterVouchedRecipient } from "./rosterVouchedAdmission";
 
-const MEMBERS_ID = "members-group";
-const GOOD_KEY = "a".repeat(64);
-const SUBSTITUTED_KEY = "b".repeat(64);
-const KEM_CIPHERTEXT = bytesToBase64(
-  new Uint8Array(ML_KEM1024_CIPHERTEXT_BYTES),
-);
-const WRAPPED_KEY = bytesToBase64(
-  new Uint8Array(ML_KEM1024_SECRET_KEY_BYTES + AES_GCM_TAG_BYTES),
-);
+test("a pinned signing-key substitution fails even when the encryption key is unchanged", async () => {
+  const fixture = await membersHistory([
+    { members: { "admin-a": "c".repeat(64) }, signer: "admin-a" },
+    {
+      members: { "admin-a": "c".repeat(64), carol: GOOD_KEY },
+      signer: "admin-a",
+    },
+  ]);
+  await expect(
+    isRosterVouchedRecipient(
+      "carol",
+      evidence(fixture, {
+        ...VERIFIED_ADMIN_A,
+        carol: {
+          ...(await pin("carol", false)),
+          identityBundleFingerprint: SUBSTITUTED_KEY,
+        },
+      }),
+    ),
+  ).rejects.toBeInstanceOf(KeyingVerificationError);
+});
 
-interface StateSpec {
-  /** Member user id -> committed encryption-key fingerprint. */
-  readonly members: Readonly<Record<string, string>>;
-  readonly signer: string;
-}
+test("a current committed KEM substitution is a hard identity mismatch", async () => {
+  const fixture = await membersHistory([
+    {
+      members: { "admin-a": "c".repeat(64), carol: SUBSTITUTED_KEY },
+      signer: "admin-a",
+    },
+  ]);
+  await expect(
+    isRosterVouchedRecipient(
+      "carol",
+      evidence(fixture, {
+        ...VERIFIED_ADMIN_A,
+        carol: await pin("carol", false),
+      }),
+    ),
+  ).rejects.toMatchObject({ code: "hash_mismatch" });
+});
 
-interface Fixture {
-  readonly entries: PrincipalPolicyStateChainEntryResponse[];
-  readonly envelopesByHash: Map<string, PrincipalMemberEnvelopeResponse[]>;
-}
-
-function envelopesFor(
-  members: StateSpec["members"],
-): PrincipalMemberEnvelopeResponse[] {
-  return Object.entries(members).map(([userId, memberKeyFingerprint]) => ({
-    kemCipherText: KEM_CIPHERTEXT,
-    memberKeyFingerprint,
-    userId,
-    wrappedKey: WRAPPED_KEY,
-  }));
-}
-
-// A verified Members history: one signed state per spec, version 1 first.
-async function membersHistory(specs: readonly StateSpec[]): Promise<Fixture> {
-  const entries: PrincipalPolicyStateChainEntryResponse[] = [];
-  const envelopesByHash = new Map<string, PrincipalMemberEnvelopeResponse[]>();
-  for (const [index, spec] of specs.entries()) {
-    const version = index + 1;
-    const envelopes = envelopesFor(spec.members);
-    const stateHash = `members-state-${version}`;
-    envelopesByHash.set(stateHash, envelopes);
-    entries.push({
-      grants: [],
-      projection: Object.keys(spec.members).map((userId) => ({
-        role: userId === "admin-a" || userId === "admin-b" ? "admin" : "member",
-        userId,
-      })),
-      state: {
-        createdAt: "2026-11-01T00:00:00.000Z",
-        encapsulationPublicKey: "group-key",
-        externalAuthority: null,
-        grantCount: 0,
-        grantRoot: "grant-root",
-        keyEpoch: version,
-        keyFingerprint: `members-key-${version}`,
-        memberCount: envelopes.length,
-        memberEnvelopesRoot:
-          await computePrincipalMemberEnvelopesRoot(envelopes),
-        membershipMode: "projection",
-        membershipRoot: `membership-root-${version}`,
-        payloadCiphertextHash: "payload-hash",
-        prevStateHash: version === 1 ? null : `members-state-${version - 1}`,
-        principalId: MEMBERS_ID,
-        principalType: "group",
-        projectionRoot: `projection-root-${version}`,
-        signature: "signature",
-        signedAt: "2026-11-01T00:00:00.000Z",
-        signerUserId: spec.signer,
-        signerUserKeyFingerprint: `${spec.signer}-signing`,
-        stateHash,
-        version,
+test("a transitively vouched admin may admit a member after that admin has departed", async () => {
+  const a = "c".repeat(64);
+  const b = "d".repeat(64);
+  const fixture = await membersHistory([
+    { members: { "admin-a": a }, signer: "admin-a" },
+    { members: { "admin-a": a, "admin-b": b }, signer: "admin-a" },
+    {
+      members: { "admin-a": a, "admin-b": b, carol: GOOD_KEY },
+      signer: "admin-b",
+    },
+    { members: { "admin-a": a, carol: GOOD_KEY }, signer: "admin-a" },
+  ]);
+  let pages = 0;
+  const served = evidence(fixture, {
+    ...VERIFIED_ADMIN_A,
+    "admin-b": await pin("admin-b", false, b),
+    carol: await pin("carol", false),
+  });
+  expect(
+    await isRosterVouchedRecipient("carol", {
+      ...served,
+      async loadHistoryPage(...args) {
+        pages += 1;
+        return served.loadHistoryPage(...args);
       },
-    });
-  }
-  return { entries, envelopesByHash };
-}
-
-function headOf(fixture: Fixture): ReferencedPrincipalHead {
-  const { state } = fixture.entries.at(-1) ?? {};
-  if (!state) throw new Error("Members history is empty");
-  return {
-    keyEpoch: state.keyEpoch,
-    keyFingerprint: state.keyFingerprint,
-    principalId: state.principalId,
-    principalType: "group",
-    stateHash: state.stateHash,
-    version: state.version,
-  };
-}
-
-// Pages of two states, newest last, as the verified history reader serves them.
-function evidence(
-  fixture: Fixture,
-  pins: Readonly<Record<string, RosterAdmissionPin>>,
-  overrides: Partial<RosterAdmissionEvidence> = {},
-): RosterAdmissionEvidence {
-  const head = headOf(fixture);
-  return {
-    async loadCurrentMembers() {
-      return {
-        envelopes: fixture.envelopesByHash.get(head.stateHash) ?? [],
-        head,
-      };
-    },
-    async loadHistoryPage(_head, beforeVersion) {
-      const end = (beforeVersion ?? head.version + 1) - 1;
-      const start = Math.max(1, end - 1);
-      return {
-        entries: fixture.entries.slice(start - 1, end),
-        nextBeforeVersion: start > 1 ? start : null,
-        predecessor: fixture.entries[start - 2] ?? null,
-      };
-    },
-    async loadPin(userId) {
-      return pins[userId] ?? null;
-    },
-    async loadStateEnvelopes(state) {
-      const envelopes = fixture.envelopesByHash.get(state.stateHash);
-      return envelopes
-        ? {
-            envelopes,
-            epoch: state.keyEpoch,
-            principalId: state.principalId,
-            principalType: state.principalType,
-            stateHash: state.stateHash,
-          }
-        : null;
-    },
-    ...overrides,
-  };
-}
-
-function pin(
-  userId: string,
-  verified: boolean,
-  encapsulationKeyFingerprint = GOOD_KEY,
-): RosterAdmissionPin {
-  return {
-    encapsulationKeyFingerprint,
-    signingKeyFingerprint: `${userId}-signing`,
-    verified,
-  };
-}
-
-const VERIFIED_ADMIN_A = { "admin-a": pin("admin-a", true, "c".repeat(64)) };
+    }),
+  ).toBe(true);
+  expect(pages).toBe(2);
+});
 
 test("a member added by an admin this device verified is vouched for", async () => {
   // Carol joins at version 2; later states (one per page boundary) keep her.
@@ -194,7 +110,10 @@ test("a member added by an admin this device verified is vouched for", async () 
   expect(
     await isRosterVouchedRecipient(
       "carol",
-      evidence(fixture, { ...VERIFIED_ADMIN_A, carol: pin("carol", false) }),
+      evidence(fixture, {
+        ...VERIFIED_ADMIN_A,
+        carol: await pin("carol", false),
+      }),
     ),
   ).toBe(true);
 });
@@ -212,8 +131,8 @@ test("an addition signed by an admin this device only observed vouches for no on
     await isRosterVouchedRecipient(
       "carol",
       evidence(fixture, {
-        "admin-b": pin("admin-b", false, "c".repeat(64)),
-        carol: pin("carol", false),
+        "admin-b": await pin("admin-b", false, "c".repeat(64)),
+        carol: await pin("carol", false),
       }),
     ),
   ).toBe(false);
@@ -235,15 +154,15 @@ test("a key substituted after the vouched addition is refused", async () => {
     },
   ]);
 
-  expect(
-    await isRosterVouchedRecipient(
+  await expect(
+    isRosterVouchedRecipient(
       "carol",
       evidence(fixture, {
         ...VERIFIED_ADMIN_A,
-        carol: pin("carol", false, SUBSTITUTED_KEY),
+        carol: await pin("carol", false, SUBSTITUTED_KEY),
       }),
     ),
-  ).toBe(false);
+  ).rejects.toBeInstanceOf(KeyingVerificationError);
 });
 
 // After a removal, a re-addition starts a new membership; an earlier vouched
@@ -265,7 +184,10 @@ test("only the addition that started the current membership vouches", async () =
   expect(
     await isRosterVouchedRecipient(
       "carol",
-      evidence(fixture, { ...VERIFIED_ADMIN_A, carol: pin("carol", false) }),
+      evidence(fixture, {
+        ...VERIFIED_ADMIN_A,
+        carol: await pin("carol", false),
+      }),
     ),
   ).toBe(false);
 });
@@ -282,7 +204,10 @@ test("a removed member is not vouched for", async () => {
   expect(
     await isRosterVouchedRecipient(
       "carol",
-      evidence(fixture, { ...VERIFIED_ADMIN_A, carol: pin("carol", false) }),
+      evidence(fixture, {
+        ...VERIFIED_ADMIN_A,
+        carol: await pin("carol", false),
+      }),
     ),
   ).toBe(false);
 });
@@ -296,18 +221,18 @@ test("a signer whose pinned key differs from the state's signing key is refused"
     },
   ]);
 
-  expect(
-    await isRosterVouchedRecipient(
+  await expect(
+    isRosterVouchedRecipient(
       "carol",
       evidence(fixture, {
         "admin-a": {
-          ...pin("admin-a", true, "c".repeat(64)),
+          ...(await pin("admin-a", true, "c".repeat(64))),
           signingKeyFingerprint: "another-signing-key",
         },
-        carol: pin("carol", false),
+        carol: await pin("carol", false),
       }),
     ),
-  ).toBe(false);
+  ).rejects.toBeInstanceOf(KeyingVerificationError);
 });
 
 test("envelopes that do not match the vouching state's signed root are rejected", async () => {
@@ -324,7 +249,7 @@ test("envelopes that do not match the vouching state's signed root are rejected"
   ]);
   const served = evidence(fixture, {
     ...VERIFIED_ADMIN_A,
-    carol: pin("carol", false),
+    carol: await pin("carol", false),
   });
 
   const result = isRosterVouchedRecipient("carol", {
@@ -359,7 +284,7 @@ test("malformed envelopes for the vouching state fail as verification errors", a
   ]);
   const served = evidence(fixture, {
     ...VERIFIED_ADMIN_A,
-    carol: pin("carol", false),
+    carol: await pin("carol", false),
   });
 
   const result = isRosterVouchedRecipient("carol", {

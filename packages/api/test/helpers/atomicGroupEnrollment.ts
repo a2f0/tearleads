@@ -13,6 +13,7 @@ import { getCurrentPrincipalState } from "../../src/access/read/principalStateSt
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
 import { createGroupRequest } from "./organizationGroup";
 import { withGroupMembershipContainerMutations } from "./organizationMembershipGrants";
+import { registeredProjection } from "./policyProjection";
 import {
   buildOrganizationGroupPolicyCommitRequest,
   getDefaultOrganizationId,
@@ -57,7 +58,10 @@ export async function createAtomicEnrollmentFixture(groupAfterMembers = false) {
       actor,
       current,
       grants: current.grants,
-      projection: [...current.projection, { userId: member.userId, role }],
+      projection: await registeredProjection([
+        ...current.projection,
+        { userId: member.userId, role },
+      ]),
     });
     return withGroupMembershipContainerMutations({
       actor,

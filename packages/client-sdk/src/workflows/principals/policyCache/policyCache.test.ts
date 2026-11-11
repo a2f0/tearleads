@@ -24,7 +24,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
   );
 
   try {
-    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
     const directory = await createPolicyDirectoryFixture({
       organizationId: "org-1",
       group: bundle,
@@ -39,7 +39,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
         getCurrentPrincipalPolicyCallCount += 1;
         return bundle;
       },
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
@@ -58,7 +58,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
         getCurrentPrincipalPolicyCallCount += 1;
         return bundle;
       },
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
@@ -74,7 +74,7 @@ test("principal policy sync fetches a newer referenced state when an older bundl
   );
 
   try {
-    const { bundle, signerKeyResponse } =
+    const { bundle, getUserIdentity } =
       await createSuccessorPrincipalPolicyBundle();
     const directory = await createPolicyDirectoryFixture({
       organizationId: "org-1",
@@ -97,7 +97,7 @@ test("principal policy sync fetches a newer referenced state when an older bundl
         getCurrentPrincipalPolicyCallCount += 1;
         return bundle;
       },
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
@@ -116,7 +116,7 @@ test("principal policy sync verifies successor state from the fetched chain when
   );
 
   try {
-    const { bundle, signerKeyResponse } =
+    const { bundle, getUserIdentity } =
       await createSuccessorPrincipalPolicyBundle();
     const directory = await createPolicyDirectoryFixture({
       organizationId: "org-1",
@@ -129,7 +129,7 @@ test("principal policy sync verifies successor state from the fetched chain when
       organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       log: (message) => logs.push(message),
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
@@ -149,7 +149,7 @@ test("principal policy sync caches current state when the reference points at a 
   );
 
   try {
-    const { bundle, signerKeyResponse } =
+    const { bundle, getUserIdentity } =
       await createSuccessorPrincipalPolicyBundle();
     const directory = await createPolicyDirectoryFixture({
       organizationId: "org-1",
@@ -166,7 +166,7 @@ test("principal policy sync caches current state when the reference points at a 
       organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       log: (message) => logs.push(message),
       references: [referencedPrincipalStateFromPolicyState(previousState)],
     });
@@ -186,7 +186,7 @@ test("principal policy sync reuses and re-verifies a cached successor for a hist
   );
 
   try {
-    const { bundle, signerKeyResponse } =
+    const { bundle, getUserIdentity } =
       await createSuccessorPrincipalPolicyBundle();
     const directory = await createPolicyDirectoryFixture({
       organizationId: "org-1",
@@ -209,9 +209,9 @@ test("principal policy sync reuses and re-verifies a cached successor for a hist
           policyReadCount += 1;
           return bundle;
         },
-        getUserIdentity: async () => {
-          signerReadCount += 1;
-          return signerKeyResponse;
+        getUserIdentity: async (userId) => {
+          if (userId === bundle.currentState.signerUserId) signerReadCount += 1;
+          return getUserIdentity(userId);
         },
         references,
       });
@@ -222,7 +222,7 @@ test("principal policy sync reuses and re-verifies a cached successor for a hist
     expect(policyReadCount).toBe(1);
     // Reusing the stored bundle still runs normal signature verification; it is
     // a network-read optimization, not a trusted-object shortcut.
-    expect(signerReadCount).toBe(2);
+    expect(signerReadCount).toBe(4);
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
     ).resolves.toEqual(bundle);
@@ -237,7 +237,7 @@ test("principal policy sync rejects shrinking successors that reuse the key epoc
   );
 
   try {
-    const { bundle, signerKeyResponse } =
+    const { bundle, getUserIdentity } =
       await createSuccessorPrincipalPolicyBundle({
         shrinkWithoutRotation: true,
       });
@@ -246,7 +246,7 @@ test("principal policy sync rejects shrinking successors that reuse the key epoc
         organizationId: "org-1",
         execSql,
         getCurrentPrincipalPolicy: async () => bundle,
-        getUserIdentity: async () => signerKeyResponse,
+        getUserIdentity,
         references: [referencedPrincipalStateFromBundle(bundle)],
       }),
     ).rejects.toMatchObject({
@@ -267,7 +267,7 @@ test("principal policy sync rejects bundles whose projection does not match the 
   );
 
   try {
-    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
     await ensurePrincipalPolicyTables(execSql);
     const [firstProjectionMember, ...remainingProjection] =
       bundle.currentProjection;
@@ -290,7 +290,7 @@ test("principal policy sync rejects bundles whose projection does not match the 
         organizationId: "org-1",
         execSql,
         getCurrentPrincipalPolicy: async () => tamperedBundle,
-        getUserIdentity: async () => signerKeyResponse,
+        getUserIdentity,
         references: [referencedPrincipalStateFromBundle(bundle)],
       }),
     ).rejects.toMatchObject({
@@ -391,7 +391,7 @@ test("principal policy sync rejects bundles when the signer key does not match",
   );
 
   try {
-    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
     await ensurePrincipalPolicyTables(execSql);
 
     await expect(
@@ -399,10 +399,12 @@ test("principal policy sync rejects bundles when the signer key does not match",
         organizationId: "org-1",
         execSql,
         getCurrentPrincipalPolicy: async () => bundle,
-        getUserIdentity: async () => ({
-          ...signerKeyResponse,
-          signingKeyFingerprint: "mismatched-fingerprint",
-        }),
+        getUserIdentity: async (userId) => {
+          const identity = await getUserIdentity(userId);
+          return identity
+            ? { ...identity, signingKeyFingerprint: "mismatched-fingerprint" }
+            : null;
+        },
         references: [referencedPrincipalStateFromBundle(bundle)],
       }),
     ).rejects.toMatchObject({

@@ -9,7 +9,7 @@ import {
   unwrapContainerKekPath,
   uploadDocumentAttachment,
 } from "@tearleads/client-sdk";
-import { createTestTrustedUserIdentityResolver } from "@tearleads/client-sdk/testing";
+
 import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   readKeyingCanonicalJson,
@@ -23,6 +23,7 @@ import {
   blobAttachmentSummaryFromStagedBind,
 } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { trustedResolver } from "../../../test/helpers/coldSdkRematerialization";
 import { documentFixtureFromWriterProjection } from "../../../test/helpers/documentAcknowledgementFixture";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import {
@@ -97,19 +98,11 @@ test("SDK decrypts a historical binding after ancestor head changes and document
   const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
     Object.assign(fetchHandler, { preconnect: originalFetch.preconnect }),
   );
-  const identities = [owner, firstReader, secondReader].map((user) => ({
-    userId: user.userId,
-    resolve: createTestTrustedUserIdentityResolver({
-      encapsulationPublicKey: user.kem.publicKey,
-      signingKeyFingerprint: user.fingerprint,
-      signingPublicKey: user.signing.signingPublicKey,
-      userId: user.userId,
-    }),
-  }));
-  const resolveProjectionUserKey = async (userId: string) =>
-    identities
-      .find((identity) => identity.userId === userId)
-      ?.resolve(userId) ?? null;
+  const resolveProjectionUserKey = trustedResolver(
+    owner,
+    firstReader,
+    secondReader,
+  );
   const warmReferencedPrincipalPolicies = withProjectionHistoryRecovery({
     apiClient,
     execSql,

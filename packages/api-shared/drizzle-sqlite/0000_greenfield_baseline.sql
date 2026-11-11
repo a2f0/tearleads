@@ -665,6 +665,7 @@ CREATE TABLE `principal_membership_projection` (
 	`principal_id` text NOT NULL,
 	`state_hash` text NOT NULL,
 	`user_id` text NOT NULL,
+	`identity_bundle_fingerprint` text NOT NULL,
 	`role` text NOT NULL,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );

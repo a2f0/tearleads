@@ -10,7 +10,7 @@ import invariant from "invariant";
 
 export async function createPrincipalMemberEnvelopes(input: {
   readonly principalSecretKey: Uint8Array;
-  readonly projection: readonly PrincipalProjectionMember[];
+  readonly projection: readonly Pick<PrincipalProjectionMember, "userId">[];
 }) {
   const stateMembers = input.projection.map((member) => ({
     userId: member.userId,

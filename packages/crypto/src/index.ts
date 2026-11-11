@@ -429,3 +429,4 @@ export {
   decryptWithDek,
   encryptWithDek,
 } from "./symmetric";
+export { computeUserIdentityBundleFingerprint } from "./userIdentityBundle";

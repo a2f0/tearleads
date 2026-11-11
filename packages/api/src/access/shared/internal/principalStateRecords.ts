@@ -38,6 +38,7 @@ export interface StoredPrincipalProjectionMember {
   stateHash: string;
   userId: string;
   role: PrincipalProjectionRole;
+  identityBundleFingerprint: string;
   createdAt: Date;
 }
 
@@ -118,6 +119,8 @@ export const principalProjectionMemberSelect = {
   stateHash: principalMembershipProjection.stateHash,
   userId: principalMembershipProjection.userId,
   role: principalMembershipProjection.role,
+  identityBundleFingerprint:
+    principalMembershipProjection.identityBundleFingerprint,
   createdAt: principalMembershipProjection.createdAt,
 } as const;
 
@@ -152,6 +155,7 @@ interface PrincipalProjectionMemberRow {
   stateHash: string;
   userId: string;
   role: PrincipalProjectionRole;
+  identityBundleFingerprint: string;
   createdAt: Date;
 }
 
@@ -212,6 +216,7 @@ export function toStoredProjectionMember(
     stateHash: row.stateHash,
     userId: row.userId,
     role: row.role,
+    identityBundleFingerprint: row.identityBundleFingerprint,
     createdAt: row.createdAt,
   };
 }
@@ -265,7 +270,7 @@ export function normalizePrincipalStateWriteInput(
 }
 
 export function projectionMemberKey(member: PrincipalProjectionMember): string {
-  return `${member.userId}:${member.role}`;
+  return `${member.userId}:${member.role}:${member.identityBundleFingerprint}`;
 }
 
 export function principalStateProjectionKey(input: {

@@ -14,6 +14,7 @@ import {
 } from "../../../test/helpers/organizationGroup";
 import { joinOrg } from "../../../test/helpers/organizationMembership";
 import { withGroupMembershipContainerMutations } from "../../../test/helpers/organizationMembershipGrants";
+import { registeredProjection } from "../../../test/helpers/policyProjection";
 import {
   getDefaultOrganizationId,
   loadVerifiedPrincipalPolicy,
@@ -59,13 +60,13 @@ async function commitMembers(input: {
     actor: input.owner,
     current,
     grants: current.grants,
-    projection: [
+    projection: await registeredProjection([
       { userId: input.owner.userId, role: "admin" },
       ...input.members.map(({ userId }) => ({
         userId,
         role: "member" as const,
       })),
-    ],
+    ]),
   });
   return submitOrganizationGroupPolicyCommit({
     actor: input.owner,

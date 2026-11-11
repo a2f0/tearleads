@@ -101,7 +101,7 @@ async function storeGroupPolicy(input: {
   version: number;
 }): Promise<StoredPrincipalState> {
   const groupKem = generateKemSeedAndKeyPair();
-  const projection = createProjectionWithAdminSigner(
+  const projection = await createProjectionWithAdminSigner(
     input.signerUserId,
     input.members,
   );

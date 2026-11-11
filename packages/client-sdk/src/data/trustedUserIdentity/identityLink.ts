@@ -1,11 +1,7 @@
-import { toFingerprint } from "@tearleads/crypto";
+import { computeUserIdentityBundleFingerprint } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { resolveIdentityTrustDomain } from "./trustDomain";
-import {
-  TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,
-  TRUSTED_USER_IDENTITY_SIGNING_SUITE,
-  type ValidatedUserIdentityCandidate,
-} from "./types";
+import type { ValidatedUserIdentityCandidate } from "./types";
 import { assertTrustedUserIdentityUserId } from "./validation";
 
 const LINK_PATH = "/app/contacts/import/";
@@ -115,19 +111,7 @@ export function parseIdentityLink(value: string): IdentityLinkExpectation {
 export function identityLinkFingerprint(
   identity: ValidatedUserIdentityCandidate,
 ): Promise<string> {
-  return toFingerprint(
-    new TextEncoder().encode(
-      JSON.stringify([
-        "tearleads.identity-link.v1",
-        identity.identityTrustDomain,
-        identity.userId,
-        TRUSTED_USER_IDENTITY_SIGNING_SUITE,
-        bytesToBase64(identity.signingPublicKey),
-        TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,
-        bytesToBase64(identity.encapsulationPublicKey),
-      ]),
-    ),
-  );
+  return computeUserIdentityBundleFingerprint(identity);
 }
 
 export async function createIdentityLink(

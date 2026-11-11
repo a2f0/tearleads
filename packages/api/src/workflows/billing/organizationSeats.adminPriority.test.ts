@@ -47,6 +47,7 @@ async function insertGroupState(input: {
       principalId: input.groupId,
       stateHash: input.stateHash,
       userId,
+      identityBundleFingerprint: `unverified-seat-fixture-${userId}`,
       role: "member" as const,
     })),
   );

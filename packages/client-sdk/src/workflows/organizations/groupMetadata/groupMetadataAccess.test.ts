@@ -44,6 +44,7 @@ async function fixture() {
       : ownerResolver(userId);
   const metadata = await createTestGroupMetadataProjection(parent);
   const request = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
     groupId: "private-custom-group",
     name: "Confidential team",
@@ -262,6 +263,7 @@ test("a name that does not open under its cited key is unreadable for that group
     // other key material; the API can check the citation, never the ciphertext.
     const poisoned = await policyBundleFromInitialRequest(
       await buildInitialGroupPolicyRequest({
+        identityTrustDomain: "https://api.example.test",
         creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
         groupId: "poisoned-group",
         name: "Unopenable",

@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { groupPolicyPayload } from "./groupPolicyPayload";
 import { withGroupMembershipContainerMutations } from "./organizationMembershipGrants";
+import { registeredProjection } from "./policyProjection";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
 import {
   loadVerifiedPrincipalPolicy,
@@ -45,19 +46,22 @@ async function updateMemberGroupUsers(
   const existingProjection = currentProjection.map((member) => ({
     userId: member.userId,
     role: member.role,
+    identityBundleFingerprint: member.identityBundleFingerprint,
   }));
   const projection = normalizePrincipalProjectionMembers(
-    operation === "add"
-      ? [
-          ...existingProjection,
-          ...input.memberUserIds.map((userId) => ({
-            userId,
-            role: "member" as const,
-          })),
-        ]
-      : existingProjection.filter(
-          (member) => !input.memberUserIds.includes(member.userId),
-        ),
+    await registeredProjection(
+      operation === "add"
+        ? [
+            ...existingProjection,
+            ...input.memberUserIds.map((userId) => ({
+              userId,
+              role: "member" as const,
+            })),
+          ]
+        : existingProjection.filter(
+            (member) => !input.memberUserIds.includes(member.userId),
+          ),
+    ),
   );
   const payloadCiphertext = await groupPolicyPayload(
     organization.memberGroupId,

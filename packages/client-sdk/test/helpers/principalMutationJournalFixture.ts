@@ -24,6 +24,7 @@ export async function principalMutationJournalFixture(
     signingFingerprint: await toFingerprint(signingKeyPair.signingPublicKey),
   };
   const group = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: kem,
     groupId: crypto.randomUUID(),
     name: "Journal fixture",
@@ -35,6 +36,7 @@ export async function principalMutationJournalFixture(
   const memberGroupId = crypto.randomUUID();
   const memberGroup = includeEnrollment
     ? await buildInitialGroupPolicyRequest({
+        identityTrustDomain: "https://api.example.test",
         creatorEncapsulationKeyPair: kem,
         groupId: memberGroupId,
         name: "Members",
@@ -47,6 +49,7 @@ export async function principalMutationJournalFixture(
     ? await policyBundleFromInitialRequest(memberGroup)
     : null;
   const organizationPolicy = await buildInitialOrganizationPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     adminGroupId: group.groupId,
     memberGroupId,
     organizationId: scope.organizationId,

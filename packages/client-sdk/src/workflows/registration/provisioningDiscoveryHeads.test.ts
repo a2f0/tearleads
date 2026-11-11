@@ -36,6 +36,7 @@ async function provision(
   respond: typeof respondToOrganizationProvisioning = respondToOrganizationProvisioning,
 ) {
   return createOrganization({
+    identityTrustDomain: "https://api.example.test",
     apiClient: { createOrganization: respond },
     dbClient: execSqlClientFromExecSql(execSql),
     encapsulationKeyPair: generateKemSeedAndKeyPair(),

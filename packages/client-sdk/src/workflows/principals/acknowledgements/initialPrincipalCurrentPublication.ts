@@ -43,7 +43,7 @@ export async function prepareInitialGroupCurrentPublication(
       "Initial group publication must begin at its exact genesis",
     );
   const keys = await collectPrincipalPolicySignerPublicKeys({
-    bundle: { currentState: current.currentState, previousStates: [] },
+    bundle: { ...current, previousStates: [] },
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if ("error" in keys)

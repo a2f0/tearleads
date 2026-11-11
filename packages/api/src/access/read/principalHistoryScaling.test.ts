@@ -47,6 +47,7 @@ async function seed(principalType: "group" | "organization") {
       principalId: row.principalId,
       stateHash: row.stateHash,
       userId: user.userId,
+      identityBundleFingerprint: `unverified-sql-shape-${user.userId}`,
       role: row.version % 2 ? ("admin" as const) : ("member" as const),
     })),
   );

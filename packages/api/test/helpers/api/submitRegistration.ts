@@ -1,6 +1,7 @@
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
+  computeUserIdentityBundleFingerprint,
   generateKemSeedAndKeyPair,
   signPrincipalState,
   toFingerprint,
@@ -9,6 +10,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import { routeApp } from "../../../src/routeApp";
+import { API_TEST_IDENTITY_TRUST_DOMAIN } from "../policyProjection";
 import { createRegistrationBootstrap } from "../registration/bootstrap";
 import {
   createInitialAdminGroupRequest,
@@ -16,6 +18,7 @@ import {
 } from "../registration/initialGroups";
 
 async function createInitialOrganizationPolicy(input: {
+  identityTrustDomain: string;
   adminGroupId: string;
   encapsulationPublicKey: Uint8Array;
   groupHeads: readonly {
@@ -37,6 +40,8 @@ async function createInitialOrganizationPolicy(input: {
     {
       userId: input.userId,
       role: "admin" as const,
+      identityBundleFingerprint:
+        await computeUserIdentityBundleFingerprint(input),
     },
   ];
   const payloadCiphertext = bytesToBase64(
@@ -127,6 +132,7 @@ export async function createRegistrationRequestBody(
   signingPrivateKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
   options: {
+    identityTrustDomain?: string;
     userId?: string | undefined;
     organizationId?: string | undefined;
     rootContainerId?: string | undefined;
@@ -135,11 +141,14 @@ export async function createRegistrationRequestBody(
     includeTrashSystemContainer?: boolean | undefined;
   } = {},
 ): Promise<RegistrationRequest> {
+  const identityTrustDomain =
+    options.identityTrustDomain ?? API_TEST_IDENTITY_TRUST_DOMAIN;
   const userId = options.userId ?? crypto.randomUUID();
   const organizationId = options.organizationId ?? crypto.randomUUID();
   const rootContainerId = options.rootContainerId ?? crypto.randomUUID();
   const organizationMetadataContainerId = crypto.randomUUID();
   const initialAdminGroup = await createInitialAdminGroupRequest({
+    identityTrustDomain,
     encapsulationPublicKey,
     grants: [
       { containerId: rootContainerId, accessLevel: "admin" },
@@ -150,6 +159,7 @@ export async function createRegistrationRequestBody(
     userId,
   });
   const initialMemberGroup = await createInitialMemberGroupRequest({
+    identityTrustDomain,
     encapsulationPublicKey,
     grants: [
       { containerId: organizationMetadataContainerId, accessLevel: "read" },
@@ -186,6 +196,7 @@ export async function createRegistrationRequestBody(
     initialAdminGroup,
     initialMemberGroup,
     initialOrganizationPolicy: await createInitialOrganizationPolicy({
+      identityTrustDomain,
       adminGroupId: initialAdminGroup.groupId,
       encapsulationPublicKey,
       groupHeads: await Promise.all(

@@ -3,6 +3,7 @@ import type { BlobObjectStore } from "../adapters/blobObjectStore";
 import { createDefaultBlobObjectStore } from "../adapters/defaultBlobObjectStore";
 import { del, get, getdel, set } from "../adapters/keyValueStore";
 import { publish } from "../adapters/pubSub";
+import { readApiIdentityTrustDomain } from "../apiIdentityTrustDomain";
 import {
   createSession,
   destroyUserSession,
@@ -33,6 +34,7 @@ export interface SessionTokenIssuer {
 }
 
 export interface ApiServiceRuntime {
+  readonly identityTrustDomain: string | null;
   blobObjectStore: BlobObjectStore;
   db: typeof db;
   documentSyncCursorHmacKey: string;
@@ -43,6 +45,7 @@ export interface ApiServiceRuntime {
 
 function buildDefaultApiServiceRuntime(): ApiServiceRuntime {
   return {
+    identityTrustDomain: readApiIdentityTrustDomain(),
     blobObjectStore: createDefaultBlobObjectStore(),
     db,
     documentSyncCursorHmacKey: readDocumentSyncCursorHmacKey(),

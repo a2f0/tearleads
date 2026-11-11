@@ -12,6 +12,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { advanceKeyingCheckpointsAtomically } from "../keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import {
   ensurePrincipalPolicyTables,
@@ -28,19 +29,30 @@ async function createPrincipalPolicyBundle() {
     generateSigningSeedAndKeyPair();
   const signerUserId = "signer-user-1";
   const signerUserKeyFingerprint = await toFingerprint(signingPublicKey);
+  const signerKem = generateKemSeedAndKeyPair();
+  const aliceKem = generateKemSeedAndKeyPair();
+  const signer = await createFixtureUserIdentity({
+    userId: signerUserId,
+    signingPublicKey,
+    encapsulationPublicKey: signerKem.publicKey,
+  });
+  const alice = await createFixtureUserIdentity({
+    userId: "alice",
+    encapsulationPublicKey: aliceKem.publicKey,
+  });
   const currentProjection = [
     {
       userId: signerUserId,
+      identityBundleFingerprint: signer.identityBundleFingerprint,
       role: "admin" as const,
     },
     {
       userId: "alice",
+      identityBundleFingerprint: alice.identityBundleFingerprint,
       role: "member" as const,
     },
   ];
   const payloadCiphertext = "ciphertext-1";
-  const signerKem = generateKemSeedAndKeyPair();
-  const aliceKem = generateKemSeedAndKeyPair();
   const recipientIds = [signerUserId, "alice"];
   const wrappedRecipients = await wrapDekForRecipients(principalKem.secretKey, [
     signerKem.publicKey,

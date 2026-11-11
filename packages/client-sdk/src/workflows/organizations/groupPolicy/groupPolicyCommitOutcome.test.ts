@@ -15,6 +15,7 @@ for (const kind of ["cancelled", "outcome-unknown"] as const) {
   test(`policy submission preserves ${kind} without reporting or retrying it`, async () => {
     const signingKeyPair = generateSigningSeedAndKeyPair();
     const request = await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
       groupId: crypto.randomUUID(),
       name: "Operators",

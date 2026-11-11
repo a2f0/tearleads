@@ -11,6 +11,7 @@ import {
 } from "./principalPolicyHistoryTestFixtures";
 import {
   createPolicySigner,
+  policyMember,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
 import type { KeyingVerificationResult } from "./verificationError";
@@ -26,6 +27,10 @@ async function fixture() {
     signer,
     principalId: "managed-policy",
     members: [{ userId: signer.userId }, { userId: "member" }],
+    projection: [
+      policyMember(signer, "admin"),
+      policyMember(await createPolicySigner("member")),
+    ],
     grants: [{ containerId: "shared-container", accessLevel: "read" }],
     version: 1,
     prevStateHash: null,

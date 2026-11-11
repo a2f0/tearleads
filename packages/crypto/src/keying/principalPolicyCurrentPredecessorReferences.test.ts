@@ -9,6 +9,7 @@ import {
   createBundle,
   createPolicySigner,
   expectVerificationError,
+  policyMember,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
 import type { KeyingVerificationResult } from "./verificationError";
@@ -21,16 +22,20 @@ function accepted<T>(result: KeyingVerificationResult<T>): T {
 async function fixture() {
   const signer = await createPolicySigner();
   const shared = { signer, principalId: "selected-predecessor" };
-  const members = [{ userId: signer.userId }, { userId: "removed-user" }];
+  const removed = await createPolicySigner("removed-user");
+  const projection = [policyMember(signer, "admin"), policyMember(removed)];
+  const members = projection.map(({ userId }) => ({ userId }));
   const first = await signPolicyState({
     ...shared,
     members,
+    projection,
     version: 1,
     prevStateHash: null,
   });
   const second = await signPolicyState({
     ...shared,
     members,
+    projection,
     version: 2,
     keyEpoch: 2,
     prevStateHash: first.state.stateHash,

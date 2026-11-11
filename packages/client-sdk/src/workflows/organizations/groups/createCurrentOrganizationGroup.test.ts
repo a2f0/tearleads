@@ -85,6 +85,7 @@ async function fixture(fallback = false) {
   const metadata = testGroupMetadataAccess(history.organizationId);
   const create = (name: string) => {
     const input = {
+      identityTrustDomain: "https://api.example.test",
       apiClient: f.apiClient,
       creatorEncapsulationKeyPair: history.creatorEncapsulationKeyPair,
       execSql: f.options.execSql,

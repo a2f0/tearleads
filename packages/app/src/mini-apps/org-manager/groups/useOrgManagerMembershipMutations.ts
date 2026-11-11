@@ -131,19 +131,19 @@ async function addUserToSelectedGroup(
     logError: params.logError,
     operationOrganizationId,
     run: async () => {
-      // A directory selection must already be link-verified; anyone else
-      // needs an identity link. The SDK refuses an unverified member too.
-      const verifiedUser = await resolveGroupIdentity({
+      // Active roster selections reach the SDK's authoritative admission.
+      // Only an identity link can directly admit a new roster member.
+      const candidate = await resolveGroupIdentity({
         directoryUser,
         value: targetUserId,
         ...identities,
       });
       if (!params.isOperationActive(operationOrganizationId)) return;
-      const verifiedDirectoryUser = params.directory?.users.find(
-        (user) => user.userId === verifiedUser.userId,
+      const candidateDirectoryUser = params.directory?.users.find(
+        (user) => user.userId === candidate.userId,
       );
       if (
-        verifiedDirectoryUser?.status === "disabled" &&
+        candidateDirectoryUser?.status === "disabled" &&
         !params.selectedGroupIsMembersGroup
       ) {
         params.setError(ORG_MANAGER_LABELS.userNotFound);
@@ -155,7 +155,7 @@ async function addUserToSelectedGroup(
         isOperationActive: params.isOperationActive,
         operationOrganizationId,
         orgManagerActions: params.orgManagerActions,
-        targetUserId: verifiedUser.userId,
+        targetUserId: candidate.userId,
       });
       if (!mutationResult) {
         return;

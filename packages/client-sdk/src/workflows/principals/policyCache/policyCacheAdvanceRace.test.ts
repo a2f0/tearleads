@@ -52,12 +52,13 @@ test.each([false, true])(
         },
         signingPrivateKey: directory.signingKeyPair.signingPrivateKey,
       });
-      const resolveIdentity = async (id: string) =>
-        trustedUserIdentityFromResponse(
+      const resolveIdentity = async (id: string) => {
+        const response =
           id === directory.signer.userId
             ? directory.signer
-            : group.signerKeyResponse,
-        );
+            : await group.getUserIdentity(id);
+        return response ? trustedUserIdentityFromResponse(response) : null;
+      };
       await savePrincipalPolicyBundle(
         execSql,
         previous,

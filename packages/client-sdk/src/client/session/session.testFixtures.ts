@@ -71,6 +71,7 @@ export function createSessionHarness(
     database,
     identity,
     session: createSession({
+      identityTrustDomain: "https://api.example.test",
       api,
       database,
       identity,

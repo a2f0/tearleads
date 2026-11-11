@@ -42,7 +42,13 @@ export function capturePrincipalHistoryProgressEntry(
       signature: state.signature,
       stateHash: state.stateHash,
     },
-    projection: entry.projection.map(({ userId, role }) => ({ userId, role })),
+    projection: entry.projection.map(
+      ({ userId, role, identityBundleFingerprint }) => ({
+        userId,
+        role,
+        identityBundleFingerprint,
+      }),
+    ),
     grants: entry.grants.map(({ containerId, accessLevel }) => ({
       containerId,
       accessLevel,
@@ -102,9 +108,11 @@ function isSignedState(value: unknown): value is PrincipalPolicySignedState {
 
 function isMember(value: unknown): value is PrincipalProjectionMember {
   if (!isPlainObject(value)) return false;
-  const { userId, role } = value;
+  const { userId, role, identityBundleFingerprint } = value;
   return (
     typeof userId === "string" &&
+    typeof identityBundleFingerprint === "string" &&
+    /^[a-f0-9]{64}$/u.test(identityBundleFingerprint) &&
     typeof role === "string" &&
     isPrincipalProjectionRole(role)
   );

@@ -15,6 +15,7 @@ import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { createGroupRequest } from "../../../test/helpers/organizationGroup";
+import { registeredProjection } from "../../../test/helpers/policyProjection";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import { submitOrganizationGroupPolicyCommit } from "../../../test/helpers/principalPolicy";
 import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
@@ -164,12 +165,12 @@ test("PUT policy rejects non-admin roles in the reserved Admins group", async ()
     db,
   );
   invariant(currentState, "expected Admins policy");
-  const projection: PrincipalProjectionMember[] = [
+  const projection: PrincipalProjectionMember[] = await registeredProjection([
     {
       userId: actor.userId,
       role: "member",
     },
-  ];
+  ]);
   const successor = await createSignedSuccessor({
     actor,
     currentState,
@@ -211,6 +212,7 @@ test("PUT policy rejects an organization descriptor with the wrong reserved grou
   ).map((member) => ({
     userId: member.userId,
     role: member.role,
+    identityBundleFingerprint: member.identityBundleFingerprint,
   }));
   const payloadCiphertext = bytesToBase64(
     new TextEncoder().encode(
@@ -275,7 +277,9 @@ test("PUT policy rejects projections that diverge from Admins and preserves its 
   await authenticate(actor);
   const prepared = await prepareOrganizationPolicySuccessor({
     actor,
-    projection: [{ role: "member", userId: actor.userId }],
+    projection: await registeredProjection([
+      { role: "member", userId: actor.userId },
+    ]),
   });
 
   const response = await putOrganizationPolicy({ actor, ...prepared });

@@ -18,6 +18,7 @@ test("registration includes initial metadata in the personal-org transaction", a
   let initialSystemContainers: RegisterUserParameters[14];
 
   const response = await registerIdentity({
+    identityTrustDomain: "https://api.example.test",
     apiClient: {
       registerUser: async (
         ...args: Parameters<RegistrationApi["registerUser"]>

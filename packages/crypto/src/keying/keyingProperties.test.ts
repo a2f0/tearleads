@@ -29,7 +29,12 @@ import {
   policyChainPlanArb,
   policyCheckpointOf,
 } from "./keyingPolicyArbitraries.testFixtures";
-import { createBundle, signPolicyState } from "./principalPolicyTestFixtures";
+import {
+  createBundle,
+  createPolicySigner,
+  policyMember,
+  signPolicyState,
+} from "./principalPolicyTestFixtures";
 import { expectVerificationError } from "./verificationError.testFixtures";
 
 /**
@@ -304,9 +309,10 @@ test("property: removing a policy member without a new key epoch is refused; wit
       fc.pre(removable.length > 0);
       const removed = removable[pick % removable.length];
       if (!removed) throw new Error("index in range");
-      const members = head.entry.projection
-        .filter((member) => member.userId !== removed.userId)
-        .map(({ userId }) => ({ userId }));
+      const projection = head.entry.projection.filter(
+        (member) => member.userId !== removed.userId,
+      );
+      const members = projection.map(({ userId }) => ({ userId }));
       const successor = (input: {
         readonly keyEpoch: number;
         readonly principalKeyPair: PolicyChain["principalKeyPair"];
@@ -318,6 +324,7 @@ test("property: removing a policy member without a new key epoch is refused; wit
           prevStateHash: head.state.stateHash,
           keyEpoch: input.keyEpoch,
           members,
+          projection,
           signer: chain.signer,
         });
       const previous = chain.states.map((state) => state.entry);
@@ -366,7 +373,7 @@ test("property: a served projection row the signed policy state does not commit 
           ...bundle,
           currentProjection: [
             ...bundle.currentProjection,
-            { userId: "split-row", role: "member" },
+            policyMember(await createPolicySigner("split-row")),
           ],
         },
         signerPublicKeys: [chain.signer],
@@ -410,6 +417,7 @@ test("property: a second signed policy state at a checkpointed version is an equ
           members: checkpointed.entry.projection.map(({ userId }) => ({
             userId,
           })),
+          projection: checkpointed.entry.projection,
           signedAt: "2026-04-26T23:59:00.000Z",
           signer: chain.signer,
         });
