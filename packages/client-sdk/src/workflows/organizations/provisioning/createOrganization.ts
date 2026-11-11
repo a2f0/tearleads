@@ -17,8 +17,10 @@ import {
 } from "../../registration/organizationProvisioning";
 import type { ProvisionedStatePrimer } from "../../registration/provisionedStatePrimer";
 import {
+  type CreateOrganizationApi,
   organizationCreationCompletion,
   organizationCreationIntent,
+  requestOrganizationCreation,
 } from "./organizationCreationIntent";
 import {
   makeOrganizationProvisioningAttemptDurable,
@@ -26,13 +28,8 @@ import {
 } from "./organizationProvisioningAttempt";
 import { pinOrganizationReplacementResponse } from "./organizationReplacementVerification";
 
+export type { CreateOrganizationApi } from "./organizationCreationIntent";
 export { removeNativeSubscriptionRestoreProvisioningAttempt };
-
-export interface CreateOrganizationApi {
-  createOrganization(
-    request: CreateOrganizationRequest,
-  ): Promise<CreateOrganizationResponse | null>;
-}
 
 export interface CreateOrganizationInput {
   apiClient: CreateOrganizationApi;
@@ -196,13 +193,8 @@ export async function createOrganization(
     return null;
   }
 
-  const response = await input.apiClient.createOrganization(request);
-  if (!response) {
-    // Even a later 4xx cannot disprove a prior committed request whose response
-    // was lost. Retain the exact artifacts until local acknowledgement; neither
-    // elapsed time nor discovering this root turns a retry into a fresh create.
-    return null;
-  }
+  const response = await requestOrganizationCreation(input, request);
+  if (!response) return null;
 
   if (input.isIdentityCurrent && !input.isIdentityCurrent()) {
     input.log?.(

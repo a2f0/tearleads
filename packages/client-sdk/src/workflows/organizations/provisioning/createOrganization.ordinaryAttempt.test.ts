@@ -125,6 +125,62 @@ test("ordinary retry survives closing SQLite and rolls back an unsuccessful comp
   }
 });
 
+test("concurrent ordinary calls adopt one intent and both complete bootstrap", async () => {
+  const connection = await openConnection(`/${crypto.randomUUID()}.db`);
+  const creator = identity();
+  const requests: CreateOrganizationRequest[] = [];
+  let releaseRequests = () => {};
+  const bothSubmitted = new Promise<void>((resolve) => {
+    releaseRequests = resolve;
+  });
+  const receipts = new Map<
+    string,
+    ReturnType<typeof respondToOrganizationProvisioning>
+  >();
+  const input = {
+    ...creator,
+    dbClient: connection.dbClient,
+    apiClient: {
+      createOrganization: async (request: CreateOrganizationRequest) => {
+        requests.push(request);
+        const receipt =
+          receipts.get(request.organizationId) ??
+          respondToOrganizationProvisioning(request);
+        receipts.set(request.organizationId, receipt);
+        if (requests.length === 2) releaseRequests();
+        // Neither call can finish bootstrap before both have loaded the intent.
+        await bothSubmitted;
+        return receipt;
+      },
+    },
+  };
+  try {
+    const responses = await Promise.all([
+      createOrganization(input),
+      createOrganization(input),
+    ]);
+    const first = requests[0];
+    if (!first) throw new Error("Expected concurrent create requests");
+    expect(requests).toEqual([first, first]);
+    expect(responses[0]?.organizationId).toBe(first.organizationId);
+    expect(responses).toEqual([responses[0], responses[0]]);
+    expect(receipts.size).toBe(1);
+    expect(
+      await connection.execSql(
+        "SELECT DISTINCT organization_id FROM containers",
+      ),
+    ).toEqual([{ organization_id: first.organizationId }]);
+    expect(
+      await connection.execSql(
+        "SELECT organization_id FROM organization_provisioning_attempts",
+      ),
+    ).toEqual([]);
+  } finally {
+    releaseRequests();
+    connection.close();
+  }
+});
+
 test("pending ordinary attempts are scoped by the whole creation intent and user", async () => {
   const connection = await openConnection(`/${crypto.randomUUID()}.db`);
   const creator = identity();

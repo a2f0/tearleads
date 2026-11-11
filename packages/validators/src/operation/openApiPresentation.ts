@@ -24,6 +24,7 @@ const HTTP_STATUS_DESCRIPTIONS: Readonly<Record<number, string>> = {
   403: "Forbidden",
   404: "Not Found",
   409: "Conflict",
+  410: "Gone",
   413: "Content Too Large",
   429: "Too Many Requests",
   500: "Internal Server Error",

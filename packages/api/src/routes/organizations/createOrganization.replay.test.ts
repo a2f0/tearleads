@@ -146,10 +146,19 @@ for (const state of ["deleting", "purged", "disabled", "removed"] as const) {
         );
     }
     const replay = await submitCreateOrganization(user, body);
-    expect(replay.status).toBe(409);
-    expect(await replay.json()).toEqual({
-      error: "Organization is no longer available for provisioning replay",
-    });
+    expect(replay.status).toBe(state === "purged" ? 410 : 409);
+    expect(await replay.json()).toEqual(
+      state === "purged"
+        ? {
+            code: "organization_creation_purged",
+            error:
+              "Organization creation was committed but the organization was purged",
+          }
+        : {
+            error:
+              "Organization is no longer available for provisioning replay",
+          },
+    );
   });
 }
 

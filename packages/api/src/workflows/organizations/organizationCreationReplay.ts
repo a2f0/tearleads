@@ -59,7 +59,22 @@ export async function readOrganizationCreationReplay(
   if (!stored) return null;
   if (
     stored.userId !== input.userId ||
-    stored.requestSha256 !== requestSha256(input) ||
+    stored.requestSha256 !== requestSha256(input)
+  ) {
+    throw new OrganizationProvisioningError(
+      "Stored organization provisioning attempt is inconsistent",
+      409,
+    );
+  }
+  // Only irreversible purge certifies that these exact artifacts can never
+  // be adopted. A disabled roster or scheduled deletion can be reversed.
+  if (stored.billingStatus === "purged") {
+    throw new OrganizationProvisioningError(
+      "Organization creation was committed but the organization was purged",
+      410,
+    );
+  }
+  if (
     !isCreateOrganizationResponse(stored.response) ||
     stored.response.organizationId !== input.organizationId ||
     stored.response.rootContainerId !== input.rootContainerId ||
@@ -73,8 +88,7 @@ export async function readOrganizationCreationReplay(
   if (
     stored.rosterStatus !== "active" ||
     stored.billingStatus === null ||
-    stored.billingStatus === "deleting" ||
-    stored.billingStatus === "purged"
+    stored.billingStatus === "deleting"
   ) {
     throw new OrganizationProvisioningError(
       "Organization is no longer available for provisioning replay",

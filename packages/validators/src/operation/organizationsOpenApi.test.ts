@@ -29,9 +29,22 @@ test("create organization OpenAPI documents its shared contract", () => {
     "403",
     "404",
     "409",
+    "410",
     "500",
     "503",
   ]);
+  expect(createOrganizationPost.responses["410"]).toMatchObject({
+    description: "Gone",
+    content: {
+      "application/json": {
+        schema: {
+          properties: { code: { const: "organization_creation_purged" } },
+          required: ["code", "error"],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
   expect(requestSchema.required).toContain("initialRootContainer");
   expect(requestSchema.required).toContain("initialRootMetadataDocument");
   expect(requestSchema.required).toContain(

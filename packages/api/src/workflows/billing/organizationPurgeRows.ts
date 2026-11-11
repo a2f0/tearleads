@@ -186,7 +186,9 @@ export async function deleteOrganizationRemoteRows(input: {
     .where(eq(principalPolicyCommits.organizationId, input.organizationId));
   await input.executor
     .update(organizations)
-    .set({ profileDocumentId: null })
+    // Discard genesis payload with remote data, retaining only the binding
+    // needed to certify terminal ordinary-create refusal after purge completes.
+    .set({ profileDocumentId: null, provisioningResponse: null })
     .where(eq(organizations.id, input.organizationId));
   await input.executor
     .update(organizationRosterEntries)

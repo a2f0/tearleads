@@ -57,7 +57,7 @@ test("create organization operation owns its HTTP contract metadata", () => {
   expect(createOrganizationOperation).toMatchObject({
     auth: "session",
     body: OrganizationProvisioningRequestSchema,
-    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
+    failureStatuses: [400, 401, 403, 404, 409, 410, 500, 503],
     id: "organizations.create",
     method: "POST",
     path: "/organizations",
@@ -69,9 +69,24 @@ test("create organization operation owns its HTTP contract metadata", () => {
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
+    410: createOrganizationOperation.failureResponses[410],
     500: ErrorResponseSchema,
     503: ErrorResponseSchema,
   });
+  const terminal = createOrganizationOperation.failureResponses[410];
+  expect(
+    terminal.safeParse({
+      error: "Purged",
+      code: "organization_creation_purged",
+    }).success,
+  ).toBe(true);
+  for (const value of [
+    { error: "Purged" },
+    { code: "organization_creation_purged" },
+    { error: "Purged", code: "unknown" },
+  ]) {
+    expect(terminal.safeParse(value).success).toBe(false);
+  }
 });
 
 test("create organization paths are shared without parameters", () => {
