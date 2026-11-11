@@ -117,7 +117,9 @@ async function collectPrincipalPolicySignerPublicKeys(input: {
     });
   }
 
+  // Signatures are checked after collection: compare, but pin nothing yet.
   await assertPrincipalIdentityCommitments({
+    authenticated: false,
     projections: [
       ...input.bundle.previousStates.map((entry) => entry.projection),
       input.bundle.currentProjection,
@@ -315,6 +317,18 @@ async function loadOrganizationExternalAuthority(
   }
 }
 
+/** A policy recovered or verified earlier: its first sights may be pinned. */
+function assertVerifiedPolicyCommitments(
+  policy: Pick<VerifiedPrincipalPolicy, "projection">,
+  resolveUserKey: ProjectionUserKeyResolver,
+): Promise<void> {
+  return assertPrincipalIdentityCommitments({
+    authenticated: true,
+    projections: [policy.projection],
+    resolveTrustedUserIdentity: resolveUserKey,
+  });
+}
+
 async function verifyReferencedPrincipalPolicy(input: {
   checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
@@ -328,10 +342,7 @@ async function verifyReferencedPrincipalPolicy(input: {
   // A bare policy cache entry cannot replace those bindings.
   const recovered = await resolveReferencedPrincipalPolicy(input);
   if (recovered) {
-    await assertPrincipalIdentityCommitments({
-      projections: [recovered.projection],
-      resolveTrustedUserIdentity: input.resolveUserKey,
-    });
+    await assertVerifiedPolicyCommitments(recovered, input.resolveUserKey);
     return recovered;
   }
   const cacheKey = referencedPrincipalPolicyKey(input.reference);
@@ -352,10 +363,7 @@ async function verifyReferencedPrincipalPolicy(input: {
       );
     }
     if (verifiedPrincipalPolicyMeetsCheckpoint(cachedPolicy, localCheckpoint)) {
-      await assertPrincipalIdentityCommitments({
-        projections: [cachedPolicy.projection],
-        resolveTrustedUserIdentity: input.resolveUserKey,
-      });
+      await assertVerifiedPolicyCommitments(cachedPolicy, input.resolveUserKey);
       observePrincipalPolicy(
         input.checkpointContext,
         cachedPolicy,

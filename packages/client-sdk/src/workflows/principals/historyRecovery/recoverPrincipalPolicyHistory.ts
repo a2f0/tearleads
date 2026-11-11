@@ -217,6 +217,7 @@ async function finishRecovery(
     throw current.error;
   }
   await assertPrincipalIdentityCommitments({
+    authenticated: true,
     projections: [current.value.projection],
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });

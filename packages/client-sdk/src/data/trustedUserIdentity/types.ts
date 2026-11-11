@@ -107,6 +107,23 @@ export interface TrustedUserIdentityService {
   resolve: TrustedUserIdentityResolver;
 }
 
+/**
+ * Within one structural check: an existing pin, this user's own local keys,
+ * or a first-sight candidate that is staged rather than pinned.
+ */
+export type StagedUserIdentityResolver = (
+  userId: string,
+) => Promise<ValidatedUserIdentityCandidate | null>;
+
+export interface StagedUserIdentityOptions {
+  /**
+   * Pin staged first sights as `observed` once `verify` succeeds. Set only
+   * when the checked projections' signed states already verified: data an
+   * unauthenticated projection names must never reach the durable store.
+   */
+  readonly publish: boolean;
+}
+
 /** Callable resolution always compares the candidate with durable pins.
  * Structural commitment verification may reuse validated immutable pins for
  * one scoped operation; this capability never admits users or promotes pins.
@@ -116,7 +133,8 @@ export type TrustedUserIdentityResolver = ((
 ) => Promise<TrustedUserIdentity | null>) & {
   readonly withPinnedIdentities?: <T>(
     userIds: readonly string[],
-    verify: (resolve: TrustedUserIdentityResolver) => Promise<T>,
+    verify: (resolve: StagedUserIdentityResolver) => Promise<T>,
+    options: StagedUserIdentityOptions,
   ) => Promise<T>;
 };
 

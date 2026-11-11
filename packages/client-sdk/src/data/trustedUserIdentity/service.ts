@@ -149,16 +149,26 @@ async function resolveCandidate(
     };
   }
 
+  const identity = await loadRemoteCandidate(
+    dependencies,
+    userId,
+    identityTrustDomain,
+  );
+  return identity ? { identity, source: "observed" } : null;
+}
+
+async function loadRemoteCandidate(
+  dependencies: TrustedUserIdentityServiceDependencies,
+  userId: string,
+  identityTrustDomain: string,
+): Promise<ValidatedUserIdentityCandidate | null> {
   const remoteIdentity = await dependencies.remoteSource.load(userId);
   return remoteIdentity
-    ? {
-        identity: await validateRemoteUserIdentity({
-          candidate: remoteIdentity,
-          identityTrustDomain,
-          requestedUserId: userId,
-        }),
-        source: "observed",
-      }
+    ? validateRemoteUserIdentity({
+        candidate: remoteIdentity,
+        identityTrustDomain,
+        requestedUserId: userId,
+      })
     : null;
 }
 
@@ -346,34 +356,49 @@ export function createTrustedUserIdentityService(
         provenance: "self",
       });
     },
-    resolve: withPinnedIdentityResolution(dependencies, async (userId) => {
-      assertTrustedUserIdentityUserId(userId);
-      const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
-      const localUserId = dependencies.getLocalUserId();
-      try {
-        const candidate = await resolveCandidate(
-          dependencies,
-          userId,
-          identityTrustDomain,
-        );
-        if (!candidate) {
-          return null;
+    resolve: withPinnedIdentityResolution(
+      dependencies,
+      async (userId) => {
+        assertTrustedUserIdentityUserId(userId);
+        const { execSql, identityTrustDomain } =
+          requireTrustStore(dependencies);
+        const localUserId = dependencies.getLocalUserId();
+        try {
+          const candidate = await resolveCandidate(
+            dependencies,
+            userId,
+            identityTrustDomain,
+          );
+          if (!candidate) {
+            return null;
+          }
+          assertResolutionScope(
+            dependencies,
+            { execSql, localUserId },
+            "The active identity changed while resolving this user.",
+          );
+          return await pinIdentity({
+            dependencies,
+            execSql,
+            identity: candidate.identity,
+            provenance: candidate.source,
+          });
+        } catch (error) {
+          dependencies.remoteSource.invalidate(userId);
+          throw error;
         }
-        assertResolutionScope(
-          dependencies,
-          { execSql, localUserId },
-          "The active identity changed while resolving this user.",
-        );
-        return await pinIdentity({
-          dependencies,
-          execSql,
-          identity: candidate.identity,
-          provenance: candidate.source,
-        });
-      } catch (error) {
-        dependencies.remoteSource.invalidate(userId);
-        throw error;
-      }
-    }),
+      },
+      {
+        loadCandidate: (userId, identityTrustDomain) =>
+          loadRemoteCandidate(dependencies, userId, identityTrustDomain),
+        pinObserved: (execSql, identity) =>
+          pinIdentity({
+            dependencies,
+            execSql,
+            identity,
+            provenance: "observed",
+          }),
+      },
+    ),
   };
 }

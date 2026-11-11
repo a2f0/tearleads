@@ -45,7 +45,8 @@ Each pin records how it was established:
   member being verified, or a roster entry being displayed. Signature
   verification keeps pinning on first sight so that it never
   [fails closed](../glossary/access.md#fail-closed) for users the device has not
-  met.
+  met. A group member's first answer is pinned only once its signed projection
+  verifies and the answer matches that member's committed bundle.
 
 Only `self` and `link` admit a user, apart from
 [roster vouching](#roster-vouching), which never changes a pin. Verifying a
@@ -265,12 +266,19 @@ checks do not themselves authenticate an `observed` identity; admission still
 needs an independent anchor or the chain below.
 
 Structural verification can use the gateway's scoped
-`withPinnedIdentities(ids, verify)` capability. It reads existing immutable pins
-in one transaction, chunking SQL within the bind budget, and revalidates their
-key material and fingerprints before checking every projection commitment.
-Only missing pins use ordinary resolution; the current user always rechecks
-authoritative local keys. Database, account, or runtime-generation changes
-invalidate the operation. The callback's resolver is not a persistent cache.
+`withPinnedIdentities(ids, verify, { publish })` capability. It reads existing
+immutable pins in one transaction, chunking SQL within the bind budget, and
+revalidates their key material and fingerprints before checking every
+projection commitment. A member without a pin is compared using the identity
+endpoint's validated candidate, held in memory. The gateway pins those
+candidates as `observed` only when `verify` succeeds and the caller set
+`publish`, which it does only after the projection's signed state verified.
+Signer collection checks commitments before signatures, so it never publishes:
+a forged projection or a refused candidate leaves no pin, and the fetched
+candidates are evicted so a retry reads the endpoint again. The current user
+always rechecks authoritative local keys. Database, account, or
+runtime-generation changes invalidate the operation. The callback's resolver
+is not a persistent cache.
 Ordinary resolution and signer resolution still fetch and compare candidates
 with durable pins; this optimization neither changes that conflict detection
 nor promotes an `observed` pin to an admission anchor.

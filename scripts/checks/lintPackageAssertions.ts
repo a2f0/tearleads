@@ -130,7 +130,6 @@ const trustedIdentityBrandGateways = new Set([
   "packages/client-sdk/src/data/trustedUserIdentity/service.ts",
   "packages/client-sdk/src/data/trustedUserIdentity/types.ts",
   "packages/client-sdk/src/data/trustedUserIdentity/pinnedIdentity.ts",
-  "packages/client-sdk/src/data/trustedUserIdentity/pinnedResolution.ts",
 ]);
 
 function collectTrustedIdentityBoundaryViolations(

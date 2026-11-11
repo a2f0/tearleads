@@ -247,14 +247,18 @@ identity-commitment helpers, and roster-admission evidence remain
 package-private; this change adds no root export or deep-import entry point.
 
 The existing callable `TrustedUserIdentityResolver` may expose
-`withPinnedIdentities(ids, verify)` for structural commitment checks. The
-built-in gateway batch-reads immutable pins, revalidates both keys and their
-fingerprints, and passes a scoped resolver to `verify`; missing pins and self
-identity retain ordinary resolution. The callback must not retain its resolver
-for later work. Plain callable resolvers remain valid and use the ordinary
-per-user path. This capability does not admit recipients, raise provenance, or
-change direct resolution and signer-refetch conflict checks. A changed
-database, account, or runtime generation invalidates the scoped operation.
+`withPinnedIdentities(ids, verify, { publish })` for structural commitment
+checks. The built-in gateway batch-reads immutable pins, revalidates both keys
+and their fingerprints, and passes a scoped resolver to `verify`; self identity
+retains ordinary resolution. A missing pin yields the endpoint's validated
+candidate without pinning it. The gateway pins those candidates as `observed`
+only when `verify` succeeds with `publish` set, which callers set only after
+the projection's signed state verified. The callback must not retain its
+resolver for later work. Plain callable resolvers remain valid and use the
+ordinary per-user path. This capability does not admit recipients, raise
+provenance, or change direct resolution and signer-refetch conflict checks. A
+changed database, account, or runtime generation invalidates the scoped
+operation.
 
 ### Recipient admission
 

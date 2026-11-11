@@ -66,6 +66,7 @@ export async function rewrapProjectionMemberEnvelopes(input: {
 }): Promise<PrincipalMemberEnvelopeRequest[]> {
   const users = new Map(input.users.map((user) => [user.userId, user]));
   await assertPrincipalIdentityCommitments({
+    authenticated: false,
     projections: [input.projection],
     resolveTrustedUserIdentity: async (userId) => users.get(userId) ?? null,
   });

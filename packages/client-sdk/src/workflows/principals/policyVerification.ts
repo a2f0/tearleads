@@ -97,7 +97,9 @@ export async function collectPrincipalPolicySignerPublicKeys(input: {
     signerPublicKeysByKey.set(cacheKey, remoteSignerPublicKey.signerPublicKey);
   }
 
+  // Signatures are checked after collection: compare, but pin nothing yet.
   await assertPrincipalIdentityCommitments({
+    authenticated: false,
     projections: [
       ...input.bundle.previousStates.map((entry) => entry.projection),
       input.bundle.currentProjection,

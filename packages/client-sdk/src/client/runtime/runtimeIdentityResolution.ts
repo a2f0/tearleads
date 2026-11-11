@@ -4,6 +4,8 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   createApiUserIdentitySource,
   createTrustedUserIdentityService,
+  type StagedUserIdentityOptions,
+  type StagedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "../../data/trustedUserIdentity";
 import type { Identity } from "../identity";
@@ -59,14 +61,18 @@ export function createRuntimeIdentityResolution(
     {
       withPinnedIdentities: <T>(
         userIds: readonly string[],
-        verify: (resolve: TrustedUserIdentityResolver) => Promise<T>,
+        verify: (resolve: StagedUserIdentityResolver) => Promise<T>,
+        options: StagedUserIdentityOptions,
       ) => {
         const withPinnedIdentities =
           trustedUserIdentityService.resolve.withPinnedIdentities;
         if (!withPinnedIdentities)
           throw new Error("Trusted identity batch reader is unavailable");
-        return withPinnedIdentities(userIds, (resolve) =>
-          verify((userId) => report(userId, () => resolve(userId))),
+        return withPinnedIdentities(
+          userIds,
+          (resolve) =>
+            verify((userId) => report(userId, () => resolve(userId))),
+          options,
         );
       },
     },

@@ -4,38 +4,49 @@ import {
   type PrincipalProjectionMember,
 } from "@tearleads/crypto";
 import { ProjectionDependencyUnavailableError } from "../keyingProjectionVerification/dependencyUnavailable";
-import type { TrustedUserIdentityResolver } from "../trustedUserIdentity";
+import type {
+  StagedUserIdentityResolver,
+  TrustedUserIdentityResolver,
+} from "../trustedUserIdentity";
 
-/** Structural verification only: never recurse into roster admission here. */
+/**
+ * Structural verification only: never recurse into roster admission here.
+ * Pass `authenticated` only once every projection's signed state verified.
+ * Before that, a member seen for the first time is compared but not pinned,
+ * so neither a forged projection nor a refused candidate reaches the store.
+ */
 export async function assertPrincipalIdentityCommitments(input: {
+  readonly authenticated: boolean;
   readonly projections: readonly (readonly PrincipalProjectionMember[])[];
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<void> {
-  if (input.resolveTrustedUserIdentity.withPinnedIdentities) {
-    return input.resolveTrustedUserIdentity.withPinnedIdentities(
-      [
-        ...new Set(
-          input.projections.flatMap((projection) =>
-            projection.map((member) => member.userId),
-          ),
+  const resolver = input.resolveTrustedUserIdentity;
+  if (!resolver.withPinnedIdentities)
+    return compareCommitments(input.projections, resolver);
+  return resolver.withPinnedIdentities(
+    [
+      ...new Set(
+        input.projections.flatMap((projection) =>
+          projection.map((member) => member.userId),
         ),
-      ],
-      (resolveTrustedUserIdentity) =>
-        assertPrincipalIdentityCommitments({
-          ...input,
-          resolveTrustedUserIdentity,
-        }),
-    );
-  }
+      ),
+    ],
+    (resolve) => compareCommitments(input.projections, resolve),
+    { publish: input.authenticated },
+  );
+}
+
+async function compareCommitments(
+  projections: readonly (readonly PrincipalProjectionMember[])[],
+  resolve: StagedUserIdentityResolver,
+): Promise<void> {
   const identities = new Map<string, Promise<string>>();
-  for (const projection of input.projections) {
+  for (const projection of projections) {
     for (const member of projection) {
       let fingerprint = identities.get(member.userId);
       if (!fingerprint) {
         fingerprint = (async () => {
-          const identity = await input.resolveTrustedUserIdentity(
-            member.userId,
-          );
+          const identity = await resolve(member.userId);
           if (!identity)
             throw new ProjectionDependencyUnavailableError(
               `Principal member identity is unavailable: ${member.userId}`,

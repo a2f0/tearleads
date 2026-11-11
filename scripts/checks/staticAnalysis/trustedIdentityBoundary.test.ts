@@ -32,7 +32,7 @@ function lint(files: Record<string, string>) {
 test("only the named identity gateway modules may construct trusted brands", () => {
   const result = lint(
     Object.fromEntries(
-      ["service", "types", "pinnedIdentity", "pinnedResolution"].map((name) => [
+      ["service", "types", "pinnedIdentity"].map((name) => [
         `${gateway}/${name}.ts`,
         "brandTrustedUserIdentity",
       ]),
@@ -45,13 +45,15 @@ test("only the named identity gateway modules may construct trusted brands", () 
 test("pin helpers do not widen raw identity, test factory, or brand access", () => {
   const forbidden = {
     [`${gateway}/untrusted.ts`]: "brandTrustedUserIdentity",
+    // Structural checks stage unbranded candidates; only service.ts pins.
+    [`${gateway}/pinnedResolution.ts`]: "brandTrustedUserIdentity",
     "packages/client-sdk/src/data/principals/pinnedIdentity.ts":
       "brandTrustedUserIdentity",
     "packages/app/src/data/trustedUserIdentity/pinnedResolution.ts":
       "brandTrustedUserIdentity",
     [`${gateway}/service.ts`]: "getUserIdentity",
     [`${gateway}/pinnedIdentity.ts`]: "UserIdentityResponse",
-    [`${gateway}/pinnedResolution.ts`]: "OrganizationUserRecipient",
+    [`${gateway}/requiredResolver.ts`]: "OrganizationUserRecipient",
     [`${gateway}/apiAdapter.ts`]: "brandTrustedUserIdentity",
     [`${gateway}/types.ts`]: "createTestTrustedUserIdentity",
   };

@@ -7,6 +7,8 @@ export { createTrustedUserIdentityService } from "./service";
 export { resolveIdentityTrustDomain } from "./trustDomain";
 export type {
   LocalUserIdentityCandidate,
+  StagedUserIdentityOptions,
+  StagedUserIdentityResolver,
   TrustedUserIdentity,
   TrustedUserIdentityResolver,
   TrustedUserIdentityService,
