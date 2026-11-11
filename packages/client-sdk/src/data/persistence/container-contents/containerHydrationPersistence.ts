@@ -30,6 +30,7 @@ import {
   selectContainerMetadataRecord,
 } from "./containerMetadataRows";
 import { loadContainerById } from "./containerPersistence";
+import { containerRemovalBatches } from "./containerRemovalBatches";
 import { isSupersededContainerBinding } from "./supersededContainerBindings";
 
 function sameNullableValue(
@@ -117,23 +118,24 @@ export async function recordContainerHydrationTombstones(input: {
   }>;
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
-  if (input.removals.length === 0) return;
-  await input.tx
-    .insert(containerHydrationTombstones)
-    .values([...input.removals])
-    .onConflictDoUpdate({
-      target: containerHydrationTombstones.containerId,
-      set: {
-        generation: sql`${containerHydrationTombstones.generation} + 1`,
-        cleared: false,
-        reason: sql`CASE
+  for (const batch of containerRemovalBatches(input.removals)) {
+    await input.tx
+      .insert(containerHydrationTombstones)
+      .values([...batch])
+      .onConflictDoUpdate({
+        target: containerHydrationTombstones.containerId,
+        set: {
+          generation: sql`${containerHydrationTombstones.generation} + 1`,
+          cleared: false,
+          reason: sql`CASE
           WHEN ${containerHydrationTombstones.reason} = 'deleted' THEN 'deleted'
           ELSE excluded.reason
         END`,
-        updatedAt: sql`MAX(${containerHydrationTombstones.updatedAt}, excluded.updated_at)`,
-      },
-    })
-    .run();
+          updatedAt: sql`MAX(${containerHydrationTombstones.updatedAt}, excluded.updated_at)`,
+        },
+      })
+      .run();
+  }
 }
 
 async function placementCheckpointMatches(

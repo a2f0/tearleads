@@ -5,7 +5,7 @@
   "futureFlags": {
     "affectedUsingTaskInputs": true
   },
-  "globalDependencies": ["tsconfig.base.json", "patches/**"],
+  "globalDependencies": ["tsconfig.base.json", "patches/**", ".nvmrc"],
   "globalEnv": ["CI_TOOLCHAIN"],
   "tasks": {
     "//#check:protocol-models": {

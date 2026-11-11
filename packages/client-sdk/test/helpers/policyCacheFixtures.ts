@@ -157,7 +157,9 @@ interface PolicySignerKeyResponse {
   encapsulationKeyFingerprint: string;
 }
 
-export async function createPrincipalPolicyBundle(): Promise<{
+export async function createPrincipalPolicyBundle(
+  principalId = "group-1",
+): Promise<{
   bundle: PrincipalPolicyBundleResponse;
   signerKeyResponse: PolicySignerKeyResponse;
 }> {
@@ -183,7 +185,7 @@ export async function createPrincipalPolicyBundle(): Promise<{
     projection: currentProjection,
     signing: {
       principalType: "group",
-      principalId: "group-1",
+      principalId,
       version: 1,
       prevStateHash: null,
       keyEpoch: 1,

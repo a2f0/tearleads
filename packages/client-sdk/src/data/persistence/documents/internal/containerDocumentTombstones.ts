@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import {
   documentContainerProjection,
@@ -24,6 +24,7 @@ import {
   documentSummarySelection,
   mapDocumentSummary,
 } from "./documentProjectionRows";
+import { repointTombstonedDocumentProjections } from "./tombstoneProjectionRepoint";
 
 function dedupeContainerDocumentTombstones(
   tombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
@@ -221,16 +222,14 @@ async function loadTombstoneRepairReads(
   };
 }
 
-async function updateSelectedContainersForDocumentTombstones(input: {
+function selectedContainerRepointsForDocumentTombstones(input: {
   documentId: string;
   reads: TombstoneRepairReads;
   removedContainerIds: ReadonlySet<string>;
   tombstoneUpdatedAt: string | undefined;
-  tx: ClientSQLiteTransactionScope;
   verifiedLinkedContainerIds: ReadonlySet<string>;
-}): Promise<string[]> {
-  const { documentId, reads, removedContainerIds, tombstoneUpdatedAt, tx } =
-    input;
+}) {
+  const { documentId, reads, removedContainerIds, tombstoneUpdatedAt } = input;
   // A server document can own more than one local projection row: identity
   // recovery legitimately rematerializes a second projection for the same
   // documentId before semantic convergence completes. The link delete above is
@@ -261,20 +260,61 @@ async function updateSelectedContainersForDocumentTombstones(input: {
     input.verifiedLinkedContainerIds,
   );
 
-  const changedLocalIds: string[] = [];
-  for (const row of rowsAtRemovedContainer) {
-    await tx
-      .update(documentProjection)
-      .set({
-        containerId: nextContainerId,
-        updatedAt: getLatestTimestamp(row.updatedAt, tombstoneUpdatedAt),
-      })
-      .where(eq(documentProjection.localId, row.localId))
-      .run();
-    changedLocalIds.push(row.localId);
-  }
+  return rowsAtRemovedContainer.map((row) => ({
+    localId: row.localId,
+    containerId: nextContainerId,
+    updatedAt: getLatestTimestamp(row.updatedAt, tombstoneUpdatedAt),
+  }));
+}
 
-  return changedLocalIds;
+async function loadChangedDocumentSummaries(
+  tx: ClientSQLiteTransactionScope,
+  localIds: readonly string[],
+) {
+  const rows: Array<
+    Parameters<typeof mapDocumentSummary>[0] & {
+      updatedAtOrder: string;
+      localIdOrder: string;
+    }
+  > = [];
+  // The summary join also binds the app kind.
+  const chunkSize = sqliteRowsPerStatement(1, 1);
+  for (let offset = 0; offset < localIds.length; offset += chunkSize) {
+    rows.push(
+      ...(await tx
+        .select({
+          ...documentSummarySelection,
+          // Merge batches in SQLite BINARY order, not JS UTF-16 or locale order.
+          // Hex preserves the byte ordering, including non-ASCII local ids.
+          updatedAtOrder: sql<string>`hex(${documentProjection.updatedAt})`,
+          localIdOrder: sql<string>`hex(${documentProjection.localId})`,
+        })
+        .from(documentProjection)
+        .leftJoin(documents, documentSummaryJoin)
+        .where(
+          inArray(
+            documentProjection.localId,
+            localIds.slice(offset, offset + chunkSize),
+          ),
+        )
+        .orderBy(
+          desc(documentProjection.updatedAt),
+          desc(documentProjection.localId),
+        )),
+    );
+  }
+  rows.sort((left, right) => {
+    const a =
+      left.updatedAtOrder === right.updatedAtOrder
+        ? left.localIdOrder
+        : left.updatedAtOrder;
+    const b =
+      left.updatedAtOrder === right.updatedAtOrder
+        ? right.localIdOrder
+        : right.updatedAtOrder;
+    return a > b ? -1 : a < b ? 1 : 0;
+  });
+  return rows.map(mapDocumentSummary);
 }
 
 export async function applyContainerDocumentTombstonesWithExec(
@@ -319,38 +359,29 @@ export async function applyContainerDocumentTombstonesWithExec(
     const reads = await loadTombstoneRepairReads(tx, [
       ...removedContainerIdsByDocumentId.keys(),
     ]);
-    const changedLocalIds: string[] = [];
+    const repoints = [];
     for (const [
       documentId,
       removedContainerIds,
     ] of removedContainerIdsByDocumentId) {
-      changedLocalIds.push(
-        ...(await updateSelectedContainersForDocumentTombstones({
+      repoints.push(
+        ...selectedContainerRepointsForDocumentTombstones({
           documentId,
           reads,
           removedContainerIds,
           tombstoneUpdatedAt: tombstoneUpdatedAtByDocumentId.get(documentId),
-          tx,
           verifiedLinkedContainerIds:
             verifiedLinkedContainerIdsByDocumentId.get(documentId) ?? new Set(),
-        })),
+        }),
       );
     }
+    await repointTombstonedDocumentProjections(tx, repoints);
+    const changedLocalIds = repoints.map((row) => row.localId);
 
     if (changedLocalIds.length === 0) {
       return [];
     }
 
-    const rows = await tx
-      .select(documentSummarySelection)
-      .from(documentProjection)
-      .leftJoin(documents, documentSummaryJoin)
-      .where(inArray(documentProjection.localId, changedLocalIds))
-      .orderBy(
-        desc(documentProjection.updatedAt),
-        desc(documentProjection.localId),
-      );
-
-    return rows.map(mapDocumentSummary);
+    return loadChangedDocumentSummaries(tx, changedLocalIds);
   });
 }

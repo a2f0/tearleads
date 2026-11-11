@@ -128,8 +128,11 @@ async function writeOwnedRows(
   tx: ClientSQLiteTransactionScope,
   rows: readonly PrincipalPolicyOwnedRow[],
   pinned: boolean,
-): Promise<void> {
-  const written = new Set<string>();
+) {
+  const written = new Map<
+    string,
+    { version: number | null; stateHash: string | null }
+  >();
   for (const batch of slices(rows, OWNED_ROW_WRITE_BATCH_SIZE)) {
     const returned = await tx
       .insert(principalPolicyCheckpoints)
@@ -157,11 +160,14 @@ async function writeOwnedRows(
       .returning({
         principalId: principalPolicyCheckpoints.principalId,
         principalType: principalPolicyCheckpoints.principalType,
+        version: principalPolicyCheckpoints.version,
+        stateHash: principalPolicyCheckpoints.stateHash,
       });
-    for (const row of returned) written.add(ownedRowKey(row));
+    for (const row of returned) written.set(ownedRowKey(row), row);
   }
   const refused = rows.find((row) => !written.has(ownedRowKey(row)));
   if (refused) throw await refusedWrite(tx, refused);
+  return written;
 }
 
 /**
@@ -174,7 +180,7 @@ async function writeResolvedRows(
   inputs: readonly (PrincipalPolicyOrganizationInput &
     PrincipalPolicyPinColumns)[],
   pinned: boolean,
-): Promise<void> {
+) {
   // A repeated principal keeps its last pin, as sequential upserts would.
   const rows = new Map<string, PrincipalPolicyOwnedRow>();
   let failure: { readonly error: unknown } | null = null;
@@ -195,27 +201,29 @@ async function writeResolvedRows(
       updatedAt: input.updatedAt,
     });
   }
-  await writeOwnedRows(tx, [...rows.values()], pinned);
+  const written = await writeOwnedRows(tx, [...rows.values()], pinned);
   if (failure) throw failure.error;
+  return written;
 }
 
 /** Pins cache ownership in the same transaction as the cached policy state. */
 export async function recordPrincipalPolicyOrganizationInTransaction(
   tx: ClientSQLiteTransactionScope,
   input: PrincipalPolicyOrganizationInput,
-): Promise<void> {
-  await writeResolvedRows(
+) {
+  const written = await writeResolvedRows(
     tx,
     [{ ...input, version: null, stateHash: null, updatedAt: null }],
     false,
   );
+  return written.get(ownedRowKey(input)) ?? null;
 }
 
 export function recordPrincipalPolicyBundleOrganizationInTransaction(
   tx: ClientSQLiteTransactionScope,
   bundle: { readonly currentState: PrincipalStateResponse },
   organizationId?: string | undefined,
-): Promise<void> {
+) {
   return recordPrincipalPolicyOrganizationInTransaction(tx, {
     organizationId,
     principalId: bundle.currentState.principalId,
