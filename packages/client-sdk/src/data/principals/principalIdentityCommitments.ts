@@ -3,8 +3,10 @@ import {
   KeyingVerificationError,
   type PrincipalProjectionMember,
 } from "@tearleads/crypto";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { ProjectionDependencyUnavailableError } from "../keyingProjectionVerification/dependencyUnavailable";
 import type {
+  StagedUserIdentityOptions,
   StagedUserIdentityResolver,
   TrustedUserIdentityResolver,
 } from "../trustedUserIdentity";
@@ -36,20 +38,17 @@ export async function assertPrincipalIdentityCommitments(input: {
   );
 }
 
-/**
- * Resolve a policy's signers and compare its members' commitments before any
- * signature is checked, pinning nothing: a signer or member seen for the
- * first time stays staged, so a refused bundle leaves no durable pin to block
- * a corrected retry or the honest identity link. Existing pins are used as
- * they are. Verified selections publish members' first sights afterwards.
- */
-export function withUnauthenticatedPolicyIdentities<T>(
-  input: {
-    readonly signerUserIds: readonly string[];
-    readonly projections: readonly (readonly PrincipalProjectionMember[])[];
-    readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-  },
+interface PolicyIdentities {
+  readonly signerUserIds: readonly string[];
+  readonly projections: readonly (readonly PrincipalProjectionMember[])[];
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+}
+
+/** One staged scope over a policy's signers and committed members. */
+function withPolicyIdentities<T>(
+  input: PolicyIdentities,
   resolveSigners: (resolve: StagedUserIdentityResolver) => Promise<T>,
+  options: StagedUserIdentityOptions,
 ): Promise<T> {
   const check = async (resolve: StagedUserIdentityResolver) => {
     const signers = await resolveSigners(resolve);
@@ -68,7 +67,65 @@ export function withUnauthenticatedPolicyIdentities<T>(
       ]),
     ],
     check,
-    { publish: false },
+    options,
+  );
+}
+
+/**
+ * Resolve a policy's signers and compare its members' commitments before any
+ * signature is checked, pinning nothing: a signer or member seen for the
+ * first time stays staged, so a refused bundle leaves no durable pin to block
+ * a corrected retry or the honest identity link. Existing pins are used as
+ * they are. Callers pin first sights with `publishVerifiedPolicyIdentities`
+ * once their own verification succeeds.
+ */
+export function withUnauthenticatedPolicyIdentities<T>(
+  input: PolicyIdentities,
+  resolveSigners: (resolve: StagedUserIdentityResolver) => Promise<T>,
+): Promise<T> {
+  return withPolicyIdentities(input, resolveSigners, { publish: false });
+}
+
+/**
+ * Pin a verified policy's signers and committed members, after the caller's
+ * own verification of exactly these states and projections succeeded. The
+ * answers are resolved again (existing pins as stored) and every signer's
+ * signed fingerprint and committed bundle rechecked, so an answer changed
+ * since verification is refused rather than pinned. A later substituted
+ * answer then conflicts with this pin instead of becoming one.
+ */
+async function publishVerifiedPolicyIdentities(input: {
+  readonly signers: readonly {
+    readonly userId: string;
+    readonly signingKeyFingerprint: string;
+  }[];
+  readonly projections: readonly (readonly PrincipalProjectionMember[])[];
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly assertCurrent?: (() => void) | undefined;
+}): Promise<void> {
+  // Without staging, ordinary resolution already pinned every first sight.
+  if (!input.resolveTrustedUserIdentity.withPinnedIdentities) return;
+  await withPolicyIdentities(
+    {
+      signerUserIds: input.signers.map((signer) => signer.userId),
+      projections: input.projections,
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    },
+    async (resolve) => {
+      for (const signer of input.signers) {
+        const identity = await resolve(signer.userId);
+        if (!identity)
+          throw new ProjectionDependencyUnavailableError(
+            `Principal policy signer identity is unavailable: ${signer.userId}`,
+          );
+        if (identity.signingKeyFingerprint !== signer.signingKeyFingerprint)
+          throw new KeyingVerificationError(
+            "signer_mismatch",
+            "Principal policy signer identity changed after verification",
+          );
+      }
+    },
+    { publish: true, assertCurrent: input.assertCurrent },
   );
 }
 
@@ -97,23 +154,56 @@ export function assertSelectedPolicyCommitments(
   });
 }
 
+/** Pin a bundle the caller just verified: every state's signer and projection. */
+export function publishVerifiedPolicyBundle(
+  bundle: Pick<
+    PrincipalPolicyBundleResponse,
+    "currentState" | "previousStates" | "currentProjection"
+  >,
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
+  assertCurrent?: () => void,
+): Promise<void> {
+  const entries = [
+    ...bundle.previousStates,
+    { state: bundle.currentState, projection: bundle.currentProjection },
+  ];
+  return publishVerifiedPolicyIdentities({
+    signers: entries.map(({ state }) => ({
+      userId: state.signerUserId,
+      signingKeyFingerprint: state.signerUserKeyFingerprint,
+    })),
+    projections: entries.map((entry) => entry.projection),
+    resolveTrustedUserIdentity,
+    assertCurrent,
+  });
+}
+
 /**
- * Pin the members of a history page the chain verifier just accepted. The
- * next page's first signer is authorized only by user ID against this page's
- * last projection, and a member it removes is not rechecked for continuity,
- * so that signer must resolve to the identity this page authenticated rather
- * than to a fresh, possibly substituted, endpoint answer.
+ * Pin the signers and members of a history page the chain verifier just
+ * accepted. The next page's first signer is authorized only by user ID
+ * against this page's last projection, and a member it removes is not
+ * rechecked for continuity, so that signer must resolve to the identity this
+ * page authenticated rather than to a fresh, possibly substituted, answer.
  */
 export function publishAcceptedPageIdentities(
   entries: readonly {
+    readonly state: {
+      readonly signerUserId: string;
+      readonly signerUserKeyFingerprint: string;
+    };
     readonly projection: readonly PrincipalProjectionMember[];
   }[],
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
+  assertCurrent: () => void,
 ): Promise<void> {
-  return assertPrincipalIdentityCommitments({
-    authenticated: true,
+  return publishVerifiedPolicyIdentities({
+    signers: entries.map(({ state }) => ({
+      userId: state.signerUserId,
+      signingKeyFingerprint: state.signerUserKeyFingerprint,
+    })),
     projections: entries.map((entry) => entry.projection),
     resolveTrustedUserIdentity,
+    assertCurrent,
   });
 }
 

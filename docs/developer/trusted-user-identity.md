@@ -284,7 +284,14 @@ before signatures, so it never publishes: a forged projection, a refused
 member, or a refused signer (for example one whose served encapsulation key
 contradicts its committed bundle) leaves no pin to block the corrected retry
 or the honest identity link. The external-authority refusal classifier
-likewise resolves signers without pinning them. Any answer a scope
+likewise resolves signers without pinning them. Every successful verification
+of a collected bundle then pins its signers and committed members, resolving
+them again and rechecking each signer's signed fingerprint and committed
+bundle, so an answer changed since verification is refused, and a later
+substituted answer conflicts with the verified pin instead of becoming one.
+Each publication also runs the calling operation's own lifetime check inside
+every pin's write transaction, so a cancelled recovery pins nothing. Any
+answer a scope
 did not publish, even one its check accepted, is evicted from the endpoint
 cache, because the caller's signature check may still refuse it: a retry or a
 later signer lookup reads the endpoint again. Each history page the chain

@@ -1,8 +1,6 @@
 import {
   KeyingVerificationError,
-  type PrincipalPolicySignerPublicKey,
   type ReferencedPrincipalHead,
-  toFingerprint,
   type VerifiedPrincipalPolicy,
   verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
@@ -17,7 +15,7 @@ import {
 } from "../../principals/organizationAuthorityDescriptor";
 import {
   assertPrincipalIdentityCommitments,
-  withUnauthenticatedPolicyIdentities,
+  publishVerifiedPolicyBundle,
 } from "../../principals/principalIdentityCommitments";
 import {
   organizationAdminExternalAuthority,
@@ -29,12 +27,10 @@ import {
   type PrincipalPolicyCurrentEvidence,
   principalPolicyEvidenceEntries,
 } from "../../principals/principalPolicyEvidence";
-import { principalPolicyBundleStates } from "../../principals/principalPolicyStates";
 import {
   observePrincipalPolicy,
   type ProjectionCheckpointContext,
 } from "../checkpoints/checkpointContext";
-import { ProjectionDependencyUnavailableError } from "../dependencyUnavailable";
 import { rethrowProjectionVerificationBoundaryError } from "../error";
 import type {
   PrincipalPolicyCache,
@@ -54,6 +50,7 @@ import {
   principalPolicyHeadMeetsCheckpoint,
   verifiedPrincipalPolicyMeetsCheckpoint,
 } from "./principalPolicyCheckpointSelection";
+import { collectPrincipalPolicySignerPublicKeys } from "./principalPolicySigners";
 import { resolveReferencedPrincipalPolicy } from "./resolvedPrincipalPolicy";
 
 function principalPolicyReferenceLabel(
@@ -80,53 +77,6 @@ export function isPrincipalPolicyNotCachedError(error: unknown): boolean {
   return (
     error instanceof PrincipalPolicyNotCachedError ||
     (error instanceof Error && error.name === "PrincipalPolicyNotCachedError")
-  );
-}
-
-async function collectPrincipalPolicySignerPublicKeys(input: {
-  bundle: PrincipalPolicyBundleResponse;
-  label: string;
-  resolveUserKey: ProjectionUserKeyResolver;
-}): Promise<PrincipalPolicySignerPublicKey[]> {
-  const states = principalPolicyBundleStates(input.bundle);
-  // Signatures are checked after collection: compare, but pin nothing yet.
-  return withUnauthenticatedPolicyIdentities(
-    {
-      signerUserIds: states.map((state) => state.signerUserId),
-      projections: [
-        ...input.bundle.previousStates.map((entry) => entry.projection),
-        input.bundle.currentProjection,
-      ],
-      resolveTrustedUserIdentity: input.resolveUserKey,
-    },
-    async (resolve) => {
-      const signers = new Map<string, PrincipalPolicySignerPublicKey>();
-      for (const state of states) {
-        const cacheKey = `${state.signerUserId}:${state.signerUserKeyFingerprint}`;
-        if (signers.has(cacheKey)) continue;
-        const signerKey = await resolve(state.signerUserId);
-        if (!signerKey) {
-          throw new ProjectionDependencyUnavailableError(
-            `${input.label} signer key could not be resolved for ${state.signerUserId}`,
-          );
-        }
-        const signingKeyFingerprint = await toFingerprint(
-          signerKey.signingPublicKey,
-        );
-        if (signingKeyFingerprint !== state.signerUserKeyFingerprint) {
-          throw new KeyingVerificationError(
-            "signer_mismatch",
-            `${input.label} signer key fingerprint mismatch`,
-          );
-        }
-        signers.set(cacheKey, {
-          userId: state.signerUserId,
-          signingKeyFingerprint,
-          signingPublicKey: signerKey.signingPublicKey,
-        });
-      }
-      return [...signers.values()];
-    },
   );
 }
 
@@ -251,6 +201,7 @@ async function verifyOrganizationAdminsPolicy(input: {
     throw verified.error;
   }
   assertReservedAdminsPolicyShape(verified.value);
+  await publishVerifiedPolicyBundle(adminBundle, input.resolveUserKey);
   return verified.value;
 }
 
@@ -277,6 +228,10 @@ async function loadOrganizationExternalAuthority(
     if (!verified.ok) {
       throw verified.error;
     }
+    await publishVerifiedPolicyBundle(
+      organizationPolicy.bundle,
+      input.resolveUserKey,
+    );
     const descriptor = parseOrganizationAuthorityDescriptor(
       organizationPolicy.bundle.currentPayload.ciphertext,
     );
@@ -427,6 +382,7 @@ async function verifyReferencedPrincipalPolicy(input: {
     throw verified.error;
   }
   await assertVerifiedPolicyCommitments(verified.value, input.resolveUserKey);
+  await publishVerifiedPolicyBundle(bundle, input.resolveUserKey);
 
   observePrincipalPolicy(
     input.checkpointContext,

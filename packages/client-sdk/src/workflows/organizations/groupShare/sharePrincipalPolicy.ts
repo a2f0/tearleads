@@ -36,6 +36,7 @@ import {
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
+  publishVerifiedPrincipalPolicy,
 } from "../../principals/policyVerification";
 import { assertGroupMetadataBinding } from "../groupMetadata/groupMetadataBinding";
 import {
@@ -327,6 +328,10 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
       "Container share principal policy verification failed",
     );
   }
+  await publishVerifiedPrincipalPolicy({
+    bundle,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
   assertGroupMetadataBinding(bundle, organizationAdminPolicy.descriptor);
   if (input.expectedGroupName !== undefined) {
     await assertShareGroupName({

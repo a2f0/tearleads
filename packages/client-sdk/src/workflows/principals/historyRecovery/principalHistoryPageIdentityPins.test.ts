@@ -200,3 +200,83 @@ test("a public history page boundary pins its admins before the next page", asyn
     forgery.pins.close();
   }
 });
+
+/**
+ * A one-page history whose identity endpoint cancels the recovery on its
+ * `cancelOnHit`-th read: 1 while signers load, 2 while publication re-reads.
+ */
+async function cancelledWhileLoadingSigners(cancelOnHit: number) {
+  const history = await signedRecoveryHistory(2);
+  const owner = await history.resolveTrustedUserIdentity(
+    history.bundle.currentState.signerUserId,
+  );
+  if (!owner) throw new Error("Missing fixture owner");
+  const pins = await principalIdentityPinFixture(1);
+  pins.responses.set(owner.userId, identityResponse(owner));
+  let hits = 0;
+  const served = pins.responses.get.bind(pins.responses);
+  pins.responses.get = (userId: string) => {
+    hits += 1;
+    return served(userId);
+  };
+  return {
+    history,
+    pins,
+    stillCurrent: () => hits < cancelOnHit,
+    async expectNoPin() {
+      expect(
+        await pins.execSql(
+          "SELECT provenance FROM trusted_user_identity_pins WHERE user_id = ?",
+          [owner.userId],
+        ),
+      ).toEqual([]);
+    },
+  };
+}
+
+test("a recovery cancelled while loading signers pins no accepted page", async () => {
+  const run = await cancelledWhileLoadingSigners(1);
+  const http = serveRecoveryHistory(run.history.bundle);
+  try {
+    await expect(
+      recoverPrincipalPolicyHistory({
+        historyReader: http.client(),
+        execSql: run.pins.execSql,
+        organizationId: "org-1",
+        expectedHead: run.history.expectedHead,
+        protection: {
+          localKey: new Uint8Array(32).fill(7),
+          context: "device-and-trust-domain-1",
+        },
+        resolveTrustedUserIdentity: run.pins.service.resolve,
+        stillCurrent: run.stillCurrent,
+      }),
+    ).rejects.toThrow();
+    await run.expectNoPin();
+  } finally {
+    http.close();
+    run.pins.close();
+  }
+});
+
+test("a public recovery cancelled during page publication pins nothing", async () => {
+  // Public history rechecks its lifetime before appending, so cancel while
+  // publication itself re-reads the signer.
+  const run = await cancelledWhileLoadingSigners(2);
+  const http = await createPublicHistoryFixture({
+    bundle: run.history.bundle,
+    resolveTrustedUserIdentity: run.pins.service.resolve,
+  });
+  try {
+    await expect(
+      recoverPublicPrincipalHistory({
+        ...http.options,
+        stillCurrent: run.stillCurrent,
+      }),
+    ).rejects.toThrow();
+    await run.expectNoPin();
+  } finally {
+    http.close();
+    run.pins.close();
+  }
+});

@@ -122,6 +122,12 @@ export interface StagedUserIdentityOptions {
    * unauthenticated projection names must never reach the durable store.
    */
   readonly publish: boolean;
+  /**
+   * The calling operation's own lifetime (cancellation, superseded recovery),
+   * checked with the trust store's scope at every step and inside each pin's
+   * write transaction, so a cancelled operation commits no first sight.
+   */
+  readonly assertCurrent?: (() => void) | undefined;
 }
 
 /** Callable resolution always compares the candidate with durable pins.

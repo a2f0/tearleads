@@ -140,7 +140,14 @@ export function withPinnedIdentityResolution(
       verify: (resolve: StagedUserIdentityResolver) => Promise<T>,
       options: StagedUserIdentityOptions,
     ): Promise<T> {
-      const scope = capturePinScope(dependencies);
+      const captured = capturePinScope(dependencies);
+      const scope: PinScope = {
+        ...captured,
+        assertCurrent() {
+          captured.assertCurrent();
+          options.assertCurrent?.();
+        },
+      };
       for (const userId of userIds) assertTrustedUserIdentityUserId(userId);
       // First sights stay in memory until `verify` succeeds for a projection
       // the caller has authenticated: a refusal leaves no durable trace.

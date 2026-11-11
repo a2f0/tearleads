@@ -1,5 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
+import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { publishAcceptedPageIdentities } from "../../../data/principals/principalIdentityCommitments";
 import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
 import type { PrincipalHistoryRecoveryStage } from "./principalHistoryRecoveryStage";
@@ -43,6 +44,11 @@ export async function appendVerifiedHistoryPage(input: {
     await publishAcceptedPageIdentities(
       entries,
       options.resolveTrustedUserIdentity,
+      // A recovery cancelled while loading signers or authority pins nothing.
+      () =>
+        assertProjectionVerificationCurrent(
+          () => !options.signal?.aborted && options.stillCurrent(),
+        ),
     );
   return appended;
 }

@@ -1,6 +1,10 @@
 import type { PrincipalPolicySignerPublicKey } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { withUnauthenticatedPolicyIdentities } from "../../data/principals/principalIdentityCommitments";
+import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
+import {
+  publishVerifiedPolicyBundle,
+  withUnauthenticatedPolicyIdentities,
+} from "../../data/principals/principalIdentityCommitments";
 import {
   requireTrustedUserIdentityResolver,
   type StagedUserIdentityResolver,
@@ -110,4 +114,40 @@ export async function collectPrincipalPolicySignerPublicKeys(input: {
     if (error instanceof SignerLoadRefusal) return { error: error.code };
     throw error;
   }
+}
+
+/**
+ * Pin the signers and members of a bundle the caller has just verified, so
+ * the first sights signer collection staged become durable only now. Call it
+ * after every successful verification of a collected bundle.
+ */
+export function publishVerifiedPrincipalPolicy(input: {
+  readonly bundle: Pick<
+    PrincipalPolicyBundleResponse,
+    "currentState" | "previousStates" | "currentProjection"
+  >;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly assertCurrent?: (() => void) | undefined;
+}): Promise<void> {
+  return publishVerifiedPolicyBundle(
+    input.bundle,
+    requireTrustedUserIdentityResolver(input.resolveTrustedUserIdentity),
+    input.assertCurrent,
+  );
+}
+
+/** Pin one recovery's just-verified current state, within its lifetime. */
+export function publishVerifiedCurrent(
+  options: { readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver },
+  current: Pick<
+    PrincipalPolicyBundleResponse,
+    "currentState" | "currentProjection"
+  >,
+  stillCurrent: () => boolean,
+): Promise<void> {
+  return publishVerifiedPrincipalPolicy({
+    bundle: { ...current, previousStates: [] },
+    resolveTrustedUserIdentity: options.resolveTrustedUserIdentity,
+    assertCurrent: () => assertProjectionVerificationCurrent(stillCurrent),
+  });
 }

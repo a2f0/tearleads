@@ -26,6 +26,7 @@ import type { CurrentPrincipalPolicyReader } from "./currentPrincipalPolicyReade
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
+  publishVerifiedPrincipalPolicy,
 } from "./policyVerification";
 
 export interface VerifiedExternalAdminPolicy {
@@ -111,6 +112,7 @@ async function verifyOrganizationPolicy(input: {
   if (!verified.ok) {
     throw verified.error;
   }
+  await publishVerifiedPrincipalPolicy(input);
   return verified.value;
 }
 
@@ -213,6 +215,10 @@ async function loadVerifiedAdminsPolicy(input: {
     );
   }
   assertAdminsPolicyShape(verified.value);
+  await publishVerifiedPrincipalPolicy({
+    bundle,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
   return { bundle, policy: verified.value };
 }
 

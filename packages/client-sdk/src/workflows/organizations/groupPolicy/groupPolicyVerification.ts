@@ -16,6 +16,7 @@ import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdent
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
+  publishVerifiedPrincipalPolicy,
 } from "../../principals/policyVerification";
 
 function signerPublicKeyLoadErrorMessage(
@@ -63,6 +64,8 @@ export async function verifyGroupPolicy(input: {
   readonly externalAuthority?: PrincipalPolicyExternalAuthority;
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly localPolicyCheckpoint: PrincipalPolicyCheckpoint | null;
+  /** When given, pin the verified policy's signers and members. */
+  readonly resolveTrustedUserIdentity?: TrustedUserIdentityResolver;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
 }): Promise<VerifiedPrincipalPolicy> {
   const verified = await verifyPrincipalPolicyBundle({
@@ -81,6 +84,11 @@ export async function verifyGroupPolicy(input: {
       "Group policy verification failed",
     );
   }
+  if (input.resolveTrustedUserIdentity)
+    await publishVerifiedPrincipalPolicy({
+      bundle: input.currentPolicy,
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    });
 
   return verified.value;
 }
@@ -89,6 +97,8 @@ export async function verifyGroupPolicyWithExternalOrganizationAdmins(input: {
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly loadExternalAuthority: () => Promise<PrincipalPolicyExternalAuthority | null>;
   readonly localPolicyCheckpoint: PrincipalPolicyCheckpoint | null;
+  /** When given, pin the verified policy's signers and members. */
+  readonly resolveTrustedUserIdentity?: TrustedUserIdentityResolver;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
 }): Promise<VerifiedPrincipalPolicy> {
   const verified: KeyingVerificationResult<VerifiedPrincipalPolicy> =
@@ -105,6 +115,11 @@ export async function verifyGroupPolicyWithExternalOrganizationAdmins(input: {
       "Group policy verification failed",
     );
   }
+  if (input.resolveTrustedUserIdentity)
+    await publishVerifiedPrincipalPolicy({
+      bundle: input.currentPolicy,
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    });
   return verified.value;
 }
 

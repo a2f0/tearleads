@@ -97,6 +97,7 @@ export async function appendPublicPrincipalHistoryPage(
   await publishAcceptedPageIdentities(
     entries,
     input.resolveTrustedUserIdentity,
+    () => assertProjectionVerificationCurrent(stillCurrent),
   );
   assertProjectionVerificationCurrent(stillCurrent);
   const row = {

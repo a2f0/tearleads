@@ -20,7 +20,10 @@ import type { SecurityIncidentReporter } from "../../../data/shared/securityInci
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
-import { collectPrincipalPolicySignerPublicKeys } from "../../principals/policyVerification";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  publishVerifiedPrincipalPolicy,
+} from "../../principals/policyVerification";
 import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
 import { assertGroupMetadataBinding } from "../groupMetadata/groupMetadataBinding";
 import {
@@ -132,6 +135,10 @@ export async function verifyDirectoryGroup(
       "Organization directory group verification failed",
     );
   }
+  await publishVerifiedPrincipalPolicy({
+    bundle,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
   assertGroupMetadataBinding(bundle, input.descriptor);
   const name = await readDirectoryGroupName(input, bundle);
   return {

@@ -20,7 +20,10 @@ import {
   assertPrincipalHistoryVerificationMode,
   principalHistoryVerificationContext,
 } from "../historyRecovery/principalHistoryRecoveryVerification";
-import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  publishVerifiedCurrent,
+} from "../policyVerification";
 import {
   type AcknowledgedPrincipalPredecessor,
   restoreAcknowledgedPrincipalPredecessor,
@@ -95,6 +98,7 @@ async function preparePublication(
     externalAuthority,
     stillCurrent,
   });
+  await publishVerifiedCurrent(options, current, stillCurrent);
   const entry = {
     state: current.currentState,
     projection: current.currentProjection,

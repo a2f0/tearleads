@@ -19,6 +19,7 @@ import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
   principalPolicyStates,
+  publishVerifiedPrincipalPolicy,
 } from "../policyVerification";
 
 interface PrincipalPolicyValidationFailure {
@@ -237,13 +238,13 @@ export async function validatePrincipalPolicyBundleForCache(input: {
       localCheckpoint: input.localCheckpoint,
       signerPublicKeys: signerPublicKeys.signerPublicKeys,
     });
-  return verified.ok
-    ? {
-        externalAdminPolicy: usedExternalAdminPolicy
-          ? await input.loadExternalAdminPolicy()
-          : null,
-        ok: true,
-        policy: verified.value,
-      }
-    : { error: verified.error, ok: false };
+  if (!verified.ok) return { error: verified.error, ok: false };
+  await publishVerifiedPrincipalPolicy(input);
+  return {
+    externalAdminPolicy: usedExternalAdminPolicy
+      ? await input.loadExternalAdminPolicy()
+      : null,
+    ok: true,
+    policy: verified.value,
+  };
 }

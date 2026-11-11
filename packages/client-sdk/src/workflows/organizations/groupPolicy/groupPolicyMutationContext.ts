@@ -100,6 +100,7 @@ export async function cacheGroupPolicy(input: {
       ? { externalAuthority: input.externalAuthority }
       : {}),
     localPolicyCheckpoint: input.localPolicyCheckpoint ?? null,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     signerPublicKeys,
   });
   if (input.expectedCurrentHead) {
@@ -174,12 +175,14 @@ export async function loadGroupPolicyMutationContext(input: {
     ? await verifyGroupPolicy({
         currentPolicy,
         localPolicyCheckpoint: verification.localPolicyCheckpoint,
+        resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
         signerPublicKeys: verification.currentPolicySignerPublicKeys,
       })
     : await verifyGroupPolicyWithExternalOrganizationAdmins({
         currentPolicy,
         loadExternalAuthority: async () => externalAuthority,
         localPolicyCheckpoint: verification.localPolicyCheckpoint,
+        resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
         signerPublicKeys: verification.currentPolicySignerPublicKeys,
       });
   assertGroupMetadataBinding(currentPolicy, adminPolicy.descriptor);
