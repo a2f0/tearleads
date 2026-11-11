@@ -59,7 +59,8 @@ installed; the runner does not install tools or change the lockfile.
 `runVerifiedTurbo.ts test` with a workspace filter; Turbo builds their
 dependencies first. Prefer `check:package` locally for its source-fingerprinted
 report and forwarded test arguments. To narrow API tests, use
-`--test-name-pattern`; its script always selects `src`.
+`--test-name-pattern`; its script always selects `src` and in-memory PGlite,
+regardless of an outer `API_DATABASE` value.
 
 Each run prints the path to a JSON report under the checkout's Git directory:
 `git rev-parse --git-path verification` locates the report directory, including
