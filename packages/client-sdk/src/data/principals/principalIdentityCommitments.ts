@@ -36,6 +36,31 @@ export async function assertPrincipalIdentityCommitments(input: {
   );
 }
 
+/**
+ * Check every projection a verified selection hands to authorization, on
+ * fresh and restored history alike: a restored prefix reads no page, so this
+ * is the only commitment check its members get. Selections are already
+ * signature-verified, so their members' first sights are published.
+ */
+export function assertSelectedPolicyCommitments(
+  policies: readonly {
+    readonly projection: readonly PrincipalProjectionMember[];
+    readonly retainedHistory: readonly {
+      readonly projection: readonly PrincipalProjectionMember[];
+    }[];
+  }[],
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
+): Promise<void> {
+  return assertPrincipalIdentityCommitments({
+    authenticated: true,
+    projections: policies.flatMap((policy) => [
+      policy.projection,
+      ...policy.retainedHistory.map((entry) => entry.projection),
+    ]),
+    resolveTrustedUserIdentity,
+  });
+}
+
 async function compareCommitments(
   projections: readonly (readonly PrincipalProjectionMember[])[],
   resolve: StagedUserIdentityResolver,

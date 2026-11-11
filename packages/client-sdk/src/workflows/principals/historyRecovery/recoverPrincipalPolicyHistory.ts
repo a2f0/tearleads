@@ -18,7 +18,7 @@ import {
 } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
-import { assertPrincipalIdentityCommitments } from "../../../data/principals/principalIdentityCommitments";
+import { assertSelectedPolicyCommitments } from "../../../data/principals/principalIdentityCommitments";
 import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
 import { validatePrincipalHistoryRecoveryAuthority } from "./principalHistoryRecoveryAuthority";
 import { publishReusablePrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";
@@ -216,11 +216,10 @@ async function finishRecovery(
       throw new StoredPrincipalCurrentRejectedError(current.error);
     throw current.error;
   }
-  await assertPrincipalIdentityCommitments({
-    authenticated: true,
-    projections: [current.value.projection],
-    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-  });
+  await assertSelectedPolicyCommitments(
+    [current.value],
+    input.resolveTrustedUserIdentity,
+  );
   verifyPrincipalPolicyCheckpoint({
     chain: current.value.retainedHistory,
     currentState: current.value.state,

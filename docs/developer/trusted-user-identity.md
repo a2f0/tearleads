@@ -275,7 +275,11 @@ candidates as `observed` only when `verify` succeeds and the caller set
 `publish`, which it does only after the projection's signed state verified.
 Signer collection checks commitments before signatures, so it never publishes:
 a forged projection or a refused candidate leaves no pin, and the fetched
-candidates are evicted so a retry reads the endpoint again. The current user
+candidates are evicted so a retry reads the endpoint again. Public and private
+history selections recheck every projection they return, from fresh pages and
+restored prefixes alike, and publish there: a restored prefix reads no page,
+so a member substituted after it was verified cannot act under its cached
+membership. The current user
 always rechecks authoritative local keys. Database, account, or
 runtime-generation changes invalidate the operation. The callback's resolver
 is not a persistent cache.
