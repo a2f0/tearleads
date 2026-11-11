@@ -19,6 +19,7 @@ import {
   START_TIMEOUT_MS,
   startLocalWorker,
   stringField,
+  WORKER_IDENTITY_TRUST_DOMAIN,
 } from "../../test/helpers/localWorker";
 import { registerUser } from "../../test/helpers/registerUser";
 
@@ -88,7 +89,10 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
           user.signing.signingPublicKey,
           user.signing.signingPrivateKey,
           user.kem.publicKey,
-          { includeTrashSystemContainer: true },
+          {
+            identityTrustDomain: WORKER_IDENTITY_TRUST_DOMAIN,
+            includeTrashSystemContainer: true,
+          },
         ),
       ),
       200,
@@ -162,7 +166,10 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
           user.signing.signingPublicKey,
           user.signing.signingPrivateKey,
           user.kem.publicKey,
-          { includeTrashSystemContainer: true },
+          {
+            identityTrustDomain: WORKER_IDENTITY_TRUST_DOMAIN,
+            includeTrashSystemContainer: true,
+          },
         ),
       ),
       200,
