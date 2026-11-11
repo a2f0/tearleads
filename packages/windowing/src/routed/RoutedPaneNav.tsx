@@ -37,7 +37,9 @@ function useRoutedPaneNavItems(
     () =>
       appIds.flatMap((appId) => {
         const app = definition.apps[appId];
-        return app ? [{ appId, icon: app.icon, label: app.title }] : [];
+        return app
+          ? [{ appId, icon: app.icon, label: app.iconLabel ?? app.title }]
+          : [];
       }),
     [appIds, definition],
   );

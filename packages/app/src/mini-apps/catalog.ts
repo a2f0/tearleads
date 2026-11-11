@@ -11,10 +11,9 @@ import { ShieldCheckIcon } from "@phosphor-icons/react/dist/csr/ShieldCheck";
 import { SystemMonitorIcon } from "./system-monitor/icon";
 import type { MiniAppId } from "./types";
 
-// Presentation metadata for every mini-app: titles, icons, and menu order. It
-// imports no mini-app implementation, so chrome that only labels or lists apps
-// (the footer taskbar, the pane context menu, the routed nav and app bar) does
-// not load every mini-app. registry.ts pairs these titles with the components.
+// Default titles, icons, and launcher order without mini-app implementations.
+// registry.ts pairs this metadata with components; launchers read presentation
+// from that definition through navigation state, including iconLabel overrides.
 
 export const MINI_APP_TITLES: Readonly<Record<MiniAppId, string>> = {
   "backup-restore": "Backup / Restore",
@@ -47,8 +46,6 @@ export const MINI_APP_ICONS: Readonly<Record<MiniAppId, Icon>> = {
 
 interface MiniAppMenuItem {
   appId: MiniAppId;
-  icon: Icon;
-  label: string;
 }
 
 // Display Properties opens only from the desktop's context menu, so it is
@@ -71,8 +68,6 @@ export const HOME_MINI_APP_ID: MiniAppId = "explorer";
 export const MINI_APP_MENU_ITEMS: ReadonlyArray<MiniAppMenuItem> =
   MINI_APP_ORDER.map((appId) => ({
     appId,
-    icon: MINI_APP_ICONS[appId],
-    label: MINI_APP_TITLES[appId],
   }));
 
 // Keep a named routed-navigation seam even though it currently shares the Start

@@ -7,6 +7,7 @@ import {
 } from "../../../../test/helpers/routedPaneTestUtils";
 import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/catalog";
 import { filterVisibleMiniAppItems } from "../../../mini-apps/miniAppVisibility";
+import { MINI_APPS } from "../../../mini-apps/registry";
 
 // The windowing package's routed shell owns its own behavior (see its
 // RoutedPane tests); these cover what the app puts into it.
@@ -65,7 +66,12 @@ test("the launcher offers the session's mini-apps, in menu order", () => {
       ...view.container.querySelectorAll(".routed-pane-sheet-tile"),
     ].map((tile) => tile.textContent);
 
-    expect(tiles).toEqual(VISIBLE_NAV_ITEMS.map(({ label }) => label));
+    expect(tiles).toEqual(
+      VISIBLE_NAV_ITEMS.map(({ appId }) => {
+        const app = MINI_APPS[appId];
+        return app.iconLabel ?? app.title;
+      }),
+    );
     expect(view.queryByRole("link", { name: "Root" })).toBeNull();
   } finally {
     view?.unmount();
