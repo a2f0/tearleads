@@ -100,6 +100,10 @@ Root discovery is not proof of profile/document hydration. Runtime restart
 retains the SQLite connection; it does not simulate a database close/reopen
 or process crash. Realtime delivery and response-loss frequency are untested.
 
+The exact-resend canary characterizes a replay limitation, not a required fix
+design. Revisit or remove it when #2893 is resolved: retry keys or client-side
+adoption need not make an exact plain resend succeed.
+
 No production fix is included: ordinary attempts have no stable retry key or
 whole-request server receipt. Native-restore and replacement replay are tied
 to different billing/recovery semantics; reusing those flags would change

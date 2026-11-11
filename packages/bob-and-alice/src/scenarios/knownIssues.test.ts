@@ -108,6 +108,7 @@ describe("#2893 exact plain request replay", () => {
   afterAll(() => world?.dispose());
 
   test("an exact signed replay does not insert another server organization", () => {
+    expect(observed.status).toBe(409);
     expect(observed.submitted).toEqual(observed.created);
     expect(observed.afterReplayServerIds.sort()).toEqual(
       [...observed.initialServerIds, observed.created.organizationId].sort(),
