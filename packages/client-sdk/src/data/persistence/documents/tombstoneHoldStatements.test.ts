@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { captureStatements } from "../../../../test/helpers/statementCapture";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
+import { SQLITE_BOUND_VARIABLE_BUDGET } from "../../sqlite/sqliteBindBudget";
 import {
   type HeldContainerDocumentTombstone,
   holdContainerDocumentTombstones,
@@ -11,6 +13,58 @@ import { sqlDocumentsPersistence } from "./documentsPersistence";
 
 const now = "2026-01-01T00:00:00.000Z";
 const later = "2026-01-02T00:00:00.000Z";
+for (const size of [166, 167, 1001]) {
+  test(`hold writes keep ${size} rows within the bind budget`, async () => {
+    const db = await createTestExecSql("hold-batch-boundary");
+    const { execSql, statements } = captureStatements(db.execSql);
+    const inputs = Array.from({ length: size }, (_, i) => ({
+      containerId: "container",
+      documentId: `document-${String(i).padStart(4, "0")}`,
+      updatedAt: now,
+    }));
+    try {
+      // Keep schema setup outside the measured operation.
+      await sqlDocumentsPersistence.ensureSchema(execSql);
+      statements.length = 0;
+      await holdContainerDocumentTombstones(execSql, inputs, later);
+      const writes = statements.filter(({ sql }) =>
+        /^insert into "container_document_tombstone_holds"/i.test(sql),
+      );
+      console.info(
+        JSON.stringify({
+          operation: "hold-boundary",
+          size,
+          statements: statements.length,
+          writeBinds: writes.map((row) => row.binds),
+        }),
+      );
+      expect(writes).toHaveLength(Math.ceil(size / 166));
+      expect(
+        Math.max(...statements.map((row) => row.binds)),
+      ).toBeLessThanOrEqual(SQLITE_BOUND_VARIABLE_BUDGET);
+      expect(statements.filter(({ sql }) => /^begin/i.test(sql))).toHaveLength(
+        1,
+      );
+      expect(statements.filter(({ sql }) => /^commit/i.test(sql))).toHaveLength(
+        1,
+      );
+      expect(
+        await listContainerDocumentTombstoneHolds(db.execSql, ["container"]),
+      ).toEqual(
+        inputs.map((row) => ({
+          ...row,
+          attempts: 1,
+          hidden: true,
+          tombstonedAt: now,
+          updatedAt: later,
+        })),
+      );
+    } finally {
+      await db.close();
+    }
+  });
+}
+
 const holds = Array.from({ length: 32 }, (_, i) => ({
   containerId: "container",
   documentId: `document-${i}`,

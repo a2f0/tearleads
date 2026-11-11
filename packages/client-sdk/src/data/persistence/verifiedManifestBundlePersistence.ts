@@ -180,7 +180,12 @@ export async function writeVerifiedManifestBundlesInTransaction(
         },
       })
       .run();
-  // An unchanged level already removed its superseded siblings when written.
+  // All incremental SDK level writes pass here. Both checkpoint callers
+  // prepare them with verifiedManifestBundleRows (one level per container),
+  // then write and drop siblings in the same serialized transaction. Thus an
+  // unchanged level already removed its siblings; eviction/reset only delete.
+  // Restored caches must preserve that invariant too: this fast path does not
+  // repair externally injected stale siblings.
   await dropSupersededKekLevels(tx, [...changed.values()]);
   // Replacing or touching existing rows cannot grow the bounded cache.
   if (rows.some((row) => !stored.has(row.manifestHash))) {

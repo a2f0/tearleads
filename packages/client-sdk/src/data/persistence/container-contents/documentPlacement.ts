@@ -84,28 +84,20 @@ export async function filterWritableDocumentPlacements(
   inputs: readonly DocumentPlacementInput[],
   options?: DocumentPlacementWriteOptions,
 ): Promise<readonly DocumentPlacementInput[]> {
-  const ids = inputs.map((input) => input.documentId);
-  const intents = new Map(
-    (
-      await tx
-        .select({
-          documentId: localIntents.subjectId,
-          id: localIntents.id,
-        })
-        .from(localIntents)
-        .where(
-          and(
-            inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
-            inArray(localIntents.subjectId, ids),
-          ),
-        )
-    ).map((row) => [row.documentId, row.id]),
+  const intents = await loadDocumentMovePlacements(
+    tx,
+    inputs.map((input) => input.documentId),
   );
-  const versionedIds = inputs
-    .filter((input) => input.accessEpoch !== undefined)
-    .map((input) => input.documentId);
+  const versionedIds = [
+    ...new Set(
+      inputs
+        .filter((input) => input.accessEpoch !== undefined)
+        .map((input) => input.documentId),
+    ),
+  ];
   const epochs = new Map<string, number>();
-  if (versionedIds.length > 0) {
+  const chunkSize = sqliteRowsPerStatement(1, 1);
+  for (let offset = 0; offset < versionedIds.length; offset += chunkSize) {
     const rows = await tx
       .select({
         documentId: documents.documentId,
@@ -115,7 +107,10 @@ export async function filterWritableDocumentPlacements(
       .where(
         and(
           eq(documents.appKind, DOCUMENTS_APP_KIND),
-          inArray(documents.documentId, versionedIds),
+          inArray(
+            documents.documentId,
+            versionedIds.slice(offset, offset + chunkSize),
+          ),
         ),
       );
     for (const row of rows)
@@ -127,7 +122,7 @@ export async function filterWritableDocumentPlacements(
   }
   return inputs.filter((input) => {
     if (options?.moveIntentId)
-      return intents.get(input.documentId) === options.moveIntentId;
+      return intents.get(input.documentId)?.id === options.moveIntentId;
     if (intents.has(input.documentId)) return false;
     return (
       input.accessEpoch === undefined ||

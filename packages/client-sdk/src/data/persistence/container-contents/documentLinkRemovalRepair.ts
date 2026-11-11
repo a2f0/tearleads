@@ -20,7 +20,9 @@ async function loadAffectedIntents(
   containerIds: ReadonlyArray<string>,
   includePrimaryMoves: boolean,
 ) {
-  const rows = new Map<string | null, typeof localIntents.$inferSelect>();
+  // This query selects one lane. Its non-null subject is unique within it;
+  // the nullable revision token is not the identity of a stored intent.
+  const rows = new Map<string, typeof localIntents.$inferSelect>();
   for (const batch of containerRemovalBatches(containerIds)) {
     for (const row of await tx
       .select()
@@ -49,7 +51,7 @@ async function loadAffectedIntents(
           ),
         ),
       ))
-      rows.set(row.id, row);
+      rows.set(row.subjectId, row);
   }
   return [...rows.values()];
 }

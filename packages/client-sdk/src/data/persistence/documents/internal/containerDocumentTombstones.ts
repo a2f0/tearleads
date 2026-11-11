@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import {
   documentContainerProjection,
@@ -267,6 +267,56 @@ function selectedContainerRepointsForDocumentTombstones(input: {
   }));
 }
 
+async function loadChangedDocumentSummaries(
+  tx: ClientSQLiteTransactionScope,
+  localIds: readonly string[],
+) {
+  const rows: Array<
+    Parameters<typeof mapDocumentSummary>[0] & {
+      updatedAtOrder: string;
+      localIdOrder: string;
+    }
+  > = [];
+  // The summary join also binds the app kind.
+  const chunkSize = sqliteRowsPerStatement(1, 1);
+  for (let offset = 0; offset < localIds.length; offset += chunkSize) {
+    rows.push(
+      ...(await tx
+        .select({
+          ...documentSummarySelection,
+          // Merge batches in SQLite BINARY order, not JS UTF-16 or locale order.
+          // Hex preserves the byte ordering, including non-ASCII local ids.
+          updatedAtOrder: sql<string>`hex(${documentProjection.updatedAt})`,
+          localIdOrder: sql<string>`hex(${documentProjection.localId})`,
+        })
+        .from(documentProjection)
+        .leftJoin(documents, documentSummaryJoin)
+        .where(
+          inArray(
+            documentProjection.localId,
+            localIds.slice(offset, offset + chunkSize),
+          ),
+        )
+        .orderBy(
+          desc(documentProjection.updatedAt),
+          desc(documentProjection.localId),
+        )),
+    );
+  }
+  rows.sort((left, right) => {
+    const a =
+      left.updatedAtOrder === right.updatedAtOrder
+        ? left.localIdOrder
+        : left.updatedAtOrder;
+    const b =
+      left.updatedAtOrder === right.updatedAtOrder
+        ? right.localIdOrder
+        : right.updatedAtOrder;
+    return a > b ? -1 : a < b ? 1 : 0;
+  });
+  return rows.map(mapDocumentSummary);
+}
+
 export async function applyContainerDocumentTombstonesWithExec(
   execSql: ExecSql,
   tombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
@@ -332,16 +382,6 @@ export async function applyContainerDocumentTombstonesWithExec(
       return [];
     }
 
-    const rows = await tx
-      .select(documentSummarySelection)
-      .from(documentProjection)
-      .leftJoin(documents, documentSummaryJoin)
-      .where(inArray(documentProjection.localId, changedLocalIds))
-      .orderBy(
-        desc(documentProjection.updatedAt),
-        desc(documentProjection.localId),
-      );
-
-    return rows.map(mapDocumentSummary);
+    return loadChangedDocumentSummaries(tx, changedLocalIds);
   });
 }
