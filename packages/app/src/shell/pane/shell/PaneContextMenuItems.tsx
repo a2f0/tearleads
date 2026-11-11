@@ -2,12 +2,9 @@ import { KeyIcon } from "@phosphor-icons/react/dist/csr/Key";
 import { LockIcon } from "@phosphor-icons/react/dist/csr/Lock";
 import { LockOpenIcon } from "@phosphor-icons/react/dist/csr/LockOpen";
 import { MenuItem, type MenuPosition } from "@tearleads/windowing";
-import {
-  MINI_APP_ICONS,
-  MINI_APP_MENU_ITEMS,
-  MINI_APP_TITLES,
-} from "../../../mini-apps/catalog";
+import { MINI_APP_MENU_ITEMS } from "../../../mini-apps/catalog";
 import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItems";
+import { useAppNavigationState } from "../../../navigation/AppNavigationProvider";
 
 import { usePaneLockMenuAction } from "./usePaneLockMenuAction";
 import { usePaneWindowMenuActions } from "./usePaneWindowMenuActions";
@@ -35,6 +32,8 @@ export function PaneContextMenuItems({
   });
   const { canLockPane, lockPane } = usePaneLockMenuAction(onClose);
   const visibleMenuItems = useVisibleMiniAppItems(MINI_APP_MENU_ITEMS);
+  const { definition } = useAppNavigationState();
+  const displayProperties = definition.apps["display-properties"];
 
   const needsIdentity = !hasSigningKeyPair && !paneLocked;
 
@@ -60,19 +59,24 @@ export function PaneContextMenuItems({
       )}
       {visibleMenuItems
         .filter(({ appId }) => !needsIdentity || appId === "system-monitor")
-        .map(({ appId, icon, label }) => (
-          <MenuItem
-            key={appId}
-            icon={icon}
-            label={label}
-            onClick={() => openMiniApp(appId)}
-          />
-        ))}
-      <MenuItem
-        icon={MINI_APP_ICONS["display-properties"]}
-        label={MINI_APP_TITLES["display-properties"]}
-        onClick={() => openMiniApp("display-properties")}
-      />
+        .map(({ appId }) => {
+          const app = definition.apps[appId];
+          return app ? (
+            <MenuItem
+              key={appId}
+              icon={app.icon}
+              label={app.iconLabel ?? app.title}
+              onClick={() => openMiniApp(appId)}
+            />
+          ) : null;
+        })}
+      {displayProperties && (
+        <MenuItem
+          icon={displayProperties.icon}
+          label={displayProperties.iconLabel ?? displayProperties.title}
+          onClick={() => openMiniApp("display-properties")}
+        />
+      )}
     </>
   );
 }

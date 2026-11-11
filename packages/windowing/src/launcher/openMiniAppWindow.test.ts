@@ -16,6 +16,7 @@ const DEFINITION: LauncherDefinition = {
   apps: {
     notes: {
       createComponent: () => EmptyApp,
+      iconLabel: "Quick notes",
       title: "Notes",
       windowSize: { height: 300, width: 400 },
     },
@@ -39,11 +40,13 @@ function open({
 }) {
   const created: Created[] = [];
   const raised: string[] = [];
+  const titles: string[] = [];
   const placed: OpenMiniAppRequest[] = [];
   const id = openMiniAppWindow({
     actions: {
       bringToFront: (windowId) => raised.push(windowId),
-      create: (_title, x, y, _component, options) => {
+      create: (title, x, y, _component, options) => {
+        titles.push(title);
         created.push({ options, x, y });
         return "new";
       },
@@ -61,8 +64,14 @@ function open({
     request,
     windows,
   });
-  return { created, id, placed, raised };
+  return { created, id, placed, raised, titles };
 }
+
+test("an icon label does not change the window title or app id", () => {
+  const result = open({});
+  expect(result.titles).toEqual(["Notes"]);
+  expect(result.created[0]?.options?.appId).toBe("notes");
+});
 
 test("without a placement, a window opens at the request's position or the default, at the app's size", () => {
   expect(open({}).created).toEqual([
