@@ -84,3 +84,44 @@ test("a cached policy rechecks a member that only its history holds", async () =
     fixture.close();
   }
 });
+
+test("a later signer lookup reads the endpoint, not an unpublished check's answer", async () => {
+  const fixture = await principalIdentityPinFixture(1);
+  try {
+    const target = await createFixtureUserIdentity({
+      userId: crypto.randomUUID(),
+    });
+    const substitute = await createFixtureUserIdentity({
+      userId: target.identity.userId,
+    });
+    fixture.responses.set(target.identity.userId, substitute.response);
+    // The commitment matches the substitute, so the pre-signature check
+    // succeeds; only the signature check refuses the forged projection.
+    const forged = structuredClone(fixture.bundle);
+    forged.currentProjection.push(
+      fixtureProjectionMember(substitute, "member"),
+    );
+    const keys = await collectPrincipalPolicySignerPublicKeys({
+      bundle: forged,
+      resolveTrustedUserIdentity: fixture.service.resolve,
+    });
+    if ("error" in keys) throw new Error(keys.error);
+    expect(
+      await verifyPrincipalPolicyBundle({
+        bundle: forged,
+        signerPublicKeys: keys.signerPublicKeys,
+      }),
+    ).toMatchObject({ ok: false });
+    fixture.responses.set(target.identity.userId, target.response);
+    await expect(
+      fixture.service.resolve(target.identity.userId),
+    ).resolves.toMatchObject({
+      signingKeyFingerprint: target.identity.signingKeyFingerprint,
+    });
+    expect(await pins(fixture, target.identity.userId)).toEqual([
+      { provenance: "observed" },
+    ]);
+  } finally {
+    fixture.close();
+  }
+});

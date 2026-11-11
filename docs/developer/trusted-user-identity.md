@@ -103,9 +103,10 @@ fallback as a deployment trust anchor.
 Local web and native clients sharing one API database must also use the same
 canonical domain. The Android development default `http://10.0.2.2:3001`
 differs from the web default `http://localhost:3001`; these are not interchangeable
-identity scopes. For cross-device development, set both clients'
-`VITE_API_BASE_URL` and the API's `API_IDENTITY_TRUST_DOMAIN` to one URL reachable
-from both, before creating identities or policies. Changing only the API's
+identity scopes. For cross-device development, set every client's API URL
+(`BUN_PUBLIC_API_BASE_URL` for web and Electrobun, `VITE_API_BASE_URL` for
+Capacitor) and the API's `API_IDENTITY_TRUST_DOMAIN` to one URL reachable from
+all of them, before creating identities or policies. Changing only the API's
 domain does not change a client's identity scope. Existing commitments are not
 rewritten when configuration changes.
 
@@ -274,8 +275,10 @@ endpoint's validated candidate, held in memory. The gateway pins those
 candidates as `observed` only when `verify` succeeds and the caller set
 `publish`, which it does only after the projection's signed state verified.
 Signer collection checks commitments before signatures, so it never publishes:
-a forged projection or a refused candidate leaves no pin, and the fetched
-candidates are evicted so a retry reads the endpoint again. Public and private
+a forged projection or a refused candidate leaves no pin. Any answer a scope
+did not publish, even one its check accepted, is evicted from the endpoint
+cache, because the caller's signature check may still refuse it: a retry or a
+later signer lookup reads the endpoint again. Public and private
 history selections recheck every projection they return, from fresh pages and
 restored prefixes alike, and publish there: a restored prefix reads no page,
 so a member substituted after it was verified cannot act under its cached

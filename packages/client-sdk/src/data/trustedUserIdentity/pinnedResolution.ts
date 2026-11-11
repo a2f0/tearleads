@@ -146,6 +146,7 @@ export function withPinnedIdentityResolution(
       // the caller has authenticated: a refusal leaves no durable trace.
       const fetched = new Set<string>();
       const staged = new Map<string, ValidatedUserIdentityCandidate>();
+      let published = false;
       try {
         const pins = await loadTrustedUserIdentityPins({
           execSql: scope.execSql,
@@ -167,12 +168,17 @@ export function withPinnedIdentityResolution(
             );
           }
         scope.assertCurrent();
+        published = options.publish;
         return result;
       } catch (error) {
-        // A corrected endpoint must be read again, not served from cache.
-        for (const userId of fetched)
-          dependencies.remoteSource.invalidate(userId);
         throw pinStoreError(error);
+      } finally {
+        // An unpublished answer is unauthenticated even when `verify`
+        // succeeded: the caller's signature check may still refuse it. A
+        // later lookup must read the endpoint again, not this cached answer.
+        if (!published)
+          for (const userId of fetched)
+            dependencies.remoteSource.invalidate(userId);
       }
     },
   });

@@ -91,10 +91,9 @@ test("an unsigned projection member is compared but never pinned before verifica
     expect(await pins(fixture, member.identity.userId)).toEqual([
       { provenance: "observed" },
     ]);
-    // The honest identity remains linkable. Eviction isolates the durable store
-    // from the identity endpoint's in-memory response cache.
+    // The honest identity remains linkable: the refused check left neither a
+    // pin nor a cached endpoint answer behind.
     fixture.responses.set(target.identity.userId, target.response);
-    fixture.api.evictUserIdentity(target.identity.userId);
     await expect(
       fixture.service.verifyLink(
         await createIdentityLink(target.identity, "https://app.example.test"),
