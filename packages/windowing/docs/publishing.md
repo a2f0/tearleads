@@ -24,6 +24,8 @@ The declarations drop the stylesheet imports tsc keeps
 in them, which a consumer's typecheck could not resolve. The smoke script
 installs the lowest React the peer range admits, typechecks against the
 declarations with TypeScript's defaults, and bundles a named import with webpack.
+It also consumes `MiniAppDefinition.iconLabel` through the packed declarations
+and opens a labeled desktop icon, checking that the window keeps its own title.
 
 Merging to `main` publishes. When [`packages/windowing`][windowing-source] changes
 there, [`.github/workflows/windowing-publish.yml`][windowing-publish] publishes

@@ -55,6 +55,7 @@ const LAUNCHER: LauncherDefinition<"notes" | "contacts"> = {
     notes: {
       createComponent: () => NotesApp,
       icon: NoteIcon,
+      iconLabel: "Quick notes",
       initialShowSidebar: false,
       title: "Notes",
     },
@@ -64,6 +65,13 @@ const LAUNCHER: LauncherDefinition<"notes" | "contacts"> = {
   order: ["notes", "contacts"],
 };
 ```
+
+Each app's optional `iconLabel` labels its desktop icon and routed launcher
+entries (both the tablet rail and mobile sheet). Omit it to use `title`.
+Window chrome and the routed content heading always keep `title`; app ids,
+routes, and stored desktop positions do not change. Hosts building a start
+menu from the definition should use `app.iconLabel ?? app.title` for each
+item's `label`, as Tearleads' start and desktop context menus do.
 
 `LauncherNavigationProvider` takes the definition and a `NavigationMode`, and
 goes inside a `WindowStateProvider`. In `windowed` mode

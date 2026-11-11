@@ -51,10 +51,13 @@ function OpenWindows() {
   );
 }
 
-function renderDesktop(props: DesktopIconsProps<"explorer" | "notes">) {
+function renderDesktop(
+  props: DesktopIconsProps<"explorer" | "notes">,
+  definition = LAUNCHER,
+) {
   return render(
     <WindowStateProvider>
-      <LauncherNavigationProvider definition={LAUNCHER} mode="windowed">
+      <LauncherNavigationProvider definition={definition} mode="windowed">
         <DesktopIcons {...props} />
         <OpenWindows />
       </LauncherNavigationProvider>
@@ -110,6 +113,24 @@ test("double-click and Enter open the app through the launcher", async () => {
 
   fireEvent.keyDown(icon(view, "Notes"), { key: "Enter" });
   expect(view.getByTestId("windows").textContent).toBe("explorer,notes");
+});
+
+test("an icon label overrides presentation without changing the opened app", async () => {
+  const view = renderDesktop(
+    { appIds: ["explorer", "notes"] },
+    {
+      ...LAUNCHER,
+      apps: {
+        ...LAUNCHER.apps,
+        explorer: { ...LAUNCHER.apps.explorer, iconLabel: "Files" },
+      },
+    },
+  );
+  await act(async () => {});
+  expect(icon(view, "Files").textContent).toBe("Files");
+  expect(icon(view, "Notes").textContent).toBe("Notes");
+  fireEvent.doubleClick(icon(view, "Files"));
+  expect(view.getByTestId("windows").textContent).toBe("explorer");
 });
 
 test("arrow keys move the selection and Tab's stop between icons", async () => {
