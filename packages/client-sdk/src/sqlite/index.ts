@@ -37,11 +37,15 @@ export {
   getClientSQLitePersistenceRuntime as getSQLitePersistenceRuntime,
 } from "../data/sqlite/sqlitePersistenceRuntime";
 export {
+  assertRestorableLocalSchemaLedger,
   createExecSql,
   defineSqlTableSchema,
   type ExecSql,
   type ExecSqlClientLike,
+  ensureLocalSchemaMigrated,
   ensureSqlTables,
+  LOCAL_SCHEMA_MIGRATIONS_TABLE,
+  migrateLocalSchema,
   resetConnectionSchemaMemo,
   runSerializedSqlMutation,
   type SqlArrayRow,
@@ -51,6 +55,7 @@ export {
   type SqlRowValue,
   type SqlTableSchema,
   unavailableExecSql,
+  withLocalSchemaMigrationLock,
 } from "../data/sqlite/sqlSchema";
 export {
   EPHEMERAL_STORAGE_POLICY,

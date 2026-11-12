@@ -226,7 +226,14 @@ test("a refused guarded transaction forgets the schema it first ensured", async 
     expect(outcome.committed).toBe(false);
     calls.length = 0;
     await ensureSqlTables(spyExecSql, [refused]);
-    expect(calls).toEqual([refused.createSql]);
+    // The rollback undid the connection's first migration too, so the ledger
+    // is recorded again before the table.
+    expect(
+      calls.some((sql) =>
+        sql.includes('INSERT INTO "local_schema_migrations"'),
+      ),
+    ).toBe(true);
+    expect(calls.at(-1)).toBe(refused.createSql);
     expect(await tableExists(execSql, "memo_refused")).toBe(true);
   } finally {
     close();

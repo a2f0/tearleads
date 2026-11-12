@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +11,12 @@ import { SQL } from "bun";
 // Postgres concurrency lane supplies DATABASE_URL, and this test creates and
 // drops its own database there.
 const { DATABASE_URL: serverUrl } = process.env;
+const { entries: journalEntries }: { entries: unknown[] } = JSON.parse(
+  readFileSync(
+    new URL("../../api-shared/drizzle/meta/_journal.json", import.meta.url),
+    "utf8",
+  ),
+);
 
 async function tableNames(databaseUrl: string): Promise<string[]> {
   const client = new SQL(databaseUrl);
@@ -18,17 +25,17 @@ async function tableNames(databaseUrl: string): Promise<string[]> {
       await client`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`;
     const journal: unknown[] =
       await client`SELECT id FROM drizzle.__drizzle_migrations`;
-    expect(journal).toHaveLength(1);
+    expect(journal).toHaveLength(journalEntries.length);
     return rows.map(({ tablename }) => tablename);
   } finally {
     await client.close();
   }
 }
 
-// Run from outside the checkout, the executable can only find the baseline it
-// embedded: the source tree's default migration folder does not exist there.
+// Run from outside the checkout, the executable can only find the migrations
+// it embedded: the source tree's default migration folder does not exist there.
 test.skipIf(!serverUrl)(
-  "the standalone CLI initializes its embedded baseline outside the checkout",
+  "the standalone CLI applies its embedded migrations outside the checkout",
   async () => {
     if (!serverUrl) throw new Error("DATABASE_URL is required");
     const directory = await mkdtemp(
