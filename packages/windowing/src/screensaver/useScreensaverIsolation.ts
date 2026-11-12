@@ -7,7 +7,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 export function useScreensaverIsolation(engaged: boolean) {
   const previousFocus = useRef<Element | null>(null);
   const rememberFocus = useCallback(() => {
-    previousFocus.current = document.activeElement;
+    const focus = document.activeElement;
+    if (!focus?.closest("dialog.screensaver-overlay"))
+      previousFocus.current = focus;
   }, []);
   useLayoutEffect(() => {
     if (!engaged) return;

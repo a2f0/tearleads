@@ -14,32 +14,44 @@ function dismissEvent(event: Event, hasHeldInput: boolean): ScreensaverEvent {
   };
 }
 
+function drainReleased(event: Event, held: Set<string>) {
+  // Escape is an explicit recovery gesture even if a previous release was
+  // lost. Keep its own keyup isolated before restoring the page.
+  if (event instanceof KeyboardEvent && event.key === "Escape") {
+    if (event.type === "keydown" || event.type === "keyup") held.clear();
+    if (event.type === "keydown") held.add(`key:${event.code || event.key}`);
+    return event.type === "keyup";
+  }
+  return (
+    held.size === 0 &&
+    [
+      "keyup",
+      "pointerup",
+      "mouseup",
+      "touchend",
+      "touchcancel",
+      "pointercancel",
+      "click",
+      "contextmenu",
+    ].includes(event.type)
+  );
+}
+
 export function captureScreensaverInput(
   readState: () => ScreensaverState,
   send: (event: ScreensaverEvent) => void,
+  held: Set<string>,
+  engaged: boolean,
 ) {
-  const held = new Set<string>();
   const consume = (event: Event) => {
-    trackHeldScreensaverInput(held, event);
-    if (readState().status === "idle") return;
+    const { status } = readState();
+    trackHeldScreensaverInput(held, event, status !== "idle");
+    if (status === "idle") return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (readState().status === "settling") return;
-    if (readState().status === "draining") {
-      if (
-        held.size === 0 &&
-        [
-          "keyup",
-          "pointerup",
-          "mouseup",
-          "touchend",
-          "touchcancel",
-          "pointercancel",
-          "click",
-          "contextmenu",
-        ].includes(event.type)
-      )
-        send({ type: "released" });
+    if (status === "settling") return;
+    if (status === "draining") {
+      if (drainReleased(event, held)) send({ type: "released" });
       return;
     }
     send(dismissEvent(event, held.size > 0));
@@ -66,13 +78,21 @@ export function captureScreensaverInput(
     "wheel",
   ];
   for (const type of events)
-    window.addEventListener(type, consume, { capture: true, passive: false });
+    window.addEventListener(type, consume, {
+      capture: true,
+      passive: !engaged,
+    });
   const blur = () => {
     held.clear();
     send({ type: "released" });
   };
+  const visibility = () => {
+    if (document.visibilityState === "hidden") blur();
+  };
+  document.addEventListener("visibilitychange", visibility);
   window.addEventListener("blur", blur);
   return () => {
+    document.removeEventListener("visibilitychange", visibility);
     window.removeEventListener("blur", blur);
     for (const type of events) window.removeEventListener(type, consume, true);
   };

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { captureScreensaverInput } from "./screensaverInput";
 import {
   type ScreensaverEvent,
@@ -13,6 +19,8 @@ export function useScreensaverController(gracePeriodMs: number) {
     session: 0,
   });
   const live = useRef(state);
+  const held = useRef(new Set<string>());
+  const engaged = state.status !== "idle";
   const send = useCallback((event: ScreensaverEvent) => {
     const next = transitionScreensaver(live.current, event);
     live.current = next;
@@ -36,9 +44,15 @@ export function useScreensaverController(gracePeriodMs: number) {
     );
     return () => clearTimeout(timer);
   }, [state, gracePeriodMs, send]);
-  useEffect(() => {
-    return captureScreensaverInput(() => live.current, send);
-  }, [send]);
+  useLayoutEffect(() => {
+    if (!engaged) held.current.clear();
+    return captureScreensaverInput(
+      () => live.current,
+      send,
+      held.current,
+      engaged,
+    );
+  }, [engaged, send]);
   return {
     isActive: state.status === "grace" || state.status === "armed",
     session: state.session,

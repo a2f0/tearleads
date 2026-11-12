@@ -38,8 +38,14 @@ period is consumed without dismissal; Escape always exits. After grace,
 keyboard, pointer, mouse, touch, and wheel activity dismiss. The dismissing
 input and its release/click tail are consumed so the desktop does not receive
 an accidental click or shortcut. A new start during that tail is ignored until
-the gesture finishes. If the browser loses focus before release, the tail is
-cleared. Unmounting the provider clears listeners and timers too.
+the gesture finishes. Idle listeners are passive and retain only modifiers,
+not ordinary key presses. Meta release clears keys whose release the browser
+omitted; losing focus or hiding the page clears the tail too. If a release is
+lost while the page stays visible, press and release Escape to recover.
+There is deliberately no deadline that unlocks under a still-held pointer:
+that would allow its later release to click through. Escape is the explicit
+recovery action, and its own release is consumed. Unmounting the provider
+clears listeners and timers too.
 
 The overlay is a native modal `dialog` in the document body, above windows and
 the taskbar in the browser's top layer. It hides the cursor and makes the page
