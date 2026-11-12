@@ -85,20 +85,21 @@ async function openDatabase() {
   };
 }
 
-test("an appended migration applies once on top of the baseline, including its backfill", async () => {
+test("an appended migration applies once on top of the shipped ones, including its backfill", async () => {
   const folder = await copyMigrations();
+  const shipped = (await readJournal(folder)).entries.length;
   const { client, db, migrate: run } = await openDatabase();
   await run(folder);
-  expect(await readAppliedMigrations(db)).toHaveLength(1);
+  expect(await readAppliedMigrations(db)).toHaveLength(shipped);
 
-  await appendMigration(folder, "0001_migration_probe", [
+  await appendMigration(folder, "9999_migration_probe", [
     'CREATE TABLE "migration_probe" ("id" text PRIMARY KEY NOT NULL, "label" text)',
     `INSERT INTO "migration_probe" ("id") VALUES ('existing')`,
     `UPDATE "migration_probe" SET "label" = 'backfilled' WHERE "label" IS NULL`,
   ]);
   await run(folder);
   await run(folder);
-  expect(await readAppliedMigrations(db)).toHaveLength(2);
+  expect(await readAppliedMigrations(db)).toHaveLength(shipped + 1);
   const { rows } = await client.query("SELECT id, label FROM migration_probe");
   expect(rows).toEqual([{ id: "existing", label: "backfilled" }]);
 });
@@ -106,29 +107,30 @@ test("an appended migration applies once on top of the baseline, including its b
 test("a migration edited after it was applied is refused before anything runs", async () => {
   const folder = await copyMigrations();
   const { migrate: run } = await openDatabase();
-  await appendMigration(folder, "0001_migration_probe", [
+  await appendMigration(folder, "9999_migration_probe", [
     'CREATE TABLE "migration_probe" ("id" text PRIMARY KEY NOT NULL)',
   ]);
   await run(folder);
   await writeFile(
-    join(folder, "0001_migration_probe.sql"),
+    join(folder, "9999_migration_probe.sql"),
     'CREATE TABLE "migration_probe" ("id" text PRIMARY KEY NOT NULL, "label" text)',
   );
   await expect(run(folder)).rejects.toThrow(
-    "API migration 0001_migration_probe changed after it was applied",
+    "API migration 9999_migration_probe changed after it was applied",
   );
 });
 
 test("a database migrated by a newer build is refused", async () => {
   const newer = await copyMigrations();
   const older = await copyMigrations();
+  const shipped = (await readJournal(older)).entries.length;
   const { migrate: run } = await openDatabase();
-  await appendMigration(newer, "0001_migration_probe", [
+  await appendMigration(newer, "9999_migration_probe", [
     'CREATE TABLE "migration_probe" ("id" text PRIMARY KEY NOT NULL)',
   ]);
   await run(newer);
   await expect(run(older)).rejects.toThrow(
-    "The API database has applied 2 migrations but this build has 1",
+    `The API database has applied ${shipped + 1} migrations but this build has ${shipped}`,
   );
 });
 
@@ -136,18 +138,19 @@ test("a migration that sorts before an applied one is refused instead of skipped
   const folder = await copyMigrations();
   const { db, migrate: run } = await openDatabase();
   await run(folder);
-  const [baseline] = (await readJournal(folder)).entries;
-  if (!baseline) throw new Error("empty journal");
+  const { entries } = await readJournal(folder);
+  const newest = entries.at(-1);
+  if (!newest) throw new Error("empty journal");
   await appendMigration(
     folder,
-    "0001_migration_probe",
+    "9999_migration_probe",
     ['CREATE TABLE "migration_probe" ("id" text PRIMARY KEY NOT NULL)'],
-    baseline.when - 1,
+    newest.when - 1,
   );
   await expect(run(folder)).rejects.toThrow(
-    "API migration 0001_migration_probe sorts before 0000_greenfield_baseline",
+    `API migration 9999_migration_probe sorts before ${newest.tag}`,
   );
-  expect(await readAppliedMigrations(db)).toHaveLength(1);
+  expect(await readAppliedMigrations(db)).toHaveLength(entries.length);
 });
 
 function journalEntry(

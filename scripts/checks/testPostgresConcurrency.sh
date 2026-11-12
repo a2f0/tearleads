@@ -36,6 +36,8 @@ fi
 # The compiled operations CLI migrates a real server, which only this lane has;
 # it creates and drops its own database.
 (cd packages/api-cli && bun test src/compiledMigrations.test.ts)
+# Two migrators serialize on the migration advisory lock.
+(cd packages/api-shared && bun test src/adapters/migrationLock.pg.test.ts)
 
 # Workspace packages must already be built (bun run build:packages); the lane
 # itself only runs the multi-connection concurrency tests.

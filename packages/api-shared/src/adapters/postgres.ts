@@ -92,12 +92,28 @@ function createPostgresApiDatabase(
     kind: "postgres",
     close: () => pool.end(),
     migrate: (options) =>
-      migrateWithHistory(
-        db,
+      migrateOnOneSession(
+        pool,
         options?.migrationsFolder ?? postgresMigrationsFolder(),
-        (config) => migrateNodePostgres(db, config),
       ),
   };
+}
+
+// The migration advisory lock is session-scoped, so the history check, the
+// migrations, and the unlock all run on one pooled client.
+async function migrateOnOneSession(
+  pool: PostgresPool,
+  migrationsFolder: string,
+): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const session = drizzleNodePostgres({ client, schema });
+    await migrateWithHistory(session, migrationsFolder, (config) =>
+      migrateNodePostgres(session, config),
+    );
+  } finally {
+    client.release();
+  }
 }
 
 export function createDefaultManagedApiDatabase(

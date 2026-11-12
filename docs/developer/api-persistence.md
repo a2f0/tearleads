@@ -25,7 +25,9 @@ pending ones in one transaction and records each in Drizzle's journal
 (`drizzle.__drizzle_migrations`); repeating it on a current database changes
 nothing. Before applying anything it refuses a database whose applied
 history the build's journal does not extend: an edited migration, a migration
-that sorts before an applied one, or a database a newer build migrated.
+that sorts before an applied one, or a database a newer build migrated. It
+holds a Postgres advisory lock across that check and the migrations, so
+concurrent migrates run one at a time.
 
 Migrations are append-only. To change the schema, edit
 [`src/schema`](../../packages/api-shared/src/schema/) and generate the next

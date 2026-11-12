@@ -95,18 +95,29 @@ export function assertMigrationHistory(
   }
 }
 
+// Session-level advisory lock serializing every migrate against one database:
+// the history check and the migrations it admits must see the same journal.
+const MIGRATION_LOCK = sql.raw("7315420190");
+
 /**
  * Applies the folder's pending migrations after checking that its journal
- * extends the database's applied history.
+ * extends the database's applied history. Holds the migration advisory lock
+ * across both, so a concurrent migrate (another build) waits; `db` must
+ * therefore run every statement on one session.
  */
 export async function migrateWithHistory(
   db: QueryableDatabase,
   migrationsFolder: string,
   migrate: (config: { readonly migrationsFolder: string }) => Promise<void>,
 ): Promise<void> {
-  assertMigrationHistory(
-    await readAppliedMigrations(db),
-    readJournalMigrations(migrationsFolder),
-  );
-  await migrate({ migrationsFolder });
+  await db.execute(sql`SELECT pg_advisory_lock(${MIGRATION_LOCK})`);
+  try {
+    assertMigrationHistory(
+      await readAppliedMigrations(db),
+      readJournalMigrations(migrationsFolder),
+    );
+    await migrate({ migrationsFolder });
+  } finally {
+    await db.execute(sql`SELECT pg_advisory_unlock(${MIGRATION_LOCK})`);
+  }
 }
