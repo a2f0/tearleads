@@ -10,8 +10,8 @@
 #   6. Remove stale Worker secrets after the new code is live
 #
 # Migrations precede the Worker so the schema is never behind the code that
-# reads it; the schema baseline is additive and the previous Worker keeps
-# serving during the migration. The public hostname is attached by the edge
+# reads it; the previous Worker keeps serving during the migration, so each
+# migration must stay compatible with it (expand now, contract later). The public hostname is attached by the edge
 # Terraform stack, which the tier deployment applies afterwards.
 
 set -euo pipefail

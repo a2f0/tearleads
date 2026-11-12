@@ -26,10 +26,10 @@ Before pushing, run `bun tsc --build --pretty false`; after import changes, run
 
 Run the smallest command that matches the handoff risk:
 
-- `bun run check:fast`: formatting, OpenAPI generation and compatibility,
-  bounded protocol models, package assertions, canonical ordering, Knip,
-  architecture, file names, source shape, binary-file, ShellCheck, and Markdown
-  checks.
+- `bun run check:fast`: formatting, OpenAPI generation and compatibility, API
+  migration history, bounded protocol models, package assertions, canonical
+  ordering, Knip, architecture, file names, source shape, binary-file,
+  ShellCheck, and Markdown checks.
 - `bun run check:protocol-models`: all bounded TLC checks registered in
   `formal/protocol-models.txt`, using the Java and TLA+ tools pinned in
   `.mise.toml`. It and `bun run check:protocol-negative-controls` run two TLC

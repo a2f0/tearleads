@@ -45,10 +45,10 @@ row from today's identity endpoint would change the signed projection; there
 is no backfill, legacy-envelope fallback, or mixed-format rollout.
 
 Before deploying this format to an existing environment, separately authorize
-and perform the selected environment's reset. Apply the regenerated Postgres or
-SQLite baseline, deploy matching API and client builds, and use fresh client
-databases. The API identity trust domain and every client's configured domain
-must agree, including any API base path; see
+and perform the selected environment's reset. Apply the Postgres migrations,
+deploy matching API and client builds, and use fresh client databases. The
+API identity trust domain and every client's configured domain must agree,
+including any API base path; see
 [identity trust configuration](trusted-user-identity.md#trust-domain-configuration).
 
 Old local principal caches, saved history, pending principal mutations, and

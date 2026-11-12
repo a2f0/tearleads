@@ -5,6 +5,8 @@ transaction serialization, Drizzle schema definitions, and shared table helpers.
 [`sqlitePersistenceRuntime.ts`](sqlitePersistenceRuntime.ts) is the
 Drizzle/transaction adapter behind the
 public `@tearleads/client-sdk/sqlite` executor contracts.
+[`migrations/`](migrations/README.md) moves an existing local database to the
+current schema version before the first table ensure on a connection.
 
 Domain persistence modules under [`../persistence/`](../persistence/) import
 these modules and

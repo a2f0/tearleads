@@ -1,3 +1,7 @@
+import {
+  assertRestorableLocalSchemaLedger,
+  LOCAL_SCHEMA_MIGRATIONS_TABLE,
+} from "@tearleads/client-sdk/sqlite";
 import type { BackupIndex, BackupTable } from "./localBackupFormat";
 import { validatePrincipalIdentityBackupTable } from "./principalBackupValidation";
 
@@ -152,10 +156,19 @@ function declaredTableColumns(tokens: readonly SqlToken[]): string[] {
   return invalidSchema();
 }
 
+/**
+ * Also refuses a backup whose local schema ledger this build cannot open (a
+ * newer app's backup) before the restore writes anything. An older backup
+ * restores as is: the next table ensure migrates it to this build's version.
+ */
 export function validateBackupSchema(input: {
   readonly indexes: ReadonlyArray<BackupIndex>;
   readonly tables: ReadonlyArray<BackupTable>;
 }): void {
+  assertRestorableLocalSchemaLedger(
+    input.tables.find(({ name }) => name === LOCAL_SCHEMA_MIGRATIONS_TABLE)
+      ?.rows ?? [],
+  );
   for (const table of input.tables) {
     const body = validateCreateStatement({ ...table, kind: "TABLE" });
     validatePrincipalIdentityBackupTable(table, () =>

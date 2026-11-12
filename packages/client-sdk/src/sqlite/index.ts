@@ -37,11 +37,13 @@ export {
   getClientSQLitePersistenceRuntime as getSQLitePersistenceRuntime,
 } from "../data/sqlite/sqlitePersistenceRuntime";
 export {
+  assertRestorableLocalSchemaLedger,
   createExecSql,
   defineSqlTableSchema,
   type ExecSql,
   type ExecSqlClientLike,
   ensureSqlTables,
+  LOCAL_SCHEMA_MIGRATIONS_TABLE,
   resetConnectionSchemaMemo,
   runSerializedSqlMutation,
   type SqlArrayRow,

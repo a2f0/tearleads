@@ -8,6 +8,7 @@ import * as schema from "../schema";
 import { readApiDatabaseKind } from "../schema/dialect";
 import { databaseStatementLogger } from "./databaseStatementCounter";
 import { timeDatabaseClient } from "./databaseWaitTiming";
+import { migrateWithHistory } from "./migrationHistory";
 import {
   type ApiDatabaseEnv,
   createPostgresPoolConfig,
@@ -60,10 +61,11 @@ function createMemoryApiDatabase(): ManagedApiDatabase {
     kind: "memory",
     close: () => client.close(),
     migrate: (options) =>
-      migrate(db, {
-        migrationsFolder:
-          options?.migrationsFolder ?? postgresMigrationsFolder(),
-      }),
+      migrateWithHistory(
+        db,
+        options?.migrationsFolder ?? postgresMigrationsFolder(),
+        (config) => migrate(db, config),
+      ),
   };
 }
 
@@ -90,10 +92,11 @@ function createPostgresApiDatabase(
     kind: "postgres",
     close: () => pool.end(),
     migrate: (options) =>
-      migrateNodePostgres(db, {
-        migrationsFolder:
-          options?.migrationsFolder ?? postgresMigrationsFolder(),
-      }),
+      migrateWithHistory(
+        db,
+        options?.migrationsFolder ?? postgresMigrationsFolder(),
+        (config) => migrateNodePostgres(db, config),
+      ),
   };
 }
 

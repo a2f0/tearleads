@@ -12,29 +12,55 @@ Use `API_DATABASE` to select the database adapter:
   deployment migration command.
 
 PostgreSQL is the only API database dialect; PGlite runs the same schema in
-process. The schema has one generated `0000_greenfield_baseline` migration in
-[`packages/api-shared/drizzle/`](../../packages/api-shared/drizzle/) with all
-current schema definitions. The deployment's
-`migrate` command initializes an empty database from that baseline and records
-it in Drizzle's journal; repeating it on a current database is idempotent. There
-are no incremental schema upgrades, data backfills, or content scans.
+process. Production and staging use PlanetScale PostgreSQL and independent
+Cloudflare R2 buckets for encrypted [blobs](../glossary/content.md#blob).
+Runtime database roles and schema migration credentials are separate.
 
-Production and staging use PlanetScale PostgreSQL and independent Cloudflare R2
-buckets for encrypted [blobs](../glossary/content.md#blob). Runtime database
-roles and schema initialization credentials are separate.
+### Schema migrations
 
-Schema changes update the Drizzle definitions, regenerate the baseline, and
-require fresh server and client databases. Local database startup checks
-the current table shape and refuses an obsolete one with a "reset the local
-database" error, and backup imports require format version 15. Request
-validation and signed-history verification enforce the active protocol
-throughout normal operation.
+The schema evolves through ordered Drizzle migrations in
+[`packages/api-shared/drizzle/`](../../packages/api-shared/drizzle/), starting
+from `0000_greenfield_baseline`. The deployment's `migrate` command applies the
+pending ones in one transaction and records each in Drizzle's journal
+(`drizzle.__drizzle_migrations`); repeating it on a current database changes
+nothing. Before applying anything it refuses a database whose applied
+history the build's journal does not extend: an edited migration, a migration
+that sorts before an applied one, or a database a newer build migrated.
+
+Migrations are append-only. To change the schema, edit
+[`src/schema`](../../packages/api-shared/src/schema/) and generate the next
+migration; for a data backfill, generate an empty custom migration and write
+its SQL. The [package guide](../../packages/api-shared/README.md#schema-changes)
+has the commands. Three checks hold the history:
+
+- `bun run lint:api-migrations` (in `check:fast`) fails when a branch edits,
+  removes, or reorders a migration that exists on its base branch, or adds one
+  that does not sort after the base's newest.
+- The schema drift test in [`packages/api-shared`](../../packages/api-shared/)
+  fails when `src/schema` differs from the newest migration snapshot.
+- `migrate` checks the applied history, as above.
+
+Deploys run `migrate` before publishing the Worker, and the previous Worker
+keeps serving until then, so each migration must work with both builds
+(expand, then contract): add a column nullable or with a default, backfill it,
+and drop or tighten an old column only in a later release, once no running
+Worker reads it. Postgres runs DDL inside the migration transaction, so
+`CREATE INDEX CONCURRENTLY` cannot appear in a migration.
+
+The local client database has its own
+[migration ledger](../../packages/client-sdk/src/data/sqlite/migrations/README.md).
+A database older than the client baseline still fails with a "reset the local
+database" error. Local backups carry the client ledger; restore refuses a
+backup from a newer client and migrates an older one. Backup imports require
+format version 17. Request validation and signed-history verification enforce
+the active protocol throughout normal operation.
 
 ### Signed-shape invariants
 
 Signed-shape changes are flag days: stored rows in another shape are refused
 outright (`assertExactKeys`), never migrated or dual-read, so deploying one
 onto an existing database requires resetting every server and client database.
+A migration cannot rewrite signed or encrypted content.
 The stored shapes enforce:
 
 - Principal wrapping-key [epochs](../glossary/keys.md#epoch) and

@@ -1,7 +1,7 @@
 # @tearleads/api-shared
 
-The API's persistence layer: the Drizzle schema, the generated baseline
-migrations, and the database adapters. Both the [API](../api/README.md) and
+The API's persistence layer: the Drizzle schema, its generated migrations,
+and the database adapters. Both the [API](../api/README.md) and
 the [operations CLI](../api-cli/README.md) build on it, and those two packages
 never import each other. It stays below them and depends only on
 `@tearleads/crypto`, `@tearleads/loro`, and database drivers.
@@ -23,26 +23,38 @@ invariants.
 
 ## Schema changes
 
-The Postgres schema has one generated `0000_greenfield_baseline` migration in
-[`drizzle/`](drizzle/). There are no incremental upgrades. After editing
-[`src/schema`](src/schema/), replace the baseline rather than generating a
-second migration beside it: remove the migration directory, metadata included,
-and generate it again under the baseline name.
-Update the table-count pins in
-[`src/schemaBootstrap.test.ts`](src/schemaBootstrap.test.ts) and
-[`packages/api-cli/src/compiledMigrations.test.ts`][file-1] when tables are
-added or
-removed.
+The schema evolves through append-only migrations in [`drizzle/`](drizzle/),
+starting from `0000_greenfield_baseline`. Never edit, rename, or delete a
+migration once it is on `main`: deployed databases have applied it, and
+`migrate` refuses a journal that no longer matches what a database applied. A
+correction is a new migration.
+
+After editing [`src/schema`](src/schema/), generate the next migration and
+commit it with the schema change:
 
 ```sh
 cd packages/api-shared
-rm -rf drizzle
-bun run db:generate --name greenfield_baseline
+bun run db:generate --name <change>
 ```
 
-A schema change requires fresh server and client databases. The
-[operations CLI](../api-cli/README.md#migrate) applies the baseline to a
-deployed tier.
+For a data backfill or SQL that drizzle-kit cannot infer, generate an empty
+migration and write its SQL:
+
+```sh
+bun run db:generate --custom --name <backfill>
+```
+
+Write each migration so the previous Worker still works against it (see
+[schema migrations](../../docs/developer/api-persistence.md#schema-migrations)).
+If `main` gains a migration while your branch has one, delete yours (its SQL
+file, snapshot, and journal entry), merge, and generate it again, so it sorts
+last. `bun run lint:api-migrations` and the drift test in
+[`src/migrationDrift.test.ts`](src/migrationDrift.test.ts) catch both mistakes.
+Update the table-count pins in
+[`src/schemaBootstrap.test.ts`](src/schemaBootstrap.test.ts) and
+[`packages/api-cli/src/compiledMigrations.test.ts`][file-1] when tables are
+added or removed. The [operations CLI](../api-cli/README.md#migrate) applies
+pending migrations to a deployed tier.
 
 [`scripts/dropOwnedObjects.ts`](scripts/dropOwnedObjects.ts) drops every object
 the connected login owns. It
