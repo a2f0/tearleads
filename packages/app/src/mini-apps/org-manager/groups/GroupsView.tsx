@@ -17,7 +17,6 @@ import { useGroupDeletionConfirmation } from "./useGroupDeletionConfirmation";
 interface GroupsViewProps {
   addUser: () => void | Promise<void>;
   addUserId: string;
-  addUserListId: string;
   addableUsers: ReadonlyArray<OrganizationDirectoryUser>;
   canCreateGroup: boolean;
   canDeleteGroup: (group: OrganizationGroupSummary) => boolean;
@@ -52,7 +51,6 @@ interface GroupsViewProps {
 export function GroupsView({
   addUser,
   addUserId,
-  addUserListId,
   addableUsers,
   canCreateGroup,
   canDeleteGroup,
@@ -133,7 +131,6 @@ export function GroupsView({
           pending={pending}
           addUser={addUser}
           addUserId={addUserId}
-          addUserListId={addUserListId}
           addableUsers={addableUsers}
           canMutateSelectedGroup={canMutateSelectedGroup}
           directory={directory}
