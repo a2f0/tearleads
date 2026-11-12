@@ -4,13 +4,13 @@ import {
   transitionScreensaver,
 } from "./screensaverMachine";
 
-const states: ScreensaverState[] = [
-  "idle",
-  "grace",
-  "armed",
-  "draining",
-  "settling",
-].map((status) => ({ status, session: 2 }) as ScreensaverState);
+const states = [
+  { status: "idle", session: 2 },
+  { status: "grace", session: 2 },
+  { status: "armed", session: 2 },
+  { status: "draining", session: 2 },
+  { status: "settling", session: 2 },
+] satisfies ScreensaverState[];
 test.each(states)("ignores stale timers in $status", (state) => {
   expect(
     transitionScreensaver(state, { type: "graceElapsed", session: 1 }),

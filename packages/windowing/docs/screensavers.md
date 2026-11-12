@@ -43,7 +43,9 @@ cleared. Unmounting the provider clears listeners and timers too.
 
 The overlay is a native modal `dialog` in the document body, above windows and
 the taskbar in the browser's top layer. It hides the cursor and makes the page
-inert, including embedded frames. The page remains inert while a dismissing
+inert, including embedded frames. Native modal dialogs escape ancestor
+inertness, per the [HTML modal dialog rules][modal-inertness]. The page
+remains inert while a dismissing
 press finishes, even though the animation and overlay have unmounted. The
 animation itself is inert and hidden from assistive technology; the dialog
 announces "Screensaver" and the Escape instruction. Focus returns to the
@@ -55,3 +57,5 @@ screensaver, not an authentication lock or security boundary. Host code should
 not open competing modal dialogs or change body inertness during a session.
 Mount the provider only in layouts where the host wants screensaver behavior;
 routed layouts need not include it.
+
+[modal-inertness]: https://html.spec.whatwg.org/multipage/interaction.html#modal-dialogs-and-inert-subtrees

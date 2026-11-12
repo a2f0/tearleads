@@ -139,6 +139,45 @@ test("keeps the underlying page inert until the dismissing pointer sequence fini
   expect(document.activeElement).toBe(button);
 });
 
+test("a held modifier cannot leak after the first dismissal key is released", () => {
+  jest.useFakeTimers();
+  const view = renderHost(1);
+  fireEvent.keyDown(window, { key: "Control" });
+  act(() => view.controls().start());
+  act(() => jest.advanceTimersByTime(1));
+  fireEvent.keyDown(window, { key: "x" });
+  expect(view.controls().isActive).toBe(false);
+  expect(fireEvent.keyUp(window, { key: "x" })).toBe(false);
+  act(() => jest.runAllTimers());
+  expect(document.body.inert).toBe(true);
+  expect(fireEvent.keyDown(window, { key: "Control", repeat: true })).toBe(
+    false,
+  );
+  expect(fireEvent.keyUp(window, { key: "Control" })).toBe(false);
+  act(() => jest.runAllTimers());
+  expect(document.body.inert).toBe(false);
+});
+
+test("recovers a modifier held in an iframe from the waking key's modifier flags", () => {
+  jest.useFakeTimers();
+  const view = renderHost(1);
+  act(() => view.controls().start());
+  act(() => jest.advanceTimersByTime(1));
+  fireEvent.keyDown(window, { key: "x", code: "KeyX", ctrlKey: true });
+  fireEvent.keyUp(window, { key: "x", code: "KeyX", ctrlKey: true });
+  act(() => jest.runAllTimers());
+  expect(document.body.inert).toBe(true);
+  expect(
+    fireEvent.keyUp(window, {
+      key: "Control",
+      code: "ControlLeft",
+      ctrlKey: false,
+    }),
+  ).toBe(false);
+  act(() => jest.runAllTimers());
+  expect(document.body.inert).toBe(false);
+});
+
 test("opens a modal dialog in the body, isolates decorative content, and restores focus", () => {
   const view = renderHost();
   const button = view.getByRole("button", { name: "Start" });

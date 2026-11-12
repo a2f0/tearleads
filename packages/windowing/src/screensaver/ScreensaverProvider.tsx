@@ -6,6 +6,7 @@ import { useScreensaverController } from "./useScreensaverController";
 export interface ScreensaverControls {
   start: () => void;
   stop: () => void;
+  /** The animation is mounted; false can still consume a pending release. */
   isActive: boolean;
 }
 export interface ScreensaverProviderProps {

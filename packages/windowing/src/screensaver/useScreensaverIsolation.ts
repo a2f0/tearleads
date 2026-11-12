@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 
 // The modal isolates the page while visible. Keep that isolation through the
 // release/click tail too: iframe events cannot be intercepted by their host.
+// Per HTML 6.3.1, a showModal() dialog escapes ancestor inertness; only inert
+// on the dialog itself would hide it. Keep the body lock across modal removal.
 export function useScreensaverIsolation(engaged: boolean) {
   const previousFocus = useRef<Element | null>(null);
   const rememberFocus = useCallback(() => {
