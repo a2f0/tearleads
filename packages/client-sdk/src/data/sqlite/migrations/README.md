@@ -43,8 +43,10 @@ handle. Inside a feature's transaction a migration would release that lock
 before anything is durable, so a host that shares the database between tabs
 calls `ensureLocalSchemaMigrated` before any feature runs, as the app does
 at boot. Every later ensure on the connection then finds the migration done.
-A backup restore calls `migrateLocalSchema` inside its own transaction, so
-the restored data and its migration commit together.
+A backup restore holds the lock (`withLocalSchemaMigrationLock`) from BEGIN
+through COMMIT and calls `migrateLocalSchema` inside that transaction, so the
+restored data and its migration commit together and no tab checks the ledger
+in between.
 
 ## Adding a step
 

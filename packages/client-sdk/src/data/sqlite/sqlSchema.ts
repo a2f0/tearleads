@@ -3,6 +3,7 @@ export {
   ensureLocalSchemaMigrated,
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
   migrateLocalSchema,
+  withLocalSchemaMigrationLock,
 } from "./migrations/migrateLocalSchema";
 export type {
   ExecSql,

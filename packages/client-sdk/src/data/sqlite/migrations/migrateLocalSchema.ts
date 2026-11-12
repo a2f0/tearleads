@@ -35,6 +35,8 @@ interface MigrateLocalSchemaOptions {
    * ledger row, so a refused database is left exactly as it was found.
    */
   readonly verify?: VerifyLocalSchema;
+  /** The caller already holds {@link withLocalSchemaMigrationLock}. */
+  readonly crossTabLockHeld?: boolean;
 }
 
 // Whether the ledger exists and whether any other user table does: a
@@ -156,14 +158,25 @@ function webLocks(): LockManager | null {
   return typeof locks?.request === "function" ? locks : null;
 }
 
-// Browser tabs share one worker handle but not their mutation queues, so a
-// tab could read another tab's uncommitted ledger as current and write rows
-// that tab's rollback then deletes. A Web Lock makes every connection's
-// migration check wait until any other tab's migration commits or rolls back.
-// Hosts without Web Locks have no second tab on the handle.
-function withCrossTabMigrationLock<T>(run: () => Promise<T>): Promise<T> {
+/**
+ * Holds the cross-tab migration lock while `run` executes. Browser tabs share
+ * one worker handle but not their mutation queues, so a tab could read another
+ * tab's uncommitted ledger as current and write rows that tab's rollback then
+ * deletes; every migration check waits on this Web Lock. A caller that
+ * rewrites the schema in its own transaction (a backup restore) holds it from
+ * BEGIN through COMMIT and passes `crossTabLockHeld` to the migration it runs
+ * inside. Take the connection's mutation lock first. Hosts without Web Locks
+ * have no second tab on the handle.
+ */
+export function withLocalSchemaMigrationLock<T>(
+  run: () => Promise<T>,
+): Promise<T> {
   const locks = webLocks();
   return locks ? locks.request(CROSS_TAB_MIGRATION_LOCK, run) : run();
+}
+
+function runUnderHeldLock<T>(run: () => Promise<T>): Promise<T> {
+  return run();
 }
 
 /**
@@ -181,11 +194,14 @@ export async function migrateLocalSchema(
   const now = options.now ?? Date.now;
   const verify = options.verify ?? (async () => {});
   assertLocalSchemaMigrations(migrations);
+  const withLock = options.crossTabLockHeld
+    ? runUnderHeldLock
+    : withLocalSchemaMigrationLock;
   // The connection's mutation lock first, then the Web Lock: a table ensure
   // already holds the former when it migrates, so the reverse order could
   // deadlock against a direct call on the same connection.
   return runSerializedSqlMutation(execSql, (lockedExecSql) =>
-    withCrossTabMigrationLock(async () => {
+    withLock(async () => {
       const read = async () =>
         classifyLocalSchema({
           ...(await readLocalSchema(lockedExecSql)),

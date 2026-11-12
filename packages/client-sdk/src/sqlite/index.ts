@@ -55,6 +55,7 @@ export {
   type SqlRowValue,
   type SqlTableSchema,
   unavailableExecSql,
+  withLocalSchemaMigrationLock,
 } from "../data/sqlite/sqlSchema";
 export {
   EPHEMERAL_STORAGE_POLICY,

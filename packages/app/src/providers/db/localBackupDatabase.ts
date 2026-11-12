@@ -5,6 +5,7 @@ import {
   runSerializedSqlMutation,
   type SqlRow,
   type SqlRowValue,
+  withLocalSchemaMigrationLock,
 } from "@tearleads/client-sdk/sqlite";
 import { validateBackupSchema } from "./backupSchemaValidation";
 import type {
@@ -220,6 +221,55 @@ async function insertBackupTable(input: {
   }
 }
 
+async function replaceDatabaseFromBackup(
+  execSql: ExecSql,
+  input: {
+    readonly indexes: ReadonlyArray<BackupIndex>;
+    readonly tables: ReadonlyArray<BackupTable>;
+  },
+): Promise<void> {
+  await execSql("BEGIN IMMEDIATE");
+  try {
+    const currentTables = await listUserTableDefinitions(execSql);
+    const currentSecurityAnchors = await readSecurityAnchorTableBackups({
+      execSql,
+      tables: currentTables,
+    });
+    // Repeating the merge under the write transaction closes the gap
+    // between the side-effect-free preflight and the authoritative write.
+    const restoredTables = await mergeSecurityAnchorBackupTables({
+      current: currentSecurityAnchors,
+      restored: input.tables,
+    });
+    const restoredIndexes = mergeSecurityAnchorBackupIndexes({
+      current: await listUserIndexDefinitions(execSql),
+      currentTableNames: new Set(currentTables.map((table) => table.name)),
+      restored: input.indexes,
+    });
+    for (const table of [...currentTables].reverse()) {
+      await execSql(`DROP TABLE IF EXISTS ${quoteSqlIdentifier(table.name)}`);
+    }
+    for (const table of restoredTables) {
+      await execSql(table.sql);
+    }
+    for (const table of restoredTables) {
+      await insertBackupTable({ execSql, table });
+    }
+    for (const index of restoredIndexes) {
+      await execSql(index.sql);
+    }
+    // Bring an older backup to this build's schema before committing.
+    // It reads the ledger as SQLite stored it under the backup's own DDL
+    // (which can coerce or constrain the payload's rows), so a backup
+    // this build cannot migrate never replaces the live data.
+    await migrateLocalSchema(execSql, { crossTabLockHeld: true });
+    await execSql("COMMIT");
+  } catch (error) {
+    await execSql("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
+}
+
 export async function restoreBackupDatabase(input: {
   readonly execSql: ExecSql;
   readonly indexes: ReadonlyArray<BackupIndex>;
@@ -235,48 +285,12 @@ export async function restoreBackupDatabase(input: {
     }
 
     try {
-      await execSql("BEGIN IMMEDIATE");
-      try {
-        const currentTables = await listUserTableDefinitions(execSql);
-        const currentSecurityAnchors = await readSecurityAnchorTableBackups({
-          execSql,
-          tables: currentTables,
-        });
-        // Repeating the merge under the write transaction closes the gap
-        // between the side-effect-free preflight and the authoritative write.
-        const restoredTables = await mergeSecurityAnchorBackupTables({
-          current: currentSecurityAnchors,
-          restored: input.tables,
-        });
-        const restoredIndexes = mergeSecurityAnchorBackupIndexes({
-          current: await listUserIndexDefinitions(execSql),
-          currentTableNames: new Set(currentTables.map((table) => table.name)),
-          restored: input.indexes,
-        });
-        for (const table of [...currentTables].reverse()) {
-          await execSql(
-            `DROP TABLE IF EXISTS ${quoteSqlIdentifier(table.name)}`,
-          );
-        }
-        for (const table of restoredTables) {
-          await execSql(table.sql);
-        }
-        for (const table of restoredTables) {
-          await insertBackupTable({ execSql, table });
-        }
-        for (const index of restoredIndexes) {
-          await execSql(index.sql);
-        }
-        // Bring an older backup to this build's schema before committing.
-        // It reads the ledger as SQLite stored it under the backup's own DDL
-        // (which can coerce or constrain the payload's rows), so a backup
-        // this build cannot migrate never replaces the live data.
-        await migrateLocalSchema(execSql);
-        await execSql("COMMIT");
-      } catch (error) {
-        await execSql("ROLLBACK").catch(() => undefined);
-        throw error;
-      }
+      // Held from BEGIN through COMMIT or ROLLBACK: another tab sharing the
+      // worker handle must not run its migration check against the
+      // uncommitted restore.
+      await withLocalSchemaMigrationLock(() =>
+        replaceDatabaseFromBackup(execSql, input),
+      );
     } finally {
       if (wasForeignKeysEnabled) {
         await execSql("PRAGMA foreign_keys = ON").catch(() => undefined);
