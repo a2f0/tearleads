@@ -39,7 +39,7 @@ function identityResponse(identity: TrustedUserIdentity) {
  * fellow admin; the owner signs version 3, which removes X. X then appears
  * only as a historical signer, in no selected projection.
  */
-async function departedSignerHistory() {
+async function departedSignerHistory(lastXVersion = 2) {
   const base = await signedRecoveryHistory(1);
   const owner = await base.resolveTrustedUserIdentity(
     base.bundle.currentState.signerUserId,
@@ -59,6 +59,7 @@ async function departedSignerHistory() {
   let bundle: PrincipalPolicyBundleResponse | undefined;
   for (const version of [1, 2, 3]) {
     const departed = version === 3;
+    const xSigns = version <= lastXVersion;
     const principalKey = generateKemSeedAndKeyPair();
     const [envelope] = await wrapDekForRecipients(principalKey.secretKey, [
       base.memberKey.publicKey,
@@ -95,14 +96,14 @@ async function departedSignerHistory() {
         keyFingerprint: await toFingerprint(principalKey.publicKey),
         externalAuthority: null,
         signedAt: "2026-10-06T00:00:00.000Z",
-        signerUserId: departed ? owner.userId : ADMIN_X,
-        signerUserKeyFingerprint: departed
-          ? owner.signingKeyFingerprint
-          : honestX.identity.signingKeyFingerprint,
+        signerUserId: xSigns ? ADMIN_X : owner.userId,
+        signerUserKeyFingerprint: xSigns
+          ? honestX.identity.signingKeyFingerprint
+          : owner.signingKeyFingerprint,
       },
-      signingPrivateKey: departed
-        ? base.signingPrivateKey
-        : xSigning.signingPrivateKey,
+      signingPrivateKey: xSigns
+        ? xSigning.signingPrivateKey
+        : base.signingPrivateKey,
     });
   }
   if (!bundle) throw new Error("Empty departed-signer fixture");
@@ -112,6 +113,31 @@ async function departedSignerHistory() {
   return {
     bundle,
     pins,
+    /**
+     * Serve X honestly while pages are collected, then, from X's second
+     * identity read (publication), under X's signing key with a substituted
+     * encapsulation key.
+     */
+    async substituteXAtPublication() {
+      const substitute = await createFixtureUserIdentity({
+        userId: ADMIN_X,
+        signingPublicKey: xSigning.signingPublicKey,
+      });
+      let reads = 0;
+      const served = pins.responses.get.bind(pins.responses);
+      pins.responses.get = (userId: string) => {
+        if (userId !== ADMIN_X) return served(userId);
+        reads += 1;
+        return reads === 1 ? honestX.response : substitute.response;
+      };
+      return () => reads;
+    },
+    async xPins() {
+      return pins.execSql(
+        "SELECT encapsulation_key_fingerprint FROM trusted_user_identity_pins WHERE user_id = ?",
+        [ADMIN_X],
+      );
+    },
     async expectXPinnedAndBound() {
       expect(
         await pins.execSql(
@@ -167,6 +193,33 @@ test("cold public recovery pins a departed historical signer once the head verif
   try {
     await recoverPublicPrincipalHistory(http.options);
     await run.expectXPinnedAndBound();
+  } finally {
+    http.close();
+    run.pins.close();
+  }
+});
+
+test("a founder who signed only genesis is bound to its committed bundle at publication", async () => {
+  const run = await departedSignerHistory(1);
+  const xReads = await run.substituteXAtPublication();
+  const http = serveRecoveryHistory(run.bundle);
+  try {
+    await expect(
+      recoverPrincipalPolicyHistory({
+        historyReader: http.client(),
+        execSql: run.pins.execSql,
+        organizationId: "org-1",
+        expectedHead: principalPolicyHead(run.bundle),
+        protection: {
+          localKey: new Uint8Array(32).fill(7),
+          context: "device-and-trust-domain-1",
+        },
+        resolveTrustedUserIdentity: run.pins.service.resolve,
+        stillCurrent: () => true,
+      }),
+    ).rejects.toMatchObject({ code: "hash_mismatch" });
+    expect(xReads()).toBe(2);
+    expect(await run.xPins()).toEqual([]);
   } finally {
     http.close();
     run.pins.close();

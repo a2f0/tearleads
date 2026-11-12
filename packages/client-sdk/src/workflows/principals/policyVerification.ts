@@ -103,8 +103,10 @@ function committedSignerBundle(
 
 /**
  * The signers of chain entries the history verifier accepted, each with the
- * identity bundle its hash-linked predecessor's signed projection committed.
- * Published only once the whole chain reaches its expected head.
+ * identity bundle its hash-linked predecessor's signed projection committed,
+ * or, with no linked predecessor (a genesis founder), the bundle its own
+ * signed projection commits. A signer in neither is an external authority
+ * whose Admins policy pins it. Published once the chain reaches its head.
  */
 export function acceptedEntrySigners(
   entries: readonly {
@@ -123,10 +125,13 @@ export function acceptedEntrySigners(
       })),
     ].map((entry) => [entry.version, entry]),
   );
-  return entries.map(({ state }) => ({
+  return entries.map(({ state, projection }) => ({
     userId: state.signerUserId,
     signingKeyFingerprint: state.signerUserKeyFingerprint,
-    identityBundleFingerprint: committedSignerBundle(state, predecessors),
+    identityBundleFingerprint:
+      committedSignerBundle(state, predecessors) ??
+      projection.find((member) => member.userId === state.signerUserId)
+        ?.identityBundleFingerprint,
   }));
 }
 

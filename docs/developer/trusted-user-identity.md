@@ -297,10 +297,13 @@ a retry or a later signer lookup reads the endpoint again. A history page
 pins nothing, because a page is not yet proven to reach the expected head: a
 forged but self-consistent prefix would otherwise pin a substituted identity
 that blocks the corrected history. The signers of pages a recovery accepts
-are recorded with the bundles their predecessors committed and published only
-after the whole chain reaches its head, so a departed signer that appears in
-no selected projection is still pinned; a recovery resumed from saved
-progress publishes only the signers of pages it accepted itself. A scope
+are recorded with the bundles their predecessors committed (a founder with no
+predecessor, with the bundle its own signed projection commits) and published
+only after the whole chain reaches its head, so a departed signer that
+appears in no selected projection is still pinned; a recovery resumed from saved
+progress publishes only the signers of pages it accepted itself. History
+verification revision 4 makes progress and prefixes saved before these
+bindings replay rather than resume. A scope
 publishes all of its staged first sights in one write transaction, so a
 conflict or cancellation on any of them pins none. Each page's first signer
 is authorized only
