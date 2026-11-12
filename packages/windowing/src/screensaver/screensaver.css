@@ -1,0 +1,29 @@
+.screensaver-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: black;
+  cursor: none;
+  outline: none;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.screensaver-overlay::backdrop {
+  background: black;
+  cursor: none;
+}
+
+.screensaver-content {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+}
