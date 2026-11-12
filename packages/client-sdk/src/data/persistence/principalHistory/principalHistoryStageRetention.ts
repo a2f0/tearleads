@@ -1,10 +1,10 @@
-import { and, asc, desc, eq, lt } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt } from "drizzle-orm";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { archivePrincipalHistoryKeyEnvelopes } from "../principalKeys/principalKeyEnvelopeArchivePersistence";
+import { archivePrincipalHistoryKeyEnvelopeBatch } from "../principalKeys/principalKeyEnvelopeArchivePersistence";
 import {
   principalHistoryStageRootOwnerColumns,
-  releasePrincipalHistoryRoot,
+  releasePrincipalHistoryRoots,
 } from "./principalHistoryRootOwnership";
 
 /** Each publication reclaims at most this many obsolete completed heads. */
@@ -59,15 +59,26 @@ export async function reclaimCompletedPrincipalHistoryStages(
     // This also preserves the prefix-only predecessor restored after an ack.
     .offset(2)
     .limit(PRINCIPAL_HISTORY_STAGE_RECLAIM_LIMIT);
-  for (const { stage, owner } of obsolete) {
-    await releasePrincipalHistoryRoot(tx, owner);
-    await archivePrincipalHistoryKeyEnvelopes(tx, {
+  if (obsolete.length === 0) return;
+  await releasePrincipalHistoryRoots(
+    tx,
+    prefix,
+    obsolete.map(({ owner }) => owner.rootHash),
+  );
+  await archivePrincipalHistoryKeyEnvelopeBatch(
+    tx,
+    obsolete.map(({ stage }) => ({
       ...stage,
       version: stage.afterVersion + 1,
-    });
-    await tx
-      .delete(principalHistoryStages)
-      .where(eq(principalHistoryStages.id, stage.id))
-      .run();
-  }
+    })),
+  );
+  await tx
+    .delete(principalHistoryStages)
+    .where(
+      inArray(
+        principalHistoryStages.id,
+        obsolete.map(({ stage }) => stage.id),
+      ),
+    )
+    .run();
 }
