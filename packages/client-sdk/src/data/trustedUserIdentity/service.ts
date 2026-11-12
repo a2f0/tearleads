@@ -20,6 +20,7 @@ import {
 } from "./identityLink";
 import { loadPin, loadPinnedUserIdentity } from "./pinnedIdentity";
 import { withPinnedIdentityResolution } from "./pinnedResolution";
+import { withStagedIdentityHandoff } from "./stagedIdentityHandoff";
 import {
   brandTrustedUserIdentity,
   TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,
@@ -330,8 +331,9 @@ async function createLocalIdentityLink(
 }
 
 export function createTrustedUserIdentityService(
-  dependencies: TrustedUserIdentityServiceDependencies,
+  input: TrustedUserIdentityServiceDependencies,
 ): TrustedUserIdentityService {
+  const { dependencies, handoff } = withStagedIdentityHandoff(input);
   const verifiedReaders = verifiedPinReaders(dependencies);
   return {
     async resolvePinned(userId) {
@@ -423,6 +425,7 @@ export function createTrustedUserIdentityService(
             provenance: "observed",
           }),
       },
+      handoff,
     ),
   };
 }

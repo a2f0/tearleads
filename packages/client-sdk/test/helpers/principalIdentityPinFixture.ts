@@ -142,27 +142,32 @@ export async function principalIdentityPinFixture(
         : new Response(null, { status: 404 });
     },
   });
-  const api = new ApiClient(server.url.origin);
-  const remote = createApiUserIdentitySource(api);
   const scope = {
     execSql: execSql as typeof execSql | null,
     localUserId: null as string | null,
   };
-  const service = createTrustedUserIdentityService({
-    getExecSql: () => scope.execSql,
-    getLocalUserId: () => scope.localUserId,
-    getLocalIdentity: (userId) =>
-      members.find((member) => member.identity.userId === userId)?.identity ??
-      null,
-    identityTrustDomain: "https://api.example.test",
-    remoteSource: {
-      invalidate: remote.invalidate,
-      load: (userId) => {
-        loads.push(userId);
-        return remote.load(userId);
+  /** A fresh endpoint cache and service over the same durable trust store. */
+  const startService = () => {
+    const api = new ApiClient(server.url.origin);
+    const remote = createApiUserIdentitySource(api);
+    const service = createTrustedUserIdentityService({
+      getExecSql: () => scope.execSql,
+      getLocalUserId: () => scope.localUserId,
+      getLocalIdentity: (userId) =>
+        members.find((member) => member.identity.userId === userId)?.identity ??
+        null,
+      identityTrustDomain: "https://api.example.test",
+      remoteSource: {
+        invalidate: remote.invalidate,
+        load: (userId) => {
+          loads.push(userId);
+          return remote.load(userId);
+        },
       },
-    },
-  });
+    });
+    return { api, service };
+  };
+  const { api, service } = startService();
   await ensureSqlTables(execSql, trustedUserIdentityPinTables);
   const cache = principalPolicyCacheForVerifiedPolicies([verified.value]);
   const checkpointContext = createProjectionCheckpointContext({ execSql });
@@ -211,6 +216,8 @@ export async function principalIdentityPinFixture(
     afterSql: (callback: typeof afterSql) => {
       afterSql = callback;
     },
+    /** Restart the app: in-memory answers are gone, durable pins remain. */
+    restart: startService,
     close() {
       server.stop(true);
       database.close();

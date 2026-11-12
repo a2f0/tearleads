@@ -47,6 +47,7 @@ async function externallyAuthorizedVerification(cancelOnHit: number) {
     encapsulationKeyFingerprint: signer.encapsulationKeyFingerprint,
   });
   let hits = 0;
+  let cancelled = false;
   const served = pins.responses.get.bind(pins.responses);
   pins.responses.get = (userId: string) => {
     hits += 1;
@@ -74,9 +75,19 @@ async function externallyAuthorizedVerification(cancelOnHit: number) {
         principalPolicyCache: new Map(),
         references: [principalPolicyHead(fixture.subjectBundle)],
         resolveUserKey: pins.service.resolve,
-        stillCurrent: () => hits < cancelOnHit,
+        stillCurrent: () => !cancelled && hits < cancelOnHit,
       }),
     hits: () => hits,
+    /** Cancel once a pin insert ran, before its transaction commits. */
+    cancelAtPinWrite() {
+      pins.afterSql((sql) => {
+        if (
+          sql.startsWith("insert") &&
+          sql.includes("trusted_user_identity_pins")
+        )
+          cancelled = true;
+      });
+    },
     pinRows: () =>
       pins.execSql(
         "SELECT provenance FROM trusted_user_identity_pins WHERE user_id = ?",
@@ -89,8 +100,9 @@ async function externallyAuthorizedVerification(cancelOnHit: number) {
   };
 }
 
-// The fixture reads its one signer three times: once per staged scope.
-for (const cancelOnHit of [1, 2, 3]) {
+// The fixture reads its one signer twice: publication takes the staged
+// answer, so cancellation there is exercised at the pin write below.
+for (const cancelOnHit of [1, 2]) {
   test(`dependency verification cancelled at identity read ${cancelOnHit} pins nothing`, async () => {
     const run = await externallyAuthorizedVerification(cancelOnHit);
     try {
@@ -105,10 +117,24 @@ for (const cancelOnHit of [1, 2, 3]) {
   });
 }
 
+test("dependency verification cancelled at its pin write pins nothing", async () => {
+  const run = await externallyAuthorizedVerification(Number.POSITIVE_INFINITY);
+  try {
+    run.cancelAtPinWrite();
+    await expect(run.verify()).rejects.toBeInstanceOf(
+      ProjectionVerificationCancelledError,
+    );
+    expect(await run.pinRows()).toEqual([]);
+  } finally {
+    run.close();
+  }
+});
+
 test("uncancelled dependency verification pins its signer", async () => {
   const run = await externallyAuthorizedVerification(Number.POSITIVE_INFINITY);
   try {
     await expect(run.verify()).resolves.toHaveLength(1);
+    expect(run.hits()).toBe(2);
     expect(await run.pinRows()).toEqual([{ provenance: "observed" }]);
   } finally {
     run.close();

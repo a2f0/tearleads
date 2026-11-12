@@ -114,11 +114,10 @@ async function departedSignerHistory(lastXVersion = 2) {
     bundle,
     pins,
     /**
-     * Serve X honestly while pages are collected, then, from X's second
-     * identity read (publication), under X's signing key with a substituted
+     * From now on, serve X under its own signing key with a substituted
      * encapsulation key.
      */
-    async substituteXAtPublication() {
+    async substituteXEncapsulationKey() {
       const substitute = await createFixtureUserIdentity({
         userId: ADMIN_X,
         signingPublicKey: xSigning.signingPublicKey,
@@ -128,23 +127,27 @@ async function departedSignerHistory(lastXVersion = 2) {
       pins.responses.get = (userId: string) => {
         if (userId !== ADMIN_X) return served(userId);
         reads += 1;
-        return reads === 1 ? honestX.response : substitute.response;
+        return substitute.response;
       };
       return () => reads;
     },
     /**
-     * Withhold X once, at publication (X's second identity read): the
-     * recovery fails after its pages were accepted and its stage saved.
+     * Fail the first pin write once: the recovery fails after its pages were
+     * accepted and its stage saved, before X is pinned.
      */
-    failXPublicationOnce() {
-      let reads = 0;
-      const served = pins.responses.get.bind(pins.responses);
-      pins.responses.get = (userId: string) => {
-        if (userId !== ADMIN_X) return served(userId);
-        reads += 1;
-        return reads === 2 ? undefined : served(userId);
-      };
-      return () => reads;
+    failFirstPinWrite() {
+      let failed = false;
+      pins.afterSql((sql) => {
+        if (
+          !sql.startsWith("insert") ||
+          !sql.includes("trusted_user_identity_pins")
+        )
+          return;
+        pins.afterSql(undefined);
+        failed = true;
+        throw new Error("Injected pin write failure");
+      });
+      return () => failed;
     },
     async xPins() {
       return pins.execSql(
@@ -215,24 +218,35 @@ test("cold public recovery pins a departed historical signer once the head verif
 
 test("a founder who signed only genesis is bound to its committed bundle at publication", async () => {
   const run = await departedSignerHistory(1);
-  const xReads = await run.substituteXAtPublication();
+  const pinWriteFailed = run.failFirstPinWrite();
   const http = serveRecoveryHistory(run.bundle);
+  const options = {
+    historyReader: http.client(),
+    execSql: run.pins.execSql,
+    organizationId: "org-1",
+    expectedHead: principalPolicyHead(run.bundle),
+    protection: {
+      localKey: new Uint8Array(32).fill(7),
+      context: "device-and-trust-domain-1",
+    },
+    resolveTrustedUserIdentity: run.pins.service.resolve,
+    stillCurrent: () => true,
+  };
   try {
+    // Pages are collected against an honest X, then publication fails.
+    await expect(recoverPrincipalPolicyHistory(options)).rejects.toBeDefined();
+    expect(pinWriteFailed()).toBe(true);
+    // After a restart nothing collected X, so publication reads it fresh: a
+    // substituted encapsulation key must meet the founder's own commitment.
+    const xReads = await run.substituteXEncapsulationKey();
+    const restarted = run.pins.restart();
     await expect(
       recoverPrincipalPolicyHistory({
-        historyReader: http.client(),
-        execSql: run.pins.execSql,
-        organizationId: "org-1",
-        expectedHead: principalPolicyHead(run.bundle),
-        protection: {
-          localKey: new Uint8Array(32).fill(7),
-          context: "device-and-trust-domain-1",
-        },
-        resolveTrustedUserIdentity: run.pins.service.resolve,
-        stillCurrent: () => true,
+        ...options,
+        resolveTrustedUserIdentity: restarted.service.resolve,
       }),
     ).rejects.toMatchObject({ code: "hash_mismatch" });
-    expect(xReads()).toBe(2);
+    expect(xReads()).toBe(1);
     expect(await run.xPins()).toEqual([]);
   } finally {
     http.close();
@@ -240,9 +254,9 @@ test("a founder who signed only genesis is bound to its committed bundle at publ
   }
 });
 
-test("a recovery resumed after a failed publication still pins the departed signer", async () => {
+test("a recovery resumed after a failed pin write still pins the departed signer", async () => {
   const run = await departedSignerHistory();
-  const xReads = run.failXPublicationOnce();
+  const pinWriteFailed = run.failFirstPinWrite();
   const http = serveRecoveryHistory(run.bundle);
   const options = {
     historyReader: http.client(),
@@ -258,7 +272,7 @@ test("a recovery resumed after a failed publication still pins the departed sign
   };
   try {
     await expect(recoverPrincipalPolicyHistory(options)).rejects.toBeDefined();
-    expect(xReads()).toBe(2);
+    expect(pinWriteFailed()).toBe(true);
     expect(await run.xPins()).toEqual([]);
     // The retry resumes the saved stage rather than replaying X's pages; the
     // verifier's sealed progress still carries X for publication.
@@ -270,9 +284,9 @@ test("a recovery resumed after a failed publication still pins the departed sign
   }
 });
 
-test("a public recovery resumed after a failed publication still pins the departed signer", async () => {
+test("a public recovery resumed after a failed pin write still pins the departed signer", async () => {
   const run = await departedSignerHistory();
-  const xReads = run.failXPublicationOnce();
+  const pinWriteFailed = run.failFirstPinWrite();
   const http = await createPublicHistoryFixture({
     bundle: run.bundle,
     resolveTrustedUserIdentity: run.pins.service.resolve,
@@ -281,7 +295,7 @@ test("a public recovery resumed after a failed publication still pins the depart
     await expect(
       recoverPublicPrincipalHistory(http.options),
     ).rejects.toBeDefined();
-    expect(xReads()).toBe(2);
+    expect(pinWriteFailed()).toBe(true);
     expect(await run.xPins()).toEqual([]);
     await recoverPublicPrincipalHistory(http.options);
     await run.expectXPinnedAndBound();

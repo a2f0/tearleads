@@ -6,6 +6,10 @@ import { TrustedUserIdentityPinContentionError } from "../persistence/trustedUse
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import type {
+  HandoffScope,
+  StagedIdentityHandoff,
+} from "./stagedIdentityHandoff";
+import type {
   StagedUserIdentityOptions,
   StagedUserIdentityResolver,
   TrustedUserIdentityResolver,
@@ -36,11 +40,8 @@ export interface FirstSightIdentitySteps {
   ) => Promise<unknown>;
 }
 
-interface PinScope {
+interface PinScope extends HandoffScope {
   readonly assertCurrent: () => void;
-  readonly execSql: ExecSql;
-  readonly identityTrustDomain: string;
-  readonly localUserId: string | null;
 }
 
 /** The trust store, account, and runtime generation one operation runs in. */
@@ -62,6 +63,7 @@ function capturePinScope(
   const generation = dependencies.getScopeGeneration?.();
   return {
     execSql,
+    generation,
     identityTrustDomain,
     localUserId,
     assertCurrent() {
@@ -79,12 +81,15 @@ function capturePinScope(
 
 /**
  * Existing pins, self through ordinary resolution, and first sights staged in
- * memory. `fetched` records every endpoint read so a failure can evict it.
+ * memory; a publishing scope first takes an earlier unpublished scope's
+ * handed-off answer. `fetched` records every such read so a failure evicts it.
  */
 function stagedResolver(input: {
   readonly fetched: Set<string>;
   readonly firstSight: FirstSightIdentitySteps;
+  readonly handoff: StagedIdentityHandoff;
   readonly pins: ReadonlyMap<string, TrustedUserIdentityPin>;
+  readonly publish: boolean;
   readonly resolve: TrustedUserIdentityResolver;
   readonly scope: PinScope;
   readonly staged: Map<string, ValidatedUserIdentityCandidate>;
@@ -107,6 +112,13 @@ function stagedResolver(input: {
     const known = input.staged.get(userId);
     if (known) return known;
     input.fetched.add(userId);
+    const handed = input.publish
+      ? input.handoff.take(scope, userId)
+      : undefined;
+    if (handed) {
+      input.staged.set(userId, handed);
+      return handed;
+    }
     const candidate = await input.firstSight.loadCandidate(
       userId,
       scope.identityTrustDomain,
@@ -127,11 +139,32 @@ function pinStoreError(error: unknown): unknown {
   return error;
 }
 
+/**
+ * A refused scope's answers are evicted, so a corrected retry reads the
+ * endpoint again. An unpublished answer is unauthenticated even when `verify`
+ * succeeded, since the caller's signature check may still refuse it: it stays
+ * pending, readable only by a publishing scope that rechecks it, and any
+ * other lookup reads the endpoint.
+ */
+function settleScope(input: {
+  readonly completed: boolean;
+  readonly published: boolean;
+  readonly fetched: ReadonlySet<string>;
+  readonly staged: ReadonlyMap<string, ValidatedUserIdentityCandidate>;
+  readonly scope: PinScope;
+  readonly handoff: StagedIdentityHandoff;
+}): void {
+  if (!input.completed) input.handoff.evict(input.fetched);
+  else if (input.published) input.handoff.published(input.staged.keys());
+  else input.handoff.retain(input.scope, input.staged);
+}
+
 /** Keep direct resolution unchanged; only structural verifiers opt into pins. */
 export function withPinnedIdentityResolution(
   dependencies: TrustedUserIdentityServiceDependencies,
   resolve: TrustedUserIdentityResolver,
   firstSight: FirstSightIdentitySteps,
+  handoff: StagedIdentityHandoff,
 ): TrustedUserIdentityResolver {
   return Object.assign(resolve, {
     async withPinnedIdentities<T>(
@@ -153,6 +186,7 @@ export function withPinnedIdentityResolution(
       const fetched = new Set<string>();
       const staged = new Map<string, ValidatedUserIdentityCandidate>();
       let published = false;
+      let completed = false;
       try {
         const pins = await loadTrustedUserIdentityPins({
           execSql: scope.execSql,
@@ -162,7 +196,16 @@ export function withPinnedIdentityResolution(
         });
         scope.assertCurrent();
         const result = await verify(
-          stagedResolver({ fetched, firstSight, pins, resolve, scope, staged }),
+          stagedResolver({
+            fetched,
+            firstSight,
+            handoff,
+            pins,
+            publish: options.publish,
+            resolve,
+            scope,
+            staged,
+          }),
         );
         if (options.publish && staged.size > 0) {
           scope.assertCurrent();
@@ -174,16 +217,12 @@ export function withPinnedIdentityResolution(
         }
         scope.assertCurrent();
         published = options.publish;
+        completed = true;
         return result;
       } catch (error) {
         throw pinStoreError(error);
       } finally {
-        // An unpublished answer is unauthenticated even when `verify`
-        // succeeded: the caller's signature check may still refuse it. A
-        // later lookup must read the endpoint again, not this cached answer.
-        if (!published)
-          for (const userId of fetched)
-            dependencies.remoteSource.invalidate(userId);
+        settleScope({ completed, published, fetched, staged, scope, handoff });
       }
     },
   });
