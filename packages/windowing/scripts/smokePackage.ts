@@ -63,6 +63,8 @@ import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import {
   DesktopIcons,
   LauncherNavigationProvider,
+  ScreensaverProvider,
+  useScreensaver,
   type MiniAppDefinition,
   useWindowActions,
   useWindowStateData,
@@ -90,6 +92,20 @@ function Desktop() {
     </>
   );
 }
+
+test("the published screensaver API mounts, consumes Escape, and unmounts", () => {
+  function Start() {
+    const { start } = useScreensaver();
+    return <button type="button" onClick={start}>Screensaver</button>;
+  }
+  const view = render(<ScreensaverProvider screensaver={Notes}><Start /></ScreensaverProvider>);
+  fireEvent.click(view.getByRole("button", { name: "Screensaver" }));
+  expect(view.getByRole("dialog", { name: "Screensaver" }).textContent).toContain("notes body");
+  fireEvent.keyDown(window, { key: "Escape" });
+  fireEvent.keyUp(window, { key: "Escape" });
+  expect(view.queryByRole("dialog")).toBeNull();
+  cleanup();
+});
 
 test("the published package renders a window", () => {
   const view = render(
@@ -125,7 +141,13 @@ test("published launcher labels preserve window titles", async () => {
 
 // TypeScript's defaults check declarations and side-effect imports, so a
 // consumer's typecheck reaches everything the package's .d.ts files import.
-const typecheckSource = `import { Window, WindowStateProvider } from "@tearleads/windowing";
+const typecheckSource = `import { Window, WindowStateProvider, ScreensaverProvider, useScreensaver } from "@tearleads/windowing";
+
+export function ScreensaverHost() {
+  const { start, stop, isActive } = useScreensaver();
+  return <button onClick={isActive ? stop : start}>Screensaver</button>;
+}
+export const screensaver = <ScreensaverProvider screensaver={() => null} gracePeriodMs={2000}><ScreensaverHost /></ScreensaverProvider>;
 
 import type { MiniAppDefinition } from "@tearleads/windowing";
 
@@ -216,7 +238,7 @@ function writeConsumer(projectDir: string, tarball: string, distDir: string) {
     "typecheck.tsx": typecheckSource,
     "bundle.js": bundleScript,
     "bundleEntry.js":
-      'import { Window } from "@tearleads/windowing";\nconsole.log(Window);\n',
+      'import { Window, ScreensaverProvider } from "@tearleads/windowing";\nconsole.log(Window, ScreensaverProvider);\n',
   };
   for (const [name, contents] of Object.entries(files)) {
     writeFileSync(join(projectDir, name), contents);
@@ -239,6 +261,9 @@ try {
   run(["bun", "x", "tsc", "-p", "."], projectDir);
   run(["node", "bundle.js"], projectDir);
   const css = readFileSync(join(projectDir, "bundle", "main.css"), "utf8");
+  if (!css.includes(".screensaver-overlay") || !css.includes("cursor: none")) {
+    throw new Error("the bundled stylesheet lost the screensaver overlay");
+  }
   if (!css.includes("--color-dark:")) {
     throw new Error("the bundled stylesheet lost the token defaults");
   }

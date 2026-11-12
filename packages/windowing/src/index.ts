@@ -5,7 +5,7 @@ import "./tokens.css";
 // start menu and theme switch, the icons the chrome draws, a launcher of
 // mini-apps that shows them in windows or in the routed (iPad / phone) shell,
 // and desktop icons that open them, with a storage adapter for their layout,
-// over a wallpaper chosen in Display Properties.
+// over a wallpaper chosen in Display Properties, plus a host-supplied screensaver.
 export {
   createRequiredContext,
   type RequiredContext,
@@ -120,6 +120,12 @@ export {
   useRoutedPaneOverlayHost,
 } from "./routed/RoutedPaneOverlayHost";
 export type { SubscribeKeyboardVisibility } from "./routed/useMobileKeyboardVisible";
+export {
+  type ScreensaverControls,
+  ScreensaverProvider,
+  type ScreensaverProviderProps,
+  useScreensaver,
+} from "./screensaver/ScreensaverProvider";
 export { SidebarResizeHandle, useSidebarResize } from "./sidebar/SidebarResize";
 export {
   ThemeProvider,
