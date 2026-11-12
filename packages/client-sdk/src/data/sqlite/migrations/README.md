@@ -30,7 +30,14 @@ ledger table.
 The steps, their ledger rows, and the ensure's required-column check run in
 one savepoint. A step that throws, or a migrated table that still lacks a
 required column, leaves the database as it was found. A database older than
-the baseline still fails with "reset the local database".
+the baseline still fails with "reset the local database". Another connection
+that records the ledger first wins; the losing run accepts its ledger.
+
+Browser tabs reach one database through a single worker handle, and the
+worker does not isolate one tab's transaction from another tab's statements.
+A migration's savepoint shares that limit with every SDK transaction: a tab
+that writes while another tab migrates can have its write rolled back with a
+failed migration.
 
 ## Adding a step
 
