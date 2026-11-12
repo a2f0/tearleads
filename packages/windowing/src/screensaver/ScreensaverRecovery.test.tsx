@@ -126,6 +126,53 @@ test("movement with an already-held mouse button drains its release", () => {
   expect(document.body.inert).toBe(false);
 });
 
+test.each([
+  ["pointerdown", "pointerup"],
+  ["mousedown", "mouseup"],
+  ["touchstart", "touchend"],
+  ["touchstart", "touchcancel"],
+  ["pointerdown", "pointercancel"],
+])(
+  "a %s begun in grace consumes the later %s and click/context-menu tail",
+  (press, release) => {
+    jest.useFakeTimers();
+    const host = renderHost();
+    host.start();
+    fireEvent(window, new Event(press, { cancelable: true }));
+    expect(host.controls().isActive).toBe(true);
+    act(() => jest.advanceTimersByTime(1));
+    expect(fireEvent(window, new Event(release, { cancelable: true }))).toBe(
+      false,
+    );
+    expect(host.controls().isActive).toBe(false);
+    expect(fireEvent.click(window)).toBe(false);
+    expect(fireEvent.contextMenu(window)).toBe(false);
+    act(() => jest.advanceTimersByTime(0));
+    expect(document.body.inert).toBe(false);
+  },
+);
+
+test("synthetic touch release works when the browser has no TouchEvent constructor", () => {
+  jest.useFakeTimers();
+  const host = renderHost();
+  host.start();
+  act(() => jest.advanceTimersByTime(1));
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "TouchEvent");
+  Object.defineProperty(globalThis, "TouchEvent", {
+    value: undefined,
+    configurable: true,
+  });
+  try {
+    fireEvent(window, new Event("touchend", { cancelable: true }));
+    expect(host.controls().isActive).toBe(false);
+    act(() => jest.advanceTimersByTime(0));
+    expect(document.body.inert).toBe(false);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, "TouchEvent", descriptor);
+    else Reflect.deleteProperty(globalThis, "TouchEvent");
+  }
+});
+
 test("idle scroll observation is passive and active consumption is not", () => {
   const add = spyOn(window, "addEventListener");
   const host = renderHost();

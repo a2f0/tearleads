@@ -1,12 +1,21 @@
 import { trackHeldScreensaverInput } from "./screensaverHeldInput";
 import type { ScreensaverEvent, ScreensaverState } from "./screensaverMachine";
 
+const pointerReleases = [
+  "pointerup",
+  "mouseup",
+  "touchend",
+  "touchcancel",
+  "pointercancel",
+];
+
 function dismissEvent(event: Event, hasHeldInput: boolean): ScreensaverEvent {
   return {
     type: "dismiss",
     escape: event instanceof KeyboardEvent && event.key === "Escape",
     drain:
       hasHeldInput ||
+      pointerReleases.includes(event.type) ||
       ["keydown", "pointerdown", "mousedown", "touchstart"].includes(
         event.type,
       ) ||
@@ -55,6 +64,10 @@ export function captureScreensaverInput(
       return;
     }
     send(dismissEvent(event, held.size > 0));
+    // A press can start during grace and first dismiss on its release. Keep
+    // isolation through the following click, even when nothing remains held.
+    if (held.size === 0 && pointerReleases.includes(event.type))
+      send({ type: "released" });
   };
   const events = [
     "click",

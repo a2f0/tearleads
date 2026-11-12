@@ -30,8 +30,10 @@ session or grace timer. Styles are included by the public import.
 
 `useScreensaver()` returns stable `start()` and `stop()` callbacks and an
 `isActive` boolean. It throws outside the provider. Repeated starts while active
-are ignored. `stop()` exits immediately. Start and stop do not close, minimize,
-or recreate the host's windows.
+are ignored. `stop()` exits immediately and intentionally cancels input
+isolation, including a pending release tail; reserve it for explicit host
+control or teardown, not an effect watching `isActive`. Start and stop do not
+close, minimize, or recreate the host's windows.
 
 The optional `gracePeriodMs` defaults to `2000`. Input during that initial
 period is consumed without dismissal; Escape always exits. After grace,
@@ -45,7 +47,10 @@ lost while the page stays visible, press and release Escape to recover.
 There is deliberately no deadline that unlocks under a still-held pointer:
 that would allow its later release to click through. Escape is the explicit
 recovery action, and its own release is consumed. Unmounting the provider
-clears listeners and timers too.
+clears listeners and timers too. Isolation covers discrete releases/clicks,
+not later trackpad momentum events after a wheel dismissal. Changing
+`gracePeriodMs` during grace restarts the timer; `0` disables grace, so hosts
+launching with a key should keep a positive grace period for that key's release.
 
 The overlay is a native modal `dialog` in the document body, above windows and
 the taskbar in the browser's top layer. It hides the cursor and makes the page

@@ -69,7 +69,11 @@ export function trackHeldScreensaverInput(
       break;
     case "touchend":
     case "touchcancel":
-      if (!(event instanceof TouchEvent) || event.touches.length === 0) {
+      if (
+        typeof TouchEvent === "undefined" ||
+        !(event instanceof TouchEvent) ||
+        event.touches.length === 0
+      ) {
         held.delete("touch");
       }
       break;
