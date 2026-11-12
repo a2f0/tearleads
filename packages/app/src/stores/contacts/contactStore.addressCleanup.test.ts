@@ -84,6 +84,8 @@ test("rechecks live rows before deleting a candidate whose snapshot entry is sta
   try {
     const id = await harness.store.createContact({ isSelf: true });
     if (!id) throw new Error("Missing duplicate");
+    const laterEmptyId = await harness.store.createContact({ isSelf: true });
+    if (!laterEmptyId) throw new Error("Missing later empty duplicate");
     const runtime = {
       ...harness.runtime,
       loadDocumentSummary: async (localId: string) => {
@@ -98,6 +100,7 @@ test("rechecks live rows before deleting a candidate whose snapshot entry is sta
     harness.store.updateRuntime(runtime);
     await harness.store.ensureSelfContact({ localId: "primary" });
     expect(harness.deleted).not.toContain(id);
+    expect(harness.deleted).toContain(laterEmptyId);
   } finally {
     harness.close();
   }

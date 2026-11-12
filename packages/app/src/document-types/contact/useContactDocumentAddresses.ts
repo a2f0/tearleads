@@ -40,22 +40,18 @@ export function useContactDocumentAddresses() {
   const store = useContext(DocumentContext);
   const readOnly = useDocumentReadOnly();
   const writeScope = useContext(DocumentWriteScopeContext);
-  const current = useRef({ store, readOnly });
-  const identity = useRef({ store, writeScope, version: 0 });
-  if (
-    identity.current.store !== store ||
-    identity.current.writeScope !== writeScope
-  )
-    identity.current = {
+  const identitySequence = useRef(0);
+  const lifetime = useMemo(
+    () => ({
+      active: true,
       store,
       writeScope,
-      version: identity.current.version + 1,
-    };
-  current.current = { store, readOnly };
-  const lifetime = useMemo(
-    () => ({ active: true, store, writeScope }),
+      key: ++identitySequence.current,
+    }),
     [store, writeScope],
   );
+  const current = useRef({ store, readOnly, lifetime });
+  current.current = { store, readOnly, lifetime };
   useEffect(() => {
     lifetime.active = true;
     return () => {
@@ -64,15 +60,14 @@ export function useContactDocumentAddresses() {
   }, [lifetime]);
   const actions = useMemo(() => {
     if (!store) throw new Error("Contact addresses require a document store.");
-    const captured = identity.current;
     return createAddressActions(
       store,
       () =>
         lifetime.active &&
-        identity.current === captured &&
+        current.current.lifetime === lifetime &&
         current.current.store === store &&
         !current.current.readOnly,
     );
   }, [lifetime, store]);
-  return { actions, identityKey: identity.current.version };
+  return { actions, identityKey: lifetime.key };
 }

@@ -2,11 +2,13 @@ type Fields = Readonly<Record<string, string>>;
 
 export type ContactAddressCreationState =
   | { status: "creating" }
+  | { status: "unconfirmed"; id: string; fields: Fields }
   | { status: "identified"; id: string; fields: Fields }
   | { status: "updating"; id: string; fields: Fields; patch: Fields };
 
 type Event =
-  | { type: "created"; id: string; fields: Fields }
+  | { type: "returned"; id: string; fields: Fields }
+  | { type: "reconciled"; exists: boolean }
   | { type: "edit"; fields: Fields }
   | { type: "saved" };
 
@@ -17,12 +19,20 @@ export function transitionContactAddressCreation(
   event: Event,
 ): ContactAddressCreationState {
   switch (event.type) {
-    case "created":
+    case "returned":
       return state.status === "creating"
-        ? { status: "identified", id: event.id, fields: event.fields }
+        ? { status: "unconfirmed", id: event.id, fields: event.fields }
         : state;
+    case "reconciled":
+      // Only reconcile against a clean store after flushing pending deltas.
+      // An absent published row alone does not rule out a failed live creation.
+      if (state.status !== "unconfirmed") return state;
+      return event.exists
+        ? { status: "identified", id: state.id, fields: state.fields }
+        : { status: "creating" };
     case "edit": {
-      if (state.status === "creating") return state;
+      if (state.status === "creating" || state.status === "unconfirmed")
+        return state;
       const patch = Object.fromEntries(
         Object.entries(event.fields).filter(
           ([key, value]) =>

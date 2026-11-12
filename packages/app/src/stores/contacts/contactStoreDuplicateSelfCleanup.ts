@@ -60,7 +60,7 @@ async function deleteDuplicateSelfContact(input: {
   const trackedStore = state.contactDocumentStoresById.get(entry.id);
   const loadedDocument = await runtime.loadDocumentSummary(entry.id);
   if (!guard()) {
-    return "stale";
+    return input.scopeGuard() ? "preserved" : "stale";
   }
 
   const trackedDocumentId =

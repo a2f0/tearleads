@@ -139,6 +139,12 @@ export async function removeContactAddressRow(
     } else {
       address(store, id, current);
       pending.add(id);
+    }
+    // A previous SDK refusal may have made no mutation. After flushing any
+    // pending delta, remove a still-present row rather than treating an attempt
+    // as evidence of deletion.
+    if (writable(store, current).rows.some((row) => row.id === id)) {
+      address(store, id, current);
       await store.removeRow(id);
     }
     saved(
@@ -148,6 +154,55 @@ export async function removeContactAddressRow(
     );
     pending.delete(id);
   });
+}
+
+function reconcileCreation(attempt: CreationAttempt, current: () => boolean) {
+  const { state, store } = attempt;
+  if (state.status !== "unconfirmed") return;
+  // A returned ID proves neither mutation nor persistence. Only absence after
+  // pending deltas are saved permits a fresh add; dirty snapshots can omit a
+  // real live creation, or the dirty delta can belong to an unrelated edit.
+  saved(store, current, true);
+  attempt.state = transitionContactAddressCreation(state, {
+    type: "reconciled",
+    exists: writable(store, current).rows.some((row) => row.id === state.id),
+  });
+}
+
+async function editCreation(
+  attempt: CreationAttempt,
+  values: Readonly<Record<string, string>>,
+  current: () => boolean,
+) {
+  const { store, state } = attempt;
+  if (state.status !== "identified" && state.status !== "updating")
+    throw new Error(SAVE_FAILURE);
+  const row = address(store, state.id, current);
+  // Compare this draft with its last submission, not other writers' live cells.
+  attempt.state = transitionContactAddressCreation(state, {
+    type: "edit",
+    fields: values,
+  });
+  if (attempt.state.status !== "updating") throw new Error(SAVE_FAILURE);
+  const { id, patch } = attempt.state;
+  const changed = Object.fromEntries(
+    Object.entries(patch).filter(
+      ([key, value]) => value !== (row.fields[key] ?? ""),
+    ),
+  );
+  if (Object.keys(changed).length) await store.updateRowFields(id, changed);
+  const updated = address(store, id, current);
+  saved(
+    store,
+    current,
+    Object.entries(patch).every(
+      ([key, value]) => (updated.fields[key] ?? "") === value,
+    ),
+  );
+  attempt.state = transitionContactAddressCreation(attempt.state, {
+    type: "saved",
+  });
+  return id;
 }
 
 export async function addContactAddressRow(
@@ -160,63 +215,44 @@ export async function addContactAddressRow(
   const values = trimFields(fields);
   return queue(store, current, async () => {
     const previous = creations.get(intent);
-    if (previous) {
-      if (
-        previous.store !== store ||
+    if (
+      previous &&
+      (previous.store !== store ||
         !previous.current() ||
-        previous.state.status === "creating"
-      )
-        throw new Error(SAVE_FAILURE);
-      // Flush the original delta without minting another row. Compare this
-      // draft's edits to its last submission, not to other writers' live cells.
-      await flushPending(store, current);
-      const row = address(store, previous.state.id, current);
-      previous.state = transitionContactAddressCreation(previous.state, {
-        type: "edit",
-        fields: values,
-      });
-      if (previous.state.status !== "updating") throw new Error(SAVE_FAILURE);
-      const { id, patch } = previous.state;
-      const changed = Object.fromEntries(
-        Object.entries(patch).filter(
-          ([key, value]) => value !== (row.fields[key] ?? ""),
-        ),
-      );
-      if (Object.keys(changed).length) await store.updateRowFields(id, changed);
-      const updated = address(store, id, current);
-      saved(
-        store,
-        current,
-        Object.entries(patch).every(
-          ([key, value]) => (updated.fields[key] ?? "") === value,
-        ),
-      );
-      previous.state = transitionContactAddressCreation(previous.state, {
-        type: "saved",
-      });
-      return id;
-    }
-    const attempt: CreationAttempt = {
+        previous.state.status === "creating")
+    )
+      throw new Error(SAVE_FAILURE);
+    const attempt: CreationAttempt = previous ?? {
       store,
       state: { status: "creating" },
       current,
     };
+    // Keep the original lifetime even after a confirmed no-effect refusal.
+    const authorized = () => current() && attempt.current();
+    if (previous) {
+      await flushPending(store, authorized);
+      reconcileCreation(attempt, authorized);
+      if (attempt.state.status !== "creating")
+        return editCreation(attempt, values, authorized);
+    }
     creations.set(intent, attempt);
+    writable(store, authorized);
     const id = await store.addRow({
       ...values,
       recordType: CONTACT_ADDRESS_ROW_TYPE,
     });
     attempt.state = transitionContactAddressCreation(attempt.state, {
-      type: "created",
+      type: "returned",
       id,
       fields: values,
     });
-    const row = address(store, id, current);
+    const row = address(store, id, authorized);
     saved(
       store,
-      current,
+      authorized,
       Object.entries(values).every(([key, value]) => row.fields[key] === value),
     );
+    reconcileCreation(attempt, authorized);
     return id;
   });
 }

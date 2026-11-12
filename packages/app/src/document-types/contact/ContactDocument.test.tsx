@@ -293,6 +293,52 @@ test("Explorer switches local documents without retaining drafts or late complet
   expect(second.methods.updateRowFields).not.toHaveBeenCalled();
 });
 
+test.each(["draft", "saving"] as const)(
+  "Explorer preserves an address %s when the same local contact is registered",
+  async (phase) => {
+    setupRuntime();
+    const fixture = documentFixture(null);
+    const pending = Promise.withResolvers<void>();
+    fixture.methods.updateRowFields.mockImplementation(async (id, patch) => {
+      await pending.promise;
+      fixture.publish({
+        rows: fixture.methods
+          .getSnapshot()
+          .rows.map((entry) =>
+            entry.id === id
+              ? { ...entry, fields: { ...entry.fields, ...patch } }
+              : entry,
+          ),
+      });
+    });
+    const view = render(documentTree(fixture.store));
+    fireEvent.click(view.getByRole("button", { name: "Edit address" }));
+    fireEvent.change(view.getByLabelText("Street address"), {
+      target: { value: "Draft survives registration" },
+    });
+    if (phase === "saving") {
+      fireEvent.click(view.getByRole("button", { name: "Save address" }));
+      await waitFor(() =>
+        expect(fixture.methods.updateRowFields).toHaveBeenCalledTimes(1),
+      );
+    }
+    await act(async () => fixture.publish({ documentId: "registered-id" }));
+    expect(
+      (view.getByLabelText("Street address") as HTMLInputElement).value,
+    ).toBe("Draft survives registration");
+    if (phase === "draft")
+      fireEvent.click(view.getByRole("button", { name: "Save address" }));
+    await act(async () => pending.resolve());
+    await waitFor(() =>
+      expect(view.queryByRole("form", { name: "Address editor" })).toBeNull(),
+    );
+    expect(fixture.methods.updateRowFields).toHaveBeenCalledWith("home-id", {
+      street: "Draft survives registration",
+    });
+    expect(view.getByText("Draft survives registration")).toBeTruthy();
+  },
+);
+
 test("Explorer resolves address attribution from signed uploader segments", async () => {
   const context = setupRuntime();
   context.runtime.auth.isAuthenticated = true;

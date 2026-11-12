@@ -138,7 +138,7 @@ export function ContactDocument(params: {
     <StructuredDocument
       attachments={
         <ContactAddresses
-          key={`${addressActions.identityKey}:${document.documentId ?? "local"}`}
+          key={addressActions.identityKey}
           rows={ready ? document.rows : undefined}
           disabled={!ready || !canWrite}
           isEditing={isEditing}
