@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle as postgresDrizzle } from "drizzle-orm/pglite";
 import { migrate as migratePostgres } from "drizzle-orm/pglite/migrator";
+import { readJournalMigrations } from "./adapters/migrationHistory";
 
 const ROOT_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
 const PERSONAL_ROOT_ID = "00000000-0000-4000-8000-000000000002";
@@ -10,7 +11,7 @@ const METADATA_ROOT_ID = "00000000-0000-4000-8000-000000000003";
 const DUPLICATE_ROOT_ID = "00000000-0000-4000-8000-000000000004";
 const METADATA_SLOT = `sys_v1_${"a".repeat(43)}`;
 
-test("Postgres baseline initializes all tables without application data", async () => {
+test("Postgres migrations initialize all tables without application data", async () => {
   const client = new PGlite();
   try {
     const db = postgresDrizzle(client);
@@ -40,7 +41,9 @@ test("Postgres baseline initializes all tables without application data", async 
     const journal = await client.query(
       "SELECT id FROM drizzle.__drizzle_migrations",
     );
-    expect(journal.rows).toHaveLength(1);
+    expect(journal.rows).toHaveLength(
+      readJournalMigrations(options.migrationsFolder).length,
+    );
     const insertRoot = (id: string, slot: string | null) =>
       client.query(
         "INSERT INTO containers (id, organization_id, system_slot) VALUES ($1, $2, $3)",
