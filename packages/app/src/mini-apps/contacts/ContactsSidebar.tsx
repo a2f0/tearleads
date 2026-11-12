@@ -2,6 +2,7 @@ import type { BlobStore } from "@tearleads/client-sdk";
 import type { MouseEvent, ReactNode } from "react";
 import {
   MiniAppSidebar,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
 import {
@@ -95,7 +96,7 @@ function ContactsList({
   const avatarSize = showMetadata ? "medium" : "small";
 
   if (!ready) {
-    return <MiniAppStatus>Loading...</MiniAppStatus>;
+    return <MiniAppStatePanel busy title="Loading..." />;
   }
 
   if (entries.length === 0) {

@@ -17,6 +17,7 @@ import {
   MiniAppHeaderCopy,
   MiniAppInput,
   MiniAppPanel,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useMiniAppDetailBackAction } from "../../../components/mini-app/useMiniAppDetailBackAction";
@@ -120,13 +121,15 @@ function ContactsSelectionState({
   useWindowTitleBarAction(editAction);
 
   if (!selectedEntry) {
+    if (!ready) {
+      return <MiniAppStatePanel busy title={CONTACTS_LABELS.loadingState} />;
+    }
+
     return (
       <MiniAppStatus>
-        {ready && entries.length > 0
+        {entries.length > 0
           ? CONTACTS_LABELS.selectState
-          : !ready
-            ? CONTACTS_LABELS.loadingState
-            : CONTACTS_LABELS.emptyState}
+          : CONTACTS_LABELS.emptyState}
       </MiniAppStatus>
     );
   }

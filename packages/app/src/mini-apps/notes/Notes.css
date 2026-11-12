@@ -1,7 +1,3 @@
-.notes-sidebar-status {
-  padding: var(--space-sm);
-}
-
 .notes-list-home {
   display: flex;
   flex: 1 1 auto;

@@ -4,6 +4,7 @@ import { resolveMiniAppAccessGateState } from "./LocalKeyringUnlockGate";
 test("mini-app access gate shows unlock before any local identity work", () => {
   expect(
     resolveMiniAppAccessGateState({
+      accountBootstrapping: true,
       hasSigningKeyPair: false,
       isLocked: true,
       localIdentityRestoreSettled: false,
@@ -42,6 +43,7 @@ test("mini-app access gate requires local keys before mounting protected content
 test("lock-only mini-app access stays available before local identity setup", () => {
   expect(
     resolveMiniAppAccessGateState({
+      accountBootstrapping: true,
       hasSigningKeyPair: false,
       isLocked: false,
       localIdentityRestoreSettled: false,
@@ -56,4 +58,17 @@ test("lock-only mini-app access stays available before local identity setup", ()
       requireLocalIdentity: false,
     }),
   ).toBe("unlock");
+});
+
+test("provisioning progress covers key generation and account registration", () => {
+  for (const hasSigningKeyPair of [false, true]) {
+    expect(
+      resolveMiniAppAccessGateState({
+        accountBootstrapping: true,
+        hasSigningKeyPair,
+        isLocked: false,
+        localIdentityRestoreSettled: true,
+      }),
+    ).toBe("loading");
+  }
 });

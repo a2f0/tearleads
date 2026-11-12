@@ -13,7 +13,10 @@ import type {
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { MouseEvent } from "react";
-import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
+import {
+  MiniAppStatePanel,
+  MiniAppStatus,
+} from "../../../components/mini-app/MiniAppLayout";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import type { ExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
@@ -48,13 +51,13 @@ function ExplorerEmptyDetail(params: {
   // The database-error case is handled once at the top of ExplorerDetailPanel
   // (every route is non-functional without the DB), so this only covers the
   // healthy idle/empty/select states.
+  if (!ready) {
+    return <MiniAppStatePanel busy title="Loading your workspace" />;
+  }
+
   return (
     <MiniAppStatus>
-      {ready && nodes.length > 0
-        ? "Select a container."
-        : !ready
-          ? "Loading..."
-          : "No containers."}
+      {nodes.length > 0 ? "Select a container." : "No containers."}
     </MiniAppStatus>
   );
 }

@@ -6,7 +6,7 @@ import {
 import { type MouseEvent, useEffect } from "react";
 import {
   MiniAppSidebar,
-  MiniAppStatus,
+  MiniAppStatePanel,
 } from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRowButton,
@@ -91,9 +91,7 @@ function NotesList({
   return (
     <>
       {!ready ? (
-        <MiniAppStatus className="notes-sidebar-status">
-          {NOTES_LABELS.sidebarLoading}
-        </MiniAppStatus>
+        <MiniAppStatePanel busy title={NOTES_LABELS.sidebarLoading} />
       ) : notes.length === 0 ? (
         // Deliberately not bled like the populated list below: a dashed tile
         // reads as a placed object, so it keeps the surface's own inset rather
