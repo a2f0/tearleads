@@ -250,22 +250,28 @@ export async function savedPlan(
       writeFileSync(override, text, { flag: "wx", mode: 0o600 });
       owned = lstatSync(override);
     }
-    await run.exec([
-      `terraform/scripts/run-${stack}-stack.sh`,
-      run.tier,
-      "plan",
-      ...(action === "delete" ? ["-destroy"] : []),
-      `-out=${path}`,
-    ]);
+    await run.exec(
+      [
+        `terraform/scripts/run-${stack}-stack.sh`,
+        run.tier,
+        "plan",
+        ...(action === "delete" ? ["-destroy"] : []),
+        `-out=${path}`,
+      ],
+      "terraform-state",
+    );
     const bytes = readFileSync(path);
     const plan = parse(
-      await run.exec([
-        "terraform",
-        `-chdir=terraform/stacks/${run.tier}/${stack}`,
-        "show",
-        "-json",
-        path,
-      ]),
+      await run.exec(
+        [
+          "terraform",
+          `-chdir=terraform/stacks/${run.tier}/${stack}`,
+          "show",
+          "-json",
+          path,
+        ],
+        "bounded-command",
+      ),
     );
     validatePlan(plan, stack, action, run.tier, identity);
     // Bind the apply to exactly the bytes we inspected, not a new generated plan.
@@ -291,10 +297,8 @@ export async function applyPlan(
   refuseOverrides(run);
   if (!readFileSync(plan.path).equals(plan.bytes))
     throw new Error("Saved plan changed after inspection.");
-  await run.exec([
-    `terraform/scripts/run-${stack}-stack.sh`,
-    run.tier,
-    "apply",
-    plan.path,
-  ]);
+  await run.exec(
+    [`terraform/scripts/run-${stack}-stack.sh`, run.tier, "apply", plan.path],
+    "terraform-state",
+  );
 }

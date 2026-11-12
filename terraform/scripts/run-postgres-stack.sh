@@ -2,6 +2,9 @@
 # Manage a tier's independent PlanetScale Postgres stack. Production cannot be
 # destroyed through this wrapper; staging is disposable.
 set -euo pipefail
+# Wait for the foreground Terraform to finish, then stop even if it exits zero.
+# Do not forward another interrupt: Terraform uses it to abort state recovery.
+trap 'exit 130' INT
 
 TIER="${1:-}"
 ACTION="${2:-}"

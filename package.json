@@ -102,7 +102,7 @@
     "test:static-analysis": "bun scripts/testing/testStaticAnalysis.ts",
     "test:architecture": "bun scripts/testing/testArchitecture.ts",
     "test:step-timings": "cd scripts/lib && bun test stepTimings.test.ts",
-    "test:soft-reset": "bun test scripts/deploy/softReset.test.ts scripts/deploy/softResetSafety.test.ts scripts/deploy/softResetRecovery.test.ts",
+    "test:soft-reset": "bun test scripts/deploy/softReset.test.ts scripts/deploy/softResetSafety.test.ts scripts/deploy/softResetRecovery.test.ts scripts/deploy/softResetCancel.test.ts scripts/deploy/softResetPolicy.test.ts scripts/deploy/softResetProcess.test.ts scripts/deploy/softResetRuntime.test.ts",
     "test:install-dependencies": "cd scripts/lib && bun test installDependencies.test.ts",
     "test:npm-publish": "cd scripts/release && bun test releasePlan.test.ts publishPolicy.test.ts publishNpmPackage.test.ts",
     "test:biome:promises": "bun scripts/testing/testBiomePromises.ts",

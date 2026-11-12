@@ -130,7 +130,29 @@ change `HOME` to evade it. `timings.json` records the pinned source, each
 started phase's status/elapsed milliseconds, and total runtime. The terminal
 prints the same summary on success, failure, SIGINT, SIGTERM, or SIGHUP.
 Cancellation exits with the first signal's code: 130 for SIGINT, 143 for
-SIGTERM, and 129 for SIGHUP.
+SIGTERM, and 129 for SIGHUP. Later operator signals do not accelerate teardown
+or change that code.
+
+Commands that can run Terraform receive **one SIGINT** to their detached
+process group and a fixed **60-second grace period**, measured from the first
+cancellation, to stop work, save partial state, and release backend locks. This
+includes `init` inside stack-output wrappers, plan/apply, API preflight and
+API deployment, and the drop-owned/empty-bucket helpers. A wrapper exiting
+does not end the grace period while descendants remain. Wrappers also stop
+after interrupted initialization even when Terraform exits zero. Ordinary builds,
+maintenance, non-Terraform deployers, and direct read-only probes instead
+receive SIGTERM with a one-second grace period.
+
+At the deadline, the remaining group receives SIGKILL, with a one-second
+post-kill observation budget. A forced-timeout diagnostic means
+**state may be incomplete and a backend lock may remain**; even graceful
+completion is not proof that every provider persisted successfully. Do not
+send signals directly to Terraform or its providers, kill the reset parent,
+or assume an exited shell means its descendants finished. Processes that
+escape the owned group, host failure, and noncooperating providers require
+manual investigation. The grace period is not configurable through environment
+variables or CLI flags, and cancellation never starts a later reset step.
+
 Successful runs retain sanitized identity/schema/timing records and remove
 their private command outputs, saved plans, and owned lock. A failed or
 interrupted run keeps its lock and private evidence, including sensitive

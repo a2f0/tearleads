@@ -2,6 +2,9 @@
 # The edge stack attaches a tier's API, app, and demo hostnames to the Workers
 # Wrangler publishes. It has independent state and no server outputs.
 set -euo pipefail
+# Wait for the foreground Terraform to finish, then stop even if it exits zero.
+# Do not forward another interrupt: Terraform uses it to abort state recovery.
+trap 'exit 130' INT
 if [[ $# -lt 2 ]]; then
   echo "Usage: $0 <staging|prod> <init|plan|apply|destroy|output> [terraform arguments...]" >&2
   exit 1

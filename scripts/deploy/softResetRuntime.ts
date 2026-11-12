@@ -13,6 +13,8 @@ import {
 } from "node:fs";
 import { constants, homedir } from "node:os";
 import { basename, join } from "node:path";
+import { superviseCommand } from "./softResetProcess";
+import type { InterruptPolicy } from "./softResetProcessState";
 
 type Status = "running" | "succeeded" | "failed" | "interrupted";
 interface Step {
@@ -48,7 +50,7 @@ export class ResetRun {
   private readonly steps: Step[] = [];
   private readonly signals = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
   private interrupted: NodeJS.Signals | undefined;
-  private childPid: number | undefined;
+  private interruptChild: (() => void) | undefined;
   private sequence = 0;
   private sha = "";
   private status: Status = "running";
@@ -107,28 +109,25 @@ export class ResetRun {
 
   private interrupt = (signal: NodeJS.Signals) => {
     this.interrupted ??= signal;
-    if (this.childPid !== undefined) this.killGroup(this.childPid, "SIGTERM");
+    this.interruptChild?.();
   };
-
-  private killGroup(pid: number, signal: NodeJS.Signals) {
-    try {
-      process.kill(-pid, signal);
-    } catch {
-      /* Already exited. */
-    }
-  }
 
   async exec(
     args: string[],
+    interruptPolicy: InterruptPolicy,
     extraEnv: NodeJS.ProcessEnv = {},
     cwd = this.root,
   ): Promise<string> {
     if (this.interrupted)
       throw new Error("Interrupted; manual recovery required.");
     const prefix = join(this.privateDir, `command-${++this.sequence}`);
-    writeFileSync(`${prefix}.json`, JSON.stringify({ args, cwd }), {
-      mode: 0o600,
-    });
+    writeFileSync(
+      `${prefix}.json`,
+      JSON.stringify({ args, cwd, interruptPolicy }),
+      {
+        mode: 0o600,
+      },
+    );
     const out = openSync(`${prefix}.out`, "wx", 0o600);
     const err = openSync(`${prefix}.err`, "wx", 0o600);
     try {
@@ -138,27 +137,16 @@ export class ResetRun {
         detached: true,
         stdio: ["ignore", out, err],
       });
-      this.childPid = child.pid;
-      const killer = setInterval(() => {
-        if (this.interrupted && child.pid !== undefined)
-          this.killGroup(child.pid, "SIGKILL");
-      }, 1000);
+      const command = superviseCommand(child, interruptPolicy);
+      this.interruptChild = command.interrupt;
+      if (this.interrupted) command.interrupt();
       let code: number | null;
       try {
-        code = await new Promise<number | null>((resolve, reject) => {
-          child.once("error", () =>
-            reject(new Error("Could not start required command.")),
-          );
-          child.once("close", resolve);
-        });
+        code = await command.completed;
+        await new Promise<void>((resolve) => setImmediate(resolve));
       } finally {
-        clearInterval(killer);
-        // A wrapper can exit while its descendants are still working.
-        if (this.interrupted && child.pid !== undefined)
-          this.killGroup(child.pid, "SIGKILL");
-        this.childPid = undefined;
+        this.interruptChild = undefined;
       }
-      await new Promise<void>((resolve) => setImmediate(resolve));
       if (this.interrupted)
         throw new Error("Interrupted; manual recovery required.");
       if (code !== 0)
@@ -174,14 +162,18 @@ export class ResetRun {
 
   async source() {
     this.requireLock();
-    const sha = await this.exec(["git", "rev-parse", "HEAD"]);
-    const dirty = await this.exec([
-      "git",
-      "status",
-      "--porcelain",
-      "--untracked-files=all",
-    ]);
-    const root = await this.exec(["git", "rev-parse", "--show-toplevel"]);
+    const sha = await this.exec(
+      ["git", "rev-parse", "HEAD"],
+      "bounded-command",
+    );
+    const dirty = await this.exec(
+      ["git", "status", "--porcelain", "--untracked-files=all"],
+      "bounded-command",
+    );
+    const root = await this.exec(
+      ["git", "rev-parse", "--show-toplevel"],
+      "bounded-command",
+    );
     if (
       !/^[a-f0-9]{40}$/.test(sha) ||
       dirty ||

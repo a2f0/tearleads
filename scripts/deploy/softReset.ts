@@ -12,11 +12,15 @@ import {
   sameInventory,
 } from "./softResetChecks";
 import { applyPlan, type Identity, parse, savedPlan } from "./softResetPlans";
+import type { InterruptPolicy } from "./softResetProcessState";
 import { ResetRun, refuseOverrides } from "./softResetRuntime";
 
 async function preflight(run: ResetRun) {
   const buildCheck = (mode: string) =>
-    run.exec(["bash", "scripts/deploy/softResetPreflight.sh", run.tier, mode]);
+    run.exec(
+      ["bash", "scripts/deploy/softResetPreflight.sh", run.tier, mode],
+      mode === "api" ? "terraform-state" : "bounded-command",
+    );
   const identity = await run.step("credentials", async () => {
     refuseOverrides(run);
     baseline(run);
@@ -60,16 +64,13 @@ async function preflight(run: ResetRun) {
     savedPlan(run, identity, "storage", "delete"),
   );
   await run.step("runtime-build", () =>
-    run.exec(["bun", "run", "build:runtime"]),
+    run.exec(["bun", "run", "build:runtime"], "bounded-command"),
   );
   await run.step("devkit-config", () =>
-    run.exec([
-      "bun",
-      "run",
-      "--cwd",
-      "packages/app-electrobun",
-      "prepare:devkit",
-    ]),
+    run.exec(
+      ["bun", "run", "--cwd", "packages/app-electrobun", "prepare:devkit"],
+      "bounded-command",
+    ),
   );
   await run.step("website-readiness", async () => {
     try {
@@ -103,22 +104,29 @@ async function verifyFresh(
   return snapshot;
 }
 
+function commandHelpers(run: ResetRun) {
+  const helper = (policy: InterruptPolicy, path: string, ...args: string[]) =>
+    run.exec([path, run.tier, ...args], policy);
+  const teardown = (policy: InterruptPolicy, path: string, ...args: string[]) =>
+    run.exec([path, run.tier, ...args], policy, {
+      TEARLEADS_TEARDOWN_TIER: run.tier,
+    });
+  return { helper, teardown };
+}
+
 async function reset(run: ResetRun) {
   const { identity, before, postgres, storage } = await preflight(run);
-  const helper = (path: string, ...args: string[]) =>
-    run.exec([path, run.tier, ...args]);
-  const teardown = (path: string, ...args: string[]) =>
-    run.exec([path, run.tier, ...args], { TEARLEADS_TEARDOWN_TIER: run.tier });
+  const { helper, teardown } = commandHelpers(run);
   // This existing helper retires DOs/crons and drains for 930s. Never replace
   // it with wrangler delete (which also detaches the custom domain).
   await run.step("maintenance", () =>
-    teardown("packages/api/scripts/deployApiMaintenance.sh"),
+    teardown("bounded-command", "packages/api/scripts/deployApiMaintenance.sh"),
   );
   await run.step("recheck-identities", async () =>
     sameInventory(before, await inventory(run, identity)),
   );
   await run.step("drop-owned", () =>
-    teardown("terraform/scripts/drop-postgres-owned.sh"),
+    teardown("terraform-state", "terraform/scripts/drop-postgres-owned.sh"),
   );
   await run.step("verify-dropped", () =>
     databaseCheck(run, before.connection, "empty"),
@@ -129,6 +137,7 @@ async function reset(run: ResetRun) {
   await run.step("empty-blobs", async () => {
     const current = parse(
       await helper(
+        "terraform-state",
         "terraform/scripts/run-storage-stack.sh",
         "output",
         "-json",
@@ -137,7 +146,11 @@ async function reset(run: ResetRun) {
     );
     if (JSON.stringify(current) !== JSON.stringify(before.storage))
       throw new Error("Blob credentials/identity changed.");
-    await teardown("terraform/scripts/empty-r2-bucket.sh", "storage");
+    await teardown(
+      "terraform-state",
+      "terraform/scripts/empty-r2-bucket.sh",
+      "storage",
+    );
     await emptyBucket(run, current);
   });
   await run.step("destroy-storage", () => applyPlan(run, "storage", storage));
@@ -159,19 +172,23 @@ async function reset(run: ResetRun) {
     verifyFresh(run, identity, before),
   );
   await run.step("deploy-api", () =>
-    helper("packages/api/scripts/deployApi.sh"),
+    helper("terraform-state", "packages/api/scripts/deployApi.sh"),
   );
   await run.step("verify-api", () =>
-    helper("packages/api/scripts/verifyApi.sh"),
+    helper("bounded-command", "packages/api/scripts/verifyApi.sh"),
   );
   await run.step("verify-schema", () =>
     databaseCheck(run, after.connection, "baseline"),
   );
   await run.step("deploy-app-demo", () =>
-    helper("packages/app-web/scripts/deployAppWeb.sh"),
+    helper("bounded-command", "packages/app-web/scripts/deployAppWeb.sh"),
   );
   await run.step("deploy-website", () =>
-    helper("packages/website/scripts/deployWebsite.sh", "--skip-terraform"),
+    helper(
+      "bounded-command",
+      "packages/website/scripts/deployWebsite.sh",
+      "--skip-terraform",
+    ),
   );
   await run.step("verify-public", async () => {
     sameInventory(after, await inventory(run, identity));

@@ -11,13 +11,16 @@ import type { ResetRun } from "./softResetRuntime";
 
 export async function inventory(run: ResetRun, identity: Identity) {
   const output = async (stack: string, name?: string) =>
-    run.exec([
-      `terraform/scripts/run-${stack}-stack.sh`,
-      run.tier,
-      "output",
-      "-json",
-      ...(name ? [name] : []),
-    ]);
+    run.exec(
+      [
+        `terraform/scripts/run-${stack}-stack.sh`,
+        run.tier,
+        "output",
+        "-json",
+        ...(name ? [name] : []),
+      ],
+      "terraform-state",
+    );
   const database = parse(await output("postgres", "database"));
   const bucket = parse(await output("storage", "bucket"));
   if (
@@ -117,18 +120,21 @@ export function bindConnection(snapshot: Inventory, plan: ProviderRecord) {
 
 export async function publicHealth(run: ResetRun, urls: string[]) {
   for (const url of urls) {
-    const code = await run.exec([
-      "curl",
-      "--silent",
-      "--show-error",
-      "--max-time",
-      "20",
-      "--output",
-      "/dev/null",
-      "--write-out",
-      "%{http_code}",
-      `${url}/`,
-    ]);
+    const code = await run.exec(
+      [
+        "curl",
+        "--silent",
+        "--show-error",
+        "--max-time",
+        "20",
+        "--output",
+        "/dev/null",
+        "--write-out",
+        "%{http_code}",
+        `${url}/`,
+      ],
+      "bounded-command",
+    );
     if (code !== "200")
       throw new Error("Public health check did not return HTTP 200.");
   }
@@ -164,6 +170,7 @@ export async function emptyBucket(
         "json",
         ...(!requireEmpty ? ["--max-items", "1"] : []),
       ],
+      "bounded-command",
       env,
     );
     const listing = text ? parse(text) : {};
@@ -211,6 +218,7 @@ export async function databaseCheck(
   const query = async (sql: string): Promise<unknown> => {
     const text = await run.exec(
       ["psql", "-X", "-w", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-c", sql],
+      "bounded-command",
       env,
     );
     try {
