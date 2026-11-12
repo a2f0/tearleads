@@ -139,7 +139,9 @@ test("notes list home shows loading rather than the empty tile before notes load
   expect(
     view.queryByRole("button", { name: NOTES_LABELS.sidebarEmptyCreate }),
   ).toBeNull();
-  expect(view.getByText(NOTES_LABELS.sidebarLoading)).toBeTruthy();
+  expect(
+    view.getByRole("heading", { name: NOTES_LABELS.emptyStateLoading }),
+  ).toBeTruthy();
 });
 
 test("content demand follows only visible virtual rows and waits for directory readiness", () => {

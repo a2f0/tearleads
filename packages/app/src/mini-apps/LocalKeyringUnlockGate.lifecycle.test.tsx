@@ -5,6 +5,7 @@ import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
 } from "../../test/helpers/paneTestUtils";
+import { AccountBootstrapLoadingPanel } from "../components/identity/AccountBootstrapLoadingPanel";
 import {
   AutoProvisioningStatusContext,
   type AutoProvisioningStep,
@@ -96,6 +97,7 @@ test("usable local keys stay accessible during idle, running, and failed registr
       >
         <LocalKeyringUnlockGate appName="Explorer">
           <p>Local workspace</p>
+          <AccountBootstrapLoadingPanel title="Loading your workspace" />
         </LocalKeyringUnlockGate>
       </AutoProvisioningStatusContext.Provider>
     </AppRuntimeProvider>
@@ -105,6 +107,9 @@ test("usable local keys stay accessible during idle, running, and failed registr
     await view.findByRole("button", { name: "Generate Key Pair" }),
   );
   expect(await view.findByText("Local workspace")).toBeTruthy();
+  expect(
+    view.getByRole("heading", { name: "Creating your account" }),
+  ).toBeTruthy();
   for (const registration of [
     { status: "idle" } as const,
     failed,
@@ -112,6 +117,14 @@ test("usable local keys stay accessible during idle, running, and failed registr
   ]) {
     view.rerender(surface(registration));
     expect(view.getByText("Local workspace")).toBeTruthy();
+    expect(
+      view.getByRole("heading", {
+        name:
+          registration.status === "failed"
+            ? "Loading your workspace"
+            : "Creating your account",
+      }),
+    ).toBeTruthy();
   }
   view.unmount();
 });

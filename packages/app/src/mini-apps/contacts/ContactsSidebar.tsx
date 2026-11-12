@@ -29,6 +29,7 @@ import {
   MiniAppRowActionsKebab,
   useMiniAppSidebarPanel,
 } from "../shared/list-panel/MiniAppListPanel";
+import { CONTACTS_LABELS } from "./labels";
 import type { ContactEntries } from "./types";
 
 const CONTACTS_ROW_SELECTOR = ".contacts-sidebar-row, .mini-app-row";
@@ -97,7 +98,7 @@ function ContactsList({
 
   if (!ready) {
     return bleed ? (
-      <AccountBootstrapLoadingPanel title="Loading contacts..." />
+      <AccountBootstrapLoadingPanel title={CONTACTS_LABELS.loadingState} />
     ) : (
       <MiniAppStatus busy>Loading...</MiniAppStatus>
     );

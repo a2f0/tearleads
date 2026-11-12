@@ -93,7 +93,9 @@ function NotesList({
     <>
       {!ready ? (
         bleed ? (
-          <AccountBootstrapLoadingPanel title={NOTES_LABELS.sidebarLoading} />
+          <AccountBootstrapLoadingPanel
+            title={NOTES_LABELS.emptyStateLoading}
+          />
         ) : (
           <MiniAppStatus busy className="notes-sidebar-status">
             {NOTES_LABELS.sidebarLoading}
