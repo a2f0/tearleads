@@ -4,35 +4,33 @@ import type {
   WriterProjectionTarget,
 } from "@tearleads/api-client";
 import { toFingerprint } from "@tearleads/crypto";
-import {
-  type AccessManifestBundleWireResponse,
-  isAccessManifestBundleWireResponse,
-} from "@tearleads/validators/response";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { KNOWN_MANIFEST_HINT_LIMIT } from "@tearleads/validators/util";
-import { and, asc, desc, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
-import { containerTables } from "../sqlite/schema";
-import { documentContainerProjectionTables } from "../sqlite/schema/documentProjectionSchema";
+import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { containerTables, localIntentTables } from "../sqlite/schema";
+import {
+  documentContainerProjectionTables,
+  documentProjectionTables,
+} from "../sqlite/schema/documentProjectionSchema";
 import {
   verifiedAccessManifestBundles as bundles,
   verifiedManifestBundleTables,
 } from "../sqlite/schema/verifiedManifestBundleSchema";
 import { sqliteInsertBatchSize } from "../sqlite/sqliteBindBudget";
 import {
-  type ClientSQLiteDatabase,
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { excludedValue } from "../sqlite/sqliteUpsert";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import { collectVerifiedManifestCitations } from "./verifiedCitations/citationCollection";
 import {
-  type CitedObject,
   citedObjects,
   targetOrganization,
 } from "./verifiedCitations/citationScope";
 import {
   KEK_LEVEL_OBJECT_KIND,
   kekLevelRow,
-  readStoredKekLevel,
   type VerifiedKekLevel,
 } from "./verifiedCitations/kekLevelCitations";
 
@@ -241,101 +239,11 @@ async function touchStoredDigests(
   return digests;
 }
 
-interface StoredBundleRow {
-  readonly bundleDigest: string;
-  readonly bundleJson: string;
-  readonly manifestHash: string;
-}
-
-const storedColumns = {
-  bundleDigest: bundles.bundleDigest,
-  bundleJson: bundles.bundleJson,
-  manifestHash: bundles.manifestHash,
-};
-
-async function readStoredBundle(
-  row: StoredBundleRow,
-): Promise<AccessManifestBundleWireResponse | null> {
-  if ((await sha256Hex(row.bundleJson)) !== row.bundleDigest) return null;
-  try {
-    const bundle: unknown = JSON.parse(row.bundleJson);
-    return isAccessManifestBundleWireResponse(bundle) &&
-      bundle.manifestHash === row.manifestHash
-      ? bundle
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function objectRows(
-  db: ClientSQLiteDatabase,
-  organizationId: string,
-  object: CitedObject,
-  limit: number,
-) {
-  return db
-    .select(storedColumns)
-    .from(bundles)
-    .where(
-      and(
-        eq(bundles.organizationId, organizationId),
-        eq(bundles.objectKind, object.kind),
-        eq(bundles.objectId, object.id),
-      ),
-    )
-    .orderBy(desc(bundles.epoch))
-    .limit(limit);
-}
-
-function recentRows(
-  db: ClientSQLiteDatabase,
-  organizationId: string,
-  limit: number,
-) {
-  return db
-    .select(storedColumns)
-    .from(bundles)
-    .where(
-      and(
-        eq(bundles.organizationId, organizationId),
-        ne(bundles.objectKind, KEK_LEVEL_OBJECT_KIND),
-      ),
-    )
-    .orderBy(desc(bundles.verifiedAt), asc(bundles.manifestHash))
-    .limit(limit);
-}
-
-/** The latest verified KEK level of each container, in lineage order. */
-async function lineageKekLevels(
-  db: ClientSQLiteDatabase,
-  organizationId: string,
-  objects: readonly CitedObject[],
-): Promise<StoredBundleRow[]> {
-  const containerIds = objects
-    .filter((object) => object.kind === "container")
-    .map((object) => object.id);
-  if (containerIds.length === 0) return [];
-  const rows = await db
-    .select({ ...storedColumns, objectId: bundles.objectId })
-    .from(bundles)
-    .where(
-      and(
-        eq(bundles.organizationId, organizationId),
-        eq(bundles.objectKind, KEK_LEVEL_OBJECT_KIND),
-        inArray(bundles.objectId, containerIds),
-      ),
-    )
-    .orderBy(desc(bundles.epoch), desc(bundles.verifiedAt));
-  const latest = new Map<string, StoredBundleRow>();
-  for (const row of rows)
-    if (!latest.has(row.objectId)) latest.set(row.objectId, row);
-  return containerIds.flatMap((id) => latest.get(id) ?? []);
-}
-
 /**
  * The latest verified KEK level of each container the target's projection
- * walks; then verified bundles of those objects, newest epochs first; then
+ * walks (supplemented by organization-recency levels for a pending move,
+ * or when the lineage has no stored level); then verified bundles of those
+ * objects, newest epochs first; then
  * the most recently verified bundles of its organization, since a
  * just-verified parent is the likeliest part of a new child's projection.
  * Citations never leave the target's organization: an object whose
@@ -345,50 +253,39 @@ async function lineageKekLevels(
 export async function loadVerifiedManifestCitations(
   execSql: ExecSql,
   target: WriterProjectionTarget,
-  limit = KNOWN_MANIFEST_HINT_LIMIT,
+  requestedLimit = KNOWN_MANIFEST_HINT_LIMIT,
 ): Promise<HeldProjectionCitation[]> {
+  const limit = Math.min(KNOWN_MANIFEST_HINT_LIMIT, Math.floor(requestedLimit));
+  if (!(limit > 0)) return [];
   await ensureSqlTables(execSql, [
     ...verifiedManifestBundleTables,
     ...containerTables,
     ...documentContainerProjectionTables,
+    ...documentProjectionTables,
+    ...localIntentTables,
   ]);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const cited = new Map<string, HeldProjectionCitation>();
-  const damaged: string[] = [];
-  const collect = async (rows: readonly StoredBundleRow[]) => {
-    for (const row of rows) {
-      if (cited.size >= limit || cited.has(row.manifestHash)) continue;
-      const bundle = await readStoredBundle(row);
-      if (bundle) cited.set(row.manifestHash, bundle);
-      else damaged.push(row.manifestHash);
-    }
-  };
   const objects = await citedObjects(db, target);
   const organizationId = await targetOrganization(db, target, objects);
   if (organizationId === null) return [];
-  for (const row of await lineageKekLevels(db, organizationId, objects)) {
-    if (cited.size >= limit) break;
-    const level = await readStoredKekLevel(row);
-    if (level) cited.set(row.manifestHash, level);
-    else damaged.push(row.manifestHash);
-  }
-  for (const object of objects)
-    if (cited.size < limit)
-      await collect(
-        await objectRows(db, organizationId, object, limit - cited.size),
-      );
-  if (cited.size < limit)
-    await collect(await recentRows(db, organizationId, limit + cited.size));
+  const { cited, damaged } = await collectVerifiedManifestCitations(
+    db,
+    organizationId,
+    objects,
+    target,
+    limit,
+  );
   if (damaged.length > 0)
     await getClientSQLitePersistenceRuntime(execSql)
-      .runMutation((handle) =>
-        handle
-          .delete(bundles)
-          .where(inArray(bundles.manifestHash, damaged))
-          .run(),
-      )
+      .runMutation(async (handle) => {
+        for (const batch of batches([...new Set(damaged)]))
+          await handle
+            .delete(bundles)
+            .where(inArray(bundles.manifestHash, batch))
+            .run();
+      })
       .catch(() => undefined);
-  return [...cited.values()];
+  return cited;
 }
 
 /** Cites from whichever database the signed-in identity currently uses. */
