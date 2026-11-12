@@ -79,7 +79,8 @@ case "$MODE" in
     CONFIG="$CONFIG.jsonc"
     trap 'rm -f "$CONFIG"' EXIT
     trap 'exit 130' INT
-    trap 'exit 143' TERM HUP
+    trap 'exit 143' TERM
+    trap 'exit 129' HUP
     HYPERDRIVE_ID="$("$REPO_ROOT/terraform/scripts/run-postgres-stack.sh" "$TIER" output -raw hyperdrive_id)"
     [[ "$HYPERDRIVE_ID" =~ ^[a-f0-9]{32}$ ]] || { echo 'Invalid Hyperdrive ID.' >&2; exit 1; }
     sed "s/HYPERDRIVE_ID_$TIER/$HYPERDRIVE_ID/g" "$REPO_ROOT/packages/api/wrangler.jsonc" >"$CONFIG"
@@ -91,6 +92,6 @@ case "$MODE" in
     done <<<"$DEFINES_TEXT"
     # Do not call build_api_worker here: that helper also uploads Sentry maps.
     bunx --no-install wrangler deploy --dry-run --outdir "$TMPDIR/api-readiness" \
-      --env "$TIER" --config "$CONFIG" "${DEFINES[@]}"
+      --env "$TIER" --config "$CONFIG" ${DEFINES[@]+"${DEFINES[@]}"}
     ;;
 esac

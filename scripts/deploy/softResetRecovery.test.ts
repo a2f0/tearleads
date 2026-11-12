@@ -25,6 +25,22 @@ test("screenshot/build readiness failure explains recovery before downtime", () 
   }
 }, 30_000);
 
+test("API preflight supports empty worker defines under Bash nounset", () => {
+  const f = fixture();
+  try {
+    writeFileSync(join(f.root, "empty-worker-defines"), "");
+    const result = f.run();
+    expect(result.exitCode, result.stderr.toString()).toBe(0);
+    const dryRuns = f.calls().filter((call) => call.includes("--dry-run"));
+    expect(dryRuns).toHaveLength(1);
+    expect(dryRuns[0]).toContain("wrangler");
+    expect(dryRuns[0]).not.toContain("--define");
+    expect(f.records().record.status).toBe("succeeded");
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+}, 30_000);
+
 test("replacement override is preserved and detected before downtime", () => {
   const f = fixture();
   try {
@@ -99,65 +115,78 @@ function alive(pid: number) {
   }
 }
 
-test("SIGTERM stops own uncooperative process group and retains interrupted timing", async () => {
-  const f = fixture();
-  writeFileSync(join(f.root, "block-maintenance"), "");
-  const child = Bun.spawn(f.command, {
-    cwd: f.repo,
-    env: f.env,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const stdout = new Response(child.stdout).text();
-  const stderr = new Response(child.stderr).text();
-  let pids: number[] = [];
-  try {
-    await waitFor(() => existsSync(join(f.root, "child-pids.json")), 15_000);
-    pids = JSON.parse(readFileSync(join(f.root, "child-pids.json"), "utf8"));
-    const clone = join(f.root, "second-clone");
-    cpSync(f.repo, clone, { recursive: true });
-    const contender = Bun.spawnSync(
-      [
-        process.execPath,
-        join(clone, "scripts/deploy/softReset.ts"),
-        ...f.command.slice(2),
-      ],
-      { cwd: clone, env: f.env },
-    );
-    expect(contender.exitCode).toBe(1);
-    expect(contender.stderr.toString()).toContain("lock exists");
-    expect(pids.every(alive)).toBe(true);
-    child.kill("SIGTERM");
-    expect(
-      await Promise.race([
-        child.exited,
-        Bun.sleep(3000).then(() => {
-          throw new Error(
-            "reset did not terminate its child group within cleanup budget",
-          );
-        }),
-      ]),
-    ).toBe(130);
-    await waitFor(() => pids.every((pid) => !alive(pid)), 3000);
-    expect(f.records().record.status).toBe("interrupted");
-    expect(f.records().record.steps.at(-1)).toMatchObject({
-      label: "maintenance",
-      status: "interrupted",
+test.each([
+  ["SIGINT", 130],
+  ["SIGTERM", 143],
+  ["SIGHUP", 129],
+] as const)(
+  "%s stops own uncooperative process group and retains interrupted timing",
+  async (signal, exitCode) => {
+    const f = fixture();
+    writeFileSync(join(f.root, "block-maintenance"), "");
+    const child = Bun.spawn(f.command, {
+      cwd: f.repo,
+      env: f.env,
+      stdout: "pipe",
+      stderr: "pipe",
     });
-    expect(await stdout).toContain("total\tinterrupted");
-    expect(await stderr).toContain("do not rerun");
-    expect(f.calls().some((call) => call[0] === "drop-postgres-owned.sh")).toBe(
-      false,
-    );
-  } finally {
-    child.kill("SIGKILL");
-    for (const pid of pids) {
-      try {
-        process.kill(pid, "SIGKILL");
-      } catch {
-        /* already gone */
+    const stdout = new Response(child.stdout).text();
+    const stderr = new Response(child.stderr).text();
+    let pids: number[] = [];
+    try {
+      await waitFor(() => existsSync(join(f.root, "child-pids.json")), 15_000);
+      pids = JSON.parse(readFileSync(join(f.root, "child-pids.json"), "utf8"));
+      const clone = join(f.root, "second-clone");
+      cpSync(f.repo, clone, { recursive: true });
+      const contender = Bun.spawnSync(
+        [
+          process.execPath,
+          join(clone, "scripts/deploy/softReset.ts"),
+          ...f.command.slice(2),
+        ],
+        { cwd: clone, env: f.env },
+      );
+      expect(contender.exitCode).toBe(1);
+      expect(contender.stderr.toString()).toContain("lock exists");
+      expect(pids.every(alive)).toBe(true);
+      child.kill(signal);
+      expect(
+        await Promise.race([
+          child.exited,
+          Bun.sleep(3000).then(() => {
+            throw new Error(
+              "reset did not terminate its child group within cleanup budget",
+            );
+          }),
+        ]),
+      ).toBe(exitCode);
+      expect(f.records().record.status).toBe("interrupted");
+      await waitFor(() => pids.every((pid) => !alive(pid)), 3000);
+      expect(f.records().record.steps.at(-1)).toMatchObject({
+        label: "maintenance",
+        status: "interrupted",
+      });
+      expect(f.records().record.steps.at(-1).elapsedMs).toBeGreaterThan(0);
+      expect(existsSync(join(f.records().dir, "private"))).toBe(true);
+      expect(
+        existsSync(join(f.home, ".local/state/tearleads-soft-reset/prod.lock")),
+      ).toBe(true);
+      expect(await stdout).toContain("total\tinterrupted");
+      expect(await stderr).toContain("do not rerun");
+      expect(
+        f.calls().some((call) => call[0] === "drop-postgres-owned.sh"),
+      ).toBe(false);
+    } finally {
+      child.kill("SIGKILL");
+      for (const pid of pids) {
+        try {
+          process.kill(pid, "SIGKILL");
+        } catch {
+          /* already gone */
+        }
       }
+      rmSync(f.root, { recursive: true, force: true });
     }
-    rmSync(f.root, { recursive: true, force: true });
-  }
-}, 25_000);
+  },
+  25_000,
+);

@@ -142,10 +142,6 @@ export async function emptyBucket(
   const env = {
     AWS_ACCESS_KEY_ID: String(storage.blob_s3_access_key_id),
     AWS_SECRET_ACCESS_KEY: String(storage.blob_s3_secret_access_key),
-    AWS_SESSION_TOKEN: "",
-    AWS_SECURITY_TOKEN: "",
-    AWS_PROFILE: "",
-    AWS_DEFAULT_PROFILE: "",
     AWS_REQUEST_CHECKSUM_CALCULATION: "when_required",
     AWS_RESPONSE_CHECKSUM_VALIDATION: "when_required",
   };

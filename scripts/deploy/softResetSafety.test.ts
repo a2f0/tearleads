@@ -161,6 +161,98 @@ test("unusable direct database access fails before maintenance", () => {
   }
 }, 30_000);
 
+test("changed inventory after maintenance stops before drop-owned", () => {
+  const f = fixture();
+  try {
+    writeFileSync(join(f.root, "changed-maintenance-inventory"), "");
+    const result = f.run();
+    expect(f.records().record.steps.at(-1)).toMatchObject({
+      label: "recheck-identities",
+      status: "failed",
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.toString()).toContain(
+      "Live identities or credentials changed",
+    );
+    expect(existsSync(join(f.root, "maintenance-complete"))).toBe(true);
+    expect(f.calls().some((call) => call[0] === "drop-postgres-owned.sh")).toBe(
+      false,
+    );
+    expect(f.calls().some((call) => call[2] === "apply")).toBe(false);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+}, 30_000);
+
+test("changed blob credentials immediately before empty-blobs block deletion", () => {
+  const f = fixture();
+  try {
+    writeFileSync(join(f.root, "changed-blob-credentials"), "");
+    const result = f.run();
+    expect(f.records().record.steps.at(-1)).toMatchObject({
+      label: "empty-blobs",
+      status: "failed",
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.toString()).toContain(
+      "Blob credentials/identity changed",
+    );
+    expect(existsSync(join(f.root, "postgres-destroyed"))).toBe(true);
+    expect(f.calls().some((call) => call[0] === "empty-r2-bucket.sh")).toBe(
+      false,
+    );
+    expect(existsSync(join(f.root, "storage-destroyed"))).toBe(false);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+}, 30_000);
+
+test("changed inventory at verify-public refuses success and retains recovery state", () => {
+  const f = fixture();
+  try {
+    writeFileSync(join(f.root, "changed-public-inventory"), "");
+    const result = f.run();
+    expect(f.records().record.steps.at(-1)).toMatchObject({
+      label: "verify-public",
+      status: "failed",
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.toString()).toContain(
+      "Live identities or credentials changed",
+    );
+    expect(existsSync(join(f.root, "website-deployed"))).toBe(true);
+    expect(f.calls().filter((call) => call[0] === "curl")).toHaveLength(4);
+    expect(existsSync(join(f.records().dir, "private"))).toBe(true);
+    expect(
+      existsSync(join(f.home, ".local/state/tearleads-soft-reset/prod.lock")),
+    ).toBe(true);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+}, 30_000);
+
+test("migration output must bind to the inspected role before downtime", () => {
+  const f = fixture();
+  try {
+    writeFileSync(join(f.root, "unbound-migration"), "");
+    const result = f.run();
+    expect(f.records().record.steps.at(-1)).toMatchObject({
+      label: "drift-postgres",
+      status: "failed",
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.toString()).toContain(
+      "not bound to the inspected role",
+    );
+    expect(
+      f.calls().some((call) => call[0] === "deployApiMaintenance.sh"),
+    ).toBe(false);
+    expect(f.calls().some((call) => call[2] === "apply")).toBe(false);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+}, 30_000);
+
 test("Terraform unknown identity must not excuse a known wrong create target", () => {
   const f = fixture();
   try {

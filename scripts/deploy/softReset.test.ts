@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { existsSync, rmSync, statSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fixture } from "./softReset.testUtils";
 
@@ -104,6 +104,47 @@ test("staging is explicitly tiered through every deployment and database probe",
         .filter((call) => call[0]?.endsWith(".sh"))
         .every((call) => call[1] === "staging"),
     ).toBe(true);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+}, 30_000);
+
+test("AWS probes remove inherited profiles and session tokens rather than blanking them", () => {
+  const f = fixture();
+  try {
+    Object.assign(f.env, {
+      AWS_PROFILE: "misleading-profile",
+      AWS_DEFAULT_PROFILE: "misleading-default",
+      AWS_SESSION_TOKEN: "misleading-session",
+      AWS_SECURITY_TOKEN: "misleading-security",
+    });
+    const result = f.run();
+    expect(result.exitCode, result.stderr.toString()).toBe(0);
+    expect(f.calls().filter((call) => call[0] === "aws")).toHaveLength(6);
+    expect(f.records().record.status).toBe("succeeded");
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+}, 30_000);
+
+test("teardown authorization reaches only the three destructive helpers", () => {
+  const f = fixture();
+  try {
+    Object.assign(f.env, { TEARLEADS_TEARDOWN_TIER: "staging" });
+    const result = f.run();
+    expect(result.exitCode, result.stderr.toString()).toBe(0);
+    const environments = readFileSync(
+      join(f.root, "teardown-tier.jsonl"),
+      "utf8",
+    )
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as { tool: string; tier: string | null });
+    expect(environments.filter(({ tier }) => tier !== null)).toEqual([
+      { tool: "deployApiMaintenance.sh", tier: "prod" },
+      { tool: "drop-postgres-owned.sh", tier: "prod" },
+      { tool: "empty-r2-bucket.sh", tier: "prod" },
+    ]);
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }

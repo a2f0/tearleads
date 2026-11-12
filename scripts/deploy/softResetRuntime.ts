@@ -11,7 +11,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { constants, homedir } from "node:os";
 import { basename, join } from "node:path";
 
 type Status = "running" | "succeeded" | "failed" | "interrupted";
@@ -47,7 +47,7 @@ export class ResetRun {
   private readonly started = performance.now();
   private readonly steps: Step[] = [];
   private readonly signals = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
-  private interrupted = false;
+  private interrupted: NodeJS.Signals | undefined;
   private childPid: number | undefined;
   private sequence = 0;
   private sha = "";
@@ -91,13 +91,12 @@ export class ResetRun {
     this.env = Object.fromEntries(
       Object.entries(process.env).filter(
         ([key]) =>
-          !/^(GIT_|TF_CLI_ARGS|TF_WORKSPACE$|TF_DATA_DIR$|DATABASE_URL$|POSTGRES_URL$|PG|TEARLEADS_TEARDOWN_TIER$|BASH_ENV$|ENV$|SHELLOPTS$)/.test(
+          !/^(GIT_|TF_CLI_ARGS|TF_WORKSPACE$|TF_DATA_DIR$|DATABASE_URL$|POSTGRES_URL$|PG|AWS_(PROFILE|DEFAULT_PROFILE|SESSION_TOKEN|SECURITY_TOKEN)$|TEARLEADS_TEARDOWN_TIER$|BASH_ENV$|ENV$|SHELLOPTS$)/.test(
             key,
           ),
       ),
     );
     Object.assign(this.env, {
-      TEARLEADS_TEARDOWN_TIER: tier,
       TMPDIR: this.privateDir,
       TF_IN_AUTOMATION: "1",
     });
@@ -106,8 +105,8 @@ export class ResetRun {
     console.log(`Private run record: ${this.dir}`);
   }
 
-  private interrupt = () => {
-    this.interrupted = true;
+  private interrupt = (signal: NodeJS.Signals) => {
+    this.interrupted ??= signal;
     if (this.childPid !== undefined) this.killGroup(this.childPid, "SIGTERM");
   };
 
@@ -297,6 +296,10 @@ export class ResetRun {
         `Stopped at ${this.steps.at(-1)?.label ?? "startup"}. Maintenance or a partial rebuild may remain. No rollback occurred.\nPreserved lock: ${this.lock}\nRead ${this.dir}/timings.json and docs/developer/greenfield-reset.md before manual recovery; do not rerun the reset.`,
       );
     }
-    return this.status === "succeeded" ? 0 : this.interrupted ? 130 : 1;
+    return this.status === "succeeded"
+      ? 0
+      : this.interrupted
+        ? 128 + constants.signals[this.interrupted]
+        : 1;
   }
 }

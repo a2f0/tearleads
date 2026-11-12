@@ -66,7 +66,10 @@ Configure the selected tier's existing Terraform backend, Cloudflare,
 PlanetScale, billing, healthcheck, and optional Sentry credentials through the
 normal deployment helpers. An existing cursor signing key is required; the
 command never requests key rotation. Provider output and command failures go
-to private files, not the terminal.
+to private files, not the terminal. Inherited AWS profiles and session tokens
+are removed, not blanked, before blob probes use the inspected credentials.
+`TEARLEADS_TEARDOWN_TIER` is passed only to the maintenance, drop-owned, and
+empty-R2 helpers, never to ordinary builds or deployments.
 
 Before downtime the command verifies expected database/branch, Cloudflare
 account, blob bucket/endpoint, migration role, and unchanged hostnames. It
@@ -126,6 +129,8 @@ that same location. All clones using the same OS home share that lock; do not
 change `HOME` to evade it. `timings.json` records the pinned source, each
 started phase's status/elapsed milliseconds, and total runtime. The terminal
 prints the same summary on success, failure, SIGINT, SIGTERM, or SIGHUP.
+Cancellation exits with the first signal's code: 130 for SIGINT, 143 for
+SIGTERM, and 129 for SIGHUP.
 Successful runs retain sanitized identity/schema/timing records and remove
 their private command outputs, saved plans, and owned lock. A failed or
 interrupted run keeps its lock and private evidence, including sensitive

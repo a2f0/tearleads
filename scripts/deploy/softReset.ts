@@ -20,12 +20,19 @@ async function preflight(run: ResetRun) {
   const identity = await run.step("credentials", async () => {
     refuseOverrides(run);
     baseline(run);
-    const config = parse(await buildCheck("credentials"));
-    for (const field of ["account", "organization", "domain"]) {
-      if (typeof config[field] !== "string" || !config[field])
-        throw new Error("Missing configured resource identity.");
-    }
-    return config as unknown as Identity;
+    const { account, organization, domain } = parse(
+      await buildCheck("credentials"),
+    );
+    if (
+      typeof account !== "string" ||
+      !account ||
+      typeof organization !== "string" ||
+      !organization ||
+      typeof domain !== "string" ||
+      !domain
+    )
+      throw new Error("Missing configured resource identity.");
+    return { account, organization, domain };
   });
   const before = await run.step("inventory", async () => {
     const snapshot = await inventory(run, identity);
@@ -100,16 +107,18 @@ async function reset(run: ResetRun) {
   const { identity, before, postgres, storage } = await preflight(run);
   const helper = (path: string, ...args: string[]) =>
     run.exec([path, run.tier, ...args]);
+  const teardown = (path: string, ...args: string[]) =>
+    run.exec([path, run.tier, ...args], { TEARLEADS_TEARDOWN_TIER: run.tier });
   // This existing helper retires DOs/crons and drains for 930s. Never replace
   // it with wrangler delete (which also detaches the custom domain).
   await run.step("maintenance", () =>
-    helper("packages/api/scripts/deployApiMaintenance.sh"),
+    teardown("packages/api/scripts/deployApiMaintenance.sh"),
   );
   await run.step("recheck-identities", async () =>
     sameInventory(before, await inventory(run, identity)),
   );
   await run.step("drop-owned", () =>
-    helper("terraform/scripts/drop-postgres-owned.sh"),
+    teardown("terraform/scripts/drop-postgres-owned.sh"),
   );
   await run.step("verify-dropped", () =>
     databaseCheck(run, before.connection, "empty"),
@@ -128,7 +137,7 @@ async function reset(run: ResetRun) {
     );
     if (JSON.stringify(current) !== JSON.stringify(before.storage))
       throw new Error("Blob credentials/identity changed.");
-    await helper("terraform/scripts/empty-r2-bucket.sh", "storage");
+    await teardown("terraform/scripts/empty-r2-bucket.sh", "storage");
     await emptyBucket(run, current);
   });
   await run.step("destroy-storage", () => applyPlan(run, "storage", storage));

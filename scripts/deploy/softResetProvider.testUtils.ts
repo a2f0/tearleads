@@ -11,13 +11,18 @@ import {
 } from "node:fs";
 import { basename, join } from "node:path";
 
-const { SOFT_RESET_FIXTURE: root } = process.env;
+const { SOFT_RESET_FIXTURE: root, TEARLEADS_TEARDOWN_TIER: teardownTier } =
+  process.env;
 if (!root) throw new Error("fixture only");
 const tool = basename(process.argv[2] ?? "");
 const args = process.argv.slice(3);
 appendFileSync(
   join(root, "calls.jsonl"),
   `${JSON.stringify([tool, ...args])}\n`,
+);
+appendFileSync(
+  join(root, "teardown-tier.jsonl"),
+  `${JSON.stringify({ tool, tier: teardownTier ?? null })}\n`,
 );
 const account = "a".repeat(32);
 const tier = readFileSync(join(root, "tier"), "utf8");
@@ -126,6 +131,10 @@ if (tool === "deployApiMaintenance.sh" && fault("block-maintenance")) {
   process.on("SIGTERM", () => {});
   await new Promise(() => setInterval(() => {}, 1000));
 }
+if (tool === "deployApiMaintenance.sh")
+  writeFileSync(join(root, "maintenance-complete"), "");
+if (tool === "deployWebsite.sh")
+  writeFileSync(join(root, "website-deployed"), "");
 if (tool.startsWith("run-")) {
   const stack = tool.split("-")[1];
   const recreated = fault(`${stack}-created`);
@@ -136,7 +145,15 @@ if (tool.startsWith("run-")) {
         name: fault("wrong-database") ? "wrong" : database,
         branch: "main",
         branch_id:
-          recreated && !fault("old-branch") ? "new-branch" : "old-branch",
+          fault("changed-public-inventory") && fault("website-deployed")
+            ? "changed-after-deploy"
+            : fault("changed-maintenance-inventory") &&
+                fault("maintenance-complete") &&
+                !recreated
+              ? "changed-before-drop"
+              : recreated && !fault("old-branch")
+                ? "new-branch"
+                : "old-branch",
         organization: "tearleads",
       });
     else if (stack === "postgres")
@@ -145,7 +162,9 @@ if (tool.startsWith("run-")) {
         postgres_db: database,
         postgres_migration_port: "5432",
         postgres_migration_user: "migrations",
-        postgres_migration_password: "SECRET_CANARY",
+        postgres_migration_password: fault("unbound-migration")
+          ? "DIFFERENT_MIGRATION_SECRET_CANARY"
+          : "SECRET_CANARY",
       });
     else if (stack === "storage" && args[3] === "bucket")
       output({
@@ -157,7 +176,10 @@ if (tool.startsWith("run-")) {
         blob_s3_bucket: bucket,
         blob_s3_endpoint: `https://${account}.r2.cloudflarestorage.com`,
         blob_s3_access_key_id: "fixture",
-        blob_s3_secret_access_key: "SECRET_CANARY",
+        blob_s3_secret_access_key:
+          fault("changed-blob-credentials") && fault("postgres-destroyed")
+            ? "CHANGED_BLOB_SECRET_CANARY"
+            : "SECRET_CANARY",
       });
     else if (stack === "edge")
       output(
@@ -306,8 +328,21 @@ else if (tool === "psql") {
           ? ["users"]
           : [],
     );
-} else if (tool === "aws")
+} else if (tool === "aws") {
+  for (const key of [
+    "AWS_PROFILE",
+    "AWS_DEFAULT_PROFILE",
+    "AWS_SESSION_TOKEN",
+    "AWS_SECURITY_TOKEN",
+  ]) {
+    if (key in process.env) throw new Error(`Unexpected inherited ${key}`);
+  }
   output(fault("old-blobs") ? { Contents: [{ Key: "old" }] } : {});
-else if (tool === "deployApi.sh") writeFileSync(join(root, "api-deployed"), "");
-else if (tool === "bun" && args[0] === "scripts/workerDefines.ts")
+} else if (tool === "deployApi.sh")
+  writeFileSync(join(root, "api-deployed"), "");
+else if (
+  tool === "bun" &&
+  args[0] === "scripts/workerDefines.ts" &&
+  !fault("empty-worker-defines")
+)
   console.log("ENVIRONMENT:production");
