@@ -74,6 +74,17 @@ class PrincipalPolicyHistoryVerifierImpl
     return this.#latestAuthority ? { ...this.#latestAuthority } : null;
   }
 
+  getLatestAcceptedProjection() {
+    const previous = this.#previous;
+    return previous
+      ? {
+          version: previous.state.version,
+          stateHash: previous.state.stateHash,
+          projection: previous.projection.map((member) => ({ ...member })),
+        }
+      : null;
+  }
+
   append(page: PrincipalPolicyHistoryPage) {
     return runVerifier(async () => {
       this.#assertIdle();
@@ -231,6 +242,7 @@ function publicVerifier(
   return {
     getExternalAuthorityReference: () =>
       verifier.getExternalAuthorityReference(),
+    getLatestAcceptedProjection: () => verifier.getLatestAcceptedProjection(),
     append: (page: PrincipalPolicyHistoryPage) => verifier.append(page),
     finish: (expectedHead: ReferencedPrincipalHead) =>
       verifier.finish(expectedHead),

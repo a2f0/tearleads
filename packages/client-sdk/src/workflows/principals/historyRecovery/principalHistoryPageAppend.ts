@@ -1,16 +1,15 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
-import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { publishAcceptedPageIdentities } from "../../../data/principals/principalIdentityCommitments";
 import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
 import type { PrincipalHistoryRecoveryStage } from "./principalHistoryRecoveryStage";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 
 /**
- * Verify one fetched page's entries onto the stage's chain. Members of an
- * accepted page are pinned at once: the next page's first signer is authorized
- * only by user ID against this page's last projection, so it must resolve to
- * the identity this page authenticated.
+ * Verify one fetched page's entries onto the stage's chain. The page's first
+ * signer is authorized only by user ID against the last accepted state, so
+ * it must resolve to the identity that state's signed projection committed.
+ * Nothing is pinned here: a page is not yet proven to reach the expected
+ * head, so only the finished, selected history publishes first sights.
  */
 export async function appendVerifiedHistoryPage(input: {
   readonly options: RecoverPrincipalPolicyHistoryOptions;
@@ -23,6 +22,7 @@ export async function appendVerifiedHistoryPage(input: {
   const { options, entries } = input;
   const keys = await collectPrincipalPolicySignerPublicKeys({
     bundle: input.bundle,
+    predecessor: input.stage.verifier.getLatestAcceptedProjection(),
     resolveTrustedUserIdentity: options.resolveTrustedUserIdentity,
   });
   if ("error" in keys)
@@ -35,20 +35,9 @@ export async function appendVerifiedHistoryPage(input: {
       state.externalAuthority ? [state.externalAuthority] : [],
     ),
   );
-  const appended = await input.stage.verifier.append({
+  return input.stage.verifier.append({
     entries,
     signerPublicKeys: keys.signerPublicKeys,
     ...(externalAuthority ? { externalAuthority } : {}),
   });
-  if (appended.ok)
-    await publishAcceptedPageIdentities(
-      entries,
-      options.resolveTrustedUserIdentity,
-      // A recovery cancelled while loading signers or authority pins nothing.
-      () =>
-        assertProjectionVerificationCurrent(
-          () => !options.signal?.aborted && options.stillCurrent(),
-        ),
-    );
-  return appended;
 }

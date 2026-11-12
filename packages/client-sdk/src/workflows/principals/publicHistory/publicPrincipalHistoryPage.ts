@@ -7,7 +7,6 @@ import { assertProjectionVerificationCurrent } from "../../../data/keyingProject
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { savePrincipalHistoryStage } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
 import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
-import { publishAcceptedPageIdentities } from "../../../data/principals/principalIdentityCommitments";
 import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
 import {
   loadPublicHistoryAuthority,
@@ -72,6 +71,9 @@ export async function appendPublicPrincipalHistoryPage(
   assertPublicAuthorityScope(input, entries);
   const keys = await collectPrincipalPolicySignerPublicKeys({
     bundle: page,
+    // The page's first signer must be the identity the last accepted state
+    // committed; nothing is pinned before the history reaches its head.
+    predecessor: progress.verifier.getLatestAcceptedProjection(),
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if ("error" in keys)
@@ -94,11 +96,6 @@ export async function appendPublicPrincipalHistoryPage(
       throw new PublicPrincipalHistoryPrefixDisconnectedError(appended.error);
     throw appended.error;
   }
-  await publishAcceptedPageIdentities(
-    entries,
-    input.resolveTrustedUserIdentity,
-    () => assertProjectionVerificationCurrent(stillCurrent),
-  );
   assertProjectionVerificationCurrent(stillCurrent);
   const row = {
     id: progress.id,

@@ -1,4 +1,8 @@
-import type { PrincipalPolicySignerPublicKey } from "@tearleads/crypto";
+import {
+  computeUserIdentityBundleFingerprint,
+  type PrincipalPolicySignerPublicKey,
+  type PrincipalProjectionMember,
+} from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import {
@@ -39,10 +43,18 @@ class SignerLoadRefusal {
   constructor(readonly code: PrincipalPolicySignerPublicKeyLoadErrorCode) {}
 }
 
-async function loadTrustedSignerPublicKey(input: {
+interface TrustedSigner {
+  readonly identity: NonNullable<
+    Awaited<ReturnType<StagedUserIdentityResolver>>
+  >;
+  readonly publicKey: PrincipalPolicySignerPublicKey;
+  bundleFingerprint?: Promise<string>;
+}
+
+async function loadTrustedSigner(input: {
   readonly resolve: StagedUserIdentityResolver;
   readonly state: PrincipalPolicyBundleResponse["currentState"];
-}): Promise<PrincipalPolicySignerPublicKey> {
+}): Promise<TrustedSigner> {
   const signerKey = await input.resolve(input.state.signerUserId);
 
   if (!signerKey) {
@@ -56,10 +68,36 @@ async function loadTrustedSignerPublicKey(input: {
   }
 
   return {
-    userId: input.state.signerUserId,
-    signingKeyFingerprint: input.state.signerUserKeyFingerprint,
-    signingPublicKey: signerKey.signingPublicKey,
+    identity: signerKey,
+    publicKey: {
+      userId: input.state.signerUserId,
+      signingKeyFingerprint: input.state.signerUserKeyFingerprint,
+      signingPublicKey: signerKey.signingPublicKey,
+    },
   };
+}
+
+type SignedProjection = {
+  readonly version: number;
+  readonly stateHash: string;
+  readonly projection: readonly PrincipalProjectionMember[];
+};
+
+/**
+ * The signer's identity as its predecessor's signed projection committed it,
+ * when the state links to that predecessor: an unlinked entry is left for the
+ * chain verifier to refuse as disconnected.
+ */
+function committedSignerBundle(
+  state: PrincipalPolicyBundleResponse["currentState"],
+  predecessors: ReadonlyMap<number, SignedProjection>,
+): string | undefined {
+  const predecessor = predecessors.get(state.version - 1);
+  if (!predecessor || predecessor.stateHash !== state.prevStateHash)
+    return undefined;
+  return predecessor.projection.find(
+    (member) => member.userId === state.signerUserId,
+  )?.identityBundleFingerprint;
 }
 
 export async function collectPrincipalPolicySignerPublicKeys(input: {
@@ -68,11 +106,26 @@ export async function collectPrincipalPolicySignerPublicKeys(input: {
     "currentState" | "previousStates" | "currentProjection"
   >;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  /**
+   * A paged history's last accepted state, which authorizes the page's first
+   * signer by user ID: that signer must be the identity it committed.
+   */
+  readonly predecessor?: SignedProjection | null;
 }): Promise<
   | { readonly signerPublicKeys: PrincipalPolicySignerPublicKey[] }
   | { readonly error: PrincipalPolicySignerPublicKeyLoadErrorCode }
 > {
   const states = principalPolicyStates(input.bundle);
+  const predecessors = new Map<number, SignedProjection>(
+    [
+      ...(input.predecessor ? [input.predecessor] : []),
+      ...input.bundle.previousStates.map((entry) => ({
+        version: entry.state.version,
+        stateHash: entry.state.stateHash,
+        projection: entry.projection,
+      })),
+    ].map((entry) => [entry.version, entry]),
+  );
   try {
     // Signatures are checked after collection: first-sight signers and
     // members are compared, but only a verified selection pins them.
@@ -88,25 +141,30 @@ export async function collectPrincipalPolicySignerPublicKeys(input: {
         ),
       },
       async (resolve) => {
-        const signerPublicKeysByKey = new Map<
-          string,
-          PrincipalPolicySignerPublicKey
-        >();
+        const signers = new Map<string, TrustedSigner>();
         for (const state of states) {
           const cacheKey = signerCacheKey({
             signerUserId: state.signerUserId,
             signingFingerprint: state.signerUserKeyFingerprint,
           });
-          if (signerPublicKeysByKey.has(cacheKey)) {
-            continue;
+          let signer = signers.get(cacheKey);
+          if (!signer) {
+            signer = await loadTrustedSigner({ resolve, state });
+            signers.set(cacheKey, signer);
           }
-          signerPublicKeysByKey.set(
-            cacheKey,
-            await loadTrustedSignerPublicKey({ resolve, state }),
+          const committed = committedSignerBundle(state, predecessors);
+          if (committed === undefined) continue;
+          signer.bundleFingerprint ??= computeUserIdentityBundleFingerprint(
+            signer.identity,
           );
+          if ((await signer.bundleFingerprint) !== committed)
+            throw new SignerLoadRefusal("fingerprint-mismatch");
         }
         return {
-          signerPublicKeys: Array.from(signerPublicKeysByKey.values()),
+          signerPublicKeys: Array.from(
+            signers.values(),
+            (signer) => signer.publicKey,
+          ),
         };
       },
     );

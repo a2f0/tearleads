@@ -1,4 +1,7 @@
-import type { PrincipalStateExternalAuthority } from "../principalState";
+import type {
+  PrincipalProjectionMember,
+  PrincipalStateExternalAuthority,
+} from "../principalState";
 import type { PrincipalPolicyExternalAuthority } from "./principalPolicyExternalAuthorityTypes";
 import type { PrincipalHistoryIndexNode } from "./principalPolicyHistoryIndex";
 import type {
@@ -91,6 +94,15 @@ export function ownVerifiedPrincipalPolicyHistory(
 export interface PrincipalPolicyHistoryVerifier {
   /** Owned copy of the latest accepted citation, including across uncited pages. */
   getExternalAuthorityReference(): ReferencedPrincipalHead | null;
+  /**
+   * Owned copy of the last accepted state's version and signed projection,
+   * the authority the next page's first signer is checked against.
+   */
+  getLatestAcceptedProjection(): {
+    readonly version: number;
+    readonly stateHash: string;
+    readonly projection: PrincipalProjectionMember[];
+  } | null;
   append(page: PrincipalPolicyHistoryPage): Promise<
     KeyingVerificationResult<{
       readonly throughVersion: number;

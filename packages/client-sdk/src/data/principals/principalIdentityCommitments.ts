@@ -182,35 +182,6 @@ export function publishVerifiedPolicyBundle(
   });
 }
 
-/**
- * Pin the signers and members of a history page the chain verifier just
- * accepted. The next page's first signer is authorized only by user ID
- * against this page's last projection, and a member it removes is not
- * rechecked for continuity, so that signer must resolve to the identity this
- * page authenticated rather than to a fresh, possibly substituted, answer.
- */
-export function publishAcceptedPageIdentities(
-  entries: readonly {
-    readonly state: {
-      readonly signerUserId: string;
-      readonly signerUserKeyFingerprint: string;
-    };
-    readonly projection: readonly PrincipalProjectionMember[];
-  }[],
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
-  assertCurrent: () => void,
-): Promise<void> {
-  return publishVerifiedPolicyIdentities({
-    signers: entries.map(({ state }) => ({
-      userId: state.signerUserId,
-      signingKeyFingerprint: state.signerUserKeyFingerprint,
-    })),
-    projections: entries.map((entry) => entry.projection),
-    resolveTrustedUserIdentity,
-    assertCurrent,
-  });
-}
-
 async function compareCommitments(
   projections: readonly (readonly PrincipalProjectionMember[])[],
   resolve: StagedUserIdentityResolver,
