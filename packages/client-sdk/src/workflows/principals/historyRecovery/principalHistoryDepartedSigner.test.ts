@@ -132,6 +132,20 @@ async function departedSignerHistory(lastXVersion = 2) {
       };
       return () => reads;
     },
+    /**
+     * Withhold X once, at publication (X's second identity read): the
+     * recovery fails after its pages were accepted and its stage saved.
+     */
+    failXPublicationOnce() {
+      let reads = 0;
+      const served = pins.responses.get.bind(pins.responses);
+      pins.responses.get = (userId: string) => {
+        if (userId !== ADMIN_X) return served(userId);
+        reads += 1;
+        return reads === 2 ? undefined : served(userId);
+      };
+      return () => reads;
+    },
     async xPins() {
       return pins.execSql(
         "SELECT encapsulation_key_fingerprint FROM trusted_user_identity_pins WHERE user_id = ?",
@@ -220,6 +234,57 @@ test("a founder who signed only genesis is bound to its committed bundle at publ
     ).rejects.toMatchObject({ code: "hash_mismatch" });
     expect(xReads()).toBe(2);
     expect(await run.xPins()).toEqual([]);
+  } finally {
+    http.close();
+    run.pins.close();
+  }
+});
+
+test("a recovery resumed after a failed publication still pins the departed signer", async () => {
+  const run = await departedSignerHistory();
+  const xReads = run.failXPublicationOnce();
+  const http = serveRecoveryHistory(run.bundle);
+  const options = {
+    historyReader: http.client(),
+    execSql: run.pins.execSql,
+    organizationId: "org-1",
+    expectedHead: principalPolicyHead(run.bundle),
+    protection: {
+      localKey: new Uint8Array(32).fill(7),
+      context: "device-and-trust-domain-1",
+    },
+    resolveTrustedUserIdentity: run.pins.service.resolve,
+    stillCurrent: () => true,
+  };
+  try {
+    await expect(recoverPrincipalPolicyHistory(options)).rejects.toBeDefined();
+    expect(xReads()).toBe(2);
+    expect(await run.xPins()).toEqual([]);
+    // The retry resumes the saved stage rather than replaying X's pages; the
+    // verifier's sealed progress still carries X for publication.
+    await recoverPrincipalPolicyHistory(options);
+    await run.expectXPinnedAndBound();
+  } finally {
+    http.close();
+    run.pins.close();
+  }
+});
+
+test("a public recovery resumed after a failed publication still pins the departed signer", async () => {
+  const run = await departedSignerHistory();
+  const xReads = run.failXPublicationOnce();
+  const http = await createPublicHistoryFixture({
+    bundle: run.bundle,
+    resolveTrustedUserIdentity: run.pins.service.resolve,
+  });
+  try {
+    await expect(
+      recoverPublicPrincipalHistory(http.options),
+    ).rejects.toBeDefined();
+    expect(xReads()).toBe(2);
+    expect(await run.xPins()).toEqual([]);
+    await recoverPublicPrincipalHistory(http.options);
+    await run.expectXPinnedAndBound();
   } finally {
     http.close();
     run.pins.close();

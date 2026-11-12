@@ -149,6 +149,7 @@ export type {
   KeyingVerificationResult,
   ManagedPrincipalKind,
   PrincipalHistoryIndexNode,
+  PrincipalHistorySigner,
   PrincipalPolicyAuthorization,
   PrincipalPolicyBundle,
   PrincipalPolicyCheckpoint,

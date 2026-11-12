@@ -232,7 +232,7 @@ async function recoverAttempt(
   await verifyLastPageCurrent(history, proof, lastPage);
   // The chain now reaches its source head: pin the signers it accepted.
   await publishAuthenticatedSigners(
-    progress.acceptedSigners,
+    history.signers,
     input.resolveTrustedUserIdentity,
     () => assertProjectionVerificationCurrent(current),
   );

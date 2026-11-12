@@ -16,7 +16,6 @@ import {
   principalHistoryStageId,
   principalHistoryStageProtection,
 } from "../../../data/principals/principalHistoryStageProtection";
-import type { AuthenticatedSigner } from "../../../data/principals/principalIdentityCommitments";
 import { restoreReusablePrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 
@@ -29,11 +28,6 @@ export interface PrincipalHistoryRecoveryStage {
   complete: boolean;
   current: PrincipalPolicyPageCurrent | null;
   saved: PrincipalHistoryStage | null;
-  /**
-   * Signers of pages this run accepted, published once the head verifies.
-   * Pages accepted by an earlier run that this stage resumes are not here.
-   */
-  readonly acceptedSigners: AuthenticatedSigner[];
 }
 
 export async function restorePrincipalHistoryRecoveryStage(
@@ -74,7 +68,6 @@ export async function restorePrincipalHistoryRecoveryStage(
           complete: saved.complete,
           initialAfterVersion: saved.afterVersion,
           fromCache: true,
-          acceptedSigners: [],
         };
     }
     // Saved bytes are a disposable hint. Only a locally authenticated restore
@@ -99,7 +92,6 @@ export async function restorePrincipalHistoryRecoveryStage(
       complete,
       initialAfterVersion: prefix.version - (complete ? 1 : 0),
       fromCache: true,
-      acceptedSigners: [],
     };
   }
   return {
@@ -111,6 +103,5 @@ export async function restorePrincipalHistoryRecoveryStage(
     complete: false,
     initialAfterVersion: 0,
     fromCache: false,
-    acceptedSigners: [],
   };
 }

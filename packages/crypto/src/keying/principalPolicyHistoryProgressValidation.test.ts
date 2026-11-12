@@ -57,6 +57,7 @@ function progress() {
     latestAuthority: null,
     checkpointHash: null,
     retained: [],
+    signers: [],
   };
 }
 

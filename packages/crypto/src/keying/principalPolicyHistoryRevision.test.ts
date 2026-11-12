@@ -22,6 +22,7 @@ test("progress from different verification rules cannot resume", async () => {
     latestAuthority: null,
     checkpointHash: null,
     retained: [],
+    signers: [],
   });
   const current = await sealPrincipalHistoryProgress(
     plaintext,

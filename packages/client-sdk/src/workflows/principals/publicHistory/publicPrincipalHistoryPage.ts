@@ -7,10 +7,7 @@ import { assertProjectionVerificationCurrent } from "../../../data/keyingProject
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { savePrincipalHistoryStage } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
 import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
-import {
-  acceptedEntrySigners,
-  collectPrincipalPolicySignerPublicKeys,
-} from "../policyVerification";
+import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
 import {
   loadPublicHistoryAuthority,
   publicHistoryAuthorityJson,
@@ -135,10 +132,6 @@ export async function appendPublicPrincipalHistoryPage(
   assertProjectionVerificationCurrent(stillCurrent);
   return {
     ...progress,
-    acceptedSigners: [
-      ...progress.acceptedSigners,
-      ...acceptedEntrySigners(entries, predecessor),
-    ],
     afterVersion: row.afterVersion,
     saved,
     authorityReference: publicHistoryAuthorityReference(

@@ -24,6 +24,11 @@ import {
   sealPrincipalHistoryProgress,
 } from "./principalPolicyHistoryProgressProtection";
 import {
+  captureHistorySigners,
+  type PrincipalHistorySigner,
+  recordAcceptedSigners,
+} from "./principalPolicyHistorySigners";
+import {
   makeVerifiedPrincipalPolicyHistory,
   type PrincipalPolicyHistoryInput,
   type PrincipalPolicyHistoryPage,
@@ -52,6 +57,7 @@ class PrincipalPolicyHistoryVerifierImpl
     number,
     NormalizedPrincipalPolicyStateChainEntry
   >();
+  #signers: ReadonlyMap<string, PrincipalHistorySigner> = new Map();
   #appending = false;
 
   constructor(
@@ -67,6 +73,7 @@ class PrincipalPolicyHistoryVerifierImpl
       this.#indexRootHash = progress.indexRootHash;
       for (const entry of progress.retained)
         this.#retained.set(entry.state.version, entry);
+      this.#signers = progress.signers;
     }
   }
 
@@ -109,6 +116,11 @@ class PrincipalPolicyHistoryVerifierImpl
             "invalid_shape",
             "accepted principal history has no index root",
           );
+        const signers = recordAcceptedSigners(
+          this.#signers,
+          this.#previous,
+          verified.entries,
+        );
         // Publish only after every check, including the final signature, passes.
         for (const entry of verified.entries) {
           if (entry.state.version === this.#input.checkpoint?.version)
@@ -122,6 +134,7 @@ class PrincipalPolicyHistoryVerifierImpl
             this.#retained.set(entry.state.version, entry);
         }
         this.#previous = verified.last;
+        this.#signers = signers;
         this.#latestAuthority = verified.latestAuthority;
         this.#indexFrontier = index.frontier;
         this.#indexRootHash = index.rootHash;
@@ -163,6 +176,7 @@ class PrincipalPolicyHistoryVerifierImpl
             retained: [...this.#retained.values()].map(
               capturePrincipalHistoryProgressEntry,
             ),
+            signers: captureHistorySigners(this.#signers),
           },
           "principal history progress",
         ),
@@ -211,6 +225,7 @@ class PrincipalPolicyHistoryVerifierImpl
           version: state.version,
           stateHash: state.stateHash,
         },
+        signers: captureHistorySigners(this.#signers),
       });
       return {
         ok: true,

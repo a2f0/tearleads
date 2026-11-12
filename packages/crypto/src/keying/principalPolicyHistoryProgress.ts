@@ -7,6 +7,10 @@ import {
   principalHistoryIndexRoot,
 } from "./principalPolicyHistoryIndex";
 import { normalizeAuthenticatedPrincipalHistoryEntry } from "./principalPolicyHistoryProgressEntry";
+import {
+  normalizeHistorySigners,
+  type PrincipalHistorySigner,
+} from "./principalPolicyHistorySigners";
 import { PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT } from "./principalPolicyHistoryTypes";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
 import type { NormalizedPrincipalPolicyStateChainEntry } from "./principalPolicyTypes";
@@ -23,6 +27,7 @@ export interface PrincipalHistoryProgress {
   readonly latestAuthority: PrincipalStateExternalAuthority | null;
   readonly checkpointHash: string | null;
   readonly retained: readonly NormalizedPrincipalPolicyStateChainEntry[];
+  readonly signers: ReadonlyMap<string, PrincipalHistorySigner>;
 }
 
 export async function normalizeAuthenticatedPrincipalHistoryProgress(
@@ -37,6 +42,7 @@ export async function normalizeAuthenticatedPrincipalHistoryProgress(
       "checkpointHash",
       "retained",
       "indexFrontier",
+      "signers",
     ],
     "principal history progress",
   );
@@ -78,6 +84,7 @@ export async function normalizeAuthenticatedPrincipalHistoryProgress(
     retained,
     indexFrontier,
     indexRootHash: await principalHistoryIndexRoot(indexFrontier),
+    signers: normalizeHistorySigners(record.signers),
   };
   assertProgressConsistency(progress, input);
   assertRetainedReferences(progress, input);
@@ -112,7 +119,13 @@ function assertProgressConsistency(
       "object_mismatch",
       "saved principal history scope mismatch",
     );
-  if (!previous && (latestAuthority || checkpointHash || retained.length > 0))
+  if (
+    !previous &&
+    (latestAuthority ||
+      checkpointHash ||
+      retained.length > 0 ||
+      progress.signers.size > 0)
+  )
     throwVerification(
       "invalid_shape",
       "empty principal progress carries history",

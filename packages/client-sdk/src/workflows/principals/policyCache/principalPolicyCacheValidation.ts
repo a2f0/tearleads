@@ -19,7 +19,6 @@ import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
   principalPolicyStates,
-  publishVerifiedPrincipalPolicy,
 } from "../policyVerification";
 
 interface PrincipalPolicyValidationFailure {
@@ -241,7 +240,6 @@ export async function validatePrincipalPolicyBundleForCache(input: {
       signerPublicKeys: signerPublicKeys.signerPublicKeys,
     });
   if (!verified.ok) return { error: verified.error, ok: false };
-  await publishVerifiedPrincipalPolicy(input);
   return {
     externalAdminPolicy: usedExternalAdminPolicy
       ? await input.loadExternalAdminPolicy()

@@ -215,7 +215,7 @@ async function finishRecovery(
   );
   // The chain now reaches its expected head: pin the signers it accepted.
   await publishAuthenticatedSigners(
-    stage.acceptedSigners,
+    history.value.signers,
     input.resolveTrustedUserIdentity,
     () => assertCurrent(input),
   );

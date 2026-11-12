@@ -116,6 +116,7 @@ export {
 export { PRINCIPAL_HISTORY_VERIFICATION_REVISION } from "./principalPolicyHistoryPage";
 export type { PrincipalPolicyHistoryReferenceProof } from "./principalPolicyHistoryReferences";
 export { verifyPrincipalPolicyHistoryReferences } from "./principalPolicyHistoryReferences";
+export type { PrincipalHistorySigner } from "./principalPolicyHistorySigners";
 export type {
   PrincipalPolicyHistoryInput,
   PrincipalPolicyHistoryPage,

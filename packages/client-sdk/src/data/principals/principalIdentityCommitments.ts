@@ -1,6 +1,7 @@
 import {
   computeUserIdentityBundleFingerprint,
   KeyingVerificationError,
+  type PrincipalHistorySigner,
   type PrincipalProjectionMember,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
@@ -182,36 +183,25 @@ export function publishVerifiedPolicyBundle(
   });
 }
 
-/** A history signer and, when its predecessor committed one, its bundle. */
-export interface AuthenticatedSigner {
-  readonly userId: string;
-  readonly signingKeyFingerprint: string;
-  readonly identityBundleFingerprint: string | undefined;
-}
-
 /**
- * Pin the signers of a history verified through its expected head, rechecking
- * each signed fingerprint and every committed bundle, within the recovery's
- * lifetime. Pages pin nothing themselves: until the head connects, a forged
- * prefix could otherwise pin a substituted signer.
+ * Pin the signers a history verifier accepted through its expected head,
+ * rechecking each signed fingerprint and every committed bundle, within the
+ * recovery's lifetime. The verifier records them in its sealed progress, so a
+ * resumed recovery pins the signers of pages an earlier run accepted. Pages
+ * pin nothing themselves: until the head connects, a forged prefix could
+ * otherwise pin a substituted signer.
  */
 export function publishAuthenticatedSigners(
-  signers: readonly AuthenticatedSigner[],
+  signers: readonly PrincipalHistorySigner[],
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
   assertCurrent: () => void,
 ): Promise<void> {
-  const unique = new Map(
-    signers.map((signer) => [
-      `${signer.userId}:${signer.signingKeyFingerprint}:${signer.identityBundleFingerprint ?? ""}`,
-      signer,
-    ]),
-  );
-  if (unique.size === 0) return Promise.resolve();
+  if (signers.length === 0) return Promise.resolve();
   return publishVerifiedPolicyIdentities({
-    signers: [...unique.values()],
+    signers,
     projections: [
-      [...unique.values()].flatMap((signer) =>
-        signer.identityBundleFingerprint === undefined
+      signers.flatMap((signer) =>
+        signer.identityBundleFingerprint === null
           ? []
           : [
               {

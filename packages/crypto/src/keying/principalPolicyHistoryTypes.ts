@@ -4,6 +4,7 @@ import type {
 } from "../principalState";
 import type { PrincipalPolicyExternalAuthority } from "./principalPolicyExternalAuthorityTypes";
 import type { PrincipalHistoryIndexNode } from "./principalPolicyHistoryIndex";
+import type { PrincipalHistorySigner } from "./principalPolicyHistorySigners";
 import type {
   PrincipalPolicyCheckpoint,
   PrincipalPolicySignerPublicKey,
@@ -50,6 +51,8 @@ export interface VerifiedPrincipalPolicyHistory {
   readonly checkpoint: PrincipalPolicyCheckpoint;
   /** Computed only from locally accepted entries; never supplied by a peer. */
   readonly indexRootHash: string;
+  /** Every accepted state's signer, bound to its committed bundle. */
+  readonly signers: readonly PrincipalHistorySigner[];
 }
 
 type HistorySnapshot = Omit<
@@ -73,6 +76,7 @@ export function makeVerifiedPrincipalPolicyHistory(
     retainedEntries: value.retainedEntries,
     checkpoint: value.checkpoint,
     indexRootHash: value.indexRootHash,
+    signers: value.signers,
     [verifiedHistoryBrand]: true,
   };
   issuedHistories.set(result, structuredClone({ ...value, latestAuthority }));

@@ -22,6 +22,7 @@ test("pre-identity-commitment verifier progress cannot bypass the new rules", as
       latestAuthority: null,
       checkpointHash: null,
       retained: [],
+      signers: [],
     }),
     ownPrincipalHistoryProgressProtection(
       normalizePrincipalHistoryInput(input),

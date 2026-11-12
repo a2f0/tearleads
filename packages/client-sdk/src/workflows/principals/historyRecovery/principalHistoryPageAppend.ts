@@ -1,9 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
-import {
-  acceptedEntrySigners,
-  collectPrincipalPolicySignerPublicKeys,
-} from "../policyVerification";
+import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
 import type { PrincipalHistoryRecoveryStage } from "./principalHistoryRecoveryStage";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 
@@ -12,7 +9,7 @@ import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRec
  * signer is authorized only by user ID against the last accepted state, so
  * it must resolve to the identity that state's signed projection committed.
  * Nothing is pinned here: a page is not yet proven to reach the expected
- * head, so its signers are only recorded, and published once it does.
+ * head. The verifier records its signers, published once the chain does.
  */
 export async function appendVerifiedHistoryPage(input: {
   readonly options: RecoverPrincipalPolicyHistoryOptions;
@@ -39,14 +36,9 @@ export async function appendVerifiedHistoryPage(input: {
       state.externalAuthority ? [state.externalAuthority] : [],
     ),
   );
-  const appended = await input.stage.verifier.append({
+  return input.stage.verifier.append({
     entries,
     signerPublicKeys: keys.signerPublicKeys,
     ...(externalAuthority ? { externalAuthority } : {}),
   });
-  if (appended.ok)
-    input.stage.acceptedSigners.push(
-      ...acceptedEntrySigners(entries, predecessor),
-    );
-  return appended;
 }

@@ -9,7 +9,6 @@ import type {
 import type { PrincipalPolicyHistorySourceResponse } from "@tearleads/validators/response";
 import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import type { PrincipalHistoryStage } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
-import type { AuthenticatedSigner } from "../../../data/principals/principalIdentityCommitments";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { ProjectionPolicyHistoryReader } from "../principalPolicyHistoryReader";
@@ -48,11 +47,6 @@ export interface PublicPrincipalHistoryProgress {
   readonly saved: PrincipalHistoryStage | null;
   readonly cachedPrefix: PrincipalHistoryPrefix | null;
   readonly authorityReference: ReferencedPrincipalHead | null;
-  /**
-   * Signers of pages this run accepted, published once the head verifies.
-   * Pages a resumed stage or reused prefix accepted earlier are not here.
-   */
-  readonly acceptedSigners: readonly AuthenticatedSigner[];
 }
 
 /** Public authorization only; caller must check directory binding and local pins. */
