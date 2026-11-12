@@ -29,6 +29,7 @@ test("login stays within its statement budget", async () => {
 
   // Measured with PGlite, SQLite, and Postgres: 4 while the root container
   // was read after the session; 3 once it joins the user row. The suspension
-  // re-read after the session is stored stays.
-  expect(counter.statements).toBeLessThanOrEqual(3);
+  // result now comes from the post-session activity stamp; on stamp failure
+  // the separate standing read still runs. PGlite measures two statements.
+  expect(counter.statements).toBeLessThanOrEqual(2);
 });

@@ -8,6 +8,7 @@ import {
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicyArtifactRead } from "../../access/read/principalPolicyArtifacts";
 import {
   getCurrentPrincipalState,
   type StoredPrincipalState,
@@ -48,11 +49,15 @@ async function verifyCurrent(
     readonly history: VerifiedPrincipalPolicyHistory;
   }
 > {
+  const artifactRead: PrincipalPolicyArtifactRead = {
+    stateHash: currentState.stateHash,
+  };
   const history = await getVerifiedPrincipalHistory(
     executor,
     currentState,
     retainedReferences,
     kind,
+    artifactRead,
   );
   const authority = currentState.externalAuthority;
   if (
@@ -73,6 +78,7 @@ async function verifyCurrent(
     executor,
     currentState,
     history,
+    artifactRead,
   );
   const verified = await verifyPrincipalPolicyCurrent({
     current: bundle,

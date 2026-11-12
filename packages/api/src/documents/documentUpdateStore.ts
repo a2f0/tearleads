@@ -16,6 +16,11 @@ import {
   prefixWithinResponseByteFloors,
 } from "./documentUpdateByteFloors";
 
+import {
+  type DocumentUpdatePageWriteHeader,
+  loadDocumentUpdatePageRows,
+} from "./documentUpdatePageRows";
+
 interface SqlNamedColumn {
   name: string;
 }
@@ -36,6 +41,7 @@ interface MissingDocumentUpdatePage {
   readonly lastUpdateId: string | null;
   readonly lastSequence: number;
   readonly updates: readonly DocumentUpdateRecord[];
+  readonly writeHeaders: Map<string, DocumentUpdatePageWriteHeader>;
 }
 
 export interface DocumentUpdateCursorPosition {
@@ -343,12 +349,25 @@ export async function listMissingDocumentUpdatePage(
       409,
     );
   }
+  const rows = await loadDocumentUpdatePageRows(
+    executor,
+    loadable.map(({ id }) => id),
+  );
+  const byId = new Map(rows.map((row) => [row.update.id, row]));
+  const writeHeaders = new Map<string, DocumentUpdatePageWriteHeader>();
+  const loaded = loadable.map((candidate) => {
+    const row = byId.get(candidate.id);
+    if (!row || row.update.sequence !== candidate.sequence)
+      throw new DocumentUpdateReadError(
+        "Document update changed while loading page; retry",
+        409,
+      );
+    if (row.writeHeader) writeHeaders.set(row.update.id, row.writeHeader);
+    return row.update;
+  });
   const selected: DocumentUpdateRecord[] = [];
   let selectedBytes = 2; // JSON array brackets.
-  for (const update of await loadDocumentUpdatesByCandidate(
-    executor,
-    loadable,
-  )) {
+  for (const update of loaded) {
     const updateBytes = Buffer.byteLength(JSON.stringify(update), "utf8");
     const addedBytes = updateBytes + (selected.length === 0 ? 0 : 1);
     if (selectedBytes + addedBytes > input.maxSerializedBytes) {
@@ -369,5 +388,6 @@ export async function listMissingDocumentUpdatePage(
     lastUpdateId: selected.at(-1)?.id ?? null,
     lastSequence: selected.at(-1)?.sequence ?? input.afterSequence,
     updates: selected,
+    writeHeaders,
   };
 }

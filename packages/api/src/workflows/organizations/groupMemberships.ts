@@ -12,6 +12,8 @@ import {
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 
+import type { OrganizationGroupCatalog } from "./groupCatalog";
+
 interface OrganizationGroupCatalogRow {
   readonly groupId: string;
 }
@@ -19,6 +21,7 @@ interface OrganizationGroupCatalogRow {
 interface GroupMembershipLoadInput {
   /** Load only groups whose membership changed after this cursor. */
   readonly changedAfterCursor?: bigint;
+  readonly catalog?: OrganizationGroupCatalog;
   readonly executor: DatabaseSession;
   readonly organizationId: string;
 }
@@ -122,12 +125,17 @@ function indexProjectionsByGroupId(
 export async function loadOrganizationGroupMembershipsInTransaction(
   input: GroupMembershipLoadInput,
 ): Promise<OrganizationReadModelGroupMembershipsResponse> {
-  const groupRows = await loadOrganizationGroupRows(input);
-  const currentStates = await getCurrentPrincipalStates(
-    "group",
-    groupRows.map((group) => group.groupId),
-    input.executor,
-  );
+  const catalog =
+    input.changedAfterCursor === undefined ? input.catalog : undefined;
+  const groupRows =
+    catalog?.groupRows ?? (await loadOrganizationGroupRows(input));
+  const currentStates =
+    catalog?.currentStates ??
+    (await getCurrentPrincipalStates(
+      "group",
+      groupRows.map((group) => group.groupId),
+      input.executor,
+    ));
   const orderedStates = listOrderedGroupStates(groupRows, currentStates);
   const deletedGroupIds = await listDeletedGroupIds(
     input,

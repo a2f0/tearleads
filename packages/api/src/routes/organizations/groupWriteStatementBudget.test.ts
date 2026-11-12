@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   db,
+  getDefaultApiDatabaseKind,
   withDatabaseStatementCounter,
 } from "@tearleads/api-shared/postgres";
 import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
@@ -98,11 +99,10 @@ async function signGroupSuccessor(actor: TestUser, groupId: string) {
 // states and organization descriptors under their locks: create 132 (PGlite
 // and SQLite) / 134 (Postgres), commit 155 / 159. After: 117 / 119 and
 // 133 / 137. Once policy writes acknowledged heads instead of re-reading the
-// stored bundle: 114 / 116 and 127 / 131.
-// Full member-identity validation adds two set reads per operation (group and
-// organization policies): measured 116 / 129 on both PGlite and SQLite, versus
-// 114 / 127 with only that guard removed. Preserve PostgreSQL's existing two /
-// four transaction-control allowances; those are allowances, not measured here.
+// stored bundle: 114 / 116 and 127 / 131. Batched history and verified
+// projection handoffs plus the two identity-registry verification reads now
+// measure 89 and 109 on PGlite. PostgreSQL keeps its two / four transaction-
+// control allowances; admission reads remain at every original guard.
 test("group create and group policy commit stay within their statement budgets", async () => {
   const actor = createTestUser();
   await registerUser(actor);
@@ -129,6 +129,10 @@ test("group create and group policy commit stay within their statement budgets",
     }),
   );
 
-  expect(create).toBeLessThanOrEqual(118);
-  expect(commit).toBeLessThanOrEqual(133);
+  expect(create).toBeLessThanOrEqual(
+    89 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
+  expect(commit).toBeLessThanOrEqual(
+    109 + (getDefaultApiDatabaseKind() === "postgres" ? 4 : 0),
+  );
 });

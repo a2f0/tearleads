@@ -1,1 +1,4 @@
-export { selectPrincipalHistoryIndexNode } from "../shared/internal/principalHistoryIndexStore";
+export {
+  selectPrincipalHistoryIndexNode,
+  selectPrincipalHistoryIndexNodes,
+} from "../shared/internal/principalHistoryIndexStore";

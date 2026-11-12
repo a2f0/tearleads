@@ -11,10 +11,9 @@ import type {
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
-import { and, asc, eq, notInArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
-  getCurrentPrincipalStates,
   listProjectionMembersForState,
 } from "../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
@@ -35,6 +34,10 @@ import {
   requireDirectOrganizationAccess,
 } from "./access";
 import { OrganizationManagerError } from "./errors";
+import {
+  loadOrganizationGroupCatalog,
+  type OrganizationGroupCatalog,
+} from "./groupCatalog";
 import {
   deleteOrganizationGroupRows,
   requireDeletableOrganizationGroup,
@@ -77,6 +80,7 @@ export async function loadOrganizationGroupsInTransaction(input: {
   /** The immutable reserved group ids the caller's access check read. */
   readonly organization: OrganizationGroupIds;
   readonly organizationId: string;
+  readonly catalog?: OrganizationGroupCatalog;
 }): Promise<ListOrganizationGroupsResponse> {
   const groupSummaries =
     await listOrganizationGroupSummariesInTransaction(input);
@@ -225,32 +229,24 @@ async function listOrganizationGroupSummariesInTransaction(input: {
   readonly executor: DatabaseSession;
   readonly organization: OrganizationGroupIds;
   readonly organizationId: string;
+  readonly catalog?: OrganizationGroupCatalog;
 }): Promise<OrganizationGroupSummariesResult> {
   const { organization } = input;
-  const groupRows = await input.executor
-    .select({
-      groupId: groupsTable.id,
-      organizationId: groupsTable.organizationId,
-      createdAt: groupsTable.createdAt,
-    })
-    .from(groupsTable)
-    .where(
-      and(
-        eq(groupsTable.organizationId, input.organizationId),
-        notInArray(groupsTable.id, [organization.memberGroupId]),
-      ),
-    )
-    .orderBy(asc(groupsTable.id));
-  const currentStates = await getCurrentPrincipalStates(
-    "group",
-    groupRows.map((group) => group.groupId),
-    input.executor,
-  );
+  const { groupRows, currentStates } =
+    input.catalog ??
+    (await loadOrganizationGroupCatalog(
+      input.executor,
+      input.organizationId,
+      organization.memberGroupId,
+    ));
 
   return {
     memberGroupId: organization.memberGroupId,
     groups: groupRows.flatMap((group) => {
-      if (!group.organizationId) {
+      if (
+        !group.organizationId ||
+        group.groupId === organization.memberGroupId
+      ) {
         return [];
       }
 

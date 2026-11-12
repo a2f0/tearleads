@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   db,
+  getDefaultApiDatabaseKind,
   withDatabaseStatementCounter,
 } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
@@ -66,8 +67,12 @@ test("a read-model request verifies organization access once", async () => {
   // snapshot 30 / 32 and empty delta 19 / 21 later. Then 26 / 28 and 17 / 19
   // (Postgres equals SQLite) once access read its three policy heads in one
   // statement and the snapshot reused the organization rows and head it read.
-  expect(snapshot.statements).toBeLessThanOrEqual(28);
-  expect(delta.statements).toBeLessThanOrEqual(19);
+  expect(snapshot.statements).toBeLessThanOrEqual(
+    18 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
+  expect(delta.statements).toBeLessThanOrEqual(
+    11 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
 });
 
 test("an outsider is refused before signed access verification", async () => {
@@ -89,7 +94,10 @@ test("an outsider is refused before signed access verification", async () => {
   const member = await countedReadModelRequest({ organizationId, user: owner });
   expect(member.response.status).toBe(200);
 
-  // Signed access verification alone costs over twenty statements.
-  expect(refused.statements).toBeLessThan(member.statements - 20);
+  // Only the candidate screen and transaction control run for an outsider.
+  expect(refused.statements).toBeLessThanOrEqual(
+    1 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
+  expect(refused.statements).toBeLessThan(member.statements);
   expect(missing.statements).toBe(refused.statements);
 });

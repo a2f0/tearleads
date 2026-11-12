@@ -173,6 +173,7 @@ export {
   computeTransparencyMerkleRoot,
   createTransparencyConsistencyProof,
   createTransparencyInclusionProof,
+  largestPowerOfTwoLessThan,
 } from "./transparencyTree";
 export * from "./transparencyTypes";
 export {

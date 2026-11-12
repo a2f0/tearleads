@@ -14,6 +14,16 @@ import {
   listCurrentPrincipalProjectionMembers,
 } from "./principalStateReads";
 
+import type {
+  StoredPrincipalProjectionMember,
+  StoredPrincipalState,
+} from "./principalStateRecords";
+
+interface StoredPrincipalProjection {
+  readonly state: StoredPrincipalState;
+  readonly projection: readonly StoredPrincipalProjectionMember[];
+}
+
 interface PrincipalMemberRecipient {
   userId: string;
   memberKeyFingerprint: string;
@@ -76,6 +86,7 @@ async function loadCurrentPrincipalMemberRecipientsForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   executor: DatabaseSession,
+  stored?: StoredPrincipalProjection,
 ): Promise<{
   stateHash: string;
   epoch: number;
@@ -94,11 +105,17 @@ async function loadCurrentPrincipalMemberRecipientsForState(
     );
   }
 
-  const currentProjection = await listCurrentPrincipalProjectionMembers(
-    principalType,
-    principalId,
-    executor,
-  );
+  const currentProjection =
+    stored &&
+    stored.state.principalType === principalType &&
+    stored.state.principalId === principalId &&
+    stored.state.stateHash === currentState.stateHash
+      ? stored.projection
+      : await listCurrentPrincipalProjectionMembers(
+          principalType,
+          principalId,
+          executor,
+        );
   // Every projected member is a user, so this is one lookup rather than a
   // split over member kinds followed by a nested principal-epoch-key fetch.
   const userRecipientsById = await loadUserMemberRecipients(
@@ -300,6 +317,7 @@ async function insertAndVerifyPrincipalMemberEnvelopeRows(input: {
 export async function replaceCurrentPrincipalMemberEnvelopesInTransaction(
   input: StorePrincipalMemberEnvelopesInput,
   executor: DatabaseTransaction,
+  storedProjection?: StoredPrincipalProjection,
 ): Promise<StoredPrincipalMemberEnvelope[]> {
   const currentState = await getCurrentPrincipalState(
     input.principalType,
@@ -351,6 +369,7 @@ export async function replaceCurrentPrincipalMemberEnvelopesInTransaction(
       input.principalType,
       input.principalId,
       executor,
+      storedProjection,
     );
 
   const rows = buildPrincipalMemberEnvelopeRows({

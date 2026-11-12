@@ -7,6 +7,8 @@ import {
   loadPrincipalHistoryArtifacts,
   PRINCIPAL_HISTORY_BATCH_SIZE,
 } from "./principalHistoryArtifacts";
+import { readPrincipalHistoryEntryRows } from "./principalHistoryEntry";
+import type { PrincipalPolicyArtifactRead } from "./principalPolicyArtifacts";
 import {
   principalStateSelect,
   readStoredPrincipalContainerGrants,
@@ -28,6 +30,7 @@ export async function readPrincipalHistoryPage(
     readonly afterVersion: number;
     readonly throughVersion: number;
   },
+  artifactRead?: PrincipalPolicyArtifactRead,
 ) {
   if (
     !Number.isSafeInteger(input.afterVersion) ||
@@ -38,6 +41,15 @@ export async function readPrincipalHistoryPage(
     throw new Error("Invalid principal history range");
   if (input.afterVersion >= input.throughVersion) return [];
   beginPrincipalHistoryVerification();
+  if (input.throughVersion === input.afterVersion + 1)
+    return readPrincipalHistoryEntryRows(
+      executor,
+      {
+        ...input,
+        version: input.throughVersion,
+      },
+      artifactRead,
+    );
   const rows = await executor
     .select({
       ...principalStateSelect,

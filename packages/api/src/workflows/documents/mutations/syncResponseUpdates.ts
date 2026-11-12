@@ -232,12 +232,7 @@ export async function listMissingSyncUpdateEntries(input: {
   // write header, authorization targets, and checkpoint, so its write headers
   // load as one set. An unpaged listing has no such bound. Checkpoints ride on
   // the update rows.
-  const pageWriteHeaders = page
-    ? await listDocumentContentWriteHeaders(
-        page.updates.map(({ id }) => id),
-        input.executor,
-      )
-    : undefined;
+  const pageWriteHeaders = page?.writeHeaders;
   const entries = await materializeSyncResponseEntriesToBytes(
     updates,
     async (update) =>

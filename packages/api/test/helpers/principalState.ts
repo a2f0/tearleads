@@ -26,7 +26,7 @@ export function storePrincipalState(
   options?: StoreVerifiedPrincipalStateOptions,
 ) {
   return database.transaction(async (tx) => {
-    const state = await storeVerifiedPrincipalStateInTransaction(
+    const { state } = await storeVerifiedPrincipalStateInTransaction(
       input,
       tx,
       options,

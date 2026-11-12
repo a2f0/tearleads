@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
 import {
@@ -13,6 +13,10 @@ import {
   createRegistrationRequest,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
+import {
+  createSession,
+  createSessionTokenIssuer,
+} from "../../middleware/session";
 import { createChallenge } from "./createChallenge";
 import { registerUser } from "./registration";
 import { VerifyChallengeError, verifyChallenge } from "./verifyChallenge";
@@ -98,4 +102,69 @@ test("a suspension that lands while the session is issued revokes it", async () 
 
   expect(error.reason).toBe("account_suspended");
   expect(revoked).toEqual([{ sessionId: "raced-session", userId }]);
+});
+
+for (const suspended of [false, true]) {
+  test(`failed login activity stamp falls back to standing (suspended=${suspended})`, async () => {
+    const runtime = createServiceTestRuntime();
+    const { input, userId } = await signedVerifyInput(runtime);
+    const log = spyOn(console, "error").mockImplementation(() => {});
+    const revoked: string[] = [];
+    runtime.sessionTokenIssuer.createSession = createSessionTokenIssuer(
+      runtime.keyValueStore.set,
+      async () => {},
+      async () => {},
+      async () => {
+        if (suspended)
+          await db
+            .update(users)
+            .set({ suspendedAt: new Date() })
+            .where(eq(users.id, userId));
+        throw new Error("activity storage unavailable");
+      },
+    );
+    runtime.sessionTokenIssuer.revokeSession = async ({ sessionId }) => {
+      revoked.push(sessionId);
+      return true;
+    };
+    try {
+      if (suspended) {
+        expect(
+          (await verifyError(verifyChallenge(runtime, input))).reason,
+        ).toBe("account_suspended");
+        expect(revoked).toHaveLength(1);
+      } else {
+        expect((await verifyChallenge(runtime, input)).userId).toBe(userId);
+        expect(revoked).toHaveLength(0);
+      }
+      expect(log).toHaveBeenCalledTimes(1);
+    } finally {
+      log.mockRestore();
+    }
+  });
+}
+
+test("post-persistence standing refuses a raced suspension without stamping activity", async () => {
+  const runtime = createServiceTestRuntime();
+  const { input, userId } = await signedVerifyInput(runtime);
+  const before = new Date("2026-01-01T00:00:00.000Z");
+  await db
+    .update(users)
+    .set({ lastActiveAt: before })
+    .where(eq(users.id, userId));
+  runtime.sessionTokenIssuer.createSession = async (session) => {
+    await db
+      .update(users)
+      .set({ suspendedAt: new Date() })
+      .where(eq(users.id, userId));
+    return createSession(session);
+  };
+  expect((await verifyError(verifyChallenge(runtime, input))).reason).toBe(
+    "account_suspended",
+  );
+  const [row] = await db
+    .select({ lastActiveAt: users.lastActiveAt })
+    .from(users)
+    .where(eq(users.id, userId));
+  expect(row?.lastActiveAt).toEqual(before);
 });
