@@ -10,6 +10,7 @@ import {
   render,
   within,
 } from "@testing-library/react";
+import { useState } from "react";
 import {
   groupDisplayName,
   groupSignedName,
@@ -56,7 +57,6 @@ const owner: OrganizationDirectoryUser = {
 const memberControlProps = {
   addUser: () => undefined,
   addUserId: "",
-  addUserListId: "add-user-list",
   addableUsers: [],
   canMutateSelectedGroup: true,
   directory: {
@@ -138,6 +138,102 @@ test("member controls hide for non-admins and protect owner and self in built-in
   }
 });
 
+test("the roster picker leads with names and distinguishes duplicate names by ID", () => {
+  const picked: string[] = [];
+  const users = ["first-roster-user-000001", "second-roster-user-000002"].map(
+    (userId) => ({ ...owner, userId }),
+  );
+  const props = {
+    ...memberControlProps,
+    addableUsers: users,
+    profileDisplayNamesByUserId: new Map(
+      users.map((user) => [user.userId, "Alex Smith"]),
+    ),
+    setAddUserId: (userId: string) => picked.push(userId),
+  };
+  const view = render(<GroupDetailSection {...props} />);
+  const picker = view.getByRole("combobox", { name: "Roster user" });
+  fireEvent.click(picker);
+  const options = view.getAllByRole("option");
+  expect(
+    options.map(
+      (option) =>
+        option.querySelector(".mini-app-select-menu-label")?.textContent,
+    ),
+  ).toEqual(["Alex Smith", "Alex Smith"]);
+  expect(
+    options.map(
+      (option) =>
+        option.querySelector(".mini-app-select-menu-option-secondary")
+          ?.textContent,
+    ),
+  ).toEqual(["first-rost...000001", "second-ros...000002"]);
+  fireEvent.click(options[1] as HTMLElement);
+  expect(picked).toEqual(["second-roster-user-000002"]);
+  view.rerender(
+    <GroupDetailSection {...props} addUserId="second-roster-user-000002" />,
+  );
+  expect(picker.textContent).toBe("Alex Smith");
+  expect(view.queryAllByRole("option")).toHaveLength(0);
+});
+
+test("the roster picker falls back to IDs and keeps identity-link entry available", async () => {
+  const added: string[] = [];
+  const userId = "unnamed-roster-user-000003";
+  function Harness({ mutating = false }: { mutating?: boolean }) {
+    const [value, setValue] = useState("");
+    return (
+      <GroupDetailSection
+        {...memberControlProps}
+        addableUsers={[{ ...owner, userId }]}
+        addUser={() => {
+          added.push(value);
+          setValue("");
+        }}
+        addUserId={value}
+        mutating={mutating}
+        setAddUserId={setValue}
+      />
+    );
+  }
+  const view = render(<Harness />);
+  const picker = view.getByRole("combobox", { name: "Roster user" });
+  const input = view.getByRole("textbox", {
+    name: ORG_MANAGER_LABELS.rosterIdentity,
+  }) as HTMLInputElement;
+  const add = view.getByRole("button", { name: ORG_MANAGER_LABELS.add });
+  expect(add.hasAttribute("disabled")).toBe(true);
+  fireEvent.click(picker);
+  const option = view.getByRole("option", { name: "unnamed-ro...000003" });
+  expect(
+    option.querySelector(".mini-app-select-menu-option-secondary") === null,
+  ).toBe(true);
+  fireEvent.keyDown(picker, { key: "Enter" });
+  expect(picker.textContent).toBe("unnamed-ro...000003");
+  expect(input.value).toBe("");
+  expect(add.hasAttribute("disabled")).toBe(false);
+  await act(async () => fireEvent.click(add));
+  expect(added).toEqual([userId]);
+  expect(add.hasAttribute("disabled")).toBe(true);
+
+  fireEvent.change(input, { target: { value: "tearleads://identity/test" } });
+  expect(picker.textContent).toBe("Select a roster user");
+  view.rerender(<Harness mutating />);
+  expect(picker.hasAttribute("disabled")).toBe(true);
+  expect(input.disabled).toBe(true);
+  expect(add.hasAttribute("disabled")).toBe(true);
+  view.rerender(<Harness />);
+  await act(async () => fireEvent.click(add));
+  expect(added).toEqual([userId, "tearleads://identity/test"]);
+
+  fireEvent.change(input, { target: { value: "tearleads://identity/other" } });
+  fireEvent.click(picker);
+  fireEvent.click(view.getByRole("option", { name: "unnamed-ro...000003" }));
+  expect(input.value).toBe("");
+  await act(async () => fireEvent.click(add));
+  expect(added).toEqual([userId, "tearleads://identity/test", userId]);
+});
+
 test("removing a member spins only that member's Remove until it settles", async () => {
   const removal = Promise.withResolvers<void>();
   const removedUserIds: string[] = [];
@@ -187,7 +283,6 @@ test("a group whose signed name does not open shows a placeholder", () => {
     <GroupDetailSection
       addUser={() => undefined}
       addUserId=""
-      addUserListId="add-user-list"
       addableUsers={[]}
       canMutateSelectedGroup={false}
       directory={null}
@@ -226,7 +321,6 @@ test("group detail separates members, policy history, and links into tabs", () =
     <GroupDetailSection
       addUser={() => undefined}
       addUserId=""
-      addUserListId="add-user-list"
       addableUsers={[]}
       canMutateSelectedGroup={false}
       directory={null}
