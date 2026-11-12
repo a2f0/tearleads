@@ -126,6 +126,7 @@ async function cacheReferencedPrincipalPolicy(
     localCheckpoint,
     reference,
     resolveTrustedUserIdentity,
+    stillCurrent,
   });
   if (!validation.ok) {
     throw validation.error;
@@ -139,6 +140,7 @@ async function cacheReferencedPrincipalPolicy(
       localCheckpoint,
       reference,
       resolveTrustedUserIdentity,
+      stillCurrent,
     },
     loadDirectory,
     organizationId,
@@ -203,6 +205,7 @@ async function cachePrincipalPolicyBundle(input: {
     localCheckpoint,
     reference,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
   if (!validation.ok) {
     throw validation.error;

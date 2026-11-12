@@ -170,6 +170,8 @@ export async function validatePrincipalPolicyBundleForCache(input: {
   readonly localCheckpoint: PrincipalPolicyCheckpoint | null;
   readonly reference: ReferencedPrincipalStateResponse;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  /** The cache operation's lifetime, checked inside every pin write. */
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<
   | {
       readonly externalAdminPolicy: VerifiedExternalAdminPolicy | null;

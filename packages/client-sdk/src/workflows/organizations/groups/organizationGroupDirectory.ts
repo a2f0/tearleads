@@ -184,6 +184,7 @@ export async function commitCreatedGroupToDirectory(input: {
     organizationId: input.organizationId,
     reportSecurityIncident: input.reportSecurityIncident,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
   const expectedHead = await groupPolicyMutationHead(
     input.request.initialGroupPolicy,

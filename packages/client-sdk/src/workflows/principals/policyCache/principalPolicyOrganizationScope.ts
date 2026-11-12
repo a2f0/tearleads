@@ -76,6 +76,7 @@ export function createPolicyDirectoryLoader(input: {
   readonly organizationId: string;
   readonly currentPolicyReader: CurrentPrincipalPolicyReader;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): PolicyDirectoryLoader {
   const memo = new Map<boolean, Promise<VerifiedPolicyDirectory | null>>();
   const load = async (
@@ -117,6 +118,7 @@ export function createPolicyDirectoryLoader(input: {
     await publishVerifiedPrincipalPolicy({
       bundle,
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+      stillCurrent: input.stillCurrent,
     });
     let descriptor: OrganizationAuthorityDescriptor;
     try {

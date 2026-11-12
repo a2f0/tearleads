@@ -84,6 +84,8 @@ type OrganizationAdminPolicyInput = {
   checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
   resolveUserKey: ProjectionUserKeyResolver;
+  /** The verification's lifetime, checked inside every pin write. */
+  stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 };
 
@@ -161,6 +163,7 @@ async function verifyOrganizationAdminsPolicy(input: {
   execSql: ProjectionCheckpointContext["execSql"];
   expectedHead: ReferencedPrincipalHead;
   resolveUserKey: ProjectionUserKeyResolver;
+  stillCurrent: (() => boolean) | undefined;
 }): Promise<VerifiedPrincipalPolicy | undefined> {
   const adminBundle = await loadPrincipalPolicyBundle(
     input.execSql,
@@ -201,7 +204,9 @@ async function verifyOrganizationAdminsPolicy(input: {
     throw verified.error;
   }
   assertReservedAdminsPolicyShape(verified.value);
-  await publishVerifiedPolicyBundle(adminBundle, input.resolveUserKey);
+  await publishVerifiedPolicyBundle(adminBundle, input.resolveUserKey, () =>
+    assertProjectionVerificationCurrent(input.stillCurrent),
+  );
   return verified.value;
 }
 
@@ -231,6 +236,7 @@ async function loadOrganizationExternalAuthority(
     await publishVerifiedPolicyBundle(
       organizationPolicy.bundle,
       input.resolveUserKey,
+      () => assertProjectionVerificationCurrent(input.stillCurrent),
     );
     const descriptor = parseOrganizationAuthorityDescriptor(
       organizationPolicy.bundle.currentPayload.ciphertext,
@@ -249,6 +255,7 @@ async function loadOrganizationExternalAuthority(
         descriptor.adminGroupId,
       ),
       resolveUserKey: input.resolveUserKey,
+      stillCurrent: input.stillCurrent,
     });
     if (!verifiedAdmins) {
       return null;
@@ -389,6 +396,7 @@ async function verifyReferencedPrincipalPolicy(input: {
           checkpointContext: input.checkpointContext,
           organizationId: input.organizationId,
           resolveUserKey: input.resolveUserKey,
+          stillCurrent: input.stillCurrent,
           warmReferencedPrincipalPolicies:
             input.warmReferencedPrincipalPolicies,
         }),

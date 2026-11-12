@@ -41,6 +41,8 @@ export interface DirectoryGroupWalkInput {
   readonly organizationId: string;
   readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  /** The walk's lifetime, checked inside every pin write. */
+  readonly stillCurrent?: (() => boolean) | undefined;
 }
 
 type DirectoryGroupHead = OrganizationAuthorityDescriptor["groupHeads"][number];
@@ -138,6 +140,7 @@ export async function verifyDirectoryGroup(
   await publishVerifiedPrincipalPolicy({
     bundle,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
   assertGroupMetadataBinding(bundle, input.descriptor);
   const name = await readDirectoryGroupName(input, bundle);
