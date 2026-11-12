@@ -3,9 +3,12 @@ import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../../data/documents/documentS
 export function getOrphanedDocumentWhereSql(input: {
   documentIdSql: string;
   projectionAlias: string;
+  placementSql?: string;
 }): string {
   const { documentIdSql, projectionAlias } = input;
-  return `
+  const placementSql =
+    input.placementSql ??
+    `
     (
       ${projectionAlias}.container_id IS NULL
       OR EXISTS (
@@ -14,7 +17,9 @@ export function getOrphanedDocumentWhereSql(input: {
           AND primary_hold.container_id = ${projectionAlias}.container_id
           AND primary_hold.hidden = 1
       )
-    )
+    )`;
+  return `
+    ${placementSql}
     AND (
       ${projectionAlias}.organization_id = ?
       OR ${projectionAlias}.organization_id IS NULL

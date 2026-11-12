@@ -232,6 +232,7 @@ async function hasOrphanedDocuments(
     `SELECT (EXISTS(${getOrphanedDocumentExistsSql()}) ${folderProbes}) AS found`,
     [
       ...getOrphanedDocumentQueryBind(currentOrganizationId),
+      ...getOrphanedDocumentQueryBind(currentOrganizationId),
       ...(currentOrganizationId
         ? [
             currentOrganizationId,
