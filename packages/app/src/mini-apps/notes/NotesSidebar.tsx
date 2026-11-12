@@ -4,6 +4,7 @@ import {
   getUntitledDocumentTitle,
 } from "@tearleads/client-sdk";
 import { type MouseEvent, useEffect } from "react";
+import { AccountBootstrapLoadingPanel } from "../../components/identity/AccountBootstrapLoadingPanel";
 import {
   MiniAppSidebar,
   MiniAppStatus,
@@ -91,9 +92,15 @@ function NotesList({
   return (
     <>
       {!ready ? (
-        <MiniAppStatus className="notes-sidebar-status">
-          {NOTES_LABELS.sidebarLoading}
-        </MiniAppStatus>
+        bleed ? (
+          <AccountBootstrapLoadingPanel
+            title={NOTES_LABELS.emptyStateLoading}
+          />
+        ) : (
+          <MiniAppStatus busy className="notes-sidebar-status">
+            {NOTES_LABELS.sidebarLoading}
+          </MiniAppStatus>
+        )
       ) : notes.length === 0 ? (
         // Deliberately not bled like the populated list below: a dashed tile
         // reads as a placed object, so it keeps the surface's own inset rather

@@ -9,6 +9,7 @@ import {
   useWindowTitleBarAction,
 } from "@tearleads/windowing";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { AccountBootstrapLoadingPanel } from "../../../components/identity/AccountBootstrapLoadingPanel";
 import { CopyMyIdentityLinkButton } from "../../../components/identity/CopyMyIdentityLinkButton";
 import {
   MiniAppField,
@@ -120,13 +121,17 @@ function ContactsSelectionState({
   useWindowTitleBarAction(editAction);
 
   if (!selectedEntry) {
+    if (!ready) {
+      return (
+        <AccountBootstrapLoadingPanel title={CONTACTS_LABELS.loadingState} />
+      );
+    }
+
     return (
       <MiniAppStatus>
-        {ready && entries.length > 0
+        {entries.length > 0
           ? CONTACTS_LABELS.selectState
-          : !ready
-            ? CONTACTS_LABELS.loadingState
-            : CONTACTS_LABELS.emptyState}
+          : CONTACTS_LABELS.emptyState}
       </MiniAppStatus>
     );
   }
