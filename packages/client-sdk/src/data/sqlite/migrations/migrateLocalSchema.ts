@@ -46,8 +46,8 @@ async function readLocalSchema(execSql: ExecSql): Promise<{
 }> {
   const [catalog] = await execSql(
     `SELECT
-       coalesce(sum(name = ?), 0) AS ledger_tables,
-       coalesce(sum(name <> ?), 0) AS user_tables
+       coalesce(sum(lower(name) = ?), 0) AS ledger_tables,
+       coalesce(sum(lower(name) <> ?), 0) AS user_tables
      FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`,
     [LOCAL_SCHEMA_MIGRATIONS_TABLE, LOCAL_SCHEMA_MIGRATIONS_TABLE],
   );

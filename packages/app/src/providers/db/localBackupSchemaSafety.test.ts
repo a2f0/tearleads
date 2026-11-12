@@ -108,6 +108,48 @@ test("restore refuses a backup from a newer local schema before replacing data",
   }
 });
 
+test("restore refuses a newer ledger spelled in another case before replacing data", async () => {
+  const source = await createTestExecSql("backup-ledger-case-source");
+  const target = await createTestExecSql("backup-ledger-case-target");
+  try {
+    await ensureSqlTables(source.execSql, [notesTable]);
+    const backup = await backupOf(source.execSql);
+    const upper = LOCAL_SCHEMA_MIGRATIONS_TABLE.toUpperCase();
+    // SQLite resolves the upper-case name to the same ledger table.
+    const tables = backup.database.tables.map((table) =>
+      table.name === LOCAL_SCHEMA_MIGRATIONS_TABLE
+        ? {
+            ...table,
+            name: upper,
+            rows: [
+              ...table.rows,
+              { applied_at: 0, name: "future", version: 2 },
+            ],
+            sql: table.sql.replace(LOCAL_SCHEMA_MIGRATIONS_TABLE, upper),
+          }
+        : table,
+    );
+    await ensureSqlTables(target.execSql, [notesTable]);
+    await target.execSql("INSERT INTO notes VALUES ('current-note')");
+    await expect(
+      restoreBackupPayload({
+        blobStore: createMemoryBlobStore(),
+        execSql: target.execSql,
+        securityIncidents: unexpectedSecurityIncidents,
+        payload: { ...backup, database: { ...backup.database, tables } },
+      }),
+    ).rejects.toThrow(
+      "Local database schema version 2 is newer than this app supports (1)",
+    );
+    expect(await target.execSql("SELECT id FROM notes")).toEqual([
+      { id: "current-note" },
+    ]);
+  } finally {
+    source.close();
+    target.close();
+  }
+});
+
 test("a backup from before the ledger restores at the baseline and records it on the next ensure", async () => {
   const source = await createTestExecSql("backup-ledger-legacy-source");
   const target = await createTestExecSql("backup-ledger-legacy-target");

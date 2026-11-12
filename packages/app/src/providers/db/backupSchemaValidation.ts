@@ -184,8 +184,10 @@ export function validateBackupSchema(input: {
   assertUniqueNames(input.tables, "table");
   assertUniqueNames(input.indexes, "index");
   assertRestorableLocalSchemaLedger(
-    input.tables.find(({ name }) => name === LOCAL_SCHEMA_MIGRATIONS_TABLE)
-      ?.rows ?? [],
+    // SQLite table names are case-insensitive, so any spelling is the ledger.
+    input.tables.find(
+      ({ name }) => name.toLowerCase() === LOCAL_SCHEMA_MIGRATIONS_TABLE,
+    )?.rows ?? [],
   );
   for (const table of input.tables) {
     const body = validateCreateStatement({ ...table, kind: "TABLE" });
