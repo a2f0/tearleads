@@ -1,0 +1,5 @@
+# Repository policy: use agent-tool's reviewed-head merge and CI package publishing.
+# Keep these rules separate from agent-tool's generated, mode-respecting allowances.
+prefix_rule(pattern=["gh", "pr", "merge"], decision="forbidden", justification="Use agent-tool pr merge so reviewed-head, CI, and base-freshness checks run.", match=["gh pr merge 1"])
+prefix_rule(pattern=["npm", "publish"], decision="forbidden", justification="Publish packages through the repository's CI workflows after a reviewed merge.", match=["npm publish"])
+prefix_rule(pattern=["bun", "publish"], decision="forbidden", justification="Publish packages through the repository's CI workflows after a reviewed merge.", match=["bun publish"])

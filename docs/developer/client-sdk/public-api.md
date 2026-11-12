@@ -9,7 +9,7 @@ Supported package entry points:
 | Entry point | Use for |
 | --- | --- |
 | `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, purchase capabilities, and public workflow symbols |
-| `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
+| `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, adapter helpers, and [local schema migration](../../../packages/client-sdk/src/data/sqlite/migrations/README.md) (`ensureLocalSchemaMigrated` at boot; `withLocalSchemaMigrationLock`, `migrateLocalSchema`, and the ledger check in a backup restore) |
 | `@tearleads/client-sdk/sqlite/worker.js` | The SQLite worker module a host serves for `createSQLiteRuntime` |
 | `@tearleads/client-sdk/sqlite/sqlite3.wasm` | The SQLite WebAssembly the host serves beside `worker.js` |
 | `@tearleads/client-sdk/sqlite/sqlite3-licenses.md` | The licenses that ship with the two SQLite files |

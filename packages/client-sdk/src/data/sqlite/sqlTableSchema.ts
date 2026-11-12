@@ -7,6 +7,7 @@ import {
   SQLiteSyncDialect,
   type SQLiteTable,
 } from "drizzle-orm/sqlite-core";
+import { ensureLocalSchemaMigrated } from "./migrations/migrateLocalSchema";
 import type { ExecSql } from "./sqlExec";
 import {
   hasCompletedConnectionOnce,
@@ -231,9 +232,13 @@ export async function ensureSqlTables(
 
   // Each statement is a worker message, so the DDL travels in three: every
   // required-column read, then every CREATE TABLE, then every CREATE INDEX.
-  // Obsolete tables fail before any schema or data effects.
+  // Obsolete tables fail before any schema or data effects: the connection's
+  // first ensure migrates the database to this build's version and checks the
+  // required columns before those steps commit.
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    await assertRequiredColumns(lockedExecSql, pendingTables);
+    await ensureLocalSchemaMigrated(lockedExecSql, (migratedExecSql) =>
+      assertRequiredColumns(migratedExecSql, pendingTables),
+    );
     await lockedExecSql(
       pendingTables.map((table) => table.createSql).join(";\n"),
     );

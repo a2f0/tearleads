@@ -170,7 +170,6 @@ function OrgManagerGroupsContent({ model }: { model: OrgManagerModel }) {
     <GroupsView
       addUser={model.addUser}
       addUserId={model.addUserId}
-      addUserListId={model.addUserListId}
       addableUsers={model.addableUsers}
       canCreateGroup={model.canCreateGroup}
       canDeleteGroup={model.canDeleteGroup}
