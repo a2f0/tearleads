@@ -397,16 +397,33 @@ export function getOrphanedDocumentRowsBaseSql(): string {
 }
 
 export function getOrphanedDocumentExistsSql(): string {
-  return `
-    SELECT 1
-    FROM document_projection d
+  // Split the OR so unplaced rows use the partial orphan index. CROSS JOIN
+  // keeps the held branch driven by holds, not the much larger projection.
+  const branches = [
+    {
+      from: "document_projection d",
+      placementSql: "d.container_id IS NULL",
+    },
+    {
+      from: "container_document_tombstone_holds primary_hold CROSS JOIN document_projection d",
+      placementSql: `primary_hold.hidden = 1
+        AND d.document_id = primary_hold.document_id
+        AND d.container_id = primary_hold.container_id`,
+    },
+  ];
+  return `SELECT 1 WHERE ${branches
+    .map(
+      ({ from, placementSql }) => `EXISTS (
+    SELECT 1 FROM ${from}
     WHERE ${hydratedProjectionSql("d.local_id", "documents")}
       AND ${getOrphanedDocumentWhereSql({
         documentIdSql: "d.document_id",
         projectionAlias: "d",
+        placementSql,
       })}
-    LIMIT 1
-  `;
+  )`,
+    )
+    .join(" OR ")}`;
 }
 
 export function getContainerContentsContainerDocumentSidebarOrderBy(): string {
