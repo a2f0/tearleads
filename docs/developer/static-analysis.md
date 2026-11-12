@@ -87,17 +87,20 @@ runtime guards. The files are generated: do not edit or reformat them, and rerun
 `permissions check` after `skills check`, so `check:fast`, CI's `Lint` job, and
 pre-push fail when the rules are missing, edited, or stale.
 
-This intentionally removes forced Codex prompts so an authorized `ship-pr`
+Generated Codex rules contain no `prompt` decisions so an authorized `ship-pr`
 request can finish in `never` approval mode with `danger-full-access`. An
 explicit `prompt` rule rejects the command in that mode. In `on-request` mode,
 commands the sandbox permits can also run without a prompt. Consequential
 commands receive no new allow rules; user and managed restrictions still apply.
 User authorization, required CI, base freshness, and the reviewed-commit merge
-checks remain required. Direct `gh pr merge` remains prohibited by
-[`AGENTS.md`](../../AGENTS.md#agent-tooling-and-shipping).
+checks remain required. The separate repository-owned
+[rules file](../../.codex/rules/tearleads.rules) forbids direct `gh pr merge`,
+`npm publish`, and `bun publish`. Merges use the guarded helper required by
+[`AGENTS.md`](../../AGENTS.md#agent-tooling-and-shipping); packages publish
+through CI after a reviewed merge. These restrictions apply in every Codex mode.
 
-After upgrading, regenerate the rules and start a new Codex session. Users who
-want mandatory prompts can keep their own rules in their user configuration,
+Codex loads rules when a session starts. Users who want mandatory prompts for
+other commands can keep their own rules in their user configuration,
 with an approval mode that can ask; see the upstream permissions guide above.
 The installer preserves separate user rule files and refuses to overwrite
 locally edited managed rules.
