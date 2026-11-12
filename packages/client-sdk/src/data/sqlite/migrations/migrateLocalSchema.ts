@@ -148,6 +148,24 @@ async function applyLocalSchemaState(
   }
 }
 
+const CROSS_TAB_MIGRATION_LOCK = "tearleads-local-schema-migration";
+
+function webLocks(): LockManager | null {
+  if (typeof navigator !== "object" || navigator === null) return null;
+  const { locks } = navigator;
+  return typeof locks?.request === "function" ? locks : null;
+}
+
+// Browser tabs share one worker handle but not their mutation queues, so a
+// tab could read another tab's uncommitted ledger as current and write rows
+// that tab's rollback then deletes. A Web Lock makes every connection's
+// migration check wait until any other tab's migration commits or rolls back.
+// Hosts without Web Locks have no second tab on the handle.
+function withCrossTabMigrationLock<T>(run: () => Promise<T>): Promise<T> {
+  const locks = webLocks();
+  return locks ? locks.request(CROSS_TAB_MIGRATION_LOCK, run) : run();
+}
+
 /**
  * Brings the local database to this build's schema version. Pending steps,
  * their ledger rows, and `verify` commit together or not at all; a database
@@ -163,29 +181,31 @@ export async function migrateLocalSchema(
   const now = options.now ?? Date.now;
   const verify = options.verify ?? (async () => {});
   assertLocalSchemaMigrations(migrations);
-  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    const read = async () =>
-      classifyLocalSchema({
-        ...(await readLocalSchema(lockedExecSql)),
-        migrations,
-      });
-    const state = await read();
-    const error = localSchemaStateError(state);
-    if (error) throw error;
-    if (state.status === "current") {
-      await verify(lockedExecSql);
-      return state;
-    }
-    try {
-      await applyLocalSchemaState(lockedExecSql, state, now, verify);
-      return state;
-    } catch (applyError) {
-      const settled = await read().catch(() => null);
-      if (settled?.status !== "current") throw applyError;
-      await verify(lockedExecSql);
-      return settled;
-    }
-  });
+  return withCrossTabMigrationLock(() =>
+    runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const read = async () =>
+        classifyLocalSchema({
+          ...(await readLocalSchema(lockedExecSql)),
+          migrations,
+        });
+      const state = await read();
+      const error = localSchemaStateError(state);
+      if (error) throw error;
+      if (state.status === "current") {
+        await verify(lockedExecSql);
+        return state;
+      }
+      try {
+        await applyLocalSchemaState(lockedExecSql, state, now, verify);
+        return state;
+      } catch (applyError) {
+        const settled = await read().catch(() => null);
+        if (settled?.status !== "current") throw applyError;
+        await verify(lockedExecSql);
+        return settled;
+      }
+    }),
+  );
 }
 
 /**

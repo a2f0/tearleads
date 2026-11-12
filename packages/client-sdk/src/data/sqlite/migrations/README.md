@@ -35,9 +35,11 @@ that records the ledger first wins; the losing run accepts its ledger.
 
 Browser tabs reach one database through a single worker handle, and the
 worker does not isolate one tab's transaction from another tab's statements.
-A migration's savepoint shares that limit with every SDK transaction: a tab
-that writes while another tab migrates can have its write rolled back with a
-failed migration.
+So that no tab reads another tab's uncommitted ledger as current and writes
+rows a failed migration then rolls back, each connection's migration check
+holds the `tearleads-local-schema-migration` Web Lock until its migration
+commits or rolls back. Hosts without Web Locks have no second tab on the
+handle.
 
 ## Adding a step
 

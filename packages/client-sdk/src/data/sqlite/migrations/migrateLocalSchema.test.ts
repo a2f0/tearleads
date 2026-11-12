@@ -177,6 +177,97 @@ for (const legacy of [false, true]) {
     }));
 }
 
+// A FIFO stand-in for the browser's Web Locks, which Bun lacks.
+function installWebLocks(): () => void {
+  const tails = new Map<string, Promise<void>>();
+  const locks = {
+    request: async (name: string, callback: () => Promise<unknown>) => {
+      const previous = tails.get(name) ?? Promise.resolve();
+      let release = () => {};
+      const current = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      tails.set(
+        name,
+        previous.then(() => current),
+      );
+      await previous;
+      try {
+        return await callback();
+      } finally {
+        release();
+      }
+    },
+  };
+  Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: locks,
+  });
+  return () => {
+    Reflect.deleteProperty(navigator, "locks");
+  };
+}
+
+test("another tab on the same handle waits for a migration to roll back before it writes", async () => {
+  const uninstall = installWebLocks();
+  try {
+    await withDatabase("local-schema-tabs", async (execSql) => {
+      await execSql('CREATE TABLE "notes" ("id" TEXT PRIMARY KEY NOT NULL)');
+      // Each tab has its own executor (and mutation queue) on one handle.
+      const tab = (() => (sql: string, bind?: never) =>
+        execSql(sql, bind)) as () => TestExecSql;
+      let stepStarted = () => {};
+      const started = new Promise<void>((resolve) => {
+        stepStarted = resolve;
+      });
+      let openGate = () => {};
+      const gate = new Promise<void>((resolve) => {
+        openGate = resolve;
+      });
+      const migrating = migrateLocalSchema(tab(), {
+        migrations: [
+          {
+            name: "fails_after_pause",
+            up: async () => {
+              stepStarted();
+              await gate;
+              throw new Error("step failed");
+            },
+            version: 2,
+          },
+        ],
+      });
+      // Captured by hand: an `expect(...).rejects` created here hung this test.
+      const failed = migrating.then(
+        () => null,
+        (error: unknown) => error,
+      );
+      await started;
+
+      const otherTab = tab();
+      let otherSettled = false;
+      const writing = migrateLocalSchema(otherTab, { migrations: [] }).then(
+        async () => {
+          otherSettled = true;
+          await otherTab(`INSERT INTO "notes" ("id") VALUES ('other-tab')`);
+        },
+      );
+      await Bun.sleep(50);
+      expect(otherSettled).toBe(false);
+
+      openGate();
+      expect(await failed).toEqual(new Error("step failed"));
+      await writing;
+      expect(await execSql('SELECT id FROM "notes"')).toEqual([
+        { id: "other-tab" },
+      ]);
+      expect(await ledger(execSql)).toEqual(["1:baseline"]);
+    });
+  } finally {
+    uninstall();
+  }
+});
+
 test("a database written by a newer build is refused without changes", () =>
   withDatabase("local-schema-ahead", async (execSql) => {
     await migrateLocalSchema(execSql, { migrations: notesMigrations([]) });
