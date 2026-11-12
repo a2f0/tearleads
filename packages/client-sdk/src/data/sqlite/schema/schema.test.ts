@@ -83,8 +83,12 @@ test("client sqlite schema creates tables and indexes", async () => {
       .filter((row) => readString(row, "type") === "index")
       .map((row) => readString(row, "name"));
 
+    // The first ensure also records the local schema migration ledger.
     expect(tableNames).toEqual(
-      clientSqlTables.map((table) => table.name).sort(),
+      [
+        ...clientSqlTables.map((table) => table.name),
+        "local_schema_migrations",
+      ].sort(),
     );
     expect(indexNames).toEqual([
       "containers_parent_idx",

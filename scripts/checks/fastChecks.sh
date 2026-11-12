@@ -38,6 +38,7 @@ run_fast_checks() {
   step_timings_run source-shape-worktree bun run lint:source-shape
   step_timings_run openapi bun run lint:openapi
   step_timings_run openapi-compatibility bun run lint:openapi:compatibility
+  step_timings_run api-migrations bun run lint:api-migrations
   step_timings_run openapi-tests bun run test:openapi:compatibility
   step_timings_run protocol-model-tests bun run test:protocol-models
   run_model_check_inline protocol-models

@@ -8,9 +8,11 @@ import { ensureDocumentsSchema } from "./ensureDocumentsSchema";
 // Each statement is one worker message on the client. A cold ensure sends its
 // CREATE TABLEs, one required-column read, and its CREATE INDEXes: three
 // messages (were 37 for documents and 46 for container contents, one per
-// table, column check, and index).
-const COLD_DOCUMENTS_ENSURE_STATEMENTS = 3;
-const COLD_CONTAINER_CONTENTS_ENSURE_STATEMENTS = 3;
+// table, column check, and index). The connection's first ensure also reads
+// the catalog and, on a new database, records the local schema ledger in one
+// message.
+const COLD_DOCUMENTS_ENSURE_STATEMENTS = 5;
+const COLD_CONTAINER_CONTENTS_ENSURE_STATEMENTS = 5;
 
 async function withCountingDatabase(
   name: string,

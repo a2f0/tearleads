@@ -1,3 +1,7 @@
+import {
+  assertRestorableLocalSchemaLedger,
+  LOCAL_SCHEMA_MIGRATIONS_TABLE,
+} from "@tearleads/client-sdk/sqlite";
 import type { BackupIndex, BackupTable } from "./localBackupFormat";
 import { validatePrincipalIdentityBackupTable } from "./principalBackupValidation";
 
@@ -152,10 +156,39 @@ function declaredTableColumns(tokens: readonly SqlToken[]): string[] {
   return invalidSchema();
 }
 
+// A database names each table and index once. A repeated name would let a
+// later `CREATE ... IF NOT EXISTS` entry add rows the checks below never read.
+function assertUniqueNames(
+  entries: ReadonlyArray<{ readonly name: string }>,
+  kind: "table" | "index",
+): void {
+  const seen = new Set<string>();
+  for (const { name } of entries) {
+    const key = name.toLowerCase();
+    if (seen.has(key)) {
+      throw new Error(`Backup schema lists ${kind} ${name} more than once.`);
+    }
+    seen.add(key);
+  }
+}
+
+/**
+ * Also refuses a backup whose local schema ledger this build cannot open (a
+ * newer app's backup) before the restore writes anything. An older backup
+ * restores as is: the next table ensure migrates it to this build's version.
+ */
 export function validateBackupSchema(input: {
   readonly indexes: ReadonlyArray<BackupIndex>;
   readonly tables: ReadonlyArray<BackupTable>;
 }): void {
+  assertUniqueNames(input.tables, "table");
+  assertUniqueNames(input.indexes, "index");
+  assertRestorableLocalSchemaLedger(
+    // SQLite table names are case-insensitive, so any spelling is the ledger.
+    input.tables.find(
+      ({ name }) => name.toLowerCase() === LOCAL_SCHEMA_MIGRATIONS_TABLE,
+    )?.rows ?? [],
+  );
   for (const table of input.tables) {
     const body = validateCreateStatement({ ...table, kind: "TABLE" });
     validatePrincipalIdentityBackupTable(table, () =>
