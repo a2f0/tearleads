@@ -5,7 +5,7 @@
     "": {
       "name": "tearleads",
       "devDependencies": {
-        "@a2f0/agent-tool": "0.1.51",
+        "@a2f0/agent-tool": "0.1.54",
         "@azure/storage-blob": "12.34.0",
         "@biomejs/biome": "2.5.15",
         "@commitlint/cli": "21.2.4",
@@ -27,7 +27,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.136",
+      "version": "0.1.137",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1161.0",
         "@aws-sdk/s3-request-presigner": "3.1161.0",
@@ -54,7 +54,7 @@
     },
     "packages/api-cli": {
       "name": "@tearleads/api-cli",
-      "version": "0.1.21",
+      "version": "0.1.22",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1161.0",
         "@tearleads/api-shared": "workspace:*",
@@ -81,7 +81,7 @@
     },
     "packages/api-shared": {
       "name": "@tearleads/api-shared",
-      "version": "0.1.34",
+      "version": "0.1.35",
       "dependencies": {
         "@electric-sql/pglite": "0.5.15",
         "@tearleads/crypto": "workspace:*",
@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.179",
+      "version": "0.1.181",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -235,7 +235,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.183",
+      "version": "0.1.185",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -363,9 +363,9 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.64",
+      "version": "0.1.65",
       "dependencies": {
-        "@a2f0/agent-tool": "0.1.51",
+        "@a2f0/agent-tool": "0.1.54",
         "@a2f0/ct-client": "0.1.6",
         "@astrojs/markdown-satteri": "0.4.6",
         "@astrojs/react": "7.1.2",
@@ -389,7 +389,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.37",
+      "version": "0.2.38",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",
@@ -442,7 +442,7 @@
     },
   },
   "packages": {
-    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.51", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-sSJUTqAziD+Rx2ZfGdXY1nCQR0f22WGIdLXw4MkmDBNuORnWCLT8caTq3OX5mbs1i8AAak/qMQ7LqtDDVE6efg=="],
+    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.54", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-Cz/+fdd+nrvL4gpdTiSisQxsuQS3q6f+OOatlPIzyoW8aHEeMpFzaF5fIsCuKRv4G5yQa8RqMYCqYa7W6XvXUg=="],
 
     "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#ccec49f", {}, "a2f0-continuity-ccec49f", "sha512-SwQMufS2JVURyMbhehQMLvNnvuJsqDQihxvsLGnFjeVWwsweJTRy9esLA4dnJziHq2u36qlSG0uzAsQOk0hAbQ=="],
 

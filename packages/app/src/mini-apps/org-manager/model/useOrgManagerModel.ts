@@ -1,6 +1,6 @@
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
 import { useCompactRoutedMode } from "@tearleads/windowing";
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
@@ -44,7 +44,6 @@ export function useOrgManagerModel() {
   const tearleads = useTearleads();
   const orgManagerActions = useOrgManagerActions();
   const { openMiniApp } = useMiniAppBusActions();
-  const addUserListId = useId();
   const organizationId = appData.auth.organizationId;
   const {
     activeDirectory,
@@ -400,7 +399,6 @@ export function useOrgManagerModel() {
   return {
     addUser,
     addUserId,
-    addUserListId,
     addableUsers,
     canCreateGroup,
     canDeleteGroup,

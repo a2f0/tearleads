@@ -53,6 +53,7 @@
     "generate:openapi": "bun run --cwd packages/validators generate:openapi",
     "generate:protocol-traces": "bun scripts/protocol/generateBaselineDominanceTraces.ts",
     "generate:protocol-proof-vectors": "bun scripts/protocol/generateTransparencyVectors.ts",
+    "lint:api-migrations": "bun scripts/checks/lintApiMigrations.ts",
     "lint:architecture": "bun scripts/architecture/lintArchitecture.ts",
     "lint:binary-files": "agent-tool checks binaries",
     "lint:biome": "biome check --error-on-warnings && bun run lint:biome:promises",
@@ -146,7 +147,7 @@
     "*.md": "bun --bun x markdownlint-cli2 --fix"
   },
   "devDependencies": {
-    "@a2f0/agent-tool": "0.1.51",
+    "@a2f0/agent-tool": "0.1.54",
     "@azure/storage-blob": "12.34.0",
     "@biomejs/biome": "2.5.15",
     "@commitlint/cli": "21.2.4",
