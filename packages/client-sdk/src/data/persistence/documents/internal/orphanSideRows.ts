@@ -6,6 +6,7 @@ import {
   isNotNull,
   lt,
   notExists,
+  notInArray,
   or,
   type SQL,
 } from "drizzle-orm";
@@ -52,14 +53,20 @@ function hasNoDocument(
   localId: DocumentSideLocalIdColumn,
   appKind: string | null = DOCUMENTS_APP_KIND,
 ): SQL {
+  // Both local IDs are NOT NULL. Materialize the any-kind set once instead
+  // of scanning the (app_kind, local_id) index for every attachment.
+  if (appKind === null) {
+    return notInArray(
+      localId,
+      tx.select({ localId: documents.localId }).from(documents),
+    );
+  }
   return notExists(
     tx
       .select({ localId: documents.localId })
       .from(documents)
       .where(
-        appKind === null
-          ? eq(documents.localId, localId)
-          : and(eq(documents.appKind, appKind), eq(documents.localId, localId)),
+        and(eq(documents.appKind, appKind), eq(documents.localId, localId)),
       ),
   );
 }

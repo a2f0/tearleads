@@ -1,9 +1,18 @@
 import { expect, test } from "bun:test";
+import { LOCAL_SCHEMA_MIGRATIONS_TABLE } from "@tearleads/client-sdk/sqlite";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import {
   readBackupDatabase,
   restoreBackupDatabase,
 } from "./localBackupDatabase";
+
+// A restore records the local schema ledger once it commits; these tests
+// compare only the tables they restored.
+function withoutLedger<T extends { readonly name: string }>(
+  tables: readonly T[],
+): T[] {
+  return tables.filter(({ name }) => name !== LOCAL_SCHEMA_MIGRATIONS_TABLE);
+}
 
 const schema = `CREATE TABLE principal_grant_retirements (
   organization_id TEXT NOT NULL, container_id TEXT NOT NULL,
@@ -27,7 +36,9 @@ test("restoring an older backup preserves acknowledged grant retirements", async
       tables: [],
     });
     expect(
-      (await readBackupDatabase({ execSql: target.execSql })).tables,
+      withoutLedger(
+        (await readBackupDatabase({ execSql: target.execSql })).tables,
+      ),
     ).toEqual(before.tables);
   } finally {
     target.close();
@@ -86,7 +97,9 @@ test.each(["principal_id", "policy_state_hash"])(
         execSql: target.execSql,
       });
       expect(
-        (await readBackupDatabase({ execSql: target.execSql })).tables,
+        withoutLedger(
+          (await readBackupDatabase({ execSql: target.execSql })).tables,
+        ),
       ).toEqual(backup.tables);
     } finally {
       target.close();

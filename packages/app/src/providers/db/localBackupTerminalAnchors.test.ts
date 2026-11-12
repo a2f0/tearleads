@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { LOCAL_SCHEMA_MIGRATIONS_TABLE } from "@tearleads/client-sdk/sqlite";
 import { toFingerprint } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import {
@@ -6,6 +7,14 @@ import {
   readBackupDatabase,
   restoreBackupDatabase,
 } from "./localBackupDatabase";
+
+// A restore records the local schema ledger once it commits; these tests
+// compare only the tables they restored.
+function withoutLedger<T extends { readonly name: string }>(
+  tables: readonly T[],
+): T[] {
+  return tables.filter(({ name }) => name !== LOCAL_SCHEMA_MIGRATIONS_TABLE);
+}
 
 const UPDATED_AT = "2026-09-12T12:00:00.000Z";
 const HASH = "a".repeat(64);
@@ -69,7 +78,7 @@ test("restoring a database without terminal anchors preserves purge pins and inc
       tables: [],
     });
     const after = await readBackupDatabase({ execSql: target.execSql });
-    expect(after.tables).toEqual(before.tables);
+    expect(withoutLedger(after.tables)).toEqual(before.tables);
   } finally {
     target.close();
   }
@@ -177,7 +186,9 @@ for (const column of [
         "Backup disagrees with the local document purge checkpoint",
       );
       expect(
-        (await readBackupDatabase({ execSql: target.execSql })).tables,
+        withoutLedger(
+          (await readBackupDatabase({ execSql: target.execSql })).tables,
+        ),
       ).toEqual(backup.tables);
     } finally {
       target.close();
@@ -218,7 +229,9 @@ test("restore refuses an incident identity collision without erasing local evide
       restoreBackupDatabase({ ...backup, tables, execSql: target.execSql }),
     ).rejects.toThrow("Backup conflicts with security incident");
     expect(
-      (await readBackupDatabase({ execSql: target.execSql })).tables,
+      withoutLedger(
+        (await readBackupDatabase({ execSql: target.execSql })).tables,
+      ),
     ).toEqual(backup.tables);
   } finally {
     target.close();
