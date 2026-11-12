@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createPin } from "../../../test/helpers/trustedUserIdentityPin";
+import { TrustedUserIdentityPinMismatchError } from "../persistence/identity/trustedUserIdentityPinModel";
 import {
   compareOrInsertTrustedUserIdentityPin,
   loadTrustedUserIdentityPin,
-  TrustedUserIdentityPinMismatchError,
 } from "../persistence/trustedUserIdentityPinPersistence";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "./admission";

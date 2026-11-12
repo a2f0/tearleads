@@ -296,7 +296,14 @@ the endpoint cache, because the caller's signature check may still refuse it:
 a retry or a later signer lookup reads the endpoint again. A history page
 pins nothing, because a page is not yet proven to reach the expected head: a
 forged but self-consistent prefix would otherwise pin a substituted identity
-that blocks the corrected history. Each page's first signer is authorized only
+that blocks the corrected history. The signers of pages a recovery accepts
+are recorded with the bundles their predecessors committed and published only
+after the whole chain reaches its head, so a departed signer that appears in
+no selected projection is still pinned; a recovery resumed from saved
+progress publishes only the signers of pages it accepted itself. A scope
+publishes all of its staged first sights in one write transaction, so a
+conflict or cancellation on any of them pins none. Each page's first signer
+is authorized only
 by user ID against the last accepted state, and a member that state's
 successor removes is not rechecked for continuity, so signer collection
 requires every signer whose state links to a known predecessor to resolve to

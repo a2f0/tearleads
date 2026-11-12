@@ -1,10 +1,12 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { loadTrustedUserIdForSigningKey } from "../persistence/identity/trustedUserIdentitySigningKeyBinding";
 import {
-  compareOrInsertTrustedUserIdentityPin,
   TrustedUserIdentityPinCorruptError,
   TrustedUserIdentityPinMismatchError,
+} from "../persistence/identity/trustedUserIdentityPinModel";
+import { loadTrustedUserIdForSigningKey } from "../persistence/identity/trustedUserIdentitySigningKeyBinding";
+import {
+  compareOrInsertTrustedUserIdentityPins,
   type TrustedUserIdentityPinProvenance,
 } from "../persistence/trustedUserIdentityPinPersistence";
 import { TrustedUserIdentityPinContentionError } from "../persistence/trustedUserIdentityPinTransaction";
@@ -64,55 +66,65 @@ function requireTrustStore(
   return { execSql, identityTrustDomain };
 }
 
-async function compareWithDurablePin(input: {
+function durablePin(
+  identity: ValidatedUserIdentityCandidate,
+  provenance: TrustedUserIdentityPinProvenance,
+  firstSeenAt: string,
+) {
+  return {
+    encapsulationKeyFingerprint: identity.encapsulationKeyFingerprint,
+    encapsulationPublicKey: bytesToBase64(identity.encapsulationPublicKey),
+    encapsulationSuite: TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,
+    firstSeenAt,
+    provenance,
+    formatVersion: TRUSTED_USER_IDENTITY_FORMAT_VERSION,
+    identityTrustDomain: identity.identityTrustDomain,
+    signingKeyFingerprint: identity.signingKeyFingerprint,
+    signingPublicKey: bytesToBase64(identity.signingPublicKey),
+    signingSuite: TRUSTED_USER_IDENTITY_SIGNING_SUITE,
+    userId: identity.userId,
+  };
+}
+
+/** Compare-or-insert every identity in one transaction: all pin, or none. */
+async function compareWithDurablePins(input: {
   readonly assertCurrent?: (() => void) | undefined;
   readonly execSql: NonNullable<
     ReturnType<TrustedUserIdentityServiceDependencies["getExecSql"]>
   >;
   readonly firstSeenAt: string;
-  readonly identity: ValidatedUserIdentityCandidate;
+  readonly identities: readonly ValidatedUserIdentityCandidate[];
   readonly provenance: TrustedUserIdentityPinProvenance;
 }): Promise<void> {
+  const userIds = input.identities.map((identity) => identity.userId);
   try {
-    await compareOrInsertTrustedUserIdentityPin({
+    await compareOrInsertTrustedUserIdentityPins({
       assertCurrent: input.assertCurrent,
       execSql: input.execSql,
-      pin: {
-        encapsulationKeyFingerprint: input.identity.encapsulationKeyFingerprint,
-        encapsulationPublicKey: bytesToBase64(
-          input.identity.encapsulationPublicKey,
-        ),
-        encapsulationSuite: TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,
-        firstSeenAt: input.firstSeenAt,
-        provenance: input.provenance,
-        formatVersion: TRUSTED_USER_IDENTITY_FORMAT_VERSION,
-        identityTrustDomain: input.identity.identityTrustDomain,
-        signingKeyFingerprint: input.identity.signingKeyFingerprint,
-        signingPublicKey: bytesToBase64(input.identity.signingPublicKey),
-        signingSuite: TRUSTED_USER_IDENTITY_SIGNING_SUITE,
-        userId: input.identity.userId,
-      },
+      pins: input.identities.map((identity) =>
+        durablePin(identity, input.provenance, input.firstSeenAt),
+      ),
     });
   } catch (error) {
     if (error instanceof TrustedUserIdentityPinMismatchError) {
       throw new KeyingVerificationError(
         "equivocation",
         error.existing.userId !== error.candidate.userId
-          ? `Signing key for ${input.identity.userId} is already bound to ${error.existing.userId}`
-          : `Trusted user identity changed for ${input.identity.userId}`,
+          ? `Signing key for ${error.candidate.userId} is already bound to ${error.existing.userId}`
+          : `Trusted user identity changed for ${error.candidate.userId}`,
       );
     }
     if (error instanceof TrustedUserIdentityPinCorruptError) {
       throw new KeyingVerificationError(
         "invalid_shape",
-        `Trusted user identity pin is corrupt for ${input.identity.userId}`,
+        `Trusted user identity pin is corrupt for ${error.userId}`,
       );
     }
     if (error instanceof TrustedUserIdentityPinContentionError) {
       // Lock contention says nothing about the identity; the caller retries
       // once the trust store is free, so this must not be recordable evidence.
       throw new DatabaseUnavailableError(
-        `Trusted user identity pin store is busy for ${input.identity.userId}`,
+        `Trusted user identity pin store is busy for ${userIds.join(", ")}`,
       );
     }
     throw error;
@@ -198,11 +210,11 @@ async function pinIdentity(input: {
   readonly identity: ValidatedUserIdentityCandidate;
   readonly provenance: TrustedUserIdentityPinProvenance;
 }): Promise<TrustedUserIdentity> {
-  await compareWithDurablePin({
+  await compareWithDurablePins({
     assertCurrent: input.assertCurrent,
     execSql: input.execSql,
     firstSeenAt: (input.dependencies.now?.() ?? new Date()).toISOString(),
-    identity: input.identity,
+    identities: [input.identity],
     provenance: input.provenance,
   });
   return brandTrustedUserIdentity(input.identity);
@@ -402,12 +414,12 @@ export function createTrustedUserIdentityService(
       {
         loadCandidate: (userId, identityTrustDomain) =>
           loadRemoteCandidate(dependencies, userId, identityTrustDomain),
-        pinObserved: (execSql, identity, assertCurrent) =>
-          pinIdentity({
+        pinObserved: (execSql, identities, assertCurrent) =>
+          compareWithDurablePins({
             assertCurrent,
-            dependencies,
             execSql,
-            identity,
+            firstSeenAt: (dependencies.now?.() ?? new Date()).toISOString(),
+            identities,
             provenance: "observed",
           }),
       },

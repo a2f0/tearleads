@@ -9,9 +9,10 @@ test("a partially pinned policy resolves only the unpinned identities", async ()
     fixture.resetCounts();
     await expect(fixture.verify()).resolves.toHaveLength(1);
     console.log("review-sdk-pins-partial", JSON.stringify(fixture.counts()));
+    // Staged first sights publish in one write transaction, not one each.
     expect(fixture.counts()).toMatchObject({
-      pinSelects: 13,
-      transactions: 9,
+      pinSelects: 10,
+      transactions: 3,
       writes: 4,
       loads: 4,
       requests: 4,
@@ -42,7 +43,8 @@ for (const memberCount of [2, 8, 32]) {
       );
       expect(cold.requests).toBe(memberCount);
       expect(cold.writes).toBe(memberCount);
-      expect(cold.transactions).toBe(2 * memberCount + 1);
+      // Pin load, publication's match read, and one write for every member.
+      expect(cold.transactions).toBe(3);
       expect(warm).toMatchObject({
         pinSelects: 1,
         transactions: 1,

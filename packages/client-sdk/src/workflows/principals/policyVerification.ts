@@ -6,6 +6,7 @@ import {
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import {
+  type AuthenticatedSigner,
   publishVerifiedPolicyBundle,
   withUnauthenticatedPolicyIdentities,
 } from "../../data/principals/principalIdentityCommitments";
@@ -98,6 +99,35 @@ function committedSignerBundle(
   return predecessor.projection.find(
     (member) => member.userId === state.signerUserId,
   )?.identityBundleFingerprint;
+}
+
+/**
+ * The signers of chain entries the history verifier accepted, each with the
+ * identity bundle its hash-linked predecessor's signed projection committed.
+ * Published only once the whole chain reaches its expected head.
+ */
+export function acceptedEntrySigners(
+  entries: readonly {
+    readonly state: PrincipalPolicyBundleResponse["currentState"];
+    readonly projection: readonly PrincipalProjectionMember[];
+  }[],
+  predecessor: SignedProjection | null,
+): AuthenticatedSigner[] {
+  const predecessors = new Map<number, SignedProjection>(
+    [
+      ...(predecessor ? [predecessor] : []),
+      ...entries.map((entry) => ({
+        version: entry.state.version,
+        stateHash: entry.state.stateHash,
+        projection: entry.projection,
+      })),
+    ].map((entry) => [entry.version, entry]),
+  );
+  return entries.map(({ state }) => ({
+    userId: state.signerUserId,
+    signingKeyFingerprint: state.signerUserKeyFingerprint,
+    identityBundleFingerprint: committedSignerBundle(state, predecessors),
+  }));
 }
 
 export async function collectPrincipalPolicySignerPublicKeys(input: {

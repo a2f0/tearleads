@@ -3,11 +3,13 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createPin } from "../../../test/helpers/trustedUserIdentityPin";
 import { createExecSql } from "../sqlite/sqlSchema";
 import {
-  compareOrInsertTrustedUserIdentityPin,
-  loadTrustedUserIdentityPin,
   TrustedUserIdentityPinCorruptError,
   TrustedUserIdentityPinInputError,
   TrustedUserIdentityPinMismatchError,
+} from "./identity/trustedUserIdentityPinModel";
+import {
+  compareOrInsertTrustedUserIdentityPin,
+  loadTrustedUserIdentityPin,
 } from "./trustedUserIdentityPinPersistence";
 
 test("trusted identity pins are inserted once and loaded by trust domain", async () => {

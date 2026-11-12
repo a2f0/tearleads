@@ -88,6 +88,7 @@ async function restorePublicPrefix(
           saved: null,
           cachedPrefix: prefix,
           authorityReference,
+          acceptedSigners: [],
         };
       }
     }
@@ -161,6 +162,7 @@ export async function restorePublicPrincipalHistoryProgress(
           saved,
           cachedPrefix: null,
           authorityReference,
+          acceptedSigners: [],
         };
       }
     }
@@ -185,6 +187,7 @@ export async function restorePublicPrincipalHistoryProgress(
     saved: null,
     cachedPrefix: null,
     authorityReference: null,
+    acceptedSigners: [],
   };
 }
 

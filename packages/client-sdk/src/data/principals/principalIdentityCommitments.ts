@@ -182,6 +182,51 @@ export function publishVerifiedPolicyBundle(
   });
 }
 
+/** A history signer and, when its predecessor committed one, its bundle. */
+export interface AuthenticatedSigner {
+  readonly userId: string;
+  readonly signingKeyFingerprint: string;
+  readonly identityBundleFingerprint: string | undefined;
+}
+
+/**
+ * Pin the signers of a history verified through its expected head, rechecking
+ * each signed fingerprint and every committed bundle, within the recovery's
+ * lifetime. Pages pin nothing themselves: until the head connects, a forged
+ * prefix could otherwise pin a substituted signer.
+ */
+export function publishAuthenticatedSigners(
+  signers: readonly AuthenticatedSigner[],
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
+  assertCurrent: () => void,
+): Promise<void> {
+  const unique = new Map(
+    signers.map((signer) => [
+      `${signer.userId}:${signer.signingKeyFingerprint}:${signer.identityBundleFingerprint ?? ""}`,
+      signer,
+    ]),
+  );
+  if (unique.size === 0) return Promise.resolve();
+  return publishVerifiedPolicyIdentities({
+    signers: [...unique.values()],
+    projections: [
+      [...unique.values()].flatMap((signer) =>
+        signer.identityBundleFingerprint === undefined
+          ? []
+          : [
+              {
+                userId: signer.userId,
+                role: "member" as const,
+                identityBundleFingerprint: signer.identityBundleFingerprint,
+              },
+            ],
+      ),
+    ],
+    resolveTrustedUserIdentity,
+    assertCurrent,
+  });
+}
+
 async function compareCommitments(
   projections: readonly (readonly PrincipalProjectionMember[])[],
   resolve: StagedUserIdentityResolver,

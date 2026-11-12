@@ -18,7 +18,10 @@ import {
 } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
-import { assertSelectedPolicyCommitments } from "../../../data/principals/principalIdentityCommitments";
+import {
+  assertSelectedPolicyCommitments,
+  publishAuthenticatedSigners,
+} from "../../../data/principals/principalIdentityCommitments";
 import { appendVerifiedHistoryPage } from "./principalHistoryPageAppend";
 import { validatePrincipalHistoryRecoveryAuthority } from "./principalHistoryRecoveryAuthority";
 import { publishReusablePrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";
@@ -207,6 +210,12 @@ async function finishRecovery(
   }
   await assertSelectedPolicyCommitments(
     [current.value],
+    input.resolveTrustedUserIdentity,
+    () => assertCurrent(input),
+  );
+  // The chain now reaches its expected head: pin the signers it accepted.
+  await publishAuthenticatedSigners(
+    stage.acceptedSigners,
     input.resolveTrustedUserIdentity,
     () => assertCurrent(input),
   );

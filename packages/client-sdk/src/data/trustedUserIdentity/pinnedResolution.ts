@@ -1,9 +1,7 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { loadTrustedUserIdentityPins } from "../persistence/identity/trustedUserIdentityPinBatch";
-import {
-  type TrustedUserIdentityPin,
-  TrustedUserIdentityPinCorruptError,
-} from "../persistence/trustedUserIdentityPinPersistence";
+import { TrustedUserIdentityPinCorruptError } from "../persistence/identity/trustedUserIdentityPinModel";
+import type { TrustedUserIdentityPin } from "../persistence/trustedUserIdentityPinPersistence";
 import { TrustedUserIdentityPinContentionError } from "../persistence/trustedUserIdentityPinTransaction";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
@@ -27,12 +25,13 @@ export interface FirstSightIdentitySteps {
     identityTrustDomain: string,
   ) => Promise<ValidatedUserIdentityCandidate | null>;
   /**
-   * Compare-or-insert one candidate as an `observed` pin; `assertCurrent`
-   * runs inside its write transaction so a stale operation commits nothing.
+   * Compare-or-insert candidates as `observed` pins in one write transaction:
+   * a conflict on any of them, or a failed `assertCurrent` at COMMIT, commits
+   * none, so a refused scope leaves no partial publication.
    */
   readonly pinObserved: (
     execSql: ExecSql,
-    identity: ValidatedUserIdentityCandidate,
+    identities: readonly ValidatedUserIdentityCandidate[],
     assertCurrent: () => void,
   ) => Promise<unknown>;
 }
@@ -165,15 +164,14 @@ export function withPinnedIdentityResolution(
         const result = await verify(
           stagedResolver({ fetched, firstSight, pins, resolve, scope, staged }),
         );
-        if (options.publish)
-          for (const candidate of staged.values()) {
-            scope.assertCurrent();
-            await firstSight.pinObserved(
-              scope.execSql,
-              candidate,
-              scope.assertCurrent,
-            );
-          }
+        if (options.publish && staged.size > 0) {
+          scope.assertCurrent();
+          await firstSight.pinObserved(
+            scope.execSql,
+            [...staged.values()],
+            scope.assertCurrent,
+          );
+        }
         scope.assertCurrent();
         published = options.publish;
         return result;
