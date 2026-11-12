@@ -76,9 +76,9 @@ records what it owns in
 routine agent-tool commands, including post-merge `repo cleanup --apply`, which
 deletes the shipped local and remote feature branch only for a confirmed merged
 PR and never a default or exempt branch. Merges, dependency additions,
-publishing, and permission changes get no Claude Code rule, so they follow each
-user's chosen mode, while Codex prompts before them; the agent-tool
-[permissions guide](https://github.com/a2f0/agent-tool/blob/fe18524aaf0ce3279766661c70b5b097492e2a4e/docs/permissions.md)
+publishing, and permission changes get no generated rule in either harness, so
+they follow each user's chosen approval and sandbox policies; the agent-tool
+[permissions guide](https://github.com/a2f0/agent-tool/blob/4fb7feda9278877677fc532542cb505a4d4f3129/docs/permissions.md)
 lists every class. Cleanup is grouped as `share`; applied teardown and skill or
 hook installs are `local`. These labels do not change the effective rules or
 runtime guards. The files are generated: do not edit or reformat them, and rerun
@@ -87,20 +87,38 @@ runtime guards. The files are generated: do not edit or reformat them, and rerun
 `permissions check` after `skills check`, so `check:fast`, CI's `Lint` job, and
 pre-push fail when the rules are missing, edited, or stale.
 
+Generated Codex rules contain no `prompt` decisions so an authorized `ship-pr`
+request can finish in `never` approval mode with `danger-full-access`. An
+explicit `prompt` rule rejects the command in that mode. In `on-request` mode,
+commands the sandbox permits can also run without a prompt. Consequential
+commands receive no new allow rules; user and managed restrictions still apply.
+User authorization, required CI, base freshness, and the reviewed-commit merge
+checks remain required. The separate repository-owned
+[rules file](../../.codex/rules/tearleads.rules) forbids direct `gh pr merge`,
+`npm publish`, and `bun publish`. Merges use the guarded helper required by
+[`AGENTS.md`](../../AGENTS.md#agent-tooling-and-shipping); packages publish
+through CI after a reviewed merge. These restrictions apply in every Codex mode.
+
+Codex loads rules when a session starts. Users who want mandatory prompts for
+other commands can keep their own rules in their user configuration,
+with an approval mode that can ask; see the upstream permissions guide above.
+The installer preserves separate user rule files and refuses to overwrite
+locally edited managed rules.
+
 `permissions.executables` in [`agent-tool.json`](../../agent-tool.json)
 classifies the installed CLIs this repository's guidance runs directly. Agents
 run them as `bun run agent-tool bun x <name> [--cwd <package>] -- [args...]`,
 which runs the checkout's own `node_modules/.bin/<name>` with the pinned Bun.
 Use it in place of a `bunx <name>` spelling in a guide: direct `bunx` and
-`bun x` are never allowed, and Codex prompts before them, since they can
-download a package.
+`bun x` can download a package, so they receive no generated allow rule and
+keep the harness default.
 
 | Executable | Class | Installed in | Guidance |
 | --- | --- | --- | --- |
 | `tsc` | `local`: allowed | root | [`AGENTS.md`](../../AGENTS.md) and [client SDK seams](client-sdk-seams.md) type checks |
 | `commitlint` | `local`: allowed | root | [`AGENTS.md`](../../AGENTS.md) PR title check |
 | `cap` | `local`: allowed | [`packages/app-capacitor`](../../packages/app-capacitor/) | [Maestro](../../packages/app-capacitor/maestro/README.md) native syncs |
-| `wrangler` | `release`: not allowed; Codex prompts | [`packages/api`](../../packages/api/), [`packages/app-web`](../../packages/app-web/), [`packages/website`](../../packages/website/) | [Worker deletion](greenfield-reset.md) and [log tails](api-request-cost.md); it can also deploy |
+| `wrangler` | `release`: no generated allow rule; follows user policy | [`packages/api`](../../packages/api/), [`packages/app-web`](../../packages/app-web/), [`packages/website`](../../packages/website/) | [Worker deletion](greenfield-reset.md) and [log tails](api-request-cost.md); it can also deploy |
 
 Classify a whole executable by its riskiest subcommand, and add a CLI here and
 in [`agent-tool.json`](../../agent-tool.json) before guidance tells agents to
