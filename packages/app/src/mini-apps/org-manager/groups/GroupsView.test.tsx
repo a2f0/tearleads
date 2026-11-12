@@ -145,7 +145,6 @@ function renderGroupsView(input: {
     <GroupsView
       addUser={() => undefined}
       addUserId=""
-      addUserListId="add-user-list"
       addableUsers={[]}
       canCreateGroup={input.canCreateGroup ?? false}
       canDeleteGroup={input.canDeleteGroup ?? ((group) => !group.isBuiltin)}
