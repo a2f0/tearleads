@@ -93,12 +93,20 @@ test("levels a destination check served become citable; a forged held level is r
         },
       });
 
+    const citeWithoutLineage = () =>
+      loadVerifiedManifestCitations(database.execSql, {
+        kind: "container",
+        id: "new-root",
+        listing: { organizationId: projection.organizationId, parentId: null },
+      });
+
     // The destination path recorded the parent's level: a child read cites it.
     const served = projection.containerKeks.at(-1);
     if (!served) throw new Error("fixture has no container KEK level");
     const servedLevel = containerKekWireLevel(served);
     const held = citedLevels(await citeForChild());
     expect(held).toEqual([servedLevel]);
+    expect(citedLevels(await citeWithoutLineage())).toEqual([servedLevel]);
     expect(await computeContainerKekLevelDigest(held[0] ?? servedLevel)).toBe(
       await computeContainerKekLevelDigest(servedLevel),
     );
@@ -118,6 +126,7 @@ test("levels a destination check served become citable; a forged held level is r
       ],
     });
     expect(citedLevels(await citeForChild())).toEqual([forged]);
+    expect(citedLevels(await citeWithoutLineage())).toEqual([forged]);
 
     // ... but a read that refills it verifies the bytes like served ones.
     const refilled = {
