@@ -124,7 +124,7 @@ function retryPatch(draft: AddressDraft): Partial<ContactAddressFields> {
   return patch;
 }
 
-export function contactAddressPatch(
+function contactAddressPatch(
   base: ContactAddressFields,
   values: ContactAddressFields,
 ): Partial<ContactAddressFields> {
