@@ -104,14 +104,16 @@ async function applyPendingSteps(
   verify: VerifyLocalSchema,
 ): Promise<void> {
   const baseline = state.status === "legacy" ? state.record : [];
-  await execSql(
-    [
-      `SAVEPOINT ${SAVEPOINT}`,
-      LEDGER_DDL,
-      ...recordStepsSql(baseline, now()),
-    ].join(";\n"),
-  );
   try {
+    // Inside the try: a conflicting baseline row (another connection recorded
+    // it first) must still roll back and release this savepoint.
+    await execSql(
+      [
+        `SAVEPOINT ${SAVEPOINT}`,
+        LEDGER_DDL,
+        ...recordStepsSql(baseline, now()),
+      ].join(";\n"),
+    );
     const context = migrationContext(execSql);
     for (const migration of state.pending) {
       await migration.up(execSql, context);

@@ -143,27 +143,39 @@ test("a failing step rolls back every step and ledger row of its run", () =>
     expect(columns).toEqual([{ name: "id" }]);
   }));
 
-test("a run that loses the first migration to another connection accepts its ledger", () =>
-  withDatabase("local-schema-race", async (execSql) => {
-    // Another connection records the ledger between this run's read and its
-    // write, so this run's insert conflicts.
-    let raced = false;
-    const racing = (async (sql: string, bind?: never) => {
-      if (!raced && sql.includes("INSERT INTO")) {
-        raced = true;
-        await execSql(
-          `CREATE TABLE IF NOT EXISTS "${LOCAL_SCHEMA_MIGRATIONS_TABLE}" ("version" INTEGER PRIMARY KEY NOT NULL, "name" TEXT NOT NULL, "applied_at" INTEGER NOT NULL)`,
-        );
-        await execSql(
-          `INSERT INTO "${LOCAL_SCHEMA_MIGRATIONS_TABLE}" VALUES (1, 'baseline', 0)`,
-        );
+// Another connection records the baseline between this run's read and its
+// write, so this run's ledger insert conflicts.
+function racingExecSql(execSql: TestExecSql): TestExecSql {
+  let raced = false;
+  return (async (sql: string, bind?: never) => {
+    if (!raced && sql.includes("INSERT INTO")) {
+      raced = true;
+      await execSql(
+        `CREATE TABLE IF NOT EXISTS "${LOCAL_SCHEMA_MIGRATIONS_TABLE}" ("version" INTEGER PRIMARY KEY NOT NULL, "name" TEXT NOT NULL, "applied_at" INTEGER NOT NULL)`,
+      );
+      await execSql(
+        `INSERT INTO "${LOCAL_SCHEMA_MIGRATIONS_TABLE}" VALUES (1, 'baseline', 0)`,
+      );
+    }
+    return execSql(sql, bind);
+  }) as TestExecSql;
+}
+
+for (const legacy of [false, true]) {
+  test(`a ${legacy ? "legacy" : "fresh"} run that loses the first migration to another connection accepts its ledger and leaves no transaction open`, () =>
+    withDatabase(`local-schema-race-${legacy}`, async (execSql) => {
+      if (legacy) {
+        await execSql('CREATE TABLE "notes" ("id" TEXT PRIMARY KEY NOT NULL)');
       }
-      return execSql(sql, bind);
-    }) as TestExecSql;
-    const state = await migrateLocalSchema(racing, { migrations: [] });
-    expect(state).toEqual({ status: "current", version: 1 });
-    expect(await ledger(execSql)).toEqual(["1:baseline"]);
-  }));
+      const state = await migrateLocalSchema(racingExecSql(execSql), {
+        migrations: [],
+      });
+      expect(state).toEqual({ status: "current", version: 1 });
+      expect(await ledger(execSql)).toEqual(["1:baseline"]);
+      await execSql("BEGIN");
+      await execSql("COMMIT");
+    }));
+}
 
 test("a database written by a newer build is refused without changes", () =>
   withDatabase("local-schema-ahead", async (execSql) => {
