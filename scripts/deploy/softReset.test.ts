@@ -173,9 +173,30 @@ test("apply requires an explicit tier and exact destructive confirmation", () =>
     ["prod", "--unknown"],
   ]) {
     const result = Bun.spawnSync([process.execPath, command, ...args], {
-      env: { PATH: "/nonexistent", HOME: "/nonexistent" },
+      env: {
+        PATH: "/nonexistent",
+        HOME: "/nonexistent",
+        TEARLEADS_TEARDOWN_TIER: "prod",
+      },
     });
     expect(result.exitCode).toBe(1);
     expect(result.stderr.toString()).toContain("authorization");
   }
 });
+
+for (const stack of ["postgres", "storage"]) {
+  test(`production ${stack} refusal describes the direct command boundary`, () => {
+    const wrapper = join(
+      import.meta.dir,
+      `../../terraform/scripts/run-${stack}-stack.sh`,
+    );
+    const result = Bun.spawnSync(["/bin/bash", wrapper, "prod", "destroy"], {
+      env: { PATH: "/usr/bin:/bin", HOME: "/nonexistent" },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout.toString()).toBe("");
+    expect(result.stderr.toString()).toContain(
+      "Direct production destroy is disabled; use the authorized saved-plan workflow.",
+    );
+  });
+}

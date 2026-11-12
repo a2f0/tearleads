@@ -1,9 +1,10 @@
 # shellcheck shell=bash
-# Every teardown step that can delete a tier's data sources this and calls
-# require_teardown_authorized before loading credentials. Staging steps run on
-# their own; production steps run only under scripts/deploy/destroyProduction.sh,
-# which asks for the production domain first and then exports
-# TEARLEADS_TEARDOWN_TIER=prod for the steps it runs.
+# Dedicated teardown helpers call require_teardown_authorized before loading
+# credentials. Staging steps run on their own. Production callers supply
+# TEARLEADS_TEARDOWN_TIER=prod after their own confirmation: destroyProduction.sh
+# for complete teardown, or softReset.ts for its maintenance/data helpers.
+# The low-level stack wrappers do not source this guard; their authorized
+# saved-plan callers own confirmation and plan inspection separately.
 
 require_teardown_authorized() {
   case "${1:-}" in

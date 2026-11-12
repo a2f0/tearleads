@@ -71,6 +71,17 @@ are removed, not blanked, before blob probes use the inspected credentials.
 `TEARLEADS_TEARDOWN_TIER` is passed only to the maintenance, drop-owned, and
 empty-R2 helpers, never to ordinary builds or deployments.
 
+Authorization belongs to this command's exact apply confirmation, which is
+checked before creating a run or planning destruction. An inherited teardown
+marker cannot replace that confirmation. The PostgreSQL/storage wrappers
+deliberately permit plan/apply, including the
+[existing saved-plan destruction route](#production-destruction-protections),
+without that marker; they reject only the direct `prod destroy` command.
+They are low-level tools for trusted operators, not a general deletion-policy
+boundary. Soft reset separately validates the exact resource/action/identity
+scope and binds apply to the inspected bytes. Ordinary saved replacements or
+resource removals are not reclassified as full teardowns by this command.
+
 Before downtime the command verifies expected database/branch, Cloudflare
 account, blob bucket/endpoint, migration role, and unchanged hostnames. It
 requires healthy API/app/demo/site endpoints, drift-free database/storage
@@ -263,9 +274,13 @@ They are gitignored, so a clean `git status` does not prove their absence.
 
 The database protection resource's destroy action releases PlanetScale branch
 deletion protection in the correct dependency order. Let Terraform execute it.
-The storage wrapper rejects `prod destroy`; the authorized full-reset route is
-an inspected `plan -destroy` followed by `apply` of that saved plan with the
-temporary lifecycle override. Keep the wrapper's ordinary protections intact.
+The PostgreSQL/storage wrappers reject the direct `prod destroy` command;
+they do not inspect plan actions or enforce the teardown marker on plan/apply.
+The authorized full-reset route is an inspected `plan -destroy` followed by
+`apply` of that saved plan with the temporary lifecycle override. Confirmation,
+override ownership, and plan inspection belong to the caller. Keep the
+wrapper's ordinary protections intact; its command allowlist is not a promise
+that arbitrary Terraform arguments or saved plans cannot delete resources.
 
 `terraform/scripts/destroy-stack.sh <tier> <stack>` implements that route. It
 derives the protected addresses from the stack's configuration, writes the

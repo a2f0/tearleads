@@ -225,6 +225,9 @@ export async function savedPlan(
   stack: Stack,
   action: "no-op" | "delete" | "create",
 ) {
+  // softReset.ts checks the exact apply confirmation before creating the run.
+  // Keep the established saved-plan route: destroy-stack.sh would generate
+  // and immediately apply a broader plan instead of the bytes validated here.
   refuseOverrides(run);
   const path = join(run.privateDir, `${stack}-${action}.tfplan`);
   const override = join(
