@@ -25,7 +25,7 @@ configure_api_sentry() {
 
 api_checkout_is_clean() {
   local checkout_state
-  checkout_state="$(git -C "$1" status --porcelain)" || return 1
+  checkout_state="$(git -c core.fsmonitor=false -C "$1" status --porcelain)" || return 1
   [[ -z "$checkout_state" ]]
 }
 
@@ -33,7 +33,7 @@ build_api_worker() {
   local api_dir="$1" tier="$2" config="$3" output="$4"
   local commit defines_text define
   local -a defines=()
-  commit="$(git -C "$api_dir" rev-parse HEAD)" || return 1
+  commit="$(git -c core.fsmonitor=false -C "$api_dir" rev-parse HEAD)" || return 1
   if [[ -n "${API_SENTRY_DSN:-}" ]] && ! api_checkout_is_clean "$api_dir"; then
     echo "ERROR: API source-map publishing requires a clean checkout." >&2
     return 1
@@ -48,7 +48,7 @@ build_api_worker() {
     echo "ERROR: Missing API Worker bundle or source map." >&2
     return 1
   fi
-  if [[ "$commit" != "$(git -C "$api_dir" rev-parse HEAD)" ]]; then
+  if [[ "$commit" != "$(git -c core.fsmonitor=false -C "$api_dir" rev-parse HEAD)" ]]; then
     echo "ERROR: API revision changed during the build." >&2
     return 1
   fi

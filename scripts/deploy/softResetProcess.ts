@@ -63,32 +63,46 @@ export function superviseCommand(
       groupAlive: groupAlive(child.pid),
     });
   const stopTimer = scheduler.every(observe);
+  function finish(next: Extract<ProcessState, { status: "settled" }>) {
+    stopTimer();
+    child.unref();
+    if (groupAlive(child.pid))
+      console.error(
+        "Process group remains after teardown; inspect descendants manually.",
+      );
+    if (outcome && "error" in outcome) reject(outcome.error);
+    else if (next.reason === "descendants")
+      reject(
+        new Error(
+          "Command left live descendants after its leader exited; automatic cleanup required. Inspect private command logs; manual recovery required.",
+        ),
+      );
+    else resolve(outcome?.code ?? null);
+  }
   function send(event: ProcessEvent) {
     const next = transitionProcess(state, event, policy);
     if (next === state) return;
     state = next;
     switch (next.status) {
+      case "observing":
+        console.error(
+          "Command leader exited with live descendants; observing the owned group for 1s before cleanup.",
+        );
+        break;
       case "draining":
         console.error(
-          `Cancellation: ${policy}; allowing ${interruptPolicies[policy].graceMs / 1000}s for the process group to stop. Repeated signals are ignored.`,
+          `${next.reason === "descendants" ? "Natural-exit descendant cleanup (command failed)" : "Cancellation"}: ${policy}; allowing ${interruptPolicies[policy].graceMs / 1000}s for the process group to stop. Repeated signals are ignored.`,
         );
         killGroup(child.pid, interruptPolicies[policy].signal);
         break;
       case "forcing":
         console.error(
-          "Cancellation grace expired; forcing process group termination. State may be incomplete and a backend lock may remain; manual recovery required.",
+          "Process group grace expired; forcing process group termination. State may be incomplete and a backend lock may remain; manual recovery required.",
         );
         killGroup(child.pid, "SIGKILL");
         break;
       case "settled":
-        stopTimer();
-        child.unref();
-        if (groupAlive(child.pid))
-          console.error(
-            "Process group remains after teardown; inspect descendants manually.",
-          );
-        if (outcome && "error" in outcome) reject(outcome.error);
-        else resolve(outcome?.code ?? null);
+        finish(next);
         break;
       case "running":
         break;

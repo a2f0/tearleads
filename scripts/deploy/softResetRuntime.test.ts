@@ -4,11 +4,13 @@ import { join } from "node:path";
 import { fixture } from "./softReset.testUtils";
 
 test.each([
-  ["none", 1, "failed"],
-  ["SIGHUP", 129, "interrupted"],
+  ["none", 1, "failed", "terraform-state"],
+  ["SIGHUP", 129, "interrupted", "terraform-state"],
+  ["none", 1, "failed", "bounded-command"],
+  ["SIGHUP", 129, "interrupted", "bounded-command"],
 ] as const)(
-  "spawn error with queued signal %s retains recovery evidence",
-  (signal, code, status) => {
+  "spawn error with queued signal %s exit=%s status=%s policy=%s retains evidence",
+  (signal, code, status, policy) => {
     const f = fixture();
     try {
       const driver = join(f.root, "spawn-error.ts");
@@ -20,7 +22,7 @@ import { writeFileSync } from "node:fs";
 const run = new ResetRun(${JSON.stringify(f.repo)}, "prod");
 let success = false;
 try {
-  await run.step("missing-command", () => run.exec(["missing-cancel-fixture-executable"], "terraform-state"));
+  await run.step("missing-command", () => run.exec(["missing-cancel-fixture-executable"], ${JSON.stringify(policy)}));
   writeFileSync(${JSON.stringify(join(f.root, "later-step"))}, "");
   success = true;
 } catch (error) { console.error(String(error)); }

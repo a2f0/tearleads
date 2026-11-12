@@ -142,11 +142,22 @@ started phase's status/elapsed milliseconds, and total runtime. The terminal
 prints the same summary on success, failure, SIGINT, SIGTERM, or SIGHUP.
 Cancellation exits with the first signal's code: 130 for SIGINT, 143 for
 SIGTERM, and 129 for SIGHUP. Later operator signals do not accelerate teardown
-or change that code.
+or change that code, including when automatic cleanup began first. An operator
+signal during natural-exit observation starts the full policy grace; signals
+after cleanup begins neither resend its signal nor change its fixed deadline.
+
+When a command leader exits, its owned group gets a **one-second no-signal
+observation period** for ordinary descendant teardown. If the whole group
+finishes in that window, the original exit code is preserved. Otherwise, the
+reset starts automatic cleanup and **fails the command even if its leader
+exited zero** and the descendants stop cooperatively. The failed step retains
+its timing, lock, and private evidence; no later reset effect runs. The reset's
+source checks and API source/index probes disable inherited Git fsmonitor.
 
 Commands that can run Terraform receive **one SIGINT** to their detached
 process group and a fixed **60-second grace period**, measured from the first
-cancellation, to stop work, save partial state, and release backend locks. This
+cancellation or automatic cleanup, to stop work, save partial state, and release
+backend locks. This
 includes `init` inside stack-output wrappers, plan/apply, API preflight and
 API deployment, and the drop-owned/empty-bucket helpers. A wrapper exiting
 does not end the grace period while descendants remain. Wrappers also stop

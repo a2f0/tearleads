@@ -27,7 +27,11 @@ test("fixed Terraform deadline survives repeated interrupts and wrapper close", 
   const start: ProcessState = { status: "running" };
   const interrupt = { type: "interrupt", now: 500 } as const;
   const draining = transitionProcess(start, interrupt, "terraform-state");
-  expect(draining).toEqual({ status: "draining", deadline: 60_500 });
+  expect(draining).toEqual({
+    status: "draining",
+    reason: "interrupted",
+    deadline: 60_500,
+  });
   const observe = (now: number, groupAlive = true) =>
     ({ type: "observe", now, leaderClosed: true, groupAlive }) as const;
   expect(
@@ -41,7 +45,11 @@ test("fixed Terraform deadline survives repeated interrupts and wrapper close", 
     observe(60_500),
     "terraform-state",
   );
-  expect(forcing).toEqual({ status: "forcing", deadline: 61_500 });
+  expect(forcing).toEqual({
+    status: "forcing",
+    reason: "interrupted",
+    deadline: 61_500,
+  });
   expect(transitionProcess(forcing, interrupt, "terraform-state")).toBe(
     forcing,
   );
@@ -53,20 +61,23 @@ test("fixed Terraform deadline survives repeated interrupts and wrapper close", 
     observe(61_500),
     "terraform-state",
   );
-  expect(settled).toEqual({ status: "settled" });
+  expect(settled).toEqual({ status: "settled", reason: "interrupted" });
   expect(transitionProcess(settled, interrupt, "terraform-state")).toBe(
     settled,
   );
   expect(
     transitionProcess(draining, observe(900, false), "terraform-state"),
-  ).toEqual({ status: "settled" });
+  ).toEqual({ status: "settled", reason: "interrupted" });
   expect(
     transitionProcess(forcing, observe(60_501, false), "terraform-state"),
-  ).toEqual({ status: "settled" });
-  expect(transitionProcess(start, observe(501), "terraform-state")).toBe(start);
+  ).toEqual({ status: "settled", reason: "interrupted" });
+  expect(transitionProcess(start, observe(501), "terraform-state")).toEqual({
+    status: "observing",
+    deadline: 1501,
+  });
   expect(
     transitionProcess(start, observe(501, false), "terraform-state"),
-  ).toEqual({ status: "settled" });
+  ).toEqual({ status: "settled", reason: "natural" });
 });
 
 test.each(["after", "before"] as const)(

@@ -163,15 +163,22 @@ export class ResetRun {
   async source() {
     this.requireLock();
     const sha = await this.exec(
-      ["git", "rev-parse", "HEAD"],
+      ["git", "-c", "core.fsmonitor=false", "rev-parse", "HEAD"],
       "bounded-command",
     );
     const dirty = await this.exec(
-      ["git", "status", "--porcelain", "--untracked-files=all"],
+      [
+        "git",
+        "-c",
+        "core.fsmonitor=false",
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+      ],
       "bounded-command",
     );
     const root = await this.exec(
-      ["git", "rev-parse", "--show-toplevel"],
+      ["git", "-c", "core.fsmonitor=false", "rev-parse", "--show-toplevel"],
       "bounded-command",
     );
     if (
