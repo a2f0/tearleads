@@ -3,7 +3,7 @@ import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStag
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   principalHistoryStageRootOwnerColumns,
-  releasePrincipalHistoryRoot,
+  releasePrincipalHistoryRoots,
 } from "./principalHistoryRootOwnership";
 
 const INCOMPLETE_STAGE_LIMIT = 8;
@@ -40,7 +40,11 @@ export async function reclaimIncompletePrincipalHistoryStages(
     // The writer always keeps its own stage, even when recency hints tie.
     .offset(INCOMPLETE_STAGE_LIMIT - (current.complete ? 0 : 1))
     .limit(RECLAIM_BATCH_LIMIT);
-  for (const owner of obsolete) await releasePrincipalHistoryRoot(tx, owner);
+  await releasePrincipalHistoryRoots(
+    tx,
+    current,
+    obsolete.map(({ rootHash }) => rootHash),
+  );
   const ids = obsolete.map(({ id }) => id);
   if (ids.length === 0) return;
   await tx

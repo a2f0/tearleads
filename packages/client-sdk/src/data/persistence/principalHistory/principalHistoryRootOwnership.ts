@@ -1,9 +1,10 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   principalHistoryNodes,
   principalHistoryPrefixes,
 } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
+import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 export interface PrincipalHistoryNodeScope {
@@ -186,4 +187,38 @@ export async function releasePrincipalHistoryRoot(
   const owned = ownedRoot(owner);
   if (owned)
     await decrementPrincipalHistoryNodeReference(tx, owned, owned.rootHash);
+}
+
+/** Release scoped stage roots with the same floor as successive decrements. */
+export async function releasePrincipalHistoryRoots(
+  tx: ClientSQLiteTransactionScope,
+  scope: PrincipalHistoryNodeScope,
+  roots: readonly (string | null)[],
+) {
+  const multiplicity = new Map<string, number>();
+  for (const hash of roots)
+    if (hash) multiplicity.set(hash, (multiplicity.get(hash) ?? 0) + 1);
+  const byCount = new Map<number, string[]>();
+  for (const [hash, count] of multiplicity)
+    byCount.set(count, [...(byCount.get(count) ?? []), hash]);
+  // One bound count and two scope predicates accompany each hash list.
+  const batchSize = sqliteRowsPerStatement(1, 3);
+  for (const [count, hashes] of byCount)
+    for (let offset = 0; offset < hashes.length; offset += batchSize)
+      await tx
+        .update(principalHistoryNodes)
+        .set({
+          referenceCount: sql`max(${principalHistoryNodes.referenceCount} - ${count}, 0)`,
+        })
+        .where(
+          and(
+            eq(principalHistoryNodes.scopeId, scope.scopeId),
+            eq(principalHistoryNodes.organizationId, scope.organizationId),
+            inArray(
+              principalHistoryNodes.hash,
+              hashes.slice(offset, offset + batchSize),
+            ),
+          ),
+        )
+        .run();
 }
