@@ -2,6 +2,7 @@ import {
   createExecSql,
   type DatabasePersistenceMode,
   type ExecSqlClientLike,
+  ensureLocalSchemaMigrated,
   requestPersistentStorage,
   type SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
@@ -196,6 +197,16 @@ export async function bootSQLiteRuntime(
       log(`Failed to verify SQLite database: ${describeBootError(error)}`);
       throw error;
     }
+  }
+
+  // Migrate before any feature runs, so no transaction a feature opens can
+  // contain the migration: the SDK's cross-tab migration lock ends when the
+  // migration commits, which inside an open transaction is not yet durable.
+  try {
+    await ensureLocalSchemaMigrated(createExecSql(runtime.client));
+  } catch (error) {
+    log(`Failed to migrate the local database: ${describeBootError(error)}`);
+    throw error;
   }
 
   // Report the mounted database's shape before features lazily create tables.

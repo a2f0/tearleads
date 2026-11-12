@@ -53,6 +53,7 @@
     "generate:openapi": "bun run --cwd packages/validators generate:openapi",
     "generate:protocol-traces": "bun scripts/protocol/generateBaselineDominanceTraces.ts",
     "generate:protocol-proof-vectors": "bun scripts/protocol/generateTransparencyVectors.ts",
+    "lint:api-migrations": "bun scripts/checks/lintApiMigrations.ts",
     "lint:architecture": "bun scripts/architecture/lintArchitecture.ts",
     "lint:binary-files": "agent-tool checks binaries",
     "lint:biome": "biome check --error-on-warnings && bun run lint:biome:promises",
