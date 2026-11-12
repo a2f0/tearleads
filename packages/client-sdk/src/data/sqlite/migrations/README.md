@@ -48,6 +48,15 @@ through COMMIT and calls `migrateLocalSchema` inside that transaction, so the
 restored data and its migration commit together and no tab checks the ledger
 in between.
 
+The lock covers migration checks, not ordinary statements. A tab that
+finished its own check earlier (typically one still running the previous
+build after an update) can still write inside another tab's migration
+savepoint and lose that write if the migration rolls back. Isolating one
+tab's transaction from another's needs a transaction lease in the SQLite
+worker; that, and keeping an older build's tab working against a newer
+schema, belong to mixed client versions, which this ledger does not yet
+handle.
+
 ## Adding a step
 
 1. Change the Drizzle table definition under [`../schema/`](../schema/) and
