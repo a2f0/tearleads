@@ -1,9 +1,14 @@
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
+import { ensureContactDocumentStore } from "./contactStoreInitialization";
+import { contactEntryFromDocumentStore } from "./contactStoreLookup";
 import {
   resolveContactWriteTarget,
   scheduleRemoteContactCleanup,
 } from "./contactStoreRemoteCleanup";
-import { removeContactEntry } from "./contactStoreSnapshotMutations";
+import {
+  removeContactEntry,
+  upsertContactEntry,
+} from "./contactStoreSnapshotMutations";
 import type { ContactsStoreState } from "./contactStoreTypes";
 import {
   type ResolvedSelfContactIdentity,
@@ -16,16 +21,42 @@ type DuplicateSelfContactRemovalResult =
   | "deleted"
   | "deferred"
   | "failed"
+  | "preserved"
   | "stale";
+
+async function hydrateDuplicateCandidate(
+  state: ContactsStoreState,
+  contactId: string,
+  scopeGuard: ContactStoreOperationGuard,
+): Promise<"ready" | "stale" | "preserved"> {
+  if (!scopeGuard()) return "stale";
+  const store = ensureContactDocumentStore(state, contactId, {
+    deferRemoteSync: true,
+  });
+  const ready = await store.ensureInitialized();
+  if (!scopeGuard()) return "stale";
+  const entry = contactEntryFromDocumentStore(contactId, store);
+  if (!ready || !entry) return "preserved";
+  upsertContactEntry(state, entry);
+  return "ready";
+}
 
 async function deleteDuplicateSelfContact(input: {
   entry: ContactEntry;
   guard: ContactStoreOperationGuard;
   primaryContactId: string;
+  scopeGuard: ContactStoreOperationGuard;
   state: ContactsStoreState;
 }): Promise<DuplicateSelfContactRemovalResult> {
   const { entry, guard, state } = input;
   const runtime = state.runtime;
+  const hydration = await hydrateDuplicateCandidate(
+    state,
+    entry.id,
+    input.scopeGuard,
+  );
+  if (hydration !== "ready") return hydration;
+  if (!guard()) return "preserved";
   const trackedStore = state.contactDocumentStoresById.get(entry.id);
   const loadedDocument = await runtime.loadDocumentSummary(entry.id);
   if (!guard()) {
@@ -176,8 +207,13 @@ export async function removeDuplicateSelfContacts(
   const generation = state.initializationGeneration;
   const userId = state.runtime.documents.auth.userId;
   const signingFingerprint = state.runtime.documents.crypto.signingFingerprint;
+  const scopeGuard = () =>
+    guard() &&
+    state.initializationGeneration === generation &&
+    state.runtime.documents.auth.userId === userId &&
+    state.runtime.documents.crypto.signingFingerprint === signingFingerprint;
   for (const entry of state.entriesById.values()) {
-    if (!guard()) {
+    if (!scopeGuard()) {
       return;
     }
     if (!shouldRemoveDuplicateSelfContact(entry, primaryContactId, identity)) {
@@ -186,15 +222,16 @@ export async function removeDuplicateSelfContacts(
     const removalResult = await deleteDuplicateSelfContact({
       entry,
       primaryContactId,
+      scopeGuard,
       guard: () => {
-        const currentEntry = state.entriesById.get(entry.id);
+        const tracked = state.contactDocumentStoresById.get(entry.id);
+        const currentEntry = tracked
+          ? contactEntryFromDocumentStore(entry.id, tracked.store)
+          : state.entriesById.get(entry.id);
         return (
-          guard() &&
-          state.initializationGeneration === generation &&
-          state.runtime.documents.auth.userId === userId &&
-          state.runtime.documents.crypto.signingFingerprint ===
-            signingFingerprint &&
-          currentEntry !== undefined &&
+          scopeGuard() &&
+          !tracked?.store.hasUnsavedLocalEdits() &&
+          currentEntry != null &&
           shouldRemoveDuplicateSelfContact(
             currentEntry,
             primaryContactId,

@@ -1,12 +1,16 @@
 import type { DomainScope } from "@tearleads/client-sdk";
-import {
-  type ContactEntry,
-  type ContactEntryPatch,
-  contactEntryToStructuredFieldPatch,
+import type {
+  ContactEntry,
+  ContactEntryPatch,
 } from "../../document-types/contact/contactDocumentModel";
 import { createDocumentDraft } from "../documents/documentDraft";
 import { TrashUnavailableError } from "../systemContainerTrash";
 import { loadContactDocumentSummary } from "./contactDocumentSummary";
+import {
+  addContactAddressInStore,
+  removeContactAddressInStore,
+  updateContactAddressInStore,
+} from "./contactStoreAddresses";
 import {
   removeContactAvatarInStore,
   setContactAvatarInStore,
@@ -15,8 +19,8 @@ import {
   type ContactStoreOperationGuard,
   removeDuplicateSelfContacts,
 } from "./contactStoreDuplicateSelfCleanup";
+import { writeContactPatch } from "./contactStoreFieldWrites";
 import {
-  ensureContactDocumentStore,
   ensureContactsInitialized,
   hasContactsContainerRuntime,
   resetContactsStore,
@@ -26,7 +30,6 @@ import {
   hydrateLateSelfContactFallback,
 } from "./contactStoreLateSelfReconciliation";
 import {
-  contactEntryFromDocumentStore,
   findContactByUserId,
   findSelfContact,
   getUserIdentityForSelfContact,
@@ -36,10 +39,7 @@ import {
   resolveContactWriteTarget,
   resumeRemoteContactCleanup,
 } from "./contactStoreRemoteCleanup";
-import {
-  removeContactEntry,
-  upsertContactEntry,
-} from "./contactStoreSnapshotMutations";
+import { removeContactEntry } from "./contactStoreSnapshotMutations";
 import type {
   ContactsRuntime,
   ContactsStore,
@@ -72,45 +72,6 @@ const contactsStoresByScope = new WeakMap<
   Map<string | null, ContactsStore>
 >();
 const allowContactStoreOperation = () => true;
-
-async function writeContactPatch(
-  state: ContactsStoreState,
-  contactId: string,
-  patch: ContactEntryPatch,
-  options: {
-    readonly deferRemoteSync?: boolean | undefined;
-    readonly guard?: ContactStoreOperationGuard | undefined;
-    /** A contact this write creates opens with the patch as its birth. */
-    readonly seedBirth?: boolean | undefined;
-  } = {},
-): Promise<void> {
-  const guard = options.guard ?? allowContactStoreOperation;
-  if (!guard()) {
-    return;
-  }
-  contactId = resolveContactWriteTarget(state, contactId);
-  const fields = contactEntryToStructuredFieldPatch(patch);
-  const store = ensureContactDocumentStore(state, contactId, {
-    deferRemoteSync: options.deferRemoteSync,
-    ...(options.seedBirth ? { initialFields: fields } : {}),
-  });
-  const snapshot = store.getSnapshot();
-  if (snapshot.ready && !snapshot.canWrite) {
-    return;
-  }
-
-  // A no-op after a seeded birth (equal values); applies to existing records.
-  await store.setStructuredFields("contact", fields, {
-    deferRemoteSync: options.deferRemoteSync,
-  });
-  if (!guard()) {
-    return;
-  }
-  const entry = contactEntryFromDocumentStore(contactId, store);
-  if (entry) {
-    upsertContactEntry(state, entry);
-  }
-}
 
 async function createContactFromRuntime(
   state: ContactsStoreState,
@@ -457,6 +418,12 @@ export function createContactsStore(
   connectContactsStoreToPersistedDocuments(state);
 
   return {
+    addContactAddress: (contactId, fields) =>
+      addContactAddressInStore(state, contactId, fields),
+    updateContactAddress: (contactId, addressId, patch) =>
+      updateContactAddressInStore(state, contactId, addressId, patch),
+    removeContactAddress: (contactId, addressId) =>
+      removeContactAddressInStore(state, contactId, addressId),
     createContact: (patch) => createContactFromRuntime(state, patch),
     ensureSelfContact: (input) => ensureSelfContactFromRuntime(state, input),
     getSnapshot: () => state.snapshot,

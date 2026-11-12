@@ -21,15 +21,21 @@ import {
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useMiniAppDetailBackAction } from "../../../components/mini-app/useMiniAppDetailBackAction";
+import { ContactAddresses } from "../../../document-types/contact/ContactAddresses";
 import { ContactFields } from "../../../document-types/contact/ContactFields";
 import type {
   ContactFieldKey,
   ContactFieldValues,
 } from "../../../document-types/contact/contactFieldDescriptors";
 import { chromeOwnsRouteBackedDetailBack } from "../../../navigation/routeBackedDetailBack";
+import type { RowWriterResolver } from "../../../stores/documents/useDocumentRowWriters";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
-import type { ContactEntries, ContactEntryPatch } from "../types";
+import type {
+  ContactAddressActions,
+  ContactEntries,
+  ContactEntryPatch,
+} from "../types";
 import { ContactsAvatarSection } from "./ContactsAvatarSection";
 import {
   type ContactsAreaContextMenuHandler,
@@ -61,6 +67,8 @@ function toContactEntryPatch(
 }
 
 function ContactsSelectionState({
+  addressActions,
+  resolveAddressWriter,
   blobStore,
   currentSigningFingerprint,
   currentUserId,
@@ -80,6 +88,8 @@ function ContactsSelectionState({
   selectedContactId: string | null;
   setContactAvatar: SetContactAvatar;
   updateContact: UpdateContact;
+  addressActions: ContactAddressActions;
+  resolveAddressWriter?: RowWriterResolver | undefined;
 }) {
   const selectedEntry = entries.find((entry) => entry.id === selectedContactId);
   const selectedEntryId = selectedEntry?.id;
@@ -91,10 +101,10 @@ function ContactsSelectionState({
     setEditingContactId(null);
   }, [selectedEntryId]);
   useEffect(() => {
-    if (!canEditSelectedEntry) {
+    if (selectedEntry?.canWrite === false) {
       setEditingContactId(null);
     }
-  }, [canEditSelectedEntry]);
+  }, [selectedEntry?.canWrite]);
   const editAction = useMemo(() => {
     if (selectedEntryId === undefined) {
       return null;
@@ -149,13 +159,34 @@ function ContactsSelectionState({
       />
       <ContactFields
         disabled={!canEditSelectedEntry}
-        isEditing={isEditing && canEditSelectedEntry}
+        isEditing={isEditing && selectedEntry.canWrite !== false}
         onFieldCommit={(key, value) => {
           if (canEditSelectedEntry) {
             updateContact(selectedEntry.id, toContactEntryPatch(key, value));
           }
         }}
         values={toContactFieldValues(selectedEntry)}
+      />
+      <ContactAddresses
+        key={JSON.stringify([
+          currentUserId,
+          currentSigningFingerprint,
+          selectedEntry.id,
+        ])}
+        currentAuthorId={currentUserId ?? null}
+        disabled={!canEditSelectedEntry}
+        isEditing={isEditing && selectedEntry.canWrite !== false}
+        rows={selectedEntry.rows}
+        resolveRowWriter={resolveAddressWriter}
+        onAddAddress={(fields) =>
+          addressActions.addContactAddress(selectedEntry.id, fields)
+        }
+        onUpdateAddress={(id, patch) =>
+          addressActions.updateContactAddress(selectedEntry.id, id, patch)
+        }
+        onRemoveAddress={(id) =>
+          addressActions.removeContactAddress(selectedEntry.id, id)
+        }
       />
       {selectedEntry.isSelf && <CopyMyIdentityLinkButton />}
     </MiniAppPanel>
@@ -264,6 +295,8 @@ export function ContactsDetailPanel(params: {
   setDraftNickname: (nickname: string) => void;
   setDraftUserId: (userId: string) => void;
   updateContact: UpdateContact;
+  addressActions: ContactAddressActions;
+  resolveAddressWriter?: RowWriterResolver | undefined;
 }) {
   const {
     blobStore,
@@ -280,11 +313,7 @@ export function ContactsDetailPanel(params: {
     isAuthenticated,
     onAreaContextMenu,
     onBackToSelectionRoute,
-    ready,
-    removeContactAvatar,
     route,
-    selectedContactId,
-    setContactAvatar,
     setDraftFirstName,
     setDraftLastName,
     setDraftNickname,
@@ -343,14 +372,16 @@ export function ContactsDetailPanel(params: {
   return (
     <ContactsDetailContextTarget onAreaContextMenu={onAreaContextMenu}>
       <ContactsSelectionState
+        addressActions={params.addressActions}
+        resolveAddressWriter={params.resolveAddressWriter}
         blobStore={blobStore}
         currentSigningFingerprint={params.currentSigningFingerprint}
         currentUserId={params.currentUserId}
         entries={entries}
-        ready={ready}
-        removeContactAvatar={removeContactAvatar}
-        selectedContactId={selectedContactId}
-        setContactAvatar={setContactAvatar}
+        ready={params.ready}
+        removeContactAvatar={params.removeContactAvatar}
+        selectedContactId={params.selectedContactId}
+        setContactAvatar={params.setContactAvatar}
         updateContact={updateContact}
       />
     </ContactsDetailContextTarget>

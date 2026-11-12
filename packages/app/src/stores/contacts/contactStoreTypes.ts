@@ -7,6 +7,7 @@ import type {
   OpenDocumentInput,
   ResolvedUserIdentity,
 } from "@tearleads/client-sdk";
+import type { ContactAddressFields } from "../../document-types/contact/contactAddressModel";
 import type {
   ContactEntry,
   ContactEntryPatch,
@@ -44,6 +45,16 @@ export interface ContactsRuntime {
 }
 
 export interface ContactsStore {
+  updateContactAddress: (
+    contactId: string,
+    addressId: string,
+    patch: Partial<ContactAddressFields>,
+  ) => Promise<void>;
+  removeContactAddress: (contactId: string, addressId: string) => Promise<void>;
+  addContactAddress: (
+    contactId: string,
+    fields: ContactAddressFields,
+  ) => Promise<string | null>;
   createContact: (patch: ContactEntryPatch) => Promise<string | null>;
   ensureSelfContact: (input: EnsureSelfContactInput) => Promise<string | null>;
   getSnapshot: () => ContactsSnapshot;

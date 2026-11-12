@@ -87,6 +87,9 @@ export function contactEntryFromDocumentStore(
         snapshot.attachmentStorageKeyBySlotId,
       ),
       canWrite: snapshot.canWrite,
+      rows: snapshot.rows,
+      documentId: snapshot.documentId,
+      syncing: snapshot.syncing,
     },
   );
 }

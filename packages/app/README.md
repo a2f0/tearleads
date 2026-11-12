@@ -37,6 +37,9 @@ sync, or workflow internals directly.
 The [UI design system](../../docs/ui-design-system.md) describes the two shells
 and the chrome conventions across desktop, tablet, and phone.
 
+[Contact addresses](src/document-types/contact/README.md) documents the shared
+Contacts/Explorer editor, repeated Loro records, and attribution boundaries.
+
 ## Tests
 
 ```sh

@@ -138,7 +138,12 @@ export function shouldRemoveDuplicateSelfContact(
     return false;
   }
 
-  if (entry.firstName || entry.lastName || entry.nickname) {
+  if (
+    entry.firstName ||
+    entry.lastName ||
+    entry.nickname ||
+    (entry.rows?.length ?? 0) > 0
+  ) {
     return false;
   }
 

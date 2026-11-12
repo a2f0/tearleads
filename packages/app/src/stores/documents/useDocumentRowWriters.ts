@@ -1,11 +1,15 @@
-import { writerByPeerId } from "@tearleads/client-sdk";
+import { type Tearleads, writerByPeerId } from "@tearleads/client-sdk";
 import type { DocumentEditAttributionResponse } from "@tearleads/validators/response";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "./DocumentsProvider";
+import {
+  type RowWritersRequest,
+  transitionRowWriters,
+} from "./rowWritersMachine";
 
 type AttributionSegments = DocumentEditAttributionResponse["segments"];
 
@@ -13,11 +17,10 @@ type AttributionSegments = DocumentEditAttributionResponse["segments"];
 // identity on every render.
 const NO_SEGMENTS: AttributionSegments = [];
 
-// Resolves a row's last-editor Loro peer id to a server-verified writer user id
-// via the document's edit-attribution segments. Returns null when the peer is
-// unknown, spans conflicting signing identities, or attribution is unavailable
-// (offline, unsynced, unauthenticated, or a local-only document) — callers then
-// fall back to the row's self-attested `updatedBy`.
+// Resolves a row's Loro peer id to a server-verified signed uploader, not proof
+// of original authorship. Unknown/conflicting peers and unavailable attribution
+// (offline, unsynced, unauthenticated, local-only) resolve to null; this resolver
+// never substitutes a row's self-attested `updatedBy`.
 export type RowWriterResolver = (updatedByPeer: string | null) => string | null;
 
 // A truncated interval list can drop some of a peer's segments, which would let
@@ -73,11 +76,25 @@ export function createRowWriterResolver(
 // resolver. `enabled` lets a caller skip the fetch when the result is unused.
 export function useDocumentRowWriters(enabled: boolean): RowWriterResolver {
   const { documentId, syncing } = useDocument();
+  return useRowWritersForDocument({ documentId, syncing, enabled });
+}
+
+// Contacts and other hosts can request attribution without a DocumentProvider.
+// Both entry points share the same policy and exact request-scope lifetime.
+export function useRowWritersForDocument({
+  documentId,
+  syncing,
+  enabled,
+}: {
+  documentId: string | null;
+  syncing: boolean;
+  enabled: boolean;
+}): RowWriterResolver {
   const { containerContents } = useTearleads();
   const runtime = useTearleadsRuntime();
-  const isAuthenticated = runtime.auth.isAuthenticated;
-  const online = runtime.state.online;
-  const [segments, setSegments] = useState<AttributionSegments>(NO_SEGMENTS);
+  const { isAuthenticated, organizationId, userId, authToken } = runtime.auth;
+  const { signingFingerprint } = runtime.crypto;
+  const { online, domainScope } = runtime.state;
 
   // Re-fetch after each sync cycle completes: a sync can pull in rows written by
   // peers the current segment set does not yet cover, whose server attribution
@@ -98,32 +115,70 @@ export function useDocumentRowWriters(enabled: boolean): RowWriterResolver {
     online,
   });
 
-  useEffect(() => {
-    // The `documentId === null` arm is redundant with `canFetch` but narrows the
-    // type for the fetch call below.
-    if (!canFetch || documentId === null) {
-      setSegments(NO_SEGMENTS);
-      return;
-    }
-
-    let cancelled = false;
-    void containerContents
-      .loadDocumentEditAttribution(documentId)
-      .then((response) => {
-        if (!cancelled) {
-          setSegments(selectAttributionSegments(response));
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setSegments(NO_SEGMENTS);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [canFetch, containerContents, documentId, syncCompletions]);
-
+  const request = useMemo(
+    () =>
+      canFetch && documentId !== null
+        ? {
+            documentId,
+            containerContents,
+            syncCompletions,
+            organizationId,
+            userId,
+            authToken,
+            signingFingerprint,
+            domainScope,
+          }
+        : null,
+    [
+      canFetch,
+      containerContents,
+      documentId,
+      syncCompletions,
+      organizationId,
+      userId,
+      authToken,
+      signingFingerprint,
+      domainScope,
+    ],
+  );
+  const segments = useRowWriterSegments(request, containerContents);
   return useMemo(() => createRowWriterResolver(segments), [segments]);
+}
+
+function useRowWriterSegments(
+  request: RowWritersRequest | null,
+  containerContents: Tearleads["containerContents"],
+): AttributionSegments {
+  const [state, dispatch] = useReducer(transitionRowWriters, {
+    status: "idle",
+  });
+  useEffect(() => dispatch({ type: "request", request }), [request]);
+  const loading = state.status === "loading" ? state.request : null;
+  useEffect(() => {
+    if (!loading || loading !== request) return;
+    let active = true;
+    void containerContents.loadDocumentEditAttribution(loading.documentId).then(
+      (response) => {
+        if (active)
+          dispatch({
+            type: "loaded",
+            request: loading,
+            segments: selectAttributionSegments(
+              response?.documentId === loading.documentId ? response : null,
+            ),
+          });
+      },
+      () => {
+        if (active) dispatch({ type: "failed", request: loading });
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [containerContents, loading, request]);
+  // Effects clear state after commit; projection must already hide an old
+  // document's identity during the very first render of the new scope.
+  return state.status === "ready" && state.request === request
+    ? state.segments
+    : NO_SEGMENTS;
 }

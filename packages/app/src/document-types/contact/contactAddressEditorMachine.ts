@@ -1,0 +1,106 @@
+import {
+  CONTACT_ADDRESS_FIELD_DESCRIPTORS,
+  type ContactAddressFieldKey,
+  type ContactAddressFields,
+} from "./contactAddressModel";
+
+type AddressDraft = {
+  id: string | null;
+  base: ContactAddressFields;
+  values: ContactAddressFields;
+};
+export type ContactAddressEditorState =
+  | { status: "idle"; error?: string }
+  | { status: "removing"; id: string; requestId: number }
+  | { status: "editing"; draft: AddressDraft; error: string | null }
+  | { status: "saving"; draft: AddressDraft; requestId: number };
+
+type EditorEvent =
+  | { type: "cancel" }
+  | { type: "edit"; id: string | null; values: ContactAddressFields }
+  | { type: "change"; key: ContactAddressFieldKey; value: string }
+  | { type: "save"; requestId: number }
+  | { type: "remove"; id: string; requestId: number }
+  | { type: "failed"; requestId: number; error: string }
+  | { type: "saved"; requestId: number };
+
+export function transitionContactAddressEditor(
+  state: ContactAddressEditorState,
+  event: EditorEvent,
+): ContactAddressEditorState {
+  switch (event.type) {
+    case "cancel":
+      return state.status === "editing" ? { status: "idle" } : state;
+    case "edit":
+      return state.status === "idle"
+        ? {
+            status: "editing",
+            draft: { id: event.id, base: event.values, values: event.values },
+            error: null,
+          }
+        : state;
+    case "change":
+      return state.status === "editing"
+        ? {
+            ...state,
+            error: null,
+            draft: {
+              ...state.draft,
+              values: { ...state.draft.values, [event.key]: event.value },
+            },
+          }
+        : state;
+    case "save":
+      if (state.status !== "editing") return state;
+      if (
+        !CONTACT_ADDRESS_FIELD_DESCRIPTORS.some(
+          ({ key }) => key !== "label" && state.draft.values[key].trim(),
+        )
+      ) {
+        return {
+          ...state,
+          error: "Enter at least one address field besides the label.",
+        };
+      }
+      return {
+        status: "saving",
+        draft: state.draft,
+        requestId: event.requestId,
+      };
+    case "failed":
+      return finishOperation(state, event);
+    case "remove":
+      return state.status === "idle"
+        ? { status: "removing", id: event.id, requestId: event.requestId }
+        : state;
+    case "saved":
+      return finishOperation(state, event);
+    default: {
+      const exhaustive: never = event;
+      return exhaustive;
+    }
+  }
+}
+
+function finishOperation(
+  state: ContactAddressEditorState,
+  event: Extract<EditorEvent, { type: "saved" | "failed" }>,
+): ContactAddressEditorState {
+  if (state.status !== "saving" && state.status !== "removing") return state;
+  if (state.requestId !== event.requestId) return state;
+  if (event.type === "saved") return { status: "idle" };
+  return state.status === "saving"
+    ? { status: "editing", draft: state.draft, error: event.error }
+    : { status: "idle", error: event.error };
+}
+
+export function contactAddressPatch(
+  base: ContactAddressFields,
+  values: ContactAddressFields,
+): Partial<ContactAddressFields> {
+  const patch: Partial<ContactAddressFields> = {};
+  for (const { key } of CONTACT_ADDRESS_FIELD_DESCRIPTORS) {
+    if (values[key] !== base[key]) patch[key] = values[key].trim();
+  }
+  return patch;
+}

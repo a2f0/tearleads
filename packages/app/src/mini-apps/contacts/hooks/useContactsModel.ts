@@ -84,17 +84,8 @@ function useSelectInitialSelfContact(input: {
 export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   const compactRoutedMode = useCompactRoutedMode();
   const appData = useTearleadsRuntime();
-  const {
-    createContact,
-    canWrite,
-    entries,
-    importVerifiedUser,
-    ready,
-    removeContact,
-    removeContactAvatar,
-    setContactAvatar,
-    updateContact,
-  } = useContacts();
+  const contacts = useContacts();
+  const { canWrite, entries, ready } = contacts;
   const { isAuthenticated } = useCryptoSession();
   const { logError } = useLog();
   const routeState = useContactsRouteState(compactRoutedMode);
@@ -104,8 +95,8 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
     identityLinkToken: routeState.identityLinkToken,
     identityScope: `${appData.auth.userId}:${appData.crypto.signingFingerprint}:${appData.infra.dbId}`,
     canWrite,
-    createContact,
-    importVerifiedUser,
+    createContact: contacts.createContact,
+    importVerifiedUser: contacts.importVerifiedUser,
     isAuthenticated,
     logError,
     ready,
@@ -115,7 +106,7 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   const contextMenuState: ContactsContextMenuModel = useContactsContextMenu({
     canWrite,
     entries,
-    removeContact,
+    removeContact: contacts.removeContact,
     selectedContactId: selectionState.selectedContactId,
     setSelectedContactId: selectionState.setSelectedContactRouteAware,
   });
@@ -148,6 +139,11 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   });
 
   return {
+    addressActions: {
+      addContactAddress: contacts.addContactAddress,
+      updateContactAddress: contacts.updateContactAddress,
+      removeContactAddress: contacts.removeContactAddress,
+    },
     contextMenuState,
     ...drafts,
     ...routeState,
@@ -158,14 +154,14 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
     entries,
     isAuthenticated,
     ready,
-    removeContactAvatar,
+    removeContactAvatar: contacts.removeContactAvatar,
     selectContact: selectionState.selectContact,
     selectedContactId: selectionState.selectedContactId,
-    setContactAvatar,
+    setContactAvatar: contacts.setContactAvatar,
     showCompactListHome:
       compactRoutedMode &&
       routeState.route === "selection" &&
       selectionState.selectedContactId === null,
-    updateContact,
+    updateContact: contacts.updateContact,
   };
 }
