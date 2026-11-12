@@ -38,8 +38,10 @@ close, minimize, or recreate the host's windows.
 The optional `gracePeriodMs` defaults to `2000`. Input during that initial
 period is consumed without dismissal; Escape always exits. After grace,
 keyboard, pointer, mouse, touch, and wheel activity dismiss. The dismissing
-input and its release/click tail are consumed so the desktop does not receive
-an accidental click or shortcut. A new start during that tail is ignored until
+input and that discrete press's release/click tail are consumed so the desktop
+does not receive an accidental click or shortcut. After that tail settles,
+later presses are new host input, including a double-click's second press.
+A new start during the isolated tail is ignored until
 the gesture finishes. Idle listeners are passive and retain only modifiers,
 not ordinary key presses. Meta release clears keys whose release the browser
 omitted; losing focus or hiding the page clears the tail too. If a release is

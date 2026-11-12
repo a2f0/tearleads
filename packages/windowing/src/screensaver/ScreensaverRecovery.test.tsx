@@ -95,6 +95,24 @@ test("Meta release clears a missing ordinary key release during dismissal", () =
   expect(document.body.inert).toBe(false);
 });
 
+test("Meta release preserves Escape until its own release", () => {
+  jest.useFakeTimers();
+  const host = renderHost();
+  host.start();
+  fireEvent.keyDown(window, { key: "Meta", code: "MetaLeft", metaKey: true });
+  act(() => jest.advanceTimersByTime(1));
+  fireEvent.keyDown(window, { key: "Escape", code: "Escape", metaKey: true });
+  expect(host.controls().isActive).toBe(false);
+  fireEvent.keyUp(window, { key: "Meta", code: "MetaLeft" });
+  act(() => jest.advanceTimersByTime(0));
+  expect(document.body.inert).toBe(true);
+  expect(fireEvent.keyUp(window, { key: "Escape", code: "Escape" })).toBe(
+    false,
+  );
+  act(() => jest.advanceTimersByTime(0));
+  expect(document.body.inert).toBe(false);
+});
+
 test("multi-touch dismissal drains until the final contact ends", () => {
   jest.useFakeTimers();
   const host = renderHost();

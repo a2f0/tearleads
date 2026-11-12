@@ -21,9 +21,11 @@ function trackKey(
   event: KeyboardEvent,
   includePresses: boolean,
 ) {
-  // Meta combinations may omit the ordinary key's release on macOS.
+  // Meta combinations may omit ordinary releases on macOS, but Escape's
+  // explicit recovery gesture must still consume its own keyup.
   if (event.type === "keyup" && event.key === "Meta") {
-    for (const key of held) if (key.startsWith("key:")) held.delete(key);
+    for (const key of held)
+      if (key.startsWith("key:") && key !== "key:Escape") held.delete(key);
   }
   if (
     !includePresses &&
