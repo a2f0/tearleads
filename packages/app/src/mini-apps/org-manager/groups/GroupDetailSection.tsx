@@ -8,28 +8,22 @@ import type {
 } from "@tearleads/client-sdk";
 import { type MouseEvent, useId, useState } from "react";
 import {
-  MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
-  MiniAppInput,
   MiniAppSection,
   MiniAppSectionHeading,
   type MiniAppTabDescriptor,
   MiniAppTabList,
   MiniAppTabPanel,
-  MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
-import {
-  compactFingerprint,
-  EMPTY_PROFILE_DISPLAY_NAMES,
-  getRosterUserLabel,
-} from "../display";
+import { compactFingerprint, EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 import {
   getOrgManagerEpochLabel,
   groupDisplayName,
   ORG_MANAGER_LABELS,
 } from "../labels";
 import { PolicyHistorySection } from "../policy-history/PolicyHistory";
+import { GroupAddMemberToolbar } from "./GroupAddMemberToolbar";
 import { GroupContainers } from "./GroupContainers";
 import { GroupMembers } from "./GroupMembers";
 import { useGroupMemberAction } from "./useGroupMemberAction";
@@ -75,66 +69,9 @@ function GroupDetailHeader({
   );
 }
 
-function GroupAddMemberToolbar({
-  addableUsers,
-  adding,
-  addUserId,
-  addUserListId,
-  memberUserIds,
-  members,
-  mutating,
-  onAdd,
-  profileDisplayNamesByUserId,
-  setAddUserId,
-}: {
-  addableUsers: ReadonlyArray<OrganizationDirectoryUser>;
-  adding: boolean;
-  addUserId: string;
-  addUserListId: string;
-  memberUserIds: ReadonlySet<string>;
-  members: OrganizationGroupMembers | null;
-  mutating: boolean;
-  onAdd: () => void;
-  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
-  setAddUserId: (userId: string) => void;
-}) {
-  return (
-    <MiniAppToolbar className="org-manager-form-toolbar">
-      <MiniAppInput
-        aria-label={ORG_MANAGER_LABELS.rosterIdentity}
-        disabled={mutating}
-        list={addUserListId}
-        onChange={(event) => setAddUserId(event.target.value)}
-        placeholder="Select a roster user or paste an identity link"
-        value={addUserId}
-      />
-      <datalist id={addUserListId}>
-        {addableUsers.map((user) => (
-          <option key={user.userId} value={user.userId}>
-            {getRosterUserLabel(user, profileDisplayNamesByUserId)}
-          </option>
-        ))}
-      </datalist>
-      <MiniAppButton
-        disabled={
-          mutating ||
-          !members ||
-          addUserId.trim().length === 0 ||
-          memberUserIds.has(addUserId.trim())
-        }
-        onClick={onAdd}
-        loading={adding}
-      >
-        {ORG_MANAGER_LABELS.add}
-      </MiniAppButton>
-    </MiniAppToolbar>
-  );
-}
-
 export function GroupDetailSection({
   addUser,
   addUserId,
-  addUserListId,
   addableUsers,
   canMutateSelectedGroup,
   directory,
@@ -155,7 +92,6 @@ export function GroupDetailSection({
 }: {
   addUser: () => void | Promise<void>;
   addUserId: string;
-  addUserListId: string;
   addableUsers: ReadonlyArray<OrganizationDirectoryUser>;
   canMutateSelectedGroup: boolean;
   directory: OrganizationDirectory | null;
@@ -206,7 +142,6 @@ export function GroupDetailSection({
                 addableUsers={addableUsers}
                 adding={memberAction.adding}
                 addUserId={addUserId}
-                addUserListId={addUserListId}
                 memberUserIds={memberUserIds}
                 members={members}
                 mutating={mutating}
