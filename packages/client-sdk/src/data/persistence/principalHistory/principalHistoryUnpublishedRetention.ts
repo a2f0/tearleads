@@ -2,10 +2,10 @@ import { and, asc, desc, eq, inArray, lt, notInArray } from "drizzle-orm";
 import { principalHistoryPrefixes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { archivePrincipalHistoryKeyEnvelopes } from "../principalKeys/principalKeyEnvelopeArchivePersistence";
+import { archivePrincipalHistoryKeyEnvelopeBatch } from "../principalKeys/principalKeyEnvelopeArchivePersistence";
 import {
   principalHistoryStageRootOwnerColumns,
-  releasePrincipalHistoryRoot,
+  releasePrincipalHistoryRoots,
 } from "./principalHistoryRootOwnership";
 import { PRINCIPAL_HISTORY_STAGE_RECLAIM_LIMIT } from "./principalHistoryStageRetention";
 
@@ -93,14 +93,19 @@ export async function reclaimUnpublishedPrincipalHistoryStages(
     .offset(COMPLETED_STAGE_LIMIT - protectedIds.length)
     .limit(PRINCIPAL_HISTORY_STAGE_RECLAIM_LIMIT);
   if (obsolete.length === 0) return;
-  for (const { stage } of obsolete)
-    await archivePrincipalHistoryKeyEnvelopes(tx, {
+  await archivePrincipalHistoryKeyEnvelopeBatch(
+    tx,
+    obsolete.map(({ stage }) => ({
       ...stage,
       version: stage.afterVersion + 1,
-    });
+    })),
+  );
   const ids = obsolete.map(({ stage }) => stage.id);
-  for (const { owner } of obsolete)
-    await releasePrincipalHistoryRoot(tx, owner);
+  await releasePrincipalHistoryRoots(
+    tx,
+    current,
+    obsolete.map(({ owner }) => owner.rootHash),
+  );
   await tx
     .delete(principalHistoryStages)
     .where(inArray(principalHistoryStages.id, ids))
