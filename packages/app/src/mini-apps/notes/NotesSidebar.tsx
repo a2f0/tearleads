@@ -7,6 +7,7 @@ import { type MouseEvent, useEffect } from "react";
 import {
   MiniAppSidebar,
   MiniAppStatePanel,
+  MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRowButton,
@@ -91,7 +92,13 @@ function NotesList({
   return (
     <>
       {!ready ? (
-        <MiniAppStatePanel busy title={NOTES_LABELS.sidebarLoading} />
+        bleed ? (
+          <MiniAppStatePanel busy title={NOTES_LABELS.sidebarLoading} />
+        ) : (
+          <MiniAppStatus busy className="notes-sidebar-status">
+            {NOTES_LABELS.sidebarLoading}
+          </MiniAppStatus>
+        )
       ) : notes.length === 0 ? (
         // Deliberately not bled like the populated list below: a dashed tile
         // reads as a placed object, so it keeps the surface's own inset rather

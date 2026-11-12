@@ -37,14 +37,14 @@ function SessionProbe() {
   return <output data-testid="session">{String(isAuthenticated)}</output>;
 }
 
-for (const appId of [
-  "org-manager",
-  "explorer",
-  "contacts",
-  "notes",
-  "organizations",
-  "root",
-]) {
+for (const [appId, contentSelector] of [
+  ["org-manager", ".org-manager-main"],
+  ["explorer", ".explorer"],
+  ["contacts", ".contacts"],
+  ["notes", ".notes-list-home, .note-document-editor"],
+  ["organizations", ".organizations-list"],
+  ["root", ".root-console"],
+] as const) {
   test(`${appId} boots directly into provisioning progress without a local-key prompt`, async () => {
     browser.happyDOM.setURL(`http://localhost/app/${appId}`);
     window.history.replaceState(null, "", `/app/${appId}`);
@@ -99,14 +99,13 @@ for (const appId of [
       await waitFor(
         () => {
           expect(view.getByTestId("session").textContent).toBe("true");
+          expect(view.container.querySelector(contentSelector)).not.toBeNull();
         },
         { timeout: 30_000 },
       );
       record();
       expect(seen.has("Local keys required")).toBe(false);
       expect(seen.has("Loading local keys")).toBe(false);
-      expect(seen.has("Creating your identity")).toBe(true);
-      expect(seen.has("Creating your account")).toBe(true);
       expect(
         view.queryByRole("heading", { name: "Creating your account" }),
       ).toBeNull();

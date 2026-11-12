@@ -96,7 +96,11 @@ function ContactsList({
   const avatarSize = showMetadata ? "medium" : "small";
 
   if (!ready) {
-    return <MiniAppStatePanel busy title="Loading..." />;
+    return bleed ? (
+      <MiniAppStatePanel busy title="Loading contacts..." />
+    ) : (
+      <MiniAppStatus busy>Loading...</MiniAppStatus>
+    );
   }
 
   if (entries.length === 0) {

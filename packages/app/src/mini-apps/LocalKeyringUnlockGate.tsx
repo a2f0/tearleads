@@ -3,6 +3,8 @@ import {
   type FormEvent,
   type PropsWithChildren,
   useEffect,
+  useLayoutEffect,
+  useRef,
   useState,
 } from "react";
 import {
@@ -63,15 +65,25 @@ export function LocalKeyringUnlockGate({
 }>) {
   const lock = useLocalKeyringLock();
   const progress = useAccountBootstrapProgress();
+  const hasRenderedContent = useRef(false);
   const { generateKey, localIdentityRestoreSettled, signingKeyPair } =
     useIdentity();
   const gateState = resolveMiniAppAccessGateState({
-    accountBootstrapping: progress !== null,
+    // Pending prerequisites count on first entry: waiting until registration
+    // is running would flash content between key creation and registration.
+    // Terminal failures are already excluded by the shared phase resolver.
+    accountBootstrapping: progress !== null && !hasRenderedContent.current,
     hasSigningKeyPair: signingKeyPair !== null,
     isLocked: lock.isLocked,
     localIdentityRestoreSettled,
     requireLocalIdentity,
   });
+
+  useLayoutEffect(() => {
+    // Only committed app content counts, not an unlock/setup screen or an
+    // abandoned render. A later registration retry must preserve local drafts.
+    if (gateState === "ready") hasRenderedContent.current = true;
+  }, [gateState]);
 
   if (gateState === "ready") {
     return children;
