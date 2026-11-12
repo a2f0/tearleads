@@ -5,6 +5,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { AccountBootstrapProgressContext } from "../components/identity/AccountBootstrapLoadingPanel";
 import {
   MiniAppButton,
   MiniAppField,
@@ -12,9 +13,11 @@ import {
   MiniAppInput,
   MiniAppPanel,
   MiniAppRoot,
+  MiniAppStatePanel,
   MiniAppStatus,
   MiniAppToolbar,
 } from "../components/mini-app/MiniAppLayout";
+import { useAccountBootstrapProgress } from "../identity/useAccountBootstrapProgress";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import "./LocalKeyringUnlockGate.css";
@@ -22,11 +25,13 @@ import "./LocalKeyringUnlockGate.css";
 type MiniAppAccessGateState = "loading" | "ready" | "setup" | "unlock";
 
 export function resolveMiniAppAccessGateState({
+  accountBootstrapping = false,
   hasSigningKeyPair,
   isLocked,
   localIdentityRestoreSettled,
   requireLocalIdentity = true,
 }: {
+  accountBootstrapping?: boolean;
   hasSigningKeyPair: boolean;
   isLocked: boolean;
   localIdentityRestoreSettled: boolean;
@@ -40,7 +45,13 @@ export function resolveMiniAppAccessGateState({
     return "ready";
   }
 
-  if (!localIdentityRestoreSettled) {
+  // Progress replaces manual setup while keys are being prepared. Once keys
+  // exist, each app owns its loading surface so stalled account provisioning
+  // cannot block local content or unmount an editor during a retry.
+  if (
+    !localIdentityRestoreSettled ||
+    (accountBootstrapping && !hasSigningKeyPair)
+  ) {
     return "loading";
   }
 
@@ -56,9 +67,11 @@ export function LocalKeyringUnlockGate({
   requireLocalIdentity?: boolean;
 }>) {
   const lock = useLocalKeyringLock();
+  const progress = useAccountBootstrapProgress();
   const { generateKey, localIdentityRestoreSettled, signingKeyPair } =
     useIdentity();
   const gateState = resolveMiniAppAccessGateState({
+    accountBootstrapping: progress !== null,
     hasSigningKeyPair: signingKeyPair !== null,
     isLocked: lock.isLocked,
     localIdentityRestoreSettled,
@@ -66,15 +79,31 @@ export function LocalKeyringUnlockGate({
   });
 
   if (gateState === "ready") {
-    return children;
+    return (
+      <AccountBootstrapProgressContext.Provider value={progress}>
+        {children}
+      </AccountBootstrapProgressContext.Provider>
+    );
+  }
+
+  if (gateState === "loading") {
+    return (
+      <MiniAppRoot>
+        <MiniAppStatePanel
+          busy
+          description={
+            progress?.description ?? "Checking for a saved local key package."
+          }
+          title={progress?.title ?? "Loading local keys"}
+        />
+      </MiniAppRoot>
+    );
   }
 
   return (
     <MiniAppRoot centered className="local-keyring-unlock-gate">
       {gateState === "unlock" ? (
         <LocalKeyringUnlockPanel appName={appName} />
-      ) : gateState === "loading" ? (
-        <LocalIdentityLoadingPanel />
       ) : (
         <LocalIdentitySetupPanel
           appName={appName}
@@ -112,17 +141,6 @@ export function LocalKeyringUnlockWindow() {
         </MiniAppPanel>
       )}
     </MiniAppRoot>
-  );
-}
-
-function LocalIdentityLoadingPanel() {
-  return (
-    <MiniAppPanel className="local-keyring-unlock-gate-panel">
-      <div className="local-keyring-unlock-copy">
-        <h2>Loading local keys</h2>
-        <p>Checking for a saved local key package.</p>
-      </div>
-    </MiniAppPanel>
   );
 }
 

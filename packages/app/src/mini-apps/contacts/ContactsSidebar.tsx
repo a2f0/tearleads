@@ -1,5 +1,6 @@
 import type { BlobStore } from "@tearleads/client-sdk";
 import type { MouseEvent, ReactNode } from "react";
+import { AccountBootstrapLoadingPanel } from "../../components/identity/AccountBootstrapLoadingPanel";
 import {
   MiniAppSidebar,
   MiniAppStatus,
@@ -28,6 +29,7 @@ import {
   MiniAppRowActionsKebab,
   useMiniAppSidebarPanel,
 } from "../shared/list-panel/MiniAppListPanel";
+import { CONTACTS_LABELS } from "./labels";
 import type { ContactEntries } from "./types";
 
 const CONTACTS_ROW_SELECTOR = ".contacts-sidebar-row, .mini-app-row";
@@ -95,7 +97,11 @@ function ContactsList({
   const avatarSize = showMetadata ? "medium" : "small";
 
   if (!ready) {
-    return <MiniAppStatus>Loading...</MiniAppStatus>;
+    return bleed ? (
+      <AccountBootstrapLoadingPanel title={CONTACTS_LABELS.loadingState} />
+    ) : (
+      <MiniAppStatus busy>Loading...</MiniAppStatus>
+    );
   }
 
   if (entries.length === 0) {
