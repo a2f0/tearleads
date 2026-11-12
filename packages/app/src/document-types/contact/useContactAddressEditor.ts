@@ -1,5 +1,11 @@
 import type { DocumentRow } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+} from "react";
 import {
   type ContactAddressEditorState,
   transitionContactAddressEditor,
@@ -64,7 +70,10 @@ export function useContactAddressEditor(input: ContactAddressEditorInput) {
   });
   const requestId = useRef(0);
   const latest = useRef(input);
-  latest.current = input;
+  // A speculative read-only/loading render must not cancel the visible save.
+  useLayoutEffect(() => {
+    latest.current = input;
+  }, [input]);
   const mounted = useRef(true);
   const isCurrent = useCallback(
     () =>

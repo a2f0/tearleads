@@ -1,5 +1,5 @@
 import type { DocumentStore } from "@tearleads/client-sdk";
-import { useContext, useEffect, useMemo, useRef } from "react";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   addContactAddressRow,
   removeContactAddressRow,
@@ -51,7 +51,10 @@ export function useContactDocumentAddresses() {
     [store, writeScope],
   );
   const current = useRef({ store, readOnly, lifetime });
-  current.current = { store, readOnly, lifetime };
+  // Suspended renders must not revoke the still-committed editor's authority.
+  useLayoutEffect(() => {
+    current.current = { store, readOnly, lifetime };
+  }, [store, readOnly, lifetime]);
   useEffect(() => {
     lifetime.active = true;
     return () => {
