@@ -63,6 +63,7 @@ async function commitRosterEnrollment(
   tx: DatabaseTransaction,
   input: CommitPolicyInput,
   memberGroupId: string,
+  identityTrustDomain: string,
 ) {
   const memberInput = input.request.memberPolicy
     ? {
@@ -80,13 +81,18 @@ async function commitRosterEnrollment(
     await lockPrincipalMutationInTransaction(tx, "group", memberGroupId);
   }
   return memberInput
-    ? await putPrincipalPolicyInTransaction(tx, memberInput)
+    ? await putPrincipalPolicyInTransaction(
+        tx,
+        memberInput,
+        identityTrustDomain,
+      )
     : null;
 }
 
 export async function runCommitOrganizationGroupPolicyWorkflow(
   db: ApiDatabase,
   input: CommitPolicyInput,
+  identityTrustDomain: string,
 ): Promise<CommitOrganizationGroupPolicyResult> {
   const groupInput: PutPrincipalPolicyInput = {
     ...input.request.groupPolicy,
@@ -135,16 +141,19 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
       const applyGroup = await preparePrincipalPolicyInTransaction(
         tx,
         groupInput,
+        identityTrustDomain,
       );
       const member = await commitRosterEnrollment(
         tx,
         input,
         target.memberGroupId,
+        identityTrustDomain,
       );
       const group = await applyGroup();
       const organization = await putPrincipalPolicyInTransaction(
         tx,
         organizationInput,
+        identityTrustDomain,
       );
       const policy = {
         ...(member ? { memberPolicy: member.policy } : {}),

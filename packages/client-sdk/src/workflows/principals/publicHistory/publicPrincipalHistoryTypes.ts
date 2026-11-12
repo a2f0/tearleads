@@ -5,6 +5,7 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicyHistory,
 } from "@tearleads/crypto";
+
 import type { PrincipalPolicyHistorySourceResponse } from "@tearleads/validators/response";
 import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import type { PrincipalHistoryStage } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";

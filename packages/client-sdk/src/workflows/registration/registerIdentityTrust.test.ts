@@ -20,6 +20,7 @@ test("registration pins the confirmed identity before persisting under it", asyn
 
   await expect(
     registerIdentity({
+      identityTrustDomain: "https://api.example.test",
       apiClient: {
         registerUser: async (...args: RegisterUserParameters) => {
           registered.userId = args[0];
@@ -56,6 +57,7 @@ test("a registration the server does not confirm leaves no pin behind", async ()
   // login, so nothing may be pinned until the server confirms the id.
   const pinned: string[] = [];
   const response = await registerIdentity({
+    identityTrustDomain: "https://api.example.test",
     apiClient: { registerUser: async () => null },
     containerId: crypto.randomUUID(),
     dbClient: { exec: async () => ({ rows: [] }) },
@@ -76,6 +78,7 @@ test("a registration whose identity was replaced in flight pins nothing", async 
   const pinned: string[] = [];
   let identityCurrent = true;
   const response = await registerIdentity({
+    identityTrustDomain: "https://api.example.test",
     apiClient: {
       registerUser: async (...args: RegisterUserParameters) => {
         const confirmed = await respondToRegistration(args);
@@ -105,6 +108,7 @@ for (const key of ["signing", "encapsulation", "fingerprint"] as const) {
     let writes = 0;
     await expect(
       registerIdentity({
+        identityTrustDomain: "https://api.example.test",
         apiClient: {
           registerUser: async () => {
             registrations += 1;

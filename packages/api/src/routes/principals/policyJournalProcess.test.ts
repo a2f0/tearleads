@@ -10,6 +10,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestUser } from "@tearleads/test-utils";
 import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { identityBoundRouteApp as routeApp } from "../../../test/helpers/identityBoundRouteApp";
 import { startPrincipalMutationJournalProcess } from "../../../test/helpers/principalMutationJournalProcess";
 import {
   buildOrganizationGroupPolicyCommitRequest,
@@ -20,7 +21,6 @@ import {
 import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
-import { routeApp } from "../../routeApp";
 
 test("a restarted SDK process recovers its exact disk journal after acknowledgement loss", async () => {
   const actor = createTestUser();

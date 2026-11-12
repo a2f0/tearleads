@@ -23,6 +23,7 @@ import {
   loadOrganizationExternalAdminPolicy,
   type VerifiedExternalAdminPolicy,
 } from "../externalAdminPolicy";
+import { publishVerifiedPrincipalPolicy } from "../policyVerification";
 import {
   persistPrincipalPolicyCacheEntries,
   retryPrincipalPolicyCacheAdvance,
@@ -81,6 +82,52 @@ function dedupePrincipalPolicyBundles(
   return Array.from(bundlesByPrincipal.values());
 }
 
+/**
+ * Pin and persist a policy the signed directory scopes to this organization,
+ * with its external Admins evidence and the directory that scopes it.
+ */
+async function persistScopedPolicy(input: {
+  readonly bundle: PrincipalPolicyBundleResponse;
+  readonly directory: VerifiedPolicyDirectory | null;
+  readonly execSql: ExecSql;
+  readonly organizationId: string;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent: (() => boolean) | undefined;
+  readonly validation: {
+    readonly externalAdminPolicy: VerifiedExternalAdminPolicy | null;
+    readonly policy: VerifiedPrincipalPolicy;
+  };
+}): Promise<VerifiedPrincipalPolicy[]> {
+  const { directory, validation } = input;
+  const externalEntries = validation.externalAdminPolicy
+    ? externalAdminPolicyPersistenceEntries(
+        validation.externalAdminPolicy,
+      ).filter(
+        (entry) => !directory || entry.policy.principalType !== "organization",
+      )
+    : [];
+  const directoryEntries = directory
+    ? [{ bundle: directory.bundle, policy: directory.policy }]
+    : [];
+  await publishVerifiedPrincipalPolicy({
+    bundle: input.bundle,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
+  });
+  await persistPrincipalPolicyCacheEntries({
+    entries: [
+      ...externalEntries,
+      ...directoryEntries,
+      { bundle: input.bundle, policy: validation.policy },
+    ],
+    execSql: input.execSql,
+    organizationId: input.organizationId,
+    updatedAt: new Date().toISOString(),
+    stillCurrent: input.stillCurrent,
+  });
+  return [...externalEntries.map(({ policy }) => policy), validation.policy];
+}
+
 async function cacheReferencedPrincipalPolicy(
   execSql: ExecSql,
   reader: CurrentPrincipalPolicyReader,
@@ -126,6 +173,7 @@ async function cacheReferencedPrincipalPolicy(
     localCheckpoint,
     reference,
     resolveTrustedUserIdentity,
+    stillCurrent,
   });
   if (!validation.ok) {
     throw validation.error;
@@ -139,6 +187,7 @@ async function cacheReferencedPrincipalPolicy(
       localCheckpoint,
       reference,
       resolveTrustedUserIdentity,
+      stillCurrent,
     },
     loadDirectory,
     organizationId,
@@ -155,28 +204,15 @@ async function cacheReferencedPrincipalPolicy(
   bundle = scoped.bundle;
   validation = scoped.validation;
   const directory = scoped.directory;
-  const externalEntries = validation.externalAdminPolicy
-    ? externalAdminPolicyPersistenceEntries(
-        validation.externalAdminPolicy,
-      ).filter(
-        (entry) => !directory || entry.policy.principalType !== "organization",
-      )
-    : [];
-  const directoryEntries = directory
-    ? [{ bundle: directory.bundle, policy: directory.policy }]
-    : [];
-  await persistPrincipalPolicyCacheEntries({
-    entries: [
-      ...externalEntries,
-      ...directoryEntries,
-      { bundle, policy: validation.policy },
-    ],
+  return persistScopedPolicy({
+    bundle,
+    directory,
     execSql,
     organizationId,
-    updatedAt: new Date().toISOString(),
+    resolveTrustedUserIdentity,
     stillCurrent,
+    validation,
   });
-  return [...externalEntries.map(({ policy }) => policy), validation.policy];
 }
 
 async function cachePrincipalPolicyBundle(input: {
@@ -203,6 +239,7 @@ async function cachePrincipalPolicyBundle(input: {
     localCheckpoint,
     reference,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
   if (!validation.ok) {
     throw validation.error;
@@ -224,28 +261,15 @@ async function cachePrincipalPolicyBundle(input: {
   } else if (reference.principalId !== input.organizationId) {
     return [];
   }
-  const externalEntries = validation.externalAdminPolicy
-    ? externalAdminPolicyPersistenceEntries(
-        validation.externalAdminPolicy,
-      ).filter(
-        (entry) => !directory || entry.policy.principalType !== "organization",
-      )
-    : [];
-  const directoryEntries = directory
-    ? [{ bundle: directory.bundle, policy: directory.policy }]
-    : [];
-  await persistPrincipalPolicyCacheEntries({
-    entries: [
-      ...externalEntries,
-      ...directoryEntries,
-      { bundle: input.bundle, policy: validation.policy },
-    ],
+  return persistScopedPolicy({
+    bundle: input.bundle,
+    directory,
     execSql: input.execSql,
     organizationId: input.organizationId,
-    updatedAt: new Date().toISOString(),
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     stillCurrent: input.stillCurrent,
+    validation,
   });
-  return [...externalEntries.map(({ policy }) => policy), validation.policy];
 }
 
 async function runPrincipalPolicyCache<Item, Result>(input: {

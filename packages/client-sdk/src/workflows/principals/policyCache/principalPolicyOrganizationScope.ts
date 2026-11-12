@@ -16,7 +16,10 @@ import { verifyOrganizationAdminPolicy } from "../../../data/principals/principa
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { CurrentPrincipalPolicyReader } from "../currentPrincipalPolicyReader";
-import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  publishVerifiedPrincipalPolicy,
+} from "../policyVerification";
 
 export interface VerifiedPolicyDirectory {
   readonly bundle: PrincipalPolicyBundleResponse;
@@ -73,6 +76,7 @@ export function createPolicyDirectoryLoader(input: {
   readonly organizationId: string;
   readonly currentPolicyReader: CurrentPrincipalPolicyReader;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): PolicyDirectoryLoader {
   const memo = new Map<boolean, Promise<VerifiedPolicyDirectory | null>>();
   const load = async (
@@ -111,6 +115,11 @@ export function createPolicyDirectoryLoader(input: {
       signerPublicKeys: signers.signerPublicKeys,
     });
     if (!verified.ok) throw verified.error;
+    await publishVerifiedPrincipalPolicy({
+      bundle,
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+      stillCurrent: input.stillCurrent,
+    });
     let descriptor: OrganizationAuthorityDescriptor;
     try {
       descriptor = parseOrganizationAuthorityDescriptor(

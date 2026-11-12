@@ -8,6 +8,7 @@ import { createPrincipalPolicyHistoryVerifier } from "./principalPolicyHistory";
 import { historyHead } from "./principalPolicyHistoryTestFixtures";
 import {
   createPolicySigner,
+  policyMember,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
 import type { AnyVerifiedPrincipalPolicy } from "./principalPolicyTypes";
@@ -25,11 +26,13 @@ function accepted<T>(result: KeyingVerificationResult<T>): T {
 
 async function fixture() {
   const signer = await createPolicySigner();
+  const member = await createPolicySigner("ordinary-member");
   const shared = {
     signer,
     principalId: "reserved-admins",
     principalKeyPair: generateKemSeedAndKeyPair(),
-    members: [{ userId: signer.userId }, { userId: "ordinary-member" }],
+    members: [{ userId: signer.userId }, { userId: member.userId }],
+    projection: [policyMember(signer, "admin"), policyMember(member)],
   };
   const first = await signPolicyState({
     ...shared,
@@ -40,10 +43,7 @@ async function fixture() {
     ...shared,
     version: 2,
     prevStateHash: first.state.stateHash,
-    projection: shared.members.map(({ userId }) => ({
-      userId,
-      role: "admin" as const,
-    })),
+    projection: [policyMember(signer, "admin"), policyMember(member, "admin")],
   });
   const verifier = createPrincipalPolicyHistoryVerifier({
     principalType: "group",

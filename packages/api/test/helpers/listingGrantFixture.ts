@@ -76,6 +76,7 @@ export async function seedListingGroup(input: {
       role: "member",
       stateHash,
       userId,
+      identityBundleFingerprint: `unverified-listing-fixture-${userId}`,
     });
   }
   return principalId;

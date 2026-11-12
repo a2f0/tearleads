@@ -41,6 +41,7 @@ async function createGroupBundle(name: string) {
     userId: "signer-user-1",
   });
   const request = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
     groupId: "group-1",
     name,

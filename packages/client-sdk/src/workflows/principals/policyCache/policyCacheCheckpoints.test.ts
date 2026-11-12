@@ -19,7 +19,7 @@ test("principal policy sync hard-fails rollback after the mutable bundle cache i
     "principal-policy-durable-checkpoint",
   );
   try {
-    const { bundle, signerKeyResponse } =
+    const { bundle, getUserIdentity } =
       await createSuccessorPrincipalPolicyBundle();
     const directory = await createPolicyDirectoryFixture({
       organizationId: "org-1",
@@ -30,7 +30,7 @@ test("principal policy sync hard-fails rollback after the mutable bundle cache i
       organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
     await expect(
@@ -48,7 +48,7 @@ test("principal policy sync hard-fails rollback after the mutable bundle cache i
         organizationId: "org-1",
         execSql,
         getCurrentPrincipalPolicy: async () => olderBundle,
-        getUserIdentity: async () => signerKeyResponse,
+        getUserIdentity,
         references: [referencedPrincipalStateFromBundle(olderBundle)],
       }),
     ).rejects.toMatchObject({
@@ -68,7 +68,7 @@ test("principal policy sync cannot pin a head when its full bundle write fails",
     "principal-policy-atomic-bundle-checkpoint",
   );
   try {
-    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
     const directory = await createPolicyDirectoryFixture({
       organizationId: "org-1",
       group: bundle,
@@ -86,7 +86,7 @@ test("principal policy sync cannot pin a head when its full bundle write fails",
       organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       log: (message) => logs.push(message),
       references: [referencedPrincipalStateFromBundle(bundle)],
     });

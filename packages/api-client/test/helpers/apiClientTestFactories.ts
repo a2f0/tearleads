@@ -332,6 +332,7 @@ export function createPrincipalPolicyBundleResponse(): PrincipalPolicyBundleResp
     },
     currentProjection: [
       {
+        identityBundleFingerprint: "a".repeat(64),
         userId: "user-1",
         role: "admin",
       },
@@ -424,6 +425,7 @@ export function createPrincipalPolicyRequest(): PutPrincipalPolicyRequest {
     },
     projection: [
       {
+        identityBundleFingerprint: "a".repeat(64),
         userId: "550e8400-e29b-41d4-a716-446655440002",
         role: "admin",
       },

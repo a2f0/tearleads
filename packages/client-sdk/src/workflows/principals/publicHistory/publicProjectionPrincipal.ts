@@ -4,6 +4,7 @@ import {
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { assertSelectedPolicyCommitments } from "../../../data/principals/principalIdentityCommitments";
 import { PrincipalHistoryEvidenceUnavailableError } from "../historyRecovery/principalHistoryRecoveryReferences";
 import type {
   PublicPrincipalHistoryOptions,
@@ -32,8 +33,9 @@ export async function selectPublicProjectionPrincipal(
     options.source.head.principalType,
     options.source.head.principalId,
   );
+  let policies: Awaited<ReturnType<typeof selectPublicPrincipalHistory>>;
   try {
-    return await selectPublicPrincipalHistory({
+    policies = await selectPublicPrincipalHistory({
       execSql: options.execSql,
       recovered: principal.recovered,
       references: [options.source.head, ...references],
@@ -53,6 +55,13 @@ export async function selectPublicProjectionPrincipal(
     });
     return selectPublicProjectionPrincipal(principal, references);
   }
+  await assertSelectedPolicyCommitments(
+    policies,
+    options.resolveTrustedUserIdentity,
+    () => assertProjectionVerificationCurrent(current),
+  );
+  assertProjectionVerificationCurrent(current);
+  return policies;
 }
 
 export async function recoverPublicProjectionPrincipal(

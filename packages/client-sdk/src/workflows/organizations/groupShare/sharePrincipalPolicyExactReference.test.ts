@@ -34,6 +34,7 @@ async function createDirectoryFixture(
   const memberKem = generateKemSeedAndKeyPair();
   const buildGroup = (groupId: string, name: string) =>
     buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       creatorEncapsulationKeyPair: memberKem,
       groupId,
       name,
@@ -62,6 +63,7 @@ async function createDirectoryFixture(
       })
     : predecessor;
   const organizationRequest = await buildInitialOrganizationPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     adminGroupId: "admins-group",
     encapsulationPublicKey: memberKem.publicKey,
     groupHeads: [

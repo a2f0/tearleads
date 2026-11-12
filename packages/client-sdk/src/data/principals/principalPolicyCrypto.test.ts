@@ -11,6 +11,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { createFixtureUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
@@ -44,18 +45,37 @@ async function createPrincipalPolicyBundle(input: {
   const version = input.version ?? 1;
   const signerUserId = `${input.principalId}-signer-user`;
   const signerUserKeyFingerprint = await toFingerprint(signingPublicKey);
+  const signerRecipientKem = generateKemSeedAndKeyPair();
+  const signer = await createFixtureUserIdentity({
+    userId: signerUserId,
+    signingPublicKey,
+    encapsulationPublicKey: signerRecipientKem.publicKey,
+  });
   const currentProjection = [
     {
       userId: signerUserId,
+      identityBundleFingerprint: signer.identityBundleFingerprint,
       role: "admin" as const,
     },
-    ...input.members.map((member) => ({
-      userId: member.userId,
-      role: "member" as const,
-    })),
+    ...(await Promise.all(
+      input.members.map(async (member) => {
+        const recipient = input.memberRecipientPublicKeys.find(
+          (entry) => entry.userId === member.userId,
+        );
+        if (!recipient) throw new Error("Missing member recipient key");
+        const identity = await createFixtureUserIdentity({
+          userId: member.userId,
+          encapsulationPublicKey: recipient.publicKey,
+        });
+        return {
+          userId: member.userId,
+          role: "member" as const,
+          identityBundleFingerprint: identity.identityBundleFingerprint,
+        };
+      }),
+    )),
   ];
   const payloadCiphertext = `${input.principalId}-ciphertext`;
-  const signerRecipientKem = generateKemSeedAndKeyPair();
   const recipients = [
     {
       userId: signerUserId,

@@ -1,6 +1,6 @@
-// SDK: verified identity links and cancellable identity setup.
-// Authority loaders take exact heads, including cached citations. Obsolete
-// adapters are excluded; authored policy journals survive restart. See workflows/README.md.
+// SDK: full-bundle identity trust and bounded Members admission.
+// Exact-head authority; canonical writer domains; restart-safe journals.
+// No pin promotion or legacy adapters. See workflows/README.md.
 export {
   type ApiRequestCounts,
   type ApiRequestEndpointCounts,

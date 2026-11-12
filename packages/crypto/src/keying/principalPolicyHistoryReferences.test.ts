@@ -9,6 +9,7 @@ import { indexedHistoryFixture } from "./principalPolicyHistoryReferenceTestFixt
 import { historyHead } from "./principalPolicyHistoryTestFixtures";
 import {
   expectVerificationError,
+  policyMember,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
 
@@ -123,7 +124,7 @@ test("proof membership does not substitute for projection and grant commitments"
   const variants = [
     {
       ...original.entry,
-      projection: [{ userId: fixture.signer.userId, role: "member" as const }],
+      projection: [policyMember(fixture.signer)],
     },
     {
       ...original.entry,

@@ -55,6 +55,7 @@ test("a fresh SDK verifies container history after its group is deleted", async 
     containerId: root.kekState.containerId,
     organizationId,
     owner,
+    knownUsers: [reader],
   });
   const writer = await createAncestorSdkContext(owner, organizationId, reader);
   try {
@@ -103,6 +104,7 @@ test("a fresh SDK verifies container history after its group is deleted", async 
     organizationId,
     owner,
     reader: owner,
+    knownUsers: [reader],
   });
   expect(recovered.recoveredText).toBe(COLD_DOCUMENT_TEXT);
   expect(recovered.updateIds).toContain(document.updateId);

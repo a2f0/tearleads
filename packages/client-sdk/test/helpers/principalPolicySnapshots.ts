@@ -34,6 +34,7 @@ export async function createExternallyAuthorizedPrincipalPolicySnapshots() {
     signingKeyPair.signingPublicKey,
   );
   const adminRequest = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: encapsulationKeyPair,
     groupId: crypto.randomUUID(),
     name: "Admins",
@@ -47,6 +48,7 @@ export async function createExternallyAuthorizedPrincipalPolicySnapshots() {
     throw new Error("Expected group authority fixture");
   }
   const subjectRequest = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: encapsulationKeyPair,
     externalAuthority: { ...adminHead, principalType: "group" },
     groupId: crypto.randomUUID(),

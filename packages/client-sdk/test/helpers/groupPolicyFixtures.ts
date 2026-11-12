@@ -1,5 +1,6 @@
 import type { ContainerMutationAuthor } from "@tearleads/client-sdk";
 import {
+  computeUserIdentityBundleFingerprint,
   encryptGroupMetadata,
   type generateKemSeedAndKeyPair,
   toFingerprint,
@@ -17,12 +18,27 @@ export async function createSuccessorGroupPolicyBundle(input: {
   readonly groupKem: ReturnType<typeof generateKemSeedAndKeyPair>;
   readonly keyEpoch?: number | undefined;
   readonly memberPublicKey: Uint8Array;
+  readonly memberSigningPublicKey?: Uint8Array;
   readonly previousBundle: PrincipalPolicyBundleResponse;
   readonly signedAt: string;
   readonly signerUserId?: string | undefined;
   readonly name?: string | undefined;
   readonly userId: string;
 }): Promise<PrincipalPolicyBundleResponse> {
+  const previousMember = input.previousBundle.currentProjection.find(
+    (member) => member.userId === input.userId,
+  );
+  let identityBundleFingerprint = previousMember?.identityBundleFingerprint;
+  if (!identityBundleFingerprint) {
+    if (!input.memberSigningPublicKey)
+      throw new Error("New fixture member needs its signing public key");
+    identityBundleFingerprint = await computeUserIdentityBundleFingerprint({
+      identityTrustDomain: "https://api.example.test",
+      userId: input.userId,
+      signingPublicKey: input.memberSigningPublicKey,
+      encapsulationPublicKey: input.memberPublicKey,
+    });
+  }
   const previousState = input.previousBundle.currentState;
   const version = previousState.version + 1;
   const keyEpoch = input.keyEpoch ?? previousState.keyEpoch + 1;
@@ -58,7 +74,13 @@ export async function createSuccessorGroupPolicyBundle(input: {
         grants: input.previousBundle.currentGrants,
       },
     ],
-    projection: [{ userId: input.userId, role: "admin" as const }],
+    projection: [
+      {
+        identityBundleFingerprint,
+        userId: input.userId,
+        role: "admin" as const,
+      },
+    ],
     signing: {
       principalType: "group",
       principalId: input.groupId,

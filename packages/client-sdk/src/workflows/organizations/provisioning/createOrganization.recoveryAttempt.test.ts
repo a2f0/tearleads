@@ -35,6 +35,7 @@ test("replacement provisioning replays exact artifacts after a lost response", a
   try {
     await expect(
       createOrganization({
+        identityTrustDomain: "https://api.example.test",
         apiClient: {
           createOrganization: async (request) => {
             firstRequest = request;
@@ -51,6 +52,7 @@ test("replacement provisioning replays exact artifacts after a lost response", a
     ).rejects.toThrow("response lost after server commit");
 
     const response = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient: {
         createOrganization: async (request) => {
           retriedRequest = request;
@@ -100,6 +102,7 @@ test("two devices adopt the same winning replacement organization", async () => 
 
   try {
     const leftResponse = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient,
       dbClient: execSqlClientFromExecSql(left.execSql),
       encapsulationKeyPair,
@@ -108,6 +111,7 @@ test("two devices adopt the same winning replacement organization", async () => 
       userId,
     });
     const rightResponse = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient,
       dbClient: execSqlClientFromExecSql(right.execSql),
       encapsulationKeyPair,

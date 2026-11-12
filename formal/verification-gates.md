@@ -83,6 +83,27 @@ the vector replay binds to production on sampled sizes. The grant algebra,
 revocation and re-grant, and checkpoint monotonicity are covered by these tests
 and the bounded models, not by theorems.
 
+## Member identity commitments and chains
+
+The [commitment model](./local-trust/MemberIdentityCommitment.md) checks complete
+identity-link bundle binding in signed group/organization projections and
+continuing-member immutability. The
+[admission model](./local-trust/MemberIdentityChain.md) checks the separate
+operation-local proof from a current Members recipient through earlier signed
+admissions to a self/link root. Departed but historically authorized signers
+remain usable; conflicts, missing evidence, cycles, and forward trust refuse.
+
+Both models and the admission model's deeper configuration are registered in
+[protocol-models.txt](./protocol-models.txt). Thirteen
+[negative controls](../scripts/protocol/protocolMemberIdentityNegativeControls.ts)
+exercise commitment, transition, pin, authorization, interval, cycle, and work
+bounds, plus over-strict current-signer and always-refusing faults. Admission
+progress checks the finite positive family under fair local work, not network
+availability or unlimited histories. The existing
+[durable-pin model](./local-trust/DurableIdentityBinding.md) still covers direct
+self/link admission and new roster enrollment. There is no implementation trace
+bridge for the new models, so their TLC results are not runtime test coverage.
+
 ## Reproduce the gates
 
 With the mise-pinned tooling installed:

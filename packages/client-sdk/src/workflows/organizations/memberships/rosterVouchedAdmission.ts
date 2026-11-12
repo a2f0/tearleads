@@ -12,13 +12,13 @@ import type {
 } from "@tearleads/validators/response";
 import type { RecoveredPrincipalHistoryPage } from "../../principals/historyRecovery/loadRecoveredPrincipalHistoryPage";
 
-// How far back one admission walks verified Members history to find where its
-// recipient joined: 64 display pages of 32 states. A longer walk refuses, and
-// the recipient's own identity link still admits them.
-const MAX_MEMBERS_HISTORY_PAGES = 64;
+import { createRosterAdmissionHistory } from "./rosterAdmissionHistory";
+
+const MAX_ADMISSION_DEPTH = 64;
 
 /** This device's pin for a user, as the admission reads it. */
 export interface RosterAdmissionPin {
+  readonly identityBundleFingerprint: string;
   readonly encapsulationKeyFingerprint: string;
   readonly signingKeyFingerprint: string;
   /** Established by a verified identity link or this device's own keys. */
@@ -30,6 +30,7 @@ export interface RosterAdmissionEvidence {
   readonly loadCurrentMembers: () => Promise<{
     readonly envelopes: readonly PrincipalMemberEnvelopeResponse[];
     readonly head: ReferencedPrincipalHead;
+    readonly projection: PrincipalPolicyStateChainEntryResponse["projection"];
   }>;
   /** Verified Members history ending at `head`, ascending, one page at a time. */
   readonly loadHistoryPage: (
@@ -55,57 +56,6 @@ function memberKeyFingerprint(
     envelopes.find((envelope) => envelope.userId === userId)
       ?.memberKeyFingerprint ?? null
   );
-}
-
-function hasMember(
-  entry: PrincipalPolicyStateChainEntryResponse,
-  userId: string,
-): boolean {
-  return entry.projection.some((member) => member.userId === userId);
-}
-
-// One state in the walk back from `head`: same principal, the expected
-// version, and the head's own hash at the head version.
-function continuesHistory(
-  state: PrincipalStateResponse,
-  head: ReferencedPrincipalHead,
-  expectedVersion: number,
-): boolean {
-  return (
-    state.principalType === head.principalType &&
-    state.principalId === head.principalId &&
-    state.version === expectedVersion &&
-    (state.version !== head.version || state.stateHash === head.stateHash)
-  );
-}
-
-/**
- * The verified Members state that started the user's current, unbroken
- * membership: the earliest state of the run that reaches the head. Null when
- * the user is not a member at the head or the walk cannot place them.
- */
-async function findMembershipStart(
-  userId: string,
-  head: ReferencedPrincipalHead,
-  loadHistoryPage: RosterAdmissionEvidence["loadHistoryPage"],
-): Promise<PrincipalPolicyStateChainEntryResponse | null> {
-  let expectedVersion = head.version;
-  let beforeVersion: number | undefined;
-  let start: PrincipalPolicyStateChainEntryResponse | null = null;
-  for (let pages = 0; pages < MAX_MEMBERS_HISTORY_PAGES; pages += 1) {
-    const page = await loadHistoryPage(head, beforeVersion);
-    for (const entry of [...page.entries].reverse()) {
-      if (!continuesHistory(entry.state, head, expectedVersion)) return null;
-      if (!hasMember(entry, userId)) return start;
-      start = entry;
-      if (entry.state.version === 1) return start;
-      expectedVersion -= 1;
-    }
-    if (page.nextBeforeVersion === null || page.entries.length === 0)
-      return null;
-    beforeVersion = page.nextBeforeVersion;
-  }
-  return null;
 }
 
 // The served list's root; a malformed list (duplicate members, non-canonical
@@ -146,16 +96,73 @@ async function assertStateEnvelopes(
     );
 }
 
-/**
- * Whether the organization's signed roster vouches for `userId`'s encryption
- * key on this device. Adding someone to Members requires the adding admin to
- * have verified their identity link, so the Members state that started their
- * current membership is that admin's signed statement of the key they
- * verified. It counts only when this device itself verified that admin's
- * signing key (a link, or its own keys), and only for the encryption key that
- * state committed, which must still be the user's key in the current Members
- * state and in this device's pin. The user's signing key is not vouched for.
- */
+function assertIdentityCommitment(
+  committed: string,
+  pin: RosterAdmissionPin,
+): void {
+  if (committed !== pin.identityBundleFingerprint)
+    throw new KeyingVerificationError(
+      "hash_mismatch",
+      "Members identity bundle differs from pinned identity",
+    );
+}
+
+interface AdmissionSearch {
+  readonly evidence: RosterAdmissionEvidence;
+  readonly history: ReturnType<typeof createRosterAdmissionHistory>;
+  readonly visited: Set<string>;
+}
+
+async function authenticate(
+  id: string,
+  pin: RosterAdmissionPin,
+  atVersion: number,
+  current: boolean,
+  search: AdmissionSearch,
+): Promise<boolean> {
+  const { evidence, history, visited } = search;
+  // Independently verified signers need not be Members (external Admins).
+  if (!current && pin.verified) return true;
+  if (visited.has(id) || visited.size >= MAX_ADMISSION_DEPTH) return false;
+  visited.add(id);
+  const start = await history.membershipStart(id, atVersion, current);
+  if (!start || start.state.signerUserId === id) return false;
+  const member = start.projection.find((item) => item.userId === id);
+  if (!member) return false;
+  assertIdentityCommitment(member.identityBundleFingerprint, pin);
+  const signer = await evidence.loadPin(start.state.signerUserId);
+  if (!signer) return false;
+  if (signer.signingKeyFingerprint !== start.state.signerUserKeyFingerprint)
+    throw new KeyingVerificationError(
+      "hash_mismatch",
+      "Members signer differs from pinned identity",
+    );
+  const signerMember = start.projection.find(
+    (item) => item.userId === start.state.signerUserId,
+  );
+  if (signerMember)
+    assertIdentityCommitment(signerMember.identityBundleFingerprint, signer);
+  const envelopes = await evidence.loadStateEnvelopes(start.state);
+  if (!envelopes) return false;
+  await assertStateEnvelopes(start, envelopes);
+  if (
+    memberKeyFingerprint(envelopes.envelopes, id) !==
+    pin.encapsulationKeyFingerprint
+  )
+    throw new KeyingVerificationError(
+      "hash_mismatch",
+      "Historical Members envelope differs from pinned identity",
+    );
+  return authenticate(
+    start.state.signerUserId,
+    signer,
+    start.state.version - 1,
+    false,
+    search,
+  );
+}
+
+/** Authenticate a full pinned identity through strictly earlier Members admissions. */
 export async function isRosterVouchedRecipient(
   userId: string,
   evidence: RosterAdmissionEvidence,
@@ -163,28 +170,28 @@ export async function isRosterVouchedRecipient(
   const recipient = await evidence.loadPin(userId);
   if (!recipient) return false;
   const members = await evidence.loadCurrentMembers();
+  const currentMember = members.projection.find(
+    (member) => member.userId === userId,
+  );
+  if (!currentMember) return false;
+  assertIdentityCommitment(currentMember.identityBundleFingerprint, recipient);
   if (
     memberKeyFingerprint(members.envelopes, userId) !==
     recipient.encapsulationKeyFingerprint
   )
-    return false;
-  const start = await findMembershipStart(
-    userId,
+    throw new KeyingVerificationError(
+      "hash_mismatch",
+      "Members envelope differs from pinned identity",
+    );
+  const history = createRosterAdmissionHistory(
     members.head,
     evidence.loadHistoryPage,
   );
-  if (!start || start.state.signerUserId === userId) return false;
-  const signer = await evidence.loadPin(start.state.signerUserId);
-  if (
-    !signer?.verified ||
-    signer.signingKeyFingerprint !== start.state.signerUserKeyFingerprint
-  )
-    return false;
-  const envelopes = await evidence.loadStateEnvelopes(start.state);
-  if (!envelopes) return false;
-  await assertStateEnvelopes(start, envelopes);
-  return (
-    memberKeyFingerprint(envelopes.envelopes, userId) ===
-    recipient.encapsulationKeyFingerprint
-  );
+  const visited = new Set<string>();
+
+  return authenticate(userId, recipient, members.head.version, true, {
+    evidence,
+    history,
+    visited,
+  });
 }

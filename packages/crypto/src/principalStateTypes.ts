@@ -26,6 +26,8 @@ export interface PrincipalStateMember {
 export interface PrincipalProjectionMember {
   userId: string;
   role: PrincipalProjectionRole;
+  /** Complete tearleads.identity-link.v1 identity, committed by projectionRoot. */
+  identityBundleFingerprint: string;
 }
 
 /** Complete direct-container grant set committed by a managed principal. */

@@ -11,6 +11,7 @@ export async function createReplacementAuthorizationFixture() {
   const userId = crypto.randomUUID();
   const rootContainerId = crypto.randomUUID();
   const artifacts = await buildOrganizationProvisioningArtifacts({
+    identityTrustDomain: "https://api.example.test",
     encapsulationKeyPair: generateKemSeedAndKeyPair(),
     rootContainerId,
     signingKeyPair,

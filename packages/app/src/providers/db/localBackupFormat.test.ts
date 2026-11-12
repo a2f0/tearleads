@@ -44,6 +44,12 @@ test("an empty password cannot silently disable backup encryption", async () => 
   );
 });
 
+test("rejects v16 backups predating identity-bundle commitments", async () => {
+  await expect(
+    decodeBackupFile({ text: JSON.stringify({ ...payload, version: 16 }) }),
+  ).rejects.toThrow("Backup payload version is not supported.");
+});
+
 test("rejects v15 backups predating durable ordinary creation intents", async () => {
   await expect(
     decodeBackupFile({ text: JSON.stringify({ ...payload, version: 15 }) }),

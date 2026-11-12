@@ -44,6 +44,16 @@ sh scripts/dev/runApi.sh --help       # PGlite and Postgres modes
 [API persistence](../../docs/developer/api-persistence.md) describes each
 database mode and its environment variables.
 
+Principal identity commitments use `API_IDENTITY_TRUST_DOMAIN`, defaulting to
+`API_PUBLIC_ORIGIN`. Configure a stable canonical HTTPS URL in production;
+request Host headers never select its identity scope. An explicit identity
+trust domain retains the API base path (for example, `https://api.example/api`)
+and must match the SDK's `identityTrustDomain` override when one is used.
+Changing it invalidates existing identity commitments; it is not a per-request
+or tenant-supplied setting. Credentials, queries, and fragments are rejected.
+Only development/test composition without either setting may explicitly pass
+the request origin through services to mutation workflows.
+
 ## Deployment
 
 [`scripts/deploy/deployStaging.sh`](../../scripts/deploy/deployStaging.sh) and

@@ -19,7 +19,10 @@ import {
   policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import {
+  createFixtureUserIdentity,
+  createTestTrustedUserIdentity,
+} from "../../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   loadAllPrincipalPolicyBundles,
@@ -47,9 +50,11 @@ function signerPublicKeys(input: {
 test("remove group user bridges committed policy writes before caching the rotation", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const remainingUserKem = generateKemSeedAndKeyPair();
-  const removedUserKem = generateKemSeedAndKeyPair();
   const signerUserId = crypto.randomUUID();
   const removedUserId = crypto.randomUUID();
+  const { identity: removedUserIdentity } = await createFixtureUserIdentity({
+    userId: removedUserId,
+  });
   const organizationId = crypto.randomUUID();
   const groupId = crypto.randomUUID();
   const adminGroupId = crypto.randomUUID();
@@ -58,6 +63,7 @@ test("remove group user bridges committed policy writes before caching the rotat
     signingKeyPair.signingPublicKey,
   );
   const initialRequest = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     metadataKey: testGroupMetadataKey(organizationId),
     creatorEncapsulationKeyPair: remainingUserKem,
     groupId,
@@ -69,6 +75,7 @@ test("remove group user bridges committed policy writes before caching the rotat
   const initialPolicy = await policyBundleFromInitialRequest(initialRequest);
   const adminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: remainingUserKem,
       groupId: adminGroupId,
@@ -91,15 +98,7 @@ test("remove group user bridges committed policy writes before caching the rotat
     signerUserId,
     signingFingerprint,
     signingKeyPair,
-    targetUser: createTestTrustedUserIdentity({
-      userId: removedUserId,
-      encapsulationPublicKey: removedUserKem.publicKey,
-      encapsulationKeyFingerprint: await toFingerprint(
-        removedUserKem.publicKey,
-      ),
-      signingKeyFingerprint: signingFingerprint,
-      signingPublicKey: signingKeyPair.signingPublicKey,
-    }),
+    targetUser: removedUserIdentity,
   });
   const previousPolicy = await policyBundleAfterMutation({
     mutation: addedMutation,
@@ -108,6 +107,7 @@ test("remove group user bridges committed policy writes before caching the rotat
   let organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId,
       encapsulationPublicKey: remainingUserKem.publicKey,
       groupHeads: [
@@ -137,22 +137,12 @@ test("remove group user bridges committed policy writes before caching the rotat
     signingPublicKey: signingKeyPair.signingPublicKey,
     userId: signerUserId,
   });
-  const removedUserIdentity = createTestTrustedUserIdentity({
-    encapsulationKeyFingerprint: await toFingerprint(removedUserKem.publicKey),
-    encapsulationPublicKey: removedUserKem.publicKey,
-    signingKeyFingerprint: signingFingerprint,
-    signingPublicKey: signingKeyPair.signingPublicKey,
-    userId: removedUserId,
-  });
-  const resolveTrustedUserIdentity = async (userId: string) => {
-    if (userId === signerUserId) {
-      return remainingUserIdentity;
-    }
-    if (userId === removedUserId) {
-      return removedUserIdentity;
-    }
-    return null;
-  };
+  const identities = new Map<string, typeof remainingUserIdentity>([
+    [signerUserId, remainingUserIdentity],
+    [removedUserId, removedUserIdentity],
+  ]);
+  const resolveTrustedUserIdentity = async (userId: string) =>
+    identities.get(userId) ?? null;
   const apiClient: Parameters<
     typeof removeOrganizationGroupUser
   >[0]["apiClient"] = {
@@ -325,7 +315,10 @@ test("remove group user bridges committed policy writes before caching the rotat
     expect(cachedAfterBridge?.currentState.keyEpoch).toBe(2);
 
     const concurrentUserId = crypto.randomUUID();
-    const concurrentUserKem = generateKemSeedAndKeyPair();
+    const { identity: concurrentIdentity } = await createFixtureUserIdentity({
+      userId: concurrentUserId,
+    });
+    identities.set(concurrentUserId, concurrentIdentity);
     const expectedAddHead: { current: ReferencedPrincipalHead | null } = {
       current: null,
     };
@@ -352,15 +345,7 @@ test("remove group user bridges committed policy writes before caching the rotat
             signerUserId,
             signingFingerprint,
             signingKeyPair,
-            targetUser: createTestTrustedUserIdentity({
-              userId: concurrentUserId,
-              encapsulationPublicKey: concurrentUserKem.publicKey,
-              encapsulationKeyFingerprint: await toFingerprint(
-                concurrentUserKem.publicKey,
-              ),
-              signingKeyFingerprint: signingFingerprint,
-              signingPublicKey: signingKeyPair.signingPublicKey,
-            }),
+            targetUser: concurrentIdentity,
           });
           currentPolicy = await policyBundleAfterMutation({
             mutation: concurrentMutation,

@@ -70,9 +70,7 @@ export const EXPLORER_CONTAINER_INFO_LABELS = {
   containerInfoShareToPeerHeading: "Share To Peer",
   containerInfoShareToUserFailure: "Failed to share container with user.",
   containerInfoShareToUserNeedsIdentityLink:
-    "Verify this person's identity link before sharing with them.",
-  containerInfoShareToUserNeedsIdentityLinkForWrite:
-    "Verify this person's identity link to give them write or admin access. Without it you can share read-only.",
+    "This device could not authenticate the recipient. Verify their identity link and try sharing again.",
   containerInfoSharingAction: "Sharing...",
   containerInfoSharingProgressDescription:
     "Sealing this folder's keys for the recipient and recording the grant.",

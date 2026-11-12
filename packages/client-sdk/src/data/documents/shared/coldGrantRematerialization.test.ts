@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  computeUserIdentityBundleFingerprint,
+  generateKemSeedAndKeyPair,
+} from "@tearleads/crypto";
 import { createDocument, getTextValue, importUpdates } from "@tearleads/loro";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { loadColdRecoveredDocumentInfo } from "../../../../test/helpers/coldDocumentInfo";
@@ -54,6 +57,7 @@ async function managedGrantFixture(input: {
       secretKey: input.rotated.fixture.secretKey,
     },
     signingPublicKey: previousMember.signingPublicKey,
+    memberSigningPublicKey: input.reader.signingPublicKey,
     userId: USER_ID,
   });
   const wrap = await createManagedContainerWrap({
@@ -111,7 +115,17 @@ for (const grantKind of ["user", "group"] as const) {
           managed.policies.current.previousStates[0]?.state.keyEpoch ?? 0,
         );
         expect(managed.policies.current.currentProjection).toEqual([
-          { role: "admin", userId: USER_ID },
+          {
+            role: "admin",
+            userId: USER_ID,
+            identityBundleFingerprint:
+              await computeUserIdentityBundleFingerprint({
+                identityTrustDomain: "https://api.example.test",
+                userId: USER_ID,
+                signingPublicKey: reader.signingPublicKey,
+                encapsulationPublicKey: rotated.fixture.publicKey,
+              }),
+          },
         ]);
         const { warmer: warmReferencedPrincipalPolicies, requests } =
           createRepairWarmer({

@@ -1,7 +1,6 @@
 import { beforeAll, expect, test } from "bun:test";
 import {
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
+  computeUserIdentityBundleFingerprint,
   toFingerprint,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
@@ -14,7 +13,6 @@ import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { principalGrantRetirements } from "../../data/sqlite/schema/principalGrantRetirementSchema";
 import { createCurrentPrincipalMutation } from "./currentPrincipalMutations";
@@ -25,19 +23,10 @@ beforeAll(async () => {
 }, 30_000);
 
 async function fixture() {
-  const targetSigning = generateSigningSeedAndKeyPair();
-  const targetKem = generateKemSeedAndKeyPair();
-  const target = createTestTrustedUserIdentity({
-    userId: history.targetUserId,
-    encapsulationPublicKey: targetKem.publicKey,
-    encapsulationKeyFingerprint: await toFingerprint(targetKem.publicKey),
-    signingPublicKey: targetSigning.signingPublicKey,
-    signingKeyFingerprint: await toFingerprint(targetSigning.signingPublicKey),
-  });
-  const resolveTrustedUserIdentity = async (userId: string) =>
-    userId === history.targetUserId
-      ? target
-      : history.resolveTrustedUserIdentity(userId);
+  const target = await history.resolveTrustedUserIdentity(history.targetUserId);
+  if (!target) throw new Error("Missing target fixture identity");
+  const targetFingerprint = await computeUserIdentityBundleFingerprint(target);
+  const resolveTrustedUserIdentity = history.resolveTrustedUserIdentity;
   const f = await createAuthorityRecoveryFixture({
     ...history,
     resolveTrustedUserIdentity,
@@ -132,6 +121,7 @@ async function fixture() {
   return {
     ...f,
     state,
+    targetFingerprint,
     mutate,
     groupId: history.admin.currentState.principalId,
   };
@@ -139,9 +129,14 @@ async function fixture() {
 
 test("built-in current mutation adds then removes an Admin with only paged reads and exact receipts", async () => {
   const f = await fixture();
+  f.controls.conditional = true;
+  const admittedHeads: string[] = [];
   try {
     const added = await f.mutate(f.groupId, {
       kind: "add",
+      admission: async (members) => {
+        admittedHeads.push(members.currentState.stateHash);
+      },
       expectedGroupName: "Admins",
       targetUserId: history.targetUserId,
     });
@@ -152,16 +147,31 @@ test("built-in current mutation adds then removes an Admin with only paged reads
     });
     expect(added.enrolled).toBe(true);
     expect(f.state.writes).toBe(1);
+    expect(admittedHeads).toEqual([
+      history.memberPolicy.currentState.stateHash,
+      history.memberPolicy.currentState.stateHash,
+    ]);
+    // The selected group and Members each discover the directory once. The
+    // admission and enrollment steps share that same verified Members context.
+    expect(
+      f.requests.filter(
+        (request) =>
+          request.principalId === history.organizationId &&
+          request.afterVersion === 0,
+      ),
+    ).toHaveLength(2);
     expect(
       f.policies.get(history.memberPolicy.currentState.principalId)
         ?.currentProjection,
     ).toContainEqual({
       userId: history.targetUserId,
+      identityBundleFingerprint: f.targetFingerprint,
       role: "member",
     });
     const afterAdd = f.policies.get(f.groupId);
     expect(afterAdd?.currentProjection).toContainEqual({
       userId: history.targetUserId,
+      identityBundleFingerprint: f.targetFingerprint,
       role: "admin",
     });
     const removed = await f.mutate(f.groupId, {
@@ -205,6 +215,7 @@ test.each(["corruptReceipt", "expireOnReceipt"] as const)(
       await expect(
         f.mutate(f.groupId, {
           kind: "add",
+          admission: async () => {},
           expectedGroupName: "Admins",
           targetUserId: history.targetUserId,
         }),

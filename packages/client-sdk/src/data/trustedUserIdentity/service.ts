@@ -1,11 +1,12 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
-  compareOrInsertTrustedUserIdentityPin,
-  loadTrustedUserIdentityPin,
-  loadTrustedUserIdForSigningKey,
   TrustedUserIdentityPinCorruptError,
   TrustedUserIdentityPinMismatchError,
+} from "../persistence/identity/trustedUserIdentityPinModel";
+import { loadTrustedUserIdForSigningKey } from "../persistence/identity/trustedUserIdentitySigningKeyBinding";
+import {
+  compareOrInsertTrustedUserIdentityPins,
   type TrustedUserIdentityPinProvenance,
 } from "../persistence/trustedUserIdentityPinPersistence";
 import { TrustedUserIdentityPinContentionError } from "../persistence/trustedUserIdentityPinTransaction";
@@ -17,6 +18,9 @@ import {
   createIdentityLink,
   parseIdentityLink,
 } from "./identityLink";
+import { loadPin, loadPinnedUserIdentity } from "./pinnedIdentity";
+import { withPinnedIdentityResolution } from "./pinnedResolution";
+import { withStagedIdentityHandoff } from "./stagedIdentityHandoff";
 import {
   brandTrustedUserIdentity,
   TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,
@@ -31,7 +35,6 @@ import {
   assertTrustedUserIdentityUserId,
   validateLocalUserIdentity,
   validateRemoteUserIdentity,
-  validateUserIdentityKeys,
 } from "./validation";
 
 function requireTrustDomain(
@@ -64,53 +67,65 @@ function requireTrustStore(
   return { execSql, identityTrustDomain };
 }
 
-async function compareWithDurablePin(input: {
+function durablePin(
+  identity: ValidatedUserIdentityCandidate,
+  provenance: TrustedUserIdentityPinProvenance,
+  firstSeenAt: string,
+) {
+  return {
+    encapsulationKeyFingerprint: identity.encapsulationKeyFingerprint,
+    encapsulationPublicKey: bytesToBase64(identity.encapsulationPublicKey),
+    encapsulationSuite: TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,
+    firstSeenAt,
+    provenance,
+    formatVersion: TRUSTED_USER_IDENTITY_FORMAT_VERSION,
+    identityTrustDomain: identity.identityTrustDomain,
+    signingKeyFingerprint: identity.signingKeyFingerprint,
+    signingPublicKey: bytesToBase64(identity.signingPublicKey),
+    signingSuite: TRUSTED_USER_IDENTITY_SIGNING_SUITE,
+    userId: identity.userId,
+  };
+}
+
+/** Compare-or-insert every identity in one transaction: all pin, or none. */
+async function compareWithDurablePins(input: {
+  readonly assertCurrent?: (() => void) | undefined;
   readonly execSql: NonNullable<
     ReturnType<TrustedUserIdentityServiceDependencies["getExecSql"]>
   >;
   readonly firstSeenAt: string;
-  readonly identity: ValidatedUserIdentityCandidate;
+  readonly identities: readonly ValidatedUserIdentityCandidate[];
   readonly provenance: TrustedUserIdentityPinProvenance;
 }): Promise<void> {
+  const userIds = input.identities.map((identity) => identity.userId);
   try {
-    await compareOrInsertTrustedUserIdentityPin({
+    await compareOrInsertTrustedUserIdentityPins({
+      assertCurrent: input.assertCurrent,
       execSql: input.execSql,
-      pin: {
-        encapsulationKeyFingerprint: input.identity.encapsulationKeyFingerprint,
-        encapsulationPublicKey: bytesToBase64(
-          input.identity.encapsulationPublicKey,
-        ),
-        encapsulationSuite: TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,
-        firstSeenAt: input.firstSeenAt,
-        provenance: input.provenance,
-        formatVersion: TRUSTED_USER_IDENTITY_FORMAT_VERSION,
-        identityTrustDomain: input.identity.identityTrustDomain,
-        signingKeyFingerprint: input.identity.signingKeyFingerprint,
-        signingPublicKey: bytesToBase64(input.identity.signingPublicKey),
-        signingSuite: TRUSTED_USER_IDENTITY_SIGNING_SUITE,
-        userId: input.identity.userId,
-      },
+      pins: input.identities.map((identity) =>
+        durablePin(identity, input.provenance, input.firstSeenAt),
+      ),
     });
   } catch (error) {
     if (error instanceof TrustedUserIdentityPinMismatchError) {
       throw new KeyingVerificationError(
         "equivocation",
         error.existing.userId !== error.candidate.userId
-          ? `Signing key for ${input.identity.userId} is already bound to ${error.existing.userId}`
-          : `Trusted user identity changed for ${input.identity.userId}`,
+          ? `Signing key for ${error.candidate.userId} is already bound to ${error.existing.userId}`
+          : `Trusted user identity changed for ${error.candidate.userId}`,
       );
     }
     if (error instanceof TrustedUserIdentityPinCorruptError) {
       throw new KeyingVerificationError(
         "invalid_shape",
-        `Trusted user identity pin is corrupt for ${input.identity.userId}`,
+        `Trusted user identity pin is corrupt for ${error.userId}`,
       );
     }
     if (error instanceof TrustedUserIdentityPinContentionError) {
       // Lock contention says nothing about the identity; the caller retries
       // once the trust store is free, so this must not be recordable evidence.
       throw new DatabaseUnavailableError(
-        `Trusted user identity pin store is busy for ${input.identity.userId}`,
+        `Trusted user identity pin store is busy for ${userIds.join(", ")}`,
       );
     }
     throw error;
@@ -149,16 +164,26 @@ async function resolveCandidate(
     };
   }
 
+  const identity = await loadRemoteCandidate(
+    dependencies,
+    userId,
+    identityTrustDomain,
+  );
+  return identity ? { identity, source: "observed" } : null;
+}
+
+async function loadRemoteCandidate(
+  dependencies: TrustedUserIdentityServiceDependencies,
+  userId: string,
+  identityTrustDomain: string,
+): Promise<ValidatedUserIdentityCandidate | null> {
   const remoteIdentity = await dependencies.remoteSource.load(userId);
   return remoteIdentity
-    ? {
-        identity: await validateRemoteUserIdentity({
-          candidate: remoteIdentity,
-          identityTrustDomain,
-          requestedUserId: userId,
-        }),
-        source: "observed",
-      }
+    ? validateRemoteUserIdentity({
+        candidate: remoteIdentity,
+        identityTrustDomain,
+        requestedUserId: userId,
+      })
     : null;
 }
 
@@ -177,6 +202,8 @@ function assertResolutionScope(
 }
 
 async function pinIdentity(input: {
+  /** Checked inside the pin's write transaction, before it commits. */
+  readonly assertCurrent?: (() => void) | undefined;
   readonly dependencies: TrustedUserIdentityServiceDependencies;
   readonly execSql: NonNullable<
     ReturnType<TrustedUserIdentityServiceDependencies["getExecSql"]>
@@ -184,56 +211,14 @@ async function pinIdentity(input: {
   readonly identity: ValidatedUserIdentityCandidate;
   readonly provenance: TrustedUserIdentityPinProvenance;
 }): Promise<TrustedUserIdentity> {
-  await compareWithDurablePin({
+  await compareWithDurablePins({
+    assertCurrent: input.assertCurrent,
     execSql: input.execSql,
     firstSeenAt: (input.dependencies.now?.() ?? new Date()).toISOString(),
-    identity: input.identity,
+    identities: [input.identity],
     provenance: input.provenance,
   });
   return brandTrustedUserIdentity(input.identity);
-}
-
-/**
- * Read-only: the identity this trust store already pins for `userId` and how
- * it was established, or null. The stored keys must still match their stored
- * fingerprints. Never inserts, compares against or replaces a pin.
- */
-async function loadPin(input: {
-  readonly execSql: ExecSql;
-  readonly identityTrustDomain: string;
-  readonly userId: string;
-}): Promise<{
-  readonly identity: TrustedUserIdentity;
-  readonly provenance: TrustedUserIdentityPinProvenance;
-} | null> {
-  assertTrustedUserIdentityUserId(input.userId);
-  const pin = await loadTrustedUserIdentityPin(input);
-  if (!pin) return null;
-  const keys = await validateUserIdentityKeys({
-    candidate: {
-      encapsulationPublicKey: base64ToBytes(pin.encapsulationPublicKey),
-      signingKeyFingerprint: pin.signingKeyFingerprint,
-      signingPublicKey: base64ToBytes(pin.signingPublicKey),
-    },
-    encapsulationKeyFingerprint: pin.encapsulationKeyFingerprint,
-  });
-  return {
-    identity: brandTrustedUserIdentity({
-      ...keys,
-      identityTrustDomain: input.identityTrustDomain,
-      userId: input.userId,
-    }),
-    provenance: pin.provenance,
-  };
-}
-
-/** Read-only: the pinned identity for `userId` of any provenance, or null. */
-export async function loadPinnedUserIdentity(input: {
-  readonly execSql: ExecSql;
-  readonly identityTrustDomain: string;
-  readonly userId: string;
-}): Promise<TrustedUserIdentity | null> {
-  return (await loadPin(input))?.identity ?? null;
 }
 
 /** Compares an independently received link before pinning it as `link`. */
@@ -258,12 +243,15 @@ async function verifyIdentityLink(
     if (!candidate)
       throw new Error("The identity in this link is unavailable.");
     await assertIdentityLinkMatches(expectation, candidate.identity);
-    assertResolutionScope(
-      dependencies,
-      { execSql, localUserId },
-      "The active identity changed. Open the identity link again.",
-    );
+    const assertCurrent = () =>
+      assertResolutionScope(
+        dependencies,
+        { execSql, localUserId },
+        "The active identity changed. Open the identity link again.",
+      );
+    assertCurrent();
     return await pinIdentity({
+      assertCurrent,
       dependencies,
       execSql,
       identity: candidate.identity,
@@ -343,8 +331,9 @@ async function createLocalIdentityLink(
 }
 
 export function createTrustedUserIdentityService(
-  dependencies: TrustedUserIdentityServiceDependencies,
+  input: TrustedUserIdentityServiceDependencies,
 ): TrustedUserIdentityService {
+  const { dependencies, handoff } = withStagedIdentityHandoff(input);
   const verifiedReaders = verifiedPinReaders(dependencies);
   return {
     async resolvePinned(userId) {
@@ -389,34 +378,54 @@ export function createTrustedUserIdentityService(
         provenance: "self",
       });
     },
-    async resolve(userId) {
-      assertTrustedUserIdentityUserId(userId);
-      const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
-      const localUserId = dependencies.getLocalUserId();
-      try {
-        const candidate = await resolveCandidate(
-          dependencies,
-          userId,
-          identityTrustDomain,
-        );
-        if (!candidate) {
-          return null;
+    resolve: withPinnedIdentityResolution(
+      dependencies,
+      async (userId) => {
+        assertTrustedUserIdentityUserId(userId);
+        const { execSql, identityTrustDomain } =
+          requireTrustStore(dependencies);
+        const localUserId = dependencies.getLocalUserId();
+        try {
+          const candidate = await resolveCandidate(
+            dependencies,
+            userId,
+            identityTrustDomain,
+          );
+          if (!candidate) {
+            return null;
+          }
+          const assertCurrent = () =>
+            assertResolutionScope(
+              dependencies,
+              { execSql, localUserId },
+              "The active identity changed while resolving this user.",
+            );
+          assertCurrent();
+          return await pinIdentity({
+            assertCurrent,
+            dependencies,
+            execSql,
+            identity: candidate.identity,
+            provenance: candidate.source,
+          });
+        } catch (error) {
+          dependencies.remoteSource.invalidate(userId);
+          throw error;
         }
-        assertResolutionScope(
-          dependencies,
-          { execSql, localUserId },
-          "The active identity changed while resolving this user.",
-        );
-        return await pinIdentity({
-          dependencies,
-          execSql,
-          identity: candidate.identity,
-          provenance: candidate.source,
-        });
-      } catch (error) {
-        dependencies.remoteSource.invalidate(userId);
-        throw error;
-      }
-    },
+      },
+      {
+        loadCandidate: (userId, identityTrustDomain) =>
+          loadRemoteCandidate(dependencies, userId, identityTrustDomain),
+        pinObserved: (execSql, identities, assertCurrent) =>
+          compareWithDurablePins({
+            assertCurrent,
+            execSql,
+            firstSeenAt: (dependencies.now?.() ?? new Date()).toISOString(),
+            identities,
+            provenance: "observed",
+          }),
+      },
+      handoff,
+    ),
   };
 }

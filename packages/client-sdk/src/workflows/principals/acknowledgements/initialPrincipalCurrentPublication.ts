@@ -15,7 +15,10 @@ import {
   assertPrincipalHistoryVerificationMode,
   principalHistoryVerificationContext,
 } from "../historyRecovery/principalHistoryRecoveryVerification";
-import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  publishVerifiedCurrent,
+} from "../policyVerification";
 import type { AcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
 import type { PrincipalAcknowledgementChecks } from "./principalAcknowledgementChecks";
 import { sealPrincipalCurrentPublication } from "./principalCurrentPublicationSeal";
@@ -43,7 +46,7 @@ export async function prepareInitialGroupCurrentPublication(
       "Initial group publication must begin at its exact genesis",
     );
   const keys = await collectPrincipalPolicySignerPublicKeys({
-    bundle: { currentState: current.currentState, previousStates: [] },
+    bundle: { ...current, previousStates: [] },
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if ("error" in keys)
@@ -78,6 +81,7 @@ export async function prepareInitialGroupCurrentPublication(
     history: history.value,
   });
   if (!policy.ok) throw policy.error;
+  await publishVerifiedCurrent(input, current, stillCurrent);
   const options = {
     ...input,
     protection: {

@@ -69,8 +69,12 @@ export async function appendPublicPrincipalHistoryPage(
       grants: page.currentGrants,
     });
   assertPublicAuthorityScope(input, entries);
+  const predecessor = progress.verifier.getLatestAcceptedProjection();
   const keys = await collectPrincipalPolicySignerPublicKeys({
     bundle: page,
+    // The page's first signer must be the identity the last accepted state
+    // committed; nothing is pinned before the history reaches its head.
+    predecessor,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if ("error" in keys)
@@ -93,6 +97,7 @@ export async function appendPublicPrincipalHistoryPage(
       throw new PublicPrincipalHistoryPrefixDisconnectedError(appended.error);
     throw appended.error;
   }
+  assertProjectionVerificationCurrent(stillCurrent);
   const row = {
     id: progress.id,
     organizationId: input.organizationId,

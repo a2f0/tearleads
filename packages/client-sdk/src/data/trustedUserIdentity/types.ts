@@ -104,13 +104,49 @@ export interface TrustedUserIdentityService {
     candidate: LocalUserIdentityCandidate,
   ): Promise<TrustedUserIdentity>;
   /** Pins on first sight as `observed`; for users signed state references. */
-  resolve(userId: string): Promise<TrustedUserIdentity | null>;
+  resolve: TrustedUserIdentityResolver;
 }
 
-export type TrustedUserIdentityResolver = TrustedUserIdentityService["resolve"];
+/**
+ * Within one structural check: an existing pin, this user's own local keys,
+ * or a first-sight candidate that is staged rather than pinned.
+ */
+export type StagedUserIdentityResolver = (
+  userId: string,
+) => Promise<ValidatedUserIdentityCandidate | null>;
+
+export interface StagedUserIdentityOptions {
+  /**
+   * Pin staged first sights as `observed` once `verify` succeeds. Set only
+   * when the checked projections' signed states already verified: data an
+   * unauthenticated projection names must never reach the durable store.
+   */
+  readonly publish: boolean;
+  /**
+   * The calling operation's own lifetime (cancellation, superseded recovery),
+   * checked with the trust store's scope at every step and inside each pin's
+   * write transaction, so a cancelled operation commits no first sight.
+   */
+  readonly assertCurrent?: (() => void) | undefined;
+}
+
+/** Callable resolution always compares the candidate with durable pins.
+ * Structural commitment verification may reuse validated immutable pins for
+ * one scoped operation; this capability never admits users or promotes pins.
+ */
+export type TrustedUserIdentityResolver = ((
+  userId: string,
+) => Promise<TrustedUserIdentity | null>) & {
+  readonly withPinnedIdentities?: <T>(
+    userIds: readonly string[],
+    verify: (resolve: StagedUserIdentityResolver) => Promise<T>,
+    options: StagedUserIdentityOptions,
+  ) => Promise<T>;
+};
 
 export interface TrustedUserIdentityServiceDependencies {
   readonly getExecSql: () => ExecSql | null;
+  readonly getScopeGeneration?: (() => unknown) | undefined;
   readonly getLocalIdentity: (
     userId: string,
   ) => LocalUserIdentityCandidate | null;

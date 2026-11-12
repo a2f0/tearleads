@@ -169,6 +169,7 @@ test("isPutPrincipalPolicyRequest", () => {
     },
     projection: [
       {
+        identityBundleFingerprint: "a".repeat(64),
         userId: "550e8400-e29b-41d4-a716-446655440001",
         role: "member",
       },
@@ -281,6 +282,7 @@ test("isCreateOrganizationGroupRequest", () => {
       },
       projection: [
         {
+          identityBundleFingerprint: "a".repeat(64),
           userId: userId,
           role: "admin",
         },

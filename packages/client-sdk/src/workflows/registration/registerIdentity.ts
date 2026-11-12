@@ -39,6 +39,7 @@ export interface RegistrationApi {
 }
 
 export interface RegisterIdentityInput {
+  identityTrustDomain: string;
   apiClient: RegistrationApi;
   containerId: string;
   dbClient: ExecSqlClientLike;
@@ -95,6 +96,7 @@ export async function registerIdentity(
 
   const newUserId = crypto.randomUUID();
   const artifacts = await buildOrganizationProvisioningArtifacts({
+    identityTrustDomain: input.identityTrustDomain,
     encapsulationKeyPair: input.encapsulationKeyPair,
     organizationProfileName: input.organizationProfileName,
     provisionedSystemContainers: input.provisionedSystemContainers,

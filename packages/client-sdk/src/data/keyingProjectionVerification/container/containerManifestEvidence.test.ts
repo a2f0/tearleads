@@ -22,7 +22,11 @@ import {
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { manifestBundle } from "../../../../test/helpers/ancestorCitationScenario";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import {
+  createFixtureUserIdentity,
+  createTestTrustedUserIdentity,
+  fixtureProjectionMember,
+} from "../../../../test/helpers/trustedUserIdentity";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { principalPolicyCacheForVerifiedPolicies } from "../principalPolicy/principalPolicyCache";
 import { verifyContainerManifestPath } from "./containerPathVerification";
@@ -58,6 +62,10 @@ test("required purge evidence reaches every recursive container predecessor", as
   };
   const signerUserId = "recursive-evidence-admin";
   const signing = generateSigningSeedAndKeyPair();
+  // Cache hits recheck every historical member's signed commitment.
+  const historicalMember = await createFixtureUserIdentity({
+    userId: "historical-member",
+  });
   const currentPolicy = createPrincipalPolicyFixture(currentHead);
   const policy = {
     ...currentPolicy,
@@ -65,7 +73,7 @@ test("required purge evidence reaches every recursive container predecessor", as
     history: [
       {
         grants: [],
-        projection: [{ role: "member", userId: "historical-member" }],
+        projection: [fixtureProjectionMember(historicalMember, "member")],
         state: policyState(historicalHead),
       },
       {
@@ -192,7 +200,9 @@ test("required purge evidence reaches every recursive container predecessor", as
           signingPublicKey: signing.signingPublicKey,
           userId,
         })
-      : null;
+      : userId === historicalMember.identity.userId
+        ? historicalMember.identity
+        : null;
   const { close, execSql } = await createTestExecSql(
     "recursive-container-evidence",
   );

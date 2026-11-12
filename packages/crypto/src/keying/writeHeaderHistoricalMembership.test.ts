@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import { createVerifiedDocumentAccessEvent } from "./accessEvent.testFixtures";
 import { createSignedAttachmentEvent } from "./attachmentAccessEvent.testFixtures";
 import { fixtureHash } from "./canonical.testFixtures";
@@ -15,6 +14,10 @@ import {
   verifyAttachmentBindingEvent,
   verifyWriteHeader,
 } from "./index";
+import {
+  createPolicySigner,
+  policyMember,
+} from "./principalPolicyTestFixtures";
 import type { VerifiedPrincipalPolicy } from "./principalPolicyTypes";
 import { createWriteHeaderFixture } from "./writeHeader.testFixtures";
 
@@ -34,23 +37,24 @@ test("historical content authority uses the cited group membership, while submis
     stateHash: await fixtureHash("group-2"),
     keyFingerprint: await fixtureHash("key-2"),
   };
+  const former = await createPolicySigner("former");
+  const later = await createPolicySigner("later");
   const policy = {
     ...createPrincipalPolicyFixture(newHead),
-    projection: [{ role: "member", userId: "later" }],
+    projection: [policyMember(later)],
     history: [
       {
         state: oldHead,
         grants: [],
-        projection: [{ role: "member", userId: "former" }],
+        projection: [policyMember(former)],
       },
       {
         state: newHead,
         grants: [],
-        projection: [{ role: "member", userId: "later" }],
+        projection: [policyMember(later)],
       },
     ],
   } as unknown as VerifiedPrincipalPolicy;
-  const signer = generateSigningSeedAndKeyPair();
   const container = await createContainerManifestFixture({
     containerId: "container",
     containerKeyEpochId: "key",
@@ -72,8 +76,8 @@ test("historical content authority uses the cited group membership, while submis
     objectId: documentId,
     organizationId,
     previousManifestHash: null,
-    signer,
-    signerUserId: "former",
+    signer: former,
+    signerUserId: former.userId,
   });
   const documentManifest = await createDocumentLinkSetManifestFixture({
     documentId,
@@ -98,7 +102,8 @@ test("historical content authority uses the cited group membership, while submis
     linkedContainerKeyEpochIds: ["key"],
     targets,
   });
-  for (const writerUserId of ["former", "later"]) {
+  for (const signer of [former, later]) {
+    const writerUserId = signer.userId;
     const header = await createWriteHeaderFixture({
       accessManifestHash: documentManifest.manifestHash,
       dependencyManifestHashes: [container.manifestHash],

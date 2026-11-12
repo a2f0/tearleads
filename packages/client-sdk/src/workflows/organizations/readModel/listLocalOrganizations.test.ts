@@ -83,6 +83,7 @@ test("listLocalOrganizations returns one entry per provisioned org with its name
       createOrganization: respondToOrganizationProvisioning,
     };
     const acme = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient,
       dbClient,
       encapsulationKeyPair,
@@ -91,6 +92,7 @@ test("listLocalOrganizations returns one entry per provisioned org with its name
       userId,
     });
     const globex = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient,
       dbClient,
       encapsulationKeyPair,
@@ -237,6 +239,7 @@ test("listLocalOrganizations resolves a foreign org name from its metadata conta
     // container and links the organization_profile document under the
     // deterministic local alias `org-profile:<organizationId>`.
     const org = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient: { createOrganization: respondToOrganizationProvisioning },
       dbClient,
       encapsulationKeyPair: generateKemSeedAndKeyPair(),
@@ -287,6 +290,7 @@ test("listLocalOrganizations resolves an org name from the read model's profile 
 
   try {
     const org = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient: { createOrganization: respondToOrganizationProvisioning },
       dbClient,
       encapsulationKeyPair: generateKemSeedAndKeyPair(),
@@ -344,6 +348,7 @@ test("listLocalOrganizations returns a null name for a foreign org whose profile
 
   try {
     const org = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient: { createOrganization: respondToOrganizationProvisioning },
       dbClient,
       encapsulationKeyPair: generateKemSeedAndKeyPair(),
@@ -387,6 +392,7 @@ test("listLocalOrganizations tolerates a corrupt organization profile", async ()
 
   try {
     const created = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient: { createOrganization: respondToOrganizationProvisioning },
       dbClient,
       encapsulationKeyPair,

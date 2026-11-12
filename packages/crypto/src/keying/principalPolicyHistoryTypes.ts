@@ -1,6 +1,10 @@
-import type { PrincipalStateExternalAuthority } from "../principalState";
+import type {
+  PrincipalProjectionMember,
+  PrincipalStateExternalAuthority,
+} from "../principalState";
 import type { PrincipalPolicyExternalAuthority } from "./principalPolicyExternalAuthorityTypes";
 import type { PrincipalHistoryIndexNode } from "./principalPolicyHistoryIndex";
+import type { PrincipalHistorySigner } from "./principalPolicyHistorySigners";
 import type {
   PrincipalPolicyCheckpoint,
   PrincipalPolicySignerPublicKey,
@@ -47,6 +51,8 @@ export interface VerifiedPrincipalPolicyHistory {
   readonly checkpoint: PrincipalPolicyCheckpoint;
   /** Computed only from locally accepted entries; never supplied by a peer. */
   readonly indexRootHash: string;
+  /** Every accepted state's signer, bound to its committed bundle. */
+  readonly signers: readonly PrincipalHistorySigner[];
 }
 
 type HistorySnapshot = Omit<
@@ -70,6 +76,7 @@ export function makeVerifiedPrincipalPolicyHistory(
     retainedEntries: value.retainedEntries,
     checkpoint: value.checkpoint,
     indexRootHash: value.indexRootHash,
+    signers: value.signers,
     [verifiedHistoryBrand]: true,
   };
   issuedHistories.set(result, structuredClone({ ...value, latestAuthority }));
@@ -91,6 +98,15 @@ export function ownVerifiedPrincipalPolicyHistory(
 export interface PrincipalPolicyHistoryVerifier {
   /** Owned copy of the latest accepted citation, including across uncited pages. */
   getExternalAuthorityReference(): ReferencedPrincipalHead | null;
+  /**
+   * Owned copy of the last accepted state's version and signed projection,
+   * the authority the next page's first signer is checked against.
+   */
+  getLatestAcceptedProjection(): {
+    readonly version: number;
+    readonly stateHash: string;
+    readonly projection: PrincipalProjectionMember[];
+  } | null;
   append(page: PrincipalPolicyHistoryPage): Promise<
     KeyingVerificationResult<{
       readonly throughVersion: number;

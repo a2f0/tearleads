@@ -19,6 +19,7 @@ test("the metadata root must be committed by both reserved group grant indexes",
     const signing = generateSigningSeedAndKeyPair();
     const identity = generateKemSeedAndKeyPair();
     const artifacts = await buildOrganizationProvisioningArtifacts({
+      identityTrustDomain: "https://api.example.test",
       encapsulationKeyPair: identity,
       signingKeyPair: signing,
       userId: "founder",

@@ -1,7 +1,7 @@
 import { withDatabaseStatementCounter } from "@tearleads/api-shared/postgres";
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import { createRequestLifetimeBindings } from "../../src/middleware/requestLifetime";
-import { routeApp } from "../../src/routeApp";
+import { identityBoundRouteApp as routeApp } from "./identityBoundRouteApp";
 
 /** Real HTTP proxy: abort upstream at the same deadline for every request. */
 export function startPrincipalHistoryHttpProbe() {

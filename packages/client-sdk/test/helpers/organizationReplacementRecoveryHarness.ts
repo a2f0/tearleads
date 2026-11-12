@@ -84,6 +84,7 @@ export async function createOrganizationReplacementRecoveryHarness(
     setAuthToken: () => {},
   } as unknown as ApiClient;
   const session = createSession({
+    identityTrustDomain: "https://api.example.test",
     api,
     database: new Database({ client: createSqlClient(execSql) }),
     identity,

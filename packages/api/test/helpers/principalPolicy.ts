@@ -26,6 +26,7 @@ import { getCurrentPrincipalState } from "../../src/access/read/principalStateSt
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
 import { getPrincipalPolicyForStateWithExecutor } from "../../src/workflows/principals/getCurrentPrincipalPolicy";
 import { groupPolicyPayload } from "./groupPolicyPayload";
+import { registeredProjection } from "./policyProjection";
 import { requestPreparedPrincipalPolicy } from "./principalHistoryRequest";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
 import {
@@ -99,12 +100,17 @@ export async function createSignedPrincipalState(input: {
   projection?: Array<{
     userId: string;
     role: "member" | "admin";
+    identityBundleFingerprint?: string;
   }>;
 }) {
   const principalKem = input.principalKem ?? generateKemSeedAndKeyPair();
-  const projection =
+  const projection = await registeredProjection(
     input.projection ??
-    createProjectionWithAdminSigner(input.signerUserId, input.members);
+      (await createProjectionWithAdminSigner(
+        input.signerUserId,
+        input.members,
+      )),
+  );
   const { memberEnvelopes, stateMembers } =
     await createPrincipalMemberEnvelopes({
       principalSecretKey: principalKem.secretKey,

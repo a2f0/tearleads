@@ -5,6 +5,7 @@ import { createTestUser } from "@tearleads/test-utils";
 import { CommitOrganizationGroupPolicyRequestSchema } from "@tearleads/validators/request";
 import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { identityBoundRouteApp as routeApp } from "../../../test/helpers/identityBoundRouteApp";
 import {
   createPolicyTestGroup,
   createSignedPrincipalState,
@@ -14,7 +15,6 @@ import {
 import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
-import { routeApp } from "../../routeApp";
 import { deleteOrganizationGroupRows } from "../../workflows/organizations/groupDeletion";
 
 test("a lost compound commit response remains recoverable after a later policy update", async () => {

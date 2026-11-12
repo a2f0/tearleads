@@ -22,6 +22,7 @@ test("progress from different verification rules cannot resume", async () => {
     latestAuthority: null,
     checkpointHash: null,
     retained: [],
+    signers: [],
   });
   const current = await sealPrincipalHistoryProgress(
     plaintext,
@@ -50,6 +51,23 @@ test("progress from different verification rules cannot resume", async () => {
   );
   expect(result.ok).toBe(false);
   if (!result.ok) expect(result.error.code).toBe("hash_mismatch");
+  // Progress sealed under the preceding rules, before history signers were
+  // bound to their committed bundles, must replay rather than resume.
+  const preceding = await sealPrincipalHistoryProgress(
+    plaintext,
+    ownPrincipalHistoryProgressProtection(
+      normalizePrincipalHistoryInput(input),
+      protection,
+      PRINCIPAL_HISTORY_VERIFICATION_REVISION - 1,
+    ),
+  );
+  const replay = await restorePrincipalPolicyHistoryVerifier(
+    input,
+    preceding,
+    protection,
+  );
+  expect(replay.ok).toBe(false);
+  if (!replay.ok) expect(replay.error.code).toBe("hash_mismatch");
   const stale = await restorePrincipalPolicyHistoryVerifier(
     input,
     saved.replace(/^v3\./, "v1."),

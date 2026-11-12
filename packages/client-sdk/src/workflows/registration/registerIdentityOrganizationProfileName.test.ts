@@ -28,6 +28,7 @@ async function registerAndReadOrganizationName(
   const { close, execSql } = await createTestExecSql(label);
   try {
     const response = await registerIdentity({
+      identityTrustDomain: "https://api.example.test",
       apiClient: registrationApi,
       containerId: crypto.randomUUID(),
       dbClient: execSqlClientFromExecSql(execSql),
@@ -78,6 +79,7 @@ async function registerAndReadRosterNickname(
   const { close, execSql } = await createTestExecSql(label);
   try {
     const response = await registerIdentity({
+      identityTrustDomain: "https://api.example.test",
       apiClient: registrationApi,
       containerId: crypto.randomUUID(),
       dbClient: execSqlClientFromExecSql(execSql),

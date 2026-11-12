@@ -109,6 +109,7 @@ function assertDeleteOrganizationGroupPolicyBinding(input: {
 }
 
 async function deleteOrganizationGroupInTransaction(input: {
+  readonly identityTrustDomain: string;
   readonly groupId: string;
   readonly organizationId: string;
   readonly request: DeleteOrganizationGroupRequest;
@@ -154,12 +155,16 @@ async function deleteOrganizationGroupInTransaction(input: {
     groupId: input.groupId,
     organizationId: input.organizationId,
   });
-  const organization = await putPrincipalPolicyInTransaction(input.tx, {
-    ...input.request.organizationPolicy,
-    expectedPrincipalId: input.organizationId,
-    expectedPrincipalType: "organization",
-    requesterUserId: input.sessionUserId,
-  });
+  const organization = await putPrincipalPolicyInTransaction(
+    input.tx,
+    {
+      ...input.request.organizationPolicy,
+      expectedPrincipalId: input.organizationId,
+      expectedPrincipalType: "organization",
+      requesterUserId: input.sessionUserId,
+    },
+    input.identityTrustDomain,
+  );
   await appendOrganizationReadModelChangeInTransaction(input.tx, {
     deletedGroupIds: [input.groupId],
     lanes: ["groups"],
@@ -181,6 +186,7 @@ export async function runDeleteOrganizationGroupWorkflow(
   groupId: string,
   sessionUserId: string,
   input: DeleteOrganizationGroupRequest,
+  identityTrustDomain: string,
 ): Promise<DeleteOrganizationGroupResponse> {
   try {
     return await runPrincipalHistoryTransaction(db, async (tx) => {
@@ -191,6 +197,7 @@ export async function runDeleteOrganizationGroupWorkflow(
         userId: sessionUserId,
       });
       return deleteOrganizationGroupInTransaction({
+        identityTrustDomain,
         groupId,
         organizationId,
         request: input,

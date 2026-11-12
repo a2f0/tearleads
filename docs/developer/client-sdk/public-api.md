@@ -206,6 +206,107 @@ key rotation fails with `HistoricalWrapUnavailableError`
 (`principal-key-unreachable`). See
 [keying-design.md](../../keying-design/container-keks.md#container-key-epoch-database-row).
 
+### Principal identity contracts
+
+Each principal projection member, including genesis and historical evidence,
+requires a lowercase SHA-256 `identityBundleFingerprint`. It commits the full
+identity-link tuple: the `tearleads.identity-link.v1` separator, exact trust
+domain, user ID, signing algorithm and encoded key, and encapsulation algorithm
+and encoded key. `projectionRoot` authenticates that field; `membershipRoot`
+remains a user-ID set, and member envelopes retain their KEM fingerprints.
+Continuing members cannot change that identity bundle through a policy
+transition; role changes and principal-key rotation do not replace user keys.
+See the [signed projection contract](../../protocol-specification/identity-and-policy.md).
+
+The following root exports require `identityTrustDomain: string` in their
+input. Supply the already-canonical domain used by the identity gateway, not an
+invented default or a request origin with the API base path stripped:
+
+| Root export | Identity material used by the writer |
+| --- | --- |
+| `buildInitialGroupPolicyRequest`, `buildInitialMemberGroupPolicyRequest` | `signerUserId`, `signingKeyPair`, and `creatorEncapsulationKeyPair` for the founding member |
+| `buildInitialOrganizationPolicyRequest` | `userId`, `signingKeyPair`, and `encapsulationPublicKey` |
+| `createOrganizationGroup` | Forwards the domain with the creator's signing and encapsulation keys to group-policy construction |
+| `registerIdentity` (`RegisterIdentityInput`) | Newly generated user ID with `signingKeyPair` and `encapsulationKeyPair`, before the first local self pin |
+
+`TearleadsOptions.identityTrustDomain` remains an optional host override. The
+client canonicalizes it; otherwise it canonicalizes an absolute `apiBaseUrl` or
+resolves a relative base against the browser URL. It supplies that domain to
+registration, organization provisioning, and group creation. Session and
+organization service callers do not add a per-call domain argument. A
+non-browser host with a relative API URL needs an absolute override.
+The resolved domain includes any API base path and must exactly equal the API's
+canonical `API_IDENTITY_TRUST_DOMAIN`, or its `API_PUBLIC_ORIGIN` fallback.
+See [trust-domain configuration](../trusted-user-identity.md#trust-domain-configuration).
+
+Retain `currentProjection` in complete policy bundles: internal signer
+collection checks its identity commitments along with historical projections
+against gateway-resolved bundles. This structural verification is not recipient
+admission. Shared provisioning orchestration, signer collection,
+identity-commitment helpers, and roster-admission evidence remain
+package-private; this change adds no root export or deep-import entry point.
+
+The existing callable `TrustedUserIdentityResolver` may expose
+`withPinnedIdentities(ids, verify, { publish })` for structural commitment
+checks. The built-in gateway batch-reads immutable pins, revalidates both keys
+and their fingerprints, and passes a scoped resolver to `verify`; self identity
+retains ordinary resolution. A missing pin yields the endpoint's validated
+candidate without pinning it. The gateway pins those candidates as `observed`
+only when `verify` succeeds with `publish` set, which callers set only after
+the projection's signed state verified. The callback must not retain its
+resolver for later work. Plain callable resolvers remain valid and use the
+ordinary per-user path. This capability does not admit recipients, raise
+provenance, or change direct resolution and signer-refetch conflict checks. A
+changed database, account, or runtime generation invalidates the scoped
+operation.
+
+### Recipient admission
+
+`organizations.addUserToGroup` and a container store's `shareWithUser` first
+require direct `self`/`link` trust, then allow bounded Members-chain admission
+for an existing member. It covers read, write, and admin shares, not just read
+access. The complete bundle must match, not merely the recipient's KEM key.
+New or disabled Members enrollment still requires direct trust. A group-add
+proof is bound to the exact Members head and identity/database lifetime; a
+retry that finds the target absent must recheck direct trust before enrollment.
+
+Admission traces the target's current unbroken membership through strictly
+earlier signer admissions to a direct anchor. A directly trusted signer needs
+no Members entry. Other signers may have departed Members, even before a later
+externally authorized action, but both their historical identity binding and
+admin authority for that action must verify. The shared history scan admits at
+most 64 pages of at most 32 entries and visits at most 64 non-anchor identities;
+these are not a total network-request budget. Missing evidence, exhausted
+bounds, self-admission, cycles, and forward-only chains cannot establish trust.
+
+An otherwise valid but unauthenticated target raises
+`UnverifiedUserIdentityError` before the mutation; availability errors propagate
+separately. For group adds, Members advancing between proof and mutation
+raises retryable `ProjectionDependencyUnavailableError`; the caller must retry
+against the new head. Share admission is checked against the head current at
+admission and is not rechecked before the share. Bundle and current or
+signed-root-verified historical envelope
+contradictions raise `hash_mismatch`. Signer-pin conflicts remain hard
+verification failures; policy verification may reject them earlier as
+`signer_mismatch`. Chain admission never promotes a pin to `self` or `link`:
+`userIdentities.resolveVerified` and `createLinkFor` still require direct trust.
+Contacts and roster-profile creation do not gain chain-based admission. A valid
+chain trusts each authenticated administrator's vouch and cannot establish
+administrator honesty. No anchor-exchange, cold-start rollback, or global
+fork/currentness guarantee is added; see
+[roster vouching](../trusted-user-identity.md#roster-vouching).
+
+### Identity-format reset boundary
+
+Identity-unbound principal evidence is not supported: there is no backfill,
+legacy-envelope fallback, or mixed-format rollout. Existing server data and
+client databases require a separately authorized reset before deploying this
+format; old principal caches, saved progress, pending mutations, provisioning
+attempts, and backups cannot simply be resumed or relabeled. Merging the change
+neither performs nor authorizes a deployed-data reset. Follow the
+[identity-bound reset requirements](../greenfield-reset.md#identity-bound-principal-format);
+do not silently clear pins or checkpoints to make obsolete data load.
+
 ### Unsaved document writes
 
 `hasPendingLocalDocumentWrites(domainScope)` synchronously reports whether any

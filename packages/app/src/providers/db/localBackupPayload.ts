@@ -1,6 +1,9 @@
 export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
 /**
- * Current local schema. v16 adds durable ordinary creation intents
+ * Current local schema. v17 requires identity-bundle commitments in every
+ * persisted principal projection; obsolete caches and authored work require
+ * an explicit reset, never an identity-pin/checkpoint migration.
+ * v16 adds durable ordinary creation intents
  * (`organization_provisioning_attempts.creation_intent`); older backups may
  * contain the obsolete table without that required column. v14 added identity pin provenance
  * (`trusted_user_identity_pins.provenance`), which older backups cannot
@@ -14,7 +17,7 @@ export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
  * verified manifest bundle cache; v9 changed the organization read-model table
  * shapes.
  */
-export const BACKUP_FORMAT_VERSION = 16;
+export const BACKUP_FORMAT_VERSION = 17;
 
 export type BackupSqlValue = string | number | null;
 export type BackupSqlRow = Record<string, BackupSqlValue>;
@@ -223,7 +226,7 @@ function validateBackupBlob(value: unknown, index: number): BackupBlob {
   };
 }
 
-export function validateBackupPayload(value: unknown): BackupPayload {
+export function assertCurrentBackupPayload(value: unknown): void {
   const payload = readRecord(value, "Backup payload");
   if (readProperty(payload, "format") !== BACKUP_PAYLOAD_FORMAT) {
     throw new Error("Backup payload format is not supported.");
@@ -231,7 +234,11 @@ export function validateBackupPayload(value: unknown): BackupPayload {
   if (readProperty(payload, "version") !== BACKUP_FORMAT_VERSION) {
     throw new Error("Backup payload version is not supported.");
   }
+}
 
+export function validateBackupPayload(value: unknown): BackupPayload {
+  assertCurrentBackupPayload(value);
+  const payload = readRecord(value, "Backup payload");
   const database = readRecord(
     readProperty(payload, "database"),
     "Backup database",

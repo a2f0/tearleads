@@ -1,5 +1,9 @@
 import { restoreSessionRoots } from "./sessionRootAuthority";
-import type { SessionContext, SessionSnapshot } from "./sessionTypes";
+import type {
+  SessionContext,
+  SessionRegistrationResult,
+  SessionSnapshot,
+} from "./sessionTypes";
 
 function mergedUserId(
   previous: SessionSnapshot,
@@ -70,5 +74,19 @@ export function emptySessionSnapshot(): SessionSnapshot {
     isRoot: false,
     organizationId: null,
     userId: null,
+  };
+}
+
+export function registrationSessionResult(input: {
+  readonly challenge: string;
+  readonly rootContainerId: string;
+  readonly organizationId: string;
+  readonly userId: string;
+}): SessionRegistrationResult {
+  return {
+    challenge: input.challenge,
+    containerId: input.rootContainerId,
+    organizationId: input.organizationId,
+    userId: input.userId,
   };
 }

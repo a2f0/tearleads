@@ -19,6 +19,12 @@ fi
 # emulator the host machine is 10.0.2.2 (not localhost, which is the emulator
 # itself); the local API (scripts/dev/runApi.sh) listens on 3001. Override for a
 # physical device (use the host's LAN IP) or a non-default API URL/port.
+# Identity commitments require one canonical API URL for clients sharing a DB.
+# For web/native together, point the web client's BUN_PUBLIC_API_BASE_URL and
+# this build's VITE_API_BASE_URL at the same reachable URL, and set the API's
+# API_IDENTITY_TRUST_DOMAIN to it, before creating policies. The default below
+# is NOT the web localhost scope;
+# see docs/developer/trusted-user-identity.md, Trust Domain Configuration.
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-http://10.0.2.2:3001}"
 echo "Building with VITE_API_BASE_URL=$VITE_API_BASE_URL"
 

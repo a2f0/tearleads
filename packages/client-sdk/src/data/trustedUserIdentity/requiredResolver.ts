@@ -1,6 +1,8 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import {
   isTrustedUserIdentity,
+  type StagedUserIdentityOptions,
+  type StagedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "./types";
 
@@ -37,6 +39,30 @@ export function requireTrustedUserIdentityResolver(
     }
     return identity;
   };
+  if (resolver.withPinnedIdentities) {
+    const withPinnedIdentities = resolver.withPinnedIdentities;
+    Object.assign(adapter, {
+      withPinnedIdentities: <T>(
+        userIds: readonly string[],
+        verify: (resolve: StagedUserIdentityResolver) => Promise<T>,
+        options: StagedUserIdentityOptions,
+      ) =>
+        withPinnedIdentities(
+          userIds,
+          (staged) =>
+            verify(async (userId) => {
+              const identity = await staged(userId);
+              if (identity && identity.userId !== userId)
+                throw new KeyingVerificationError(
+                  "object_mismatch",
+                  "User identity resolver returned a different user",
+                );
+              return identity;
+            }),
+          options,
+        ),
+    });
+  }
   resolverAdaptersByResolver.set(resolver, adapter);
   resolverAdaptersByResolver.set(adapter, adapter);
   return adapter;

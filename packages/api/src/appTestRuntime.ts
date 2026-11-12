@@ -12,4 +12,5 @@ export {
 } from "./middleware/session";
 export { createWebSocketTicketConsumer } from "./realtime/wsTicket";
 export { createRouteApp, routeApp } from "./routeApp";
+export { getDefaultApiServiceRuntime } from "./services/runtime";
 export { db };

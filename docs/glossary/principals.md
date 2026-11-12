@@ -20,9 +20,12 @@ messenger whose contact you know). Once verified, the keys are recorded as an
 with an existing pin fails and changes nothing, and a link for another service
 is refused before any fetch.
 
-Only a `link` or `self` pin admits a user: adding a contact, a roster or group
-member, or a share recipient. Copying another user's link re-shares it only
-from such a pin, never from an `observed` one.
+A `link` or `self` pin directly admits a user. Existing Members can also be
+added to groups or receive read, write, or admin shares through a
+[roster chain](../developer/trusted-user-identity.md#roster-vouching) rooted in
+such a pin. New or disabled Members enrollment still needs direct trust.
+Copying another user's link requires a direct `link`/`self` pin, never an
+`observed` one or chain admission alone.
 
 Related docs:
 
@@ -38,6 +41,8 @@ pin records its provenance: `self` (this device's own keys), `link` (a
 verified [identity link](#identity-link)), or `observed` (the server's first
 answer for a user that signed state already references). Provenance only
 rises. Within a trust domain a signing key is pinned to at most one user.
+Admission through signed Members history authenticates the full bundle for
+that operation but does not change the pin's provenance.
 
 Related docs:
 
@@ -55,7 +60,10 @@ domain can be established. [Identity pins](#identity-pin) are keyed by
 `(identityTrustDomain, userId)`, and within one trust domain a signing key is
 pinned to at most one user. An [identity link](#identity-link) encodes its
 trust domain; verification always uses the configured API, and a link for
-another service is refused before any fetch.
+another service is refused before any fetch. Signed member bundle commitments
+use the same domain. The API's `API_IDENTITY_TRUST_DOMAIN` (falling back to
+`API_PUBLIC_ORIGIN`) must match the SDK's resolved domain, including base paths;
+see [deployment configuration](../developer/trusted-user-identity.md#trust-domain-configuration).
 
 Related docs:
 
@@ -173,7 +181,10 @@ Related docs:
 The signed state chain for a [managed principal](#managed-principal). It commits
 to membership, projection roots, [key epoch](./keys.md#epoch), encrypted payload
 hash, signer, and predecessor state so clients can verify group or organization
-authority.
+authority. Each member's required `identityBundleFingerprint` commits the
+complete identity-link bundle through `projectionRoot`; `membershipRoot`
+remains an ID-set commitment. Continuing members cannot change that identity,
+including during role changes or principal-key rotation.
 
 Related docs:
 

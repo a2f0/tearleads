@@ -111,6 +111,7 @@ export async function ensureTestApiApp(): Promise<TestApiApp> {
       db,
       documentSyncCursorHmacKey: "tearleads-test-document-sync-cursor-hmac-key",
       eventPublisher,
+      identityTrustDomain: "http://localhost:3001",
       keyValueStore,
       sessionTokenIssuer: {
         createSession: createSessionTokenIssuer(

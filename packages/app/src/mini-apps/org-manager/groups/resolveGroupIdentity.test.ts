@@ -2,9 +2,33 @@ import { expect, mock, test } from "bun:test";
 import type { OrganizationDirectory } from "@tearleads/client-sdk";
 import { resolveGroupIdentity } from "./resolveGroupIdentity";
 
-test("a server directory row cannot enroll an identity no link verified", async () => {
+test("an active roster selection reaches SDK admission without trusting directory keys", async () => {
   const directoryUser = {
     userId: "bob",
+    status: "active",
+    signingPublicKey: "untrusted-directory-signing-key",
+    encapsulationPublicKey: "untrusted-directory-encryption-key",
+  } as OrganizationDirectory["users"][number];
+  const resolveVerified = mock(async () => null);
+  const verifyLink = mock(async () => {
+    throw new Error("Expected an identity link");
+  });
+  expect(
+    await resolveGroupIdentity({
+      directoryUser,
+      value: "bob",
+      resolveVerified,
+      verifyLink,
+    }),
+  ).toEqual({ userId: "bob" });
+  expect(resolveVerified).not.toHaveBeenCalled();
+  expect(verifyLink).not.toHaveBeenCalled();
+});
+
+test("a disabled directory entry still needs direct verification before re-enrollment", async () => {
+  const directoryUser = {
+    userId: "bob",
+    status: "disabled",
   } as OrganizationDirectory["users"][number];
   const resolveVerified = mock(async () => null);
   const verifyLink = mock(async () => {
@@ -22,7 +46,7 @@ test("a server directory row cannot enroll an identity no link verified", async 
   expect(verifyLink).not.toHaveBeenCalled();
 });
 
-test("link-verified roster users are reused; new links must verify before group mutations", async () => {
+test("directly verified disabled users can rejoin; new links must verify before group mutations", async () => {
   const identity = {
     userId: "bob",
     signingPublicKey: "signing",
@@ -32,6 +56,7 @@ test("link-verified roster users are reused; new links must verify before group 
   };
   const directoryUser = {
     userId: "bob",
+    status: "disabled",
   } as OrganizationDirectory["users"][number];
   const resolveVerified = mock(async () => identity);
   const verifyLink = mock(async () => identity);

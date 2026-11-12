@@ -26,6 +26,7 @@ async function policyFixture(principalId = crypto.randomUUID()) {
   const signer = generateSigningSeedAndKeyPair();
   const signerUserId = crypto.randomUUID();
   const request = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
     groupId: principalId,
     name: "Policy persistence",

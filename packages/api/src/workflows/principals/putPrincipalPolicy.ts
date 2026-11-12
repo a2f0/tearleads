@@ -229,14 +229,18 @@ async function applyPolicyContainerRematerializations(input: {
 export async function putPrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,
+  identityTrustDomain: string,
 ): Promise<PutPrincipalPolicyResult> {
-  return (await preparePrincipalPolicyInTransaction(tx, input))();
+  return (
+    await preparePrincipalPolicyInTransaction(tx, input, identityTrustDomain)
+  )();
 }
 
 /** Check direct admin access and lock the read model before Members advances; apply verifies policy authority. */
 export async function preparePrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,
+  identityTrustDomain: string,
 ): Promise<() => Promise<PutPrincipalPolicyResult>> {
   await lockPolicyPrincipalMutation(tx, input);
   const policyTarget = await lockOrganizationReadModelForPolicyMutation(
@@ -247,13 +251,19 @@ export async function preparePrincipalPolicyInTransaction(
     throw new PrincipalPolicyError("Principal policy target not found", 404);
   }
   return () =>
-    applyPrincipalPolicyInTransaction(tx, input, policyTarget.organizationId);
+    applyPrincipalPolicyInTransaction(
+      tx,
+      input,
+      policyTarget.organizationId,
+      identityTrustDomain,
+    );
 }
 
 async function applyPrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,
   organizationId: string,
+  identityTrustDomain: string,
 ): Promise<PutPrincipalPolicyResult> {
   await assertPolicyAuthorityConstraints(tx, input);
   const previousState = await getCurrentPrincipalState(
@@ -277,6 +287,7 @@ async function applyPrincipalPolicyInTransaction(
     },
     tx,
     {
+      identityTrustDomain,
       authorizeExternalAdminSigner: (authorization) =>
         isOrgAdminAuthorizedPrincipalPolicySigner(
           tx,
@@ -420,6 +431,7 @@ async function applyPrincipalPolicyTransitionEffects(input: {
 export async function runPutPrincipalPolicyWorkflow(
   db: ApiDatabase,
   input: PutPrincipalPolicyInput,
+  identityTrustDomain: string,
 ): Promise<PutPrincipalPolicyResult> {
   assertPutPrincipalPolicyRouteBinding(input);
   assertStandalonePrincipalPolicyWrite(input.expectedPrincipalType);
@@ -429,7 +441,11 @@ export async function runPutPrincipalPolicyWorkflow(
       const outcome = await principalOrganizationPolicyOutcome(tx, input);
       if (outcome.response)
         return { policy: outcome.response, sharedWithYouUserIds: [] };
-      const result = await putPrincipalPolicyInTransaction(tx, input);
+      const result = await putPrincipalPolicyInTransaction(
+        tx,
+        input,
+        identityTrustDomain,
+      );
       await outcome.save(result.policy);
       return result;
     });

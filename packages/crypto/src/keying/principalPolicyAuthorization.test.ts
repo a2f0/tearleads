@@ -8,6 +8,7 @@ import { createPrincipalPolicyHistoryVerifier } from "./principalPolicyHistory";
 import { historyHead } from "./principalPolicyHistoryTestFixtures";
 import {
   createPolicySigner,
+  policyMember,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
 import type { KeyingVerificationResult } from "./verificationError";
@@ -19,19 +20,22 @@ function accepted<T>(result: KeyingVerificationResult<T>): T {
 
 test("retained citations authorize exact historical membership while current access honors revocation", async () => {
   const signer = await createPolicySigner();
+  const removed = await createPolicySigner("removed-user");
   const shared = { signer, principalId: "retained-authorization" };
   const first = await signPolicyState({
     ...shared,
     version: 1,
     prevStateHash: null,
-    members: [{ userId: signer.userId }, { userId: "removed-user" }],
+    members: [{ userId: signer.userId }, { userId: removed.userId }],
+    projection: [policyMember(signer, "admin"), policyMember(removed)],
   });
   const second = await signPolicyState({
     ...shared,
     version: 2,
     keyEpoch: 2,
     prevStateHash: first.state.stateHash,
-    members: [{ userId: signer.userId }, { userId: "removed-user" }],
+    members: [{ userId: signer.userId }, { userId: removed.userId }],
+    projection: [policyMember(signer, "admin"), policyMember(removed)],
   });
   const third = await signPolicyState({
     ...shared,

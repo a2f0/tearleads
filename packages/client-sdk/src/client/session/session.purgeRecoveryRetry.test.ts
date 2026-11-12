@@ -85,6 +85,7 @@ test("recovery reuses its durable replacement after a local reset failure", asyn
   } as unknown as ApiClient;
   const identity = createIdentity({}, noIdentityChange, () => undefined);
   const session = createSession({
+    identityTrustDomain: "https://api.example.test",
     api,
     database: new ResetFailingDatabase(createSqlClient(execSql), execSql),
     identity,
@@ -197,6 +198,7 @@ test("recovery retries server finalization after the local reset commits", async
   } as unknown as ApiClient;
   const identity = createIdentity({}, noIdentityChange, () => undefined);
   const session = createSession({
+    identityTrustDomain: "https://api.example.test",
     api,
     database: new Database({ client: createSqlClient(execSql) }),
     identity,

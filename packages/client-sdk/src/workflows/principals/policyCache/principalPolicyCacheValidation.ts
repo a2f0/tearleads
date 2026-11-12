@@ -169,6 +169,8 @@ export async function validatePrincipalPolicyBundleForCache(input: {
   readonly localCheckpoint: PrincipalPolicyCheckpoint | null;
   readonly reference: ReferencedPrincipalStateResponse;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  /** The cache operation's lifetime, checked inside every pin write. */
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<
   | {
       readonly externalAdminPolicy: VerifiedExternalAdminPolicy | null;
@@ -221,6 +223,7 @@ export async function validatePrincipalPolicyBundleForCache(input: {
         // evidence could authorize keeps its unauthorized refusal.
         if (
           await externalAuthorityCouldAuthorize({
+            resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
             bundle: input.bundle,
             expectedReference: input.reference,
             localCheckpoint: input.localCheckpoint,
@@ -236,13 +239,12 @@ export async function validatePrincipalPolicyBundleForCache(input: {
       localCheckpoint: input.localCheckpoint,
       signerPublicKeys: signerPublicKeys.signerPublicKeys,
     });
-  return verified.ok
-    ? {
-        externalAdminPolicy: usedExternalAdminPolicy
-          ? await input.loadExternalAdminPolicy()
-          : null,
-        ok: true,
-        policy: verified.value,
-      }
-    : { error: verified.error, ok: false };
+  if (!verified.ok) return { error: verified.error, ok: false };
+  return {
+    externalAdminPolicy: usedExternalAdminPolicy
+      ? await input.loadExternalAdminPolicy()
+      : null,
+    ok: true,
+    policy: verified.value,
+  };
 }

@@ -20,7 +20,10 @@ import {
   assertPrincipalHistoryVerificationMode,
   principalHistoryVerificationContext,
 } from "../historyRecovery/principalHistoryRecoveryVerification";
-import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  publishVerifiedCurrent,
+} from "../policyVerification";
 import {
   type AcknowledgedPrincipalPredecessor,
   restoreAcknowledgedPrincipalPredecessor,
@@ -73,7 +76,7 @@ async function preparePublication(
   } = await restoreAcknowledgedPrincipalPredecessor(options, predecessor);
   const expectedHead = await checks.authoredHead(request);
   const keys = await collectPrincipalPolicySignerPublicKeys({
-    bundle: { currentState: current.currentState, previousStates: [] },
+    bundle: { ...current, previousStates: [] },
     resolveTrustedUserIdentity: options.resolveTrustedUserIdentity,
   });
   assertProjectionVerificationCurrent(stillCurrent);
@@ -95,6 +98,7 @@ async function preparePublication(
     externalAuthority,
     stillCurrent,
   });
+  await publishVerifiedCurrent(options, current, stillCurrent);
   const entry = {
     state: current.currentState,
     projection: current.currentProjection,

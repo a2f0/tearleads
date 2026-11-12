@@ -39,6 +39,7 @@ test("a fresh session refuses login rebinding a durably pinned signing fingerpri
       remoteSource: { load: async () => null, invalidate: () => undefined },
     });
     const session = createSession({
+      identityTrustDomain: "https://api.example.test",
       api,
       database: new Database(),
       identity,
@@ -116,6 +117,7 @@ test("registration declines a key already bound to a user, before contacting the
     return null;
   };
   const dependencies = {
+    identityTrustDomain: "https://api.example.test",
     api,
     boundUserIdForSigningKey: (fingerprint: string) =>
       trust.boundUserId(fingerprint),

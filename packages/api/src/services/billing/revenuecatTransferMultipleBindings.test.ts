@@ -57,7 +57,11 @@ test("a store-specific transfer selects its exact binding for a multi-store buye
     .where(eq(users.id, user.userId));
   invariant(registered, "expected registered user");
   const request = await createOrganizationRequestBody(user);
-  const restored = await runCreateOrganizationWorkflow(db, request);
+  const restored = await runCreateOrganizationWorkflow(
+    db,
+    request,
+    "http://localhost",
+  );
 
   await db
     .update(organizationBilling)
@@ -151,10 +155,12 @@ test("a pre-claim transfer retries across multiple retained bindings", async () 
   const secondOrganization = await runCreateOrganizationWorkflow(
     db,
     await createOrganizationRequestBody(user),
+    "http://localhost",
   );
   const restoreOrganization = await runCreateOrganizationWorkflow(
     db,
     await createOrganizationRequestBody(user),
+    "http://localhost",
   );
   await db
     .update(organizationBilling)

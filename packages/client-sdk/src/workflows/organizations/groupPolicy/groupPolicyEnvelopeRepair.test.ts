@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  computeUserIdentityBundleFingerprint,
   encryptGroupMetadata,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -65,7 +66,14 @@ for (const forgedPublicPart of [false, true]) {
             name: "Operators",
           }),
           principalId: "group",
-          projection: [{ userId: admin.userId, role: "admin" }],
+          projection: [
+            {
+              userId: admin.userId,
+              role: "admin",
+              identityBundleFingerprint:
+                await computeUserIdentityBundleFingerprint(admin),
+            },
+          ],
           signedAt: new Date().toISOString(),
           signerUserId: admin.userId,
           signingFingerprint,

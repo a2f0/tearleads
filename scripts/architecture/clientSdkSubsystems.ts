@@ -165,6 +165,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/client/identity/`,
       `${sdk}/client/session/`,
       `${sdk}/data/trustedUserIdentity/`,
+      `${sdk}/data/persistence/identity/`,
       `${sdk}/data/persistence/trustedUserIdentityPinPersistence.ts`,
       `${sdk}/data/persistence/trustedUserIdentityPinTransaction.ts`,
     ],

@@ -161,7 +161,7 @@ function getTableEnsureKey(table: SqlTableSchema): string {
 const REQUIRED_COLUMN_TABLES_PER_STATEMENT = sqliteRowsPerStatement(2);
 
 // One read of every checked table's stored columns. The first obsolete table,
-// in ensure order, fails before any index DDL runs.
+// in ensure order, fails before any DDL runs; absent lazy tables are allowed.
 async function assertRequiredColumns(
   execSql: ExecSql,
   tables: ReadonlyArray<SqlTableSchema>,
@@ -188,13 +188,16 @@ async function assertRequiredColumns(
     for (const { name, table_name: tableName } of rows) {
       const tableKey = String(tableName);
       const columns = storedColumns.get(tableKey) ?? new Set<string>();
-      columns.add(String(name));
+      columns.add(String(name).toLowerCase());
       storedColumns.set(tableKey, columns);
     }
   }
   for (const table of checked) {
     const stored = storedColumns.get(table.name);
-    if (table.requiredColumns?.some((column) => !stored?.has(column))) {
+    if (
+      stored &&
+      table.requiredColumns?.some((column) => !stored.has(column.toLowerCase()))
+    ) {
       throw new Error(
         `Local database schema for ${table.name} is obsolete; reset the local database before continuing`,
       );
@@ -227,13 +230,13 @@ export async function ensureSqlTables(
   }
 
   // Each statement is a worker message, so the DDL travels in three: every
-  // CREATE TABLE, then the required-column read (an obsolete table fails
-  // before an index can trip over a missing column), then every CREATE INDEX.
+  // required-column read, then every CREATE TABLE, then every CREATE INDEX.
+  // Obsolete tables fail before any schema or data effects.
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await assertRequiredColumns(lockedExecSql, pendingTables);
     await lockedExecSql(
       pendingTables.map((table) => table.createSql).join(";\n"),
     );
-    await assertRequiredColumns(lockedExecSql, pendingTables);
     const indexSql = pendingTables.flatMap((table) => table.indexes ?? []);
     if (indexSql.length > 0) {
       await lockedExecSql(indexSql.join(";\n"));

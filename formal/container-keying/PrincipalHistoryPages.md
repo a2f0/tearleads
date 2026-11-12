@@ -34,3 +34,8 @@ the API and SDK integration, outside this model.
 
 [Authenticated resumption](./PrincipalHistoryResume.md) separately models the
 local progress envelope and restoration of its authority citation.
+[Member identity commitments](../local-trust/MemberIdentityCommitment.md) check
+complete signed bundles and continuing-member immutability;
+[Members identity-chain admission](../local-trust/MemberIdentityChain.md) consumes
+verified history to authenticate identities, including historical departed
+signers. Those properties are not implied by this page-publication model.

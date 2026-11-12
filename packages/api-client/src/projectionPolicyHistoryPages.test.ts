@@ -130,7 +130,11 @@ const corruptions: readonly [
   [
     "current projection drift",
     (page) => {
-      page.currentProjection.push({ userId: "new-user", role: "admin" });
+      page.currentProjection.push({
+        identityBundleFingerprint: "a".repeat(64),
+        userId: "new-user",
+        role: "admin",
+      });
     },
   ],
   [

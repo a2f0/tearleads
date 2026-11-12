@@ -27,6 +27,10 @@ test("Postgres baseline initializes all tables without application data", async 
       "SELECT table_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('groups', 'organizations') AND column_name = 'name'",
     );
     expect(nameColumns.rows).toEqual([]);
+    const identityColumns = await client.query(
+      "SELECT is_nullable FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'principal_membership_projection' AND column_name = 'identity_bundle_fingerprint'",
+    );
+    expect(identityColumns.rows).toEqual([{ is_nullable: "NO" }]);
     for (const { tablename } of rows) {
       const result = await client.query<{ count: number }>(
         `SELECT count(*)::int AS count FROM "${tablename.replaceAll('"', '""')}"`,

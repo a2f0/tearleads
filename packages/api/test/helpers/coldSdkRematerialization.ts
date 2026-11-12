@@ -5,7 +5,6 @@ import {
   syncRemoteDocument,
   validateDocumentSyncUpdateImports,
 } from "@tearleads/client-sdk";
-import { createTestTrustedUserIdentityResolver } from "@tearleads/client-sdk/testing";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument as createLoroDocument,
@@ -30,6 +29,7 @@ import {
   isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
+import { trustedResolver } from "./coldSdkIdentity";
 import { createPagedColdPolicyWarmer } from "./pagedColdPolicyWarmer";
 import { getPolicy } from "./principalPolicyReadFixtures";
 import { withProjectionHistoryRecovery } from "./projectionHistoryRecovery";
@@ -41,6 +41,8 @@ import {
   decodeServedContainerProjection,
   decodeServedDocumentProjection,
 } from "./servedWriterProjection";
+
+export { trustedResolver } from "./coldSdkIdentity";
 
 export const COLD_DOCUMENT_TEXT = "cold login decrypts rotated group data";
 
@@ -160,28 +162,6 @@ export function documentAuthor(user: TestUser, organizationId: string) {
   };
 }
 
-export function trustedResolver(
-  ...users: TestUser[]
-): ReturnType<typeof createTestTrustedUserIdentityResolver> {
-  const resolvers = users.map((user) =>
-    createTestTrustedUserIdentityResolver({
-      encapsulationPublicKey: user.kem.publicKey,
-      signingKeyFingerprint: user.fingerprint,
-      signingPublicKey: user.signing.signingPublicKey,
-      userId: user.userId,
-    }),
-  );
-  return async (userId: string) => {
-    for (const resolve of resolvers) {
-      const identity = await resolve(userId);
-      if (identity) {
-        return identity;
-      }
-    }
-    return null;
-  };
-}
-
 export function writerResolver(user: TestUser) {
   return async (input: {
     writerSigningKeyFingerprint: string;
@@ -197,12 +177,16 @@ export async function createEncryptedColdDocument(input: {
   containerId: string;
   organizationId: string;
   owner: TestUser;
+  knownUsers?: readonly TestUser[];
 }): Promise<{ documentId: string; updateId: string }> {
   const { close, execSql } = await createTestExecSql(
     `api-cold-owner-${crypto.randomUUID()}`,
   );
   const apiClient = createRouteSdkClient(input.owner.token);
-  const resolveTrustedUserIdentity = trustedResolver(input.owner);
+  const resolveTrustedUserIdentity = trustedResolver(
+    input.owner,
+    ...(input.knownUsers ?? []),
+  );
   const warmReferencedPrincipalPolicies = withProjectionHistoryRecovery({
     apiClient,
     execSql,
@@ -402,6 +386,7 @@ export async function coldRematerializeEncryptedDocument(input: {
   organizationId: string;
   owner: TestUser;
   reader: TestUser;
+  knownUsers?: readonly TestUser[];
   apiClient?: ReturnType<typeof createRouteSdkClient>;
   pagedPolicies?: boolean;
 }) {
@@ -409,7 +394,11 @@ export async function coldRematerializeEncryptedDocument(input: {
     `api-cold-reader-${crypto.randomUUID()}`,
   );
   const apiClient = input.apiClient ?? createRouteSdkClient(input.reader.token);
-  const resolveTrustedUserIdentity = trustedResolver(input.owner, input.reader);
+  const resolveTrustedUserIdentity = trustedResolver(
+    input.owner,
+    input.reader,
+    ...(input.knownUsers ?? []),
+  );
   let policyFetchCount = 0;
   const fullBundleWarmer = async (request: {
     organizationId: string;

@@ -3,7 +3,11 @@ import { verifyPrincipalPolicyBundleAgainstHistory } from "./principalPolicyBund
 import { appendPrincipalHistoryIndex } from "./principalPolicyHistoryIndex";
 import { indexedHistoryFixture } from "./principalPolicyHistoryReferenceTestFixtures";
 import { historyHead } from "./principalPolicyHistoryTestFixtures";
-import { signPolicyState } from "./principalPolicyTestFixtures";
+import {
+  createPolicySigner,
+  policyMember,
+  signPolicyState,
+} from "./principalPolicyTestFixtures";
 
 async function fixture() {
   const indexed = await indexedHistoryFixture();
@@ -48,7 +52,10 @@ test("a complete bundle cannot replace signature, projection or grant commitment
       ...first,
       state: { ...first.state, signature: input.third.state.signature },
     },
-    { ...first, projection: [{ userId: "intruder", role: "admin" as const }] },
+    {
+      ...first,
+      projection: [policyMember(await createPolicySigner("intruder"), "admin")],
+    },
     {
       ...first,
       grants: [

@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
@@ -43,7 +42,11 @@ async function shareGroupWith(options: {
   const groupId = "group-1";
   let groupPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
-      creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
+      identityTrustDomain: "https://api.example.test",
+      creatorEncapsulationKeyPair: {
+        publicKey: parent.encapsulationPublicKey,
+        secretKey: parent.secretKey,
+      },
       groupId,
       name: "Admins",
       signerUserId: author.signerUserId,
@@ -54,6 +57,7 @@ async function shareGroupWith(options: {
   let organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     parent.projection.organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: groupId,
       encapsulationPublicKey: parent.encapsulationPublicKey,
       groupHeads: [

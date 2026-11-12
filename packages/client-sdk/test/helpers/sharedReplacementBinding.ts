@@ -20,6 +20,7 @@ export async function sharedReplacementBindingFixture(execSql: ExecSql) {
   const rootContainerId = crypto.randomUUID();
   const provision = (root: string) =>
     buildOrganizationProvisioningArtifacts({
+      identityTrustDomain: "https://api.example.test",
       signingKeyPair,
       encapsulationKeyPair,
       userId,

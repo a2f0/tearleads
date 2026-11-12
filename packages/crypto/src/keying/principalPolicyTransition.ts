@@ -62,6 +62,28 @@ function hasPrincipalPolicyGrantRemoval(input: {
   return input.previousGrants.some((grant) => !retained.has(grant.containerId));
 }
 
+/** Identity is immutable even when roles or the principal's own key change. */
+function getPrincipalMemberIdentityMismatch(
+  previous: readonly PrincipalProjectionMember[],
+  current: readonly PrincipalProjectionMember[],
+): PrincipalPolicyTransitionMismatch | null {
+  const previousIdentities = new Map(
+    previous.map((member) => [member.userId, member.identityBundleFingerprint]),
+  );
+  const changed = current.some((member) => {
+    const identity = previousIdentities.get(member.userId);
+    return (
+      identity !== undefined && identity !== member.identityBundleFingerprint
+    );
+  });
+  return changed
+    ? principalPolicyTransitionMismatch(
+        "member_identity_changed",
+        "Principal policy continuing member identity cannot change",
+      )
+    : null;
+}
+
 function principalPolicyKeyMaterialChanged(input: {
   currentState: SignedPrincipalState;
   previousState: SignedPrincipalState;
@@ -79,6 +101,7 @@ export type PrincipalPolicyTransitionMismatchCode =
   | "key_change_without_epoch"
   | "key_epoch_decrease"
   | "key_epoch_jump"
+  | "member_identity_changed"
   | "previous_hash_mismatch"
   | "principal_mismatch"
   | "shrink_without_key_rotation"
@@ -202,7 +225,10 @@ export function getPrincipalPolicyTransitionMismatch(input: {
     );
   }
 
-  return null;
+  return getPrincipalMemberIdentityMismatch(
+    previousProjection,
+    currentProjection,
+  );
 }
 
 export function getPrincipalPolicyTransitionMismatchReason(
@@ -223,6 +249,8 @@ export function throwPrincipalPolicyTransitionError(
     case "key_epoch_jump":
     case "shrink_without_key_rotation":
       return throwVerification("key_epoch_reuse", mismatch.message);
+    case "member_identity_changed":
+      return throwVerification("hash_mismatch", mismatch.message);
     case "previous_hash_mismatch":
       return throwVerification("stale_predecessor", mismatch.message);
     case "principal_mismatch":

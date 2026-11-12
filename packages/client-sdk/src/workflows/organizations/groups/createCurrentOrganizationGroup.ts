@@ -33,6 +33,7 @@ export async function createCurrentOrganizationGroup(input: {
     "createOrganizationGroup"
   >;
   readonly context: CurrentOrganizationMutationContext;
+  readonly identityTrustDomain: string;
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
   readonly execSql: ExecSql;
   readonly metadataAccess: ReturnType<typeof createGroupMetadataAccess>;

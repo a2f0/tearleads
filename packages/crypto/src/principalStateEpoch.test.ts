@@ -12,18 +12,21 @@ import { generateKemSeedAndKeyPair } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
 import { normalizeReferencedPrincipalHead } from "./keying/accessEvent";
 import {
+  createPolicySigner,
+  policyMember,
+} from "./keying/principalPolicyTestFixtures";
+import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
   signPrincipalState,
 } from "./principalState";
 import { verifySignedPrincipalState } from "./principalStateVerification";
-import { generateSigningSeedAndKeyPair } from "./signing/generateKeyPair";
 
 async function fixture(principalType: "group" | "organization") {
   const kem = generateKemSeedAndKeyPair();
-  const signing = generateSigningSeedAndKeyPair();
-  const signerUserId = crypto.randomUUID();
-  const projection = [{ userId: signerUserId, role: "admin" as const }];
+  const signing = await createPolicySigner(crypto.randomUUID());
+  const signerUserId = signing.userId;
+  const projection = [policyMember(signing, "admin")];
   const state = await buildPrincipalStateSigningInput({
     principalType,
     principalId: crypto.randomUUID(),

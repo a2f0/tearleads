@@ -11,6 +11,7 @@ import type {
 } from "./sessionTypes";
 
 interface SessionOrganizationCreationDependencies {
+  readonly identityTrustDomain: string | null;
   readonly api: ApiClient;
   readonly database: Database;
   readonly documentProjectors?: DocumentProjectorRegistryInput | undefined;
@@ -54,9 +55,12 @@ export async function createSessionOrganization(
     return null;
   }
 
+  if (!dependencies.identityTrustDomain)
+    throw new Error("Identity trust domain is unavailable");
   let response: Awaited<ReturnType<typeof createOrganizationWorkflow>>;
   try {
     response = await createOrganizationWorkflow({
+      identityTrustDomain: dependencies.identityTrustDomain,
       apiClient: dependencies.api,
       dbClient,
       documentProjectors: dependencies.documentProjectors,

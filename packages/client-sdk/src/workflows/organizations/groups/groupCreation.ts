@@ -16,6 +16,7 @@ import { commitCreatedGroupToDirectory } from "./organizationGroupDirectory";
 export async function createOrganizationGroup(input: {
   readonly metadataAccess: ReturnType<typeof createGroupMetadataAccess>;
   readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly identityTrustDomain: string;
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
   readonly execSql: ExecSql;
   readonly name: string;
@@ -45,6 +46,7 @@ export async function createOrganizationGroup(input: {
     throw new Error("Organization admin authority could not be verified");
   }
   const request = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: input.identityTrustDomain,
     creatorEncapsulationKeyPair: input.creatorEncapsulationKeyPair,
     externalAuthority: externalAdminPolicy.externalAuthority.currentHead,
     groupId: crypto.randomUUID(),

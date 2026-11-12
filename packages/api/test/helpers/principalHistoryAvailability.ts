@@ -267,6 +267,7 @@ export async function assertPrincipalHistoryAvailability(
       organizationId,
       owner,
       reader: owner,
+      knownUsers: [removed],
       pagedPolicies: true,
     });
     expect(recovered.policyFetchCount).toBeGreaterThan(0);

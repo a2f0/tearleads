@@ -263,6 +263,7 @@ export const principalMembershipProjection = pgTable(
     principalId: uuid("principal_id").notNull(),
     stateHash: text("state_hash").notNull(),
     userId: uuid("user_id").notNull(),
+    identityBundleFingerprint: text("identity_bundle_fingerprint").notNull(),
     role: text("role").$type<PrincipalProjectionRole>().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

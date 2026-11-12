@@ -149,6 +149,7 @@ async function createInitialGroup(
 async function storeInitialPolicy(
   tx: DatabaseTransaction,
   bundle: PutPrincipalPolicyRequest,
+  identityTrustDomain: string,
 ): Promise<void> {
   await storeVerifiedPrincipalPolicyInTransaction(
     {
@@ -159,6 +160,7 @@ async function storeInitialPolicy(
       memberEnvelopes: bundle.memberEnvelopes,
     },
     tx,
+    { identityTrustDomain },
   );
 }
 
@@ -262,6 +264,7 @@ function listCommittedCoreMetadataUpdateIds(
 }
 
 export interface ProvisionOrganizationOptions {
+  readonly identityTrustDomain: string;
   readonly initialBilling: InitialOrganizationBilling;
   /**
    * Invoked in-transaction immediately after the organization row and its root
@@ -323,12 +326,21 @@ async function provisionOrganizationAuthorityAndBilling(
     groupId: input.initialMemberGroup.groupId,
     organizationId: org.id,
   });
-  await storeInitialPolicy(tx, input.initialAdminGroup.initialGroupPolicy);
+  await storeInitialPolicy(
+    tx,
+    input.initialAdminGroup.initialGroupPolicy,
+    options.identityTrustDomain,
+  );
   const initialMemberGroupStateHash = await storeInitialMemberGroupPolicy(
     tx,
     input,
+    options.identityTrustDomain,
   );
-  await storeInitialPolicy(tx, input.initialOrganizationPolicy);
+  await storeInitialPolicy(
+    tx,
+    input.initialOrganizationPolicy,
+    options.identityTrustDomain,
+  );
   await syncInitialRosterAndBillingSeats({
     initialBilling,
     initialMemberGroupStateHash,

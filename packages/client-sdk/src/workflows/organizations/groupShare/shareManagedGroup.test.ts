@@ -38,11 +38,15 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
     signingPrivateKey: author.signerPrivateKey,
     signingPublicKey: parent.signingPublicKey,
   };
-  const groupEncapsulationKeyPair = generateKemSeedAndKeyPair();
+  const groupEncapsulationKeyPair = {
+    publicKey: parent.encapsulationPublicKey,
+    secretKey: parent.secretKey,
+  };
   const groupSignerUserId = author.signerUserId;
   const groupId = "group-1";
   const groupSigningFingerprint = author.signerKeyFingerprint;
   const groupPolicyRequest = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: groupEncapsulationKeyPair,
     groupId,
     name: "Admins",
@@ -54,6 +58,7 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
   let organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     parent.projection.organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: groupId,
       encapsulationPublicKey: parent.encapsulationPublicKey,
       groupHeads: [
@@ -194,6 +199,7 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
   );
   const adminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       creatorEncapsulationKeyPair: groupEncapsulationKeyPair,
       groupId: adminGroupId,
       name: "Admins",
@@ -203,6 +209,7 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
     }),
   );
   const groupPolicyRequest = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: groupEncapsulationKeyPair,
     externalAuthority: {
       principalType: "group",
@@ -229,6 +236,7 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
   const groupPolicy = await policyBundleFromInitialRequest(groupPolicyRequest);
   const organizationPolicyRequest = await buildInitialOrganizationPolicyRequest(
     {
+      identityTrustDomain: "https://api.example.test",
       adminGroupId,
       encapsulationPublicKey: groupEncapsulationKeyPair.publicKey,
       groupHeads: [

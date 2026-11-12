@@ -149,10 +149,8 @@ async function createGroupSharePolicies(input: {
   };
   const groupRequest = (groupId: string, name: string) =>
     buildInitialGroupPolicyRequest({
-      creatorEncapsulationKeyPair:
-        groupId === ADMIN_GROUP_ID
-          ? input.keyPair
-          : generateKemSeedAndKeyPair(),
+      identityTrustDomain: "https://api.example.test",
+      creatorEncapsulationKeyPair: input.keyPair,
       groupId,
       name,
       signerUserId: author.signerUserId,
@@ -177,6 +175,7 @@ async function createGroupSharePolicies(input: {
   const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     author.organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: ADMIN_GROUP_ID,
       encapsulationPublicKey: input.keyPair.publicKey,
       groupHeads: [

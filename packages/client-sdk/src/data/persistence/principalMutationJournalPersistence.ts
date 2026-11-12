@@ -7,8 +7,10 @@ import {
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 
-export type PrincipalMutationJournalRow =
-  typeof principalMutationJournal.$inferSelect;
+export type PrincipalMutationJournalRow = Omit<
+  typeof principalMutationJournal.$inferSelect,
+  "identityBundleFormat"
+>;
 
 export class PendingPrincipalMutationError extends Error {
   constructor() {
@@ -26,7 +28,12 @@ export async function loadPrincipalMutationJournal(
   await ensureSqlTables(execSql, principalMutationJournalTables);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const [row] = await db
-    .select()
+    .select({
+      scopeId: principalMutationJournal.scopeId,
+      organizationId: principalMutationJournal.organizationId,
+      serializedRequest: principalMutationJournal.serializedRequest,
+      signature: principalMutationJournal.signature,
+    })
     .from(principalMutationJournal)
     .where(eq(principalMutationJournal.scopeId, scopeId))
     .limit(1);

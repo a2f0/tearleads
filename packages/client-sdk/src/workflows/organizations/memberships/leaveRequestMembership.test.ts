@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import type { PrincipalPolicyStateChainEntryResponse } from "@tearleads/validators/response";
 import type { OrganizationLeaveRequest } from "@tearleads/validators/util";
+import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import type { RecoveredPrincipalHistoryPage } from "../../principals/historyRecovery/loadRecoveredPrincipalHistoryPage";
 import {
   createLeaveRequestMembershipCheck,
@@ -13,6 +14,15 @@ const ADMIN = "0a1b2c3d-4e5f-4a6b-8c7d-8e9f0a1b2c3d";
 const MEMBER = "1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e";
 const COLLEAGUE = "2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e6f";
 
+const identities = new Map(
+  await Promise.all(
+    [ADMIN, MEMBER, COLLEAGUE].map(
+      async (userId) =>
+        [userId, await createFixtureUserIdentity({ userId })] as const,
+    ),
+  ),
+);
+
 function entry(
   version: number,
   keyEpoch: number,
@@ -21,7 +31,15 @@ function entry(
 ): PrincipalPolicyStateChainEntryResponse {
   return {
     grants: [],
-    projection: userIds.map((userId) => ({ role: "member", userId })),
+    projection: userIds.map((userId) => {
+      const identity = identities.get(userId);
+      if (!identity) throw new Error(`Missing member identity: ${userId}`);
+      return {
+        role: "member",
+        userId,
+        identityBundleFingerprint: identity.identityBundleFingerprint,
+      };
+    }),
     state: {
       createdAt: "2026-10-22T12:00:00.000Z",
       encapsulationPublicKey: `members-kem-${keyEpoch}`,

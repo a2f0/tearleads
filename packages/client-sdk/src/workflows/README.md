@@ -311,18 +311,18 @@ The phrase derives identity key pairs only; product backup/restore UX and any
 session/container recovery metadata stay in host/app code.
 
 The `tearleads.userIdentities` gateway's `createLink` encodes keys; `verifyLink`
-checks before pinning as `link`; `resolveVerified` and `createLinkFor` (a peer's
-link) read only a `link` or `self` pin. No public user-ID lookup trusts on first
-use: `organizations.addUserToGroup` and a store's `shareWithUser` throw
-`UnverifiedUserIdentityError` for a target no link verified
-([trust scope](../../../../docs/developer/trusted-user-identity.md#identity-links)),
-unless the organization's signed roster vouches for the encryption key of a
-read-only share's target
-([roster vouching](../../../../docs/developer/trusted-user-identity.md#roster-vouching)).
-Workflows accept opaque trusted bundles or gateway-resolved user IDs. Raw API
-identity and directory responses must not reach signature or encryption helpers.
-Lower-level integration tests may use `@tearleads/client-sdk/testing` to
-construct the nominal test values; production source must not import it.
+checks before pinning as `link`; `resolveVerified` and `createLinkFor` require
+direct `self`/`link` trust. Existing Members may use full-bundle
+[roster vouching](../../../../docs/developer/trusted-user-identity.md#roster-vouching)
+for group adds and read/write/admin shares, without pin promotion. New or
+disabled enrollment still requires direct trust. Workflows use trusted bundles,
+never raw API identities; `@tearleads/client-sdk/testing` is test-only.
+
+Public founding-policy builders, `createOrganizationGroup`, and
+`registerIdentity` require canonical `identityTrustDomain`; runtime services
+supply it. [Identity contracts](../../../../docs/developer/client-sdk/public-api.md#principal-identity-contracts)
+define full commitments, scoped pin reads (never admission), bounded vouching,
+and reset-only deployment. Helpers stay private; policy signers stay staged.
 
 Trust-boundary failures are terminal and feed the client-owned
 `tearleads.securityIncidents` ledger. Workflow runtimes receive only its

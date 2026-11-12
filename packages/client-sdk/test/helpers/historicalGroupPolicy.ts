@@ -1,4 +1,5 @@
 import {
+  computeUserIdentityBundleFingerprint,
   generateKemSeedAndKeyPair,
   makeVerifiedPrincipalPolicy,
   toFingerprint,
@@ -20,21 +21,34 @@ import {
 
 /** Real signed group history, including a former administrator. */
 export async function historicalGroupPolicy(input: {
-  readonly former: Signer;
-  readonly remaining: Signer;
+  readonly former: Signer & {
+    readonly kem: ReturnType<typeof generateKemSeedAndKeyPair>;
+  };
+  readonly remaining: Signer & {
+    readonly kem: ReturnType<typeof generateKemSeedAndKeyPair>;
+  };
   readonly organizationId: string;
 }) {
   const fingerprint = await toFingerprint(
     input.remaining.keyPair.signingPublicKey,
   );
+  const projection = await Promise.all(
+    [input.remaining, input.former].map(async (member) => ({
+      userId: member.userId,
+      role: "admin" as const,
+      identityBundleFingerprint: await computeUserIdentityBundleFingerprint({
+        identityTrustDomain: "https://api.example.test",
+        userId: member.userId,
+        signingPublicKey: member.keyPair.signingPublicKey,
+        encapsulationPublicKey: member.kem.publicKey,
+      }),
+    })),
+  );
   const key = generateKemSeedAndKeyPair();
   const first = await signedPrincipalPolicyBundle({
     memberEnvelopes: [],
     payloadCiphertext: "public-test-policy",
-    projection: [
-      { userId: input.remaining.userId, role: "admin" },
-      { userId: input.former.userId, role: "admin" },
-    ],
+    projection,
     signing: {
       principalType: "group",
       principalId: "historical-admins",
@@ -54,7 +68,9 @@ export async function historicalGroupPolicy(input: {
   const current = await signedPrincipalPolicyBundle({
     memberEnvelopes: [],
     payloadCiphertext: first.currentPayload.ciphertext,
-    projection: [{ userId: input.remaining.userId, role: "admin" }],
+    projection: projection.filter(
+      (member) => member.userId === input.remaining.userId,
+    ),
     previousStates: [
       {
         state: first.currentState,
@@ -99,6 +115,7 @@ export async function historicalGroupPolicy(input: {
   const organization = await organizationPolicyBundleFromInitialRequest(
     input.organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: currentHead.principalId,
       memberGroupId: "historical-members",
       groupHeads: [
@@ -108,7 +125,7 @@ export async function historicalGroupPolicy(input: {
       organizationId: input.organizationId,
       signingKeyPair: input.remaining.keyPair,
       userId: input.remaining.userId,
-      encapsulationPublicKey: key.publicKey,
+      encapsulationPublicKey: input.remaining.kem.publicKey,
     }),
   );
   return {

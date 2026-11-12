@@ -11,6 +11,7 @@ import type { PrincipalMutationRecoveryApi } from "../../src/workflows/organizat
 import { principalMutationApiFixture } from "./principalMutationApiFixture";
 
 interface WorkflowInputFixtureOptions {
+  readonly identityTrustDomain?: string;
   readonly apiClient: ApiClient;
   readonly auth?: Partial<InternalWorkflowRuntimeInput["auth"]> | undefined;
   readonly blobStore?:
@@ -51,6 +52,8 @@ export function createWorkflowInputFixture(
       api.discardUnreadablePrincipalMutation ?? (async () => false),
   } satisfies PrincipalMutationRecoveryApi;
   return {
+    identityTrustDomain:
+      options.identityTrustDomain ?? "https://api.example.test",
     apiClient: principalMutationApiFixture(api, recovery),
     resolveTrustedUserIdentity:
       options.resolveTrustedUserIdentity ?? (async () => null),

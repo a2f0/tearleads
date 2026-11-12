@@ -14,6 +14,7 @@ import {
   isDeleteOrganizationGroupResponse,
 } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
+import { identityBoundRouteApp as routeApp } from "../../../test/helpers/identityBoundRouteApp";
 import { createGroupRequest } from "../../../test/helpers/organizationGroup";
 import {
   buildOrganizationGroupDeletionRequest,
@@ -22,7 +23,6 @@ import {
 import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
-import { routeApp } from "../../routeApp";
 
 const unreadableReceipt = "Stored group operation acknowledgement is invalid";
 const malformedCreationReceipt =

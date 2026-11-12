@@ -58,6 +58,7 @@ export async function runRegistrationWorkflow(
     readonly fingerprint: string;
     readonly ip?: string | null;
     readonly signingKeyBytes: Uint8Array;
+    readonly identityTrustDomain: string;
   },
 ) {
   const signer: OrganizationProvisioningSigner = {
@@ -80,6 +81,7 @@ export async function runRegistrationWorkflow(
       }
       return provisionOrganizationInTransaction(tx, input, signer, {
         initialBilling: "trial",
+        identityTrustDomain: keyMaterial.identityTrustDomain,
         onOrganizationRootCreated: async (organizationId) => {
           await createRegisteredUser(tx, {
             encapsulationFingerprint: keyMaterial.encapsulationFingerprint,

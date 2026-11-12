@@ -20,7 +20,10 @@ import type { SecurityIncidentReporter } from "../../../data/shared/securityInci
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
-import { collectPrincipalPolicySignerPublicKeys } from "../../principals/policyVerification";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  publishVerifiedPrincipalPolicy,
+} from "../../principals/policyVerification";
 import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
 import { assertGroupMetadataBinding } from "../groupMetadata/groupMetadataBinding";
 import {
@@ -38,6 +41,8 @@ export interface DirectoryGroupWalkInput {
   readonly organizationId: string;
   readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  /** The walk's lifetime, checked inside every pin write. */
+  readonly stillCurrent?: (() => boolean) | undefined;
 }
 
 type DirectoryGroupHead = OrganizationAuthorityDescriptor["groupHeads"][number];
@@ -132,6 +137,11 @@ export async function verifyDirectoryGroup(
       "Organization directory group verification failed",
     );
   }
+  await publishVerifiedPrincipalPolicy({
+    bundle,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
+  });
   assertGroupMetadataBinding(bundle, input.descriptor);
   const name = await readDirectoryGroupName(input, bundle);
   return {

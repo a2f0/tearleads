@@ -11,7 +11,12 @@ import {
   signPrincipalState as signPrincipalStateHeader,
   toFingerprint,
 } from "@tearleads/crypto";
+import {
+  createPolicySigner,
+  policyMember,
+} from "@tearleads/crypto/principal-policy-test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { registeredProjection } from "../../../test/helpers/policyProjection";
 import { storePrincipalState as storeVerifiedPrincipalState } from "../../../test/helpers/principalState";
 import {
   createPrincipalStateSigner,
@@ -85,10 +90,7 @@ test("storeVerifiedPrincipalState rejects projection roots that do not match the
         ...signedState,
         projection: [
           ...signedState.projection,
-          {
-            userId: crypto.randomUUID(),
-            role: "member",
-          },
+          policyMember(await createPolicySigner(crypto.randomUUID())),
         ],
       },
       db,
@@ -156,12 +158,12 @@ test.each(["memberCount", "grantCount", "grantRoot"] as const)(
       generateSigningSeedAndKeyPair();
     const signer = await createPrincipalStateSigner(signingPublicKey);
     const principalId = crypto.randomUUID();
-    const projection = [
+    const projection = await registeredProjection([
       {
         userId: signer.signerUserId,
         role: "admin" as const,
       },
-    ];
+    ]);
     const payloadCiphertext = JSON.stringify({ members: projection });
     const state = await signPrincipalStateHeader(
       {

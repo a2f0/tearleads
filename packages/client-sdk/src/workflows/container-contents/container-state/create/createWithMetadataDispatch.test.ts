@@ -180,6 +180,7 @@ test("stale-policy repair preserves the policy API receiver", async () => {
   };
   const adminBundle = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       creatorEncapsulationKeyPair,
       groupId: "compound-create-policy-admins",
       name: "Admins",
@@ -194,6 +195,7 @@ test("stale-policy repair preserves the policy API receiver", async () => {
   }
   const staleBundle = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       creatorEncapsulationKeyPair,
       externalAuthority: { ...adminHead, principalType: "group" },
       groupId: "compound-create-policy-subject",
@@ -256,6 +258,7 @@ test("compound create consumes successive policy pages and stops a repeated page
       ["policy-a", "policy-b"].map(async (groupId) =>
         policyBundleFromInitialRequest(
           await buildInitialGroupPolicyRequest({
+            identityTrustDomain: "https://api.example.test",
             creatorEncapsulationKeyPair: {
               publicKey: parent.encapsulationPublicKey,
               secretKey: parent.secretKey,
@@ -272,6 +275,7 @@ test("compound create consumes successive policy pages and stops a repeated page
     const directory = await organizationPolicyBundleFromInitialRequest(
       parent.projection.organizationId,
       await buildInitialOrganizationPolicyRequest({
+        identityTrustDomain: "https://api.example.test",
         adminGroupId: "policy-a",
         memberGroupId: "policy-b",
         organizationId: parent.projection.organizationId,

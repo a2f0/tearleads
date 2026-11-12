@@ -8,9 +8,9 @@ import {
   type PutPrincipalPolicyResult,
   runPutPrincipalPolicyWorkflow,
 } from "../../workflows/principals/putPrincipalPolicy";
-import { createDatabaseWorkflowService } from "../databaseWorkflowService";
+import { createIdentityBoundDatabaseWorkflowService } from "../identityBoundDatabaseWorkflowService";
 
-export const putPrincipalPolicy = createDatabaseWorkflowService<
+export const putPrincipalPolicy = createIdentityBoundDatabaseWorkflowService<
   PutPrincipalPolicyInput,
   PutPrincipalPolicyResult
 >(runPutPrincipalPolicyWorkflow);
@@ -22,7 +22,8 @@ interface CommitOrganizationGroupPolicyServiceInput {
   readonly requesterUserId: string;
 }
 
-export const commitOrganizationGroupPolicy = createDatabaseWorkflowService<
-  CommitOrganizationGroupPolicyServiceInput,
-  CommitOrganizationGroupPolicyResult
->(runCommitOrganizationGroupPolicyWorkflow);
+export const commitOrganizationGroupPolicy =
+  createIdentityBoundDatabaseWorkflowService<
+    CommitOrganizationGroupPolicyServiceInput,
+    CommitOrganizationGroupPolicyResult
+  >(runCommitOrganizationGroupPolicyWorkflow);

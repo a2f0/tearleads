@@ -51,7 +51,7 @@ test.each([1, 8])(
             includeActorAsAdmin: false,
           }),
         );
-        expect(created.ok).toBe(true);
+        expect(created).toMatchObject({ ok: true });
       }
       const policy = PrincipalPolicyBundleResponseSchema.parse(
         await (await getPolicy(actor, "organization", organizationId)).json(),

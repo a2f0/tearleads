@@ -205,6 +205,7 @@ async function insertPrincipalProjectionRows(
         stateHash: input.stateHash,
         userId: member.userId,
         role: member.role,
+        identityBundleFingerprint: member.identityBundleFingerprint,
       })),
     )
     .onConflictDoNothing({

@@ -30,6 +30,7 @@ async function createExternalAdminFixture() {
   const memberGroupId = crypto.randomUUID();
   const adminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       creatorEncapsulationKeyPair: adminSignerKem,
       groupId: adminGroupId,
       name: "Admins",
@@ -41,6 +42,7 @@ async function createExternalAdminFixture() {
   const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId,
       encapsulationPublicKey: organizationSignerKem.publicKey,
       groupHeads: [

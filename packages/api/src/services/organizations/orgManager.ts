@@ -13,6 +13,7 @@ import type {
   OrganizationProfileResponse,
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
+import { resolveApiIdentityTrustDomain } from "../../apiIdentityTrustDomain";
 import { runCreateOrganizationGroupWorkflow } from "../../workflows/organizations/createGroup";
 import { runGetOrganizationDataUsageWorkflow } from "../../workflows/organizations/dataUsage";
 import {
@@ -91,12 +92,14 @@ export async function createOrganizationGroup(
   organizationId: string,
   sessionUserId: string,
   input: CreateOrganizationGroupWithPolicyRequest,
+  requestUrl?: string,
 ): Promise<CreateOrganizationGroupResponse> {
   return runCreateOrganizationGroupWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
     input,
+    resolveApiIdentityTrustDomain(runtime.identityTrustDomain, requestUrl),
   );
 }
 
@@ -106,6 +109,7 @@ export async function deleteOrganizationGroup(
   groupId: string,
   sessionUserId: string,
   input: DeleteOrganizationGroupRequest,
+  requestUrl?: string,
 ): Promise<DeleteOrganizationGroupResponse> {
   return runDeleteOrganizationGroupWorkflow(
     runtime.db,
@@ -113,6 +117,7 @@ export async function deleteOrganizationGroup(
     groupId,
     sessionUserId,
     input,
+    resolveApiIdentityTrustDomain(runtime.identityTrustDomain, requestUrl),
   );
 }
 

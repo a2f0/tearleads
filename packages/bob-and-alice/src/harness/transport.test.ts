@@ -1,6 +1,35 @@
 import { expect, test } from "bun:test";
 import { DeviceTransport } from "./transport";
 
+test("the device proxy preserves the client authentication origin", async () => {
+  const upstream = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: async (request) =>
+      Response.json({
+        url: request.url,
+        authorization: request.headers.get("authorization"),
+        body: await request.text(),
+      }),
+  });
+  const transport = new DeviceTransport(upstream.url.origin);
+  try {
+    const response = await fetch(`${transport.origin}/auth/register?probe=1`, {
+      method: "POST",
+      headers: { authorization: "test-authorization" },
+      body: "registration-body",
+    });
+    expect(await response.json()).toEqual({
+      url: `${transport.origin}/auth/register?probe=1`,
+      authorization: "test-authorization",
+      body: "registration-body",
+    });
+  } finally {
+    transport.dispose();
+    await upstream.stop(true);
+  }
+});
+
 test.each(["", "{malformed"])(
   "the device proxy forwards an invalid JSON body unchanged (%j)",
   async (body) => {

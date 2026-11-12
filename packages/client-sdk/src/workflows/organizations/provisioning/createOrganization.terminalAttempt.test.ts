@@ -97,6 +97,7 @@ async function harness() {
       ),
     create: () =>
       createOrganization({
+        identityTrustDomain: "https://api.example.test",
         ...creator,
         dbClient: connection.dbClient,
         isIdentityCurrent: () => current,

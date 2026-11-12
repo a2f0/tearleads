@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { signPolicyState } from "@tearleads/crypto/principal-policy-test-fixtures";
+import {
+  policyMember,
+  signPolicyState,
+} from "@tearleads/crypto/principal-policy-test-fixtures";
 import { principalHistoryPreparationFixture } from "../../../test/helpers/principalHistoryPreparation";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
@@ -51,7 +54,7 @@ test("a real successor and its authority cannot strand unrelated cold progress",
   const { memberEnvelopes, stateMembers } =
     await createPrincipalMemberEnvelopes({
       principalSecretKey: authority.principalKeyPair.secretKey,
-      projection: [{ userId: authority.signer.userId, role: "admin" }],
+      projection: [policyMember(authority.signer, "admin")],
     });
   const successor = await signPolicyState({
     signer: authority.signer,
@@ -88,6 +91,7 @@ test("a real successor and its authority cannot strand unrelated cold progress",
             memberEnvelopes: [...successor.memberEnvelopes],
           },
           tx,
+          { identityTrustDomain: authority.signer.identityTrustDomain },
         );
         await getVerifiedPrincipalPolicyForStateWithExecutor(
           tx,

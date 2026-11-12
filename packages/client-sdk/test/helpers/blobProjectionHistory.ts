@@ -14,6 +14,7 @@ export async function createPagedAttachmentFixture() {
   const fixture = await createUploadedAttachmentFixture({ documentFixture });
   const group = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       groupId: crypto.randomUUID(),
       name: "Attachment readers",
       creatorEncapsulationKeyPair: {

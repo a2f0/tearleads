@@ -57,6 +57,7 @@ test.each(["full", "current"])(
     });
     const initialPolicy = await policyBundleFromInitialRequest(
       await buildInitialGroupPolicyRequest({
+        identityTrustDomain: "https://api.example.test",
         creatorEncapsulationKeyPair: signerKem,
         groupId: "group-1",
         name: "Operators",

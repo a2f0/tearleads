@@ -86,7 +86,10 @@ test("GET /principals/:principalType/:principalId/policy returns previous states
   const organizationId = await getDefaultOrganizationId(actor.userId);
   const members = [{ userId: actor.userId }];
   const principalKem = generateKemSeedAndKeyPair();
-  const projection = createProjectionWithAdminSigner(actor.userId, members);
+  const projection = await createProjectionWithAdminSigner(
+    actor.userId,
+    members,
+  );
 
   const initialSignedState = await createSignedPrincipalState({
     principalType: "group",

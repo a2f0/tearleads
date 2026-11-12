@@ -1,5 +1,6 @@
 import {
   buildPrincipalStateSigningInput,
+  computeUserIdentityBundleFingerprint,
   encodeBuiltinGroupMetadata,
   generateKemSeedAndKeyPair,
   type PrincipalContainerGrant,
@@ -9,9 +10,11 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
+import { API_TEST_IDENTITY_TRUST_DOMAIN } from "../policyProjection";
 import { REGISTER_SIGNED_AT } from "./signing";
 
 interface InitialGroupInput {
+  identityTrustDomain?: string;
   encapsulationPublicKey: Uint8Array;
   grants?: readonly PrincipalContainerGrant[] | undefined;
   groupId?: string | undefined;
@@ -45,6 +48,11 @@ async function createInitialBuiltinGroupRequest(
     {
       userId: input.userId,
       role: "admin" as const,
+      identityBundleFingerprint: await computeUserIdentityBundleFingerprint({
+        ...input,
+        identityTrustDomain:
+          input.identityTrustDomain ?? API_TEST_IDENTITY_TRUST_DOMAIN,
+      }),
     },
   ];
   const payloadCiphertext = encodeBuiltinGroupMetadata(builtin);

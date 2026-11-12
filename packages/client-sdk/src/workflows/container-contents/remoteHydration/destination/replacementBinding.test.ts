@@ -139,6 +139,7 @@ test("a member can follow multiple replacements but cannot skip or replay a link
     const data = await sharedReplacementBindingFixture(database.execSql);
     const rootContainerId = crypto.randomUUID();
     const middle = await buildOrganizationProvisioningArtifacts({
+      identityTrustDomain: "https://api.example.test",
       signingKeyPair: data.signingKeyPair,
       encapsulationKeyPair: data.encapsulationKeyPair,
       userId: data.userId,

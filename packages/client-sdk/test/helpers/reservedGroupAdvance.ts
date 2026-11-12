@@ -40,6 +40,7 @@ export async function createReservedGroupAdvance(
     signingKeyFingerprint: signingFingerprint,
   });
   const artifacts = await buildOrganizationProvisioningArtifacts({
+    identityTrustDomain: "https://api.example.test",
     encapsulationKeyPair: identity,
     signingKeyPair: signing,
     userId: "founder",

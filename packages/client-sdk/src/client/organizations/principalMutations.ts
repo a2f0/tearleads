@@ -13,6 +13,7 @@ import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { createCurrentPrincipalMutation } from "./currentPrincipalMutations";
 import { syncOrganizationMetadataProfile } from "./organizationMetadataProfileSync";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
+import type { GroupMemberAdmission } from "./recipientAdmission";
 
 export interface OrganizationGrantRef {
   containerId: string;
@@ -36,6 +37,7 @@ export interface RemoveOrganizationGroupUserInput
 }
 
 interface OrganizationSigningContext {
+  identityTrustDomain: string;
   organizationId: string;
   signerUserId: string;
   signingFingerprint: string;
@@ -48,6 +50,7 @@ function requireSigningContext(
   runtime: InternalWorkflowRuntimeInput,
 ): OrganizationSigningContext {
   if (
+    !runtime.identityTrustDomain ||
     !runtime.auth.organizationId ||
     !runtime.auth.userId ||
     !runtime.crypto.signingFingerprint ||
@@ -57,6 +60,7 @@ function requireSigningContext(
   }
 
   return {
+    identityTrustDomain: runtime.identityTrustDomain,
     organizationId: runtime.auth.organizationId,
     signerUserId: runtime.auth.userId,
     signingFingerprint: runtime.crypto.signingFingerprint,
@@ -82,7 +86,10 @@ interface PrincipalMutationRuntime {
 }
 
 export async function addUserToOrganizationGroup(
-  input: PrincipalMutationRuntime & AddOrganizationGroupUserInput,
+  input: PrincipalMutationRuntime &
+    AddOrganizationGroupUserInput & {
+      readonly admission: GroupMemberAdmission;
+    },
 ) {
   const signingContext = requireSigningContext(input.runtime);
   return runWithSecurityIncidentReporting(
@@ -111,6 +118,7 @@ export async function addUserToOrganizationGroup(
         kind: "add",
         expectedGroupName: input.expectedGroupName,
         targetUserId: input.targetUserId,
+        admission: input.admission,
       });
       if (input.groupId === memberGroupId || enrolled) {
         await syncOrganizationMetadataProfile({

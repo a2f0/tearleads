@@ -1,6 +1,5 @@
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
-import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import {
   cancelStripeSubscription,
   changeStripePlan,
@@ -61,6 +60,7 @@ import {
   removeUserFromOrganizationGroup,
   revokeOrganizationGrant,
 } from "./principalMutations";
+import { admitGroupMutation } from "./recipientAdmission";
 
 export type {
   LocalOrganizationSummary,
@@ -145,20 +145,10 @@ class OrganizationsService implements Organizations {
   }
 
   async addUserToGroup(input: AddOrganizationGroupUserInput) {
-    // Group membership admits a user: only a verified identity link or this
-    // device's own keys can establish the identity it is granted to.
-    // The check reads the trust store of the scope this mutation captured, and
-    // that scope must still be current once it returns.
-    const mutation = currentOrganizationMutation(this.runtimeService);
-    await this.runtimeService.identityLinks.requireVerified(
+    const mutation = await admitGroupMutation(
+      this.runtimeService,
       input.targetUserId,
-      mutation.runtime.infra.execSql,
     );
-    if (!mutation.stillCurrent()) {
-      throw new DatabaseUnavailableError(
-        "The active database changed while admitting this user. Try again.",
-      );
-    }
     return addUserToOrganizationGroup({
       ...input,
       containerContents: this.containerContents,

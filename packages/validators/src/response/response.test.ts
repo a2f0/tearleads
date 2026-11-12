@@ -445,6 +445,7 @@ test("isPrincipalPolicyBundleResponse", () => {
       },
       currentProjection: [
         {
+          identityBundleFingerprint: "a".repeat(64),
           userId: "user-1",
           role: "admin",
         },

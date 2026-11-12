@@ -93,6 +93,7 @@ test("atomic profile initial syncs import cleanly into a fresh peer", async () =
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const artifacts = await buildOrganizationProvisioningArtifacts({
+    identityTrustDomain: "https://api.example.test",
     encapsulationKeyPair,
     rootContainerId: crypto.randomUUID(),
     signingKeyPair,
@@ -155,6 +156,7 @@ test("atomic profile initial syncs import cleanly into a fresh peer", async () =
 
 test("organization provisioning shares profile idempotency keys with later ensures", async () => {
   const artifacts = await buildOrganizationProvisioningArtifacts({
+    identityTrustDomain: "https://api.example.test",
     encapsulationKeyPair: generateKemSeedAndKeyPair(),
     rootContainerId: crypto.randomUUID(),
     signingKeyPair: generateSigningSeedAndKeyPair(),
@@ -240,6 +242,7 @@ test("registerIdentity settles acknowledged profiles", async () => {
 
   try {
     const response = await registerIdentity({
+      identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId: crypto.randomUUID(),
       dbClient: execSqlClientFromExecSql(execSql),

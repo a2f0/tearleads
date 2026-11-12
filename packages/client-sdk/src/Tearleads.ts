@@ -151,7 +151,11 @@ export class Tearleads {
       },
       getUserId: () => session?.userId ?? null,
     });
-    session = this.createClientSession(options, security.report);
+    session = this.createClientSession(
+      options,
+      security.report,
+      identityTrustDomain,
+    );
     this.session = session;
     const runtime = this.createWorkflowRuntime(
       identityTrustDomain,
@@ -202,8 +206,10 @@ export class Tearleads {
   private createClientSession(
     options: TearleadsOptions,
     reportSecurityIncident: SecurityIncidentReporter,
+    identityTrustDomain: string | null,
   ): Session {
     return createSession({
+      identityTrustDomain,
       api: this.apiClient,
       database: this.database,
       documentProjectors: this.documentProjectors,

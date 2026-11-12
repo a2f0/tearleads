@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  computeUserIdentityBundleFingerprint,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
@@ -50,6 +51,7 @@ test("createOrganization provisions a new org for the existing user and persists
 
   try {
     const response = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient: {
         createOrganization: async (request) => {
           captured = request;
@@ -77,7 +79,16 @@ test("createOrganization provisions a new org for the existing user and persists
     expect(request.initialAdminGroup).not.toHaveProperty("name");
     expect(request.initialMemberGroup).not.toHaveProperty("name");
     expect(request.initialOrganizationPolicy.projection).toEqual([
-      { userId: userId, role: "admin" },
+      {
+        userId,
+        role: "admin",
+        identityBundleFingerprint: await computeUserIdentityBundleFingerprint({
+          identityTrustDomain: "https://api.example.test",
+          userId: userId,
+          signingPublicKey: signingKeyPair.signingPublicKey,
+          encapsulationPublicKey: encapsulationKeyPair.publicKey,
+        }),
+      },
     ]);
 
     // The three core container-metadata bodies are committed atomically with
@@ -263,6 +274,7 @@ test("createOrganization provisions configured system containers (Trash) atomica
 
   try {
     const response = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient: {
         createOrganization: async (request) => {
           captured = request;
@@ -344,6 +356,7 @@ test("createOrganization returns null when the server rejects the request", asyn
   const { close, execSql } = await createTestExecSql("rejected-organization");
   try {
     const response = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient: {
         createOrganization: async () => null,
       },
@@ -376,6 +389,7 @@ test("createOrganization submits nothing once the identity is stale", async () =
     // The identity was replaced while the provisioning artifacts were being
     // built; the request signed with the old keys must never reach the API.
     const response = await createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient: {
         createOrganization: async (request) => {
           createCalls += 1;
@@ -427,6 +441,7 @@ test("createOrganization persists nothing when the identity goes stale in-flight
       persistQueued = resolve;
     });
     const creation = createOrganization({
+      identityTrustDomain: "https://api.example.test",
       apiClient: {
         createOrganization: async (request) => {
           captured = request;

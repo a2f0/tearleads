@@ -1,8 +1,6 @@
 import {
   KeyingVerificationError,
-  type PrincipalPolicySignerPublicKey,
   type ReferencedPrincipalHead,
-  toFingerprint,
   type VerifiedPrincipalPolicy,
   verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
@@ -16,18 +14,23 @@ import {
   requireOrganizationGroupHead,
 } from "../../principals/organizationAuthorityDescriptor";
 import {
+  assertPrincipalIdentityCommitments,
+  publishVerifiedPolicyBundle,
+} from "../../principals/principalIdentityCommitments";
+import {
   organizationAdminExternalAuthority,
   principalPolicyReferenceFromBundle,
   verifyOrganizationAdminPolicy,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../../principals/principalPolicyAdminSigners";
-import type { PrincipalPolicyCurrentEvidence } from "../../principals/principalPolicyEvidence";
-import { principalPolicyBundleStates } from "../../principals/principalPolicyStates";
+import {
+  type PrincipalPolicyCurrentEvidence,
+  principalPolicyEvidenceEntries,
+} from "../../principals/principalPolicyEvidence";
 import {
   observePrincipalPolicy,
   type ProjectionCheckpointContext,
 } from "../checkpoints/checkpointContext";
-import { ProjectionDependencyUnavailableError } from "../dependencyUnavailable";
 import { rethrowProjectionVerificationBoundaryError } from "../error";
 import type {
   PrincipalPolicyCache,
@@ -47,6 +50,7 @@ import {
   principalPolicyHeadMeetsCheckpoint,
   verifiedPrincipalPolicyMeetsCheckpoint,
 } from "./principalPolicyCheckpointSelection";
+import { collectPrincipalPolicySignerPublicKeys } from "./principalPolicySigners";
 import { resolveReferencedPrincipalPolicy } from "./resolvedPrincipalPolicy";
 
 function principalPolicyReferenceLabel(
@@ -76,53 +80,12 @@ export function isPrincipalPolicyNotCachedError(error: unknown): boolean {
   );
 }
 
-async function collectPrincipalPolicySignerPublicKeys(input: {
-  bundle: PrincipalPolicyBundleResponse;
-  label: string;
-  resolveUserKey: ProjectionUserKeyResolver;
-}): Promise<PrincipalPolicySignerPublicKey[]> {
-  const signerPublicKeysByKey = new Map<
-    string,
-    PrincipalPolicySignerPublicKey
-  >();
-
-  for (const state of principalPolicyBundleStates(input.bundle)) {
-    const cacheKey = `${state.signerUserId}:${state.signerUserKeyFingerprint}`;
-    if (signerPublicKeysByKey.has(cacheKey)) {
-      continue;
-    }
-
-    const signerKey = await input.resolveUserKey(state.signerUserId);
-    if (!signerKey) {
-      throw new ProjectionDependencyUnavailableError(
-        `${input.label} signer key could not be resolved for ${state.signerUserId}`,
-      );
-    }
-
-    const signingKeyFingerprint = await toFingerprint(
-      signerKey.signingPublicKey,
-    );
-    if (signingKeyFingerprint !== state.signerUserKeyFingerprint) {
-      throw new KeyingVerificationError(
-        "signer_mismatch",
-        `${input.label} signer key fingerprint mismatch`,
-      );
-    }
-
-    signerPublicKeysByKey.set(cacheKey, {
-      userId: state.signerUserId,
-      signingKeyFingerprint,
-      signingPublicKey: signerKey.signingPublicKey,
-    });
-  }
-
-  return [...signerPublicKeysByKey.values()];
-}
-
 type OrganizationAdminPolicyInput = {
   checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
   resolveUserKey: ProjectionUserKeyResolver;
+  /** The verification's lifetime, checked inside every pin write. */
+  stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 };
 
@@ -200,6 +163,7 @@ async function verifyOrganizationAdminsPolicy(input: {
   execSql: ProjectionCheckpointContext["execSql"];
   expectedHead: ReferencedPrincipalHead;
   resolveUserKey: ProjectionUserKeyResolver;
+  stillCurrent: (() => boolean) | undefined;
 }): Promise<VerifiedPrincipalPolicy | undefined> {
   const adminBundle = await loadPrincipalPolicyBundle(
     input.execSql,
@@ -240,6 +204,9 @@ async function verifyOrganizationAdminsPolicy(input: {
     throw verified.error;
   }
   assertReservedAdminsPolicyShape(verified.value);
+  await publishVerifiedPolicyBundle(adminBundle, input.resolveUserKey, () =>
+    assertProjectionVerificationCurrent(input.stillCurrent),
+  );
   return verified.value;
 }
 
@@ -266,6 +233,11 @@ async function loadOrganizationExternalAuthority(
     if (!verified.ok) {
       throw verified.error;
     }
+    await publishVerifiedPolicyBundle(
+      organizationPolicy.bundle,
+      input.resolveUserKey,
+      () => assertProjectionVerificationCurrent(input.stillCurrent),
+    );
     const descriptor = parseOrganizationAuthorityDescriptor(
       organizationPolicy.bundle.currentPayload.ciphertext,
     );
@@ -283,6 +255,7 @@ async function loadOrganizationExternalAuthority(
         descriptor.adminGroupId,
       ),
       resolveUserKey: input.resolveUserKey,
+      stillCurrent: input.stillCurrent,
     });
     if (!verifiedAdmins) {
       return null;
@@ -307,6 +280,40 @@ async function loadOrganizationExternalAuthority(
   }
 }
 
+/**
+ * Fresh or reused: check every projection, history included; pin first
+ * sights within the verification's lifetime. A freshly verified `bundle` also
+ * pins its signers.
+ */
+async function assertVerifiedPolicyCommitments(
+  policy: PrincipalPolicyCurrentEvidence,
+  scope: {
+    readonly resolveUserKey: ProjectionUserKeyResolver;
+    readonly stillCurrent?: (() => boolean) | undefined;
+  },
+  bundle?: PrincipalPolicyBundleResponse,
+): Promise<void> {
+  const assertCurrent = () =>
+    assertProjectionVerificationCurrent(scope.stillCurrent);
+  await assertPrincipalIdentityCommitments({
+    assertCurrent,
+    authenticated: true,
+    projections: [
+      policy.projection,
+      ...principalPolicyEvidenceEntries(policy).map(
+        (entry) => entry.projection,
+      ),
+    ],
+    resolveTrustedUserIdentity: scope.resolveUserKey,
+  });
+  if (bundle)
+    await publishVerifiedPolicyBundle(
+      bundle,
+      scope.resolveUserKey,
+      assertCurrent,
+    );
+}
+
 async function verifyReferencedPrincipalPolicy(input: {
   checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
@@ -319,7 +326,10 @@ async function verifyReferencedPrincipalPolicy(input: {
   // Scoped recovery carries organization, dependency and lifetime bindings.
   // A bare policy cache entry cannot replace those bindings.
   const recovered = await resolveReferencedPrincipalPolicy(input);
-  if (recovered) return recovered;
+  if (recovered) {
+    await assertVerifiedPolicyCommitments(recovered, input);
+    return recovered;
+  }
   const cacheKey = referencedPrincipalPolicyKey(input.reference);
   const cachedPolicy = input.principalPolicyCache.get(cacheKey);
   const execSql = input.checkpointContext.execSql;
@@ -338,6 +348,7 @@ async function verifyReferencedPrincipalPolicy(input: {
       );
     }
     if (verifiedPrincipalPolicyMeetsCheckpoint(cachedPolicy, localCheckpoint)) {
+      await assertVerifiedPolicyCommitments(cachedPolicy, input);
       observePrincipalPolicy(
         input.checkpointContext,
         cachedPolicy,
@@ -385,6 +396,7 @@ async function verifyReferencedPrincipalPolicy(input: {
           checkpointContext: input.checkpointContext,
           organizationId: input.organizationId,
           resolveUserKey: input.resolveUserKey,
+          stillCurrent: input.stillCurrent,
           warmReferencedPrincipalPolicies:
             input.warmReferencedPrincipalPolicies,
         }),
@@ -394,6 +406,7 @@ async function verifyReferencedPrincipalPolicy(input: {
   if (!verified.ok) {
     throw verified.error;
   }
+  await assertVerifiedPolicyCommitments(verified.value, input, bundle);
 
   observePrincipalPolicy(
     input.checkpointContext,

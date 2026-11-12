@@ -20,7 +20,7 @@ test("referenced policy warming re-verifies an exact local bundle without a poli
     "principal-policy-warmer-exact-local",
   );
   try {
-    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
     const directory = await createPolicyDirectoryFixture({
       organizationId: "org-1",
       group: bundle,
@@ -41,7 +41,7 @@ test("referenced policy warming re-verifies an exact local bundle without a poli
         policyGetCount += 1;
         return bundle;
       },
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
@@ -57,7 +57,7 @@ test("referenced policy warming performs one policy GET for a local head mismatc
   );
   try {
     const { bundle: cachedBundle } = await createPrincipalPolicyBundle();
-    const { bundle, signerKeyResponse } =
+    const { bundle, getUserIdentity } =
       await createSuccessorPrincipalPolicyBundle();
     const directory = await createPolicyDirectoryFixture({
       organizationId: "org-1",
@@ -79,7 +79,7 @@ test("referenced policy warming performs one policy GET for a local head mismatc
         policyGetCount += 1;
         return bundle;
       },
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
@@ -94,7 +94,7 @@ test("referenced policy warming fetches once when the exact local chain is behin
     "principal-policy-warmer-behind-checkpoint",
   );
   try {
-    const { bundle, signerKeyResponse } =
+    const { bundle, getUserIdentity } =
       await createSuccessorPrincipalPolicyBundle();
     const directory = await createPolicyDirectoryFixture({
       organizationId: "org-1",
@@ -126,7 +126,7 @@ test("referenced policy warming fetches once when the exact local chain is behin
         policyGetCount += 1;
         return bundle;
       },
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       references: [reference],
     });
 
@@ -141,7 +141,7 @@ test("referenced policy warming leaves stale local state unchanged when the cano
     "principal-policy-warmer-behind-checkpoint-unavailable",
   );
   try {
-    const { bundle, signerKeyResponse } =
+    const { bundle, getUserIdentity } =
       await createSuccessorPrincipalPolicyBundle();
     const cachedBundle = predecessorBundleFromSuccessor(bundle);
     await savePrincipalPolicyBundle(
@@ -167,7 +167,7 @@ test("referenced policy warming leaves stale local state unchanged when the cano
         policyGetCount += 1;
         return null;
       },
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       references: [referencedPrincipalStateFromBundle(cachedBundle)],
     });
 
@@ -185,7 +185,7 @@ test("referenced policy warming hard-fails and leaves stale local state unchange
     "principal-policy-warmer-behind-checkpoint-invalid",
   );
   try {
-    const { bundle, signerKeyResponse } =
+    const { bundle, getUserIdentity } =
       await createSuccessorPrincipalPolicyBundle();
     const cachedBundle = predecessorBundleFromSuccessor(bundle);
     const firstMember = bundle.currentProjection[0];
@@ -226,7 +226,7 @@ test("referenced policy warming hard-fails and leaves stale local state unchange
           policyGetCount += 1;
           return invalidBundle;
         },
-        getUserIdentity: async () => signerKeyResponse,
+        getUserIdentity,
         references: [referencedPrincipalStateFromBundle(cachedBundle)],
       }),
     ).rejects.toMatchObject({

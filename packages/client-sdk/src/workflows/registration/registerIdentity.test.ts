@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   computePrincipalStateHash,
+  computeUserIdentityBundleFingerprint,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
@@ -116,6 +117,7 @@ test("buildInitialOrganizationPolicyRequest creates the initial admin organizati
   }));
 
   const policy = await buildInitialOrganizationPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     adminGroupId,
     groupHeads: [...groupHeads].sort((left, right) =>
       left.principalId.localeCompare(right.principalId),
@@ -151,6 +153,12 @@ test("buildInitialOrganizationPolicyRequest creates the initial admin organizati
   expect(policy.projection).toEqual([
     {
       userId: userId,
+      identityBundleFingerprint: await computeUserIdentityBundleFingerprint({
+        identityTrustDomain: "https://api.example.test",
+        userId: userId,
+        signingPublicKey: signingKeyPair.signingPublicKey,
+        encapsulationPublicKey: encapsulationKeyPair.publicKey,
+      }),
       role: "admin",
     },
   ]);
@@ -182,6 +190,7 @@ test("registerIdentity submits the registration request and persists the local b
 
   try {
     const response = await registerIdentity({
+      identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId,
       dbClient: execSqlClientFromExecSql(execSql),
@@ -210,6 +219,12 @@ test("registerIdentity submits the registration request and persists the local b
     expect(request.initialOrganizationPolicy.projection).toEqual([
       {
         userId: request.userId,
+        identityBundleFingerprint: await computeUserIdentityBundleFingerprint({
+          identityTrustDomain: "https://api.example.test",
+          userId: request.userId,
+          signingPublicKey: signingKeyPair.signingPublicKey,
+          encapsulationPublicKey: encapsulationKeyPair.publicKey,
+        }),
         role: "admin",
       },
     ]);
@@ -361,6 +376,7 @@ test("registerIdentity propagates local bootstrap persistence failures", async (
 
   await expect(
     registerIdentity({
+      identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId,
       dbClient: {

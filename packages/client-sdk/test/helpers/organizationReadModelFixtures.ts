@@ -6,6 +6,7 @@ import type {
   OrganizationUserDetailResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import { createFixtureUserIdentity } from "./trustedUserIdentity";
 
 export const organizationId = "org-1";
 export const groupId = "group-1";
@@ -24,6 +25,9 @@ const groups: ListOrganizationGroupsResponse = {
     },
   ],
 };
+
+const firstMember = await createFixtureUserIdentity({ userId: "user-1" });
+const secondMember = await createFixtureUserIdentity({ userId: "user-2" });
 
 export const principalPolicy: PrincipalPolicyBundleResponse = {
   currentState: {
@@ -62,6 +66,7 @@ export const principalPolicy: PrincipalPolicyBundleResponse = {
   currentProjection: [
     {
       userId: "user-1",
+      identityBundleFingerprint: firstMember.identityBundleFingerprint,
       role: "admin",
     },
   ],
@@ -102,6 +107,7 @@ export const principalPolicy: PrincipalPolicyBundleResponse = {
       projection: [
         {
           userId: "user-1",
+          identityBundleFingerprint: firstMember.identityBundleFingerprint,
           role: "admin",
         },
       ],
@@ -135,10 +141,12 @@ export const principalPolicy: PrincipalPolicyBundleResponse = {
       projection: [
         {
           userId: "user-1",
+          identityBundleFingerprint: firstMember.identityBundleFingerprint,
           role: "member",
         },
         {
           userId: "user-2",
+          identityBundleFingerprint: secondMember.identityBundleFingerprint,
           role: "member",
         },
       ],

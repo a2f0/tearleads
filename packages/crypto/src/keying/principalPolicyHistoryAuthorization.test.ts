@@ -9,6 +9,7 @@ import {
 import {
   createPolicySigner,
   expectVerificationError,
+  policyMember,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
 
@@ -30,6 +31,10 @@ test("a later page still requires a predecessor admin and verifies grant commitm
     prevStateHash: first.state.stateHash,
     signer: outsider,
     members: [{ userId: signer.userId }, { userId: outsider.userId }],
+    projection: [
+      policyMember(signer, "admin"),
+      policyMember(outsider, "admin"),
+    ],
   });
   expectVerificationError(
     await verifier.append({
@@ -68,6 +73,10 @@ test.each([false, true])(
     const first = await signPolicyState({
       ...shared,
       members: [...shared.members, { userId: "removed" }],
+      projection: [
+        policyMember(signer, "admin"),
+        policyMember(await createPolicySigner("removed")),
+      ],
       version: 1,
       prevStateHash: null,
     });

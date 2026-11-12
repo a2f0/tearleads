@@ -4,8 +4,11 @@
 session cannot let the API bind a previously pinned signing fingerprint to
 another user in the same
 [trust domain](../../docs/glossary/principals.md#identity-trust-domain), and
-that only a pin established by an identity link or this device's own keys admits
-a user (#2695).
+that direct identity admission and new roster enrollment require a pin
+established by an identity link or this device's own keys (#2695). Existing
+Members may separately qualify through operation-local
+[identity-chain admission](./MemberIdentityChain.md) (#2847); that proof does
+not change persistent provenance.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -17,7 +20,7 @@ a user (#2695).
 | `Login` | `pinLocal` pins the user's own local keys as `self` |
 | `Resolve` | `resolve` pins a server answer as `observed`; `verifyLink` compares an independently received identity link and pins it as `link` |
 | `Admit` / `CheckAdmissionProvenance` | `requireVerified` and `resolveVerified` read the pin without writing it and refuse `observed` with `UnverifiedUserIdentityError` |
-| `AdmittedUsersAreLinked` | contact drafts and import admit through `resolveVerified`; roster import, group add, and folder share through `requireVerified` |
+| `AdmittedUsersAreLinked` | direct identity admission uses `resolveVerified` or `requireVerified`; new roster enrollment retains this self/link gate |
 
 `Login` models the immediate transaction in
 `compareOrInsertTrustedUserIdentityPin` and publication after `pinLocal`
@@ -34,9 +37,10 @@ provenance and then publishes the session, and `Resolve` runs it with
 `observed` (a server answer for a user signed state references) or `link` (a
 verified identity link) without publishing anything. Matching keys keep the
 stored row and raise its provenance when the candidate ranks higher
-(`observed` < `link` < `self`); keys never change. `Admit` models admission
-(contact, roster import, group add, folder share): it reads the pin and
-requires `link` or `self` provenance.
+(`observed` < `link` < `self`); keys never change. `Admit` models direct
+identity admission and new roster enrollment: it reads the pin and requires
+`link` or `self` provenance. It does not model the separate existing-member
+chain fallback, which reads these pins without promoting them.
 
 The bounded configuration explores two domains, users, and fingerprints. It
 checks immutable pins, an injective fingerprint mapping within each domain, that

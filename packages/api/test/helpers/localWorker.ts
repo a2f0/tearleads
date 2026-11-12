@@ -26,8 +26,10 @@ import {
 export const databaseKind = getDefaultApiDatabaseKind();
 export const BUILD_VERSION = 424242;
 // The Worker runs with NODE_ENV=production, which requires an https public
-// origin; login challenges are bound to it rather than to the Host header.
+// origin; login challenges are bound to it rather than to the Host header,
+// and it is the identity trust domain registration commitments must name.
 const PUBLIC_ORIGIN = "https://api.workerd.test";
+export const WORKER_IDENTITY_TRUST_DOMAIN = PUBLIC_ORIGIN;
 export const START_TIMEOUT_MS = 150_000;
 const apiDir = resolve(import.meta.dir, "../..");
 

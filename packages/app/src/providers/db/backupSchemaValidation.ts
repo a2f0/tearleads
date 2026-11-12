@@ -1,4 +1,5 @@
 import type { BackupIndex, BackupTable } from "./localBackupFormat";
+import { validatePrincipalIdentityBackupTable } from "./principalBackupValidation";
 
 interface SqlToken {
   readonly value: string;
@@ -83,7 +84,7 @@ function validateCreateStatement(input: {
   readonly name: string;
   readonly sql: string;
   readonly tableName?: string;
-}): void {
+}): SqlToken[] {
   const tokens = schemaTokens(input.sql);
   const last = tokens.at(-1);
   if (last?.value === ";" && !last.quoted) tokens.pop();
@@ -118,6 +119,37 @@ function validateCreateStatement(input: {
     requireName(input.tableName);
   }
   requireKeyword("(");
+  return tokens.slice(offset);
+}
+
+function isSqlSymbol(token: SqlToken, value: string): boolean {
+  return !token.quoted && token.value === value;
+}
+
+function declaredTableColumns(tokens: readonly SqlToken[]): string[] {
+  const columns: string[] = [];
+  const constraints = new Set([
+    "CONSTRAINT",
+    "PRIMARY",
+    "UNIQUE",
+    "CHECK",
+    "FOREIGN",
+  ]);
+  let depth = 1;
+  let startsColumn = true;
+  for (const token of tokens) {
+    if (isSqlSymbol(token, ")")) {
+      depth -= 1;
+      if (depth === 0) return columns;
+    } else if (isSqlSymbol(token, "(")) depth += 1;
+    if (
+      startsColumn &&
+      (token.quoted || !constraints.has(token.value.toUpperCase()))
+    )
+      columns.push(token.value);
+    startsColumn = depth === 1 && isSqlSymbol(token, ",");
+  }
+  return invalidSchema();
 }
 
 export function validateBackupSchema(input: {
@@ -125,7 +157,10 @@ export function validateBackupSchema(input: {
   readonly tables: ReadonlyArray<BackupTable>;
 }): void {
   for (const table of input.tables) {
-    validateCreateStatement({ ...table, kind: "TABLE" });
+    const body = validateCreateStatement({ ...table, kind: "TABLE" });
+    validatePrincipalIdentityBackupTable(table, () =>
+      declaredTableColumns(body),
+    );
   }
   for (const index of input.indexes) {
     validateCreateStatement({ ...index, kind: "INDEX" });

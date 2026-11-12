@@ -22,7 +22,10 @@ import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
 import { policyBundleFromInitialRequest } from "./principalPolicyFixtures";
 import { createProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 import { projectionPolicyWarmer } from "./projectionPolicyHistory";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
+import {
+  createFixtureUserIdentity,
+  createTestTrustedUserIdentity,
+} from "./trustedUserIdentity";
 
 export const GROUP_ID = "admins-group";
 export const ORGANIZATION_ID = "organization-1";
@@ -49,6 +52,7 @@ export async function createPrincipalReciteFixture(input: {
     containerId,
   }));
   const initialGroup = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: memberKem,
     grants,
     groupId: groupId,
@@ -83,6 +87,10 @@ export async function createPrincipalReciteFixture(input: {
         ),
         secretKey: previousGroupSecretKey,
       };
+  const nextMember =
+    input.nextUserId && input.nextUserId !== USER_ID
+      ? await createFixtureUserIdentity({ userId: input.nextUserId })
+      : null;
   const nextBundle = await createSuccessorGroupPolicyBundle({
     author,
     groupId: groupId,
@@ -91,9 +99,10 @@ export async function createPrincipalReciteFixture(input: {
       ? previousBundle.currentState.keyEpoch + 1
       : previousBundle.currentState.keyEpoch,
     memberPublicKey:
-      input.nextUserId && input.nextUserId !== USER_ID
-        ? generateKemSeedAndKeyPair().publicKey
-        : memberKem.publicKey,
+      nextMember?.identity.encapsulationPublicKey ?? memberKem.publicKey,
+    ...(nextMember
+      ? { memberSigningPublicKey: nextMember.identity.signingPublicKey }
+      : {}),
     previousBundle,
     signedAt: new Date(
       Date.parse(previousBundle.currentState.signedAt) + 1_000,
@@ -167,7 +176,9 @@ export async function createPrincipalReciteFixture(input: {
           signingPublicKey,
           userId,
         })
-      : null;
+      : userId === nextMember?.identity.userId
+        ? nextMember.identity
+        : null;
   const database = await createTestExecSql(input.databaseName);
   await ensurePrincipalPolicyTables(database.execSql);
   await savePrincipalPolicyBundle(

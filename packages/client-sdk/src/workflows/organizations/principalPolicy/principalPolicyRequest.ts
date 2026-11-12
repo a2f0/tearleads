@@ -23,8 +23,10 @@ import type {
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { createPrincipalProjectionMember } from "../../../data/principals/principalIdentityCommitments";
 
 interface BuildInitialGroupPolicyInput {
+  readonly identityTrustDomain: string;
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
   readonly externalAuthority?:
     | PrincipalPolicyExternalAuthority["currentHead"]
@@ -38,13 +40,6 @@ interface BuildInitialGroupPolicyInput {
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
-}
-
-export function userProjectionMember(
-  userId: string,
-  role: "member" | "admin",
-): PrincipalProjectionMemberRequest {
-  return { userId: userId, role };
 }
 
 function projectionToStateMembers(
@@ -197,7 +192,17 @@ export async function buildInitialGroupPolicyRequest(
   const groupKem = generateKemSeedAndKeyPair();
   const withSigner = input.includeSignerAsAdmin ?? true;
   const projection = withSigner
-    ? [userProjectionMember(input.signerUserId, "admin")]
+    ? [
+        await createPrincipalProjectionMember(
+          {
+            userId: input.signerUserId,
+            identityTrustDomain: input.identityTrustDomain,
+            signingPublicKey: input.signingKeyPair.signingPublicKey,
+            encapsulationPublicKey: input.creatorEncapsulationKeyPair.publicKey,
+          },
+          "admin",
+        ),
+      ]
     : [];
   const memberEnvelopes: PrincipalMemberEnvelopeRequest[] = [];
 
@@ -271,6 +276,7 @@ export async function buildInitialGroupPolicyRequest(
  * admin.
  */
 export async function buildInitialMemberGroupPolicyRequest(input: {
+  readonly identityTrustDomain: string;
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
   readonly groupId: string;
   readonly grants?: readonly PrincipalContainerGrant[] | undefined;

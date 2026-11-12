@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import { createVerifiedContainerAccessEvent } from "./accessEvent.testFixtures";
 import { fixtureHash } from "./canonical.testFixtures";
 import {
@@ -20,6 +19,10 @@ import {
   resolveHistoricalContainerPathUserAccessLevel,
   verifyContainerAccessManifest,
 } from "./index";
+import {
+  createPolicySigner,
+  policyMember,
+} from "./principalPolicyTestFixtures";
 
 function policyState(
   reference: ContainerGrantPrincipalHead,
@@ -50,14 +53,8 @@ test("historical access resolves membership at the manifest's exact policy head"
     stateHash: await fixtureHash("historical-group-state-2"),
     keyFingerprint: await fixtureHash("historical-group-key-2"),
   };
-  const formerMember = {
-    role: "member",
-    userId: "former-member",
-  };
-  const laterMember = {
-    role: "member",
-    userId: "later-member",
-  };
+  const formerMember = policyMember(await createPolicySigner("former-member"));
+  const laterMember = policyMember(await createPolicySigner("later-member"));
   const currentPolicy = createPrincipalPolicyFixture(currentHead);
   const policy = {
     ...currentPolicy,
@@ -148,21 +145,23 @@ test("historical manifest verification uses membership at the referenced policy 
     stateHash: await fixtureHash("historical-verification-state-2"),
     keyFingerprint: await fixtureHash("historical-verification-key-2"),
   };
-  const formerMember = "former-admin";
-  const laterMember = "later-admin";
+  const formerIdentity = await createPolicySigner("former-admin");
+  const laterIdentity = await createPolicySigner("later-admin");
+  const formerMember = formerIdentity.userId;
+  const laterMember = laterIdentity.userId;
   const currentPolicy = createPrincipalPolicyFixture(currentHead);
   const policy = {
     ...currentPolicy,
-    projection: [{ role: "admin", userId: laterMember }],
+    projection: [policyMember(laterIdentity, "admin")],
     history: [
       {
         grants: [],
-        projection: [{ role: "admin", userId: formerMember }],
+        projection: [policyMember(formerIdentity, "admin")],
         state: policyState(historicalHead),
       },
       {
         grants: [],
-        projection: [{ role: "admin", userId: laterMember }],
+        projection: [policyMember(laterIdentity, "admin")],
         state: policyState(currentHead),
       },
     ],
@@ -197,7 +196,7 @@ test("historical manifest verification uses membership at the referenced policy 
       objectId: previous.state.containerId,
       organizationId: previous.state.organizationId,
       previousManifestHash: previous.manifestHash,
-      signer: generateSigningSeedAndKeyPair(),
+      signer: signerUserId === formerMember ? formerIdentity : laterIdentity,
       signerUserId,
     });
     const state: ContainerAccessManifestState = {

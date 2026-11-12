@@ -43,10 +43,12 @@ test("one commit enrolls a new user in Members and a custom group and replays bo
       acknowledgement.head.principalId,
     );
     expect(stored.currentState.stateHash).toBe(acknowledgement.head.stateHash);
-    expect(stored.currentProjection).toContainEqual({
-      userId: f.member.userId,
-      role: "member",
-    });
+    expect(stored.currentProjection).toContainEqual(
+      expect.objectContaining({
+        userId: f.member.userId,
+        role: "member",
+      }),
+    );
   }
   expect(await roster(f)).toMatchObject([{ status: "active" }]);
   const heads = await f.readHeads();

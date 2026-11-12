@@ -51,23 +51,34 @@ still exercising the cold-start rollback limit above.
 
 ### First-Contact Identity-Key Substitution
 
-Signer lookups and other verification of users that signed state references
-pin on first sight (`observed`), which cannot authenticate a stranger's keys.
+Access-event and document-writer signer lookups, and members of verified
+policies, pin on first sight (`observed`), which cannot authenticate a
+stranger's keys. Policy signers are resolved before signatures are checked, so
+a refused policy pins none of them.
 
-Admitting a user requires an independently exchanged
-[identity link](../developer/trusted-user-identity.md#identity-links) or the
-device's own keys: adding a contact or roster user, adding a group member,
-sharing a folder, and creating a roster profile. A link binds the service, user
-ID, algorithms, and both keys. Pins record their provenance, so an `observed`
-pin cannot stand in for a link; the SDK refuses group adds and user shares for
-such a target, except a read-only share that the organization's signed roster
-[vouches](../developer/trusted-user-identity.md#roster-vouching) for. That
-vouching authenticates only the encryption key and rests on an admin whose
-signing key this device verified by link or holds itself, never on an
-`observed` signer; it never backs access that accepts the target's signatures.
-Pin conflicts fail closed. Deliver links through an authenticated channel;
-they prove no revocation, freshness, or global consistency. An unencrypted
-backup can seed `link` provenance, so restoring one trusts the file's origin.
+An independently exchanged
+[identity link](../developer/trusted-user-identity.md#identity-links) binds the
+service, user ID, algorithms, and both keys. Adding a contact, enrolling a new
+or disabled Members user, and creating a roster profile still require a direct
+`self`/`link` pin. Existing Members can also receive group membership or read,
+write, and admin shares through
+[roster vouching](../developer/trusted-user-identity.md#roster-vouching).
+
+Every group and organization member projection commits the complete bundle in
+`identityBundleFingerprint`, covered by the signed `projectionRoot`; the
+ID-set `membershipRoot` is unchanged. A continuing member's identity cannot
+change, even with role changes or principal-key rotation. The SDK authenticates
+roster recipients through strictly earlier Members admissions ending at a
+`self`/`link` anchor. Historical signers may have departed. A chain of observed
+identities cannot anchor itself, and pin mismatches remain hard failures.
+
+This explicitly trusts every vouching administrator: a careless or malicious
+authenticated admin can introduce a false binding that later admissions trust.
+Chain admission neither upgrades pin provenance nor enables `resolveVerified`
+or `createLinkFor`. It adds no anchor-exchange protocol, cold-start rollback
+protection, or fork consistency. Deliver links through an authenticated channel;
+neither mechanism proves revocation, freshness, or global consistency. An
+unencrypted backup can seed `link` provenance, so restoring one trusts its origin.
 
 ### Projection Rows Are Not A Security Boundary
 
@@ -228,9 +239,10 @@ Result: not reliably detected without prior trust in the identity key binding.
 - Durable full-bundle identity pins detect identity changes after first use;
   local checkpoints detect replayed or conflicting principal policy and access
   manifest heads after a client has seen newer state.
-- First-contact key substitution for identities not verified by an identity
-  link, withholding, and split views without a pinned checkpoint, witness, or
-  gossip peer remain outside the guarantee boundary.
+- First-contact key substitution without an independent anchor or authenticated
+  Members chain, false bindings vouched for by trusted administrators,
+  withholding, and split views without a pinned checkpoint, witness, or gossip
+  peer remain outside the guarantee boundary.
 
 ## Strengthening The Boundary
 

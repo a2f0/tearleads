@@ -141,12 +141,16 @@ export function createPrincipalPolicyRoute({
     async (c) => {
       const { groupId, organizationId } = c.req.valid("param");
       try {
-        const result = await commitOrganizationGroupPolicy(runtime, {
-          groupId,
-          organizationId,
-          request: c.req.valid("json"),
-          requesterUserId: c.get("session").userId,
-        });
+        const result = await commitOrganizationGroupPolicy(
+          runtime,
+          {
+            groupId,
+            organizationId,
+            request: c.req.valid("json"),
+            requesterUserId: c.get("session").userId,
+          },
+          c.req.url,
+        );
         if (!result.replayed)
           await publishPrincipalAccessChanges(
             publish,
@@ -167,15 +171,10 @@ export function createPrincipalPolicyRoute({
     },
   );
 
-  registerPolicyReadRoute(principalPolicyRoute, { requireAuth, runtime });
-  registerMemberEnvelopesReadRoute(principalPolicyRoute, {
-    requireAuth,
-    runtime,
-  });
-  registerProjectionPolicyHistoryRoute(principalPolicyRoute, {
-    requireAuth,
-    runtime,
-  });
+  const readDeps = { requireAuth, runtime };
+  registerPolicyReadRoute(principalPolicyRoute, readDeps);
+  registerMemberEnvelopesReadRoute(principalPolicyRoute, readDeps);
+  registerProjectionPolicyHistoryRoute(principalPolicyRoute, readDeps);
 
   principalPolicyRoute.on(
     putPrincipalPolicyOperation.method,
@@ -190,12 +189,16 @@ export function createPrincipalPolicyRoute({
       const { principalId, principalType } = c.req.valid("param");
 
       try {
-        const result = await putPrincipalPolicy(runtime, {
-          ...c.req.valid("json"),
-          expectedPrincipalType: principalType,
-          expectedPrincipalId: principalId,
-          requesterUserId: c.get("session").userId,
-        });
+        const result = await putPrincipalPolicy(
+          runtime,
+          {
+            ...c.req.valid("json"),
+            expectedPrincipalType: principalType,
+            expectedPrincipalId: principalId,
+            requesterUserId: c.get("session").userId,
+          },
+          c.req.url,
+        );
         await publishPrincipalAccessChanges(
           publish,
           [{ principalType, principalId }],

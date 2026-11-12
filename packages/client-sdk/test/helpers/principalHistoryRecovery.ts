@@ -13,19 +13,19 @@ import type {
   PrincipalProjectionMemberResponse,
 } from "@tearleads/validators/response";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
-import { createTestTrustedUserIdentityResolver } from "../../src/data/trustedUserIdentity/testFixtures";
 import type { RecoverPrincipalPolicyHistoryOptions } from "../../src/workflows/principals/historyRecovery/principalHistoryRecoveryTypes";
 import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
 } from "./principalPolicyFixtures";
+import { createFixtureUserIdentity } from "./trustedUserIdentity";
 
 export async function signedRecoveryHistory(
   version = 66,
   projectionAtVersion?: (
     version: number,
     userId: string,
-  ) => PrincipalProjectionMemberResponse[],
+  ) => Pick<PrincipalProjectionMemberResponse, "userId" | "role">[],
 ) {
   const principalId = "11111111-1111-4111-8111-111111111111";
   const userId = "22222222-2222-4222-8222-222222222222";
@@ -33,6 +33,16 @@ export async function signedRecoveryHistory(
   const signerFingerprint = await toFingerprint(signer.signingPublicKey);
   let principalKey = generateKemSeedAndKeyPair();
   const memberKey = generateKemSeedAndKeyPair();
+  const identities = new Map([
+    [
+      userId,
+      await createFixtureUserIdentity({
+        userId,
+        signingPublicKey: signer.signingPublicKey,
+        encapsulationPublicKey: memberKey.publicKey,
+      }),
+    ],
+  ]);
   const [envelope] = await wrapDekForRecipients(principalKey.secretKey, [
     memberKey.publicKey,
   ]);
@@ -64,9 +74,22 @@ export async function signedRecoveryHistory(
         },
       ];
     }
-    const projection = projectionAtVersion?.(nextVersion, userId) ?? [
+    const members = projectionAtVersion?.(nextVersion, userId) ?? [
       { userId, role: "admin" as const },
     ];
+    const projection = await Promise.all(
+      members.map(async (member) => {
+        let fixture = identities.get(member.userId);
+        if (!fixture) {
+          fixture = await createFixtureUserIdentity({ userId: member.userId });
+          identities.set(member.userId, fixture);
+        }
+        return {
+          ...member,
+          identityBundleFingerprint: fixture.identityBundleFingerprint,
+        };
+      }),
+    );
     bundle = await signedPrincipalPolicyBundle({
       memberEnvelopes,
       projection,
@@ -103,11 +126,8 @@ export async function signedRecoveryHistory(
     memberKey,
     signingPrivateKey: signer.signingPrivateKey,
     expectedHead: principalPolicyHead(bundle),
-    resolveTrustedUserIdentity: createTestTrustedUserIdentityResolver({
-      userId,
-      signingPublicKey: signer.signingPublicKey,
-      signingKeyFingerprint: signerFingerprint,
-    }),
+    resolveTrustedUserIdentity: async (memberUserId: string) =>
+      identities.get(memberUserId)?.identity ?? null,
   };
 }
 

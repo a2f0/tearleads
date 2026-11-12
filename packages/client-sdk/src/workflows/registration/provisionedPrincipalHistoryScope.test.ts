@@ -9,7 +9,7 @@ import {
   recoverFoundingGroups,
   runtimeDatabase,
 } from "../../../test/helpers/provisionedPrincipalHistoryFixtures";
-import { loadTrustedUserIdForSigningKey } from "../../data/persistence/trustedUserIdentityPinPersistence";
+import { loadTrustedUserIdForSigningKey } from "../../data/persistence/identity/trustedUserIdentitySigningKeyBinding";
 import { loadPinnedUserIdentity } from "../../data/trustedUserIdentity";
 
 const TRUST_DOMAIN = "https://api.example.test";

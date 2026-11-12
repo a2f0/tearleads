@@ -18,7 +18,10 @@ import {
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import {
+  createFixtureUserIdentity,
+  createTestTrustedUserIdentity,
+} from "../../../../test/helpers/trustedUserIdentity";
 import type { TrustedUserIdentity } from "../../../data/trustedUserIdentity";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import { assertGroupMembershipName } from "../groupNames/groupMembershipName";
@@ -72,6 +75,7 @@ async function createGroupPolicyFixture(): Promise<GroupPolicyFixture> {
     signingKeyPair.signingPublicKey,
   );
   const initialRequest = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     metadataKey: testGroupMetadataKey(organizationId),
     creatorEncapsulationKeyPair: creatorKem,
     groupId,
@@ -82,6 +86,7 @@ async function createGroupPolicyFixture(): Promise<GroupPolicyFixture> {
   });
   const adminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: creatorKem,
       groupId: adminGroupId,
@@ -94,6 +99,7 @@ async function createGroupPolicyFixture(): Promise<GroupPolicyFixture> {
   const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId,
       encapsulationPublicKey: creatorKem.publicKey,
       groupHeads: [
@@ -167,6 +173,7 @@ async function createMutationApi(
   const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     fixture.organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: fixture.adminGroupId,
       encapsulationPublicKey: fixture.creatorKem.publicKey,
       groupHeads: [
@@ -354,22 +361,12 @@ test("group removal refuses a relabeled selection before committing", async () =
 
 test("group removal propagates remaining identity equivocation before rekey or mutation", async () => {
   const fixture = await createGroupPolicyFixture();
-  const removedKem = generateKemSeedAndKeyPair();
-  const remainingKem = generateKemSeedAndKeyPair();
   const removedUserId = crypto.randomUUID();
   const remainingUserId = crypto.randomUUID();
-  const removedIdentity = createTestTrustedUserIdentity({
-    encapsulationKeyFingerprint: await toFingerprint(removedKem.publicKey),
-    encapsulationPublicKey: removedKem.publicKey,
-    signingKeyFingerprint: fixture.signingFingerprint,
-    signingPublicKey: fixture.signingKeyPair.signingPublicKey,
+  const { identity: removedIdentity } = await createFixtureUserIdentity({
     userId: removedUserId,
   });
-  const remainingIdentity = createTestTrustedUserIdentity({
-    encapsulationKeyFingerprint: await toFingerprint(remainingKem.publicKey),
-    encapsulationPublicKey: remainingKem.publicKey,
-    signingKeyFingerprint: fixture.signingFingerprint,
-    signingPublicKey: fixture.signingKeyPair.signingPublicKey,
+  const { identity: remainingIdentity } = await createFixtureUserIdentity({
     userId: remainingUserId,
   });
   const policyWithRemovedUser = await appendGroupMember({
@@ -389,6 +386,7 @@ test("group removal propagates remaining identity equivocation before rekey or m
     "Trusted remaining identity changed",
   );
   const { apiClient, calls } = await createMutationApi(fixture, currentPolicy);
+  let policyNameVerified = false;
   const resolvedUserIds: string[] = [];
   let policyRequestBuilt = 0;
   const { close, execSql } = await createTestExecSql(
@@ -398,7 +396,12 @@ test("group removal propagates remaining identity equivocation before rekey or m
   try {
     await expect(
       removeOrganizationGroupUser({
-        readEncryptedName: readTestGroupName,
+        readEncryptedName: async (policy) => {
+          const name = await readTestGroupName(policy);
+          expect(name).toBe("Operators");
+          policyNameVerified = true;
+          return name;
+        },
         expectedGroupName: "Operators",
         afterPolicyCommitBeforeCache: async () => {
           throw new Error("Unexpected policy commit bridge");
@@ -414,8 +417,10 @@ test("group removal propagates remaining identity equivocation before rekey or m
         resolveTrustedUserIdentity: async (userId) => {
           resolvedUserIds.push(userId);
           if (userId === remainingUserId) {
-            throw integrityError;
+            if (policyNameVerified) throw integrityError;
+            return remainingIdentity;
           }
+          if (userId === removedUserId) return removedIdentity;
           return userId === fixture.signerUserId
             ? fixture.signerIdentity
             : null;
@@ -429,6 +434,8 @@ test("group removal propagates remaining identity equivocation before rekey or m
     close();
   }
 
+  expect(policyNameVerified).toBe(true);
+  expect(resolvedUserIds).toContain(removedUserId);
   expect(resolvedUserIds).toContain(remainingUserId);
   expect(policyRequestBuilt).toBe(0);
   expect(calls).toEqual({ commitPolicy: 0 });

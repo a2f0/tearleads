@@ -109,6 +109,7 @@ test("a rejected provisioning acknowledgement primes nothing", async () => {
     let primed = 0;
     await expect(
       createOrganization({
+        identityTrustDomain: "https://api.example.test",
         apiClient: {
           createOrganization: async (value) => ({
             ...(await respondToOrganizationProvisioning(value)),

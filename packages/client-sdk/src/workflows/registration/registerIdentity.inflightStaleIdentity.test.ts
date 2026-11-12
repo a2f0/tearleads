@@ -59,6 +59,7 @@ test("registration persists nothing when the identity goes stale in-flight", asy
       persistQueued = resolve;
     });
     const registration = registerIdentity({
+      identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId: crypto.randomUUID(),
       dbClient: client,
@@ -144,6 +145,7 @@ test("a mid-sequence identity switch rolls the whole bootstrap back", async () =
     // behind — the partial-persist window a single entry check cannot close.
     let identityProbes = 0;
     const response = await registerIdentity({
+      identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId: crypto.randomUUID(),
       dbClient: execSqlClientFromExecSql(execSql),

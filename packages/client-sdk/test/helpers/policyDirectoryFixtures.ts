@@ -30,6 +30,7 @@ export async function createPolicyDirectoryFixture(input: {
   const adminGroupId = input.group.currentState.principalId;
   const memberGroupId = "directory-members";
   const policy = await buildInitialOrganizationPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     adminGroupId,
     memberGroupId,
     organizationId: input.organizationId,

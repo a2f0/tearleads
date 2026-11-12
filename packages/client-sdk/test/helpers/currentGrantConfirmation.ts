@@ -33,6 +33,7 @@ export async function createCurrentGrantConfirmationFixture() {
   };
   const initial = async (name: "Admins" | "Members") =>
     buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       name,
       groupId: crypto.randomUUID(),
       grants: [
@@ -49,6 +50,7 @@ export async function createCurrentGrantConfirmationFixture() {
   const directory = await organizationPolicyBundleFromInitialRequest(
     author.organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: admin.currentState.principalId,
       memberGroupId: member.currentState.principalId,
       groupHeads: [principalPolicyHead(admin), principalPolicyHead(member)],

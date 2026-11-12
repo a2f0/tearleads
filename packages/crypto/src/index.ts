@@ -81,6 +81,7 @@ export {
   normalizeIdentitySeedPhrase,
   validateIdentitySeedPhrase,
 } from "./identitySeedPhrase";
+export { canonicalIdentityTrustDomain } from "./identityTrustDomain";
 export {
   createIncrementalSha256,
   type IncrementalSha256,
@@ -148,6 +149,7 @@ export type {
   KeyingVerificationResult,
   ManagedPrincipalKind,
   PrincipalHistoryIndexNode,
+  PrincipalHistorySigner,
   PrincipalPolicyAuthorization,
   PrincipalPolicyBundle,
   PrincipalPolicyCheckpoint,
@@ -429,3 +431,4 @@ export {
   decryptWithDek,
   encryptWithDek,
 } from "./symmetric";
+export { computeUserIdentityBundleFingerprint } from "./userIdentityBundle";

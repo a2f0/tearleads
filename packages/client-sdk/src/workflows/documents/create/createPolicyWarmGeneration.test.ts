@@ -35,6 +35,7 @@ test("expired document create does not fetch or cache a refreshed group policy",
   });
   const memberKem = generateKemSeedAndKeyPair();
   const adminGroup = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: memberKem,
     grants: [{ accessLevel: "admin", containerId }],
     groupId,

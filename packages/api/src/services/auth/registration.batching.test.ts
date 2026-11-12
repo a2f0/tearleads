@@ -81,7 +81,11 @@ for (const full of [false, true]) {
     // 298 / 647, 293 / 638, and 300 / 649. Memoizing current principal
     // states and organization descriptors under their locks then took them
     // to 288 / 637, 283 / 628, and 290 / 639.
-    expect(counter.statements).toBeLessThanOrEqual(full ? 639 : 290);
+    // Identity verification adds exactly three set reads (Admins, Members,
+    // organization). Logger remeasurement: 291 / 638 PGlite, 286 / 629 SQLite;
+    // removing only that guard gives 288 / 635 and 283 / 626. Keep the two
+    // PostgreSQL transaction-control allowances, not the old full-fixture slack.
+    expect(counter.statements).toBeLessThanOrEqual(full ? 640 : 293);
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
     const stored = await db

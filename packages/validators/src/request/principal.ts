@@ -5,6 +5,7 @@ import {
   boundedPositiveIntegerSchema,
   loosePlainObject,
   nonNegativeIntegerSchema,
+  sha256HexStringSchema,
   uuidV4StringSchema,
 } from "../schema";
 import {
@@ -15,6 +16,7 @@ import {
 import { ContainerMutationRequestSchema } from "./container";
 
 const PrincipalProjectionMemberRequestSchema = loosePlainObject({
+  identityBundleFingerprint: sha256HexStringSchema,
   role: z.literal(["member", "admin"]),
   userId: uuidV4StringSchema,
 });

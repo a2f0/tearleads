@@ -32,6 +32,7 @@ export type { CreateOrganizationApi } from "./organizationCreationIntent";
 export { removeNativeSubscriptionRestoreProvisioningAttempt };
 
 export interface CreateOrganizationInput {
+  identityTrustDomain: string;
   apiClient: CreateOrganizationApi;
   dbClient: ExecSqlClientLike;
   documentProjectors?: DocumentProjectorRegistryInput | undefined;
@@ -105,6 +106,7 @@ async function buildOrganizationCandidate(
   rootContainerId: string,
 ): Promise<OrganizationProvisioningArtifacts | null> {
   const artifactsInput: OrganizationProvisioningArtifactsInput = {
+    identityTrustDomain: input.identityTrustDomain,
     encapsulationKeyPair: input.encapsulationKeyPair,
     organizationProfileName: input.organizationProfileName,
     provisionedSystemContainers: input.provisionedSystemContainers,

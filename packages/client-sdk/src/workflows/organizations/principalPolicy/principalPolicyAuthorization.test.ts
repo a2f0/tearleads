@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  computeUserIdentityBundleFingerprint,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
@@ -62,6 +63,7 @@ test("local admin projections cannot authorize a group membership mutation", asy
   );
   const groupPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: groupAdminKem,
       groupId,
@@ -73,6 +75,7 @@ test("local admin projections cannot authorize a group membership mutation", asy
   );
   const adminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: organizationAdminKem,
       groupId: adminGroupId,
@@ -87,6 +90,7 @@ test("local admin projections cannot authorize a group membership mutation", asy
   const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId,
       encapsulationPublicKey: organizationAdminKem.publicKey,
       groupHeads: [
@@ -234,8 +238,16 @@ test("a verified Admins member can mutate another group after the signed directo
     signingPublicKey: signerKeys.signingPublicKey,
     userId: signerUserId,
   });
+  const targetIdentity = createTestTrustedUserIdentity({
+    encapsulationKeyFingerprint: await toFingerprint(targetKem.publicKey),
+    encapsulationPublicKey: targetKem.publicKey,
+    signingKeyFingerprint: await toFingerprint(targetKeys.signingPublicKey),
+    signingPublicKey: targetKeys.signingPublicKey,
+    userId: targetUserId,
+  });
   const initialAdminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: founderKem,
       groupId: adminGroupId,
@@ -255,6 +267,7 @@ test("a verified Admins member can mutate another group after the signed directo
   };
   const initialGroupPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: founderKem,
       externalAuthority: initialAdminHead,
@@ -270,6 +283,7 @@ test("a verified Admins member can mutate another group after the signed directo
     await organizationPolicyBundleFromInitialRequest(
       organizationId,
       await buildInitialOrganizationPolicyRequest({
+        identityTrustDomain: "https://api.example.test",
         adminGroupId,
         encapsulationPublicKey: founderKem.publicKey,
         groupHeads: [
@@ -289,16 +303,7 @@ test("a verified Admins member can mutate another group after the signed directo
   >([
     [founderUserId, founderIdentity],
     [signerUserId, signerIdentity],
-    [
-      targetUserId,
-      createTestTrustedUserIdentity({
-        encapsulationKeyFingerprint: await toFingerprint(targetKem.publicKey),
-        encapsulationPublicKey: targetKem.publicKey,
-        signingKeyFingerprint: await toFingerprint(targetKeys.signingPublicKey),
-        signingPublicKey: targetKeys.signingPublicKey,
-        userId: targetUserId,
-      }),
-    ],
+    [targetUserId, targetIdentity],
   ]);
   let currentAdminPolicy = initialAdminPolicy;
   let currentGroupPolicy = initialGroupPolicy;
@@ -402,6 +407,8 @@ test("a verified Admins member can mutate another group after the signed directo
     expect(result.currentProjection).toEqual([
       {
         userId: targetUserId,
+        identityBundleFingerprint:
+          await computeUserIdentityBundleFingerprint(targetIdentity),
         role: "member",
       },
     ]);
@@ -417,10 +424,14 @@ test("a verified Admins member can mutate another group after the signed directo
     );
     expect(currentOrganizationPolicy.currentProjection).toContainEqual({
       userId: signerUserId,
+      identityBundleFingerprint:
+        await computeUserIdentityBundleFingerprint(signerIdentity),
       role: "admin",
     });
     expect(currentAdminPolicy.currentProjection).toContainEqual({
       userId: signerUserId,
+      identityBundleFingerprint:
+        await computeUserIdentityBundleFingerprint(signerIdentity),
       role: "admin",
     });
     expect(adminPolicyReads).toBeGreaterThan(0);

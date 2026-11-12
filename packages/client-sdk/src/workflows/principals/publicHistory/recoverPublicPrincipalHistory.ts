@@ -16,6 +16,7 @@ import type { PrincipalHistoryPrefix } from "../../../data/persistence/principal
 import { loadHeldPrincipalState } from "../../../data/persistence/principalPolicy/heldPrincipalState";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
+import { publishAuthenticatedSigners } from "../../../data/principals/principalIdentityCommitments";
 import { PrincipalPolicyHistoryReadError } from "../historyRecovery/principalHistoryRecoveryTypes";
 import {
   type HeldHeadState,
@@ -229,6 +230,12 @@ async function recoverAttempt(
     );
   }
   await verifyLastPageCurrent(history, proof, lastPage);
+  // The chain now reaches its source head: pin the signers it accepted.
+  await publishAuthenticatedSigners(
+    history.signers,
+    input.resolveTrustedUserIdentity,
+    () => assertProjectionVerificationCurrent(current),
+  );
   assertProjectionVerificationCurrent(current);
   if (!input.offline)
     await publishPublicPrincipalHistoryPrefix(

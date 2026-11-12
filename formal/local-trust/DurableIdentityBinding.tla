@@ -51,8 +51,9 @@ Resolve(d, u, f, p) ==
   /\ PinCompare(d, u, f, p)
   /\ UNCHANGED <<acknowledged, admitted>>
 
-(* Admission (contact, roster import, group add, folder share) reads the   *)
-(* pin without writing it and requires link or self provenance.           *)
+(* Direct admission and new roster enrollment require link/self pins.    *)
+(* Existing-member chain admission is separate in MemberIdentityChain;    *)
+(* it never raises pin provenance or authorizes automatic new enrollment. *)
 Admit(d, u) ==
   /\ pins[d][u] # None
   /\ CheckAdmissionProvenance => provenance[d][u] \in AdmittingProvenances

@@ -89,6 +89,7 @@ test("an identity switch during recovery rolls back reset and preserves the new 
   const identity = createIdentity({}, noIdentityChange, () => undefined);
   let switchAccount = () => undefined;
   const session = createSession({
+    identityTrustDomain: "https://api.example.test",
     api,
     database: new IdentitySwitchingDatabase(
       createSqlClient(execSql),

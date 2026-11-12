@@ -27,6 +27,7 @@ export function createRegisterRoute(runtime: ApiServiceRuntime) {
         return c.json<RegistrationResponse>(
           await registerUser(runtime, c.req.valid("json"), {
             sourceIpAddress: readRequestIpAddress(c),
+            requestUrl: c.req.url,
           }),
         );
       } catch (error) {

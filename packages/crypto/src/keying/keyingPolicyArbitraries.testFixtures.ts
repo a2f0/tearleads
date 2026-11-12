@@ -4,6 +4,7 @@ import { granteeArb, POOL_SIZE } from "./keyingArbitraries.testFixtures";
 import {
   createBundle,
   createPolicySigner,
+  policyMember,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
 
@@ -58,9 +59,22 @@ export async function buildPolicyChain(
   const signer = await policySignerPromise;
   const principalId = `group-${label}`;
   let principalKeyPair = generateKemSeedAndKeyPair();
-  const memberIds = (users: readonly number[]) => [
-    { userId: signer.userId },
-    ...users.map((user) => ({ userId: `member-${user}` })),
+  const identities = new Map(
+    await Promise.all(
+      Array.from(
+        { length: POOL_SIZE },
+        async (_, user) =>
+          [user, await createPolicySigner(`member-${user}`)] as const,
+      ),
+    ),
+  );
+  const projection = (users: readonly number[]) => [
+    policyMember(signer, "admin"),
+    ...users.map((user) => {
+      const identity = identities.get(user);
+      if (!identity) throw new Error("policy member outside the fixture pool");
+      return policyMember(identity);
+    }),
   ];
   let members = [...new Set(plan.initial)];
   const first = await signPolicyState({
@@ -68,7 +82,8 @@ export async function buildPolicyChain(
     principalKeyPair,
     version: 1,
     prevStateHash: null,
-    members: memberIds(members),
+    members: projection(members).map(({ userId }) => ({ userId })),
+    projection: projection(members),
     signer,
   });
   const states: SignedPolicy[] = [first];
@@ -86,7 +101,8 @@ export async function buildPolicyChain(
           version: previous.state.version + 1,
           prevStateHash: previous.state.stateHash,
           keyEpoch: previous.state.keyEpoch,
-          members: memberIds(members),
+          members: projection(members).map(({ userId }) => ({ userId })),
+          projection: projection(members),
           signer,
         }),
       );
@@ -103,7 +119,8 @@ export async function buildPolicyChain(
           version: previous.state.version + 1,
           prevStateHash: previous.state.stateHash,
           keyEpoch: previous.state.keyEpoch + 1,
-          members: memberIds(members),
+          members: projection(members).map(({ userId }) => ({ userId })),
+          projection: projection(members),
           signer,
         }),
       );

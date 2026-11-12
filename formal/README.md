@@ -117,6 +117,10 @@ Model-specific gaps:
   quiescent server; they do not show catch-up under unbounded writes.
 - `NoBrickedDevice` stops following a device after it accepts an undetectable
   forged branch.
+- `MemberIdentityChain` explores twenty explicit history scenarios, not all
+  histories at its bounds. Progress assumes evidence calls return and a
+  self/link-rooted proof fits the admission-work budgets; it does not solve
+  missing independent anchors or cold-start rollback.
 
 The [verification gates](./verification-gates.md) page maps the
 no-bricked-device requirement and the keying verifier properties to the

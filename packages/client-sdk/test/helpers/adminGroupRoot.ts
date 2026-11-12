@@ -30,6 +30,7 @@ export async function setUpAdminGroupRoot() {
   });
   const memberKem = generateKemSeedAndKeyPair();
   const initialAdminGroup = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: memberKem,
     grants: [{ accessLevel: "admin", containerId: ROOT_CONTAINER_ID }],
     groupId: ADMIN_GROUP_ID,
@@ -55,6 +56,7 @@ export async function setUpAdminGroupRoot() {
     userId: USER_ID,
   });
   const initialMembersGroup = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
     creatorEncapsulationKeyPair: memberKem,
     groupId: "members-group",
     name: "Members",
@@ -69,6 +71,7 @@ export async function setUpAdminGroupRoot() {
     await policyBundleFromInitialRequest(initialMembersGroup);
   const initialOrganizationPolicy = await buildInitialOrganizationPolicyRequest(
     {
+      identityTrustDomain: "https://api.example.test",
       adminGroupId: ADMIN_GROUP_ID,
       encapsulationPublicKey: memberKem.publicKey,
       groupHeads: [

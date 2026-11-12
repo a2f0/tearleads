@@ -181,6 +181,7 @@ export async function runCreateOrganizationGroupWorkflow(
   organizationId: string,
   sessionUserId: string,
   input: CreateOrganizationGroupWithPolicyRequest,
+  identityTrustDomain: string,
 ): Promise<CreateOrganizationGroupResponse> {
   validateOrganizationGroupCreation(input);
 
@@ -230,6 +231,7 @@ export async function runCreateOrganizationGroupWorkflow(
       },
       tx,
       {
+        identityTrustDomain,
         authorizeExternalAdminSigner: (authorization) =>
           authorization.signerUserId === sessionUserId
             ? isCurrentOrganizationAdminAuthority({
@@ -266,12 +268,16 @@ export async function runCreateOrganizationGroupWorkflow(
       organizationId,
       state: storedState,
     });
-    const organization = await putPrincipalPolicyInTransaction(tx, {
-      ...input.organizationPolicy,
-      expectedPrincipalId: organizationId,
-      expectedPrincipalType: "organization",
-      requesterUserId: sessionUserId,
-    });
+    const organization = await putPrincipalPolicyInTransaction(
+      tx,
+      {
+        ...input.organizationPolicy,
+        expectedPrincipalId: organizationId,
+        expectedPrincipalType: "organization",
+        requesterUserId: sessionUserId,
+      },
+      identityTrustDomain,
+    );
     const result = {
       group,
       organizationPolicy: organization.policy,

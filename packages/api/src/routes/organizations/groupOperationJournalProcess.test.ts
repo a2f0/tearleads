@@ -12,6 +12,7 @@ import {
   isDeleteOrganizationGroupResponse,
   isPrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
+import { identityBoundRouteApp as routeApp } from "../../../test/helpers/identityBoundRouteApp";
 import { createGroupRequest } from "../../../test/helpers/organizationGroup";
 import { prepareOrganizationPolicyAdvance } from "../../../test/helpers/organizationPolicyOutcome";
 import { requestPreparedPrincipalPolicy } from "../../../test/helpers/principalHistoryRequest";
@@ -23,7 +24,6 @@ import {
 import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
-import { routeApp } from "../../routeApp";
 
 test.each(["group-create", "group-delete", "organization"] as const)(
   "a restarted SDK process recovers a committed %s from its disk journal",

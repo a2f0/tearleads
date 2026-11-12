@@ -9,6 +9,7 @@ import { syncOrganizationRosterFromMemberReachability } from "./roster";
 export async function storeInitialMemberGroupPolicy(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
+  identityTrustDomain: string,
 ): Promise<string> {
   const { initialGroupPolicy } = input.initialMemberGroup;
   const storedState = await storeVerifiedPrincipalPolicyInTransaction(
@@ -20,6 +21,7 @@ export async function storeInitialMemberGroupPolicy(
       memberEnvelopes: initialGroupPolicy.memberEnvelopes,
     },
     tx,
+    { identityTrustDomain },
   );
 
   return storedState.stateHash;

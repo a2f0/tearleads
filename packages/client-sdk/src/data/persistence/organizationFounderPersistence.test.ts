@@ -39,6 +39,7 @@ test("a different valid genesis cannot overwrite a pinned organization founder",
       foreign.initial.currentPayload.ciphertext,
     );
     const request = await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       ...descriptor,
       organizationId: original.organizationId,
       encapsulationPublicKey: identity.encapsulationPublicKey,

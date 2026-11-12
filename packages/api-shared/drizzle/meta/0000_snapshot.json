@@ -1,5 +1,5 @@
 {
-  "id": "d5b9f2ac-52f7-4f8e-8559-7fdd2cb088dd",
+  "id": "28c7637a-4d94-4c23-88e9-2de48ca33e5d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -5419,6 +5419,12 @@
         "user_id": {
           "name": "user_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "identity_bundle_fingerprint": {
+          "name": "identity_bundle_fingerprint",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },

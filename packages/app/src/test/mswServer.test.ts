@@ -112,6 +112,7 @@ async function registerIdentity(
       containerId: crypto.randomUUID(),
       dbClient: createDbClient(execSql),
       encapsulationKeyPair,
+      identityTrustDomain: apiBaseUrl,
       pinLocalUserIdentity: async () => undefined,
       signingKeyPair,
     });

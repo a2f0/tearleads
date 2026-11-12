@@ -1,5 +1,5 @@
-import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { expect, spyOn, test } from "bun:test";
+import { type DatabaseSession, db } from "@tearleads/api-shared/postgres";
 import {
   principalMemberEnvelopes,
   principalMembershipProjection,
@@ -30,6 +30,8 @@ import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../access/read/principalStateStore";
+import * as principalStateStore from "../../access/write/principalStateStore";
+import * as groupPolicyName from "../../workflows/principals/groupPolicyName";
 
 type TestPrincipalKem = ReturnType<typeof generateKemSeedAndKeyPair>;
 
@@ -229,86 +231,148 @@ test("an exact policy replay succeeds after the signer removes themself", async 
   );
 }, 10_000);
 
-test("recipient-key rejection rolls back every policy artifact", async () => {
-  const actor = createTestUser();
-  await registerUser(actor);
-  await authenticate(actor);
-
-  const principalId = crypto.randomUUID();
-  await createPolicyTestGroup(actor.userId, principalId);
-  const principalKem = generateKemSeedAndKeyPair();
-  const substitutedRecipientKem = generateKemSeedAndKeyPair();
-  const [substitutedEnvelope] = await wrapDekForRecipients(
-    principalKem.secretKey,
-    [substitutedRecipientKem.publicKey],
-  );
-  invariant(substitutedEnvelope, "expected substituted member envelope");
-  const projection: TestProjectionMember[] = [
-    {
-      userId: actor.userId,
-      role: "admin",
-    },
-  ];
-  const memberEnvelopes = [
-    {
-      userId: actor.userId,
-      memberKeyFingerprint: await toFingerprint(
-        substitutedRecipientKem.publicKey,
-      ),
-      kemCipherText: bytesToBase64(substitutedEnvelope.kemCipherText),
-      wrappedKey: bytesToBase64(substitutedEnvelope.wrappedKey),
-    },
-  ];
-  // This state is internally valid and signs the submitted envelope exactly.
-  // Rejection happens only after state/payload/projection insertion, when the
-  // envelope sink compares its recipient fingerprint to the registered user.
-  const signedPolicy = await signPrincipalStateBundle({
-    principalType: "group",
-    principalId,
-    version: 1,
-    prevStateHash: null,
-    keyEpoch: 1,
-    encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-    keyFingerprint: await toFingerprint(principalKem.publicKey),
-    members: [{ userId: actor.userId }],
-    projection,
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(JSON.stringify(projection)),
-    ),
-    signedAt: "2026-07-15T12:02:00.000Z",
-    signerUserId: actor.userId,
-    signerUserKeyFingerprint: actor.fingerprint,
-    signingPrivateKey: actor.signing.signingPrivateKey,
-    memberEnvelopes,
-  });
-
-  const response = await putPolicy(actor, principalId, signedPolicy);
-  expect(response.status).toBe(409);
-  expect(await response.json()).toEqual({
-    error: `Principal member envelope fingerprint mismatch for ${actor.userId}`,
-  });
-
-  const [states, payloads, storedProjection, envelopes] = await Promise.all([
-    db
+async function readPolicyArtifacts(
+  executor: DatabaseSession,
+  principalId: string,
+) {
+  return Promise.all([
+    executor
       .select()
       .from(principalStates)
       .where(eq(principalStates.principalId, principalId)),
-    db
+    executor
       .select()
       .from(principalStatePayloads)
       .where(eq(principalStatePayloads.principalId, principalId)),
-    db
+    executor
       .select()
       .from(principalMembershipProjection)
       .where(eq(principalMembershipProjection.principalId, principalId)),
-    db
+    executor
       .select()
       .from(principalMemberEnvelopes)
       .where(eq(principalMemberEnvelopes.principalId, principalId)),
   ]);
-  expect(states).toEqual([]);
-  expect(payloads).toEqual([]);
-  expect(storedProjection).toEqual([]);
-  expect(envelopes).toEqual([]);
-  expect(await getCurrentPrincipalState("group", principalId, db)).toBeNull();
-}, 10_000);
+}
+
+test.each([
+  {
+    name: "recipient-key substitution is rejected before storing any policy artifact",
+    substituteRecipient: true,
+  },
+  {
+    name: "invalid group metadata rolls back every staged policy artifact",
+    substituteRecipient: false,
+  },
+])(
+  "$name",
+  async ({ substituteRecipient }) => {
+    const actor = createTestUser();
+    await registerUser(actor);
+    await authenticate(actor);
+
+    const principalId = crypto.randomUUID();
+    await createPolicyTestGroup(actor.userId, principalId);
+    const principalKem = generateKemSeedAndKeyPair();
+    const recipientKem = substituteRecipient
+      ? generateKemSeedAndKeyPair()
+      : actor.kem;
+    const [envelope] = await wrapDekForRecipients(principalKem.secretKey, [
+      recipientKem.publicKey,
+    ]);
+    invariant(envelope, "expected member envelope");
+    const projection: TestProjectionMember[] = [
+      {
+        userId: actor.userId,
+        role: "admin",
+      },
+    ];
+    const memberEnvelopes = [
+      {
+        userId: actor.userId,
+        memberKeyFingerprint: await toFingerprint(recipientKem.publicKey),
+        kemCipherText: bytesToBase64(envelope.kemCipherText),
+        wrappedKey: bytesToBase64(envelope.wrappedKey),
+      },
+    ];
+    // Both states sign their exact envelopes and payload. A substituted recipient
+    // now fails before persistence. With the registered recipient, the deliberately
+    // invalid metadata instead reaches the real post-insertion metadata guard.
+    const signedPolicy = await signPrincipalStateBundle({
+      principalType: "group",
+      principalId,
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+      keyFingerprint: await toFingerprint(principalKem.publicKey),
+      members: [{ userId: actor.userId }],
+      projection,
+      payloadCiphertext: bytesToBase64(
+        new TextEncoder().encode(JSON.stringify(projection)),
+      ),
+      signedAt: "2026-07-15T12:02:00.000Z",
+      signerUserId: actor.userId,
+      signerUserKeyFingerprint: actor.fingerprint,
+      signingPrivateKey: actor.signing.signingPrivateKey,
+      memberEnvelopes,
+    });
+
+    let staged: Awaited<ReturnType<typeof readPolicyArtifacts>> | undefined;
+    const persistence = spyOn(
+      principalStateStore,
+      "storeVerifiedPrincipalStateInTransaction",
+    );
+    const assertNamePreserved = groupPolicyName.assertGroupPolicyNamePreserved;
+    const observer = spyOn(
+      groupPolicyName,
+      "assertGroupPolicyNamePreserved",
+    ).mockImplementation(async (tx, input, previous) => {
+      if (input.state.principalId === principalId) {
+        staged = await readPolicyArtifacts(tx, principalId);
+      }
+      return assertNamePreserved(tx, input, previous);
+    });
+    try {
+      const response = await putPolicy(actor, principalId, signedPolicy);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({
+        error: substituteRecipient
+          ? `Principal member envelope identity key mismatch for ${actor.userId}`
+          : "Invalid initial group metadata",
+      });
+      expect(
+        persistence.mock.calls.filter(
+          ([input]) => input.state.principalId === principalId,
+        ),
+      ).toHaveLength(substituteRecipient ? 0 : 1);
+      if (substituteRecipient) {
+        expect(observer).not.toHaveBeenCalled();
+        expect(staged).toBeUndefined();
+      } else {
+        invariant(
+          staged,
+          "expected all policy artifacts before metadata validation",
+        );
+        for (const rows of staged) expect(rows).toHaveLength(1);
+        expect(staged[2][0]?.identityBundleFingerprint).toBe(
+          signedPolicy.projection[0]?.identityBundleFingerprint,
+        );
+        expect(staged[3][0]?.memberKeyFingerprint).toBe(
+          await toFingerprint(actor.kem.publicKey),
+        );
+      }
+    } finally {
+      observer.mockRestore();
+      persistence.mockRestore();
+    }
+    const [states, payloads, storedProjection, envelopes] =
+      await readPolicyArtifacts(db, principalId);
+    expect(states).toEqual([]);
+    expect(payloads).toEqual([]);
+    expect(storedProjection).toEqual([]);
+    expect(envelopes).toEqual([]);
+    expect(await getCurrentPrincipalState("group", principalId, db)).toBeNull();
+  },
+  10_000,
+);

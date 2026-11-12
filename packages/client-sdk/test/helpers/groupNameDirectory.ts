@@ -32,6 +32,7 @@ export async function createGroupNameDirectory(
   const memberKem = generateKemSeedAndKeyPair();
   const buildGroup = (groupId: string, name: string) =>
     buildInitialGroupPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       creatorEncapsulationKeyPair: memberKem,
       groupId,
       name,
@@ -55,6 +56,7 @@ export async function createGroupNameDirectory(
   const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     author.organizationId,
     await buildInitialOrganizationPolicyRequest({
+      identityTrustDomain: "https://api.example.test",
       adminGroupId,
       encapsulationPublicKey: memberKem.publicKey,
       groupHeads: [

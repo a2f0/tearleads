@@ -25,7 +25,7 @@ for (const scenario of [
       `supplied-policy-${scenario}`,
     );
     try {
-      const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+      const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
       const directory = await createPolicyDirectoryFixture({
         organizationId: "org-1",
         group: bundle,
@@ -47,12 +47,13 @@ for (const scenario of [
         reportSecurityIncident: async (error) => {
           throw error;
         },
-        resolveTrustedUserIdentity: async (id) =>
-          trustedUserIdentityFromResponse(
+        resolveTrustedUserIdentity: async (id) => {
+          const response =
             id === directory.signer.userId
               ? directory.signer
-              : signerKeyResponse,
-          ),
+              : await getUserIdentity(id);
+          return response ? trustedUserIdentityFromResponse(response) : null;
+        },
       });
       const stored = await loadPrincipalPolicyBundle(
         execSql,
@@ -86,13 +87,13 @@ for (const scenario of [
 test("a standalone signed group cannot acquire an arbitrary organization through warming", async () => {
   const { close, execSql } = await createTestExecSql("policy-directory-scope");
   try {
-    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
     await cacheReferencedPolicies({
       execSql,
       organizationId: "foreign-organization",
       getCurrentPrincipalPolicy: async (kind) =>
         kind === "group" ? bundle : null,
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
     expect(
@@ -109,7 +110,7 @@ for (const cached of [false, true]) {
       `policy-directory-history-${cached}`,
     );
     try {
-      const { bundle, previousBundle, signerKeyResponse } =
+      const { bundle, previousBundle, getUserIdentity } =
         await createSuccessorPrincipalPolicyBundle();
       const directory = await createPolicyDirectoryFixture({
         organizationId: "org-1",
@@ -131,7 +132,7 @@ for (const cached of [false, true]) {
           groupReads += 1;
           return bundle;
         },
-        getUserIdentity: async () => signerKeyResponse,
+        getUserIdentity,
         references: [referencedPrincipalStateFromBundle(previousBundle)],
       });
       expect(groupReads).toBe(1);
@@ -152,7 +153,7 @@ for (const cached of [false, true]) {
 test("a different same-version group chain is not authenticated by the directory", async () => {
   const { close, execSql } = await createTestExecSql("policy-directory-fork");
   try {
-    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
     const { bundle: other } = await createPrincipalPolicyBundle();
     const directory = await createPolicyDirectoryFixture({
       organizationId: "org-1",
@@ -164,7 +165,7 @@ test("a different same-version group chain is not authenticated by the directory
       execSql,
       organizationId: "org-1",
       getCurrentPrincipalPolicy: async () => bundle,
-      getUserIdentity: async () => signerKeyResponse,
+      getUserIdentity,
       references: [referencedPrincipalStateFromBundle(bundle)],
       reportSecurityIncident: async (error) => {
         incidents.push(error);
@@ -185,7 +186,7 @@ test("a different same-version group chain is not authenticated by the directory
 test("tampering with the signed organization directory aborts warming and reports evidence", async () => {
   const { close, execSql } = await createTestExecSql("policy-directory-tamper");
   try {
-    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
     const directory = await createPolicyDirectoryFixture({
       organizationId: "org-1",
       group: bundle,
@@ -206,7 +207,7 @@ test("tampering with the signed organization directory aborts warming and report
         execSql,
         organizationId: "org-1",
         getCurrentPrincipalPolicy: async () => bundle,
-        getUserIdentity: async () => signerKeyResponse,
+        getUserIdentity,
         references: [referencedPrincipalStateFromBundle(bundle)],
         reportSecurityIncident: async (error) => {
           incidents.push(error);

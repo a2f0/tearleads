@@ -123,7 +123,7 @@ test("API-supplied policy bundles hard-fail when signed permissions are tampered
   );
 
   try {
-    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
     const firstMember = bundle.currentProjection[0];
     if (!firstMember) {
       throw new Error("Expected a principal policy member");
@@ -146,8 +146,10 @@ test("API-supplied policy bundles hard-fail when signed permissions are tampered
         organizationId: "org-1",
         currentPolicyReader: { getCurrentPrincipalPolicy: async () => null },
         reportSecurityIncident: async () => undefined,
-        resolveTrustedUserIdentity: async () =>
-          trustedUserIdentityFromResponse(signerKeyResponse),
+        resolveTrustedUserIdentity: async (userId) => {
+          const response = await getUserIdentity(userId);
+          return response ? trustedUserIdentityFromResponse(response) : null;
+        },
       }),
     ).rejects.toMatchObject({
       code: "hash_mismatch",

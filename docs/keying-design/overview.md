@@ -60,12 +60,14 @@ failures.
 Principal policy uses the signed group/organization model with two rules.
 
 First, any [principal](../glossary/principals.md#principal) transition that
-removes a reader, demotes a role that can read, disables a member, or changes a
-member key in a way that shrinks future access must advance the principal key
+removes a reader, demotes a role that can read, or disables a member must
+advance the principal key
 [epoch](../glossary/keys.md#epoch). Clients and the API both reject shrinking policy
 transitions that reuse the old principal key epoch. Removing a container grant
 must advance it too, since wraps sealed to the old key are retained; both
-enforce that.
+enforce that. A continuing member's identity bundle is immutable even across
+principal-key rotation; changing user identity keys is not a supported policy
+transition.
 
 Second, user identity keys need an authority outside mutable API rows, such as:
 
@@ -78,14 +80,24 @@ Second, user identity keys need an authority outside mutable API rows, such as:
 Production clients implement the first option as
 [identity links](../developer/trusted-user-identity.md#identity-links): a link
 binds the user ID, [trust domain](../glossary/principals.md#identity-trust-domain),
-algorithms, and both public keys. Every admission (contact, roster user, group
-member, share recipient, roster profile) requires a
-[pin](../glossary/principals.md#identity-pin) that a link or the device's own keys
-established; pin [provenance](../developer/trusted-user-identity.md#provenance)
-keeps a first-sight pin from standing in. Signer resolution and other
-verification of referenced users still pin on first sight, so first-contact key
-substitution remains possible for an identity no link has verified. No object
-keying algorithm can fully fix that by itself.
+algorithms, and both public keys. Such a link or the device's own keys establish
+an independent [pin](../glossary/principals.md#identity-pin). Existing Members
+may also receive group membership and read, write, or admin shares through
+[signed Members history](../developer/trusted-user-identity.md#roster-vouching)
+that reaches an independent pin. This is transitive trust in every vouching
+admin, not protection against a careless or malicious admin's false binding.
+New or disabled Members enrollment, contacts, and roster profiles still need
+direct `self`/`link` trust. Chain admission never upgrades pin
+[provenance](../developer/trusted-user-identity.md#provenance). Policy signers
+are staged with their members until the signed state verifies; access-event and
+document-writer signers still pin on first sight. Without an independent anchor,
+a self-consistent chain does not authenticate those keys or prove currentness.
+
+All group and organization projections, including genesis, require
+`identityBundleFingerprint`: the lowercase SHA-256 of the complete identity-link
+tuple. The signed `projectionRoot` commits it alongside user ID and role;
+`membershipRoot` still commits only the member IDs. See
+[commitment semantics and reset scope](../developer/trusted-user-identity.md#signed-member-identity-commitments).
 
 [Organization](../glossary/principals.md#organization) administration uses
 reserved groups: `Admins` authorizes admins, and `Members` drives the roster.

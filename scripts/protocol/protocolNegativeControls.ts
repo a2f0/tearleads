@@ -13,6 +13,7 @@ import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeC
 import { GROUP_GRANT_REVOCATION_NEGATIVE_CONTROLS } from "./protocolGroupGrantRevocationNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
+import { MEMBER_IDENTITY_NEGATIVE_CONTROLS } from "./protocolMemberIdentityNegativeControls";
 import type { NegativeControl } from "./protocolNegativeControlTypes";
 import { NO_BRICK_NEGATIVE_CONTROLS } from "./protocolNoBrickNegativeControls";
 import { OUTGOING_QUEUE_MERGE_NEGATIVE_CONTROLS } from "./protocolOutgoingQueueMergeNegativeControls";
@@ -41,6 +42,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...STAGE_PROMOTION_NEGATIVE_CONTROLS,
   ...SYNC_LANE_NEGATIVE_CONTROLS,
   ...HISTORY_NEGATIVE_CONTROLS,
+  ...MEMBER_IDENTITY_NEGATIVE_CONTROLS,
   ...NO_BRICK_NEGATIVE_CONTROLS,
   ...CONTAINER_DEPTH_NEGATIVE_CONTROLS,
   ...CONTAINER_GRANT_SCOPE_NEGATIVE_CONTROLS,

@@ -5,6 +5,7 @@ import type {
   PrincipalProjectionMemberRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalMemberEnvelopeResponse } from "@tearleads/validators/response";
+import { assertPrincipalIdentityCommitments } from "../../../data/principals/principalIdentityCommitments";
 import type { TrustedUserIdentity } from "../../../data/trustedUserIdentity";
 
 type PrincipalRekeyRecipient = {
@@ -63,6 +64,12 @@ export async function rewrapProjectionMemberEnvelopes(input: {
   readonly secretKey: Uint8Array;
   readonly users: ReadonlyArray<TrustedUserIdentity>;
 }): Promise<PrincipalMemberEnvelopeRequest[]> {
+  const users = new Map(input.users.map((user) => [user.userId, user]));
+  await assertPrincipalIdentityCommitments({
+    authenticated: false,
+    projections: [input.projection],
+    resolveTrustedUserIdentity: async (userId) => users.get(userId) ?? null,
+  });
   const recipients = toRekeyRecipientEntries(input);
   if (recipients.length === 0) {
     return [];
