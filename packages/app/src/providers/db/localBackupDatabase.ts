@@ -1,8 +1,6 @@
 import {
-  assertRestorableLocalSchemaLedger,
   type ExecSql,
-  ensureLocalSchemaMigrated,
-  LOCAL_SCHEMA_MIGRATIONS_TABLE,
+  migrateLocalSchema,
   resetConnectionSchemaMemo,
   runSerializedSqlMutation,
   type SqlRow,
@@ -222,24 +220,6 @@ async function insertBackupTable(input: {
   }
 }
 
-// The payload check reads the backup's JSON rows; this reads what SQLite
-// stored under the backup's own DDL, which can coerce them (a TEXT version),
-// so a ledger the next ensure would refuse never commits.
-async function assertRestoredLocalSchemaLedger(
-  execSql: ExecSql,
-): Promise<void> {
-  const [ledger] = await execSql(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND lower(name) = ?",
-    [LOCAL_SCHEMA_MIGRATIONS_TABLE],
-  );
-  const rows = ledger
-    ? await execSql(
-        `SELECT version, name FROM ${quoteSqlIdentifier(readString(ledger, "name"))}`,
-      )
-    : [];
-  assertRestorableLocalSchemaLedger(rows);
-}
-
 export async function restoreBackupDatabase(input: {
   readonly execSql: ExecSql;
   readonly indexes: ReadonlyArray<BackupIndex>;
@@ -287,7 +267,11 @@ export async function restoreBackupDatabase(input: {
         for (const index of restoredIndexes) {
           await execSql(index.sql);
         }
-        await assertRestoredLocalSchemaLedger(execSql);
+        // Bring an older backup to this build's schema before committing.
+        // It reads the ledger as SQLite stored it under the backup's own DDL
+        // (which can coerce or constrain the payload's rows), so a backup
+        // this build cannot migrate never replaces the live data.
+        await migrateLocalSchema(execSql);
         await execSql("COMMIT");
       } catch (error) {
         await execSql("ROLLBACK").catch(() => undefined);
@@ -302,8 +286,5 @@ export async function restoreBackupDatabase(input: {
       // its schema ensures.
       resetConnectionSchemaMemo(input.execSql);
     }
-    // Bring an older backup to this build's schema now, outside any
-    // transaction, as boot does.
-    await ensureLocalSchemaMigrated(execSql);
   });
 }

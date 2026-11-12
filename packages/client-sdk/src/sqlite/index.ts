@@ -45,6 +45,7 @@ export {
   ensureLocalSchemaMigrated,
   ensureSqlTables,
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
+  migrateLocalSchema,
   resetConnectionSchemaMemo,
   runSerializedSqlMutation,
   type SqlArrayRow,

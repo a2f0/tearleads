@@ -181,8 +181,11 @@ export async function migrateLocalSchema(
   const now = options.now ?? Date.now;
   const verify = options.verify ?? (async () => {});
   assertLocalSchemaMigrations(migrations);
-  return withCrossTabMigrationLock(() =>
-    runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+  // The connection's mutation lock first, then the Web Lock: a table ensure
+  // already holds the former when it migrates, so the reverse order could
+  // deadlock against a direct call on the same connection.
+  return runSerializedSqlMutation(execSql, (lockedExecSql) =>
+    withCrossTabMigrationLock(async () => {
       const read = async () =>
         classifyLocalSchema({
           ...(await readLocalSchema(lockedExecSql)),

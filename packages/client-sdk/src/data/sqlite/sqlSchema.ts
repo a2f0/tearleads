@@ -2,6 +2,7 @@ export {
   assertRestorableLocalSchemaLedger,
   ensureLocalSchemaMigrated,
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
+  migrateLocalSchema,
 } from "./migrations/migrateLocalSchema";
 export type {
   ExecSql,

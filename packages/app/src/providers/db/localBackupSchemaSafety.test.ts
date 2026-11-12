@@ -185,6 +185,46 @@ test("restore refuses a ledger its own DDL would store unreadably before replaci
   }
 });
 
+test("restore refuses a backup this build cannot migrate before replacing data", async () => {
+  const source = await createTestExecSql("backup-ledger-check-source");
+  const target = await createTestExecSql("backup-ledger-check-target");
+  try {
+    await source.execSql(notesTable.createSql);
+    await source.execSql("INSERT INTO notes VALUES ('backup-note')");
+    const backup = await backupOf(source.execSql);
+    // An empty ledger passes the payload check, but its own DDL refuses the
+    // baseline row the migration records.
+    const ledgerTable = {
+      columns: ["version", "name", "applied_at"],
+      name: LOCAL_SCHEMA_MIGRATIONS_TABLE,
+      rows: [],
+      sql: `CREATE TABLE "${LOCAL_SCHEMA_MIGRATIONS_TABLE}" ("version" INTEGER PRIMARY KEY NOT NULL CHECK ("version" < 1), "name" TEXT NOT NULL, "applied_at" INTEGER NOT NULL)`,
+    };
+    await ensureSqlTables(target.execSql, [notesTable]);
+    await target.execSql("INSERT INTO notes VALUES ('current-note')");
+    await expect(
+      restoreBackupPayload({
+        blobStore: createMemoryBlobStore(),
+        execSql: target.execSql,
+        securityIncidents: unexpectedSecurityIncidents,
+        payload: {
+          ...backup,
+          database: {
+            ...backup.database,
+            tables: [...backup.database.tables, ledgerTable],
+          },
+        },
+      }),
+    ).rejects.toThrow("CHECK constraint failed");
+    expect(await target.execSql("SELECT id FROM notes")).toEqual([
+      { id: "current-note" },
+    ]);
+  } finally {
+    source.close();
+    target.close();
+  }
+});
+
 test("a backup from before the ledger restores at the baseline and records it on the next ensure", async () => {
   const source = await createTestExecSql("backup-ledger-legacy-source");
   const target = await createTestExecSql("backup-ledger-legacy-target");

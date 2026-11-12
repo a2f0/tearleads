@@ -41,9 +41,10 @@ holds the `tearleads-local-schema-migration` Web Lock until its migration
 commits or rolls back. Hosts without Web Locks have no second tab on the
 handle. Inside a feature's transaction a migration would release that lock
 before anything is durable, so a host that shares the database between tabs
-calls `ensureLocalSchemaMigrated` before any feature runs: the app does at
-boot and after a backup restore. Every later ensure on the connection then
-finds the migration done.
+calls `ensureLocalSchemaMigrated` before any feature runs, as the app does
+at boot. Every later ensure on the connection then finds the migration done.
+A backup restore calls `migrateLocalSchema` inside its own transaction, so
+the restored data and its migration commit together.
 
 ## Adding a step
 

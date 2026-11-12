@@ -273,6 +273,27 @@ test("another tab on the same handle waits for a migration to roll back before i
   }
 });
 
+test("a table ensure and a direct migration on one cold connection both finish under Web Locks", async () => {
+  const uninstall = installWebLocks();
+  try {
+    await withDatabase("local-schema-lock-order", async (execSql) => {
+      // The ensure holds the connection lock when it migrates; the direct
+      // call must not hold the Web Lock while it waits for that lock.
+      const outcome = await Promise.race([
+        Promise.all([
+          ensureSqlTables(execSql, [notesTable]),
+          ensureLocalSchemaMigrated(execSql),
+        ]).then(() => "finished"),
+        Bun.sleep(2000).then(() => "deadlocked"),
+      ]);
+      expect(outcome).toBe("finished");
+      expect(await ledger(execSql)).toEqual(["1:baseline"]);
+    });
+  } finally {
+    uninstall();
+  }
+});
+
 test("a connection migrated up front keeps its ledger when a later transaction rolls back", () =>
   withDatabase("local-schema-boot", async (execSql) => {
     await execSql(
