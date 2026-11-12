@@ -1,5 +1,7 @@
 import {
+  assertRestorableLocalSchemaLedger,
   type ExecSql,
+  LOCAL_SCHEMA_MIGRATIONS_TABLE,
   resetConnectionSchemaMemo,
   runSerializedSqlMutation,
   type SqlRow,
@@ -219,6 +221,24 @@ async function insertBackupTable(input: {
   }
 }
 
+// The payload check reads the backup's JSON rows; this reads what SQLite
+// stored under the backup's own DDL, which can coerce them (a TEXT version),
+// so a ledger the next ensure would refuse never commits.
+async function assertRestoredLocalSchemaLedger(
+  execSql: ExecSql,
+): Promise<void> {
+  const [ledger] = await execSql(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND lower(name) = ?",
+    [LOCAL_SCHEMA_MIGRATIONS_TABLE],
+  );
+  const rows = ledger
+    ? await execSql(
+        `SELECT version, name FROM ${quoteSqlIdentifier(readString(ledger, "name"))}`,
+      )
+    : [];
+  assertRestorableLocalSchemaLedger(rows);
+}
+
 export async function restoreBackupDatabase(input: {
   readonly execSql: ExecSql;
   readonly indexes: ReadonlyArray<BackupIndex>;
@@ -266,6 +286,7 @@ export async function restoreBackupDatabase(input: {
         for (const index of restoredIndexes) {
           await execSql(index.sql);
         }
+        await assertRestoredLocalSchemaLedger(execSql);
         await execSql("COMMIT");
       } catch (error) {
         await execSql("ROLLBACK").catch(() => undefined);

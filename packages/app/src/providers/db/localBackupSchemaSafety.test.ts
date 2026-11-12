@@ -150,6 +150,41 @@ test("restore refuses a newer ledger spelled in another case before replacing da
   }
 });
 
+test("restore refuses a ledger its own DDL would store unreadably before replacing data", async () => {
+  const source = await createTestExecSql("backup-ledger-ddl-source");
+  const target = await createTestExecSql("backup-ledger-ddl-target");
+  try {
+    await ensureSqlTables(source.execSql, [notesTable]);
+    const backup = await backupOf(source.execSql);
+    // The JSON rows pass the payload check, but a TEXT column stores "1".
+    const tables = backup.database.tables.map((table) =>
+      table.name === LOCAL_SCHEMA_MIGRATIONS_TABLE
+        ? {
+            ...table,
+            sql: table.sql.replace('"version" INTEGER', '"version" TEXT'),
+          }
+        : table,
+    );
+    expect(tables.some(({ sql }) => sql.includes('"version" TEXT'))).toBe(true);
+    await ensureSqlTables(target.execSql, [notesTable]);
+    await target.execSql("INSERT INTO notes VALUES ('current-note')");
+    await expect(
+      restoreBackupPayload({
+        blobStore: createMemoryBlobStore(),
+        execSql: target.execSql,
+        securityIncidents: unexpectedSecurityIncidents,
+        payload: { ...backup, database: { ...backup.database, tables } },
+      }),
+    ).rejects.toThrow("Local database schema history does not match this app");
+    expect(await target.execSql("SELECT id FROM notes")).toEqual([
+      { id: "current-note" },
+    ]);
+  } finally {
+    source.close();
+    target.close();
+  }
+});
+
 test("a backup from before the ledger restores at the baseline and records it on the next ensure", async () => {
   const source = await createTestExecSql("backup-ledger-legacy-source");
   const target = await createTestExecSql("backup-ledger-legacy-target");
