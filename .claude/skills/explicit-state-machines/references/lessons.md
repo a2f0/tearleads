@@ -34,3 +34,17 @@ findings in that repository's guidance.
   `fix/` PRs: a swallowed settings-write error, a partial download cached
   forever, an audio session never released, a verify step failing during
   registry propagation, and a CI runner image that broke browser tests.
+- A nullable `error` shared by a load and user actions hid a real bug in
+  devopsrockstars' Stripe payment step: after a failed load, Cancel cleared
+  the error and the step showed "Loading..." again. A `loading | ready |
+  failed` load machine with separate action errors fixed it
+  (devopsrockstars#898). The scanner sees booleans only; read for it by hand.
+- The second sweep's perennial false positives are now named: guarded SQL
+  status updates (devopsrockstars checkout and webhooks, balebase contracts
+  and jobs) and enum payload labels are skipped by the scanner, along with
+  `*.testUtils.*` files; latest-wins request counters, set-once setup flags,
+  one-time focus-return refs, and memoized teardown promises are in the
+  skill's leave-alone list.
+  An update whose `WHERE` has an `OR`, a `NOT` or a subquery still counts,
+  even when every branch names the from-state (balebase finance): read it by
+  hand.

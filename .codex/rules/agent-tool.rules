@@ -1,6 +1,7 @@
 # Managed by agent-tool; regenerate with `agent-tool permissions install --apply`.
-# Codex applies the most restrictive matching rule. Commands with an --apply form
-# use their stricter decision because prefix rules cannot match trailing flags.
+# Only routine commands receive allow rules. Other commands keep the user's
+# approval and sandbox policies; explicit prompts would reject them in never mode.
+# A command whose --apply form asks gets no rule, since prefixes also match --apply.
 # Equal decisions group under the applied effect, not the read-only preview.
 
 # read: Reads local or GitHub state without changing it.
@@ -116,29 +117,3 @@ prefix_rule(pattern=["agent-tool", "pr", ["open", "cancel-runs"]], decision="all
 prefix_rule(pattern=["agent-tool", "pr", "threads", ["reply", "resolve"]], decision="allow", match=["agent-tool pr threads reply"])
 prefix_rule(pattern=["agent-tool", "repo", "cleanup"], decision="allow", match=["agent-tool repo cleanup"])
 prefix_rule(pattern=["agent-tool", "openPr"], decision="allow", match=["agent-tool openPr"])
-
-# release: Merges into a shared branch, publishes a package, or deletes remote state.
-prefix_rule(pattern=["bun", "run", "agent-tool", "pr", "merge"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["bun run agent-tool pr merge"])
-prefix_rule(pattern=["bun", "run", "agent-tool", "bun", "x", "wrangler"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["bun run agent-tool bun x wrangler"])
-prefix_rule(pattern=["node_modules/.bin/agent-tool", "pr", "merge"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["node_modules/.bin/agent-tool pr merge"])
-prefix_rule(pattern=["node_modules/.bin/agent-tool", "bun", "x", "wrangler"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["node_modules/.bin/agent-tool bun x wrangler"])
-prefix_rule(pattern=["agent-tool", "pr", "merge"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["agent-tool pr merge"])
-prefix_rule(pattern=["agent-tool", "bun", "x", "wrangler"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["agent-tool bun x wrangler"])
-prefix_rule(pattern=["gh", "pr", "merge"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["gh pr merge"])
-prefix_rule(pattern=["npm", "publish"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["npm publish"])
-prefix_rule(pattern=["bun", "publish"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["bun publish"])
-
-# intake: Brings new third-party code into the repository.
-prefix_rule(pattern=["bun", "run", "agent-tool", "bun", "add"], decision="prompt", justification="Brings new third-party code into the repository.", match=["bun run agent-tool bun add"])
-prefix_rule(pattern=["node_modules/.bin/agent-tool", "bun", "add"], decision="prompt", justification="Brings new third-party code into the repository.", match=["node_modules/.bin/agent-tool bun add"])
-prefix_rule(pattern=["agent-tool", "bun", "add"], decision="prompt", justification="Brings new third-party code into the repository.", match=["agent-tool bun add"])
-prefix_rule(pattern=["bun", ["add", "a", "x"]], decision="prompt", justification="Brings new third-party code into the repository.", match=["bun add"])
-prefix_rule(pattern=["npm", ["install", "i", "add"]], decision="prompt", justification="Brings new third-party code into the repository.", match=["npm install"])
-prefix_rule(pattern=["pnpm", "add"], decision="prompt", justification="Brings new third-party code into the repository.", match=["pnpm add"])
-prefix_rule(pattern=["yarn", "add"], decision="prompt", justification="Brings new third-party code into the repository.", match=["yarn add"])
-prefix_rule(pattern=[["bunx", "npx"]], decision="prompt", justification="Brings new third-party code into the repository.", match=["bunx"])
-
-# policy: Changes the permissions agents run with.
-prefix_rule(pattern=["bun", "run", "agent-tool", "permissions", "install"], decision="prompt", justification="Changes the permissions agents run with.", match=["bun run agent-tool permissions install"])
-prefix_rule(pattern=["node_modules/.bin/agent-tool", "permissions", "install"], decision="prompt", justification="Changes the permissions agents run with.", match=["node_modules/.bin/agent-tool permissions install"])
-prefix_rule(pattern=["agent-tool", "permissions", "install"], decision="prompt", justification="Changes the permissions agents run with.", match=["agent-tool permissions install"])
