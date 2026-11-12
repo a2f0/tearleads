@@ -33,8 +33,8 @@ export async function createAddressRetryHarness(
   const h = await createContactAddressHarness((store) =>
     wrap({
       ...store,
-      async addRow(fields) {
-        const id = await store.addRow(fields);
+      async addRow(...args) {
+        const id = await store.addRow(...args);
         generatedIds.push(id);
         return id;
       },

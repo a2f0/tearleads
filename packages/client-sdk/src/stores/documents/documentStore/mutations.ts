@@ -256,7 +256,7 @@ interface StructuredFieldWrite {
   readonly kind: Exclude<StoredDocumentKind, "note">;
   readonly options: DocumentMutationOptions;
   readonly patch: DocumentStructuredFieldPatch;
-  /** `null` for a deferred write, which neither supersedes nor coalesces. */
+  /** Deferred or guarded writes neither supersede nor coalesce. */
   readonly ticket: LocalWriteTicket | null;
   readonly writeGeneration: number;
 }
@@ -282,6 +282,7 @@ async function writeDocumentStructuredFields(
     return;
   }
 
+  if (options.stillCurrent?.() === false) return;
   writeStoredDocumentFields(
     writeDoc,
     kind,
@@ -357,18 +358,29 @@ function queueDocumentStructuredFieldWrite(
   if (!state.doc) {
     return Promise.resolve();
   }
+  try {
+    if (options.stillCurrent?.() === false) return Promise.resolve();
+  } catch (error) {
+    reportDocumentStoreWriteFailure(state, FIELD_FAILURE_MESSAGE, error);
+    return Promise.resolve();
+  }
+  // Guarded writes publish only after admission, never while still queued.
+  if (!options.stillCurrent) {
+    publishDocumentStructuredFieldSnapshot(state, kind, patch);
+  }
   const write: StructuredFieldWrite = {
     kind,
     options,
     patch,
-    // A deferred persist is history-only, so it must never stand in for an
-    // earlier write's enqueue: deferred writes neither supersede nor coalesce.
-    ticket: options.deferRemoteSync
-      ? null
-      : issueLocalWriteTicket(
-          state,
-          Object.keys(patch).map((field): LocalWriteKey => `field:${field}`),
-        ),
+    // A guarded write may later refuse, and a deferred persist is history-only:
+    // neither can stand in for another write's enqueue or be coalesced away.
+    ticket:
+      options.deferRemoteSync || options.stillCurrent
+        ? null
+        : issueLocalWriteTicket(
+            state,
+            Object.keys(patch).map((field): LocalWriteKey => `field:${field}`),
+          ),
     writeGeneration: state.localWriteGeneration,
   };
 
@@ -432,7 +444,6 @@ export function setDocumentStructuredFields(
         return;
       }
 
-      publishDocumentStructuredFieldSnapshot(state, kind, patch);
       return queueDocumentStructuredFieldWrite(state, kind, patch, options);
     });
   }
@@ -441,6 +452,5 @@ export function setDocumentStructuredFields(
     return Promise.resolve();
   }
 
-  publishDocumentStructuredFieldSnapshot(state, kind, patch);
   return queueDocumentStructuredFieldWrite(state, kind, patch, options);
 }

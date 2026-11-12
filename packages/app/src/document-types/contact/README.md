@@ -31,6 +31,13 @@ recovery. Failed removals keep a retry action even if the row disappears from
 the live snapshot. Navigating away is not a rollback. Success acknowledges
 local persistence, not remote synchronization.
 
+Address mutations carry their current writable/editor scope into the SDK's
+write queue, including pending-delta flushes. The SDK rechecks that guard before
+starting the queued mutation; creation retries retain both their original and
+current caller's authority. Expiry before this point prevents the write, but
+expiry after live mutation is not rollback and does not cancel persistence
+already underway. The adapter still refuses a stale completion.
+
 ## Attribution
 
 Each address's details show the last-editor attribution for its current cells,

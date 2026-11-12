@@ -7,6 +7,7 @@ import {
 } from "../../../../data/documents/documentRowList";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import { requestDocumentStoreSync } from "../../registry";
+import type { DocumentMutationGuard } from "../../types";
 import { ensureDocumentStoreReady } from "../initialization";
 import { chainQueuedWrite } from "../localWriteQueue";
 import { revalidateDocumentMutationIdentity } from "../mutationIdentityRevalidation";
@@ -34,6 +35,7 @@ async function persistRowMutation(
   state: DocumentStoreState,
   expectedLocalWriteGeneration: number,
   mutate: (doc: DocumentState) => boolean,
+  options: DocumentMutationGuard,
 ): Promise<void> {
   if (state.localWriteGeneration !== expectedLocalWriteGeneration) {
     return;
@@ -47,6 +49,7 @@ async function persistRowMutation(
     return;
   }
 
+  if (options.stillCurrent?.() === false) return;
   if (!mutate(currentDoc)) {
     await revalidateDocumentMutationIdentity({ currentDoc, generation, state });
     return;
@@ -99,6 +102,7 @@ async function persistRowMutation(
 function queueRowMutation(
   state: DocumentStoreState,
   mutate: (doc: DocumentState) => boolean,
+  options: DocumentMutationGuard,
 ): Promise<void> {
   const writeGeneration = state.localWriteGeneration;
   // Unlike text/structured-field writes, row writes intentionally do NOT bump
@@ -110,7 +114,7 @@ function queueRowMutation(
     state,
     state.writeChain
       .catch(() => undefined)
-      .then(async () => persistRowMutation(state, writeGeneration, mutate))
+      .then(() => persistRowMutation(state, writeGeneration, mutate, options))
       .catch((error: unknown) => {
         reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
       }),
@@ -121,11 +125,13 @@ export async function addRowToDocumentStore(
   state: DocumentStoreState,
   scheduleSync: () => void,
   fields: Readonly<Record<string, string>>,
+  options: DocumentMutationGuard = {},
 ): Promise<string> {
   const id = createDocumentRowId();
   let ready: boolean;
   try {
     ready = await ensureDocumentStoreReady(state, scheduleSync);
+    if (options.stillCurrent?.() === false) ready = false;
   } catch (error) {
     reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
     return id;
@@ -135,10 +141,14 @@ export async function addRowToDocumentStore(
     return id;
   }
 
-  await queueRowMutation(state, (doc) => {
-    addDocumentRow(doc, id, fields, resolveRowAttribution(state));
-    return true;
-  });
+  await queueRowMutation(
+    state,
+    (doc) => {
+      addDocumentRow(doc, id, fields, resolveRowAttribution(state));
+      return true;
+    },
+    options,
+  );
   return id;
 }
 
@@ -147,10 +157,12 @@ export async function updateRowInDocumentStore(
   scheduleSync: () => void,
   id: string,
   patch: Readonly<Record<string, string>>,
+  options: DocumentMutationGuard = {},
 ): Promise<void> {
   let ready: boolean;
   try {
     ready = await ensureDocumentStoreReady(state, scheduleSync);
+    if (options.stillCurrent?.() === false) ready = false;
   } catch (error) {
     reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
     return;
@@ -160,8 +172,10 @@ export async function updateRowInDocumentStore(
     return;
   }
 
-  await queueRowMutation(state, (doc) =>
-    setDocumentRowFields(doc, id, patch, resolveRowAttribution(state)),
+  await queueRowMutation(
+    state,
+    (doc) => setDocumentRowFields(doc, id, patch, resolveRowAttribution(state)),
+    options,
   );
 }
 
@@ -169,10 +183,12 @@ export async function removeRowFromDocumentStore(
   state: DocumentStoreState,
   scheduleSync: () => void,
   id: string,
+  options: DocumentMutationGuard = {},
 ): Promise<void> {
   let ready: boolean;
   try {
     ready = await ensureDocumentStoreReady(state, scheduleSync);
+    if (options.stillCurrent?.() === false) ready = false;
   } catch (error) {
     reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
     return;
@@ -182,5 +198,5 @@ export async function removeRowFromDocumentStore(
     return;
   }
 
-  await queueRowMutation(state, (doc) => removeDocumentRow(doc, id));
+  await queueRowMutation(state, (doc) => removeDocumentRow(doc, id), options);
 }

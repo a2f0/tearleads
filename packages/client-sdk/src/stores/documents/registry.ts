@@ -301,7 +301,7 @@ export function createDocumentStoreFacade(
   };
 
   const facade: DocumentStoreFacade = {
-    addRow: (fields) => targetStore.addRow(fields),
+    addRow: (fields, options) => targetStore.addRow(fields, options),
     assertCanRotateContentKey: (proof) =>
       targetStore.assertCanRotateContentKey(proof),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
@@ -313,7 +313,7 @@ export function createDocumentStoreFacade(
     hasQueuedWrites: () => targetStore.hasQueuedWrites(),
     hasUnsavedLocalEdits: () => targetStore.hasUnsavedLocalEdits(),
     removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),
-    removeRow: (id) => targetStore.removeRow(id),
+    removeRow: (id, options) => targetStore.removeRow(id, options),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
       targetStore.replaceAttachment(slotId, file),
     requestRemoteSync: () => targetStore.requestRemoteSync(),
@@ -331,7 +331,8 @@ export function createDocumentStoreFacade(
         listeners.delete(listener);
       };
     },
-    updateRowFields: (id, patch) => targetStore.updateRowFields(id, patch),
+    updateRowFields: (id, patch, options) =>
+      targetStore.updateRowFields(id, patch, options),
     updateRuntime: (runtime: DocumentsRuntime) =>
       targetStore.updateRuntime(runtime),
   };

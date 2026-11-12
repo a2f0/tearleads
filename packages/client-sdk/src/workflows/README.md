@@ -216,14 +216,14 @@ take that option, with `remoteSyncMode`, as a trailing
 
 ### Queued local writes
 
-Document stores coalesce local edits queued behind an in-flight commit. A
-`setText` superseded by a newer `setText` skips, as does a non-deferred
-`setStructuredFields` patch once newer non-deferred patches set every one of
-its fields; the newest write persists the delta since the outgoing marker.
-`hasPendingLocalDocumentWrites(domainScope)`, exported from the SDK root, reports
-whether any open store in the scope holds edits not yet durable in SQLite:
-queued writes (`hasQueuedWrites()`) and applied edits whose save failed
-(`hasUnsavedLocalEdits()`).
+Unguarded, non-deferred field writes coalesce once later patches cover every
+field; text writes coalesce to the newest value.
+`hasPendingLocalDocumentWrites(domainScope)` reports queued or undurable edits.
+`DocumentMutationGuard` (rows) and its extension `DocumentMutationOptions`
+(structured fields) are root exports. Their synchronous `stillCurrent` predicate
+is checked after readiness and at queue admission, before mutation or retry
+flush. Guarded structured writes neither publish optimistically nor coalesce.
+See [host-controlled mutation admission](../../../../docs/developer/client-sdk/public-api.md#host-controlled-mutation-admission).
 
 ### Persistence notifications
 

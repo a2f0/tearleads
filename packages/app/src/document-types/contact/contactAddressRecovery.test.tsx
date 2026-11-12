@@ -35,9 +35,9 @@ for (const surface of addressSurfaces) {
     let mutations = 0;
     const f = await createAddressRetryHarness(surface, (store) => ({
       ...store,
-      updateRowFields: async (id, patch) => {
+      updateRowFields: async (...args) => {
         mutations += 1;
-        await store.updateRowFields(id, patch);
+        await store.updateRowFields(...args);
       },
     }));
     try {

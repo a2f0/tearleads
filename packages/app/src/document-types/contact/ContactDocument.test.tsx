@@ -177,9 +177,11 @@ test("Explorer renders contact rows and saves only the edited address field", as
   await waitFor(() =>
     expect(view.getByText("Changed in Explorer")).toBeTruthy(),
   );
-  expect(fixture.methods.updateRowFields).toHaveBeenCalledWith("home-id", {
-    street: "Changed in Explorer",
-  });
+  expect(fixture.methods.updateRowFields).toHaveBeenCalledWith(
+    "home-id",
+    { street: "Changed in Explorer" },
+    { stillCurrent: expect.any(Function) },
+  );
   await waitFor(() =>
     expect(view.queryByRole("form", { name: "Address editor" })).toBeNull(),
   );
@@ -190,16 +192,19 @@ test("Explorer renders contact rows and saves only the edited address field", as
   });
   fireEvent.click(view.getByRole("button", { name: "Save address" }));
   await waitFor(() => expect(view.getByText("00042")).toBeTruthy());
-  expect(fixture.methods.addRow).toHaveBeenCalledWith({
-    recordType: "postalAddress",
-    label: "Work",
-    street: "",
-    extendedAddress: "",
-    locality: "",
-    region: "",
-    postalCode: "00042",
-    countryCode: "",
-  });
+  expect(fixture.methods.addRow).toHaveBeenCalledWith(
+    {
+      recordType: "postalAddress",
+      label: "Work",
+      street: "",
+      extendedAddress: "",
+      locality: "",
+      region: "",
+      postalCode: "00042",
+      countryCode: "",
+    },
+    { stillCurrent: expect.any(Function) },
+  );
   await waitFor(() =>
     expect(view.queryByRole("form", { name: "Address editor" })).toBeNull(),
   );
@@ -211,7 +216,9 @@ test("Explorer renders contact rows and saves only the edited address field", as
   await waitFor(() =>
     expect(view.queryByRole("group", { name: "Work" })).toBeNull(),
   );
-  expect(fixture.methods.removeRow).toHaveBeenCalledWith("added-id");
+  expect(fixture.methods.removeRow).toHaveBeenCalledWith("added-id", {
+    stillCurrent: expect.any(Function),
+  });
 });
 
 test.each(["add", "update", "remove"] as const)(
@@ -332,9 +339,11 @@ test.each(["draft", "saving"] as const)(
     await waitFor(() =>
       expect(view.queryByRole("form", { name: "Address editor" })).toBeNull(),
     );
-    expect(fixture.methods.updateRowFields).toHaveBeenCalledWith("home-id", {
-      street: "Draft survives registration",
-    });
+    expect(fixture.methods.updateRowFields).toHaveBeenCalledWith(
+      "home-id",
+      { street: "Draft survives registration" },
+      { stillCurrent: expect.any(Function) },
+    );
     expect(view.getByText("Draft survives registration")).toBeTruthy();
   },
 );

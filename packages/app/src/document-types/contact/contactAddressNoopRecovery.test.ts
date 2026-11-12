@@ -9,10 +9,10 @@ test("a refused intent cannot move stores and simultaneous retries remain one cr
   let additions = 0;
   const original = await createAddressRetryHarness("contacts", (store) => ({
     ...store,
-    async addRow(fields) {
+    async addRow(...args) {
       additions += 1;
       if (additions === 1) return crypto.randomUUID();
-      return store.addRow(fields);
+      return store.addRow(...args);
     },
   }));
   try {
@@ -54,14 +54,14 @@ for (const surface of addressSurfaces) {
     let additions = 0;
     const f = await createAddressRetryHarness(surface, (store) => ({
       ...store,
-      async addRow(fields) {
+      async addRow(...args) {
         additions += 1;
         // The SDK returns a generated ID even when it refuses before mutation.
         if (refusals > 0) {
           refusals -= 1;
           return crypto.randomUUID();
         }
-        return store.addRow(fields);
+        return store.addRow(...args);
       },
     }));
     try {
@@ -101,13 +101,13 @@ for (const surface of addressSurfaces) {
       let updates = 0;
       const f = await createAddressRetryHarness(surface, (store) => ({
         ...store,
-        async updateRowFields(id, fields) {
+        async updateRowFields(...args) {
           updates += 1;
           if (refusals > 0) {
             refusals -= 1;
             return;
           }
-          await store.updateRowFields(id, fields);
+          await store.updateRowFields(...args);
         },
       }));
       try {
@@ -145,10 +145,10 @@ for (const surface of addressSurfaces) {
     let additions = 0;
     const f = await createAddressRetryHarness(surface, (store) => ({
       ...store,
-      async addRow(fields) {
+      async addRow(...args) {
         additions += 1;
         if (additions === 1) return crypto.randomUUID();
-        return store.addRow(fields);
+        return store.addRow(...args);
       },
     }));
     try {
@@ -195,10 +195,10 @@ for (const surface of addressSurfaces) {
     let additions = 0;
     const f = await createAddressRetryHarness(surface, (store) => ({
       ...store,
-      async addRow(fields) {
+      async addRow(...args) {
         additions += 1;
         if (additions === 1) return crypto.randomUUID();
-        return store.addRow(fields);
+        return store.addRow(...args);
       },
       async setStructuredFields(...args) {
         await store.setStructuredFields(...args);
@@ -247,10 +247,10 @@ for (const surface of addressSurfaces) {
       ...store,
       // Only identity metadata changes; rows and persistence remain SDK-backed.
       getSnapshot: () => ({ ...store.getSnapshot(), currentAuthorId: author }),
-      async addRow(fields) {
+      async addRow(...args) {
         additions += 1;
         if (additions === 1) return crypto.randomUUID();
-        return store.addRow(fields);
+        return store.addRow(...args);
       },
     }));
     try {
@@ -293,10 +293,10 @@ for (const surface of addressSurfaces) {
     let removals = 0;
     const f = await createAddressRetryHarness(surface, (store) => ({
       ...store,
-      async removeRow(id) {
+      async removeRow(...args) {
         removals += 1;
         if (removals === 1) return;
-        await store.removeRow(id);
+        await store.removeRow(...args);
       },
     }));
     try {
@@ -328,14 +328,14 @@ for (const surface of addressSurfaces) {
     let removals = 0;
     const f = await createAddressRetryHarness(surface, (store) => ({
       ...store,
-      async removeRow(id) {
+      async removeRow(...args) {
         removals += 1;
         // Model the SDK's early return before mutation; all reads stay real.
         if (refusals > 0) {
           refusals -= 1;
           return;
         }
-        await store.removeRow(id);
+        await store.removeRow(...args);
       },
     }));
     try {

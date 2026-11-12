@@ -312,6 +312,8 @@ export {
   updateContainerContentsStoreRuntime,
 } from "./stores/container-contents";
 export type {
+  DocumentMutationGuard,
+  DocumentMutationOptions,
   DocumentSnapshot,
   DocumentStoreFacade,
   DocumentStoreOpenOptions,

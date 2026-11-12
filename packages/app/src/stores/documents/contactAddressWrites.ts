@@ -39,16 +39,24 @@ function captureWriter(store: DocumentStore, current: () => boolean) {
   return () => current() && store.getSnapshot().currentAuthorId === author;
 }
 
-function writable(store: DocumentStore, current: () => boolean) {
+function canWrite(store: DocumentStore, current: () => boolean) {
   const snapshot = store.getSnapshot();
-  if (
-    !current() ||
-    !snapshot.ready ||
-    !snapshot.canWrite ||
-    snapshot.documentKind !== "contact"
-  )
-    throw new Error(SAVE_FAILURE);
-  return snapshot;
+  return (
+    current() &&
+    snapshot.ready &&
+    snapshot.canWrite &&
+    snapshot.documentKind === "contact"
+  );
+}
+
+function writable(store: DocumentStore, current: () => boolean) {
+  if (!canWrite(store, current)) throw new Error(SAVE_FAILURE);
+  return store.getSnapshot();
+}
+
+function mutationOptions(store: DocumentStore, current: () => boolean) {
+  // The SDK may wait on its own write queue after our preflight succeeds.
+  return { stillCurrent: () => canWrite(store, current) };
 }
 
 function saved(store: DocumentStore, current: () => boolean, matches: boolean) {
@@ -80,7 +88,11 @@ function queue<T>(
 async function flushPending(store: DocumentStore, current: () => boolean) {
   writable(store, current);
   if (store.hasUnsavedLocalEdits()) {
-    await store.setStructuredFields("contact", {});
+    await store.setStructuredFields(
+      "contact",
+      {},
+      mutationOptions(store, current),
+    );
     saved(store, current, true);
   }
 }
@@ -108,7 +120,8 @@ export async function updateContactAddressRow(
         ([key, value]) => value !== (row.fields[key] ?? ""),
       ),
     );
-    if (Object.keys(patch).length) await store.updateRowFields(id, patch);
+    if (Object.keys(patch).length)
+      await store.updateRowFields(id, patch, mutationOptions(store, current));
     const updated = address(store, id, current);
     saved(
       store,
@@ -145,7 +158,7 @@ export async function removeContactAddressRow(
     // as evidence of deletion.
     if (writable(store, current).rows.some((row) => row.id === id)) {
       address(store, id, current);
-      await store.removeRow(id);
+      await store.removeRow(id, mutationOptions(store, current));
     }
     saved(
       store,
@@ -190,7 +203,8 @@ async function editCreation(
       ([key, value]) => value !== (row.fields[key] ?? ""),
     ),
   );
-  if (Object.keys(changed).length) await store.updateRowFields(id, changed);
+  if (Object.keys(changed).length)
+    await store.updateRowFields(id, changed, mutationOptions(store, current));
   const updated = address(store, id, current);
   saved(
     store,
@@ -237,10 +251,13 @@ export async function addContactAddressRow(
     }
     creations.set(intent, attempt);
     writable(store, authorized);
-    const id = await store.addRow({
-      ...values,
-      recordType: CONTACT_ADDRESS_ROW_TYPE,
-    });
+    const id = await store.addRow(
+      {
+        ...values,
+        recordType: CONTACT_ADDRESS_ROW_TYPE,
+      },
+      mutationOptions(store, authorized),
+    );
     attempt.state = transitionContactAddressCreation(attempt.state, {
       type: "returned",
       id,

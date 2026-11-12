@@ -20,7 +20,17 @@ export type DocumentStructuredFieldPatch = Readonly<
   Record<string, string | undefined>
 >;
 
-export interface DocumentMutationOptions {
+/**
+ * Host admission checked after readiness and again at local queue execution.
+ * The predicate must be synchronous and side-effect-free. False is a no-op;
+ * a throw is reported as a write failure and also refuses the mutation.
+ * This does not cancel initialization or roll back an already admitted write.
+ */
+export interface DocumentMutationGuard {
+  stillCurrent?: (() => boolean) | undefined;
+}
+
+export interface DocumentMutationOptions extends DocumentMutationGuard {
   deferRemoteSync?: boolean | undefined;
 }
 
@@ -56,13 +66,18 @@ export type DocumentAttachmentStatus = "syncing" | "intent-mismatch";
 // Add a row to the document's repeated-row list, returning the new row id.
 export type AddDocumentRow = (
   fields: Readonly<Record<string, string>>,
+  options?: DocumentMutationGuard | undefined,
 ) => Promise<string>;
 // Patch one or more cells of a single row (merges per-cell).
 export type UpdateDocumentRowFields = (
   id: string,
   patch: Readonly<Record<string, string>>,
+  options?: DocumentMutationGuard | undefined,
 ) => Promise<void>;
-export type RemoveDocumentRow = (id: string) => Promise<void>;
+export type RemoveDocumentRow = (
+  id: string,
+  options?: DocumentMutationGuard | undefined,
+) => Promise<void>;
 
 // The store surface exposed through context: the snapshot fields plus the
 // store's mutation methods, spelled as a Pick so the two can't drift.

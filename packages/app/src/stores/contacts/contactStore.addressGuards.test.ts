@@ -42,17 +42,17 @@ for (const operation of operations) {
         ready: held ? false : document.getSnapshot().ready,
         canWrite,
       }),
-      addRow: async (fields) => {
+      addRow: async (...args) => {
         mutations++;
-        return document.addRow(fields);
+        return document.addRow(...args);
       },
-      updateRowFields: async (id, patch) => {
+      updateRowFields: async (...args) => {
         mutations++;
-        await document.updateRowFields(id, patch);
+        await document.updateRowFields(...args);
       },
-      removeRow: async (id) => {
+      removeRow: async (...args) => {
         mutations++;
-        await document.removeRow(id);
+        await document.removeRow(...args);
       },
     }));
     try {
@@ -96,9 +96,9 @@ for (const change of ["user", "fingerprint", "container"] as const) {
         started = true;
         return hydration.promise;
       },
-      addRow: async (fields) => {
+      addRow: async (...args) => {
         writes++;
-        return document.addRow(fields);
+        return document.addRow(...args);
       },
     }));
     try {
@@ -177,9 +177,9 @@ test("rechecks scope at the effect after hydration returns", async () => {
       if (callback) queueMicrotask(callback);
       return document.getSnapshot();
     },
-    addRow: async (fields) => {
+    addRow: async (...args) => {
       writes++;
-      return document.addRow(fields);
+      return document.addRow(...args);
     },
   }));
   try {

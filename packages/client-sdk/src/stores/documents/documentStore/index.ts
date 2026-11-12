@@ -326,7 +326,7 @@ function createBackingDocumentStore(
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
   openOptions: DocumentStoreOpenOptions = {},
 ): DocumentStore {
-  const { scheduleSync, state, withLiveSyncLane } = createBackingStoreContext(
+  const context = createBackingStoreContext(
     localId,
     initialRuntime,
     persistence,
@@ -336,12 +336,15 @@ function createBackingDocumentStore(
     openOptions,
   );
 
+  const { scheduleSync, state, withLiveSyncLane } = context;
   // Local writes count as queued from the call, readiness wait included.
   const liveWrite = <Result>(write: () => Promise<Result>) =>
     withLiveSyncLane(() => countQueuedWrite(state, write()));
   const store: DocumentStore = {
-    addRow: (fields) =>
-      liveWrite(() => addRowToDocumentStore(state, scheduleSync, fields)),
+    addRow: (fields, options) =>
+      liveWrite(() =>
+        addRowToDocumentStore(state, scheduleSync, fields, options),
+      ),
     assertCanRotateContentKey: (proof) =>
       withLiveSyncLane(() =>
         assertLoadedDocumentStoreCanRotate(state, scheduleSync, proof),
@@ -365,8 +368,10 @@ function createBackingDocumentStore(
       liveWrite(() =>
         removeAttachmentFromDocumentStore(state, scheduleSync, slotId),
       ),
-    removeRow: (id) =>
-      liveWrite(() => removeRowFromDocumentStore(state, scheduleSync, id)),
+    removeRow: (id, options) =>
+      liveWrite(() =>
+        removeRowFromDocumentStore(state, scheduleSync, id, options),
+      ),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
       liveWrite(() =>
         replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file),
@@ -390,17 +395,14 @@ function createBackingDocumentStore(
     setText: (value: string) =>
       liveWrite(() => setDocumentText(state, scheduleSync, value)),
     subscribe: (listener) => subscribeToDocumentStore(state, listener),
-    updateRowFields: (id, patch) =>
-      liveWrite(() => updateRowInDocumentStore(state, scheduleSync, id, patch)),
+    updateRowFields: (id, patch, options) =>
+      liveWrite(() =>
+        updateRowInDocumentStore(state, scheduleSync, id, patch, options),
+      ),
     updateRuntime: (runtime: DocumentsRuntime) =>
       updateDocumentStoreRuntime(state, runtime, scheduleSync),
   };
-  return registerBackingStoreInternalRelink({
-    scheduleSync,
-    state,
-    store,
-    withLiveSyncLane,
-  });
+  return registerBackingStoreInternalRelink({ ...context, store });
 }
 
 export function createDocumentStore(
