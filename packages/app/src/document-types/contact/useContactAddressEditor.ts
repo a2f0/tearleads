@@ -61,7 +61,7 @@ async function applyAddressOperation(
 export function useContactAddressEditor(input: ContactAddressEditorInput) {
   const [state, dispatch] = useReducer(transitionContactAddressEditor, {
     status: "idle",
-  } as ContactAddressEditorState);
+  });
   const requestId = useRef(0);
   const latest = useRef(input);
   latest.current = input;

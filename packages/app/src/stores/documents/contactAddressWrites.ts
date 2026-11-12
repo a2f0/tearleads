@@ -14,14 +14,12 @@ import {
 const SAVE_FAILURE = "Address changes could not be saved. Please try again.";
 const queues = new WeakMap<DocumentStore, Promise<unknown>>();
 const removals = new WeakMap<DocumentStore, Set<string>>();
-const creations = new WeakMap<
-  object,
-  {
-    store: DocumentStore;
-    state: ContactAddressCreationState;
-    current: () => boolean;
-  }
->();
+type CreationAttempt = {
+  store: DocumentStore;
+  state: ContactAddressCreationState;
+  current: () => boolean;
+};
+const creations = new WeakMap<object, CreationAttempt>();
 
 function trimFields(fields: Partial<ContactAddressFields>) {
   return Object.fromEntries(
@@ -198,9 +196,9 @@ export async function addContactAddressRow(
       });
       return id;
     }
-    const attempt = {
+    const attempt: CreationAttempt = {
       store,
-      state: { status: "creating" } as ContactAddressCreationState,
+      state: { status: "creating" },
       current,
     };
     creations.set(intent, attempt);
