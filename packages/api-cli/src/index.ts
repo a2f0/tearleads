@@ -12,7 +12,7 @@ function usage(): string {
     "Commands:",
     "  blob-store:list-keys [--prefix <prefix>] [--with-size]    List configured S3 blob store keys",
     "  make-admin <fingerprint>      Grant root (global admin) access to the identity with this signing key fingerprint",
-    "  migrate    Initialize the current API database schema",
+    "  migrate    Apply pending API database migrations",
     "  revoke-admin <fingerprint>    Revoke root (global admin) access from the identity with this signing key fingerprint",
   ].join("\n");
 }
@@ -100,11 +100,11 @@ async function runMigrations(): Promise<void> {
   );
 
   try {
-    console.log("Initializing the current API database schema...");
+    console.log("Applying pending API database migrations...");
     await initializeApiDatabase(
       migrationsFolder ? { migrationsFolder } : undefined,
     );
-    console.log("API database schema initialized.");
+    console.log("API database migrations are current.");
   } catch (error) {
     await cleanupApiDatabase(closeApiDatabase, migrationsFolder);
     throw error;

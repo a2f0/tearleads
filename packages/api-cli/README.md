@@ -15,7 +15,7 @@ Usage: tearleads-api-cli <command>
 Commands:
   blob-store:list-keys [--prefix <prefix>] [--with-size]    List configured S3 blob store keys
   make-admin <fingerprint>      Grant root (global admin) access to the identity with this signing key fingerprint
-  migrate    Initialize the current API database schema
+  migrate    Apply pending API database migrations
   revoke-admin <fingerprint>    Revoke root (global admin) access from the identity with this signing key fingerprint
 ```
 
@@ -27,7 +27,9 @@ prints only `Unknown command: <name>` — no usage — and exits `1`. `-h` /
 
 ### `migrate`
 
-Initializes the current Drizzle baseline for the API's Postgres database.
+Applies the pending Drizzle migrations to the API's Postgres database, after
+refusing a database whose applied history this build's journal does not
+extend (see [schema migrations](../../docs/developer/api-persistence.md#schema-migrations)).
 Defaults `API_DATABASE` to `postgres` when unset, then calls
 `initializeApiDatabase` from `@tearleads/api-shared/postgres`.
 

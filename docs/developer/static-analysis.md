@@ -248,6 +248,19 @@ devices would disagree. Sort with `compareCanonicalStrings` from
 an explicit locale and live outside these roots. Roots live in
 [`scripts/checks/canonicalOrdering.ts`](../../scripts/checks/canonicalOrdering.ts).
 
+## API migration history
+
+`bun run lint:api-migrations`, in `check:fast`, compares
+[`packages/api-shared/drizzle`](../../packages/api-shared/drizzle/) with the
+same base the OpenAPI compatibility check uses (`API_MIGRATIONS_BASE_REF`, then
+`OPENAPI_BASE_REF`, the pull request base, or the merge base with
+`origin/main`). Deployed databases have applied every migration on the base and
+Drizzle never re-reads one, so the branch may only append: an edited or removed
+base file, a rewritten journal entry, or an appended migration that sorts before
+the base's newest fails. The rules live in
+[`scripts/checks/apiMigrationHistory.ts`](../../scripts/checks/apiMigrationHistory.ts);
+see [schema migrations](api-persistence.md#schema-migrations).
+
 ## Shell scripts
 
 `bun run lint:scripts` and pre-push use the same `git ls-files` inventory. It

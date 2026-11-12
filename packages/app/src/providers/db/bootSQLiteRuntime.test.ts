@@ -142,3 +142,26 @@ test("bootSQLiteRuntime does not wait for an unanswered durable-storage prompt",
     }
   }
 });
+
+test("bootSQLiteRuntime migrates the local schema before features run", async () => {
+  const statements: string[] = [];
+  const runtime = createRuntime(async () => ({ ok: true }));
+  runtime.client.exec = async ({ sql }) => {
+    statements.push(sql);
+    return { ok: true, rows: [] };
+  };
+
+  await bootSQLiteRuntime(
+    runtime,
+    "test-db",
+    "memory",
+    async () => "test-key",
+    () => {},
+  );
+
+  expect(
+    statements.some((sql) =>
+      sql.includes('INSERT INTO "local_schema_migrations"'),
+    ),
+  ).toBe(true);
+});
