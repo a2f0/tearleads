@@ -39,7 +39,8 @@ has the commands. Three checks hold the history:
   removes, or reorders a migration that exists on its base branch, or adds one
   that does not sort after the base's newest.
 - The schema drift test in [`packages/api-shared`](../../packages/api-shared/)
-  fails when `src/schema` differs from the newest migration snapshot.
+  fails when [`src/schema`](../../packages/api-shared/src/schema/) differs from
+  the newest migration snapshot.
 - `migrate` checks the applied history, as above.
 
 Deploys run `migrate` before publishing the Worker, and the previous Worker
