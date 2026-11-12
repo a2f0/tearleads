@@ -1,8 +1,7 @@
 import type { DocumentRow } from "@tearleads/client-sdk";
-import { useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import {
   type ContactAddressEditorState,
-  contactAddressPatch,
   transitionContactAddressEditor,
 } from "./contactAddressEditorMachine";
 import {
@@ -16,38 +15,46 @@ export interface ContactAddressEditorInput {
   disabled: boolean;
   isEditing: boolean;
   // Adapters must acknowledge persistence, not merely resolution of SDK calls.
-  onAddAddress: (fields: ContactAddressFields) => Promise<string | null>;
+  onAddAddress: (
+    fields: ContactAddressFields,
+    intent: object,
+    isCurrent?: () => boolean,
+  ) => Promise<string | null>;
   onUpdateAddress: (
     id: string,
     patch: Partial<ContactAddressFields>,
+    isCurrent?: () => boolean,
   ) => Promise<void>;
-  onRemoveAddress: (id: string) => Promise<void>;
+  onRemoveAddress: (id: string, isCurrent?: () => boolean) => Promise<void>;
 }
 
 async function applyAddressOperation(
   input: ContactAddressEditorInput,
   state: Extract<ContactAddressEditorState, { status: "saving" | "removing" }>,
+  isCurrent: () => boolean,
 ) {
   if (input.disabled || !input.isEditing || input.rows === undefined)
     throw new Error("Address editing is unavailable.");
-  if (state.status === "removing") return input.onRemoveAddress(state.id);
-  const { id, values, base } = state.draft;
+  if (state.status === "removing")
+    return input.onRemoveAddress(state.id, isCurrent);
+  const { id, values, intent, submitted } = state.draft;
   if (
     id !== null &&
     !input.rows.some((row) => row.id === id && isContactAddressRow(row))
   )
     throw new Error(
-      "This address is no longer available. Cancel to discard the draft.",
+      "This address is no longer available. Reload this contact to review its current state.",
     );
   if (id === null) {
     const fields = { ...values };
     for (const { key } of CONTACT_ADDRESS_FIELD_DESCRIPTORS)
       fields[key] = fields[key].trim();
-    if (!(await input.onAddAddress(fields)))
+    if (!(await input.onAddAddress(fields, intent, isCurrent)))
       throw new Error("Address was not saved. Please try again.");
   } else {
-    const patch = contactAddressPatch(base, values);
-    if (Object.keys(patch).length > 0) await input.onUpdateAddress(id, patch);
+    const patch = submitted ?? {};
+    if (Object.keys(patch).length > 0)
+      await input.onUpdateAddress(id, patch, isCurrent);
   }
 }
 
@@ -58,10 +65,25 @@ export function useContactAddressEditor(input: ContactAddressEditorInput) {
   const requestId = useRef(0);
   const latest = useRef(input);
   latest.current = input;
+  const mounted = useRef(true);
+  const isCurrent = useCallback(
+    () =>
+      mounted.current &&
+      !latest.current.disabled &&
+      latest.current.isEditing &&
+      latest.current.rows !== undefined,
+    [],
+  );
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   useEffect(() => {
     if (state.status !== "saving" && state.status !== "removing") return;
     let cancelled = false;
-    void applyAddressOperation(latest.current, state)
+    void applyAddressOperation(latest.current, state, isCurrent)
       .then(() => {
         if (!cancelled) dispatch({ type: "saved", requestId: state.requestId });
       })
@@ -79,7 +101,7 @@ export function useContactAddressEditor(input: ContactAddressEditorInput) {
     return () => {
       cancelled = true;
     };
-  }, [state]);
+  }, [isCurrent, state]);
   const writable =
     !input.disabled && input.isEditing && input.rows !== undefined;
   return {

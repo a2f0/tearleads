@@ -47,8 +47,54 @@ test("pending operations cannot be replaced or cancelled", () => {
   }
   expect(
     transition(removing, { type: "failed", requestId: 2, error: "Retry" }),
-  ).toEqual({ status: "idle", error: "Retry" });
+  ).toEqual({ status: "removeFailed", id: "stable-id", error: "Retry" });
   expect(transition(removing, { type: "saved", requestId: 2 })).toEqual(idle);
+});
+
+test("failed drafts retain their creation intent and cannot be silently discarded", () => {
+  const editing = transition(idle, { type: "edit", id: null, values });
+  if (editing.status !== "editing") throw new Error("Missing draft");
+  const saving = transition(editing, { type: "save", requestId: 1 });
+  const failed = transition(saving, {
+    type: "failed",
+    requestId: 1,
+    error: "Retry",
+  });
+  expect(transition(failed, { type: "cancel" })).toBe(failed);
+  const changed = transition(failed, {
+    type: "change",
+    key: "street",
+    value: "Edited",
+  });
+  if (changed.status !== "editing") throw new Error("Missing retry draft");
+  expect(changed.draft.intent).toBe(editing.draft.intent);
+  const retry = transition(changed, { type: "save", requestId: 2 });
+  const completed = transition(retry, { type: "saved", requestId: 2 });
+  const next = transition(completed, { type: "edit", id: null, values });
+  if (next.status !== "editing") throw new Error("Missing new draft");
+  expect(next.draft.intent).not.toBe(editing.draft.intent);
+});
+
+test("failed removals retain their target and only accept a retry for that row", () => {
+  const removing = transition(idle, {
+    type: "remove",
+    id: "row",
+    requestId: 1,
+  });
+  const failed = transition(removing, {
+    type: "failed",
+    requestId: 1,
+    error: "Retry",
+  });
+  expect(transition(failed, { type: "cancel" })).toBe(failed);
+  expect(transition(failed, { type: "edit", id: null, values })).toBe(failed);
+  expect(
+    transition(failed, { type: "remove", id: "other", requestId: 2 }),
+  ).toBe(failed);
+  const retry = transition(failed, { type: "remove", id: "row", requestId: 2 });
+  expect(retry).toEqual({ status: "removing", id: "row", requestId: 2 });
+  expect(transition(retry, { type: "saved", requestId: 1 })).toBe(retry);
+  expect(transition(retry, { type: "saved", requestId: 2 })).toEqual(idle);
 });
 
 test("cancelled forms cannot receive a stale completion", () => {

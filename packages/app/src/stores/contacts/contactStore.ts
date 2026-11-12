@@ -418,12 +418,18 @@ export function createContactsStore(
   connectContactsStoreToPersistedDocuments(state);
 
   return {
-    addContactAddress: (contactId, fields) =>
-      addContactAddressInStore(state, contactId, fields),
-    updateContactAddress: (contactId, addressId, patch) =>
-      updateContactAddressInStore(state, contactId, addressId, patch),
-    removeContactAddress: (contactId, addressId) =>
-      removeContactAddressInStore(state, contactId, addressId),
+    addContactAddress: (contactId, fields, intent, isCurrent) =>
+      addContactAddressInStore(state, contactId, fields, intent, isCurrent),
+    updateContactAddress: (contactId, addressId, patch, isCurrent) =>
+      updateContactAddressInStore(
+        state,
+        contactId,
+        addressId,
+        patch,
+        isCurrent,
+      ),
+    removeContactAddress: (contactId, addressId, isCurrent) =>
+      removeContactAddressInStore(state, contactId, addressId, isCurrent),
     createContact: (patch) => createContactFromRuntime(state, patch),
     ensureSelfContact: (input) => ensureSelfContactFromRuntime(state, input),
     getSnapshot: () => state.snapshot,

@@ -1,10 +1,10 @@
 import type { DocumentStore } from "@tearleads/client-sdk";
+import type { ContactAddressFields } from "../../document-types/contact/contactAddressModel";
 import {
-  CONTACT_ADDRESS_FIELD_DESCRIPTORS,
-  CONTACT_ADDRESS_ROW_TYPE,
-  type ContactAddressFields,
-  isContactAddressRow,
-} from "../../document-types/contact/contactAddressModel";
+  addContactAddressRow,
+  removeContactAddressRow,
+  updateContactAddressRow,
+} from "../documents/contactAddressWrites";
 import { ensureContactDocumentStore } from "./contactStoreInitialization";
 import { contactEntryFromDocumentStore } from "./contactStoreLookup";
 import { resolveContactWriteTarget } from "./contactStoreRemoteCleanup";
@@ -18,9 +18,11 @@ import {
 async function mutateAddress<T>(
   state: ContactsStoreState,
   contactId: string,
-  mutate: (store: DocumentStore) => Promise<T>,
+  mutate: (store: DocumentStore, current: () => boolean) => Promise<T>,
+  isCurrent: () => boolean = () => true,
 ): Promise<T> {
-  const current = captureAddressScope(state);
+  const scoped = captureAddressScope(state);
+  const current = () => scoped() && isCurrent();
   contactId = resolveContactWriteTarget(state, contactId);
   const result = state.writeChain
     .catch(() => undefined)
@@ -38,7 +40,14 @@ async function mutateAddress<T>(
       ) {
         throw new Error("Contact address target changed before saving.");
       }
-      const result = await mutate(store);
+      const result = await mutate(
+        store,
+        () =>
+          current() &&
+          state.entriesById.has(contactId) &&
+          state.entriesById.get(contactId)?.canWrite !== false &&
+          resolveContactWriteTarget(state, contactId) === contactId,
+      );
       if (!current())
         throw new Error("Contact address scope changed while saving.");
       const entry = contactEntryFromDocumentStore(contactId, store);
@@ -100,60 +109,19 @@ async function hydrateAddressTarget(
   }
 }
 
-function trimFields(
-  fields: Partial<ContactAddressFields>,
-): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(fields).map(([key, value]) => {
-      if (
-        !CONTACT_ADDRESS_FIELD_DESCRIPTORS.some((field) => field.key === key) ||
-        typeof value !== "string"
-      ) {
-        throw new Error("Invalid contact address field.");
-      }
-      return [key, value.trim()];
-    }),
-  );
-}
-
-function requireAddress(store: DocumentStore, addressId: string) {
-  const row = store.getSnapshot().rows.find((row) => row.id === addressId);
-  if (!row || !isContactAddressRow(row))
-    throw new Error("Contact address not found.");
-  return row;
-}
-
-function requireSaved(store: DocumentStore, matches: boolean): void {
-  // Row promises currently swallow SDK failures. A persisted snapshot plus no
-  // unsaved local edits is necessary before acknowledging the UI's save.
-  if (!matches || !store.getSnapshot().ready || store.hasUnsavedLocalEdits()) {
-    throw new Error("Contact address changes were not saved.");
-  }
-}
-
 export async function addContactAddressInStore(
   state: ContactsStoreState,
   contactId: string,
   fields: ContactAddressFields,
+  intent: object = {},
+  isCurrent?: () => boolean,
 ): Promise<string | null> {
-  const values = {
-    ...trimFields(fields),
-    recordType: CONTACT_ADDRESS_ROW_TYPE,
-  };
-  return mutateAddress(state, contactId, async (store) => {
-    const id = await store.addRow(values);
-    const row = store.getSnapshot().rows.find((row) => row.id === id);
-    requireSaved(
-      store,
-      Boolean(
-        row &&
-          Object.entries(values).every(
-            ([key, value]) => row.fields[key] === value,
-          ),
-      ),
-    );
-    return id;
-  });
+  return mutateAddress(
+    state,
+    contactId,
+    (store, current) => addContactAddressRow(store, fields, intent, current),
+    isCurrent,
+  );
 }
 
 export async function updateContactAddressInStore(
@@ -161,38 +129,27 @@ export async function updateContactAddressInStore(
   contactId: string,
   addressId: string,
   fields: Partial<ContactAddressFields>,
+  isCurrent?: () => boolean,
 ): Promise<void> {
-  const values = trimFields(fields);
-  await mutateAddress(state, contactId, async (store) => {
-    const row = requireAddress(store, addressId);
-    const patch = Object.fromEntries(
-      Object.entries(values).filter(
-        ([key, value]) => value !== (row.fields[key] ?? ""),
-      ),
-    );
-    if (Object.keys(patch).length)
-      await store.updateRowFields(addressId, patch);
-    const saved = requireAddress(store, addressId);
-    requireSaved(
-      store,
-      Object.entries(patch).every(
-        ([key, value]) => saved.fields[key] === value,
-      ),
-    );
-  });
+  await mutateAddress(
+    state,
+    contactId,
+    (store, current) =>
+      updateContactAddressRow(store, addressId, fields, current),
+    isCurrent,
+  );
 }
 
 export async function removeContactAddressInStore(
   state: ContactsStoreState,
   contactId: string,
   addressId: string,
+  isCurrent?: () => boolean,
 ): Promise<void> {
-  await mutateAddress(state, contactId, async (store) => {
-    requireAddress(store, addressId);
-    await store.removeRow(addressId);
-    requireSaved(
-      store,
-      !store.getSnapshot().rows.some((row) => row.id === addressId),
-    );
-  });
+  await mutateAddress(
+    state,
+    contactId,
+    (store, current) => removeContactAddressRow(store, addressId, current),
+    isCurrent,
+  );
 }

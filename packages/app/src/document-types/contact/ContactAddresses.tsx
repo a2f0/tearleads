@@ -31,7 +31,9 @@ export function ContactAddresses(props: ContactAddressesProps) {
   const addresses = props.rows?.filter(isContactAddressRow) ?? [];
   const detail = addresses.find((row) => row.id === detailId);
   const error =
-    state.status === "editing" || state.status === "idle" ? state.error : null;
+    state.status === "editing" || state.status === "removeFailed"
+      ? state.error
+      : null;
   return (
     <section aria-label="Addresses" className="contact-addresses">
       <h3>Addresses</h3>
@@ -58,6 +60,14 @@ export function ContactAddresses(props: ContactAddressesProps) {
         <MiniAppStatus role="alert" tone="error">
           {error}
         </MiniAppStatus>
+      ) : null}
+      {state.status === "removeFailed" ? (
+        <MiniAppButton
+          disabled={!editor.writable}
+          onClick={() => editor.remove(state.id)}
+        >
+          Retry address removal
+        </MiniAppButton>
       ) : null}
       <ContactAddressesEditor editor={editor} />
       {addresses.map((row) => (

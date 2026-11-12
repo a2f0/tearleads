@@ -49,11 +49,19 @@ export interface ContactsStore {
     contactId: string,
     addressId: string,
     patch: Partial<ContactAddressFields>,
+    isCurrent?: () => boolean,
   ) => Promise<void>;
-  removeContactAddress: (contactId: string, addressId: string) => Promise<void>;
+  removeContactAddress: (
+    contactId: string,
+    addressId: string,
+    isCurrent?: () => boolean,
+  ) => Promise<void>;
+  /** Reuse an opaque draft identity on retries; omission starts a new intent. */
   addContactAddress: (
     contactId: string,
     fields: ContactAddressFields,
+    intent?: object,
+    isCurrent?: () => boolean,
   ) => Promise<string | null>;
   createContact: (patch: ContactEntryPatch) => Promise<string | null>;
   ensureSelfContact: (input: EnsureSelfContactInput) => Promise<string | null>;

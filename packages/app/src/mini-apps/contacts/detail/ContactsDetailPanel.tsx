@@ -27,6 +27,7 @@ import type {
   ContactFieldKey,
   ContactFieldValues,
 } from "../../../document-types/contact/contactFieldDescriptors";
+import type { ContactAddressEditorInput } from "../../../document-types/contact/useContactAddressEditor";
 import { chromeOwnsRouteBackedDetailBack } from "../../../navigation/routeBackedDetailBack";
 import type { RowWriterResolver } from "../../../stores/documents/useDocumentRowWriters";
 import { CONTACTS_LABELS } from "../labels";
@@ -64,6 +65,23 @@ function toContactEntryPatch(
   value: string,
 ): ContactEntryPatch {
   return { [key]: value };
+}
+
+function addressEditorActions(
+  actions: ContactAddressActions,
+  contactId: string,
+): Pick<
+  ContactAddressEditorInput,
+  "onAddAddress" | "onUpdateAddress" | "onRemoveAddress"
+> {
+  return {
+    onAddAddress: (fields, intent, isCurrent) =>
+      actions.addContactAddress(contactId, fields, intent, isCurrent),
+    onUpdateAddress: (id, patch, isCurrent) =>
+      actions.updateContactAddress(contactId, id, patch, isCurrent),
+    onRemoveAddress: (id, isCurrent) =>
+      actions.removeContactAddress(contactId, id, isCurrent),
+  };
 }
 
 function ContactsSelectionState({
@@ -178,15 +196,7 @@ function ContactsSelectionState({
         isEditing={isEditing && selectedEntry.canWrite !== false}
         rows={selectedEntry.rows}
         resolveRowWriter={resolveAddressWriter}
-        onAddAddress={(fields) =>
-          addressActions.addContactAddress(selectedEntry.id, fields)
-        }
-        onUpdateAddress={(id, patch) =>
-          addressActions.updateContactAddress(selectedEntry.id, id, patch)
-        }
-        onRemoveAddress={(id) =>
-          addressActions.removeContactAddress(selectedEntry.id, id)
-        }
+        {...addressEditorActions(addressActions, selectedEntry.id)}
       />
       {selectedEntry.isSelf && <CopyMyIdentityLinkButton />}
     </MiniAppPanel>

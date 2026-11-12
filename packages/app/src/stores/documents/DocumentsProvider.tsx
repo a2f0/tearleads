@@ -24,6 +24,8 @@ import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearle
 export { DEFAULT_DOCUMENT_ID };
 
 export const DocumentContext = createContext<DocumentStore | null>(null);
+// Stable across ordinary snapshots, replaced for database/account/key changes.
+export const DocumentWriteScopeContext = createContext<object | null>(null);
 
 // A host-forced read-only flag, kept out of the SDK document snapshot because it
 // is a UI concern (e.g. the document lives in the Trash) rather than an
@@ -79,6 +81,26 @@ export function DocumentsProvider({
         : tearleads.documents.workflowRuntime(containerId),
     [containerId, tearleads],
   );
+  const writeScope = useMemo(
+    () => ({
+      domainScope: runtime.state.domainScope,
+      execSql: runtime.infra.execSql,
+      dbStatus: runtime.infra.dbStatus,
+      containerId: runtime.state.containerId,
+      userId: runtime.auth.userId,
+      isAuthenticated: runtime.auth.isAuthenticated,
+      signingFingerprint: runtime.crypto.signingFingerprint,
+    }),
+    [
+      runtime.state.domainScope,
+      runtime.infra.execSql,
+      runtime.infra.dbStatus,
+      runtime.state.containerId,
+      runtime.auth.userId,
+      runtime.auth.isAuthenticated,
+      runtime.crypto.signingFingerprint,
+    ],
+  );
   const store = useMemo(
     () =>
       tearleads.documents.open(
@@ -121,9 +143,11 @@ export function DocumentsProvider({
 
   return (
     <DocumentContext.Provider value={store}>
-      <DocumentReadOnlyContext.Provider value={readOnly}>
-        {children}
-      </DocumentReadOnlyContext.Provider>
+      <DocumentWriteScopeContext.Provider value={writeScope}>
+        <DocumentReadOnlyContext.Provider value={readOnly}>
+          {children}
+        </DocumentReadOnlyContext.Provider>
+      </DocumentWriteScopeContext.Provider>
     </DocumentContext.Provider>
   );
 }

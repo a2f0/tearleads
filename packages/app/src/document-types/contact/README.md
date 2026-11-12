@@ -22,6 +22,15 @@ Loro document is ready. Address contents are not indexed in that projection.
 Duplicate-self cleanup must preserve contacts containing rows, including rows
 that the current address editor does not recognize.
 
+Both adapters use the same
+[address writer](../../stores/documents/contactAddressWrites.ts). Add retries
+retain a per-draft identity rather than matching field values, so independent
+identical addresses remain distinct. A failed save may already have changed
+live Loro state: its draft is retained and cancellation is disabled until
+recovery. Failed removals keep a retry action even if the row disappears from
+the live snapshot. Navigating away is not a rollback. Success acknowledges
+local persistence, not remote synchronization.
+
 ## Attribution
 
 Each address's details show the last-editor attribution for its current cells,

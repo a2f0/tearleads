@@ -3,6 +3,7 @@ import {
   MiniAppButton,
   MiniAppField,
   MiniAppInput,
+  MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
 import { CONTACT_ADDRESS_FIELD_DESCRIPTORS } from "./contactAddressModel";
 import type { useContactAddressEditor } from "./useContactAddressEditor";
@@ -38,12 +39,18 @@ export function ContactAddressesEditor({
           </MiniAppField>
         ))}
       </div>
+      {state.draft.submitted !== null ? (
+        <MiniAppStatus>
+          Changes may already be applied locally. Retry to confirm they are
+          saved before closing this draft.
+        </MiniAppStatus>
+      ) : null}
       <MiniAppActions>
         <MiniAppButton type="submit" disabled={!writable || busy}>
           Save address
         </MiniAppButton>
         <MiniAppButton
-          disabled={busy}
+          disabled={busy || state.draft.submitted !== null}
           onClick={() => dispatch({ type: "cancel" })}
         >
           Cancel address editing

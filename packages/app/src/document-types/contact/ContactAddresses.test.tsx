@@ -42,12 +42,22 @@ function props(rows: ReadonlyArray<DocumentRow> | undefined = [address()]) {
     isEditing: false,
     currentAuthorId: "local-user",
     onAddAddress: mock(
-      async (_fields: ContactAddressFields) => "new-address" as string | null,
+      async (
+        _fields: ContactAddressFields,
+        _intent: object,
+        _isCurrent?: () => boolean,
+      ) => "new-address" as string | null,
     ),
     onUpdateAddress: mock(
-      async (_id: string, _patch: Partial<ContactAddressFields>) => undefined,
+      async (
+        _id: string,
+        _patch: Partial<ContactAddressFields>,
+        _isCurrent?: () => boolean,
+      ) => undefined,
     ),
-    onRemoveAddress: mock(async (_id: string) => undefined),
+    onRemoveAddress: mock(
+      async (_id: string, _isCurrent?: () => boolean) => undefined,
+    ),
   };
 }
 
@@ -97,9 +107,13 @@ test("editing patches the stable row ID without replaying remotely changed cells
   );
   fireEvent.click(view.getByRole("button", { name: "Save address" }));
   await waitFor(() =>
-    expect(input.onUpdateAddress).toHaveBeenCalledWith("address-home", {
-      street: "34 New Street",
-    }),
+    expect(input.onUpdateAddress).toHaveBeenCalledWith(
+      "address-home",
+      {
+        street: "34 New Street",
+      },
+      expect.any(Function),
+    ),
   );
   await waitFor(() =>
     expect(view.queryByLabelText("Street address")).toBeNull(),
@@ -139,6 +153,8 @@ test("adding requires address content and preserves a refused draft for retry", 
       postalCode: "00123",
       countryCode: "",
     },
+    expect.any(Object),
+    expect.any(Function),
   ]);
   finish(null);
   await waitFor(() =>
@@ -171,13 +187,12 @@ test("removing targets its stable ID and keeps failures visible", async () => {
       "Address could not be removed.",
     ),
   );
-  expect(input.onRemoveAddress).toHaveBeenCalledWith("work");
-  expect(view.getByRole("group", { name: "Home" })).toBeTruthy();
-  fireEvent.click(
-    within(view.getByRole("group", { name: "Work" })).getByRole("button", {
-      name: "Remove address",
-    }),
+  expect(input.onRemoveAddress).toHaveBeenCalledWith(
+    "work",
+    expect.any(Function),
   );
+  expect(view.getByRole("group", { name: "Home" })).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Retry address removal" }));
   await waitFor(() => expect(view.queryByRole("alert")).toBeNull());
   expect(input.onRemoveAddress).toHaveBeenCalledTimes(2);
 });

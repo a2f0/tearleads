@@ -1,99 +1,78 @@
-import type { DocumentRow, DocumentStore } from "@tearleads/client-sdk";
-import { useContext, useMemo, useRef } from "react";
+import type { DocumentStore } from "@tearleads/client-sdk";
+import { useContext, useEffect, useMemo, useRef } from "react";
+import {
+  addContactAddressRow,
+  removeContactAddressRow,
+  updateContactAddressRow,
+} from "../../stores/documents/contactAddressWrites";
 import {
   DocumentContext,
+  DocumentWriteScopeContext,
   useDocumentReadOnly,
 } from "../../stores/documents/DocumentsProvider";
-import {
-  CONTACT_ADDRESS_ROW_TYPE,
-  type ContactAddressFields,
-  isContactAddressRow,
-} from "./contactAddressModel";
+import type { ContactAddressFields } from "./contactAddressModel";
 
-const SAVE_FAILURE = "Address changes could not be saved. Please try again.";
-
-function createAddressActions(
-  store: DocumentStore,
-  isCurrentWritable: () => boolean,
-) {
-  function snapshot() {
-    const current = store.getSnapshot();
-    if (!isCurrentWritable() || !current.ready || !current.canWrite)
-      throw new Error(SAVE_FAILURE);
-    return current;
-  }
-  function existingAddress(id: string) {
-    const row = snapshot().rows.find((entry) => entry.id === id);
-    if (!row || !isContactAddressRow(row)) throw new Error(SAVE_FAILURE);
-    return row;
-  }
-  function acknowledged(
-    matches: (rows: ReadonlyArray<DocumentRow>) => boolean,
-  ) {
-    const current = snapshot();
-    if (store.hasUnsavedLocalEdits() || !matches(current.rows))
-      throw new Error(SAVE_FAILURE);
-  }
-  function matchesFields(
-    row: DocumentRow | undefined,
-    fields: Partial<ContactAddressFields>,
-  ) {
-    return (
-      row !== undefined &&
-      isContactAddressRow(row) &&
-      Object.entries(fields).every(([key, value]) => row.fields[key] === value)
-    );
-  }
+function createAddressActions(store: DocumentStore, current: () => boolean) {
   return {
-    onAddAddress: async (fields: ContactAddressFields) => {
-      snapshot();
-      const id = await store.addRow({
-        ...fields,
-        recordType: CONTACT_ADDRESS_ROW_TYPE,
-      });
-      acknowledged((rows) =>
-        matchesFields(
-          rows.find((row) => row.id === id),
-          fields,
-        ),
-      );
-      return id;
-    },
-    onUpdateAddress: async (
+    onAddAddress: (
+      fields: ContactAddressFields,
+      intent: object = {},
+      isCurrent: () => boolean = () => true,
+    ) =>
+      addContactAddressRow(
+        store,
+        fields,
+        intent,
+        () => current() && isCurrent(),
+      ),
+    onUpdateAddress: (
       id: string,
       patch: Partial<ContactAddressFields>,
-    ) => {
-      existingAddress(id);
-      await store.updateRowFields(id, patch);
-      acknowledged((rows) =>
-        matchesFields(
-          rows.find((row) => row.id === id),
-          patch,
-        ),
-      );
-    },
-    onRemoveAddress: async (id: string) => {
-      existingAddress(id);
-      await store.removeRow(id);
-      acknowledged((rows) => !rows.some((row) => row.id === id));
-    },
+      isCurrent: () => boolean = () => true,
+    ) =>
+      updateContactAddressRow(store, id, patch, () => current() && isCurrent()),
+    onRemoveAddress: (id: string, isCurrent: () => boolean = () => true) =>
+      removeContactAddressRow(store, id, () => current() && isCurrent()),
   };
 }
 
 export function useContactDocumentAddresses() {
   const store = useContext(DocumentContext);
   const readOnly = useDocumentReadOnly();
+  const writeScope = useContext(DocumentWriteScopeContext);
   const current = useRef({ store, readOnly });
-  const identity = useRef({ store, version: 0 });
-  if (identity.current.store !== store)
-    identity.current = { store, version: identity.current.version + 1 };
+  const identity = useRef({ store, writeScope, version: 0 });
+  if (
+    identity.current.store !== store ||
+    identity.current.writeScope !== writeScope
+  )
+    identity.current = {
+      store,
+      writeScope,
+      version: identity.current.version + 1,
+    };
   current.current = { store, readOnly };
+  const lifetime = useMemo(
+    () => ({ active: true, store, writeScope }),
+    [store, writeScope],
+  );
+  useEffect(() => {
+    lifetime.active = true;
+    return () => {
+      lifetime.active = false;
+    };
+  }, [lifetime]);
   const actions = useMemo(() => {
     if (!store) throw new Error("Contact addresses require a document store.");
+    const captured = identity.current;
     return createAddressActions(
       store,
-      () => current.current.store === store && !current.current.readOnly,
+      () =>
+        lifetime.active &&
+        identity.current === captured &&
+        current.current.store === store &&
+        !current.current.readOnly,
     );
-  }, [store]);
+  }, [lifetime, store]);
   return { actions, identityKey: identity.current.version };
 }

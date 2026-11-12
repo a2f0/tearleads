@@ -6,11 +6,14 @@ import {
 
 type AddressDraft = {
   id: string | null;
+  intent: object;
+  submitted: Partial<ContactAddressFields> | null;
   base: ContactAddressFields;
   values: ContactAddressFields;
 };
 export type ContactAddressEditorState =
-  | { status: "idle"; error?: string }
+  | { status: "idle" }
+  | { status: "removeFailed"; id: string; error: string }
   | { status: "removing"; id: string; requestId: number }
   | { status: "editing"; draft: AddressDraft; error: string | null }
   | { status: "saving"; draft: AddressDraft; requestId: number };
@@ -30,12 +33,20 @@ export function transitionContactAddressEditor(
 ): ContactAddressEditorState {
   switch (event.type) {
     case "cancel":
-      return state.status === "editing" ? { status: "idle" } : state;
+      return state.status === "editing" && state.draft.submitted === null
+        ? { status: "idle" }
+        : state;
     case "edit":
       return state.status === "idle"
         ? {
             status: "editing",
-            draft: { id: event.id, base: event.values, values: event.values },
+            draft: {
+              id: event.id,
+              intent: event,
+              submitted: null,
+              base: event.values,
+              values: event.values,
+            },
             error: null,
           }
         : state;
@@ -51,26 +62,12 @@ export function transitionContactAddressEditor(
           }
         : state;
     case "save":
-      if (state.status !== "editing") return state;
-      if (
-        !CONTACT_ADDRESS_FIELD_DESCRIPTORS.some(
-          ({ key }) => key !== "label" && state.draft.values[key].trim(),
-        )
-      ) {
-        return {
-          ...state,
-          error: "Enter at least one address field besides the label.",
-        };
-      }
-      return {
-        status: "saving",
-        draft: state.draft,
-        requestId: event.requestId,
-      };
+      return saveDraft(state, event.requestId);
     case "failed":
       return finishOperation(state, event);
     case "remove":
-      return state.status === "idle"
+      return state.status === "idle" ||
+        (state.status === "removeFailed" && state.id === event.id)
         ? { status: "removing", id: event.id, requestId: event.requestId }
         : state;
     case "saved":
@@ -82,6 +79,28 @@ export function transitionContactAddressEditor(
   }
 }
 
+function saveDraft(
+  state: ContactAddressEditorState,
+  requestId: number,
+): ContactAddressEditorState {
+  if (state.status !== "editing") return state;
+  if (
+    !CONTACT_ADDRESS_FIELD_DESCRIPTORS.some(
+      ({ key }) => key !== "label" && state.draft.values[key].trim(),
+    )
+  ) {
+    return {
+      ...state,
+      error: "Enter at least one address field besides the label.",
+    };
+  }
+  return {
+    status: "saving",
+    draft: { ...state.draft, submitted: retryPatch(state.draft) },
+    requestId: requestId,
+  };
+}
+
 function finishOperation(
   state: ContactAddressEditorState,
   event: Extract<EditorEvent, { type: "saved" | "failed" }>,
@@ -91,7 +110,18 @@ function finishOperation(
   if (event.type === "saved") return { status: "idle" };
   return state.status === "saving"
     ? { status: "editing", draft: state.draft, error: event.error }
-    : { status: "idle", error: event.error };
+    : { status: "removeFailed", id: state.id, error: event.error };
+}
+
+function retryPatch(draft: AddressDraft): Partial<ContactAddressFields> {
+  const patch = contactAddressPatch(draft.base, draft.values);
+  // A failed write may already live in Loro. Include previously submitted cells
+  // even if the user reverted them to their original values before retrying.
+  for (const { key } of CONTACT_ADDRESS_FIELD_DESCRIPTORS) {
+    if (draft.submitted && key in draft.submitted)
+      patch[key] = draft.values[key].trim();
+  }
+  return patch;
 }
 
 export function contactAddressPatch(
