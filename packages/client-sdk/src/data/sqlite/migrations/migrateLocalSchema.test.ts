@@ -1,10 +1,15 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { resetConnectionSchemaMemo } from "../sqlExec";
+import {
+  resetConnectionSchemaMemo,
+  runSerializedSqlMutation,
+} from "../sqlExec";
+import { getClientSQLitePersistenceRuntime } from "../sqlitePersistenceRuntime";
 import { ensureSqlTables, type SqlTableSchema } from "../sqlTableSchema";
 import type { LocalSchemaMigration } from "./localSchemaMigrations";
 import {
   assertRestorableLocalSchemaLedger,
+  ensureLocalSchemaMigrated,
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
   migrateLocalSchema,
 } from "./migrateLocalSchema";
@@ -267,6 +272,26 @@ test("another tab on the same handle waits for a migration to roll back before i
     uninstall();
   }
 });
+
+test("a connection migrated up front keeps its ledger when a later transaction rolls back", () =>
+  withDatabase("local-schema-boot", async (execSql) => {
+    await execSql(
+      'CREATE TABLE "notes" ("id" TEXT PRIMARY KEY NOT NULL, "title" TEXT)',
+    );
+    // What a host does at boot, before any feature opens a transaction.
+    await ensureLocalSchemaMigrated(execSql);
+    await expect(
+      runSerializedSqlMutation(execSql, (lockedExecSql) =>
+        getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+          async () => {
+            await ensureSqlTables(lockedExecSql, [notesTable]);
+            throw new Error("rolled back");
+          },
+        ),
+      ),
+    ).rejects.toThrow("rolled back");
+    expect(await ledger(execSql)).toEqual(["1:baseline"]);
+  }));
 
 test("a database written by a newer build is refused without changes", () =>
   withDatabase("local-schema-ahead", async (execSql) => {

@@ -42,6 +42,7 @@ export {
   defineSqlTableSchema,
   type ExecSql,
   type ExecSqlClientLike,
+  ensureLocalSchemaMigrated,
   ensureSqlTables,
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
   resetConnectionSchemaMemo,

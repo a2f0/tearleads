@@ -1,5 +1,6 @@
 export {
   assertRestorableLocalSchemaLedger,
+  ensureLocalSchemaMigrated,
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
 } from "./migrations/migrateLocalSchema";
 export type {

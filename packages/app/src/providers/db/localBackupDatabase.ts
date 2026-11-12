@@ -1,6 +1,7 @@
 import {
   assertRestorableLocalSchemaLedger,
   type ExecSql,
+  ensureLocalSchemaMigrated,
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
   resetConnectionSchemaMemo,
   runSerializedSqlMutation,
@@ -301,5 +302,8 @@ export async function restoreBackupDatabase(input: {
       // its schema ensures.
       resetConnectionSchemaMemo(input.execSql);
     }
+    // Bring an older backup to this build's schema now, outside any
+    // transaction, as boot does.
+    await ensureLocalSchemaMigrated(execSql);
   });
 }

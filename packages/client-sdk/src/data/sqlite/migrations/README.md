@@ -39,7 +39,11 @@ So that no tab reads another tab's uncommitted ledger as current and writes
 rows a failed migration then rolls back, each connection's migration check
 holds the `tearleads-local-schema-migration` Web Lock until its migration
 commits or rolls back. Hosts without Web Locks have no second tab on the
-handle.
+handle. Inside a feature's transaction a migration would release that lock
+before anything is durable, so a host that shares the database between tabs
+calls `ensureLocalSchemaMigrated` before any feature runs: the app does at
+boot and after a backup restore. Every later ensure on the connection then
+finds the migration done.
 
 ## Adding a step
 
