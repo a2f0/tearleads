@@ -24,7 +24,9 @@ impossible states or scattered transitions, and proves behavior did not change.
 lifecycle booleans toggled together (`isLoading`, `hasError`,
 `_running`, `busy.current`, `this.#rendered`), and status-like fields assigned
 three or more string values from three or more places (`step.status = ...`).
-It reads extensionless scripts by their shebang and is read-only.
+It reads extensionless scripts by their shebang and is read-only. It skips
+SQL comparisons, status fields whose every write is an `UPDATE` naming its
+from-state, and enum case payload labels (`.ended(shouldResume: true)`).
 
 - `agent-tool state-machines [path...] [--limit N] [--min-score N] [--json]`
   scans the current repository; each path names the repository holding it.
@@ -53,6 +55,10 @@ wizards, CLI subcommands that resume):
   may set any value), in the database or in API handlers.
 - Shell, Python, or Expect scripts that track progress with several
   variables.
+- One nullable `error` shared by a load phase and user actions: starting an
+  action clears the load's failure, so the view falls back to "Loading..."
+  after a failed load. Split a `loading | ready | failed` load machine from
+  the actions' own errors.
 
 ## Decide what to convert
 
@@ -92,6 +98,14 @@ module is about to be deleted. Also leave alone:
   two clicks start the work twice.
 - Flags in different components (a parent's `editing`, and `busy` in a child
   that only exists while editing): the mount already excludes the bad pair.
+- Latest-wins request counters with one writer (`++request` paired with
+  `request === current`): already the recommended guard, not a machine.
+- A one-time focus-return ref written together with the close event.
+- A single set-once setup flag (`isConfigured`).
+- A memoized single teardown promise (`closing ??= teardown()`) with a
+  one-way `closed` flag only that teardown sets.
+- A boolean that is only an event's payload field
+  (`interruptionEnded(shouldResume:)`): it is part of an event, not state.
 
 Record each one you leave and why, so the next pass does not reread it.
 
