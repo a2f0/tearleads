@@ -3,10 +3,9 @@ import {
   type FormEvent,
   type PropsWithChildren,
   useEffect,
-  useLayoutEffect,
-  useRef,
   useState,
 } from "react";
+import { AccountBootstrapProgressContext } from "../components/identity/AccountBootstrapLoadingPanel";
 import {
   MiniAppButton,
   MiniAppField,
@@ -46,9 +45,13 @@ export function resolveMiniAppAccessGateState({
     return "ready";
   }
 
-  // Automatic provisioning owns the surface before keys exist and until the
-  // account is ready; a missing key during that work needs no manual setup.
-  if (accountBootstrapping || !localIdentityRestoreSettled) {
+  // Progress replaces manual setup while keys are being prepared. Once keys
+  // exist, each app owns its loading surface so stalled account provisioning
+  // cannot block local content or unmount an editor during a retry.
+  if (
+    !localIdentityRestoreSettled ||
+    (accountBootstrapping && !hasSigningKeyPair)
+  ) {
     return "loading";
   }
 
@@ -65,28 +68,22 @@ export function LocalKeyringUnlockGate({
 }>) {
   const lock = useLocalKeyringLock();
   const progress = useAccountBootstrapProgress();
-  const hasRenderedContent = useRef(false);
   const { generateKey, localIdentityRestoreSettled, signingKeyPair } =
     useIdentity();
   const gateState = resolveMiniAppAccessGateState({
-    // Pending prerequisites count on first entry: waiting until registration
-    // is running would flash content between key creation and registration.
-    // Terminal failures are already excluded by the shared phase resolver.
-    accountBootstrapping: progress !== null && !hasRenderedContent.current,
+    accountBootstrapping: progress !== null,
     hasSigningKeyPair: signingKeyPair !== null,
     isLocked: lock.isLocked,
     localIdentityRestoreSettled,
     requireLocalIdentity,
   });
 
-  useLayoutEffect(() => {
-    // Only committed app content counts, not an unlock/setup screen or an
-    // abandoned render. A later registration retry must preserve local drafts.
-    if (gateState === "ready") hasRenderedContent.current = true;
-  }, [gateState]);
-
   if (gateState === "ready") {
-    return children;
+    return (
+      <AccountBootstrapProgressContext.Provider value={progress}>
+        {children}
+      </AccountBootstrapProgressContext.Provider>
+    );
   }
 
   if (gateState === "loading") {

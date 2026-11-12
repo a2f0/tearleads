@@ -4,9 +4,9 @@ import {
   getUntitledDocumentTitle,
 } from "@tearleads/client-sdk";
 import { type MouseEvent, useEffect } from "react";
+import { AccountBootstrapLoadingPanel } from "../../components/identity/AccountBootstrapLoadingPanel";
 import {
   MiniAppSidebar,
-  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
 import {
@@ -93,7 +93,7 @@ function NotesList({
     <>
       {!ready ? (
         bleed ? (
-          <MiniAppStatePanel busy title={NOTES_LABELS.sidebarLoading} />
+          <AccountBootstrapLoadingPanel title={NOTES_LABELS.sidebarLoading} />
         ) : (
           <MiniAppStatus busy className="notes-sidebar-status">
             {NOTES_LABELS.sidebarLoading}

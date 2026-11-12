@@ -1,13 +1,11 @@
-import {
-  MiniAppRoot,
-  MiniAppStatePanel,
-} from "../../components/mini-app/MiniAppLayout";
+import { AccountBootstrapLoadingPanel } from "../../components/identity/AccountBootstrapLoadingPanel";
+import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
 import { NOTES_LABELS } from "./labels";
 
 export function NotesEmptyState() {
   return (
     <MiniAppRoot padding="none">
-      <MiniAppStatePanel busy title={NOTES_LABELS.emptyStateLoading} />
+      <AccountBootstrapLoadingPanel title={NOTES_LABELS.emptyStateLoading} />
     </MiniAppRoot>
   );
 }

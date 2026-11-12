@@ -1,8 +1,8 @@
 import type { BlobStore } from "@tearleads/client-sdk";
 import type { MouseEvent, ReactNode } from "react";
+import { AccountBootstrapLoadingPanel } from "../../components/identity/AccountBootstrapLoadingPanel";
 import {
   MiniAppSidebar,
-  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
 import {
@@ -97,7 +97,7 @@ function ContactsList({
 
   if (!ready) {
     return bleed ? (
-      <MiniAppStatePanel busy title="Loading contacts..." />
+      <AccountBootstrapLoadingPanel title="Loading contacts..." />
     ) : (
       <MiniAppStatus busy>Loading...</MiniAppStatus>
     );

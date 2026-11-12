@@ -60,7 +60,7 @@ test("lock-only mini-app access stays available before local identity setup", ()
   ).toBe("unlock");
 });
 
-test("provisioning progress covers key generation and account registration", () => {
+test("provisioning progress covers key generation without blocking usable local keys", () => {
   for (const hasSigningKeyPair of [false, true]) {
     expect(
       resolveMiniAppAccessGateState({
@@ -69,6 +69,6 @@ test("provisioning progress covers key generation and account registration", () 
         isLocked: false,
         localIdentityRestoreSettled: true,
       }),
-    ).toBe("loading");
+    ).toBe(hasSigningKeyPair ? "ready" : "loading");
   }
 });

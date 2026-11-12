@@ -9,6 +9,7 @@ import {
   useWindowTitleBarAction,
 } from "@tearleads/windowing";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { AccountBootstrapLoadingPanel } from "../../../components/identity/AccountBootstrapLoadingPanel";
 import { CopyMyIdentityLinkButton } from "../../../components/identity/CopyMyIdentityLinkButton";
 import {
   MiniAppField,
@@ -17,7 +18,6 @@ import {
   MiniAppHeaderCopy,
   MiniAppInput,
   MiniAppPanel,
-  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useMiniAppDetailBackAction } from "../../../components/mini-app/useMiniAppDetailBackAction";
@@ -122,7 +122,9 @@ function ContactsSelectionState({
 
   if (!selectedEntry) {
     if (!ready) {
-      return <MiniAppStatePanel busy title={CONTACTS_LABELS.loadingState} />;
+      return (
+        <AccountBootstrapLoadingPanel title={CONTACTS_LABELS.loadingState} />
+      );
     }
 
     return (

@@ -13,10 +13,8 @@ import type {
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { MouseEvent } from "react";
-import {
-  MiniAppStatePanel,
-  MiniAppStatus,
-} from "../../../components/mini-app/MiniAppLayout";
+import { AccountBootstrapLoadingPanel } from "../../../components/identity/AccountBootstrapLoadingPanel";
+import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import type { ExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
@@ -52,7 +50,7 @@ function ExplorerEmptyDetail(params: {
   // (every route is non-functional without the DB), so this only covers the
   // healthy idle/empty/select states.
   if (!ready) {
-    return <MiniAppStatePanel busy title="Loading your workspace" />;
+    return <AccountBootstrapLoadingPanel title="Loading your workspace" />;
   }
 
   return (
