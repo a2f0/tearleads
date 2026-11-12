@@ -135,3 +135,50 @@ test("a backup from before the ledger restores at the baseline and records it on
     target.close();
   }
 });
+
+test("restore refuses a backup that lists a table twice before replacing data", async () => {
+  const source = await createTestExecSql("backup-ledger-duplicate-source");
+  const target = await createTestExecSql("backup-ledger-duplicate-target");
+  try {
+    await ensureSqlTables(source.execSql, [notesTable]);
+    const backup = await backupOf(source.execSql);
+    const ledgerTable = backup.database.tables.find(
+      ({ name }) => name === LOCAL_SCHEMA_MIGRATIONS_TABLE,
+    );
+    if (!ledgerTable) throw new Error("backup has no ledger");
+    // The first copy passes the ledger check; the second would restore a
+    // newer build's step into the same table.
+    const duplicate = {
+      ...ledgerTable,
+      rows: [{ applied_at: 0, name: "future", version: 2 }],
+      sql: ledgerTable.sql.replace(
+        "CREATE TABLE",
+        "CREATE TABLE IF NOT EXISTS",
+      ),
+    };
+    await ensureSqlTables(target.execSql, [notesTable]);
+    await target.execSql("INSERT INTO notes VALUES ('current-note')");
+    await expect(
+      restoreBackupPayload({
+        blobStore: createMemoryBlobStore(),
+        execSql: target.execSql,
+        securityIncidents: unexpectedSecurityIncidents,
+        payload: {
+          ...backup,
+          database: {
+            ...backup.database,
+            tables: [...backup.database.tables, duplicate],
+          },
+        },
+      }),
+    ).rejects.toThrow(
+      `Backup schema lists table ${LOCAL_SCHEMA_MIGRATIONS_TABLE} more than once.`,
+    );
+    expect(await target.execSql("SELECT id FROM notes")).toEqual([
+      { id: "current-note" },
+    ]);
+  } finally {
+    source.close();
+    target.close();
+  }
+});
