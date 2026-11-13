@@ -24,8 +24,11 @@ test("designed wallpapers switch, persist, and leave legacy choices reachable", 
   const wallpaper = page
     .locator(".pane:not(.pane-hidden) .desktop-wallpaper")
     .first();
-  await expect(wallpaper).toHaveAttribute("data-wallpaper", "tidal");
+  await expect(wallpaper).toHaveAttribute("data-wallpaper", "honeycomb");
   const display = await openDisplayProperties(page);
+  await expect(
+    display.getByRole("radio", { name: "Honeycomb", exact: true }),
+  ).toBeChecked();
   const choices = [
     ["Facet", "facet"],
     ["Tidal", "tidal"],
@@ -135,6 +138,7 @@ test("the desktop and its swatches render grayscale in Light and Dark, tinted in
   await page.setViewportSize({ width: 1400, height: 900 });
   await openWindowedDesktop(page);
   const display = await openDisplayProperties(page);
+  await display.getByText("Tidal", { exact: true }).click();
   const wallpaper = page
     .locator(".pane:not(.pane-hidden) .desktop-wallpaper")
     .first();
@@ -169,7 +173,15 @@ test("the desktop and its swatches render grayscale in Light and Dark, tinted in
   }
 });
 
-for (const id of ["blocks", "honeycomb", "triangles", "plain"]) {
+for (const id of [
+  "tidal",
+  "facet",
+  "loom",
+  "blocks",
+  "honeycomb",
+  "triangles",
+  "plain",
+]) {
   test(`an existing ${id} preference is not replaced by the new default`, async ({
     page,
   }) => {
@@ -224,7 +236,7 @@ test("the wallpaper paints beneath the pinned System Monitor", async ({
 
   const pane = page.locator(".pane:not(.pane-hidden)").first();
   const wallpaper = pane.locator(".pane-main > .desktop-wallpaper");
-  await expect(wallpaper).toHaveAttribute("data-wallpaper", "tidal");
+  await expect(wallpaper).toBeVisible();
   const status = pane.locator(".pane-main > .pane-content").first();
   await expect(status).toBeVisible();
 
