@@ -250,12 +250,9 @@ export function useVerifyPinCodeAction(
         });
         return !signal?.aborted && verified;
       } catch (error) {
-        // A wrong PIN returns false; only storage/keystore failures reach here.
-        // A cancelled privacy-screen attempt must not report a stale failure.
-        if (!signal?.aborted) {
-          reportLockFailure(environment, error);
-        }
-        return false;
+        if (signal?.aborted) return false;
+        reportLockFailure(environment, error);
+        throw error;
       }
     },
     [environment],
@@ -271,7 +268,9 @@ export function useUnlockAction(input: {
   const verify = useVerifyPinCodeAction(environment);
   return useCallback(
     async (pinCode: string): Promise<boolean> => {
-      if (!(await verify(pinCode))) {
+      try {
+        if (!(await verify(pinCode))) return false;
+      } catch {
         return false;
       }
 

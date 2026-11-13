@@ -71,6 +71,9 @@ The animation is inert and hidden from assistive technology; the dialog
 announces "Screensaver" and the exit or unlock instruction. Focus returns to the
 previous connected element unless the host has moved it elsewhere. Existing
 body inertness is restored, not unconditionally removed.
+The PIN form receives normal DOM events. Host-level capture listeners must
+ignore modal input or suspend global shortcuts while `isActive` is true;
+page inertness does not disable document/window event listeners.
 
 ## PIN unlock
 

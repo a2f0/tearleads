@@ -7,6 +7,7 @@ import { cleanup, renderHook } from "@testing-library/react";
 import { createFakeIndexedDb } from "../../../test/helpers/fakeIndexedDb";
 import {
   useDynamicLocalKeyringFactory,
+  useUnlockAction,
   useVerifyPinCodeAction,
 } from "./localKeyringLockActions";
 import type {
@@ -63,7 +64,7 @@ test("verify-only respects cancellation and reports only live storage failures",
     expect(load).not.toHaveBeenCalled();
     expect(captureError).not.toHaveBeenCalled();
 
-    await expect(view.result.current("824913")).resolves.toBe(false);
+    await expect(view.result.current("824913")).rejects.toBe(failure);
     expect(load).toHaveBeenCalledTimes(1);
     expect(captureError).toHaveBeenCalledWith(failure, {
       area: "app",
@@ -80,6 +81,25 @@ test("verify-only respects cancellation and reports only live storage failures",
     await expect(verification).resolves.toBe(false);
     expect(load).toHaveBeenCalledTimes(2);
     expect(captureError).toHaveBeenCalledTimes(1);
+
+    const setLockState = mock(() => {});
+    const setUnlockedPinCode = mock(() => {});
+    const unlock = renderHook(() =>
+      useUnlockAction({
+        environment: {
+          ...ENVIRONMENT,
+          diagnostics: { addBreadcrumb: () => {}, captureError },
+          manifestStore,
+        },
+        setLockState,
+        setUnlockedPinCode,
+      }),
+    );
+    await expect(unlock.result.current("824913")).resolves.toBe(false);
+    expect(load).toHaveBeenCalledTimes(3);
+    expect(captureError).toHaveBeenCalledTimes(2);
+    expect(setLockState).not.toHaveBeenCalled();
+    expect(setUnlockedPinCode).not.toHaveBeenCalled();
   } finally {
     load.mockRestore();
     if (hadIndexedDB) Reflect.set(globalThis, "indexedDB", originalIndexedDB);
