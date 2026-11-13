@@ -232,9 +232,9 @@ Contacts and Roster accept identity links for manual onboarding (Add by
 Identity Link), and a group's add-member field accepts a pasted link for a user
 who is not in the roster. The Contacts route retains the token through unlock,
 registration, and sign-in; importing requires an explicit Verify and Add
-action. Contacts (on your own entry and the compact list) and Org Manager
-expose Share my identity link. Native hosts use the corresponding production or
-staging web app; custom deployments may configure
+action. Contacts (on your own entry and the compact list), Identity Manager,
+and Org Manager expose Copy identity link. Native hosts use the corresponding
+production or staging web app; custom deployments may configure
 `AppHostConfig.identityLinkWebUrl`, which sharing requires on a native host
 with another API. Opening a received link works without it.
 
