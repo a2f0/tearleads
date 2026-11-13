@@ -1,5 +1,6 @@
 ---
 import accessKeyingSvg from "../../../../docs/diagrams/access-and-keying.svg?raw";
+import durableObjectsSvg from "../../../../docs/diagrams/durable-objects.svg?raw";
 import infrastructureSvg from "../../../../docs/diagrams/infrastructure.svg?raw";
 import DocsDiagram from "../components/DocsDiagram.astro";
 import PageHeader from "../components/PageHeader.astro";
@@ -197,6 +198,12 @@ const zanzibarPaperUrl =
           short-lived presigned URLs. The
           <a class="site-link" href={sourceUrl("docs/developer/infrastructure.md")}>infrastructure guide</a>
           describes each stack and deployment step.
+        </DocsDiagram>
+        <DocsDiagram svg={durableObjectsSvg} label="Durable Objects diagram" captionId="durable-objects-caption">
+          <span class="security-figure-label">Fig. 5</span> The two Durable Objects
+          from Fig. 4 in detail. KeyValueStore holds sessions, sign-in challenges,
+          and WebSocket tickets; RealtimeHub holds each open socket's verified
+          routing state so sockets survive hibernation.
         </DocsDiagram>
       </section>
 

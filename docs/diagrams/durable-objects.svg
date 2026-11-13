@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="944" viewBox="0 0 600 944" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>Tearleads Durable Objects</title>
+  <defs>
+    <marker id="durable-objects-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" class="arrowhead"/>
+    </marker>
+    <style>
+      .sub { font-size: 13.5px; fill: #4b5563; }
+      .colhead { font-size: 13px; font-weight: 600; fill: #111827; letter-spacing: 0.04em; text-transform: uppercase; }
+      .lane { font-size: 15px; font-weight: 600; fill: #111827; }
+      .lanesub { font-size: 12px; fill: #6b7280; }
+      .box { fill: #ffffff; stroke: #4b5563; stroke-width: 1.25; }
+      .name { font-size: 14px; font-weight: 600; fill: #111827; }
+      .meta { font-size: 12px; fill: #4b5563; }
+      .mono { font-size: 12px; fill: #374151; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .edge { fill: none; stroke: #4b5563; stroke-width: 1.25; }
+      .elabel { font-size: 12px; fill: #374151; }
+      .foot { font-size: 13px; fill: #374151; }
+      .foothead { font-size: 13px; font-weight: 600; fill: #111827; }
+      .canvas { fill: #ffffff; }
+      .band { fill: #f8fafc; }
+      .rule { stroke: #d1d5db; stroke-width: 1; }
+      .arrowhead { fill: #4b5563; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="600" height="944" class="canvas"/>
+
+  <!-- Lane bands: each lane is named at its top left -->
+  <rect x="0" y="36" width="600" height="150" class="band"/>
+  <rect x="0" y="186" width="600" height="264" class="canvas"/>
+  <rect x="0" y="450" width="600" height="312" class="band"/>
+  <g class="rule">
+    <line x1="0" y1="36" x2="600" y2="36"/>
+    <line x1="0" y1="186" x2="600" y2="186"/>
+    <line x1="0" y1="450" x2="600" y2="450"/>
+    <line x1="0" y1="762" x2="600" y2="762"/>
+  </g>
+
+  <!-- Heading -->
+  <text x="16" y="28" class="colhead">Durable Objects</text>
+  <text x="180" y="28" class="sub">one SQLite-backed instance of each per tier</text>
+
+  <!-- Lane labels -->
+  <text x="16" y="58" class="lane">API Worker</text>
+  <text x="16" y="76" class="lanesub">the request isolates that call each object</text>
+  <text x="16" y="208" class="lane">Durable Objects</text>
+  <text x="16" y="226" class="lanesub">SQLite storage</text>
+  <text x="16" y="472" class="lane">Stored values</text>
+  <text x="16" y="490" class="lanesub">what the API writes into each object</text>
+
+  <!-- ============ API WORKER ============ -->
+  <rect x="16" y="88" width="260" height="72" rx="4" class="box"/>
+  <text x="28" y="108" class="name">HTTP routes</text>
+  <text x="28" y="126" class="meta">challenges, sign-in, session checks,</text>
+  <text x="28" y="142" class="meta">sign-out, WebSocket ticket minting</text>
+
+  <rect x="332" y="88" width="252" height="72" rx="4" class="box"/>
+  <text x="344" y="108" class="name">Realtime entry points</text>
+  <text x="344" y="126" class="meta">GET /events upgrades are forwarded;</text>
+  <text x="344" y="142" class="meta">committed writes publish hints</text>
+
+  <path d="M200,160 V240" class="edge" marker-end="url(#durable-objects-arrow)"/>
+  <text x="210" y="206" class="elabel">RPC: string and set</text>
+  <text x="210" y="222" class="elabel">operations with TTL</text>
+
+  <path d="M458,160 V240" class="edge" marker-end="url(#durable-objects-arrow)"/>
+  <text x="468" y="206" class="elabel">fetch: WebSocket</text>
+  <text x="468" y="222" class="elabel">RPC: publish</text>
+
+  <!-- ============ DURABLE OBJECTS ============ -->
+  <rect x="16" y="244" width="260" height="190" rx="4" class="box"/>
+  <text x="28" y="264" class="name">KeyValueStore</text>
+  <text x="28" y="282" class="mono">idFromName("default")</text>
+  <text x="28" y="300" class="meta">every call runs one at a time, so</text>
+  <text x="28" y="316" class="meta">GETDEL and SET XX KEEPTTL are atomic</text>
+  <text x="28" y="342" class="mono">entries(key, value, expires_at)</text>
+  <text x="28" y="360" class="mono">set_keys(key, expires_at)</text>
+  <text x="28" y="378" class="mono">set_members(key, member)</text>
+  <text x="28" y="402" class="meta">alarm: hourly expired-row sweep</text>
+  <text x="28" y="418" class="meta">reads also skip expired rows</text>
+
+  <rect x="332" y="244" width="252" height="190" rx="4" class="box"/>
+  <text x="344" y="264" class="name">RealtimeHub</text>
+  <text x="344" y="282" class="mono">idFromName("hub")</text>
+  <text x="344" y="300" class="meta">placed in eastern North America;</text>
+  <text x="344" y="316" class="meta">holds every open WebSocket</text>
+  <text x="344" y="342" class="mono">realtime_socket_chunks</text>
+  <text x="344" y="360" class="mono">(id, part, snapshot)</text>
+  <text x="344" y="378" class="meta">attachment: socket, user, session ids</text>
+  <text x="344" y="402" class="meta">alarm: the next recheck deadline</text>
+  <text x="344" y="418" class="meta">queues and routing stay in memory</text>
+
+  <!-- The hub consumes tickets and rechecks sessions in KeyValueStore -->
+  <path d="M332,320 H280" class="edge" marker-end="url(#durable-objects-arrow)"/>
+  <text x="304" y="296" class="elabel" text-anchor="middle">tickets,</text>
+  <text x="304" y="312" class="elabel" text-anchor="middle">sessions</text>
+
+  <!-- ============ STORED VALUES ============ -->
+  <rect x="16" y="504" width="260" height="242" rx="4" class="box"/>
+  <text x="28" y="524" class="name">KeyValueStore keys</text>
+  <text x="28" y="546" class="mono">session:&lt;bearer token&gt;</text>
+  <text x="28" y="562" class="meta">session id, user id, fingerprint,</text>
+  <text x="28" y="578" class="meta">IP addresses, activity times; 24 h</text>
+  <text x="28" y="600" class="mono">session-id:&lt;session id&gt;</text>
+  <text x="28" y="616" class="meta">the session's bearer token; 24 h</text>
+  <text x="28" y="638" class="mono">user-sessions:&lt;user id&gt;</text>
+  <text x="28" y="654" class="meta">set of the user's session ids; 24 h</text>
+  <text x="28" y="676" class="mono">challenge:&lt;fingerprint&gt;</text>
+  <text x="28" y="692" class="meta">sign-in challenge; 60 s, read once</text>
+  <text x="28" y="714" class="mono">ws-ticket:&lt;ticket&gt;</text>
+  <text x="28" y="730" class="meta">user, session ids; 60 s, read once</text>
+
+  <rect x="332" y="504" width="252" height="242" rx="4" class="box"/>
+  <text x="344" y="524" class="name">Socket snapshot</text>
+  <text x="344" y="546" class="mono">proofs</text>
+  <text x="344" y="562" class="meta">a container id, the container ids</text>
+  <text x="344" y="578" class="meta">on its path, and the principals</text>
+  <text x="344" y="594" class="meta">that authorized the interest</text>
+  <text x="344" y="616" class="mono">verifiedAt, nextCheckAt</text>
+  <text x="344" y="632" class="meta">proof check time and next recheck</text>
+  <text x="344" y="654" class="mono">session</text>
+  <text x="344" y="670" class="meta">last confirmed live, next check</text>
+  <text x="344" y="692" class="mono">organization</text>
+  <text x="344" y="708" class="meta">organization id and whether it is</text>
+  <text x="344" y="724" class="meta">authorized, or null</text>
+
+  <!-- ============ FOOTER ============ -->
+  <text x="16" y="794" class="foothead">Notes</text>
+  <g class="foot">
+    <text x="16" y="818">Neither object stores content, encryption keys, or ciphertext. Session keys</text>
+    <text x="16" y="836">embed bearer tokens, so this storage is as sensitive as a sign-in.</text>
+    <text x="16" y="860">Losing KeyValueStore ends every session; losing RealtimeHub closes its</text>
+    <text x="16" y="878">sockets, and clients reconnect with a new ticket.</text>
+    <text x="16" y="902">A greenfield reset deletes both namespaces through the maintenance Worker;</text>
+    <text x="16" y="920">a normal deploy keeps their storage.</text>
+  </g>
+</svg>
