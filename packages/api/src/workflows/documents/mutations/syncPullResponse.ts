@@ -80,7 +80,9 @@ export async function listMissingSyncUpdatesForResponse(input: {
     documentId: input.documentId,
     executor: input.executor,
     localVersionVector: input.request.localVersionVector,
-    minLsn: input.request.minLsn,
+    // The paged sync already checked this transaction before freezing its
+    // upper bound. The unpaged reader still needs its sole assertion.
+    minLsn: effectivePullPagePlan === null ? input.request.minLsn : undefined,
     ...(effectivePullPagePlan === null
       ? {}
       : { pullPage: effectivePullPagePlan }),

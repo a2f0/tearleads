@@ -1,10 +1,12 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
 import { createTestUser } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+  parseWalLsn,
 } from "@tearleads/validators/util";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
@@ -13,7 +15,14 @@ import {
   createDocument,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { routeApp } from "../../routeApp";
+import {
+  commitLsnEvents,
+  traceSyncQueries,
+  updateUpperBoundIndex,
+} from "../../../test/helpers/syncQueryTrace";
+import { readCurrentCommitLsn } from "../../documents/commitLsn";
+import { createRouteApp, routeApp } from "../../routeApp";
+import { getDefaultApiServiceRuntime } from "../../services/runtime";
 
 async function createPaginatedDocumentHistory() {
   const owner = createTestUser();
@@ -131,12 +140,88 @@ test("a lost continuation response retries without skipped or duplicated updates
   );
 });
 
+test("each paginated sync checks supplied minLsn once before its snapshot", async () => {
+  const { created, owner, signed } = await createPaginatedDocumentHistory();
+  const minLsn = await readCurrentCommitLsn(db);
+  let pullCursor: string | undefined;
+  const receivedIds: string[] = [];
+  do {
+    const { events, result: response } = await traceSyncQueries(
+      db,
+      async (database) =>
+        postSync(
+          owner.token,
+          created.id,
+          {
+            contentKeyEpoch: created.contentKeyEpoch,
+            expectedLinkSetManifestHash: created.manifestHash,
+            expectedTargetHash: created.targetHash,
+            localVersionVector: null,
+            minLsn,
+            outgoingUpdates: [],
+            ...(pullCursor === undefined ? {} : { pullCursor }),
+            supportsPullPagination: true,
+          },
+          createRouteApp({
+            runtime: { ...getDefaultApiServiceRuntime(), db: database },
+          }),
+        ),
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as DocumentSyncResponse;
+    expect(body.commitLsnMode).toBe("tracked");
+    if (body.commitLsn === null)
+      throw new Error("Expected a tracked commit LSN");
+    expect(parseWalLsn(body.commitLsn)).toBeGreaterThanOrEqual(
+      parseWalLsn(minLsn),
+    );
+    const lsnQueries = commitLsnEvents(events);
+    const inTransaction = lsnQueries.filter(
+      (event) => event.scope === "transaction",
+    );
+    const afterTransaction = lsnQueries.filter(
+      (event) => event.scope === "root",
+    );
+    console.info(
+      "sync-min-lsn-budget",
+      JSON.stringify({
+        page: pullCursor === undefined ? "first" : "continuation",
+        inTransaction: inTransaction.length,
+        afterTransaction: afterTransaction.length,
+      }),
+    );
+    expect(
+      inTransaction,
+      "one in-transaction minimum-LSN query per paged sync",
+    ).toHaveLength(1);
+    expect(afterTransaction).toHaveLength(1);
+    const guardIndex = inTransaction[0] ? events.indexOf(inTransaction[0]) : -1;
+    const upperBoundIndex = updateUpperBoundIndex(events);
+    const committedIndex = events.findIndex(
+      (event) => event.kind === "committed",
+    );
+    expect(guardIndex).toBeGreaterThanOrEqual(0);
+    expect(upperBoundIndex).toBeGreaterThan(guardIndex);
+    expect(committedIndex).toBeGreaterThan(upperBoundIndex);
+    expect(
+      afterTransaction[0] ? events.indexOf(afterTransaction[0]) : -1,
+    ).toBeGreaterThan(committedIndex);
+    receivedIds.push(...body.updates.map(({ id }) => id));
+    pullCursor = body.pullPage.nextCursor ?? undefined;
+  } while (pullCursor !== undefined);
+  expect(receivedIds).toHaveLength(signed.length);
+  expect(new Set(receivedIds)).toEqual(
+    new Set(signed.map(({ updateId }) => updateId)),
+  );
+});
+
 function postSync(
   token: string,
   documentId: string,
   request: DocumentSyncRequest,
+  app = routeApp,
 ) {
-  return routeApp.request(`/documents/${documentId}/sync`, {
+  return app.request(`/documents/${documentId}/sync`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
