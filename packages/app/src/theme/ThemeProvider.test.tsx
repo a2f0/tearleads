@@ -63,7 +63,7 @@ test("defaults to the OS light preference and labels the toggle for the next the
 
   expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Dark theme",
+    "Switch to Dusk theme",
   );
   // The OS-derived default is not an explicit choice, so nothing is persisted.
   expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBeNull();
@@ -76,7 +76,7 @@ test("defaults to the OS dark preference when the system prefers dark", () => {
 
   expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Dusk theme",
+    "Switch to Light theme",
   );
   expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBeNull();
 });
@@ -95,7 +95,7 @@ test("follows a live OS preference change while the user has not chosen", () => 
   // Still no explicit choice — the app is tracking the system, not storing it.
   expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBeNull();
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Dusk theme",
+    "Switch to Light theme",
   );
 });
 
@@ -106,23 +106,23 @@ test("toggling advances from the OS default, persists the choice, and restamps t
 
   fireEvent.click(view.getByRole("button"));
 
-  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
-  expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBe("dark");
+  expect(document.documentElement.getAttribute("data-theme")).toBe("dusk");
+  expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBe("dusk");
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Dusk theme",
+    "Switch to Dark theme",
   );
 });
 
 test("the toggle cycles every theme in order and persists each choice", () => {
-  installMatchMedia(false);
+  installMatchMedia(true);
 
   const view = renderToggle();
   const button = view.getByRole("button");
 
   const steps: Array<[theme: string, scheme: string, nextLabel: string]> = [
-    ["dark", "dark", "Switch to Dusk theme"],
-    ["dusk", "dark", "Switch to Light theme"],
-    ["light", "light", "Switch to Dark theme"],
+    ["light", "light", "Switch to Dusk theme"],
+    ["dusk", "dark", "Switch to Dark theme"],
+    ["dark", "dark", "Switch to Light theme"],
   ];
   for (const [theme, scheme, nextLabel] of steps) {
     fireEvent.click(button);
@@ -150,7 +150,7 @@ test("an explicit choice wins over the OS preference and its live changes", () =
   });
   expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Dark theme",
+    "Switch to Dusk theme",
   );
 });
 
@@ -162,7 +162,7 @@ test("restores the persisted choice on mount", () => {
 
   expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Dusk theme",
+    "Switch to Light theme",
   );
 });
 
@@ -177,7 +177,7 @@ test("restores a persisted non-default theme on mount", () => {
     "dark",
   );
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Light theme",
+    "Switch to Dark theme",
   );
 });
 

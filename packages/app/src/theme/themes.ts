@@ -19,7 +19,7 @@ export type ThemeId = "light" | "dark" | "dusk";
 // The OS preference only ever resolves to Light or Dark, so those two lead and
 // Dusk is an opt-in stop at the end of the cycle.
 export const APP_THEMES: readonly ThemeDefinition<ThemeId>[] = [
-  { id: "light", label: "Light", scheme: "light" },
   { id: "dark", label: "Dark", scheme: "dark" },
+  { id: "light", label: "Light", scheme: "light" },
   { id: "dusk", label: "Dusk", scheme: "dark" },
 ];
