@@ -15,8 +15,12 @@ const infrastructurePath = resolve(
   repoRoot,
   "docs/diagrams/infrastructure.svg",
 );
+const durableObjectsPath = resolve(
+  repoRoot,
+  "docs/diagrams/durable-objects.svg",
+);
 /** Every diagram the website inlines. */
-const diagramPaths = [accessKeyingPath, infrastructurePath];
+const diagramPaths = [accessKeyingPath, infrastructurePath, durableObjectsPath];
 const stylesheetPath = resolve(import.meta.dir, "styles/docsDiagram.css");
 
 function usedClasses(svg: string): Set<string> {
@@ -68,6 +72,18 @@ describe("inlineDocsDiagram", () => {
     expect(markup).toContain("<title>Tearleads infrastructure</title>");
     expect(markup).toContain('marker-end="url(#infrastructure-arrow)"');
     expect(markup).toContain('id="infrastructure-arrow"');
+  });
+
+  test("strips the standalone style and size from the Durable Objects diagram", async () => {
+    const source = await Bun.file(durableObjectsPath).text();
+    const markup = inlineDocsDiagram(source);
+    expect(markup).not.toContain("<style");
+    expect(markup).not.toMatch(/#[0-9a-f]{3,6}\b/i);
+    const root = markup.match(/<svg\b[^>]*>/)?.[0] ?? "";
+    expect(root).toContain(source.match(/viewBox="[^"]+"/)?.[0] ?? "viewBox");
+    expect(markup).toContain("<title>Tearleads Durable Objects</title>");
+    expect(markup).toContain('marker-end="url(#durable-objects-arrow)"');
+    expect(markup).toContain('id="durable-objects-arrow"');
   });
 
   test("rejects colors set by attribute, which the theme cannot reach", () => {

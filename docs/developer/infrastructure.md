@@ -92,6 +92,12 @@ curl -sI https://www.tearleads.com/ | grep -i '^location'
 The [infrastructure diagram](../diagrams/infrastructure.svg), also Fig. 4 on
 the website's /security page, shows one tier's clients, Workers, and storage.
 
+![Tearleads Durable Objects](../diagrams/durable-objects.svg)
+
+The [Durable Objects diagram](../diagrams/durable-objects.svg), Fig. 5 on
+/security, breaks out the API's two Durable Objects: the SQLite tables each
+one keeps and the keys and socket state the API writes into them.
+
 Terraform provisions each tier's persistent resources and Wrangler publishes
 its Workers. Neither migrates deployment names or Terraform resource
 addresses: retire a resource through its owning configuration and state before
