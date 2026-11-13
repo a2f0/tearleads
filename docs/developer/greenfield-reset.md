@@ -35,6 +35,171 @@ Authoritative details:
 [production Postgres](../../terraform/stacks/prod/postgres/README.md), and
 [blob storage](../../terraform/modules/r2-object-storage/README.md).
 
+## Web-only soft-reset command
+
+Use [`scripts/deploy/softReset.ts`](../../scripts/deploy/softReset.ts) for the
+application-only reset with **no native mobile or desktop builds/releases**:
+
+```sh
+bun run soft-reset
+bun run soft-reset --help
+bun run soft-reset prod --preview
+
+# Destructive: only after separately authorizing the selected tier's reset.
+bun run soft-reset prod --apply --confirm "RESET prod APPLICATION DATA"
+bun run soft-reset staging --apply --confirm "RESET staging APPLICATION DATA"
+```
+
+No arguments, help, and preview load no credentials and call no providers.
+Apply requires the exact tier and confirmation phrase; there is no default
+production tier, force flag, automatic retry, or resume mode. Run from a clean,
+committed checkout with dependencies already installed. The source commit and
+tracked/untracked status are checked before and after every phase. Coordinate
+exclusive provider access: the local lock does not serialize other machines or
+unrelated operator commands.
+
+### Prerequisites and ordering
+
+Use the pinned repository build/Terraform tools, Bash, AWS CLI, curl, jq,
+Python, and a `psql` supporting `sslrootcert=system` (libpq 17 or newer).
+Configure the selected tier's existing Terraform backend, Cloudflare,
+PlanetScale, billing, healthcheck, and optional Sentry credentials through the
+normal deployment helpers. An existing cursor signing key is required; the
+command never requests key rotation. Provider output and command failures go
+to private files, not the terminal. Inherited AWS profiles and session tokens
+are removed, not blanked, before blob probes use the inspected credentials.
+`TEARLEADS_TEARDOWN_TIER` is passed only to the maintenance, drop-owned, and
+empty-R2 helpers, never to ordinary builds or deployments.
+
+Authorization belongs to this command's exact apply confirmation, which is
+checked before creating a run or planning destruction. An inherited teardown
+marker cannot replace that confirmation. The PostgreSQL/storage wrappers
+deliberately permit plan/apply, including the
+[existing saved-plan destruction route](#production-destruction-protections),
+without that marker; they reject only the direct `prod destroy` command.
+They are low-level tools for trusted operators, not a general deletion-policy
+boundary. Soft reset separately validates the exact resource/action/identity
+scope and binds apply to the inspected bytes. Ordinary saved replacements or
+resource removals are not reclassified as full teardowns by this command.
+
+Before downtime the command verifies expected database/branch, Cloudflare
+account, blob bucket/endpoint, migration role, and unchanged hostnames. It
+requires healthy API/app/demo/site endpoints, drift-free database/storage
+plans, direct read-only TLS database access, and authenticated blob listings.
+It validates saved destruction plans against explicit resource/action
+allowlists before maintenance. Only the application database, its roles and
+Hyperdrive, and the blob bucket's configuration/token are allowed. It does not
+use the broader, immediately-applying `destroy-stack.sh` helper.
+
+It then builds SQLite/SDK runtime dependencies, prepares **devkit configuration
+only** for the website's Astro discovery, and prebuilds website, both browser
+variants, and the API bundle. API preflight is Wrangler dry-run only, without
+Sentry uploads, migrations, or secret synchronization. Website prebuild uses
+existing screenshot provenance validators: missing, stale, dirty, or incomplete
+captures fail before maintenance. Use the shared `take-screenshots` workflow
+outside the reset to repair captures; this command never recaptures them.
+These builds do not guarantee that a later provider upload will succeed.
+
+The explicit data/deploy sequence is:
+
+1. Publish `deployApiMaintenance.sh` in place, including retirement of the old
+   Durable Objects/crons and its mandatory **930-second** drain.
+2. Recheck inventory, drop owned application objects, and assert no relations
+   remain in `public` or `drizzle` (provider `pscale_extensions` views are not
+   application data). Apply the exact inspected PostgreSQL destruction plan.
+3. Empty only `tearleads-blobs-<tier>`, verify no objects/multipart uploads
+   remain, and apply its inspected storage destruction plan.
+4. Generate, validate, and apply saved creation plans through the individual
+   PostgreSQL/storage wrappers, not `prepare-*`. Require a different database
+   branch ID, the expected bucket/account, and empty application data.
+5. Deploy API through its normal migration/secret reconciliation helper and
+   verify health. Check initialized table names, the baseline migration hash,
+   and zero rows in every application table. The verifier intentionally fails
+   closed if the single-greenfield-baseline layout changes.
+6. Deploy app and demo through `deployAppWeb.sh` (including its `dist-app` and
+   `dist-demo` staging), then website with `--skip-terraform`. Check unchanged
+   inventory and HTTP 200 on API/app/demo/site without registering test users.
+
+`pg_tables.tablename` is a `name` in `C` collation, so its order matches ASCII
+baseline names, not database locale ([PostgreSQL 12](https://www.postgresql.org/docs/release/12.0/)).
+
+This preserves edge/website domain resources, downloads, Terraform backend
+state, signing files, and external payment/store records. It rotates database
+and blob runtime credentials; the API's normal deployment also reconciles
+remote Worker secrets, including removal of unmanaged secrets. It does **not**
+promise to retain arbitrary remote Worker secrets. Existing client-local data
+and identity pins are unchanged; coordinate users and writers during the reset.
+Public clients can write again once API publication ends maintenance, so an
+empty-data check can legitimately fail if a client has already registered.
+HTTP checks are not browser/account smoke tests or proof of external-provider
+cleanup. Native release instructions elsewhere in this runbook do not apply to
+this command.
+
+### Timing records and manual recovery
+
+Each authorized run creates a mode-0700 directory under
+`~/.local/state/tearleads-soft-reset/run-*` and a per-tier directory lock in
+that same location. All clones using the same OS home share that lock; do not
+change `HOME` to evade it. `timings.json` records the pinned source, each
+started phase's status/elapsed milliseconds, and total runtime. The terminal
+prints the same summary on success, failure, SIGINT, SIGTERM, or SIGHUP.
+Cancellation exits with the first signal's code: 130 for SIGINT, 143 for
+SIGTERM, and 129 for SIGHUP. Later operator signals do not accelerate teardown
+or change that code, including when automatic cleanup began first. An operator
+signal during natural-exit observation starts the full policy grace; signals
+after cleanup begins neither resend its signal nor change its fixed deadline.
+
+When a command leader exits, its owned group gets a **one-second no-signal
+observation period** for ordinary descendant teardown. If the whole group
+finishes in that window, the original exit code is preserved. Otherwise, the
+reset starts automatic cleanup and **fails the command even if its leader
+exited zero** and the descendants stop cooperatively. The failed step retains
+its timing, lock, and private evidence; no later reset effect runs. The reset's
+source checks and API source/index probes disable inherited Git fsmonitor.
+
+Commands that can run Terraform receive **one SIGINT** to their detached
+process group and a fixed **60-second grace period**, measured from the first
+cancellation or automatic cleanup, to stop work, save partial state, and release
+backend locks. This
+includes `init` inside stack-output wrappers, plan/apply, API preflight and
+API deployment, and the drop-owned/empty-bucket helpers. A wrapper exiting
+does not end the grace period while descendants remain. Wrappers also stop
+after interrupted initialization even when Terraform exits zero. Ordinary builds,
+maintenance, non-Terraform deployers, and direct read-only probes instead
+receive SIGTERM with a one-second grace period.
+
+At the deadline, the remaining group receives SIGKILL, with a one-second
+post-kill observation budget. A forced-timeout diagnostic means
+**state may be incomplete and a backend lock may remain**; even graceful
+completion is not proof that every provider persisted successfully. Do not
+send signals directly to Terraform or its providers, kill the reset parent,
+or assume an exited shell means its descendants finished. Processes that
+escape the owned group, host failure, and noncooperating providers require
+manual investigation. The grace period is not configurable through environment
+variables or CLI flags, and cancellation never starts a later reset step.
+
+Successful runs retain sanitized identity/schema/timing records and remove
+their private command outputs, saved plans, and owned lock. A failed or
+interrupted run keeps its lock and private evidence, including sensitive
+credentials/plans, so an accidental fresh run is refused. A hard kill or host
+failure can leave a `running` phase; do not interpret that as success.
+
+There is **no rollback**. On failure, stop and read the exact failed phase and
+its private command logs. Confirm the owner PID and its children are gone,
+identify current provider resources and whether maintenance is still serving,
+and reconcile Terraform state with live identities. Never repeat `drop-owned`
+against a newly created database or replay a destruction plan after a partial
+rebuild. Restore service using individually reviewed creation/deployment steps
+only, with fresh inspected plans and current connections. If a preflight
+failed, establish that no maintenance/data phase ran before starting over.
+
+After recovery is verified, explicitly archive the incident's timing/identity
+records, remove only that run's no-longer-needed private credentials/plans,
+and release only its identified lock. Foreign/stale overrides and locks are
+never automatically removed. No blanket cleanup, unlocking flag, or blind
+rerun is safe. Fixtures exercise orchestration, refusal, timings, and process
+cleanup; they do not establish real provider permissions or live reset success.
+
 ## Identity-bound principal format
 
 The complete member identity commitment introduced by
@@ -123,9 +288,13 @@ They are gitignored, so a clean `git status` does not prove their absence.
 
 The database protection resource's destroy action releases PlanetScale branch
 deletion protection in the correct dependency order. Let Terraform execute it.
-The storage wrapper rejects `prod destroy`; the authorized full-reset route is
-an inspected `plan -destroy` followed by `apply` of that saved plan with the
-temporary lifecycle override. Keep the wrapper's ordinary protections intact.
+The PostgreSQL/storage wrappers reject the direct `prod destroy` command;
+they do not inspect plan actions or enforce the teardown marker on plan/apply.
+The authorized full-reset route is an inspected `plan -destroy` followed by
+`apply` of that saved plan with the temporary lifecycle override. Confirmation,
+override ownership, and plan inspection belong to the caller. Keep the
+wrapper's ordinary protections intact; its command allowlist is not a promise
+that arbitrary Terraform arguments or saved plans cannot delete resources.
 
 `terraform/scripts/destroy-stack.sh <tier> <stack>` implements that route. It
 derives the protected addresses from the stack's configuration, writes the

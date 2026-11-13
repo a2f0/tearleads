@@ -77,7 +77,7 @@ function git(sourceRoot: string, args: readonly string[]): string {
   for (const name of Object.keys(env)) {
     if (name.startsWith("GIT_")) delete env[name];
   }
-  return execFileSync("git", args, {
+  return execFileSync("git", ["-c", "core.fsmonitor=false", ...args], {
     cwd: sourceRoot,
     env,
     encoding: "utf8",

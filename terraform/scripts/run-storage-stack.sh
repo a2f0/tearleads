@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # Storage owns its bucket and application credentials independently of servers.
+# Only the direct production destroy command is refused. Plan/apply remain
+# available to trusted operators and the authorized saved-plan reset helpers.
+# Those callers own confirmation, lifecycle overrides, and plan inspection;
+# this wrapper is not a general production-deletion authorization boundary.
 set -euo pipefail
+# Wait for the foreground Terraform to finish, then stop even if it exits zero.
+# Do not forward another interrupt: Terraform uses it to abort state recovery.
+trap 'exit 130' INT
 
 TIER="${1:-}"
 ACTION="${2:-}"
@@ -9,7 +16,7 @@ case "$TIER:$ACTION" in
     prod:init | prod:plan | prod:apply | prod:output) ;;
   *)
     echo "Usage: $(basename "$0") <staging|prod> <init|plan|apply|output|destroy> [terraform arguments...]" >&2
-    echo "Production storage cannot be destroyed through this wrapper." >&2
+    echo "Direct production destroy is disabled; use the authorized saved-plan workflow." >&2
     exit 1
     ;;
 esac
