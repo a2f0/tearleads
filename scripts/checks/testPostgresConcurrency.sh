@@ -66,6 +66,8 @@ exec bun test \
   src/routes/documents/purgeSyncConcurrency.pg.test.ts \
   src/routes/documents/unlinkSyncConcurrency.pg.test.ts \
   src/routes/documents/syncPaginationConcurrency.pg.test.ts \
+  src/routes/documents/syncPagination.test.ts \
+  src/routes/documents/syncMinLsnGuards.test.ts \
   src/routes/documents/syncConcurrency.pg.test.ts \
   src/services/blobs/bindDocumentSyncLockOrder.pg.test.ts \
   src/services/blobs/multipartStageCleanup.pg.test.ts \
