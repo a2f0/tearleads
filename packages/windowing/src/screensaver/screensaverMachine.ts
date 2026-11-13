@@ -1,7 +1,15 @@
 type Session = { session: number; locked?: true };
 export type ScreensaverState =
   | { status: "idle"; session: number; locked?: never }
-  | (Session & { status: "grace" | "armed" | "draining" | "settling" })
+  | (Session & {
+      status:
+        | "grace"
+        | "armed"
+        | "draining"
+        | "settling"
+        | "resuming"
+        | "resumeSettling";
+    })
   | {
       status: "unlock";
       session: number;
@@ -19,6 +27,7 @@ export type ScreensaverState =
 export type ScreensaverEvent =
   | { type: "start"; locked?: true }
   | { type: "stop" }
+  | { type: "cancel"; drain: boolean }
   | { type: "dismiss"; escape: boolean; drain: boolean }
   | { type: "released" }
   | { type: "settled"; session: number }
@@ -97,6 +106,28 @@ function verified(
     : { status: event.drain ? "draining" : "settling", session: state.session };
 }
 
+function cancel(state: ScreensaverState, drain: boolean): ScreensaverState {
+  return state.status === "unlock" || state.status === "verifying"
+    ? {
+        status: drain ? "resuming" : "resumeSettling",
+        session: state.session + 1,
+        locked: true,
+      }
+    : state;
+}
+
+function released(state: ScreensaverState): ScreensaverState {
+  if (state.status === "resuming")
+    return { ...state, status: "resumeSettling" };
+  return state.status === "draining" ? { ...state, status: "settling" } : state;
+}
+
+function settled(state: ScreensaverState, session: number): ScreensaverState {
+  if (state.session !== session) return state;
+  if (state.status === "resumeSettling") return { ...state, status: "grace" };
+  return state.status === "settling" ? finish(state) : state;
+}
+
 export function transitionScreensaver(
   state: ScreensaverState,
   event: ScreensaverEvent,
@@ -113,15 +144,13 @@ export function transitionScreensaver(
     case "dismiss":
       return dismiss(state, event.escape, event.drain);
     case "released":
-      return state.status === "draining"
-        ? { ...state, status: "settling" }
-        : state;
+      return released(state);
     case "settled":
-      return state.status === "settling" && state.session === event.session
-        ? finish(state)
-        : state;
+      return settled(state, event.session);
     case "stop":
       return stop(state);
+    case "cancel":
+      return cancel(state, event.drain);
     case "graceElapsed":
       return state.status === "grace" && state.session === event.session
         ? { ...state, status: "armed" }

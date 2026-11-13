@@ -5,12 +5,7 @@ import {
   ScreensaverProvider,
   useScreensaver,
 } from "@tearleads/windowing";
-import {
-  createContext,
-  type PropsWithChildren,
-  useContext,
-  useMemo,
-} from "react";
+import { createContext, type PropsWithChildren, useContext } from "react";
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 
 const AppScreensaverContext = createContext(false);
@@ -18,14 +13,13 @@ const AppScreensaverContext = createContext(false);
 // One host inside the shared runtime, above all workspace/window state. The
 // isolated demo deliberately has no host: its peers have independent PINs.
 export function AppScreensaverHost({ children }: PropsWithChildren) {
-  const { lock, pinCodeEnabled, unlock } = useLocalKeyringLock();
-  const screensaverLock = useMemo(
-    () => (pinCodeEnabled ? { lock, unlock } : undefined),
-    [lock, pinCodeEnabled, unlock],
-  );
+  const { pinCodeEnabled, verifyPinCode } = useLocalKeyringLock();
 
   return (
-    <ScreensaverProvider screensaver={LaserScreensaver} lock={screensaverLock}>
+    <ScreensaverProvider
+      screensaver={LaserScreensaver}
+      verifyPin={pinCodeEnabled ? verifyPinCode : undefined}
+    >
       <AppScreensaverContext.Provider value={true}>
         {children}
       </AppScreensaverContext.Provider>

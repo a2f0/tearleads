@@ -1,7 +1,13 @@
-import { afterEach, expect, test } from "bun:test";
-import type { LocalKeyring } from "@tearleads/client-sdk";
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
+import {
+  createLocalStorageLocalKeyringManifestStore,
+  type LocalKeyring,
+} from "@tearleads/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
-import { useDynamicLocalKeyringFactory } from "./localKeyringLockActions";
+import {
+  useDynamicLocalKeyringFactory,
+  useVerifyPinCodeAction,
+} from "./localKeyringLockActions";
 import type {
   LocalKeyringLockEnvironment,
   LockState,
@@ -30,6 +36,48 @@ interface HostKeyringHookProps extends DynamicKeyringHookProps {
 }
 
 afterEach(cleanup);
+
+test("verify-only respects cancellation and reports only live storage failures", async () => {
+  const manifestStore = createLocalStorageLocalKeyringManifestStore();
+  const failure = new Error("Manifest store unavailable");
+  const load = spyOn(manifestStore, "loadManifest").mockRejectedValue(failure);
+  const captureError = mock(() => {});
+  const view = renderHook(() =>
+    useVerifyPinCodeAction({
+      ...ENVIRONMENT,
+      diagnostics: { addBreadcrumb: () => {}, captureError },
+      manifestStore,
+    }),
+  );
+  try {
+    const alreadyAborted = new AbortController();
+    alreadyAborted.abort();
+    await expect(
+      view.result.current("824913", alreadyAborted.signal),
+    ).resolves.toBe(false);
+    await expect(view.result.current("")).resolves.toBe(false);
+    expect(load).not.toHaveBeenCalled();
+    expect(captureError).not.toHaveBeenCalled();
+
+    await expect(view.result.current("824913")).resolves.toBe(false);
+    expect(captureError).toHaveBeenCalledWith(failure, {
+      area: "app",
+      source: "log",
+    });
+    expect(captureError).toHaveBeenCalledTimes(1);
+
+    const deferred = Promise.withResolvers<never>();
+    load.mockReturnValueOnce(deferred.promise);
+    const cancelled = new AbortController();
+    const verification = view.result.current("824913", cancelled.signal);
+    cancelled.abort();
+    deferred.reject(failure);
+    await expect(verification).resolves.toBe(false);
+    expect(captureError).toHaveBeenCalledTimes(1);
+  } finally {
+    load.mockRestore();
+  }
+});
 
 test("reuses a config and remints after same-PIN unlock, factory, or capability changes", async () => {
   const closedKeyrings: number[] = [];

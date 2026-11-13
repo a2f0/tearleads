@@ -11,14 +11,14 @@ import {
   ScreensaverProvider,
   useScreensaver,
 } from "./ScreensaverProvider";
-import type { ScreensaverLock } from "./screensaverLock";
+import type { ScreensaverPinVerifier } from "./screensaverPinVerifier";
 
 afterEach(() => {
   cleanup();
   jest.useRealTimers();
 });
 
-function mount(lock: ScreensaverLock) {
+function mount(verifyPin: ScreensaverPinVerifier) {
   let controls: ScreensaverControls;
   function Host() {
     controls = useScreensaver();
@@ -28,20 +28,20 @@ function mount(lock: ScreensaverLock) {
       </button>
     );
   }
-  const scene = (currentLock?: ScreensaverLock) => (
+  const scene = (currentVerifier?: ScreensaverPinVerifier) => (
     <ScreensaverProvider
       screensaver={() => <p>animation</p>}
-      lock={currentLock}
+      verifyPin={currentVerifier}
     >
       <Host />
     </ScreensaverProvider>
   );
-  const view = render(scene(lock));
+  const view = render(scene(verifyPin));
   return {
     ...view,
     start: () => act(() => controls.start()),
     stop: () => act(() => controls.stop()),
-    removeLock: () => view.rerender(scene()),
+    removeVerifier: () => view.rerender(scene()),
   };
 }
 
@@ -58,46 +58,65 @@ async function submit(view: RenderResult, pin: string) {
   });
 }
 
-test("Escape and stop cannot bypass a configured PIN; wrong PIN keeps the page locked", async () => {
+test("wrong PIN and stop cannot reveal the desktop; only the correct PIN exits", async () => {
   jest.useFakeTimers();
-  let locked = false;
-  const view = mount({
-    lock: () => {
-      locked = true;
-    },
-    unlock: async (pin) => {
-      if (pin !== "824913") return false;
-      locked = false;
-      return true;
-    },
-  });
+  const view = mount(async (pin) => pin === "824913");
   const start = view.getByRole("button", { name: "Start" });
   start.focus();
   view.start();
-  expect(locked).toBe(true);
   wake();
   expect(view.getByLabelText("PIN code")).toBeTruthy();
   expect(document.body.inert).toBe(true);
   view.stop();
-  wake();
   expect(view.getByLabelText("PIN code")).toBeTruthy();
   await submit(view, "000000");
-  expect(locked).toBe(true);
   expect(view.getByRole("alert").textContent).toContain("incorrect");
   expect(document.body.inert).toBe(true);
   await submit(view, "824913");
   act(() => jest.runAllTimers());
-  expect(locked).toBe(false);
   expect(view.queryByRole("dialog")).toBeNull();
   expect(document.body.inert).toBe(false);
   expect(document.activeElement).toBe(start);
 });
 
-test("removing lock props and native dialog close cannot remove the session's PIN gate", () => {
+test.each(["button", "Escape"])(
+  "cancel by %s resumes artwork without leaking its input or forgetting the PIN",
+  (method) => {
+    jest.useFakeTimers();
+    const view = mount(async () => false);
+    view.start();
+    wake();
+    fireEvent.change(view.getByLabelText("PIN code"), {
+      target: { value: "123" },
+    });
+    if (method === "button") {
+      const cancel = view.getByRole("button", { name: "Cancel" });
+      fireEvent.pointerDown(cancel);
+      fireEvent.pointerUp(cancel);
+      fireEvent.click(cancel);
+    } else {
+      fireEvent.keyDown(window, { key: "Escape" });
+      fireEvent.keyUp(window, { key: "Escape" });
+    }
+    act(() => jest.advanceTimersByTime(0));
+    expect(view.queryByLabelText("PIN code")).toBeNull();
+    expect(view.getByText("animation")).toBeTruthy();
+    expect(document.body.inert).toBe(true);
+    fireEvent.mouseMove(window);
+    expect(view.getByText("animation")).toBeTruthy();
+    wake();
+    expect((view.getByLabelText("PIN code") as HTMLInputElement).value).toBe(
+      "",
+    );
+    expect(document.body.inert).toBe(true);
+  },
+);
+
+test("removing the verifier and native close cannot remove the captured PIN gate", () => {
   jest.useFakeTimers();
-  const view = mount({ lock: () => {}, unlock: async () => false });
+  const view = mount(async () => false);
   view.start();
-  view.removeLock();
+  view.removeVerifier();
   const dialog = view.getByRole("dialog") as HTMLDialogElement;
   act(() => {
     dialog.close();
@@ -110,37 +129,63 @@ test("removing lock props and native dialog close cannot remove the session's PI
     gate.close();
     gate.dispatchEvent(new Event("close"));
   });
-  expect(gate.open).toBe(true);
+  act(() => jest.advanceTimersByTime(0));
+  expect(view.getByText("animation")).toBeTruthy();
+  expect((view.getByRole("dialog") as HTMLDialogElement).open).toBe(true);
   expect(document.body.inert).toBe(true);
+  wake();
+  expect(view.getByLabelText("PIN code")).toBeTruthy();
 });
 
-test("verification failure stays locked and an unmounted attempt cannot finish a later session", async () => {
+test("cancel aborts verification and ignores a late success during a later attempt", async () => {
+  jest.useFakeTimers();
+  const first = Promise.withResolvers<boolean>();
+  const second = Promise.withResolvers<boolean>();
+  const signals: AbortSignal[] = [];
+  const view = mount(async (_pin, signal) => {
+    signals.push(signal);
+    return signals.length === 1 ? first.promise : second.promise;
+  });
+  view.start();
+  wake();
+  await submit(view, "824913");
+  fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+  act(() => jest.advanceTimersByTime(0));
+  expect(signals[0]?.aborted).toBe(true);
+  expect(view.getByText("animation")).toBeTruthy();
+  wake();
+  await submit(view, "000000");
+  await act(async () => first.resolve(true));
+  expect(
+    view.getByRole("button", { name: "Unlocking…" }).hasAttribute("disabled"),
+  ).toBe(true);
+  expect(document.body.inert).toBe(true);
+  await act(async () => second.resolve(false));
+  expect(view.getByRole("alert").textContent).toContain("incorrect");
+});
+
+test("errors stay private and unmount aborts pending verification", async () => {
   jest.useFakeTimers();
   const pending = Promise.withResolvers<boolean>();
+  let currentSignal: AbortSignal | undefined;
   let attempts = 0;
-  const lock = {
-    lock: () => {},
-    unlock: async () => {
-      attempts += 1;
-      if (attempts === 1) throw new Error("private verifier detail");
-      return pending.promise;
-    },
-  };
-  const first = mount(lock);
-  first.start();
+  const view = mount(async (_pin, signal) => {
+    currentSignal = signal;
+    if (++attempts === 1) throw new Error("private verifier detail");
+    return pending.promise;
+  });
+  view.start();
   wake();
-  await submit(first, "824913");
-  expect(first.getByRole("alert").textContent).toContain("Unable");
-  expect(first.getByRole("alert").textContent).not.toContain("private");
-  await submit(first, "824913");
-  expect(
-    first.getByRole("button", { name: "Unlocking…" }).hasAttribute("disabled"),
-  ).toBe(true);
-  first.unmount();
-  const second = mount(lock);
-  second.start();
+  await submit(view, "824913");
+  expect(view.getByRole("alert").textContent).toContain("Unable");
+  expect(view.getByRole("alert").textContent).not.toContain("private");
+  await submit(view, "824913");
+  view.unmount();
+  expect(currentSignal?.aborted).toBe(true);
+  const next = mount(async () => false);
+  next.start();
   wake();
   await act(async () => pending.resolve(true));
-  expect(second.getByLabelText("PIN code")).toBeTruthy();
+  expect(next.getByLabelText("PIN code")).toBeTruthy();
   expect(document.body.inert).toBe(true);
 });

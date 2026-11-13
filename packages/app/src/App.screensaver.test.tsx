@@ -82,7 +82,7 @@ test("one screensaver survives navigation changes across the workspace tree", as
   await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 });
 
-test("the isolated demo never offers an app-wide lock for independent peer PINs", async () => {
+test("the isolated demo never offers an app-wide privacy screen for independent peer PINs", async () => {
   const view = await renderApp(
     createTestAppHostConfig({ profile: APP_HOST_PROFILES.demo }),
   );

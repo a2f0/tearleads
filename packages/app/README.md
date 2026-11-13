@@ -40,13 +40,16 @@ and the chrome conventions across desktop, tablet, and phone.
 The regular app offers **Start Screensaver** from the bare-desktop context
 menu, the desktop Start menu, and the routed taskbar. It runs the shared
 grayscale lasers animation on demand; there is no idle timer. Without a PIN,
-input dismisses it normally. When a local-keyring PIN is configured, starting
-locks that keyring and dismissal requires the existing PIN to unlock it.
-Incorrect PINs keep the screen locked. Open windows stay mounted underneath
-the app-wide overlay across workspace and layout changes.
+input dismisses it normally. With a local-keyring PIN configured, it becomes a
+full-screen privacy gate that checks the existing PIN before dismissal.
+Incorrect PINs keep the overlay visible; Cancel or Escape from the PIN prompt
+returns to the artwork. Editors, unsaved changes, sessions, and app data remain
+live underneath, including across workspace and layout changes. This hides
+the app from view; it does not lock the keyring or secure live app data.
+**Lock** remains a separate security action that locks the local keyring.
 
 The isolated two-peer demo does not expose this action: its peers have
-independent runtimes and PINs rather than one app-wide lock.
+independent runtimes and PINs rather than one app-wide privacy gate.
 
 ## Tests
 

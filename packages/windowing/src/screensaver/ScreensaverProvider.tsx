@@ -2,7 +2,7 @@ import { type ComponentType, type ReactNode, useMemo } from "react";
 import { createRequiredContext } from "../createRequiredContext";
 import { ScreensaverOverlay } from "./ScreensaverOverlay";
 import { ScreensaverUnlock } from "./ScreensaverUnlock";
-import type { ScreensaverLock } from "./screensaverLock";
+import type { ScreensaverPinVerifier } from "./screensaverPinVerifier";
 import { useScreensaverController } from "./useScreensaverController";
 
 export interface ScreensaverControls {
@@ -15,7 +15,7 @@ export interface ScreensaverProviderProps {
   children: ReactNode;
   screensaver: ComponentType;
   gracePeriodMs?: number;
-  lock?: ScreensaverLock | undefined;
+  verifyPin?: ScreensaverPinVerifier | undefined;
 }
 const { context: ScreensaverContext, useRequired: useScreensaver } =
   createRequiredContext<ScreensaverControls>(
@@ -28,12 +28,10 @@ export function ScreensaverProvider({
   children,
   screensaver: Screensaver,
   gracePeriodMs = 2000,
-  lock,
+  verifyPin,
 }: ScreensaverProviderProps) {
-  const { isActive, start, stop, state, submit } = useScreensaverController(
-    gracePeriodMs,
-    lock,
-  );
+  const { isActive, start, stop, state, submit, cancel, dismiss } =
+    useScreensaverController(gracePeriodMs, verifyPin);
   const unlocking = state.status === "unlock" || state.status === "verifying";
   const value = useMemo(
     () => ({ start, stop, isActive }),
@@ -45,7 +43,7 @@ export function ScreensaverProvider({
       {isActive && (
         <ScreensaverOverlay
           key={state.session}
-          onStop={stop}
+          onStop={dismiss}
           locked={state.locked === true}
           interactive={unlocking}
         >
@@ -54,6 +52,7 @@ export function ScreensaverProvider({
               busy={state.status === "verifying"}
               error={state.status === "unlock" ? state.error : null}
               onSubmit={submit}
+              onCancel={cancel}
             />
           ) : (
             <Screensaver />

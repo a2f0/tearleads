@@ -141,14 +141,14 @@ test("published launcher labels preserve window titles", async () => {
 
 // TypeScript's defaults check declarations and side-effect imports, so a
 // consumer's typecheck reaches everything the package's .d.ts files import.
-const typecheckSource = `import { Window, WindowStateProvider, LaserScreensaver, ScreensaverProvider, useScreensaver, type ScreensaverLock } from "@tearleads/windowing";
+const typecheckSource = `import { Window, WindowStateProvider, LaserScreensaver, ScreensaverProvider, useScreensaver, type ScreensaverPinVerifier } from "@tearleads/windowing";
 
 export function ScreensaverHost() {
   const { start, stop, isActive } = useScreensaver();
   return <button onClick={isActive ? stop : start}>Screensaver</button>;
 }
-export function LockedScreensaver({ lock }: { lock: ScreensaverLock }) {
-  return <ScreensaverProvider screensaver={LaserScreensaver} lock={lock} gracePeriodMs={2000}><ScreensaverHost /></ScreensaverProvider>;
+export function LockedScreensaver({ verifyPin }: { verifyPin: ScreensaverPinVerifier }) {
+  return <ScreensaverProvider screensaver={LaserScreensaver} verifyPin={verifyPin} gracePeriodMs={2000}><ScreensaverHost /></ScreensaverProvider>;
 }
 
 import type { MiniAppDefinition } from "@tearleads/windowing";

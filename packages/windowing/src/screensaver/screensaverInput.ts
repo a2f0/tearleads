@@ -56,6 +56,23 @@ function shouldConsumeInput(status: ScreensaverState["status"], event: Event) {
   );
 }
 
+function cancelPrompt(
+  status: ScreensaverState["status"],
+  event: Event,
+  held: Set<string>,
+  send: (event: ScreensaverEvent) => void,
+) {
+  if (status !== "unlock" && status !== "verifying") return false;
+  if (
+    event instanceof KeyboardEvent &&
+    event.key === "Escape" &&
+    event.type === "keydown"
+  ) {
+    send({ type: "cancel", drain: held.size > 0 });
+  }
+  return true;
+}
+
 export function captureScreensaverInput(
   readState: () => ScreensaverState,
   send: (event: ScreensaverEvent) => void,
@@ -68,8 +85,9 @@ export function captureScreensaverInput(
     if (!shouldConsumeInput(status, event)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (status === "settling") return;
-    if (status === "draining") {
+    if (cancelPrompt(status, event, held, send)) return;
+    if (["settling", "resumeSettling"].includes(status)) return;
+    if (["draining", "resuming"].includes(status)) {
       if (drainReleased(event, held)) send({ type: "released" });
       return;
     }

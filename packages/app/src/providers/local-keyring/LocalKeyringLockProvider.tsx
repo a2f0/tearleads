@@ -20,6 +20,7 @@ import {
   useLockAction,
   useSetPinCodeAction,
   useUnlockAction,
+  useVerifyPinCodeAction,
 } from "./localKeyringLockActions";
 import {
   getBrowserStorage,
@@ -173,6 +174,7 @@ function useLocalKeyringLockRuntime(
 export function LocalKeyringLockProvider({ children }: PropsWithChildren) {
   const environment = useLocalKeyringLockEnvironment();
   const runtime = useLocalKeyringLockRuntime(environment);
+  const verifyPinCode = useVerifyPinCodeAction(environment);
   const createLocalKeyring = useDynamicLocalKeyringFactory({
     environment,
     lockState: runtime.lockState,
@@ -209,6 +211,7 @@ export function LocalKeyringLockProvider({ children }: PropsWithChildren) {
     refresh: runtime.refresh,
     setPinCode,
     unlock,
+    verifyPinCode,
   });
 
   return (

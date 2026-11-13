@@ -35,10 +35,10 @@ session or grace timer. Styles are included by the public import.
 
 `useScreensaver()` returns stable `start()` and `stop()` callbacks and an
 `isActive` boolean (artwork or a PIN gate is visible). It throws outside the
-provider. Repeated starts while active are ignored. Without a lock, `stop()`
+provider. Repeated starts while active are ignored. Without a PIN, `stop()`
 exits immediately and intentionally cancels input isolation, including a
 pending release tail; reserve it for explicit host control or teardown, not an
-effect watching `isActive`. With a lock, `stop()` requests the PIN gate instead
+effect watching `isActive`. With a PIN, `stop()` requests the PIN gate instead
 and cannot bypass verification. Start and stop do not close, minimize, or
 recreate the host's windows.
 
@@ -74,39 +74,46 @@ body inertness is restored, not unconditionally removed.
 
 ## PIN unlock
 
-Pass `lock` only when the host has a PIN configured:
+Pass `verifyPin` only when the host has a PIN configured:
 
 ```tsx
 <ScreensaverProvider
   screensaver={LaserScreensaver}
-  lock={pinCodeEnabled ? { lock: lockKeyring, unlock: unlockKeyring } : undefined}
+  verifyPin={pinCodeEnabled ? verifyExistingPin : undefined}
 >
   <Desktop />
 </ScreensaverProvider>
 ```
 
-`ScreensaverLock.lock()` synchronously locks the host when a session starts.
-`unlock(pin)` verifies against the host's existing PIN storage and returns a
-`Promise<boolean>`: only `true` removes the gate. Windowing never stores a PIN
-configuration or verifies one itself. The supplied callbacks are captured for
-that session, so removing the prop cannot bypass an already-started lock.
-Keep the provider mounted across host layout or lock-state changes.
+`ScreensaverPinVerifier` is `(pin, signal) => Promise<boolean>`. It checks the
+host's existing PIN without changing the host's session or keyring state;
+only `true` removes the gate. Windowing never stores a PIN configuration or
+verifies one itself. The verifier is captured for that session, so removing
+the prop cannot bypass an already-started PIN gate. Keep the provider mounted
+across host layout changes.
 
-Wake input first drains its release/click tail, then reveals a focused password
-field. Escape, native dialog cancellation/closure, and `stop()` cannot unlock
-it. Wrong PINs and verifier errors leave the page inert and allow another
-attempt. Only the current asynchronous attempt can finish; unmounting cancels
-its UI result. Successful verification also drains any still-held input before
-restoring the desktop. Rate limiting and credential policy belong to the host.
+Wake input drains its release/click tail, then shows a full-screen unlock
+surface with a focused password field. **Cancel** or **Escape** returns to the
+animation, clears the entered PIN, and starts a fresh grace period after the
+cancelling input has settled. Native dialog cancellation does the same;
+native closure cannot reveal the desktop. Wrong PINs and verifier errors
+retain the gate and allow another attempt.
+
+Cancellation and unmount abort the verifier's `AbortSignal`. Verifiers should
+honor it and must not unlock or otherwise mutate host state. Late results are
+ignored even after another attempt starts. Successful verification drains any
+still-held input before restoring the desktop. Rate limiting and credential
+policy belong to the host.
 
 The bundled lasers draw six grayscale trails, resize with the viewport, and
 show a static composition with reduced motion. Their work stops on unmount.
 
-Use a browser with native modal dialogs and `inert` support. The overlay itself
-is not an OS lock or a security boundary: the host must protect its underlying
-data in `lock()` and keep it protected across reloads. Host code should not
-open competing modal dialogs or change body inertness during a session.
-Mount the provider only in layouts where the host wants screensaver behavior;
+Use a browser with native modal dialogs and `inert` support. This is a privacy
+screen, not an OS lock or a security boundary: application data, editor state,
+and sessions stay live underneath. It is not persisted across reloads. Use the
+host's separate full Lock action when key/session teardown is required.
+Host code should not open competing modal dialogs or change body inertness
+during a session. Mount the provider only where screensaver behavior is wanted;
 routed layouts need not include it.
 
 [modal-inertness]: https://html.spec.whatwg.org/multipage/interaction.html#modal-dialogs-and-inert-subtrees

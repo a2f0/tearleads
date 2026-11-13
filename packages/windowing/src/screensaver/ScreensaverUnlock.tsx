@@ -4,10 +4,12 @@ export function ScreensaverUnlock({
   busy,
   error,
   onSubmit,
+  onCancel,
 }: {
   busy: boolean;
   error: string | null;
   onSubmit: (pin: string) => void;
+  onCancel: () => void;
 }) {
   const [pin, setPin] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -52,6 +54,9 @@ export function ScreensaverUnlock({
       )}
       <button type="submit" disabled={busy}>
         {busy ? "Unlocking…" : "Unlock"}
+      </button>
+      <button type="button" onClick={onCancel}>
+        Cancel
       </button>
     </form>
   );

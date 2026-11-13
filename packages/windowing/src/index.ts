@@ -127,7 +127,7 @@ export {
   type ScreensaverProviderProps,
   useScreensaver,
 } from "./screensaver/ScreensaverProvider";
-export type { ScreensaverLock } from "./screensaver/screensaverLock";
+export type { ScreensaverPinVerifier as ScreensaverLock } from "./screensaver/screensaverPinVerifier";
 export { SidebarResizeHandle, useSidebarResize } from "./sidebar/SidebarResize";
 export {
   ThemeProvider,
