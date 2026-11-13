@@ -407,14 +407,12 @@ async function switchToDarkTheme(
   page: Page,
   ownerPane: Locator,
 ): Promise<void> {
-  await ownerPane
-    .getByRole("button", { name: "Switch to Dark theme", exact: true })
-    .click();
-  await page.waitForFunction(
-    () => document.documentElement.getAttribute("data-theme") === "dark",
-    undefined,
-    { timeout: 30_000 },
-  );
+  for (const theme of ["Dusk", "Dark"]) {
+    await ownerPane
+      .getByRole("button", { name: `Switch to ${theme} theme`, exact: true })
+      .click();
+  }
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 }
 
 async function screenshotOpenBlame(

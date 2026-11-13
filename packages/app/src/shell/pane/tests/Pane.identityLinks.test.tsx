@@ -73,7 +73,7 @@ test("local identity links onboard contacts and roster users; a mismatch never g
 
   const bobContacts = await openMiniApp(bob, "Contacts");
   const copyLink = await within(bobContacts).findByRole("button", {
-    name: "Copy my identity link",
+    name: "Copy identity link",
   });
   await waitFor(() => expect(copyLink.hasAttribute("disabled")).toBe(false));
   const clipboard = mockClipboardWrites();
@@ -156,7 +156,7 @@ test("org manager shares your own identity link from your roster row's kebab", a
     await openOrgManager(alice);
     // The windowed directory has no standalone copy button; the row menu has it.
     expect(
-      within(alice).queryByRole("button", { name: "Copy my identity link" }),
+      within(alice).queryByRole("button", { name: "Copy identity link" }),
     ).toBeNull();
     const roster = await within(alice).findByRole(
       "table",
