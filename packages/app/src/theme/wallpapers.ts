@@ -33,4 +33,4 @@ export const APP_WALLPAPERS: readonly WallpaperDefinition<WallpaperId>[] = [
 ];
 
 /** The wallpaper until the user picks one. */
-export const DEFAULT_WALLPAPER: WallpaperId = "tidal";
+export const DEFAULT_WALLPAPER: WallpaperId = "honeycomb";

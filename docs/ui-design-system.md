@@ -130,6 +130,10 @@ overlays, and motion. Rules:
   are composed with `classNames` from
   [`components/shared/classNames`](../packages/app/src/components/shared/classNames.ts).
 
+Honeycomb is the default desktop wallpaper. Display Properties changes the
+app-wide wallpaper choice; saved choices, including None, survive reloads and
+take precedence over the default.
+
 App-specific chrome refinements live in
 [`shell/layout/AppChrome.css`](../packages/app/src/shell/layout/AppChrome.css),
 scoped to the navigation attribute on the root so portaled menus inherit them

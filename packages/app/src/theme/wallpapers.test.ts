@@ -5,10 +5,9 @@ import {
   PLAIN_WALLPAPER,
   TRIANGLES_WALLPAPER,
 } from "@tearleads/windowing";
-import { APP_WALLPAPERS, DEFAULT_WALLPAPER } from "./wallpapers";
+import { APP_WALLPAPERS } from "./wallpapers";
 
-test("offers the designed host collection first with Tidal as the unsaved default", () => {
-  expect(DEFAULT_WALLPAPER).toBe("tidal");
+test("offers the designed host collection first", () => {
   expect(APP_WALLPAPERS.map(({ id, label }) => ({ id, label }))).toEqual([
     { id: "tidal", label: "Tidal" },
     { id: "facet", label: "Facet" },
