@@ -6,6 +6,11 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import * as schema from "../schema";
 import { readApiDatabaseKind } from "../schema/dialect";
+import {
+  type PostgresReadRouting,
+  postgresReadConsistency,
+  withDatabaseReadConsistency,
+} from "./databaseReadConsistency";
 import { databaseStatementLogger } from "./databaseStatementCounter";
 import { timeDatabaseClient } from "./databaseWaitTiming";
 import { migrateWithHistory } from "./migrationHistory";
@@ -25,6 +30,10 @@ import type {
   MigrationOptions,
 } from "./types";
 
+export {
+  databaseReadConsistency,
+  type PostgresReadRouting,
+} from "./databaseReadConsistency";
 export { withDatabaseStatementCounter } from "./databaseStatementCounter";
 export { gatherWithExecutor, isDatabaseTransaction } from "./executor";
 export { createPostgresPoolConfig } from "./postgresConfig";
@@ -71,16 +80,19 @@ function createMemoryApiDatabase(): ManagedApiDatabase {
 
 function createPostgresApiDatabase(
   env: ApiDatabaseEnv,
-  options: { readonly requestScoped?: boolean } = {},
+  options: {
+    readonly requestScoped?: boolean;
+    readonly readRouting?: PostgresReadRouting;
+  } = {},
 ): ManagedApiDatabase {
   // pg types its stream factory as a Node Duplex; the Workers socket is a
   // structural stand-in, so it joins the config outside the typed literal.
-  const pool = new PostgresPool(
-    Object.assign(
-      createPostgresPoolConfig(env, options),
-      readPostgresStreamConfig(env),
-    ),
+  const config = Object.assign(
+    createPostgresPoolConfig(env, options),
+    readPostgresStreamConfig(env),
   );
+  const consistency = postgresReadConsistency(config, options.readRouting);
+  const pool = new PostgresPool(config, consistency.verify);
   const db = drizzleNodePostgres({
     client: timeDatabaseClient(pool),
     schema,
@@ -88,7 +100,9 @@ function createPostgresApiDatabase(
   });
 
   return {
-    db: withDatabaseTransactionCompletion(db),
+    db: withDatabaseTransactionCompletion(
+      withDatabaseReadConsistency(db, consistency.read),
+    ),
     kind: "postgres",
     close: () => pool.end(),
     migrate: (options) =>
@@ -118,13 +132,14 @@ async function migrateOnOneSession(
 
 export function createDefaultManagedApiDatabase(
   env: ApiDatabaseEnv = process.env,
+  options: { readonly readRouting?: PostgresReadRouting } = {},
 ): ManagedApiDatabase {
   const kind = readApiDatabaseKind(env);
   if (kind === "memory") {
     return createMemoryApiDatabase();
   }
 
-  return createPostgresApiDatabase(env);
+  return createPostgresApiDatabase(env, options);
 }
 
 const defaultDatabase = createDefaultManagedApiDatabase();
