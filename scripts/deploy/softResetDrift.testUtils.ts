@@ -1,4 +1,29 @@
 // Synthetic Terraform observations only; never derived from private plans.
+export function bucketLocationDrift(tier: "prod" | "staging" = "prod") {
+  const before: Record<string, unknown> & {
+    location?: unknown;
+    policy?: unknown;
+  } = {
+    id: `tearleads-blobs-${tier}`,
+    account_id: "a".repeat(32),
+    name: `tearleads-blobs-${tier}`,
+    location: "enam",
+    jurisdiction: "default",
+    storage_class: "Standard",
+    creation_date: "2026-01-01T00:00:00Z",
+  };
+  return {
+    address: "cloudflare_r2_bucket.blobs",
+    mode: "managed",
+    change: {
+      actions: ["update"],
+      before,
+      after: { ...before, location: "ENAM" } as typeof before,
+      after_unknown: {} as unknown,
+    },
+  };
+}
+
 export function metadataDrift(
   name: "database" | "main_protection",
   tier: "prod" | "staging" = "prod",

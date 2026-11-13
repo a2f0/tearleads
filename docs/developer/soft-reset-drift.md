@@ -25,10 +25,32 @@ this exception. No-op drift entries remain accepted as before.
 
 Changes to deletion protection, identity, region, replicas, size, or any other
 unlisted field still refuse, even if present in only one response representation.
-Other resources, storage-stack drift, deletes, and replacements are not exempt.
-The same check applies at preflight, destruction/creation plan inspection, and
-post-recreation verification. The normal plan scope, configured identities,
-and inspected saved-plan-byte checks remain mandatory.
+Other PostgreSQL resources, deletes, and replacements are not exempt.
+The same PostgreSQL check applies at preflight, destruction/creation plan
+inspection, and post-recreation verification.
+
+## Storage location casing exception
+
+In the storage stack only, a managed `update` for exactly
+`cloudflare_r2_bucket.blobs` may differ only in the casing of its `location`.
+The [storage validator](../../scripts/deploy/softResetStorageDrift.ts) requires
+two known string locations that differ in case but identify the same code:
+`apac`, `eeur`, `enam`, `weur`, `wnam`, or `oc`. An actual region change,
+unrecognized code, missing or malformed location still refuses.
+
+Both snapshots must be objects with nonempty string `id`, `account_id`, and
+`name`. Every other attribute must remain structurally identical; string
+values are compared exactly, without normalizing identities, credentials,
+serialized policy, or unknown properties. `after_unknown` may be omitted or
+an empty object, but null, malformed, or populated markers refuse. Other
+addresses (including downloads), stacks, modes, and actions are not exempt.
+
+This exception applies to the storage no-op preflight and inspected saved
+destroy/create plans. The current post-recreation `verify-fresh` phase checks
+storage inventory and emptiness, but inspects only a PostgreSQL no-op plan;
+it does **not** perform a post-recreation storage drift plan. The normal plan
+scope, configured identities, token permissions, and inspected saved-plan-byte
+checks remain mandatory for every plan, even alongside either exception.
 
 ## A refused run still needs manual recovery
 
