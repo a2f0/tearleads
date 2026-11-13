@@ -36,6 +36,7 @@ export interface LocalKeyringLockContextValue {
   refresh(): Promise<void>;
   setPinCode(pinCode: string): Promise<boolean>;
   unlock(pinCode: string): Promise<boolean>;
+  verifyPinCode(pinCode: string, signal?: AbortSignal): Promise<boolean>;
 }
 
 interface DynamicKeyringState {
@@ -231,33 +232,45 @@ export function useDynamicLocalKeyringFactory(input: {
   }, [closeCachedKeyring]);
 }
 
+export function useVerifyPinCodeAction(
+  environment: LocalKeyringLockEnvironment,
+): (pinCode: string, signal?: AbortSignal) => Promise<boolean> {
+  return useCallback(
+    async (pinCode: string, signal?: AbortSignal): Promise<boolean> => {
+      if (signal?.aborted || !canRunPinCodeAction(environment, pinCode)) {
+        return false;
+      }
+
+      try {
+        const verified = await verifyPinCode({
+          keyMaterialStorage: environment.keyMaterialStorage,
+          manifestStore: environment.manifestStore,
+          pinCode,
+          scopes: environment.scopes,
+        });
+        return !signal?.aborted && verified;
+      } catch (error) {
+        if (signal?.aborted) return false;
+        reportLockFailure(environment, error);
+        throw error;
+      }
+    },
+    [environment],
+  );
+}
+
 export function useUnlockAction(input: {
   readonly environment: LocalKeyringLockEnvironment;
   readonly setLockState: Dispatch<SetStateAction<LockState>>;
   readonly setUnlockedPinCode: Dispatch<SetStateAction<string | null>>;
 }): (pinCode: string) => Promise<boolean> {
   const { environment, setLockState, setUnlockedPinCode } = input;
+  const verify = useVerifyPinCodeAction(environment);
   return useCallback(
     async (pinCode: string): Promise<boolean> => {
-      if (!canRunPinCodeAction(environment, pinCode)) {
-        return false;
-      }
-
-      // verifyPinCode answers a wrong PIN with false, so anything thrown here
-      // is a manifest-store or keystore failure, never a typo.
-      let verified = false;
       try {
-        verified = await verifyPinCode({
-          keyMaterialStorage: environment.keyMaterialStorage,
-          manifestStore: environment.manifestStore,
-          pinCode,
-          scopes: environment.scopes,
-        });
-      } catch (error) {
-        reportLockFailure(environment, error);
-        return false;
-      }
-      if (!verified) {
+        if (!(await verify(pinCode))) return false;
+      } catch {
         return false;
       }
 
@@ -269,7 +282,7 @@ export function useUnlockAction(input: {
       }));
       return true;
     },
-    [environment, setLockState, setUnlockedPinCode],
+    [setLockState, setUnlockedPinCode, verify],
   );
 }
 
@@ -432,6 +445,7 @@ export function useLocalKeyringLockContextValue(input: {
   readonly refresh: () => Promise<void>;
   readonly setPinCode: (pinCode: string) => Promise<boolean>;
   readonly unlock: (pinCode: string) => Promise<boolean>;
+  readonly verifyPinCode: LocalKeyringLockContextValue["verifyPinCode"];
 }): LocalKeyringLockContextValue {
   const {
     clearPinCode,
@@ -442,6 +456,7 @@ export function useLocalKeyringLockContextValue(input: {
     refresh,
     setPinCode,
     unlock,
+    verifyPinCode,
   } = input;
   return useMemo(
     () => ({
@@ -459,6 +474,7 @@ export function useLocalKeyringLockContextValue(input: {
       setPinCode,
       status: lockState.status,
       unlock,
+      verifyPinCode,
     }),
     [
       environment.canManagePinCode,
@@ -469,6 +485,7 @@ export function useLocalKeyringLockContextValue(input: {
       refresh,
       setPinCode,
       unlock,
+      verifyPinCode,
       lockState.pinCodeEnabled,
       lockState.revision,
       lockState.status,

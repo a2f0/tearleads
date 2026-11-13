@@ -5,9 +5,13 @@ import "./screensaver.css";
 export function ScreensaverOverlay({
   children,
   onStop,
+  locked,
+  interactive,
 }: {
   children: ReactNode;
   onStop: () => void;
+  locked: boolean;
+  interactive: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
@@ -19,7 +23,10 @@ export function ScreensaverOverlay({
       onStop();
     };
     const close = () => {
-      if (!dialog.open) onStop();
+      if (!dialog.open) {
+        onStop();
+        if (locked) dialog.showModal();
+      }
     };
     dialog.addEventListener("cancel", cancel);
     dialog.addEventListener("close", close);
@@ -30,17 +37,27 @@ export function ScreensaverOverlay({
       dialog.removeEventListener("close", close);
       dialog.close();
     };
-  }, [onStop]);
+  }, [onStop, locked]);
   return createPortal(
     <dialog
       aria-label="Screensaver"
-      aria-description="Press Escape to exit."
-      className="screensaver-overlay"
+      aria-description={
+        interactive
+          ? "Enter your PIN code to unlock, or cancel to return to the screensaver."
+          : locked
+            ? "Press Escape to enter your PIN."
+            : "Press Escape to exit."
+      }
+      className={`screensaver-overlay${interactive ? " screensaver-overlay--unlock" : ""}`}
       ref={ref}
     >
-      <div aria-hidden="true" inert className="screensaver-content">
-        {children}
-      </div>
+      {interactive ? (
+        children
+      ) : (
+        <div aria-hidden="true" inert className="screensaver-content">
+          {children}
+        </div>
+      )}
     </dialog>,
     document.body,
   );

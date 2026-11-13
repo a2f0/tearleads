@@ -120,12 +120,14 @@ export {
   useRoutedPaneOverlayHost,
 } from "./routed/RoutedPaneOverlayHost";
 export type { SubscribeKeyboardVisibility } from "./routed/useMobileKeyboardVisible";
+export { LaserScreensaver } from "./screensaver/LaserScreensaver";
 export {
   type ScreensaverControls,
   ScreensaverProvider,
   type ScreensaverProviderProps,
   useScreensaver,
 } from "./screensaver/ScreensaverProvider";
+export type { ScreensaverPinVerifier } from "./screensaver/screensaverPinVerifier";
 export { SidebarResizeHandle, useSidebarResize } from "./sidebar/SidebarResize";
 export {
   ThemeProvider,

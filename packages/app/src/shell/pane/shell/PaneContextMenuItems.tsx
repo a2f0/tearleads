@@ -5,6 +5,7 @@ import { MenuItem, type MenuPosition } from "@tearleads/windowing";
 import { MINI_APP_MENU_ITEMS } from "../../../mini-apps/catalog";
 import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItems";
 import { useAppNavigationState } from "../../../navigation/AppNavigationProvider";
+import { AppScreensaverAction } from "../../layout/AppScreensaverHost";
 
 import { usePaneLockMenuAction } from "./usePaneLockMenuAction";
 import { usePaneWindowMenuActions } from "./usePaneWindowMenuActions";
@@ -77,6 +78,7 @@ export function PaneContextMenuItems({
           onClick={() => openMiniApp("display-properties")}
         />
       )}
+      <AppScreensaverAction onClose={onClose} />
     </>
   );
 }
