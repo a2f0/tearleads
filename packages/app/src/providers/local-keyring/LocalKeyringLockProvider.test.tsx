@@ -137,6 +137,25 @@ test("lock clears only the in-memory PIN unlock state", async () => {
       expect(lockRef.current?.isLocked).toBe(false);
     });
 
+    const unlockedState = lockRef.current;
+    await expect(lockRef.current?.verifyPinCode("111111")).resolves.toBe(false);
+    await expect(lockRef.current?.verifyPinCode("824913")).resolves.toBe(true);
+    expect(lockRef.current).toBe(unlockedState);
+
+    const alreadyAborted = new AbortController();
+    alreadyAborted.abort();
+    await expect(
+      lockRef.current?.verifyPinCode("824913", alreadyAborted.signal),
+    ).resolves.toBe(false);
+    const cancelled = new AbortController();
+    const verification = lockRef.current?.verifyPinCode(
+      "824913",
+      cancelled.signal,
+    );
+    cancelled.abort();
+    await expect(verification).resolves.toBe(false);
+    expect(lockRef.current).toBe(unlockedState);
+
     act(() => {
       expect(lockRef.current?.lock()).toBe(true);
     });
@@ -145,6 +164,11 @@ test("lock clears only the in-memory PIN unlock state", async () => {
       expect(lockRef.current?.pinCodeEnabled).toBe(true);
       expect(lockRef.current?.isLocked).toBe(true);
     });
+    const lockedState = lockRef.current;
+    await expect(lockRef.current?.verifyPinCode("111111")).resolves.toBe(false);
+    await expect(lockRef.current?.verifyPinCode("824913")).resolves.toBe(true);
+    expect(lockRef.current).toBe(lockedState);
+    expect(lockRef.current?.isLocked).toBe(true);
     await act(async () => {
       await expect(lockRef.current?.unlock("824913")).resolves.toBe(true);
     });
