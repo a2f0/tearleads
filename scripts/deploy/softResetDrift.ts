@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { bucketLocationCasingOnly } from "./softResetStorageDrift";
 
 type DriftRecord = Record<string, unknown> &
   Partial<
@@ -129,7 +130,8 @@ export function validateResourceDrift(
       return (
         !resource ||
         (!isDeepStrictEqual(change?.actions, ["no-op"]) &&
-          !metadataOnly(resource, stack))
+          !metadataOnly(resource, stack) &&
+          !bucketLocationCasingOnly(resource, stack))
       );
     })
   )
