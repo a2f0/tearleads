@@ -204,7 +204,7 @@ for (const status of [403, 404] as const) {
   });
 }
 
-test("network, shape, and server failures retain and report last-known-good data", async () => {
+test("failed feeds retain local data without presenting it as a successful reconcile", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-retained-failure-test",
   );
@@ -241,7 +241,14 @@ test("network, shape, and server failures retain and report last-known-good data
         execSql,
         organizationId,
       });
-      expect(result).toEqual(local);
+      expect(result).toBeUndefined();
+      await expect(
+        loadLocalOrganizationDirectoryAndGroups({
+          currentUserId,
+          execSql,
+          organizationId,
+        }),
+      ).resolves.toEqual(local);
     }
 
     expect(failureIndex).toBe(4);
@@ -349,7 +356,14 @@ test("cursor reset fails closed without the exact status and code", async () => 
 
       expect(cursors).toEqual(["cursor-1"]);
       expect(reports).toBe(1);
-      expect(projection).toEqual(local);
+      expect(projection).toBeUndefined();
+      await expect(
+        loadLocalOrganizationDirectoryAndGroups({
+          currentUserId,
+          execSql,
+          organizationId,
+        }),
+      ).resolves.toEqual(local);
     } finally {
       close();
     }
@@ -437,7 +451,14 @@ test("a response for another organization retains the scoped projection", async 
       organizationId,
     });
 
-    expect(result).toEqual(local);
+    expect(result).toBeUndefined();
+    await expect(
+      loadLocalOrganizationDirectoryAndGroups({
+        currentUserId,
+        execSql,
+        organizationId,
+      }),
+    ).resolves.toEqual(local);
     expect(logs).toEqual([
       `Organization read-model response scope does not match ${organizationId}`,
     ]);
