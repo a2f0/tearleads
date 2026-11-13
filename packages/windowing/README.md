@@ -69,7 +69,7 @@ desktop surface must be a positioned container.
   - [Themes](./docs/appearance.md#themes)
   - [Wallpapers and Display Properties](./docs/appearance.md#wallpapers-and-display-properties)
   - [Styles](./docs/appearance.md#styles)
-- [Pluggable screensavers](./docs/screensavers.md)
+- [Pluggable screensavers, lasers, and PIN unlock](./docs/screensavers.md)
 - [Publishing](./docs/publishing.md)
 
 ## Dependency compatibility

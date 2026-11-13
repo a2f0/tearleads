@@ -27,3 +27,60 @@
   pointer-events: none;
   user-select: none;
 }
+
+.screensaver-overlay--unlock {
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  overflow: auto;
+  cursor: auto;
+  touch-action: auto;
+  color: white;
+  font-family: system-ui, sans-serif;
+}
+
+.screensaver-unlock {
+  width: min(100%, 22rem);
+  padding: 1.5rem;
+  box-sizing: border-box;
+  border: 1px solid #666;
+  border-radius: 0.5rem;
+  background: #171717;
+}
+
+.screensaver-unlock h2 {
+  margin-top: 0;
+}
+
+.screensaver-unlock label {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.screensaver-unlock input,
+.screensaver-unlock button {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #888;
+  border-radius: 0.25rem;
+  font: inherit;
+  color: white;
+  background: #292929;
+}
+
+.screensaver-unlock button {
+  margin-top: 1rem;
+  cursor: pointer;
+}
+
+.screensaver-unlock :disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.screensaver-unlock :focus-visible {
+  outline: 2px solid white;
+  outline-offset: 3px;
+}

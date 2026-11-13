@@ -118,9 +118,9 @@ overlays, and motion. Rules:
 - Themes override only the color tokens, under `:root[data-theme="<id>"]`. The
   registry is
   [`packages/app/src/theme/themes.ts`](../packages/app/src/theme/themes.ts)
-  (Light, Dark, and Dusk, whose block lives in the companion
-  [`styles.dusk.css`](../packages/ui/src/styles.dusk.css)), which each host
-  profile offers; the windowing package's `ThemeProvider` stamps
+  (Dark, Light, and Dusk, in switcher cycle order; Dusk's block lives in the
+  companion [`styles.dusk.css`](../packages/ui/src/styles.dusk.css)), which each
+  host profile offers; the windowing package's `ThemeProvider` stamps
   `<html data-theme>` and `<html data-theme-scheme>` (`light` | `dark`). A rule
   that only cares whether surfaces are dark keys off the scheme, never a theme
   id. Structural tokens are theme-independent by design. Dusk uses slate-blue
@@ -129,6 +129,10 @@ overlays, and motion. Rules:
 - Each component ships a sibling `.css` file imported by its `.tsx`; class names
   are composed with `classNames` from
   [`components/shared/classNames`](../packages/app/src/components/shared/classNames.ts).
+
+Honeycomb is the default desktop wallpaper. Display Properties changes the
+app-wide wallpaper choice; saved choices, including None, survive reloads and
+take precedence over the default.
 
 App-specific chrome refinements live in
 [`shell/layout/AppChrome.css`](../packages/app/src/shell/layout/AppChrome.css),

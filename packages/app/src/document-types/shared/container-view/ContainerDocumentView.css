@@ -1,0 +1,39 @@
+.container-view-actions,
+.container-view-notes nav,
+.container-primary-picker nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-block-end: var(--space-sm);
+}
+
+.container-document-view,
+.container-primary-picker,
+.container-view-notes,
+.container-view-note {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.container-document-view,
+.container-view-notes {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.container-view-note {
+  padding-block: var(--space-sm);
+}
+
+.container-primary-picker ul {
+  display: grid;
+  gap: var(--space-xs);
+  padding-inline-start: var(--space-md);
+}
+
+.container-primary-picker .mini-app-button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

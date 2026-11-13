@@ -22,11 +22,12 @@ import {
 import { purgeContainer } from "./operations/purgeContainerOperation";
 import { chainPurgeAfterScopeMoves } from "./operations/purgeMoveSettlementOperation";
 import { setContainerIcon } from "./operations/setContainerIconOperation";
+import { setContainerPrimaryDocument } from "./operations/setContainerPrimaryDocumentOperation";
 import {
   shareContainerWithGroup,
   shareContainerWithUser,
 } from "./operations/shareOperations";
-import { invalidateRemoteContainerWrites } from "./remoteWrites/remoteWriteGuards";
+import { chainContainerWrite } from "./remoteWrites/localWriteQueue";
 import { chainRemoteContainerTask } from "./remoteWrites/remoteWriteQueue";
 import { captureContainerWriteGeneration } from "./remoteWrites/writeGeneration";
 import {
@@ -111,26 +112,6 @@ function createContainerContentsStoreSyncHost(
   };
 }
 
-// null marks an unknown mutation scope; [] delegates invalidation to actual writes.
-function chainContainerWrite(
-  state: ContainerContentsStoreState,
-  work: (isCurrent: () => boolean) => ContainerContentsStoreState["writeChain"],
-  changedIds: readonly string[] | null = null,
-  movedId?: string,
-): ContainerContentsStoreState["writeChain"] {
-  const isCurrent = captureContainerWriteGeneration(state);
-  invalidateRemoteContainerWrites(state, changedIds, movedId);
-  state.writeChain = state.writeChain
-    .catch(() => null)
-    .then(() => {
-      if (!isCurrent()) return null;
-      invalidateRemoteContainerWrites(state, changedIds, movedId);
-      return work(isCurrent);
-    })
-    .then((node) => (isCurrent() ? node : null));
-  return state.writeChain;
-}
-
 type ContainerWriteMethods = Pick<
   ContainerContentsStore,
   | "createChild"
@@ -143,6 +124,7 @@ type ContainerWriteMethods = Pick<
   | "purgeContainer"
   | "renameContainer"
   | "setContainerIcon"
+  | "setContainerPrimaryDocument"
   | "shareWithGroup"
   | "shareWithUser"
 >;
@@ -389,6 +371,19 @@ export function createContainerWriteMethods(
         state,
         (isCurrent) =>
           renameContainer(state, syncAgent, containerId, name, isCurrent),
+        [containerId],
+      ),
+    setContainerPrimaryDocument: (containerId, documentId) =>
+      chainContainerWrite(
+        state,
+        (isCurrent) =>
+          setContainerPrimaryDocument(
+            state,
+            syncAgent,
+            containerId,
+            documentId,
+            isCurrent,
+          ),
         [containerId],
       ),
     setContainerIcon: (containerId, icon) =>

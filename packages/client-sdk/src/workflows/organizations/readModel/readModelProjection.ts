@@ -151,14 +151,13 @@ function localResult(
   if (!readable) {
     return { kind: "done", value: null };
   }
-  const value = toDirectoryAndGroups(state.projection);
-  // A failed pass that retained nothing must not read as a completed (null)
-  // pass: consumers mark a scope caught up only on completed passes, and this
-  // scope still needs a fresh catch-up.
-  if (value === null && outcome.failed) {
+  // Retained rows are available through the local loader, but are not proof
+  // that this pass caught up. Returning them after a failed post-commit read
+  // makes mutation callers skip their retry and repaint pre-mutation status.
+  if (outcome.failed) {
     return { kind: "done", value: undefined };
   }
-  return { kind: "done", value };
+  return { kind: "done", value: toDirectoryAndGroups(state.projection) };
 }
 
 function resetRequestCursor(state: ReconciliationState): void {
@@ -424,8 +423,8 @@ export async function loadLocalOrganizationGroupMembers(
 /**
  * Resolves the reconciled projection, `null` when the pass completed
  * authoritatively with nothing presentable (including a denial that purged
- * the projection), or `undefined` when the feed failed and no local
- * projection was retained — a pass that must not count as caught up.
+ * the projection), or `undefined` when the feed failed — even when local
+ * rows remain available. A failed pass must not count as caught up.
  */
 export async function reconcileOrganizationDirectoryAndGroups(
   input: ReconcileOrganizationDirectoryAndGroupsInput,

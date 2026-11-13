@@ -52,6 +52,7 @@ function areSnapshotNodesEqual(
       leftNode.name === rightNode.name &&
       leftNode.organizationId === rightNode.organizationId &&
       leftNode.parentId === rightNode.parentId &&
+      leftNode.primaryDocumentId === rightNode.primaryDocumentId &&
       areSyncStatesEqual(leftNode.syncState, rightNode.syncState) &&
       leftNode.systemSlot === rightNode.systemSlot &&
       leftNode.updatedAt === rightNode.updatedAt

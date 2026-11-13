@@ -19,7 +19,6 @@ import type {
   ContainerAccessProjection,
   ContainerWriterProjectionContext,
 } from "../../workflows/containers/writerProjection";
-import type { PrincipalPolicyReferenceCache } from "../../workflows/containers/writerProjection/types";
 import {
   collectReferencedPrincipalsFromContainerAccess,
   KeyingReadAccessError,
@@ -42,8 +41,8 @@ import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface ListContainerDocumentsOptions {
   readonly limit?: number | undefined;
-  /** Shared by the lanes of one request; see `PrincipalPolicyReferenceCache`. */
-  readonly principalPolicyCache?: PrincipalPolicyReferenceCache;
+  /** Shared only within a root-executor listing request. */
+  readonly context?: ContainerWriterProjectionContext;
   readonly watermark?: SyncWatermark | null;
 }
 
@@ -374,9 +373,9 @@ export async function listContainerDocuments(
     () => new ListContainerDocumentsError("Invalid watermark", 400),
   );
 
-  const context: ContainerWriterProjectionContext = {
+  const context: ContainerWriterProjectionContext = options.context ?? {
     ...createContainerWriterProjectionContext(runtime.db),
-    principalPolicyByReference: options.principalPolicyCache ?? new Map(),
+    principalPolicyByReference: new Map(),
   };
   const containerAccess = await requireReadableContainer(
     runtime,

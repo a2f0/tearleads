@@ -8,6 +8,8 @@ export function createContainerWriterProjectionContext(
   principalPolicyAuthorizationEvidence: readonly PrincipalPolicyAuthorization[] = [],
 ): ContainerWriterProjectionContext {
   return {
+    keyEpochById: new Map(),
+    keyWrapsByEpochId: new Map(),
     containerKekStateByCacheKey: new Map(),
     containerPathRowById: new Map(),
     executor,

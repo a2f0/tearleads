@@ -289,7 +289,7 @@ test("contacts new-contact route moves back and create to chrome", async () => {
 
 test("contacts detail names an unnamed self contact You, like its sidebar row", () => {
   // Identified through its signing-fingerprint local ID (isSelf would also
-  // render the runtime-backed "Copy my identity link" button).
+  // render the runtime-backed "Copy identity link" button).
   const unnamed = {
     ...contactEntry,
     firstName: "",

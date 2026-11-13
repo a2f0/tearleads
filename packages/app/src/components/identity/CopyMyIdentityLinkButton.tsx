@@ -46,7 +46,7 @@ export function CopyMyIdentityLinkButton() {
           ) : (
             <ClipboardIcon aria-hidden size={16} />
           )}
-          Copy my identity link
+          Copy identity link
         </MiniAppButton>
       </MiniAppToolbar>
       {progress && (

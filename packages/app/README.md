@@ -40,6 +40,23 @@ and the chrome conventions across desktop, tablet, and phone.
 [Contact addresses](src/document-types/contact/README.md) documents the shared
 Contacts/Explorer editor, repeated Loro records, and attribution boundaries.
 
+The regular app offers **Start Screensaver** from the bare-desktop context
+menu, the desktop Start menu, and the routed taskbar. It runs the shared
+grayscale lasers animation on demand; there is no idle timer. Without a PIN,
+input dismisses it normally. With a local-keyring PIN configured, it becomes a
+full-screen privacy gate that checks the existing PIN before dismissal.
+Incorrect PINs keep the overlay visible; Cancel or Escape from the PIN prompt
+returns to the artwork. Editors, unsaved changes, sessions, and app data remain
+live underneath, including across workspace and layout changes. This hides
+the app from view; it does not lock the keyring or secure live app data.
+**Lock** remains a separate security action that locks the local keyring.
+An active gate fails closed if another tab removes the PIN or storage prevents
+verification. If verification cannot recover, reloading may be necessary and
+can discard unsaved edits; removing the PIN elsewhere does not dismiss a gate.
+
+The isolated two-peer demo does not expose this action: its peers have
+independent runtimes and PINs rather than one app-wide privacy gate.
+
 ## Tests
 
 ```sh

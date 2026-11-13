@@ -16,6 +16,10 @@ process. Production and staging use PlanetScale PostgreSQL and independent
 Cloudflare R2 buckets for encrypted [blobs](../glossary/content.md#blob).
 Runtime database roles and schema migration credentials are separate.
 
+Commit checkpoints stay tracked by default. The optional
+[primary-only read contract](primary-only-reads.md) supports explicitly owned
+direct routing without enabling it in existing deployments.
+
 ### Schema migrations
 
 The schema evolves through ordered Drizzle migrations in

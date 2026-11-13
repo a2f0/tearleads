@@ -10,11 +10,13 @@ import { and, eq, isNull } from "drizzle-orm";
 import { getStoredAccessEvents } from "../../access/read/accessManifestStore";
 import {
   BlobContentKeyBundleError,
-  getLatestBlobContentKeyBundle,
+  type getLatestBlobContentKeyBundle,
+  getLatestBlobContentKeyBundles,
   listBlobContentWriteHeaders,
 } from "../../access/read/blobContentKeyStore";
 import {
   BlobKekTargetError,
+  prefetchBlobKekTargets,
   resolveCurrentBlobKekTargets,
 } from "../../access/read/blobKekTargets";
 import { projectionVerifiedAccessEventRecord } from "../../keyingProjectionRecords";
@@ -63,16 +65,15 @@ async function loadAvailableBlobContentKeyBundleEntry(
   blobId: string,
   writeHeader: BlobContentKeyBundleEntry["writeHeader"] | undefined,
   executor: DatabaseSession,
+  prefetch: Awaited<ReturnType<typeof prefetchBlobKekTargets>>,
+  contentKeyBundle: AvailableBlobContentKeyBundle | undefined,
 ): Promise<BlobContentKeyBundleEntry> {
   try {
     const currentTargets = await resolveCurrentBlobKekTargets(
       blobId,
       executor,
       true,
-    );
-    const contentKeyBundle = await getLatestBlobContentKeyBundle(
-      blobId,
-      executor,
+      prefetch,
     );
     if (!contentKeyBundle) {
       throw new ListDocumentAttachmentsError(
@@ -147,6 +148,8 @@ export async function runListDocumentAttachmentsWorkflow(
     ),
     executor,
   );
+  const prefetch = await prefetchBlobKekTargets(blobIds, executor, true);
+  const bundles = await getLatestBlobContentKeyBundles(blobIds, executor);
   const contentKeyBundleEntries = await gatherWithExecutor(
     executor,
     blobIds,
@@ -155,6 +158,8 @@ export async function runListDocumentAttachmentsWorkflow(
         blobId,
         writeHeadersByBlobId.get(blobId),
         executor,
+        prefetch,
+        bundles.get(blobId),
       ),
   );
   const contentKeyBundleByBlobId = new Map<string, BlobContentKeyBundleEntry>();

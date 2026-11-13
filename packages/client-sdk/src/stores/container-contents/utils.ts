@@ -1,5 +1,6 @@
 import { normalizeEffectiveAccessLevel } from "../../data/keying/accessLevel";
 import type { ContainerRecord } from "../../workflows/container-contents/containerPersistence";
+import { readContainerMetadataValue } from "../../workflows/container-contents/metadata/containerMetadataDocument";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import { createContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import type { ContainerNode } from "./types";
@@ -38,6 +39,9 @@ export function toContainerNode(containerState: ContainerState): ContainerNode {
     name: container.name,
     organizationId: container.organizationId,
     parentId: container.parentId,
+    primaryDocumentId:
+      readContainerMetadataValue(containerState.doc, container.name)
+        .primaryDocumentId ?? null,
     syncState: createContainerDocumentObjectSyncState({
       localOnly:
         !container.serverCreatedAt ||

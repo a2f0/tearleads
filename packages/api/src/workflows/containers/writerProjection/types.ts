@@ -9,6 +9,10 @@ import {
   type AccessManifestBundleWireResponse,
   CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
 } from "@tearleads/validators/response";
+import type {
+  getContainerKeyEpochWithKeyring,
+  listContainerKeyWraps,
+} from "../../../access/read/containerKekStore";
 import type { SignerCache } from "../../signerPublicKey";
 import type { StoredManifestLineage } from "./storedManifestLineage";
 import type { AccessManifestVerificationMarkerStore } from "./verificationMarkers";
@@ -61,6 +65,14 @@ export type PrincipalPolicyReferenceCache = Map<
 >;
 
 export interface ContainerWriterProjectionContext {
+  readonly keyEpochById: Map<
+    string,
+    NonNullable<Awaited<ReturnType<typeof getContainerKeyEpochWithKeyring>>>
+  >;
+  readonly keyWrapsByEpochId: Map<
+    string,
+    Awaited<ReturnType<typeof listContainerKeyWraps>>
+  >;
   readonly containerKekStateByCacheKey: Map<
     string,
     Promise<ContainerKekProjection>

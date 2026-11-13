@@ -6,11 +6,11 @@ import {
 } from "@tearleads/api-shared/schema";
 import { decodeVersionVector } from "@tearleads/loro";
 import type { DocumentUpdateRecord } from "@tearleads/loro/server";
-import { parseWalLsn } from "@tearleads/validators/util";
+
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { textExpression, uuidValue } from "../utils/postgresSql";
-import { readCurrentCommitLsn } from "./commitLsn";
+import { isMinLsnSatisfied } from "./commitLsn";
 import {
   listDocumentUpdateResponseByteFloors,
   prefixWithinResponseByteFloors,
@@ -107,12 +107,7 @@ export async function assertMinLsnSatisfied(
   executor: DatabaseSession,
   minLsn: string | undefined,
 ): Promise<void> {
-  if (!minLsn) {
-    return;
-  }
-
-  const currentCommitLsn = await readCurrentCommitLsn(executor);
-  if (parseWalLsn(currentCommitLsn) < parseWalLsn(minLsn)) {
+  if (!(await isMinLsnSatisfied(executor, minLsn))) {
     throw new DocumentUpdateReadError(
       "Requested minimum commit LSN has not been reached",
       503,

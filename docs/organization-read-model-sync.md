@@ -210,7 +210,10 @@ client atomically replaces the organization's projection from a new full
 snapshot. Applying the same response more than once is a no-op.
 
 Network, server, and response-shape failures retain the last-known-good local
-snapshot. A `403` or `404` coded `organization_presentation_access_denied`
+snapshot, but reconciliation returns `undefined`, not that cached snapshot.
+Local loaders can still present the retained data; a failed pass must not count
+as caught up or suppress the UI's post-mutation retry. A `403` or `404` coded
+`organization_presentation_access_denied`
 purges the organization's projection; an uncoded or unknown failure does not. A
 warm client discards its cursor for a fresh snapshot only on
 `400 organization_read_model_cursor_invalid`.

@@ -40,6 +40,23 @@ function toStoredAccessManifest(
   };
 }
 
+export function toStoredAccessManifestBundle(
+  manifest: typeof accessManifests.$inferSelect,
+  event: typeof accessEvents.$inferSelect | null,
+): StoredAccessManifestBundle {
+  if (!event) throw new Error("Access event not found");
+  return {
+    event: toStoredAccessEvent(event),
+    manifest: toStoredAccessManifest(manifest),
+    manifestHash: manifest.manifestHash,
+    state: readKeyingCanonicalJson(
+      manifest.state,
+      "stored access manifest state",
+    ),
+    verificationMac: manifest.verificationMac,
+  };
+}
+
 export async function getAccessManifestBundle(
   manifestHash: string,
   executor: DatabaseSession,
@@ -100,17 +117,7 @@ export async function loadAccessManifestBundles(
   const bundles = new Map<string, StoredAccessManifestBundle>();
   for (const { manifest, event } of rows) {
     try {
-      if (!event) throw new Error("Access event not found");
-      const bundle: StoredAccessManifestBundle = {
-        event: toStoredAccessEvent(event),
-        manifest: toStoredAccessManifest(manifest),
-        manifestHash: manifest.manifestHash,
-        state: readKeyingCanonicalJson(
-          manifest.state,
-          "stored access manifest state",
-        ),
-        verificationMac: manifest.verificationMac,
-      };
+      const bundle = toStoredAccessManifestBundle(manifest, event);
       bundles.set(manifest.manifestHash, bundle);
       memo?.set(manifest.manifestHash, bundle);
     } catch (error) {
