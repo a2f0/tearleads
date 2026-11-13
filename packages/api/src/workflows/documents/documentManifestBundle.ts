@@ -1,11 +1,15 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { documents } from "@tearleads/api-shared/schema";
+import {
+  accessManifestHeads,
+  documentManifestObservations,
+  documents,
+} from "@tearleads/api-shared/schema";
 import {
   type AccessManifestBundleWireResponse,
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_PROJECTION_ERROR_CODES,
 } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
@@ -48,6 +52,57 @@ export async function loadCurrentDocumentManifestBundle(
     documentId,
     executor,
   );
+  return loadDocumentManifestBundleForHead(executor, documentId, head, markers);
+}
+
+/** The unique user/document/hash observation joins the exact head being served. */
+export async function loadObservedDocumentManifestBundle(
+  executor: DatabaseSession,
+  documentId: string,
+  userId: string,
+  markers: AccessManifestVerificationMarkerStore,
+): Promise<{ bundle: AccessManifestBundleWireResponse; observed: boolean }> {
+  const [row] = await executor
+    .select({
+      head: accessManifestHeads,
+      observationId: documentManifestObservations.id,
+    })
+    .from(accessManifestHeads)
+    .leftJoin(
+      documentManifestObservations,
+      and(
+        eq(documentManifestObservations.userId, userId),
+        eq(documentManifestObservations.documentId, documentId),
+        eq(
+          documentManifestObservations.manifestHash,
+          accessManifestHeads.manifestHash,
+        ),
+      ),
+    )
+    .where(
+      and(
+        eq(accessManifestHeads.objectKind, "document"),
+        eq(accessManifestHeads.objectId, documentId),
+      ),
+    )
+    .limit(1);
+  return {
+    bundle: await loadDocumentManifestBundleForHead(
+      executor,
+      documentId,
+      row?.head ?? null,
+      markers,
+    ),
+    observed: row?.observationId != null,
+  };
+}
+
+async function loadDocumentManifestBundleForHead(
+  executor: DatabaseSession,
+  documentId: string,
+  head: Awaited<ReturnType<typeof getCurrentAccessManifestHead>>,
+  markers?: AccessManifestVerificationMarkerStore,
+): Promise<AccessManifestBundleWireResponse> {
   if (!head) {
     // A missing head alone is not proof of deletion — only the documents row
     // is. Clients tear down their local copy on the coded 404, so emit it

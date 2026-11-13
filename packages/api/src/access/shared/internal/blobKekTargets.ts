@@ -171,6 +171,7 @@ function documentManifestHashesForBindings(input: {
  * so each blob resolves its own containers and fails inside its own item.
  */
 export interface BlobKekTargetPrefetch {
+  readonly allowHistoricalParentEpochs: boolean;
   readonly bindingsByBlobId: ReadonlyMap<string, ActiveAttachmentBinding[]>;
   readonly containerTargetById: ContainerKekTargetMap | null;
   readonly documentHeadById: AccessManifestHeadMap;
@@ -180,40 +181,70 @@ export interface BlobKekTargetPrefetch {
 export async function prefetchBlobKekTargets(
   blobIds: readonly string[],
   executor: DatabaseSession,
+  allowHistoricalParentEpochs = false,
 ): Promise<BlobKekTargetPrefetch> {
   const bindingsByBlobId = new Map<string, ActiveAttachmentBinding[]>();
-  const bindings =
-    blobIds.length === 0
-      ? []
-      : await listActiveAttachmentBindings(
-          uniqueSortedStrings(blobIds),
-          executor,
-        );
+  const bindings: ActiveAttachmentBinding[] = [];
+  const ids = uniqueSortedStrings(blobIds);
+  for (let offset = 0; offset < ids.length; offset += 500) {
+    bindings.push(
+      ...(await listActiveAttachmentBindings(
+        ids.slice(offset, offset + 500),
+        executor,
+      )),
+    );
+  }
   for (const binding of bindings) {
     const rows = bindingsByBlobId.get(binding.blobId);
     if (rows) rows.push(binding);
     else bindingsByBlobId.set(binding.blobId, [binding]);
   }
-  const documentHeadById = await getCurrentAccessManifestHeads(
-    "document",
+  const documentHeadById: AccessManifestHeadMap = new Map();
+  const documentIds = uniqueSortedStrings(
     bindings.map((binding) => binding.documentId),
-    executor,
   );
-  const linkRows = await listAccessManifestDocumentLinkProjections(
+  for (let offset = 0; offset < documentIds.length; offset += 500) {
+    const heads = await getCurrentAccessManifestHeads(
+      "document",
+      documentIds.slice(offset, offset + 500),
+      executor,
+    );
+    for (const [id, head] of heads) documentHeadById.set(id, head);
+  }
+  const hashes = uniqueSortedStrings(
     [...documentHeadById.values()].map((head) => head.manifestHash),
-    executor,
   );
+  const linkRows: DocumentLinkRows = [];
+  for (let offset = 0; offset < hashes.length; offset += 500) {
+    linkRows.push(
+      ...(await listAccessManifestDocumentLinkProjections(
+        hashes.slice(offset, offset + 500),
+        executor,
+      )),
+    );
+  }
   let containerTargetById: ContainerKekTargetMap | null = null;
   try {
-    containerTargetById = await resolveCurrentContainerKekTargetsMapped(
+    const targets: ContainerKekTargetMap = new Map();
+    const containerIds = uniqueSortedStrings(
       linkRows.map((row) => row.containerId),
-      executor,
-      (message, status) => new BlobKekTargetError(message, status),
     );
+    // Each root can expand to 100 path nodes, with three history binds per node.
+    for (let offset = 0; offset < containerIds.length; offset += 100) {
+      const batch = await resolveCurrentContainerKekTargetsMapped(
+        containerIds.slice(offset, offset + 100),
+        executor,
+        (message, status) => new BlobKekTargetError(message, status),
+        allowHistoricalParentEpochs,
+      );
+      for (const [id, target] of batch) targets.set(id, target);
+    }
+    containerTargetById = targets;
   } catch (error) {
     if (!(error instanceof BlobKekTargetError)) throw error;
   }
   return {
+    allowHistoricalParentEpochs,
     bindingsByBlobId,
     containerTargetById,
     documentHeadById,
@@ -350,8 +381,8 @@ function deriveTargetsForBindings(input: {
 }
 
 /**
- * Pass a prefetch only when it was read in the same transaction after the
- * blob rows were locked; historical parent epochs are not prefetched.
+ * Mutations prefetch after locking blobs in the same transaction. Read-only
+ * listings may share a request-local prefetch with the same historical policy.
  */
 export async function resolveCurrentBlobKekTargets(
   blobId: string,
@@ -359,7 +390,10 @@ export async function resolveCurrentBlobKekTargets(
   allowHistoricalParentEpochs = false,
   prefetch?: BlobKekTargetPrefetch,
 ): Promise<ResolvedBlobKekTargets> {
-  const usablePrefetch = allowHistoricalParentEpochs ? undefined : prefetch;
+  const usablePrefetch =
+    prefetch?.allowHistoricalParentEpochs === allowHistoricalParentEpochs
+      ? prefetch
+      : undefined;
   const activeBindings = usablePrefetch
     ? (usablePrefetch.bindingsByBlobId.get(blobId) ?? [])
     : await listActiveAttachmentBindings([blobId], executor);

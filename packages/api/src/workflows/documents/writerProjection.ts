@@ -20,7 +20,7 @@ import {
 } from "../containers/writerProjection";
 import { flushVerificationMarkersAfterRead } from "../containers/writerProjection/verificationMarkers";
 import { runPrincipalHistoryTransaction } from "../principals/principalHistoryTransaction";
-import { loadCurrentDocumentManifestBundle } from "./documentManifestBundle";
+import { loadObservedDocumentManifestBundle } from "./documentManifestBundle";
 import {
   toContentKeyBundleResponse,
   toDocumentKekTargetsResponse,
@@ -98,17 +98,14 @@ async function resolveAuthorizingContainerPaths(input: {
 }
 
 async function resolveDocumentWriterProjection(input: {
+  readonly documentManifest: AccessManifestBundleWireResponse;
   readonly containerProjectionContext: ContainerWriterProjectionContext;
   readonly documentId: string;
   readonly executor: DatabaseSession;
   readonly userId: string;
 }): Promise<DocumentWriterProjectionResponse> {
   const { containerProjectionContext } = input;
-  const documentManifest = await loadCurrentDocumentManifestBundle(
-    input.executor,
-    input.documentId,
-    containerProjectionContext.verificationMarkers,
-  );
+  const { documentManifest } = input;
   let documentState: DocumentLinkSetManifestState;
   try {
     documentState = (
@@ -206,17 +203,26 @@ export async function runDocumentWriterProjectionWorkflow(
     async (tx) => {
       const containerProjectionContext =
         createContainerWriterProjectionContext(tx);
+      const { bundle: documentManifest, observed } =
+        await loadObservedDocumentManifestBundle(
+          tx,
+          input.documentId,
+          input.userId,
+          containerProjectionContext.verificationMarkers,
+        );
       const projection = await resolveDocumentWriterProjection({
+        documentManifest,
         containerProjectionContext,
         documentId: input.documentId,
         executor: tx,
         userId: input.userId,
       });
-      await recordDocumentManifestObservationInTransaction(tx, {
-        documentId: input.documentId,
-        manifestHash: projection.documentManifest.manifestHash,
-        userId: input.userId,
-      });
+      if (!observed)
+        await recordDocumentManifestObservationInTransaction(tx, {
+          documentId: input.documentId,
+          manifestHash: projection.documentManifest.manifestHash,
+          userId: input.userId,
+        });
       return {
         markers: containerProjectionContext.verificationMarkers,
         projection,

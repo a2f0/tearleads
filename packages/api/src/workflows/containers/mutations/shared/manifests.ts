@@ -19,6 +19,7 @@ import {
   mutationStateStale,
 } from "../errors";
 import type { ContainerMutationContext } from "../types";
+import { prefetchMutationPath } from "./prefetchPath";
 import {
   assertDistinctManifestRefs,
   resolveVerifiedStoredContainerManifest,
@@ -124,6 +125,7 @@ export async function assertCurrentContainerPath(
     return;
   }
   assertDistinctManifestRefs(refs, label);
+  await prefetchMutationPath(context, refs);
 
   const path: VerifiedContainerAccessManifest[] = [];
   for (const [index, ref] of refs.entries()) {

@@ -23,7 +23,7 @@ import {
 /**
  * Every epoch column except the sealed keyring. The keyring is O(its epoch)
  * bytes, so hot paths — projections, target checks, current-epoch lookups —
- * must never select it; `getContainerKeyEpochWithKeyring` is the sole reader.
+ * omit it. Only explicit keyring delivery readers select the blob.
  */
 export const EPOCH_COLUMNS_WITHOUT_KEYRING = {
   accessManifestHash: containerKeyEpochs.accessManifestHash,
@@ -58,6 +58,25 @@ export async function getContainerKeyEpochWithKeyring(
     .where(eq(containerKeyEpochs.id, containerKeyEpochId))
     .limit(1);
   return row ? toStoredContainerKeyEpoch(row) : null;
+}
+
+/** Projection-only set read: these paths actually deliver each sealed keyring. */
+export async function getContainerKeyEpochsWithKeyrings(
+  ids: readonly string[],
+  executor: DatabaseSession,
+): Promise<Map<string, StoredContainerKeyEpoch>> {
+  const epochs = new Map<string, StoredContainerKeyEpoch>();
+  const uniqueIds = [...new Set(ids)];
+  for (let offset = 0; offset < uniqueIds.length; offset += 500) {
+    const rows = await executor
+      .select()
+      .from(containerKeyEpochs)
+      .where(
+        inArray(containerKeyEpochs.id, uniqueIds.slice(offset, offset + 500)),
+      );
+    for (const row of rows) epochs.set(row.id, toStoredContainerKeyEpoch(row));
+  }
+  return epochs;
 }
 
 /** Reads one epoch's sealed keyring. */

@@ -1,7 +1,7 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { accessManifests } from "@tearleads/api-shared/schema";
 import type { AccessObjectKind } from "@tearleads/crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { loadAccessManifestBundles } from "./accessManifestBundleReads";
 
 /**
@@ -10,14 +10,16 @@ import { loadAccessManifestBundles } from "./accessManifestBundleReads";
  */
 export async function getObjectAccessManifestBundles(
   objectKind: AccessObjectKind,
-  objectId: string,
+  objectId: string | readonly string[],
   executor: DatabaseSession,
 ): ReturnType<typeof loadAccessManifestBundles> {
   return loadAccessManifestBundles(
     executor,
     and(
       eq(accessManifests.objectKind, objectKind),
-      eq(accessManifests.objectId, objectId),
+      typeof objectId === "string"
+        ? eq(accessManifests.objectId, objectId)
+        : inArray(accessManifests.objectId, [...objectId]),
     ),
   );
 }

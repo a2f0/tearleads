@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
 import { signWriteHeader, type WriteHeader } from "@tearleads/crypto";
 import { createTestUser } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
@@ -22,6 +23,10 @@ import {
   kekStateFromContainerResponse,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
+import {
+  prefetchBlobKekTargets,
+  resolveCurrentBlobKekTargets,
+} from "../../access/read/blobKekTargets";
 import { routeApp } from "../../routeApp";
 
 test("ancestor rotation keeps recovery projections and document reads available while writes fail closed", async () => {
@@ -104,6 +109,29 @@ test("ancestor rotation keeps recovery projections and document reads available 
     { method: "POST", headers, body: JSON.stringify(rotation.request) },
   );
   expect(rotated.status).toBe(200);
+
+  const historicalPrefetch = await prefetchBlobKekTargets([blobId], db, true);
+  expect(historicalPrefetch.allowHistoricalParentEpochs).toBe(true);
+  expect(historicalPrefetch.containerTargetById).not.toBeNull();
+  const recoveredTargets = await resolveCurrentBlobKekTargets(
+    blobId,
+    db,
+    true,
+    historicalPrefetch,
+  );
+  expect(recoveredTargets.targets.map((target) => target.containerId)).toEqual([
+    child.containerId,
+  ]);
+  const strictError = await resolveCurrentBlobKekTargets(
+    blobId,
+    db,
+    false,
+    historicalPrefetch,
+  ).catch((error: unknown) => error);
+  expect(strictError).toBeInstanceOf(Error);
+  if (!(strictError instanceof Error))
+    throw new Error("Expected strict target refusal");
+  expect(strictError.message).toContain("parent edge is stale");
 
   for (const path of [
     `/containers/${child.containerId}/writer-projection`,

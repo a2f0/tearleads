@@ -124,17 +124,27 @@ async function toStoredBundle(
   };
 }
 
-/**
- * Each blob's latest bundle in two statements for any number of blobs: the
- * latest epochs through a grouped derived table, then their current targets.
- * Blobs without an epoch are absent from the map.
- */
+/** Two statements per 500 blobs; missing epochs are absent from the map. */
 export async function getLatestBlobContentKeyBundles(
   blobIds: readonly string[],
   executor: DatabaseSession,
 ): Promise<Map<string, StoredBlobContentKeyBundle>> {
   const uniqueBlobIds = [...new Set(blobIds)];
-  if (uniqueBlobIds.length === 0) return new Map();
+  const bundles = new Map<string, StoredBlobContentKeyBundle>();
+  for (let offset = 0; offset < uniqueBlobIds.length; offset += 500) {
+    const batch = await loadLatestBlobContentKeyBundleBatch(
+      uniqueBlobIds.slice(offset, offset + 500),
+      executor,
+    );
+    for (const [blobId, bundle] of batch) bundles.set(blobId, bundle);
+  }
+  return bundles;
+}
+
+async function loadLatestBlobContentKeyBundleBatch(
+  uniqueBlobIds: readonly string[],
+  executor: DatabaseSession,
+): Promise<Map<string, StoredBlobContentKeyBundle>> {
   const latest = executor
     .select({
       blobId: blobContentKeyEpochs.blobId,

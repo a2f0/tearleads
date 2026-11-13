@@ -27,6 +27,7 @@ import {
 } from "./writerProjection/accessPaths";
 import { createContainerWriterProjectionContext } from "./writerProjection/context";
 import { loadContainerKekState } from "./writerProjection/kek";
+import { prefetchContainerKeyingPath } from "./writerProjection/keyingPrefetch";
 import { loadContainerKekKeyring } from "./writerProjection/keyringDelivery";
 import {
   loadPrincipalPoliciesForAccessPaths,
@@ -67,6 +68,7 @@ async function resolveContainerProjectionWithAccess(input: {
     context,
   });
 
+  await prefetchContainerKeyingPath(context, access.verifiedPath);
   const containerKekStates: ContainerKekProjection[] = [];
   for (const manifest of access.verifiedPath) {
     containerKekStates.push(

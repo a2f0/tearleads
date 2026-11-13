@@ -9,6 +9,7 @@ import type {
 import { isUuidV4String } from "@tearleads/validators/util";
 import { type SQL, sql } from "drizzle-orm";
 import { textExpression } from "../../utils/postgresSql";
+import type { PrincipalPolicyReferenceCache } from "../../workflows/containers/writerProjection/types";
 import {
   collectReferencedPrincipalsFromContainerAccess,
   KeyingReadAccessError,
@@ -33,6 +34,7 @@ import {
 import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface ListContainersOptions {
+  readonly principalPolicyByReference?: PrincipalPolicyReferenceCache;
   readonly limit?: number | undefined;
   readonly parentId?: string | null | undefined;
   readonly watermark?: SyncWatermark | null;
@@ -198,14 +200,16 @@ function selectContainerPage(input: {
 }
 
 async function resolveVisibleContainerSummaries(input: {
+  readonly principalPolicyByReference?: PrincipalPolicyReferenceCache;
   readonly containerRows: readonly AccessibleContainerRow[];
   readonly runtime: ApiServiceRuntime;
   readonly userId: string;
 }): Promise<ContainerSummary[]> {
   const visibleContainers: ContainerSummary[] = [];
-  const accessContext = createContainerWriterProjectionContext(
-    input.runtime.db,
-  );
+  const accessContext = {
+    ...createContainerWriterProjectionContext(input.runtime.db),
+    principalPolicyByReference: input.principalPolicyByReference ?? new Map(),
+  };
   const candidateRows = input.containerRows.filter(
     (
       containerRow,
@@ -317,6 +321,9 @@ export async function listContainers(
     watermark,
   });
   const visibleContainers = await resolveVisibleContainerSummaries({
+    ...(options.principalPolicyByReference
+      ? { principalPolicyByReference: options.principalPolicyByReference }
+      : {}),
     containerRows: accessibleContainerRows.filter((row) =>
       pageSelection.containerIds.has(row.id),
     ),
