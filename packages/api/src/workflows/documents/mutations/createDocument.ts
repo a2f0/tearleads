@@ -11,7 +11,7 @@ import { lockAccessManifestHeadsForShare } from "../../../access/read/accessMani
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
 import { recordDocumentManifestObservationInTransaction } from "../../../access/write/documentManifestObservationStore";
-import { readCurrentCommitLsn } from "../../../documents/commitLsn";
+import { readCommitCheckpoint } from "../../../documents/commitLsn";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { assertRosterProfileDocumentIdCanBeCreated } from "../../organizations/rosterProfileBindingInvariant";
@@ -87,11 +87,9 @@ export async function documentCreateSeedResponse(
   db: ApiDatabase,
   seed: DocumentCreateSeedResult,
 ): Promise<DocumentCreateSeedResponse> {
-  const commitLsnMode = "tracked";
   return {
     acceptedOutgoingUpdateIds: [...seed.acceptedOutgoingUpdateIds],
-    commitLsn: await readCurrentCommitLsn(db),
-    commitLsnMode,
+    ...(await readCommitCheckpoint(db)),
   };
 }
 

@@ -37,12 +37,21 @@ fi
 # it creates and drops its own database.
 (cd packages/api-cli && bun test src/compiledMigrations.test.ts)
 # Two migrators serialize on the migration advisory lock.
-(cd packages/api-shared && bun test src/adapters/migrationLock.pg.test.ts)
+(cd packages/api-shared && bun test src/adapters/migrationLock.pg.test.ts \
+  src/adapters/databaseReadConsistency.pg.test.ts \
+  src/adapters/primaryOnlyRequestScope.pg.test.ts)
 
 # Workspace packages must already be built (bun run build:packages); the lane
 # itself only runs the multi-connection concurrency tests.
 cd packages/api
 exec bun test \
+  src/routes/documents/primaryOnlyConsistency.pg.test.ts \
+  src/routes/documents/primaryOnlySync.pg.test.ts \
+  src/routes/documents/primaryOnlySeeds.pg.test.ts \
+  src/routes/documents/primaryOnlyBlobSync.pg.test.ts \
+  src/routes/documents/primaryOnlyPagination.pg.test.ts \
+  src/routes/documents/primaryOnlyReaders.pg.test.ts \
+  src/routes/documents/primaryOnlyFallback.pg.test.ts \
   src/worker/workerRuntime.pg.test.ts \
   src/worker/workerRuntime.interest.pg.test.ts \
   src/worker/workerRuntime.hibernation.pg.test.ts \
