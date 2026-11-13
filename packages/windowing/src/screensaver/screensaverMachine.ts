@@ -2,14 +2,13 @@ type Session = { session: number; locked?: true };
 export type ScreensaverState =
   | { status: "idle"; session: number; locked?: never }
   | (Session & {
-      status:
-        | "grace"
-        | "armed"
-        | "draining"
-        | "settling"
-        | "resuming"
-        | "resumeSettling";
+      status: "grace" | "armed" | "draining" | "settling";
     })
+  | {
+      status: "resuming" | "resumeSettling";
+      session: number;
+      locked: true;
+    }
   | {
       status: "unlock";
       session: number;

@@ -42,9 +42,11 @@ export function ScreensaverOverlay({
     <dialog
       aria-label="Screensaver"
       aria-description={
-        locked
+        interactive
           ? "Enter your PIN code to unlock, or cancel to return to the screensaver."
-          : "Press Escape to exit."
+          : locked
+            ? "Press Escape to unlock."
+            : "Press Escape to exit."
       }
       className={`screensaver-overlay${interactive ? " screensaver-overlay--unlock" : ""}`}
       ref={ref}
