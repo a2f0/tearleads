@@ -1,5 +1,6 @@
 import { lstatSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { validateResourceDrift } from "./softResetDrift";
 import { type ResetRun, refuseOverrides } from "./softResetRuntime";
 
 type Stack = "postgres" | "storage";
@@ -150,14 +151,7 @@ function validatePlanContext(
   tier: string,
   identity: Identity,
 ) {
-  if (
-    Array.isArray(plan.resource_drift) &&
-    plan.resource_drift.some(
-      (change) =>
-        JSON.stringify(object(object(change).change).actions) !== '["no-op"]',
-    )
-  )
-    throw new Error("Terraform drift requires manual reconciliation.");
+  validateResourceDrift(plan.resource_drift, stack);
   const variables = object(plan.variables);
   const variable = (name: string) => object(variables[name]).value;
   if (
