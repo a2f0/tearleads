@@ -26,6 +26,7 @@ import {
   principalStatePayloadSelect,
   principalStateSelect,
   projectionMemberKey,
+  type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
   type StoredPrincipalStatePayload,
   toStoredPrincipalState,
@@ -220,7 +221,7 @@ async function insertPrincipalProjectionRows(
 
 async function ensureStoredPrincipalProjectionMatches(
   input: PrincipalStateWriteContext,
-): Promise<void> {
+): Promise<StoredPrincipalProjectionMember[]> {
   const storedProjection = await listProjectionMembersForState(
     input.normalizedInput.state.principalType,
     input.normalizedInput.state.principalId,
@@ -246,13 +247,17 @@ async function ensureStoredPrincipalProjectionMatches(
       );
     }
   }
+  return storedProjection;
 }
 
 export async function storeVerifiedPrincipalStateInTransaction(
   input: PrincipalStateBundleInput,
   executor: DatabaseTransaction,
   options?: StoreVerifiedPrincipalStateOptions,
-): Promise<StoredPrincipalState> {
+): Promise<{
+  state: StoredPrincipalState;
+  projection: StoredPrincipalProjectionMember[];
+}> {
   const normalizedInput = normalizePrincipalStateWriteInput(input);
   const signer = await loadPrincipalStateSigner(
     normalizedInput.state,
@@ -318,11 +323,11 @@ export async function storeVerifiedPrincipalStateInTransaction(
     await insertPrincipalStatePayloadRow(writeContext, storedState.createdAt),
   );
   await insertPrincipalProjectionRows(writeContext);
-  await ensureStoredPrincipalProjectionMatches(writeContext);
+  const projection = await ensureStoredPrincipalProjectionMatches(writeContext);
   await ensureStoredPrincipalContainerGrantsMatch({
     ...writeContext,
     storedContainerGrants: insertedState?.containerGrants,
   });
 
-  return storedState;
+  return { state: storedState, projection };
 }

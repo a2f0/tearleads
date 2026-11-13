@@ -14,6 +14,7 @@ import {
   readPrincipalHistoryEntriesAtVersions,
   readPrincipalHistoryPage,
 } from "../../access/read/principalHistoryProgress";
+import type { PrincipalPolicyArtifactRead } from "../../access/read/principalPolicyArtifacts";
 import { canonicalJsonEquals } from "../../utils/canonicalJson";
 import { loadSignerPublicKey, type SignerCache } from "../signerPublicKey";
 import { PrincipalPolicyError, toPrincipalStateResponse } from "./shared";
@@ -70,12 +71,17 @@ export async function readPrincipalHistoryEntry(
   scope: Pick<ReferencedPrincipalHead, "principalType" | "principalId">,
   version: number,
   kind: PrincipalHistoryVerificationKind,
+  artifactRead?: PrincipalPolicyArtifactRead,
 ): Promise<PrincipalPolicyStateChainEntry> {
-  const [entry] = await readPrincipalHistoryPage(executor, {
-    ...scope,
-    afterVersion: version - 1,
-    throughVersion: version,
-  });
+  const [entry] = await readPrincipalHistoryPage(
+    executor,
+    {
+      ...scope,
+      afterVersion: version - 1,
+      throughVersion: version,
+    },
+    artifactRead,
+  );
   if (!entry)
     throw principalHistoryError(kind, "principal history entry is missing");
   return toPrincipalHistoryEntry(entry);
@@ -141,12 +147,14 @@ export async function assertPrincipalHistoryEntryUnchanged(
   expected: PrincipalPolicyStateChainEntry,
   kind: PrincipalHistoryVerificationKind,
   signers: SignerCache,
+  artifactRead?: PrincipalPolicyArtifactRead,
 ): Promise<void> {
   const stored = await readPrincipalHistoryEntry(
     executor,
     expected.state,
     expected.state.version,
     kind,
+    artifactRead,
   );
   if (
     (await computePrincipalProjectionRoot(stored.projection)) !==

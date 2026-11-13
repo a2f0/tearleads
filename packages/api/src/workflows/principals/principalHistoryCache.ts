@@ -4,7 +4,10 @@ import {
   isDatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import type { PrincipalHistoryIndexNode } from "@tearleads/crypto";
-import { selectPrincipalHistoryIndexNode } from "../../access/read/principalHistoryIndex";
+import {
+  selectPrincipalHistoryIndexNode,
+  selectPrincipalHistoryIndexNodes,
+} from "../../access/read/principalHistoryIndex";
 import {
   selectPrincipalHistoryProgress,
   selectPrincipalHistoryProgressForDiscard,
@@ -24,6 +27,7 @@ type ProgressInput = Parameters<typeof upsertPrincipalHistoryProgress>[1];
 interface ProgressBuffer {
   readonly resets: Map<string, Selection>;
   readonly nodes: Map<string, PrincipalHistoryIndexNode>;
+  readonly storedNodes: Map<string, PrincipalHistoryIndexNode>;
   readonly saved: Map<string, ProgressRow>;
   readonly discarded: Map<string, string>;
   /**
@@ -58,6 +62,7 @@ function transactionBuffer(
     saved: new Map(),
     discarded: new Map(),
     nodes: new Map(),
+    storedNodes: new Map(),
     resets: new Map(),
     stored: new Map(),
   };
@@ -85,10 +90,36 @@ export async function readBufferedPrincipalHistoryNode(
   executor: DatabaseSession,
   hash: string,
 ): Promise<PrincipalHistoryIndexNode | null> {
-  return (
-    transactionBuffer(executor)?.nodes.get(hash) ??
-    (await selectPrincipalHistoryIndexNode(executor, hash))
-  );
+  const buffer = transactionBuffer(executor);
+  const cached = buffer?.nodes.get(hash) ?? buffer?.storedNodes.get(hash);
+  if (cached) return cached;
+  const stored = await selectPrincipalHistoryIndexNode(executor, hash);
+  if (stored) buffer?.storedNodes.set(hash, stored);
+  return stored;
+}
+
+export async function readBufferedPrincipalHistoryNodes(
+  executor: DatabaseSession,
+  hashes: readonly string[],
+): Promise<Map<string, PrincipalHistoryIndexNode>> {
+  const buffer = transactionBuffer(executor);
+  const result = new Map<string, PrincipalHistoryIndexNode>();
+  const missing: string[] = [];
+  for (const hash of new Set(hashes)) {
+    const cached = buffer?.nodes.get(hash) ?? buffer?.storedNodes.get(hash);
+    if (cached) result.set(hash, cached);
+    else missing.push(hash);
+  }
+  for (let start = 0; start < missing.length; start += 128) {
+    for (const node of await selectPrincipalHistoryIndexNodes(
+      executor,
+      missing.slice(start, start + 128),
+    )) {
+      result.set(node.hash, node);
+      buffer?.storedNodes.set(node.hash, node);
+    }
+  }
+  return result;
 }
 
 export async function saveBufferedPrincipalHistoryNodes(

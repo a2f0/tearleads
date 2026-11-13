@@ -41,11 +41,12 @@ export async function storeVerifiedPrincipalPolicyInTransaction(
   );
   if (previous)
     await getVerifiedPrincipalPolicyForStateWithExecutor(tx, previous);
-  const state = await storeVerifiedPrincipalStateInTransaction(
+  const stored = await storeVerifiedPrincipalStateInTransaction(
     input,
     tx,
     options,
   );
+  const { state } = stored;
   await replaceCurrentPrincipalMemberEnvelopesInTransaction(
     {
       principalType: state.principalType,
@@ -54,6 +55,7 @@ export async function storeVerifiedPrincipalPolicyInTransaction(
       envelopes: input.memberEnvelopes,
     },
     tx,
+    stored,
   );
   await withPrincipalHistorySuccessorStep(state, () =>
     verifyStoredPrincipalPolicyForStateWithExecutor(tx, state),

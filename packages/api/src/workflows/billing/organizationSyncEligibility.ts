@@ -1,10 +1,9 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { organizationBillingSeatAssignments } from "@tearleads/api-shared/schema";
-import { and, eq, isNull } from "drizzle-orm";
 import { organizationCanSync } from "../../billing/organizationBilling";
 import {
   type OrganizationBillingRow,
   resolveOrganizationBilling,
+  resolveOrganizationBillingWithSeat,
 } from "./organizationBillingState";
 
 export class OrganizationSyncDisabledError extends Error {
@@ -42,22 +41,10 @@ function assertBillingEndpointAvailable(
   }
 }
 
-async function assertSyncSeatAssigned(
-  executor: DatabaseSession,
+function assertSyncSeatAssigned(
   organizationId: string,
-  userId: string,
-): Promise<void> {
-  const [assignment] = await executor
-    .select({ id: organizationBillingSeatAssignments.id })
-    .from(organizationBillingSeatAssignments)
-    .where(
-      and(
-        eq(organizationBillingSeatAssignments.organizationId, organizationId),
-        eq(organizationBillingSeatAssignments.userId, userId),
-        isNull(organizationBillingSeatAssignments.releasedAt),
-      ),
-    )
-    .limit(1);
+  assignment: string | null,
+): void {
   if (!assignment) {
     throw new OrganizationSyncDisabledError(
       organizationId,
@@ -97,8 +84,14 @@ export async function assertOrganizationCanSync(
   userId: string,
   now: Date = new Date(),
 ): Promise<void> {
-  await assertOrganizationIsSyncEntitled(executor, organizationId, now);
-  await assertSyncSeatAssigned(executor, organizationId, userId);
+  const { billing, seatId } = await resolveOrganizationBillingWithSeat(
+    executor,
+    organizationId,
+    userId,
+    now,
+  );
+  assertBillingSyncEntitled(billing, organizationId, now);
+  assertSyncSeatAssigned(organizationId, seatId);
 }
 
 /**
@@ -114,13 +107,20 @@ export async function assertDocumentSyncBillingAllowed(
   },
   now: Date = new Date(),
 ): Promise<void> {
-  const billing = await resolveOrganizationBilling(
+  if (!input.requireWriteEntitlement) {
+    assertBillingEndpointAvailable(
+      await resolveOrganizationBilling(executor, input.organizationId, now),
+      input.organizationId,
+    );
+    return;
+  }
+  const { billing, seatId } = await resolveOrganizationBillingWithSeat(
     executor,
     input.organizationId,
+    input.userId,
     now,
   );
   assertBillingEndpointAvailable(billing, input.organizationId);
-  if (!input.requireWriteEntitlement) return;
   assertBillingSyncEntitled(billing, input.organizationId, now);
-  await assertSyncSeatAssigned(executor, input.organizationId, input.userId);
+  assertSyncSeatAssigned(input.organizationId, seatId);
 }

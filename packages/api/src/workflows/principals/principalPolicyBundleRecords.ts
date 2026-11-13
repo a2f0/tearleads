@@ -9,7 +9,10 @@ import type {
   PrincipalPolicySnapshotResponse,
 } from "@tearleads/validators/response";
 import { listPrincipalMemberEnvelopesForState } from "../../access/read/principalMemberEnvelopes";
-import { getPrincipalPolicyArtifactsForState } from "../../access/read/principalPolicyArtifacts";
+import {
+  getPrincipalPolicyArtifactsForState,
+  type PrincipalPolicyArtifactRead,
+} from "../../access/read/principalPolicyArtifacts";
 import {
   getPrincipalStatePayloadForState,
   listContainerGrantsForState,
@@ -45,20 +48,27 @@ export async function buildPrincipalPolicyCurrentForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
   verifiedHistory?: VerifiedPrincipalPolicyHistory,
+  artifactRead?: PrincipalPolicyArtifactRead,
 ): Promise<Omit<PrincipalPolicyBundleResponse, "previousStates">> {
   const { principalId, principalType } = currentState;
   // Every dependent read is pinned to this exact accepted state. In particular,
   // a concurrent successor cannot change which head a successful PUT
   // acknowledges under READ COMMITTED.
   const pinnedStateHash = currentState.stateHash;
-  const artifacts = verifiedHistory
-    ? await getPrincipalPolicyArtifactsForState(
-        principalType,
-        principalId,
-        pinnedStateHash,
-        executor,
-      )
-    : undefined;
+  const prefetched =
+    artifactRead?.stateHash === pinnedStateHash
+      ? artifactRead.artifacts
+      : undefined;
+  const artifacts =
+    prefetched ??
+    (verifiedHistory
+      ? await getPrincipalPolicyArtifactsForState(
+          principalType,
+          principalId,
+          pinnedStateHash,
+          executor,
+        )
+      : undefined);
   const currentPayload = artifacts
     ? artifacts.payload
     : await getPrincipalStatePayloadForState(
