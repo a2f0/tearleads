@@ -46,6 +46,16 @@ function drainReleased(event: Event, held: Set<string>) {
   );
 }
 
+function shouldConsumeInput(status: ScreensaverState["status"], event: Event) {
+  if (status === "idle") return false;
+  if (status !== "unlock" && status !== "verifying") return true;
+  return (
+    !(event.target instanceof Element) ||
+    !event.target.closest(".screensaver-unlock") ||
+    (event instanceof KeyboardEvent && event.key === "Escape")
+  );
+}
+
 export function captureScreensaverInput(
   readState: () => ScreensaverState,
   send: (event: ScreensaverEvent) => void,
@@ -55,7 +65,7 @@ export function captureScreensaverInput(
   const consume = (event: Event) => {
     const { status } = readState();
     trackHeldScreensaverInput(held, event, status !== "idle");
-    if (status === "idle") return;
+    if (!shouldConsumeInput(status, event)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (status === "settling") return;

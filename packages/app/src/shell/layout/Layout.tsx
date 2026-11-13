@@ -16,6 +16,7 @@ import {
 } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import { ThemeProvider } from "../../theme/ThemeProvider";
 import { WallpaperProvider } from "../../theme/WallpaperProvider";
+import { AppScreensaverHost } from "./AppScreensaverHost";
 import { BillingBanner } from "./BillingBanner";
 import "./Layout.css";
 import "./AppChrome.css";
@@ -75,10 +76,12 @@ function WorkspaceRuntimeHost({
 
   return (
     <AppRuntimeProvider hostConfig={sharedHostConfig}>
-      <MiniAppLauncherProvider>
-        <BillingBanner />
-        {children}
-      </MiniAppLauncherProvider>
+      <AppScreensaverHost>
+        <MiniAppLauncherProvider>
+          <BillingBanner />
+          {children}
+        </MiniAppLauncherProvider>
+      </AppScreensaverHost>
     </AppRuntimeProvider>
   );
 }

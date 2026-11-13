@@ -15,6 +15,7 @@ import {
   useRegisterUserId,
 } from "../../pane/dual-pane";
 import { SyncStatusIndicator } from "../../pane/footer/sync-status/SyncStatusIndicator";
+import { AppScreensaverAction } from "../AppScreensaverHost";
 import { TestSystemBanner } from "../TestSystemBanner";
 import "./AppRoutedPane.css";
 
@@ -57,6 +58,7 @@ export function AppRoutedPane() {
       subscribeKeyboardVisibility={subscribeKeyboardVisibility}
       taskbarTray={
         <>
+          <AppScreensaverAction />
           <ThemeToggleButton />
           <NavigationModeSwitch
             allowWindowed={navigationMode === "windowed"}
