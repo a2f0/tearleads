@@ -53,7 +53,7 @@ export async function persistBlobStageInOrganization(
       .from(organizations)
       .where(eq(organizations.id, stage.organizationId))
       .limit(1)
-      .for("update");
+      .for("share");
     await requireBlobStageOrganizationAccess(
       tx,
       {
