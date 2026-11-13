@@ -117,15 +117,13 @@ test("general tab copies the identity link in one click and hides raw identifier
   await waitFor(() => {
     expect(
       view
-        .getByRole("button", { name: "Copy my identity link" })
+        .getByRole("button", { name: "Copy identity link" })
         .hasAttribute("disabled"),
     ).toBe(false);
   });
 
   await act(async () => {
-    fireEvent.click(
-      view.getByRole("button", { name: "Copy my identity link" }),
-    );
+    fireEvent.click(view.getByRole("button", { name: "Copy identity link" }));
   });
   // One click copies; the link itself is never rendered.
   expect(view.queryByText(expectedLink)).toBeNull();
@@ -144,9 +142,7 @@ test("developer mode reveals and copies the user ID and signing key", async () =
   for (const label of DEVELOPER_ROWS) {
     expect(view.getByText(label)).toBeTruthy();
   }
-  expect(
-    view.getByRole("button", { name: "Copy my identity link" }),
-  ).toBeTruthy();
+  expect(view.getByRole("button", { name: "Copy identity link" })).toBeTruthy();
 
   await act(async () => {
     fireEvent.click(view.getByRole("button", { name: "Copy user ID" }));
@@ -176,7 +172,7 @@ test("general tab explains the identity link while signed out", async () => {
   ).toBeTruthy();
   expect(
     view
-      .getByRole("button", { name: "Copy my identity link" })
+      .getByRole("button", { name: "Copy identity link" })
       .hasAttribute("disabled"),
   ).toBe(true);
 });

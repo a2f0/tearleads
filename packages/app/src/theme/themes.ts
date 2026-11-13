@@ -16,10 +16,10 @@ import type { ThemeDefinition } from "@tearleads/windowing";
 
 export type ThemeId = "light" | "dark" | "dusk";
 
-// The OS preference only ever resolves to Light or Dark, so those two lead and
-// Dusk is an opt-in stop at the end of the cycle.
+// Cycle Dark -> Light -> Dusk. OS defaults still select Light or Dark;
+// Dusk remains an explicit choice.
 export const APP_THEMES: readonly ThemeDefinition<ThemeId>[] = [
-  { id: "light", label: "Light", scheme: "light" },
   { id: "dark", label: "Dark", scheme: "dark" },
+  { id: "light", label: "Light", scheme: "light" },
   { id: "dusk", label: "Dusk", scheme: "dark" },
 ];
