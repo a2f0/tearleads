@@ -5,43 +5,46 @@ import { sqlDocumentsPersistence } from "../../../data/persistence/documents/doc
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "./index";
 
-test("note windows filter before counting and paging", async () => {
-  const { execSql, close } = await createTestExecSql("container-note-window");
-  try {
-    await defaultContainerContentsPersistence.ensureSchema(execSql);
-    await sqlDocumentsPersistence.ensureSchema(execSql);
-    const queries = createContainerDocumentQueriesFromRuntime({
-      infra: { execSql },
-    });
-    for (const [id, kind] of [
-      ["a", "contact"],
-      ["b", "note"],
-      ["c", "note"],
-    ] as const) {
-      await sqlDocumentsPersistence.saveDocument(execSql, {
-        id,
-        documentId: id,
-        containerId: "folder",
-        documentKind: kind,
-        title: id,
-        text: "",
-        accessEpoch: 1,
-        snapshotEndVersion: emptyVersionVector(),
+test.each(["folder", null])(
+  "note windows filter before counting and paging in %s",
+  async (containerId) => {
+    const { execSql, close } = await createTestExecSql("container-note-window");
+    try {
+      await defaultContainerContentsPersistence.ensureSchema(execSql);
+      await sqlDocumentsPersistence.ensureSchema(execSql);
+      const queries = createContainerDocumentQueriesFromRuntime({
+        infra: { execSql },
       });
+      for (const [id, kind] of [
+        ["a", "contact"],
+        ["b", "note"],
+        ["c", "note"],
+      ] as const) {
+        await sqlDocumentsPersistence.saveDocument(execSql, {
+          id,
+          documentId: id,
+          containerId,
+          documentKind: kind,
+          title: id,
+          text: "",
+          accessEpoch: 1,
+          snapshotEndVersion: emptyVersionVector(),
+        });
+      }
+      const result = await queries.listContainerDocumentSidebarWindow({
+        containerId,
+        documentKind: "note",
+        limit: 1,
+        offset: 1,
+      });
+      expect(result.totalCount).toBe(2);
+      expect(result.rows).toHaveLength(1);
+      expect(result.rows[0]?.documentKind).toBe("note");
+    } finally {
+      close();
     }
-    const result = await queries.listContainerDocumentSidebarWindow({
-      containerId: "folder",
-      documentKind: "note",
-      limit: 1,
-      offset: 1,
-    });
-    expect(result.totalCount).toBe(2);
-    expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]?.documentKind).toBe("note");
-  } finally {
-    close();
-  }
-});
+  },
+);
 
 test("primary lookup uses canonical identity and direct or secondary membership, not the visible page", async () => {
   const { execSql, close } = await createTestExecSql("container-primary-query");

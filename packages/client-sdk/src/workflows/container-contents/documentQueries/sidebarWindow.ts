@@ -40,7 +40,7 @@ export async function listContainerDocumentSidebarWindow(
   const baseSql =
     input.documentKind === undefined
       ? rowsSql
-      : `${rowsSql} WHERE document_kind = ?`;
+      : `SELECT * FROM (${rowsSql}) WHERE document_kind = ?`;
   if (input.documentKind !== undefined) bind.push(input.documentKind);
   const countRows = await execSql(
     `SELECT COUNT(*) AS total_count FROM (${baseSql})`,
