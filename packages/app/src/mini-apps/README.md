@@ -47,6 +47,22 @@ Org Manager group deletion opens a confirmation naming the selected group from
 both the row menu and the group detail context menu. Cancel leaves the group
 unchanged; only confirmation starts deletion. Built-in groups remain protected.
 
+## Window content fitting
+
+Every mini-app window offers **View → Fit to Content**. The shared windowing
+package adds the rendered sidebar, chrome, and scrollbars and keeps the result
+inside the desktop. Fitting is manual: opening an app, typing, receiving data,
+or changing routes does not resize the window.
+
+The app boundary registers bounded working sizes from
+[`miniAppContentSizes.ts`](../components/mini-app/miniAppContentSizes.ts):
+compact form views, larger document/list views, and wider diagnostics. These
+are useful viewports, not an attempt to show every record or editor line.
+[`DisplayPropertiesApp`](display-properties/DisplayPropertiesApp.tsx) instead
+measures its fixed-width gallery and updates the fit target when its controls
+change size. It opts out of the boundary's target so each window has one owner
+of its content size. The routed layout stays responsive and has no fit action.
+
 ## Layout standard
 
 Every mini-app directory keeps the same shape: a small root that holds only the
