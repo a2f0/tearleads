@@ -8,12 +8,12 @@ import { deleteContainer } from "./index";
 test("local container deletion schedules orphan priming", async () => {
   const parent = {
     container: { id: "root", name: "/", parentId: null, systemSlot: null },
-    doc: {},
+    doc: { getMap: () => ({ get: () => undefined }) },
     record: { documentId: null },
   };
   const leaf = {
     container: { id: "leaf", name: "Leaf", parentId: "root", systemSlot: null },
-    doc: {},
+    doc: { getMap: () => ({ get: () => undefined }) },
     record: { documentId: null },
   };
   const containersById = new Map<string, unknown>([

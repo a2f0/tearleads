@@ -83,6 +83,7 @@ const explorerContextStoreKeys = defineFacadeKeys<ExplorerContextStoreFacade>()(
     "renameContainer",
     "requestSync",
     "setContainerIcon",
+    "setContainerPrimaryDocument",
     "shareWithGroup",
     "shareWithUser",
   ],

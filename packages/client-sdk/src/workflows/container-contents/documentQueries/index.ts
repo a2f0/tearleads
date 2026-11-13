@@ -15,6 +15,7 @@ import {
   sqlContainerSyncWatermarkPersistence,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { loadLinkedDocumentSummaryRow } from "../../../data/persistence/container-contents/linkedDocumentSummary";
 import {
   applyContainerDocumentTombstones as applyPersistedContainerDocumentTombstones,
   sqlDocumentsPersistence,
@@ -47,22 +48,18 @@ import {
 import {
   mapContainerContentsDocumentSummaryRow,
   mapContainerContentsDocumentSyncStateRow,
-  mapContainerDocumentSidebarRow,
   mapContainerItemRow,
   readContainerContentsContainerItemCount,
 } from "./rows";
+import { listContainerDocumentSidebarWindow } from "./sidebarWindow";
 import {
   clampContainerItemWindowValue,
-  getContainerContentsContainerDocumentSidebarOrderBy,
   getContainerContentsContainerItemOrderBy,
   getContainerContentsContainerItemsBaseSql,
   getContainerContentsDocumentPendingStateCtes,
-  getContainerContentsDocumentRowsBaseSql,
-  getContainerDocumentSidebarWindowLimit,
   getContainerItemWindowLimit,
   getOrphanedDocumentExistsSql,
   getOrphanedDocumentItemsBaseSql,
-  getOrphanedDocumentRowsBaseSql,
   listContainerContentsSqlIdBatches,
 } from "./sql";
 import type {
@@ -96,6 +93,11 @@ interface ListContainerItemWindowInput {
 }
 
 export interface ContainerDocumentQueries {
+  /** Read a hydrated linked document by cross-device identity, never a local id. */
+  loadContainerDocumentSummary(input: {
+    containerId: string;
+    documentId: string;
+  }): Promise<DocumentSummary | null>;
   listRecoveryFolderMoveIds(input: {
     currentOrganizationId: string | null;
   }): Promise<string[]>;
@@ -115,6 +117,7 @@ export interface ContainerDocumentQueries {
     /** Null selects the virtual orphaned-documents recovery collection. */
     containerId: string | null;
     currentOrganizationId?: string | null | undefined;
+    documentKind?: string | undefined;
     limit: number;
     offset: number;
   }): Promise<ContainerDocumentSidebarWindow>;
@@ -243,49 +246,6 @@ async function hasOrphanedDocuments(
     ],
   );
   return Number(Object.values(rows[0] ?? {})[0] ?? 0) !== 0;
-}
-
-async function listContainerDocumentSidebarWindow(
-  execSql: ExecSql,
-  input: {
-    containerId: string | null;
-    currentOrganizationId?: string | null | undefined;
-    limit: number;
-    offset: number;
-  },
-): Promise<ContainerDocumentSidebarWindow> {
-  await sqlDocumentsPersistence.ensureSchema(execSql);
-
-  const limit = getContainerDocumentSidebarWindowLimit(input.limit);
-  const offset = clampContainerItemWindowValue(input.offset);
-  const orphaned = input.containerId === null;
-  const bind = orphaned
-    ? getOrphanedDocumentQueryBind(input.currentOrganizationId)
-    : [input.containerId, input.containerId];
-  const baseSql = orphaned
-    ? getOrphanedDocumentRowsBaseSql()
-    : getContainerContentsDocumentRowsBaseSql();
-  const countRows = await execSql(
-    `SELECT COUNT(*) AS total_count FROM (${baseSql})`,
-    bind,
-  );
-  const totalCount = readContainerContentsContainerItemCount(
-    countRows[0] ?? {},
-  );
-
-  if (limit === 0 || offset >= totalCount) {
-    return { rows: [], totalCount };
-  }
-
-  const rows = await execSql(
-    `${baseSql} ORDER BY ${getContainerContentsContainerDocumentSidebarOrderBy()} LIMIT ? OFFSET ?`,
-    [...bind, limit, offset],
-  );
-
-  return {
-    rows: rows.map(mapContainerDocumentSidebarRow),
-    totalCount,
-  };
 }
 
 async function queryContainerContentsDocumentSummary(
@@ -425,6 +385,12 @@ export function createContainerDocumentQueriesFromRuntime(
   const execSql = runtime.infra.execSql;
   return {
     ...createFolderRecoveryQueries(execSql),
+    async loadContainerDocumentSummary(input) {
+      await sqlDocumentsPersistence.ensureSchema(execSql);
+      return mapContainerContentsDocumentSummaryRow(
+        (await loadLinkedDocumentSummaryRow(execSql, input)) ?? {},
+      );
+    },
     applyContainerDocumentTombstones(tombstones) {
       return applyPersistedContainerDocumentTombstones(execSql, tombstones);
     },

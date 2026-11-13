@@ -5,7 +5,8 @@
     "e2e": {
       "inputs": [
         "$TURBO_EXTENDS$",
-        "$TURBO_ROOT$/packages/website/src/clickTracking.ts"
+        "$TURBO_ROOT$/packages/website/src/clickTracking.ts",
+        "$TURBO_ROOT$/packages/app/test/container-view-seed/**"
       ]
     },
     "build": {

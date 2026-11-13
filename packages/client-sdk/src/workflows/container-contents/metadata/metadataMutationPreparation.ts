@@ -9,11 +9,7 @@ import type { ContainerContentsPersistence } from "../../../data/persistence/con
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { documentSyncPullContinuationsEqual } from "../../documents";
 import type { ContainerDocumentRecord as DocumentRecord } from "../containerPersistence";
-import {
-  getDefaultContainerName,
-  readContainerMetadataValue,
-  writeContainerMetadataValue,
-} from "./containerMetadataDocument";
+import { writeContainerMetadataValue } from "./containerMetadataDocument";
 import {
   type ExpectedContainerMetadataSyncState,
   metadataSyncSecurityContextMatches,
@@ -31,7 +27,9 @@ export interface PersistContainerMetadataStateInput {
   execSql: ExecSql;
   expectedSyncState?: ExpectedContainerMetadataSyncState | undefined;
   localMetadataPatch?:
-    | Partial<Pick<ContainerMetadataPatch, "icon" | "name">>
+    | Partial<
+        Pick<ContainerMetadataPatch, "icon" | "name" | "primaryDocumentId">
+      >
     | undefined;
   localUpdate?: Uint8Array | undefined;
   metadataState: ContainerMetadataState;
@@ -136,20 +134,18 @@ async function prepareRebasedLocalMetadataMutation(input: {
   >;
   metadataState: ContainerMetadataState;
   localMetadataPatch:
-    | Partial<Pick<ContainerMetadataPatch, "icon" | "name">>
+    | Partial<
+        Pick<ContainerMetadataPatch, "icon" | "name" | "primaryDocumentId">
+      >
     | undefined;
   patch: Partial<ContainerMetadataPatch>;
 }) {
   const { authoritativeState, metadataState, patch } = input;
   const replacementVersion = encodeVersionVector(metadataState.doc);
-  const replacementMetadata = readContainerMetadataValue(
+  writeContainerMetadataValue(
     metadataState.doc,
-    getDefaultContainerName(authoritativeState.container.parentId),
+    input.localMetadataPatch ?? {},
   );
-  writeContainerMetadataValue(metadataState.doc, {
-    ...replacementMetadata,
-    ...input.localMetadataPatch,
-  });
   const rebasedMetadataState = {
     ...metadataState,
     container: authoritativeState.container,
