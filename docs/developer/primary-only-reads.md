@@ -41,6 +41,15 @@ proxy or cache; the endpoint owner's routing contract remains necessary. Do not
 activate it without that operational evidence. Drain and replace the instance
 before changing routing; there is no mutable runtime mode switch.
 
+The operational contract must cover every database read path serving the same
+logical API endpoint, across all of its instances. An untracked `0/0` checkpoint
+carries no replica ordering evidence. Do not alternate a client's primary-only
+requests with replica or cached reads. Switching to a tracked instance that still
+reads the same primary is safe; switching to a lagging replica is not protected
+by the earlier sentinel. Keep reads on the primary during a transition until a
+real tracked checkpoint covering prior writes is available and enforced. This
+change does not implement that transition protocol or authorize such a rollout.
+
 Eligible instances use the existing `commitLsn: "0/0"` and
 `commitLsnMode: "untracked"` pair. Their minimum-LSN check does not compare a
 numeric fence against the sentinel: primary reads do not need a replica catchup
