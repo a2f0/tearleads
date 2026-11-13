@@ -243,6 +243,8 @@ export async function databaseCheck(
       throw new Error("Application public/drizzle relations still exist.");
     return;
   }
+  // pg_tables.tablename is name with C collation, not the database locale.
+  // Its bytewise order matches baseline()'s ASCII identifier sort.
   const names = await query(
     "SELECT coalesce(json_agg(tablename ORDER BY tablename), '[]'::json) FROM pg_tables WHERE schemaname='public'",
   );

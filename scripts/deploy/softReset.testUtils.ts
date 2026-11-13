@@ -104,7 +104,9 @@ tier_demo_hostname() { [ "$1" = prod ] && printf demo.example.test || printf dem
   write("packages/website/package.json", "{}");
   write(
     "packages/api-shared/drizzle/0000_greenfield_baseline.sql",
-    'CREATE TABLE "users" (id text);\n',
+    ["users", "blobs", "blob_stages", "containers", "container_sync_tombstones"]
+      .map((name) => `CREATE TABLE "${name}" (id text);\n`)
+      .join(""),
   );
   write(".gitignore", "*_override.tf\nnode_modules/\n");
   write("package.json", "{}");

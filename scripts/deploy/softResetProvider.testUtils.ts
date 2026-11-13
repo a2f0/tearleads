@@ -285,6 +285,14 @@ if (tool.startsWith("run-")) {
     writeFileSync(file, "different plan bytes");
 } else if (tool === "curl") console.log("200");
 else if (tool === "psql") {
+  // PostgreSQL catalog name columns use C order even in locale databases.
+  const tables = [
+    "blob_stages",
+    "blobs",
+    "container_sync_tombstones",
+    "containers",
+    "users",
+  ];
   const {
     PGSSLMODE,
     PGSSLROOTCERT,
@@ -306,7 +314,7 @@ else if (tool === "psql") {
   const sql = args.at(-1) ?? "";
   if (sql.includes("current_database()")) output(`tearleads-${tier}`);
   else if (sql.includes("pg_tables"))
-    output(fault("wrong-schema") ? [] : ["users"]);
+    output(fault("wrong-schema") ? tables.slice(0, -1) : tables);
   else if (sql.includes("json_agg(hash"))
     output([
       createHash("sha256")
@@ -323,7 +331,7 @@ else if (tool === "psql") {
   else
     output(
       fault("api-deployed")
-        ? [{ name: "users", rows: 0 }]
+        ? tables.map((name) => ({ name, rows: 0 }))
         : fault("old-relations")
           ? ["users"]
           : [],

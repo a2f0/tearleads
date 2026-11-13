@@ -13,6 +13,18 @@ test("authorized reset completes only the application sequence with private timi
     expect(result.stdout.toString()).toContain("succeeded");
     const { dir, record } = f.records();
     expect(record.status).toBe("succeeded");
+    expect(
+      JSON.parse(readFileSync(join(dir, "schema.json"), "utf8")),
+    ).toMatchObject({
+      tables: [
+        "blob_stages",
+        "blobs",
+        "container_sync_tombstones",
+        "containers",
+        "users",
+      ],
+      empty: true,
+    });
     expect(record.steps.map((step: { label: string }) => step.label)).toEqual([
       "credentials",
       "inventory",

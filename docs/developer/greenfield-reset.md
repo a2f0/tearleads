@@ -120,6 +120,9 @@ The explicit data/deploy sequence is:
    `dist-demo` staging), then website with `--skip-terraform`. Check unchanged
    inventory and HTTP 200 on API/app/demo/site without registering test users.
 
+`pg_tables.tablename` is a `name` in `C` collation, so its order matches ASCII
+baseline names, not database locale ([PostgreSQL 12](https://www.postgresql.org/docs/release/12.0/)).
+
 This preserves edge/website domain resources, downloads, Terraform backend
 state, signing files, and external payment/store records. It rotates database
 and blob runtime credentials; the API's normal deployment also reconciles
