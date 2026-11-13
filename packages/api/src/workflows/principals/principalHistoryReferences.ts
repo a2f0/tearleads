@@ -13,6 +13,7 @@ import {
 } from "@tearleads/crypto";
 import { canonicalJsonEquals } from "../../utils/canonicalJson";
 import { readBufferedPrincipalHistoryNode } from "./principalHistoryCache";
+import { readPrincipalHistoryProofNodes } from "./principalHistoryProofNodes";
 import {
   principalHistoryError,
   principalHistoryHead,
@@ -55,10 +56,16 @@ export async function selectStoredPrincipalHistoryReferences(
   const references: PrincipalPolicyHistoryReferenceProof[] = [];
   // One selection is bounded to 128 citations. Share repeated proof nodes
   // within it; the crypto verifier still treats every node as untrusted.
+  const prefetched = await readPrincipalHistoryProofNodes(
+    executor,
+    history.indexRootHash,
+    history.currentEntry.state.version,
+    requested.map((reference) => reference.version),
+  );
   const nodes = new Map<
     string,
     ReturnType<typeof readBufferedPrincipalHistoryNode>
-  >();
+  >([...prefetched].map(([hash, node]) => [hash, Promise.resolve(node)]));
   const readNode = (hash: string) => {
     const cached = nodes.get(hash);
     if (cached) return cached;

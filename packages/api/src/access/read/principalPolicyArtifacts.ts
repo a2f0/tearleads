@@ -1,1 +1,4 @@
-export { getPrincipalPolicyArtifactsForState } from "../shared/internal/principalPolicyArtifacts";
+export {
+  getPrincipalPolicyArtifactsForState,
+  type PrincipalPolicyArtifactRead,
+} from "../shared/internal/principalPolicyArtifacts";

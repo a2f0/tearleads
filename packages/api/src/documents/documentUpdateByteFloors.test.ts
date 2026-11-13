@@ -12,6 +12,7 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
+import { observeQueries } from "../../test/helpers/observeDatabaseQueries";
 import {
   listDocumentUpdateResponseByteFloors,
   prefixWithinResponseByteFloors,
@@ -234,4 +235,43 @@ test("a candidate without a floor reports the page as changed", () => {
       1_000,
     ),
   ).toBeUndefined();
+});
+
+test("page validation checks every loaded candidate before exact byte trimming", async () => {
+  const first = storedUpdate();
+  const last = storedUpdate();
+  const documentId = await storeDocument([first, last]);
+  const queries: unknown[][] = [];
+  const push = queries.push.bind(queries);
+  let changed = false;
+  queries.push = (...batches) => {
+    for (const rows of batches)
+      for (const value of Array.isArray(rows) ? rows : []) {
+        if (!value || typeof value !== "object") continue;
+        const entry = "update" in value ? value.update : value;
+        if (!entry || typeof entry !== "object" || !("encryptedData" in entry))
+          continue;
+        if ("id" in entry && entry.id === last.id && "sequence" in entry) {
+          entry.sequence = -1;
+          changed = true;
+        }
+      }
+    return push(...batches);
+  };
+  // Both rows fit their byte floors, but the first complete row exceeds this
+  // exact JSON ceiling. A raced change in the other loaded row still wins.
+  await expect(
+    listMissingDocumentUpdatePage(observeQueries(db, queries), {
+      afterSequence: 0,
+      documentId,
+      localVersionVector: "",
+      maxSerializedBytes: 300,
+      maxUpdates: 2,
+      upperBoundSequence: await readDocumentUpdateSequenceUpperBound(
+        db,
+        documentId,
+      ),
+    }),
+  ).rejects.toThrow("Document update changed while loading page; retry");
+  expect(changed).toBe(true);
 });

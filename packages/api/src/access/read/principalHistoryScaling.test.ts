@@ -55,16 +55,37 @@ async function seed(principalType: "group" | "organization") {
 }
 
 for (const kind of ["group", "organization"] as const) {
-  test(`${kind} history loads 101 versions in two state pages and four queries`, async () => {
+  test(`${kind} single-version history reads state and scoped members in one statement`, async () => {
+    const fixture = await seed(kind);
+    const expected = (
+      await readPrincipalHistoryPage(db, {
+        principalType: kind,
+        principalId: fixture.principalId,
+        afterVersion: 0,
+        throughVersion: 2,
+      })
+    )[0];
+    if (!expected) throw new Error("Missing single-version fixture");
+    const queries: unknown[][] = [];
+    const actual = await readPrincipalHistoryPage(observeQueries(db, queries), {
+      principalType: kind,
+      principalId: fixture.principalId,
+      afterVersion: 0,
+      throughVersion: 1,
+    });
+    expect(actual).toEqual([expected]);
+    expect(queries).toHaveLength(1);
+  });
+  test(`${kind} history loads 101 versions in two state pages and three queries`, async () => {
     const fixture = await seed(kind);
     const queries: unknown[][] = [];
     const history = await listPrincipalStateHistory(
       { principalType: kind, principalId: fixture.principalId, version: 101 },
       observeQueries(db, queries),
     );
-    // Per page: the state rows, which carry their grants, and the members.
-    expect(queries).toHaveLength(4);
-    expect([queries[0]?.length, queries[2]?.length]).toEqual([100, 1]);
+    // A full page uses two reads; its single-version tail uses one union.
+    expect(queries).toHaveLength(3);
+    expect([queries[0]?.length, queries[2]?.length]).toEqual([100, 2]);
     expect(history.map((entry) => entry.state.stateHash)).toEqual(
       fixture.rows.slice(0, 101).map((row) => row.stateHash),
     );

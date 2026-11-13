@@ -30,7 +30,6 @@ import {
 } from "./sessionActivity";
 import {
   recordActivityUnlessSuspended as defaultRecordActivityUnlessSuspended,
-  recordUserActivity as defaultRecordUserActivity,
   type UserActivityRecorder,
   type UserActivityStandingRecorder,
 } from "./userActivity";
@@ -423,13 +422,15 @@ export const destroyUserSession = createDestroyUserSession(
 export interface IssuedSession {
   readonly sessionId: string;
   readonly token: string;
+  /** Standing read after persistence; absent if activity recording failed. */
+  readonly suspended?: boolean;
 }
 
 export function createSessionTokenIssuer(
   setSession: SessionStoreSet,
   addSetMember: SessionStoreAddSetMember,
   expireKey: SessionStoreExpire,
-  recordUserActivity?: UserActivityRecorder,
+  recordUserActivity?: UserActivityRecorder | UserActivityStandingRecorder,
 ) {
   return async (data: SessionCreateInput): Promise<IssuedSession> => {
     const token = bytesToHex(generateChallenge(32));
@@ -455,18 +456,24 @@ export function createSessionTokenIssuer(
 
     // Login is itself activity; without this a user seen only within the
     // throttle window after logging in would have no last_active_at at all.
+    let suspended: boolean | undefined;
     if (recordUserActivity) {
       try {
-        await recordUserActivity({
+        const standing = await recordUserActivity({
           lastActiveAt: session.createdAt,
           userId: session.userId,
         });
+        if (typeof standing === "boolean") suspended = standing;
       } catch (error) {
         console.error("Failed to record login activity:", error);
       }
     }
 
-    return { sessionId: session.id, token };
+    return {
+      sessionId: session.id,
+      token,
+      ...(typeof suspended === "boolean" ? { suspended } : {}),
+    };
   };
 }
 
@@ -474,5 +481,5 @@ export const createSession = createSessionTokenIssuer(
   set,
   sadd,
   expire,
-  defaultRecordUserActivity,
+  defaultRecordActivityUnlessSuspended,
 );

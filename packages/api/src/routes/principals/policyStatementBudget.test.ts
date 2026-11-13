@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { withDatabaseStatementCounter } from "@tearleads/api-shared/postgres";
+import {
+  getDefaultApiDatabaseKind,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { PrincipalPolicyPageResponseSchema } from "@tearleads/validators/response";
 import { seedLongPrincipalHistory } from "../../../test/helpers/longPrincipalHistory";
@@ -63,11 +66,20 @@ test("warm policy, group member, and billing reads stay within their statement b
   // 22 / 24 before the policy-read batch; then 12 / 14, 13 / 15, 19 / 21 and
   // 19 / 21 once current heads, the group tombstone and organization lookup,
   // the stored progress hint, and immutable organization rows were each read
-  // once per request.
-  expect(organizationPolicy).toBeLessThanOrEqual(14);
-  expect(groupPolicy).toBeLessThanOrEqual(15);
-  expect(groupMembers).toBeLessThanOrEqual(21);
-  expect(billing).toBeLessThanOrEqual(21);
+  // once per request. Single-entry/artifact and proof-node batching now use
+  // 7 / 9, 8 / 10, 13 / 15 and 13 / 15 respectively.
+  expect(organizationPolicy).toBeLessThanOrEqual(
+    7 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
+  expect(groupPolicy).toBeLessThanOrEqual(
+    8 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
+  expect(groupMembers).toBeLessThanOrEqual(
+    13 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
+  expect(billing).toBeLessThanOrEqual(
+    13 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
 });
 
 test("a conditional organization read of the live head stays within its statement budget", async () => {
@@ -83,10 +95,12 @@ test("a conditional organization read of the live head stays within its statemen
     `${path}?ifVersion=${currentState.version}&ifStateHash=${currentState.stateHash}`,
   );
 
-  // 7 / 9 (PGlite / SQLite; Postgres equals SQLite), against 12 / 14 for the
-  // full page: live authorization and verification still run, but no page,
-  // payload, projection, grants, or member envelopes are read.
-  expect(unchanged).toBeLessThanOrEqual(9);
+  // PGlite measures five statements. PostgreSQL retains its two transaction-
+  // control allowance; that is not a fresh PostgreSQL measurement. The response
+  // omits the page, but live authorization and stored-artifact verification run.
+  expect(unchanged).toBeLessThanOrEqual(
+    5 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
 });
 
 test("a warm organization policy page at 65 versions stays within its statement budget", async () => {
@@ -107,6 +121,9 @@ test("a warm organization policy page at 65 versions stays within its statement 
 
   // 113 / 115 (PGlite / SQLite; Postgres equals SQLite) while each of the 32
   // cited older entries cost two statements; 49 / 51 once they were read as
-  // one set and the transaction reused its stored progress hint.
-  expect(page).toBeLessThanOrEqual(51);
+  // one set and the transaction reused its stored progress hint. Level-batched
+  // proof nodes and pinned artifact handoffs now use 18 / 20.
+  expect(page).toBeLessThanOrEqual(
+    18 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
 }, 30_000);

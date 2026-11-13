@@ -18,30 +18,7 @@ export type UserActivityStandingRecorder = (
 ) => Promise<boolean>;
 
 /**
- * Persists `users.last_active_at` so operators can see when an identity was
- * last seen across all of its sessions, not only the ones still stored.
- * Login calls this once per issued session; the write only moves the
- * timestamp forward so concurrent sessions cannot regress it.
- */
-export function createRecordUserActivity(
-  db: DatabaseSession,
-): UserActivityRecorder {
-  return async ({ lastActiveAt, userId }) => {
-    const seenAt = new Date(lastActiveAt);
-    await db
-      .update(users)
-      .set({ lastActiveAt: seenAt })
-      .where(
-        and(
-          eq(users.id, userId),
-          or(isNull(users.lastActiveAt), lt(users.lastActiveAt, seenAt)),
-        ),
-      );
-  };
-}
-
-/**
- * `requireAuth`'s throttled activity path (about once a minute per session):
+ * Login and `requireAuth`'s throttled activity path:
  * one statement reads whether a platform operator suspended the user and,
  * only when not, moves `last_active_at` forward, never back. A suspended
  * user's row keeps its timestamp, and a user that does not exist reads as not
@@ -67,8 +44,6 @@ export function createRecordActivityUnlessSuspended(
     return Boolean(row?.suspendedAt);
   };
 }
-
-export const recordUserActivity = createRecordUserActivity(defaultDb);
 
 export const recordActivityUnlessSuspended =
   createRecordActivityUnlessSuspended(defaultDb);

@@ -6,6 +6,7 @@ import {
   type ReferencedPrincipalHead,
   restorePrincipalPolicyHistoryVerifier,
 } from "@tearleads/crypto";
+import type { PrincipalPolicyArtifactRead } from "../../access/read/principalPolicyArtifacts";
 import type { SignerCache } from "../signerPublicKey";
 import {
   discardBufferedPrincipalHistoryProgress,
@@ -27,6 +28,7 @@ export async function resumeStoredPrincipalHistory(
   throughVersion: number,
   local: Protection,
   signers: SignerCache,
+  artifactRead?: PrincipalPolicyArtifactRead,
 ): Promise<{
   readonly verifier: PrincipalPolicyHistoryVerifier;
   readonly throughVersion: number;
@@ -54,6 +56,7 @@ export async function resumeStoredPrincipalHistory(
           finished.value.currentEntry,
           local.scope.verificationKind,
           signers,
+          artifactRead,
         );
         return {
           verifier: restored.value,

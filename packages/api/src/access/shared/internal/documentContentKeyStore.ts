@@ -11,6 +11,7 @@ import {
   currentTargetsCanCarryPreviousBundle as sharedCurrentTargetsCanCarryPreviousBundle,
 } from "./contentKeyStore";
 import {
+  loadDocumentContentKeyBundle,
   loadDocumentContentKeyEpochRow,
   loadLatestDocumentContentKeyEpochRow,
   toStoredBundle,
@@ -51,11 +52,7 @@ export async function getDocumentContentKeyBundle(
   contentKeyEpoch: number,
   executor: DatabaseSession,
 ): Promise<StoredDocumentContentKeyBundle | null> {
-  return documentContentKeyStore.getBundle(
-    documentId,
-    contentKeyEpoch,
-    executor,
-  );
+  return loadDocumentContentKeyBundle(documentId, contentKeyEpoch, executor);
 }
 
 async function getLatestDocumentContentKeyBundle(

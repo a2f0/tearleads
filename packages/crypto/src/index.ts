@@ -286,6 +286,7 @@ export {
   isKeyingVerificationCode,
   KEYING_VERIFICATION_CODES,
   KeyingVerificationError,
+  largestPowerOfTwoLessThan,
   MAX_CONTAINER_KEY_EPOCH,
   MAX_CONTAINER_RECITATION_EPOCH,
   makeVerifiedAccessEvent,

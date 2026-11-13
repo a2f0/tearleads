@@ -4,6 +4,7 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicyHistory,
 } from "@tearleads/crypto";
+import type { PrincipalPolicyArtifactRead } from "../../access/read/principalPolicyArtifacts";
 import { beginPrincipalHistoryVerification } from "../../utils/principalHistoryWork";
 import { preparePrincipalHistory } from "./preparePrincipalHistory";
 import {
@@ -17,6 +18,7 @@ export async function getVerifiedPrincipalHistory(
   head: ReferencedPrincipalHead,
   retainedReferences: readonly ReferencedPrincipalHead[],
   kind: PrincipalHistoryVerificationKind = "policy",
+  artifactRead?: PrincipalPolicyArtifactRead,
 ): Promise<VerifiedPrincipalPolicyHistory> {
   beginPrincipalHistoryVerification();
   let prepared = await preparePrincipalHistory(executor, {
@@ -24,6 +26,7 @@ export async function getVerifiedPrincipalHistory(
     kind,
     retainedReferences,
     budget: principalHistoryExecutionBudget(head),
+    ...(artifactRead ? { artifactRead } : {}),
   });
   while (!prepared.complete) {
     requirePrincipalHistoryContinuation(prepared.request);
@@ -32,6 +35,7 @@ export async function getVerifiedPrincipalHistory(
       kind,
       retainedReferences,
       budget: principalHistoryExecutionBudget(head),
+      ...(artifactRead ? { artifactRead } : {}),
     });
   }
   return prepared.history;

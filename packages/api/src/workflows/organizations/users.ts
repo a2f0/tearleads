@@ -14,6 +14,26 @@ export interface UserKeyRow {
   createdAt: Date;
 }
 
+export type UserSigningFingerprintRow = Pick<
+  UserKeyRow,
+  "userId" | "signingKeyFingerprint"
+>;
+
+export async function loadUserSigningFingerprints(
+  executor: DatabaseSession,
+  userIds: readonly string[],
+): Promise<Map<string, UserSigningFingerprintRow>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await executor
+    .select({
+      userId: users.id,
+      signingKeyFingerprint: users.fingerprint,
+    })
+    .from(users)
+    .where(inArray(users.id, [...userIds]));
+  return new Map(rows.map((row) => [row.userId, row]));
+}
+
 export async function loadUsersById(
   executor: DatabaseSession,
   userIds: readonly string[],

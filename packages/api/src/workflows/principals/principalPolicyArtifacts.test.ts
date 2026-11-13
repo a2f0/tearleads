@@ -9,8 +9,12 @@ import {
 } from "@tearleads/api-shared/schema";
 import { and, eq } from "drizzle-orm";
 import { principalHistoryPreparationFixture } from "../../../test/helpers/principalHistoryPreparation";
+import { readPrincipalHistoryPage } from "../../access/read/principalHistoryProgress";
 import { listPrincipalMemberEnvelopesForState } from "../../access/read/principalMemberEnvelopes";
-import { getPrincipalPolicyArtifactsForState } from "../../access/read/principalPolicyArtifacts";
+import {
+  getPrincipalPolicyArtifactsForState,
+  type PrincipalPolicyArtifactRead,
+} from "../../access/read/principalPolicyArtifacts";
 import {
   getCurrentPrincipalState,
   getPrincipalStatePayloadForState,
@@ -100,6 +104,38 @@ for (const memberCount of [0, 2, 64]) {
       ),
     );
     expect(actual.memberEnvelopes).toHaveLength(memberCount);
+    const artifactRead: PrincipalPolicyArtifactRead = {
+      stateHash: head.stateHash,
+    };
+    const combinedCounter = { statements: 0 };
+    const combined = await withDatabaseStatementCounter(combinedCounter, () =>
+      readPrincipalHistoryPage(
+        db,
+        {
+          principalType: head.principalType,
+          principalId: head.principalId,
+          afterVersion: head.version - 1,
+          throughVersion: head.version,
+        },
+        artifactRead,
+      ),
+    );
+    expect(combinedCounter.statements).toBe(1);
+    expect(combined[0]?.state.stateHash).toBe(head.stateHash);
+    expect(
+      combined[0]?.projection.map(
+        ({ userId, role, identityBundleFingerprint }) => ({
+          userId,
+          role,
+          identityBundleFingerprint,
+        }),
+      ),
+    ).toEqual(
+      [...current.entry.projection].sort((a, b) =>
+        a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0,
+      ),
+    );
+    expect(artifactRead.artifacts).toEqual(actual);
   });
 }
 
@@ -124,6 +160,18 @@ test("policy artifact batch preserves the verified bundle and missing-payload er
     expect(actual).toEqual(expected);
     expect(originalCounter.statements).toBe(4);
     expect(batchedCounter.statements).toBe(1);
+    const staleRead: PrincipalPolicyArtifactRead = {
+      stateHash: "stale-head",
+      artifacts: { payload: null, memberEnvelopes: [] },
+    };
+    expect(
+      await buildPrincipalPolicyCurrentForStateWithExecutor(
+        tx,
+        state,
+        history,
+        staleRead,
+      ),
+    ).toEqual(expected);
     await tx
       .delete(principalStatePayloads)
       .where(

@@ -1,6 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import {
   db,
+  getDefaultApiDatabaseKind,
   withDatabaseStatementCounter,
 } from "@tearleads/api-shared/postgres";
 import {
@@ -80,12 +81,14 @@ for (const full of [false, true]) {
     // grants and dropping the principal epoch-key copy then took them to
     // 298 / 647, 293 / 638, and 300 / 649. Memoizing current principal
     // states and organization descriptors under their locks then took them
-    // to 288 / 637, 283 / 628, and 290 / 639.
-    // Identity verification adds exactly three set reads (Admins, Members,
-    // organization). Logger remeasurement: 291 / 638 PGlite, 286 / 629 SQLite;
-    // removing only that guard gives 288 / 635 and 283 / 626. Keep the two
-    // PostgreSQL transaction-control allowances, not the old full-fixture slack.
-    expect(counter.statements).toBeLessThanOrEqual(full ? 640 : 293);
+    // to 288 / 637, 283 / 628, and 290 / 639. Policy read batching and
+    // projection handoffs measured 242 / 534 on PGlite before identity
+    // commitments. Keeping the three registry-verification reads gives
+    // 245 / 537 on the current fixture. PostgreSQL's two transaction-control
+    // statements remain an allowance, not a measured PostgreSQL result.
+    expect(counter.statements).toBeLessThanOrEqual(
+      (full ? 537 : 245) + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    );
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
     const stored = await db

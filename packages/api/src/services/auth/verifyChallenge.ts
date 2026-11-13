@@ -128,16 +128,17 @@ export async function verifyChallenge(
     throw suspendedError();
   }
 
-  const { sessionId, token } = await runtime.sessionTokenIssuer.createSession({
-    userId: user.id,
-    fingerprint: input.fingerprint,
-    createdAt: Date.now(),
-    ipAddress: input.ipAddress,
-  });
+  const { sessionId, token, suspended } =
+    await runtime.sessionTokenIssuer.createSession({
+      userId: user.id,
+      fingerprint: input.fingerprint,
+      createdAt: Date.now(),
+      ipAddress: input.ipAddress,
+    });
   // A suspension committed since the read above may have swept the user's
   // sessions before this one existed. It commits the flag before sweeping, so
   // re-reading it after the session is stored leaves no window between them.
-  if (await isSuspended(runtime, user.id)) {
+  if (suspended ?? (await isSuspended(runtime, user.id))) {
     await runtime.sessionTokenIssuer.revokeSession({
       sessionId,
       userId: user.id,
