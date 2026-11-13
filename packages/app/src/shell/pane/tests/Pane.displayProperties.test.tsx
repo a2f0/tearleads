@@ -47,7 +47,7 @@ test(
       view.container
         .querySelector(".pane-main > .desktop-wallpaper")
         ?.getAttribute("data-wallpaper");
-    expect(wallpaper()).toBe("tidal");
+    expect(wallpaper()).toBe("honeycomb");
 
     // No identity is needed: the settings are app-wide display preferences.
     await act(async () => {
@@ -80,14 +80,10 @@ test(
     ]);
 
     await act(async () => {
-      fireEvent.click(
-        within(background).getByRole("radio", { name: "Honeycomb" }),
-      );
+      fireEvent.click(within(background).getByRole("radio", { name: "Tidal" }));
     });
-    await waitFor(() => expect(wallpaper()).toBe("honeycomb"));
-    expect(localStorage.getItem("tearleads.wallpaper.choice")).toBe(
-      "honeycomb",
-    );
+    await waitFor(() => expect(wallpaper()).toBe("tidal"));
+    expect(localStorage.getItem("tearleads.wallpaper.choice")).toBe("tidal");
 
     const theme = view.getByRole("group", { name: "Theme" });
     await act(async () => {
