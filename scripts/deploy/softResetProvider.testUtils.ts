@@ -254,14 +254,25 @@ if (tool.startsWith("run-")) {
       renameSync(override, join(root, "original-override"));
       writeFileSync(override, "foreign replacement");
     }
+    const phase = `${stack}-${action}${recreated ? "-recreated" : ""}`;
+    const drift = fault("plan-drift.json")
+      ? (JSON.parse(readFileSync(join(root, "plan-drift.json"), "utf8"))[
+          phase
+        ] ?? [])
+      : fault("drift")
+        ? [{ change: { actions: ["update"] } }]
+        : [];
+    if (fault("plan-drift.json"))
+      appendFileSync(
+        join(root, "drift-plans.jsonl"),
+        `${JSON.stringify({ phase, drift, actions: changes.map(({ change }) => change) })}\n`,
+      );
     writeFileSync(
       file,
       JSON.stringify({
         format_version: "1.2",
         resource_changes: changes,
-        resource_drift: fault("drift")
-          ? [{ change: { actions: ["update"] } }]
-          : [],
+        resource_drift: drift,
         variables: {
           cloudflare_account_id: { value: account },
           planetscale_database: { value: database },
