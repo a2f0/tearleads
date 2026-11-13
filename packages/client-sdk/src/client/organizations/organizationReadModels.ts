@@ -98,8 +98,8 @@ export interface OrganizationReadModelCoordinator {
   ): Promise<OrganizationUserDetail | null>;
   /**
    * Resolves `undefined` when the runtime declines without I/O (offline,
-   * database not ready, organization mismatch) or when the feed failed with
-   * no locally retained projection — passes that must not count as caught
+   * database not ready, organization mismatch) or when the feed failed,
+   * even with locally retained data — passes that must not count as caught
    * up; `null` when the reconcile completed but produced nothing presentable
    * — including an authoritative denial that purged the projection, which
    * consumers must repaint.

@@ -133,6 +133,11 @@ if (tool === "deployApiMaintenance.sh" && fault("block-maintenance")) {
 }
 if (tool === "deployApiMaintenance.sh")
   writeFileSync(join(root, "maintenance-complete"), "");
+if (
+  tool === "deployApiMaintenance.sh" &&
+  fault("change-storage-plan-after-show")
+)
+  appendFileSync(readFileSync(join(root, "storage-plan-path"), "utf8"), "\n");
 if (tool === "deployWebsite.sh")
   writeFileSync(join(root, "website-deployed"), "");
 if (tool.startsWith("run-")) {
@@ -291,9 +296,26 @@ if (tool.startsWith("run-")) {
   }
 } else if (tool === "terraform") {
   const file = args.at(-1) ?? "";
-  console.log(readFileSync(file, "utf8"));
-  if (fault("change-plan-during-show"))
-    writeFileSync(file, "different plan bytes");
+  const plan = JSON.parse(readFileSync(file, "utf8"));
+  if (fault("plan-mutation.json")) {
+    const mutation = JSON.parse(
+      readFileSync(join(root, "plan-mutation.json"), "utf8"),
+    );
+    if (basename(file) === mutation.file) {
+      let target = plan;
+      for (const key of mutation.path.slice(0, -1)) target = target[key];
+      target[mutation.path.at(-1)] = mutation.value;
+    }
+  }
+  console.log(JSON.stringify(plan));
+  if (basename(file) === "storage-delete.tfplan")
+    writeFileSync(join(root, "storage-plan-path"), file);
+  if (
+    fault("change-plan-during-show") ||
+    (fault("change-storage-plan-during-show") &&
+      basename(file) === "storage-no-op.tfplan")
+  )
+    appendFileSync(file, "\n");
 } else if (tool === "curl") console.log("200");
 else if (tool === "psql") {
   // PostgreSQL catalog name columns use C order even in locale databases.
