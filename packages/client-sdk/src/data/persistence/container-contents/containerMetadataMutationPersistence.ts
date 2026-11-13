@@ -44,6 +44,7 @@ import {
   loadContainerById,
 } from "./containerPersistence";
 import { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
+import { assertPrimaryDocumentSelection } from "./linkedDocumentSummary";
 
 function sameNullableValue(
   left: string | null | undefined,
@@ -387,6 +388,11 @@ export async function commitStoredMetadataMutation(
           });
         }
         assertMutationKeepsHeldBinding(currentState, input);
+        await assertPrimaryDocumentSelection(
+          lockedExecSql,
+          currentState.container,
+          input.primaryDocumentId,
+        );
 
         await enqueuePendingUpdate(
           lockedExecSql,

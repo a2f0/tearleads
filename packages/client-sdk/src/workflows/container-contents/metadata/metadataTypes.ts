@@ -30,6 +30,7 @@ export interface ContainerMetadataPatch {
   effectiveAccessLevel: ContainerRecord["effectiveAccessLevel"];
   documentId: string | null;
   icon: string | null;
+  primaryDocumentId: string | null;
   lastCommitLsn: string | null;
   metadataDocumentId: string | null;
   systemSlot: ContainerRecord["systemSlot"];

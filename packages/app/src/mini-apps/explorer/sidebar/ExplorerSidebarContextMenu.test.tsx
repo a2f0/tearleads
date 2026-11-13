@@ -43,6 +43,7 @@ const documentQueries: ContainerDocumentQueries = {
   loadContainerDocumentWatermark: async () => null,
   loadDocumentSyncState: async () => null,
   loadDocumentSummary: async () => null,
+  loadContainerDocumentSummary: async () => null,
   loadOrphanedDocumentSummary: async () => null,
   listLinkedContainerIdsByDocumentIds: async () => new Map(),
   replaceDocumentLinksBatch: async () => undefined,

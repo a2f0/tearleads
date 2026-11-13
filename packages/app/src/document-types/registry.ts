@@ -48,6 +48,8 @@ import { WEIGHT_DOCUMENT_KIND } from "./weight/weightDocumentDefinition";
 
 interface DocumentTypeDefinition {
   App: ComponentType<DocumentTypeAppProps>;
+  /** Optional primary renderer; container views never use the editor fallback. */
+  ContainerView?: ComponentType<DocumentTypeAppProps> | undefined;
   createIcon: Icon;
   createLabel: string;
   kind: StoredDocumentKind;
@@ -76,6 +78,11 @@ const documentTypeAppsByKind = new Map<
   [GENERIC_FILE_DOCUMENT_KIND, GenericFileDocumentApp],
 ]);
 
+const containerViewsByKind = new Map<
+  StoredDocumentKind,
+  ComponentType<DocumentTypeAppProps>
+>([[CONTACT_DOCUMENT_KIND, ContactDocumentApp]]);
+
 export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
   APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS.map((definition) => {
     const App = documentTypeAppsByKind.get(definition.kind);
@@ -87,6 +94,7 @@ export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
 
     return {
       App,
+      ContainerView: containerViewsByKind.get(definition.kind),
       createIcon: definition.createIcon,
       createLabel: definition.createLabel,
       kind: definition.kind,

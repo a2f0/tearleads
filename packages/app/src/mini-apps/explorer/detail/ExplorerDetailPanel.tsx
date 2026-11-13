@@ -16,6 +16,7 @@ import type { MouseEvent } from "react";
 import { AccountBootstrapLoadingPanel } from "../../../components/identity/AccountBootstrapLoadingPanel";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
+import { ContainerDocumentView } from "../../../document-types/shared/container-view/ContainerDocumentView";
 import type { ExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
@@ -182,6 +183,10 @@ interface ExplorerDetailPanelProps {
   selectDocumentProjection: (documentId: string, containerId: string) => void;
   selectedDocument: DocumentSummary | undefined;
   selectedNode: ContainerNode | undefined;
+  setContainerPrimaryDocument: (
+    containerId: string,
+    documentId: string | null,
+  ) => Promise<ContainerNode | null>;
   setContainerIcon: (
     containerId: string,
     icon: string | null,
@@ -400,28 +405,42 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
 
   if (selectedNode) {
     return (
-      <ExplorerContainerDetail
-        onRecoveryChanged={params.onRecoveryChanged}
-        containerNodes={params.nodes}
-        contactAvatarUrlByLocalId={params.contactAvatarUrlByLocalId}
-        contextTarget={params.contextTarget}
-        currentOrganizationId={params.currentOrganizationId}
-        currentSigningFingerprint={params.currentSigningFingerprint}
-        currentSelfContactLocalId={params.currentSelfContactLocalId}
-        currentUserId={params.currentUserId}
-        documentListRevision={params.documentListRevision}
+      <ContainerDocumentView
+        scope={params.domainScope}
+        node={selectedNode}
+        revision={params.documentListRevision}
         documentQueries={params.documentQueries}
-        uploadManager={params.uploadManager}
-        online={params.online}
-        onContainerContextMenu={params.onContainerContextMenu}
-        onItemContextMenu={params.onItemContextMenu}
-        refreshError={params.refreshError}
-        selectedNode={selectedNode}
-        selectDocumentProjection={params.selectDocumentProjection}
-        setSelectedId={params.setSelectedId}
-        showHeaderSyncIndicator={params.showHeaderSyncIndicator}
-        visibleSystemSlots={params.visibleSystemSlots}
-      />
+        setPrimary={params.setContainerPrimaryDocument}
+        logError={params.logError}
+        onOpenDocument={params.selectDocumentProjection}
+        readOnly={isContainerUnderTrash(params.nodes, selectedNode.id, {
+          currentOrganizationId: params.currentOrganizationId,
+          trashSystemSlot: params.trashSystemSlot,
+        })}
+      >
+        <ExplorerContainerDetail
+          onRecoveryChanged={params.onRecoveryChanged}
+          containerNodes={params.nodes}
+          contactAvatarUrlByLocalId={params.contactAvatarUrlByLocalId}
+          contextTarget={params.contextTarget}
+          currentOrganizationId={params.currentOrganizationId}
+          currentSigningFingerprint={params.currentSigningFingerprint}
+          currentSelfContactLocalId={params.currentSelfContactLocalId}
+          currentUserId={params.currentUserId}
+          documentListRevision={params.documentListRevision}
+          documentQueries={params.documentQueries}
+          uploadManager={params.uploadManager}
+          online={params.online}
+          onContainerContextMenu={params.onContainerContextMenu}
+          onItemContextMenu={params.onItemContextMenu}
+          refreshError={params.refreshError}
+          selectedNode={selectedNode}
+          selectDocumentProjection={params.selectDocumentProjection}
+          setSelectedId={params.setSelectedId}
+          showHeaderSyncIndicator={params.showHeaderSyncIndicator}
+          visibleSystemSlots={params.visibleSystemSlots}
+        />
+      </ContainerDocumentView>
     );
   }
 

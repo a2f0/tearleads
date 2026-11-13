@@ -27,8 +27,9 @@ export function createTestContainerState(input: {
       systemSlot: null,
     },
     doc: {
+      getMap: () => ({ get: () => undefined }),
       oplogVersion: () => decodeVersionVector(null),
-    } as ContainerState["doc"],
+    } as unknown as ContainerState["doc"],
     record: {
       accessEpoch: 1,
       accessStateHash: synced ? `access-${input.id}` : "",
