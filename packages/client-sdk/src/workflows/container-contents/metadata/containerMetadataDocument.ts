@@ -4,6 +4,7 @@ import { getScopedPeerSeed } from "../../../data/sync/crdtPeerSeed";
 interface ContainerMetadataValue {
   icon: string | null;
   name: string;
+  primaryDocumentId?: string | null;
 }
 
 export type ContainerMetadataDocument = Awaited<
@@ -47,8 +48,12 @@ export function readContainerMetadataValue(
   const metadata = doc.getMap("container");
   const storedName = metadata.get("name");
   const storedIcon = metadata.get("icon");
+  const storedPrimary = metadata.get("primaryDocumentId");
 
   return {
+    ...(typeof storedPrimary === "string" && storedPrimary.length > 0
+      ? { primaryDocumentId: storedPrimary }
+      : {}),
     icon:
       typeof storedIcon === "string" && storedIcon.length > 0
         ? storedIcon
@@ -62,16 +67,13 @@ export function readContainerMetadataValue(
 
 export function writeContainerMetadataValue(
   doc: ContainerMetadataDocument,
-  value: ContainerMetadataValue,
+  value: Partial<ContainerMetadataValue>,
 ): void {
   const metadata = doc.getMap("container");
-
-  metadata.set("name", value.name);
-
-  if (value.icon) {
-    metadata.set("icon", value.icon);
-    return;
+  if (value.name !== undefined) metadata.set("name", value.name);
+  for (const key of ["icon", "primaryDocumentId"] as const) {
+    if (value[key] === undefined) continue;
+    if (value[key]) metadata.set(key, value[key]);
+    else metadata.delete(key);
   }
-
-  metadata.delete("icon");
 }

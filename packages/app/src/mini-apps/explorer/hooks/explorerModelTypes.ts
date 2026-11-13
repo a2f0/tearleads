@@ -43,6 +43,10 @@ export interface ExplorerModelExplorer {
     containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
+  setContainerPrimaryDocument: (
+    containerId: string,
+    documentId: string | null,
+  ) => Promise<ContainerNode | null>;
   setContainerIcon: (
     containerId: string,
     icon: string | null,

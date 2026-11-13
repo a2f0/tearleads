@@ -11,6 +11,14 @@ import {
   getDocumentTypeDefinition,
 } from "./registry";
 
+test("only registered document kinds opt into container views", () => {
+  expect(getDocumentTypeDefinition("contact").ContainerView).toBeDefined();
+  expect(getDocumentTypeDefinition("note").ContainerView).toBeUndefined();
+  expect(
+    getDocumentTypeDefinition("unknown-kind").ContainerView,
+  ).toBeUndefined();
+});
+
 test("document type registry covers the supported inline document kinds", () => {
   expect(
     DOCUMENT_TYPE_DEFINITIONS.map((definition) => definition.kind),

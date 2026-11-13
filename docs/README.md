@@ -22,6 +22,8 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 - [Client SDK](developer/client-sdk.md): the SDK's public API and runtime.
 - [SQLite setup for SDK hosts](developer/sqlite-setup.md).
 - [Choosing a document creation API](developer/document-creation.md).
+- [Container views](developer/container-views.md): primary documents, reusable
+  renderers and list fallback.
 - [Client SDK seams](developer/client-sdk-seams.md): how SDK components meet.
 - [Architecture vocabulary](developer/architecture-vocabulary.md): lanes,
   layers, planes, facades, and overloaded nouns.
