@@ -85,10 +85,10 @@ resource removals are not reclassified as full teardowns by this command.
 Before downtime the command verifies expected database/branch, Cloudflare
 account, blob bucket/endpoint, migration role, and unchanged hostnames. It
 requires healthy API/app/demo/site endpoints, plans with no actionable drift
-([observation-only metadata exception](soft-reset-drift.md)), direct read-only
-TLS database access, and authenticated blob listings. Saved destruction plans
-must match explicit resource/action allowlists: only the application database,
-its roles and Hyperdrive, and the blob bucket's configuration/token are allowed.
+([narrow drift exceptions](soft-reset-drift.md)), direct read-only TLS database
+access, and authenticated blob listings. Saved destruction plans must match
+explicit resource/action allowlists: only the application database, its roles
+and Hyperdrive, and the blob bucket's configuration/token are allowed.
 It does not use the broader, immediately-applying `destroy-stack.sh` helper.
 
 It then builds SQLite/SDK runtime dependencies, prepares **devkit configuration
