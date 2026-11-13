@@ -4,6 +4,7 @@ import {
   type LocalKeyring,
 } from "@tearleads/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
+import { createFakeIndexedDb } from "../../../test/helpers/fakeIndexedDb";
 import {
   useDynamicLocalKeyringFactory,
   useVerifyPinCodeAction,
@@ -38,6 +39,9 @@ interface HostKeyringHookProps extends DynamicKeyringHookProps {
 afterEach(cleanup);
 
 test("verify-only respects cancellation and reports only live storage failures", async () => {
+  const originalIndexedDB = globalThis.indexedDB;
+  const hadIndexedDB = "indexedDB" in globalThis;
+  Reflect.set(globalThis, "indexedDB", createFakeIndexedDb());
   const manifestStore = createLocalStorageLocalKeyringManifestStore();
   const failure = new Error("Manifest store unavailable");
   const load = spyOn(manifestStore, "loadManifest").mockRejectedValue(failure);
@@ -60,6 +64,7 @@ test("verify-only respects cancellation and reports only live storage failures",
     expect(captureError).not.toHaveBeenCalled();
 
     await expect(view.result.current("824913")).resolves.toBe(false);
+    expect(load).toHaveBeenCalledTimes(1);
     expect(captureError).toHaveBeenCalledWith(failure, {
       area: "app",
       source: "log",
@@ -73,9 +78,12 @@ test("verify-only respects cancellation and reports only live storage failures",
     cancelled.abort();
     deferred.reject(failure);
     await expect(verification).resolves.toBe(false);
+    expect(load).toHaveBeenCalledTimes(2);
     expect(captureError).toHaveBeenCalledTimes(1);
   } finally {
     load.mockRestore();
+    if (hadIndexedDB) Reflect.set(globalThis, "indexedDB", originalIndexedDB);
+    else Reflect.deleteProperty(globalThis, "indexedDB");
   }
 });
 
