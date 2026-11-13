@@ -2,6 +2,26 @@
 
 Part of the [client SDK guide](../client-sdk.md).
 
+## Container primary documents
+
+`ContainerContentsStore.setContainerPrimaryDocument(containerId, documentId)`
+sets the optional canonical primary id; pass `null` to clear it. It returns the
+updated `ContainerNode` after durable persistence, `null` on refused or stale
+operations, and may throw on persistence failure or a target that becomes
+unavailable during commit. Callers must handle both refusal and rejection.
+The node exposes `primaryDocumentId` from its encrypted metadata document.
+
+`ContainerDocumentQueries.loadContainerDocumentSummary({ containerId,
+documentId })` resolves hydrated direct/secondary membership by canonical id,
+returning the current device's `DocumentSummary` or `null`. Hidden tombstone
+holds are excluded. `listContainerDocumentSidebarWindow` accepts an optional
+`documentKind` filter applied before counting and paging. Drafts without a
+canonical id cannot be selected as primary until their first sync.
+
+See [container views](../container-views.md) for the app extension point,
+read-only behavior and fallback rules. These methods use existing root-exported
+store/query contracts; there is no new package entry point or schema column.
+
 ## Public API Entry Points
 
 Supported package entry points:

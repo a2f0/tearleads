@@ -128,6 +128,7 @@ async function persistPreparedMetadataMutation(input: {
     ContainerContentsPersistence["commitMetadataMutation"]
   >[1]["moveIntentSettlement"];
   persistence: ContainerContentsPersistence;
+  primaryDocumentId?: string | null | undefined;
   prepared: ApplicableContainerMetadataMutation;
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   preserveDurableStructureWhenPending?: boolean | undefined;
@@ -191,6 +192,7 @@ async function persistPreparedMetadataMutation(input: {
     expectedRecord: prepared.durableRecord,
     moveIntentSettlement: input.moveIntentSettlement,
     pendingUpdate,
+    primaryDocumentId: input.primaryDocumentId,
     preserveDurableStructureWhenPending:
       input.preserveDurableStructureWhenPending,
     record: nextRecord,
@@ -314,6 +316,7 @@ async function persistContainerMetadataState(
         moveIntentSettlement: input.moveIntentSettlement,
         persistence: input.persistence,
         prepared,
+        primaryDocumentId: input.localMetadataPatch?.primaryDocumentId,
         preserveDurableStructureWhenPending:
           input.preserveDurableStructureWhenPending,
         saveOptions: input.saveOptions,
@@ -370,20 +373,18 @@ export async function persistContainerMetadataStateFromRuntime(
   return persisted;
 }
 
-async function writeContainerMetadataPatch(input: {
+export async function writeContainerMetadataPatch(input: {
   execSql: ExecSql;
   metadataState: ContainerMetadataState;
-  patch: Partial<Pick<ContainerMetadataPatch, "icon" | "name">>;
+  patch: Partial<
+    Pick<ContainerMetadataPatch, "icon" | "name" | "primaryDocumentId">
+  >;
   persistence: ContainerContentsPersistence;
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<PersistedContainerMetadataState | null> {
   const { execSql, metadataState, patch, persistence } = input;
-  const metadata = readContainerMetadataValue(
-    metadataState.doc,
-    getDefaultContainerName(metadataState.container.parentId),
-  );
   const previousVersion = encodeVersionVector(metadataState.doc);
-  writeContainerMetadataValue(metadataState.doc, { ...metadata, ...patch });
+  writeContainerMetadataValue(metadataState.doc, patch);
   const update = exportUpdatesSince(metadataState.doc, previousVersion);
 
   return persistContainerMetadataState({

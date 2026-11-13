@@ -198,6 +198,7 @@ function renderExplorerDetailPanelWithBlobPick(
       selectedNode={model.selection.selectedNode}
       selectedDocument={model.selection.selectedDocument}
       setContainerIcon={model.explorer.setContainerIcon}
+      setContainerPrimaryDocument={model.explorer.setContainerPrimaryDocument}
       trashSystemSlot={model.explorer.trashSystemSlot}
       setSelectedId={routeState.selectExplorerItem}
       {...params.featureFlags}

@@ -386,6 +386,8 @@ export interface ContainerContentsPersistence
             expectedUpdatedAt: string;
           }
         | undefined;
+      /** Present only for an explicit local primary change; null clears it. */
+      primaryDocumentId?: string | null | undefined;
       pendingUpdate?: PendingUpdateFields | undefined;
       preserveDurableStructureWhenPending?: boolean | undefined;
       record: ContainerMetadataRecord;

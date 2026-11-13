@@ -42,6 +42,8 @@ export interface ContainerNode {
   metadataDocumentId?: string | null;
   /** False while a discovered remote folder has no local metadata content. */
   metadataReady?: boolean;
+  /** Canonical document id stored in encrypted metadata; never a device-local id. */
+  primaryDocumentId?: string | null;
   organizationId: string;
   name: string;
   parentId: string | null;
@@ -66,6 +68,7 @@ export type ContainerContentsContextValue = ContainerContentsSnapshot &
     | "renameContainer"
     | "requestSync"
     | "setContainerIcon"
+    | "setContainerPrimaryDocument"
     | "shareWithGroup"
     | "shareWithUser"
   >;
@@ -152,6 +155,11 @@ export interface ContainerContentsStore {
   renameContainer: (
     containerId: string,
     name: string,
+  ) => Promise<ContainerNode | null>;
+  /** Null clears the preference. Target must be hydrated, linked and synced once. */
+  setContainerPrimaryDocument: (
+    containerId: string,
+    documentId: string | null,
   ) => Promise<ContainerNode | null>;
   setContainerIcon: (
     containerId: string,
