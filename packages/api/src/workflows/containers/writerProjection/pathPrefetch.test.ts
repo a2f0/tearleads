@@ -83,6 +83,34 @@ test("the path prefetch reads ids in chunks of 500 and caches only rows it found
   expect(context.currentManifestBundleByContainerId.size).toBe(0);
 });
 
+test("the single access walk uses one joined read per path level", async () => {
+  const tree = await createOwnedTree(0);
+  try {
+    let containerId = tree.rootId;
+    const counts: number[] = [];
+    for (let depth = 1; depth <= 4; depth += 1) {
+      const resolve = () =>
+        resolveContainerAccessProjection({
+          containerId,
+          executor: db,
+          minimumAccessLevel: "read",
+          userId: tree.owner.userId,
+        });
+      const expected = await resolve();
+      const counter = { statements: 0 };
+      const actual = await withDatabaseStatementCounter(counter, resolve);
+      expect(actual).toEqual(expected);
+      expect(actual.path).toHaveLength(depth);
+      console.info("single-access", { depth, statements: counter.statements });
+      counts.push(counter.statements);
+      if (depth < 4) containerId = await tree.createChild(containerId);
+    }
+    expect(counts).toEqual([6, 7, 8, 9]);
+  } finally {
+    tree.close();
+  }
+}, 180_000);
+
 async function headManifestHash(containerId: string): Promise<string> {
   const [head] = await db
     .select({ manifestHash: accessManifestHeads.manifestHash })

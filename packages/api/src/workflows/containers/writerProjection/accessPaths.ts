@@ -7,17 +7,13 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { resolveContainerPathUserAccessLevel } from "@tearleads/crypto";
-import {
-  type AccessManifestBundleWireResponse,
-  CONTAINER_NOT_FOUND_ERROR_CODE,
-} from "@tearleads/validators/response";
+import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   getAccessManifestBundle,
-  getAccessManifestBundles,
+  getContainerPathRowsWithBundles,
   getCurrentAccessManifestHead,
-  getCurrentAccessManifestHeads,
   getObjectAccessManifestBundles,
 } from "../../../access/read/accessManifestStore";
 import { cachedProjectionValue } from "./context";
@@ -165,15 +161,18 @@ async function loadCurrentContainerManifestBundle(
  */
 export async function prefetchContainerManifestHistory(
   context: ContainerWriterProjectionContext,
-  containerId: string,
+  containerId: string | readonly string[],
 ): Promise<void> {
-  if (context.prefetchedHistoryContainerIds.has(containerId)) return;
-  context.prefetchedHistoryContainerIds.add(containerId);
+  const ids = [
+    ...new Set(typeof containerId === "string" ? [containerId] : containerId),
+  ].filter((id) => !context.prefetchedHistoryContainerIds.has(id));
+  if (ids.length === 0) return;
   const bundles = await getObjectAccessManifestBundles(
     "container",
-    containerId,
+    ids,
     context.executor,
   );
+  for (const id of ids) context.prefetchedHistoryContainerIds.add(id);
   for (const [manifestHash, bundle] of bundles) {
     if (!context.manifestBundleByHash.has(manifestHash))
       context.manifestBundleByHash.set(
@@ -194,11 +193,40 @@ function prefetchBatches(ids: readonly string[]): string[][] {
   return batches;
 }
 
+function seedCurrentBundle(
+  context: ContainerWriterProjectionContext,
+  containerId: string,
+  bundle: NonNullable<Awaited<ReturnType<typeof getAccessManifestBundle>>>,
+): void {
+  try {
+    const response = Promise.resolve(toManifestBundleResponse(bundle));
+    if (!context.manifestBundleByHash.has(bundle.manifestHash))
+      context.manifestBundleByHash.set(bundle.manifestHash, response);
+    if (!context.currentManifestBundleByContainerId.has(containerId))
+      context.currentManifestBundleByContainerId.set(containerId, response);
+    context.verificationMarkers.seed(bundle);
+  } catch {
+    // An unreadable bundle is handled by the walk that reaches it.
+  }
+}
+
+function seedContainerPathRows(
+  context: ContainerWriterProjectionContext,
+  rows: Awaited<ReturnType<typeof getContainerPathRowsWithBundles>>,
+  parentIds: Set<string>,
+): void {
+  for (const { container: row, bundle } of rows) {
+    if (bundle) seedCurrentBundle(context, row.id, bundle);
+    if (context.containerPathRowById.has(row.id)) continue;
+    context.containerPathRowById.set(row.id, Promise.resolve(row));
+    if (row.parentId !== null) parentIds.add(row.parentId);
+  }
+}
+
 async function prefetchContainerPathRows(
   context: ContainerWriterProjectionContext,
   containerIds: readonly string[],
-): Promise<string[]> {
-  const loadedIds: string[] = [];
+): Promise<void> {
   let frontier = [...new Set(containerIds)].filter(
     (containerId) => !context.containerPathRowById.has(containerId),
   );
@@ -210,100 +238,24 @@ async function prefetchContainerPathRows(
   ) {
     const parentIds = new Set<string>();
     for (const batch of prefetchBatches(frontier)) {
-      const rows = await context.executor
-        .select({
-          id: containers.id,
-          organizationId: containers.organizationId,
-          parentId: containers.parentId,
-        })
-        .from(containers)
-        .where(inArray(containers.id, batch));
-      for (const row of rows) {
-        if (context.containerPathRowById.has(row.id)) continue;
-        context.containerPathRowById.set(row.id, Promise.resolve(row));
-        loadedIds.push(row.id);
-        if (row.parentId !== null) parentIds.add(row.parentId);
-      }
+      const rows = await getContainerPathRowsWithBundles(
+        context.executor,
+        batch,
+      );
+      seedContainerPathRows(context, rows, parentIds);
     }
     frontier = [...parentIds].filter(
       (containerId) => !context.containerPathRowById.has(containerId),
     );
   }
-  return loadedIds;
 }
 
-function bindPrefetchedCurrentBundles(
-  context: ContainerWriterProjectionContext,
-  headHashByContainerId: ReadonlyMap<string, string>,
-): void {
-  for (const [containerId, manifestHash] of headHashByContainerId) {
-    const bundle = context.manifestBundleByHash.get(manifestHash);
-    if (bundle && !context.currentManifestBundleByContainerId.has(containerId))
-      context.currentManifestBundleByContainerId.set(containerId, bundle);
-  }
-}
-
-async function prefetchCurrentContainerManifestBundles(
-  context: ContainerWriterProjectionContext,
-  containerIds: readonly string[],
-): Promise<void> {
-  const uncachedIds = containerIds.filter(
-    (containerId) =>
-      !context.currentManifestBundleByContainerId.has(containerId),
-  );
-  const headHashByContainerId = new Map<string, string>();
-  for (const batch of prefetchBatches(uncachedIds)) {
-    const heads = await getCurrentAccessManifestHeads(
-      "container",
-      batch,
-      context.executor,
-    );
-    for (const [containerId, head] of heads)
-      headHashByContainerId.set(containerId, head.manifestHash);
-  }
-  const uncachedHashes = [...new Set(headHashByContainerId.values())].filter(
-    (manifestHash) => !context.manifestBundleByHash.has(manifestHash),
-  );
-  for (const batch of prefetchBatches(uncachedHashes)) {
-    // An incomplete, unreadable, or non-container bundle stays uncached: the
-    // walk that reaches it reloads it and fails exactly as it would have
-    // without the prefetch, inside that container's own error handling.
-    const bundles = await getAccessManifestBundles(
-      batch,
-      context.executor,
-      true,
-    );
-    for (const [manifestHash, bundle] of bundles) {
-      if (bundle.manifest.objectKind !== "container") continue;
-      let response: AccessManifestBundleWireResponse;
-      try {
-        response = toManifestBundleResponse(bundle);
-      } catch {
-        continue;
-      }
-      context.manifestBundleByHash.set(manifestHash, Promise.resolve(response));
-      context.verificationMarkers.seed(bundle);
-    }
-  }
-  bindPrefetchedCurrentBundles(context, headHashByContainerId);
-}
-
-/**
- * Set-load the rows, current heads, and manifest bundles of every container on
- * these containers' paths: one read per path level plus one for the heads and
- * one for the bundles, instead of three serial reads per path container. Only
- * what was found is cached, so a missing row, head, or bundle is read again by
- * the walk and raises the same 404 or 409. Every path is still verified.
- */
+/** One joined read per level; misses stay uncached and every path is verified. */
 export async function prefetchContainerAccessPaths(
   context: ContainerWriterProjectionContext,
   containerIds: readonly string[],
 ): Promise<void> {
-  const pathContainerIds = await prefetchContainerPathRows(
-    context,
-    containerIds,
-  );
-  await prefetchCurrentContainerManifestBundles(context, pathContainerIds);
+  await prefetchContainerPathRows(context, containerIds);
 }
 
 export async function loadContainerManifestBundleByHash(
@@ -440,6 +392,7 @@ export async function resolveSingleContainerAccessProjection(input: {
   readonly minimumAccessLevel: ContainerAccessLevel;
   readonly userId: string;
 }): Promise<ContainerAccessProjection> {
+  await prefetchContainerAccessPaths(input.context, [input.containerId]);
   const accessPath = await loadContainerAccessPath(
     input.context,
     input.containerId,

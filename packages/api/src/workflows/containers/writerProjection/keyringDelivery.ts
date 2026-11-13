@@ -16,10 +16,12 @@ export async function loadContainerKekKeyring(input: {
 }): Promise<ContainerKekKeyring | null> {
   // Generic epoch lookups omit the keyring blob; this is one of the few paths
   // that genuinely needs it, so it reads the epoch row with its keyring once.
-  const epoch = await getContainerKeyEpochWithKeyring(
-    input.containerKeyEpochId,
-    input.context.executor,
-  );
+  const epoch =
+    input.context.keyEpochById.get(input.containerKeyEpochId) ??
+    (await getContainerKeyEpochWithKeyring(
+      input.containerKeyEpochId,
+      input.context.executor,
+    ));
   if (!epoch) {
     throw new ContainerWriterProjectionError("Container KEK missing", 409);
   }

@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import {
+  db,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
 import {
   accessEvents,
   attachmentBindings,
@@ -157,123 +160,179 @@ async function expectListDocumentAttachmentsError(
   throw new Error("Expected listDocumentAttachments to fail");
 }
 
-test("listDocumentAttachments returns active attachment bindings for readable documents", async () => {
-  const { registration, user } = await registerServiceUser();
-  const document = await createReadableDocument({
-    containerId: registration.rootContainerId,
-    createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
-    organizationId: registration.organizationId,
-    signerPrivateKey: user.signing.signingPrivateKey,
-    signerUserId: registration.userId,
-  });
-  const activeBlob = await createBlob();
-  const detachedBlob = await createBlob();
-  const bindingId = crypto.randomUUID();
-  const bindingBody: AttachmentBindAccessEventBody = {
-    bindingId,
-    blobId: activeBlob.id,
-    documentId: document.id,
-    documentManifestHash: document.manifestHash,
-    eventType: "attachment.bind",
-    expectedBindingId: null,
-    slotId: "active-slot",
-  };
-  const unsignedBindingEvent: UnsignedAccessEvent = {
-    bodyHash: await computeAccessEventBodyHash(
-      bindingBody as unknown as KeyingCanonicalJson,
-    ),
-    dependencyManifestHashes: [document.manifestHash],
-    eventId: crypto.randomUUID(),
-    eventType: "attachment.bind",
-    objectId: activeBlob.id,
-    objectKind: "blob",
-    organizationId: registration.organizationId,
-    previousManifestHash: null,
-    signedAt: new Date().toISOString(),
-    signerDeviceId: "list-attachments-test",
-    signerKeyFingerprint: await toFingerprint(user.signing.signingPublicKey),
-    signerUserId: registration.userId,
-    version: 1,
-  };
-  const bindingEvent = await signAccessEvent(
-    unsignedBindingEvent,
-    user.signing.signingPrivateKey,
-  );
-  const attachmentEventHash = await computeAccessEventHash(bindingEvent);
-  await db.insert(accessEvents).values({
-    ...bindingEvent,
-    body: bindingBody as unknown as KeyingCanonicalJson,
-    eventHash: attachmentEventHash,
-    signedAt: new Date(bindingEvent.signedAt),
-  });
-  const [activeBinding] = await db
-    .insert(attachmentBindings)
-    .values({
-      id: bindingId,
-      attachmentEventHash,
+test.each([1, 2, 4])(
+  "listDocumentAttachments set-loads %i active attachment bundles",
+  async (count) => {
+    const { registration, user } = await registerServiceUser();
+    const document = await createReadableDocument({
+      containerId: registration.rootContainerId,
+      createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
+      organizationId: registration.organizationId,
+      signerPrivateKey: user.signing.signingPrivateKey,
+      signerUserId: registration.userId,
+    });
+    const activeBlob = await createBlob();
+    const detachedBlob = await createBlob();
+    const bindingId = crypto.randomUUID();
+    const bindingBody: AttachmentBindAccessEventBody = {
+      bindingId,
       blobId: activeBlob.id,
       documentId: document.id,
       documentManifestHash: document.manifestHash,
+      eventType: "attachment.bind",
+      expectedBindingId: null,
       slotId: "active-slot",
-    })
-    .returning({ id: attachmentBindings.id });
-  await db.insert(attachmentBindings).values({
-    attachmentEventHash: `attachment-event:${detachedBlob.id}`,
-    blobId: detachedBlob.id,
-    detachedAt: new Date(),
-    documentId: document.id,
-    documentManifestHash: document.manifestHash,
-    slotId: "detached-slot",
-  });
-  if (!activeBinding) {
-    throw new Error("Failed to create service test attachment binding");
-  }
-  const contentKeyBundle = await createBlobContentKeyBundle({
-    blobId: activeBlob.id,
-  });
-
-  const recording = createRecordingDb();
-
-  const attachments = await listDocumentAttachments(
-    createServiceTestRuntime(recording.db),
-    {
+    };
+    const unsignedBindingEvent: UnsignedAccessEvent = {
+      bodyHash: await computeAccessEventBodyHash(
+        bindingBody as unknown as KeyingCanonicalJson,
+      ),
+      dependencyManifestHashes: [document.manifestHash],
+      eventId: crypto.randomUUID(),
+      eventType: "attachment.bind",
+      objectId: activeBlob.id,
+      objectKind: "blob",
+      organizationId: registration.organizationId,
+      previousManifestHash: null,
+      signedAt: new Date().toISOString(),
+      signerDeviceId: "list-attachments-test",
+      signerKeyFingerprint: await toFingerprint(user.signing.signingPublicKey),
+      signerUserId: registration.userId,
+      version: 1,
+    };
+    const bindingEvent = await signAccessEvent(
+      unsignedBindingEvent,
+      user.signing.signingPrivateKey,
+    );
+    const attachmentEventHash = await computeAccessEventHash(bindingEvent);
+    await db.insert(accessEvents).values({
+      ...bindingEvent,
+      body: bindingBody as unknown as KeyingCanonicalJson,
+      eventHash: attachmentEventHash,
+      signedAt: new Date(bindingEvent.signedAt),
+    });
+    const [activeBinding] = await db
+      .insert(attachmentBindings)
+      .values({
+        id: bindingId,
+        attachmentEventHash,
+        blobId: activeBlob.id,
+        documentId: document.id,
+        documentManifestHash: document.manifestHash,
+        slotId: "active-slot",
+      })
+      .returning({ id: attachmentBindings.id });
+    await db.insert(attachmentBindings).values({
+      attachmentEventHash: `attachment-event:${detachedBlob.id}`,
+      blobId: detachedBlob.id,
+      detachedAt: new Date(),
       documentId: document.id,
-      userId: registration.userId,
-    },
-  );
+      documentManifestHash: document.manifestHash,
+      slotId: "detached-slot",
+    });
+    if (!activeBinding) {
+      throw new Error("Failed to create service test attachment binding");
+    }
+    const contentKeyBundle = await createBlobContentKeyBundle({
+      blobId: activeBlob.id,
+    });
 
-  expect(attachments).toHaveLength(1);
-  expect(attachments[0]).toMatchObject({
-    bindingId: activeBinding.id,
-    blobId: activeBlob.id,
-    contentKeyBundle,
-    documentManifestHash: document.manifestHash,
-    previousBindingId: null,
-    slotId: "active-slot",
-  });
-  expect(attachments[0]?.bindingEvent?.eventHash).toBeTruthy();
-  expect(attachments[0]?.blobKekTargets?.blobAccessManifestHash).toBeTruthy();
-  expect(attachments[0]?.writeHeader).toBeTruthy();
-  expect(attachments[0]?.writeAuthorization).toMatchObject({
-    blobAccessManifestHash:
-      attachments[0]?.blobKekTargets?.blobAccessManifestHash,
-    blobKeyTargetHash: contentKeyBundle.targetHash,
-  });
-  expect(recording.calls.get("select") ?? 0).toBeGreaterThan(0);
+    for (let index = 1; index < count; index += 1) {
+      const blob = await createBlob();
+      const body = {
+        ...bindingBody,
+        bindingId: crypto.randomUUID(),
+        blobId: blob.id,
+        slotId: `slot-${index}`,
+      };
+      const event = await signAccessEvent(
+        {
+          ...unsignedBindingEvent,
+          eventId: crypto.randomUUID(),
+          objectId: blob.id,
+          bodyHash: await computeAccessEventBodyHash(
+            body as unknown as KeyingCanonicalJson,
+          ),
+        },
+        user.signing.signingPrivateKey,
+      );
+      const eventHash = await computeAccessEventHash(event);
+      await db.insert(accessEvents).values({
+        ...event,
+        body: body as unknown as KeyingCanonicalJson,
+        eventHash,
+        signedAt: new Date(event.signedAt),
+      });
+      await db.insert(attachmentBindings).values({
+        id: body.bindingId,
+        blobId: blob.id,
+        documentId: document.id,
+        documentManifestHash: document.manifestHash,
+        attachmentEventHash: eventHash,
+        slotId: body.slotId,
+      });
+      await createBlobContentKeyBundle({ blobId: blob.id });
+    }
+    const recording = createRecordingDb();
 
-  await db
-    .update(attachmentBindings)
-    .set({ attachmentEventHash: randomHash() })
-    .where(eq(attachmentBindings.id, bindingId));
-  const damaged = await expectListDocumentAttachmentsError(
-    listDocumentAttachments(createServiceTestRuntime(), {
-      documentId: document.id,
-      userId: registration.userId,
-    }),
-  );
-  expect(damaged.status).toBe(409);
-  expect(damaged.message).toBe("Attachment binding event missing");
-});
+    const attachments = await listDocumentAttachments(
+      createServiceTestRuntime(recording.db),
+      {
+        documentId: document.id,
+        userId: registration.userId,
+      },
+    );
+
+    expect(attachments).toHaveLength(count);
+    const counter = { statements: 0 };
+    const repeated = await withDatabaseStatementCounter(counter, () =>
+      listDocumentAttachments(createServiceTestRuntime(), {
+        documentId: document.id,
+        userId: registration.userId,
+      }),
+    );
+    expect(repeated).toEqual(attachments);
+    console.info("attachments", { count, statements: counter.statements });
+    expect(counter.statements).toBeLessThanOrEqual(21);
+    attachments.sort((left, right) =>
+      left.blobId === activeBlob.id
+        ? -1
+        : right.blobId === activeBlob.id
+          ? 1
+          : 0,
+    );
+    expect(attachments[0]).toMatchObject({
+      bindingId: activeBinding.id,
+      blobId: activeBlob.id,
+      contentKeyBundle,
+      documentManifestHash: document.manifestHash,
+      previousBindingId: null,
+      slotId: "active-slot",
+    });
+    expect(attachments[0]?.bindingEvent?.eventHash).toBeTruthy();
+    expect(attachments[0]?.blobKekTargets?.blobAccessManifestHash).toBeTruthy();
+    expect(attachments[0]?.writeHeader).toBeTruthy();
+    expect(attachments[0]?.writeAuthorization).toMatchObject({
+      blobAccessManifestHash:
+        attachments[0]?.blobKekTargets?.blobAccessManifestHash,
+      blobKeyTargetHash: contentKeyBundle.targetHash,
+    });
+    expect(recording.calls.get("select") ?? 0).toBeGreaterThan(0);
+
+    await db
+      .update(attachmentBindings)
+      .set({ attachmentEventHash: randomHash() })
+      .where(eq(attachmentBindings.id, bindingId));
+    const damaged = await expectListDocumentAttachmentsError(
+      listDocumentAttachments(createServiceTestRuntime(), {
+        documentId: document.id,
+        userId: registration.userId,
+      }),
+    );
+    expect(damaged.status).toBe(409);
+    expect(damaged.message).toBe("Attachment binding event missing");
+  },
+);
 
 test("listDocumentAttachments reports not-found and forbidden cases", async () => {
   const { registration, user } = await registerServiceUser();

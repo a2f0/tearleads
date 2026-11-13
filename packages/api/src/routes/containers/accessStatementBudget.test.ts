@@ -8,6 +8,10 @@ import { toFingerprint } from "@tearleads/crypto";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { createEncryptedColdDocument } from "../../../test/helpers/coldSdkRematerialization";
 import { readContainerDocumentLaneResults } from "../../../test/helpers/containerDocumentLaneQuery";
+import {
+  readContainerParentLanePage,
+  requestContainerParentLanes,
+} from "../../../test/helpers/containerParentLaneQuery";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { linkEncryptedColdDocument } from "../../../test/helpers/linkEncryptedColdDocument";
 import { createOwnedTree } from "../../../test/helpers/ownedContainerTree";
@@ -58,7 +62,8 @@ test("the batch container access walk stays within its statement budget", async 
     // Measured with PGlite / SQLite: 26 / 26 while each path container read
     // its row, head, and bundle serially; 11 / 11 once the walk set-loads them
     // per path level (the unknown id still costs one re-read for its 404).
-    expect(batch.statements).toBeLessThanOrEqual(11);
+    console.info("batch-access", batch.statements);
+    expect(batch.statements).toBeLessThanOrEqual(9);
   } finally {
     tree.close();
   }
@@ -111,13 +116,55 @@ test("POST /containers/documents/query stays within its statement budget", async
       ),
     ).toEqual([2, 2, 2, 2]);
 
-    // Measured with PGlite / SQLite: one lane 25 / 25 and four lanes 115 / 115
-    // before; four lanes 108 once the access walk set-loads paths; 19 and 66
-    // once linked containers reuse the lane's policies and the lanes share a
-    // request cache of verified policies; 18 and 62 once the request reads
-    // each signer row once.
-    expect(oneLane.statements).toBeLessThanOrEqual(18);
-    expect(fourLanes.statements).toBeLessThanOrEqual(62);
+    console.info("document-lanes", {
+      one: oneLane.statements,
+      four: fourLanes.statements,
+    });
+    expect(oneLane.statements).toBeLessThanOrEqual(10);
+    expect(fourLanes.statements).toBeLessThanOrEqual(18);
+  } finally {
+    tree.close();
+  }
+}, 180_000);
+
+test("parent listing lanes share verified policies within one request", async () => {
+  const { a, b, tree } = await createContainerForest();
+  try {
+    const lanes = [tree.rootId, a, b].map((parentId) => ({
+      laneId: parentId,
+      parentId,
+    }));
+    const query = (selected: typeof lanes) =>
+      counted(async () => {
+        const response = await requestContainerParentLanes(
+          tree.owner.token,
+          selected,
+        );
+        expect(response.status).toBe(200);
+        return Promise.all(
+          selected.map((lane) =>
+            readContainerParentLanePage(response.clone(), lane.laneId),
+          ),
+        );
+      });
+    await query(lanes);
+    const singles = [];
+    for (const lane of lanes) singles.push(await query([lane]));
+    const batch = await query(lanes);
+    expect(batch.result).toEqual(singles.flatMap((single) => single.result));
+    expect(batch.result.map((page) => page.items.length)).toEqual([2, 1, 1]);
+    const singleStatements = singles.reduce(
+      (sum, single) => sum + single.statements,
+      0,
+    );
+    console.info("parent-lanes", {
+      singles: singleStatements,
+      batch: batch.statements,
+    });
+    // Current PostgreSQL baseline: 33 separate / 31 batched statements.
+    // Bound the whole request, not savings from now-cheaper singular paths.
+    expect(singleStatements).toBeLessThanOrEqual(27);
+    expect(batch.statements).toBeLessThanOrEqual(19);
   } finally {
     tree.close();
   }
@@ -165,7 +212,8 @@ test("readable document access over linked containers stays within its statement
 
     // Measured with PGlite / SQLite: 33 / 33 while each linked container was
     // resolved alone with its own policy load; 13 / 13 as one batch.
-    expect(access.statements).toBeLessThanOrEqual(13);
+    console.info("document-access", access.statements);
+    expect(access.statements).toBeLessThanOrEqual(11);
   } finally {
     await server.stop(true);
     context.close();

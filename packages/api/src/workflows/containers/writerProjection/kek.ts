@@ -273,10 +273,9 @@ async function loadUncachedContainerKekState(
     );
   }
 
-  const storedKeyEpoch = await getContainerKeyEpochById(
-    containerKeyEpochId,
-    context.executor,
-  );
+  const storedKeyEpoch =
+    context.keyEpochById.get(containerKeyEpochId) ??
+    (await getContainerKeyEpochById(containerKeyEpochId, context.executor));
   if (!storedKeyEpoch) {
     throw new ContainerWriterProjectionError(
       "Container KEK epoch missing",
@@ -292,7 +291,8 @@ async function loadUncachedContainerKekState(
 
   const keyEpoch = toContainerKeyEpoch(storedKeyEpoch);
   const wraps = (
-    await listContainerKeyWraps(containerKeyEpochId, context.executor)
+    context.keyWrapsByEpochId.get(containerKeyEpochId) ??
+    (await listContainerKeyWraps(containerKeyEpochId, context.executor))
   ).map(toContainerKeyWrap);
   const containerManifestHistory = await loadContainerKekManifestHistory({
     context,

@@ -66,9 +66,15 @@ test("container create and writer projections stay within their statement budget
     // 44 / 46 / 46 after.
     // Acknowledged by hash, so no KEK history read (Postgres 47 -> 46).
     expect(create.statements).toBeLessThanOrEqual(46);
-    expect(root.statements).toBeLessThanOrEqual(21);
-    expect(nested.statements).toBeLessThanOrEqual(35);
-    expect(documentProjection.statements).toBeLessThanOrEqual(46);
+    console.info("writer-projections", {
+      create: create.statements,
+      root: root.statements,
+      nested: nested.statements,
+      document: documentProjection.statements,
+    });
+    expect(root.statements).toBeLessThanOrEqual(18);
+    expect(nested.statements).toBeLessThanOrEqual(20);
+    expect(documentProjection.statements).toBeLessThanOrEqual(29);
   } finally {
     tree.close();
   }

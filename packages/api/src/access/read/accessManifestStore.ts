@@ -18,4 +18,5 @@ export {
 } from "../shared/internal/accessManifestHeadReads";
 export { listAccessManifestPrincipalHeadProjection } from "../shared/internal/accessManifestProjectionReads";
 export { selectAccessManifestVerificationMac } from "../shared/internal/accessManifestVerificationStore";
+export { getContainerPathRowsWithBundles } from "../shared/internal/containerPathReads";
 export { getObjectAccessManifestBundles } from "../shared/internal/objectManifestHistory";

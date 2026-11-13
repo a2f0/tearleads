@@ -1,5 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import {
+  db,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
 import { accessEvents, accessManifests } from "@tearleads/api-shared/schema";
 import * as crypto from "@tearleads/crypto";
 import { and, eq, isNotNull } from "drizzle-orm";
@@ -40,21 +43,19 @@ async function recite(
   return current;
 }
 
-async function countSingleManifestLoads(
+async function countProjectionStatements(
   containerId: string,
   token: string,
 ): Promise<number> {
-  const select = spyOn(manifestStore, "getAccessManifestBundle");
-  try {
+  const counter = { statements: 0 };
+  await withDatabaseStatementCounter(counter, async () => {
     const response = await routeApp.request(
       `/containers/${containerId}/writer-projection`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
     expect(response.status, await response.clone().text()).toBe(200);
-    return select.mock.calls.length;
-  } finally {
-    select.mockRestore();
-  }
+  });
+  return counter.statements;
 }
 
 async function countProjectionSignatureChecks(
@@ -105,13 +106,16 @@ test("reading a longer history issues no queries per retained manifest", async (
   const created = await scenario();
   const { owner, child } = created;
   const shorter = await recite(created, child.accessManifest, 20);
-  await countSingleManifestLoads(child.containerId, owner.token);
-  const before = await countSingleManifestLoads(child.containerId, owner.token);
+  await countProjectionStatements(child.containerId, owner.token);
+  const before = await countProjectionStatements(
+    child.containerId,
+    owner.token,
+  );
   await recite(created, shorter, 20);
-  await countSingleManifestLoads(child.containerId, owner.token);
-  const after = await countSingleManifestLoads(child.containerId, owner.token);
-  // Path heads still load singly, which proves the spy observes the loader;
-  // the lineage loads in bulk, so 20 more manifests add no per-manifest loads.
+  await countProjectionStatements(child.containerId, owner.token);
+  const after = await countProjectionStatements(child.containerId, owner.token);
+  // Count actual SQL work, including joined path heads. The warmed reads
+  // must do real work, but 20 more retained manifests add no statements.
   expect(before).toBeGreaterThan(0);
   expect(after).toBe(before);
 }, 120_000);
