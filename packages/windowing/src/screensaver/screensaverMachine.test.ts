@@ -70,3 +70,60 @@ test("a start enters a tagged grace period and repeated starts do not reset it",
   expect(started).toEqual({ status: "grace", session: 1 });
   expect(transitionScreensaver(started, { type: "start" })).toBe(started);
 });
+
+test("a locked session drains waking input before prompting and accepts only its current verification", () => {
+  let state = transitionScreensaver(
+    { status: "idle", session: 0 },
+    { type: "start", locked: true },
+  );
+  state = transitionScreensaver(state, {
+    type: "dismiss",
+    escape: true,
+    drain: true,
+  });
+  expect(state.status).toBe("draining");
+  expect(transitionScreensaver(state, { type: "stop" })).toBe(state);
+  state = transitionScreensaver(state, { type: "released" });
+  state = transitionScreensaver(state, { type: "settled", session: 1 });
+  expect(state.status).toBe("unlock");
+  state = transitionScreensaver(state, { type: "submit", pin: "000000" });
+  expect(transitionScreensaver(state, { type: "stop" })).toBe(state);
+  state = transitionScreensaver(state, {
+    type: "verified",
+    session: 1,
+    attempt: 1,
+    error: "incorrect",
+    drain: false,
+  });
+  expect(state.status).toBe("unlock");
+  state = transitionScreensaver(state, { type: "submit", pin: "824913" });
+  expect(
+    transitionScreensaver(state, {
+      type: "verified",
+      session: 1,
+      attempt: 1,
+      error: null,
+      drain: false,
+    }),
+  ).toBe(state);
+  expect(
+    transitionScreensaver(state, {
+      type: "verified",
+      session: 0,
+      attempt: 2,
+      error: null,
+      drain: false,
+    }),
+  ).toBe(state);
+  state = transitionScreensaver(state, {
+    type: "verified",
+    session: 1,
+    attempt: 2,
+    error: null,
+    drain: true,
+  });
+  expect(state).toEqual({ status: "draining", session: 1 });
+  state = transitionScreensaver(state, { type: "released" });
+  state = transitionScreensaver(state, { type: "settled", session: 1 });
+  expect(state).toEqual({ status: "idle", session: 1 });
+});

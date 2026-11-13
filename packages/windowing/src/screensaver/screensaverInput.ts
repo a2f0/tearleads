@@ -46,6 +46,33 @@ function drainReleased(event: Event, held: Set<string>) {
   );
 }
 
+function shouldConsumeInput(status: ScreensaverState["status"], event: Event) {
+  if (status === "idle") return false;
+  if (status !== "unlock" && status !== "verifying") return true;
+  return (
+    !(event.target instanceof Element) ||
+    !event.target.closest(".screensaver-unlock") ||
+    (event instanceof KeyboardEvent && event.key === "Escape")
+  );
+}
+
+function cancelPrompt(
+  status: ScreensaverState["status"],
+  event: Event,
+  held: Set<string>,
+  send: (event: ScreensaverEvent) => void,
+) {
+  if (status !== "unlock" && status !== "verifying") return false;
+  if (
+    event instanceof KeyboardEvent &&
+    event.key === "Escape" &&
+    event.type === "keydown"
+  ) {
+    send({ type: "cancel", drain: held.size > 0 });
+  }
+  return true;
+}
+
 export function captureScreensaverInput(
   readState: () => ScreensaverState,
   send: (event: ScreensaverEvent) => void,
@@ -55,11 +82,12 @@ export function captureScreensaverInput(
   const consume = (event: Event) => {
     const { status } = readState();
     trackHeldScreensaverInput(held, event, status !== "idle");
-    if (status === "idle") return;
+    if (!shouldConsumeInput(status, event)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (status === "settling") return;
-    if (status === "draining") {
+    if (cancelPrompt(status, event, held, send)) return;
+    if (["settling", "resumeSettling"].includes(status)) return;
+    if (["draining", "resuming"].includes(status)) {
       if (drainReleased(event, held)) send({ type: "released" });
       return;
     }
