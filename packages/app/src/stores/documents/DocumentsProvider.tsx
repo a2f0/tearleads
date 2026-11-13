@@ -4,6 +4,7 @@ import {
   type DocumentContextValue,
   type DocumentStore,
   type DocumentsRuntime,
+  getOrCreateDocumentStore,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import {
@@ -11,6 +12,7 @@ import {
   type PropsWithChildren,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
 } from "react";
 import {
@@ -103,28 +105,20 @@ export function DocumentsProvider({
   );
   const store = useMemo(
     () =>
-      tearleads.documents.open(
-        {
-          containerId,
-          documentId,
-          initialDocumentKind,
-          initialText,
-          localId,
-        },
-        { workflowRuntime: runtime },
+      // Resolve the scoped handle here; defer runtime metadata notifications
+      // until this render commits instead of using open's immediate refresh.
+      getOrCreateDocumentStore(
+        runtime.state.domainScope,
+        localId,
+        runtime,
+        documentId,
+        initialText,
+        initialDocumentKind,
       ),
-    [
-      containerId,
-      documentId,
-      initialDocumentKind,
-      initialText,
-      localId,
-      runtime,
-      tearleads,
-    ],
+    [documentId, initialDocumentKind, initialText, localId, runtime],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     store.updateRuntime(runtime);
   }, [store, runtime]);
 
