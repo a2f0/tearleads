@@ -2,8 +2,9 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   type OrganizationBillingProvider,
   organizationBilling,
+  organizationBillingSeatAssignments,
 } from "@tearleads/api-shared/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import {
   LAPSED_BILLING_PURGE_GRACE_MS,
   type OrganizationBilling,
@@ -44,6 +45,36 @@ export async function loadOrganizationBilling(
     throw new OrganizationManagerError("Organization billing not found", 404);
   }
   return row;
+}
+
+export async function resolveOrganizationBillingWithSeat(
+  executor: DatabaseSession,
+  organizationId: string,
+  userId: string,
+  now: Date,
+) {
+  const [row] = await executor
+    .select({
+      billing: BILLING_ROW_COLUMNS,
+      seatId: organizationBillingSeatAssignments.id,
+    })
+    .from(organizationBilling)
+    .leftJoin(
+      organizationBillingSeatAssignments,
+      and(
+        eq(
+          organizationBillingSeatAssignments.organizationId,
+          organizationBilling.organizationId,
+        ),
+        eq(organizationBillingSeatAssignments.userId, userId),
+        isNull(organizationBillingSeatAssignments.releasedAt),
+      ),
+    )
+    .where(eq(organizationBilling.organizationId, organizationId))
+    .limit(1);
+  if (!row)
+    throw new OrganizationManagerError("Organization billing not found", 404);
+  return { billing: applyBillingLapse(row.billing, now), seatId: row.seatId };
 }
 
 /**

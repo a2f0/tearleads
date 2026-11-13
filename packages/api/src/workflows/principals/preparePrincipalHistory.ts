@@ -9,6 +9,7 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicyHistory,
 } from "@tearleads/crypto";
+import type { PrincipalPolicyArtifactRead } from "../../access/read/principalPolicyArtifacts";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import type { SignerCache } from "../signerPublicKey";
 import {
@@ -182,6 +183,7 @@ export async function preparePrincipalHistory(
     readonly kind?: PrincipalHistoryVerificationKind;
     readonly retainedReferences?: readonly ReferencedPrincipalHead[];
     readonly budget: PrincipalHistoryPreparationBudget;
+    readonly artifactRead?: PrincipalPolicyArtifactRead;
   },
 ): Promise<PrincipalHistoryPreparation> {
   const head = principalHistoryHead(request.head);
@@ -210,6 +212,7 @@ export async function preparePrincipalHistory(
       head.version,
       local,
       budget.signers,
+      request.artifactRead,
     );
     // Removing one unusable hint is bounded progress; the next request can
     // resume an earlier hint without repeatedly selecting this invalid row.

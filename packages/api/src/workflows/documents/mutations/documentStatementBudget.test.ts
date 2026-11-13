@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { withDatabaseStatementCounter } from "@tearleads/api-shared/postgres";
+import {
+  getDefaultApiDatabaseKind,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
 import { createTestUser } from "@tearleads/test-utils";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import { isDocumentCreateResponse } from "@tearleads/validators/response";
@@ -88,10 +91,18 @@ test("document create, sync write, and sync pull stay within their statement bud
   // each transaction's manifest bundles: create 36 / 37 / 38,
   // write 47 / 48 / 49, pull 33 / 34 / 35. Checkpoints riding on the update
   // rows then dropped the response's checkpoint read: write 46 / 47 / 48,
-  // pull 32 / 33 / 34. Bounds are Postgres.
-  expect(create.statements).toBeLessThanOrEqual(38);
-  expect(write.statements).toBeLessThanOrEqual(48);
-  expect(pull.statements).toBeLessThanOrEqual(34);
+  // pull 32 / 33 / 34. History batching, adjacent reads and joined admission
+  // reads now use create 32 / 33, write 36 / 37, pull 25 / 26 (PGlite /
+  // SQLite). Keep the Postgres transaction-control allowance in the bounds.
+  expect(create.statements).toBeLessThanOrEqual(
+    32 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
+  expect(write.statements).toBeLessThanOrEqual(
+    36 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
+  expect(pull.statements).toBeLessThanOrEqual(
+    25 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
 }, 30_000);
 
 test("a rotation baseline write and its pull stay within their statement budgets", async () => {
@@ -140,9 +151,15 @@ test("a rotation baseline write and its pull stay within their statement budgets
   // PGlite / SQLite / Postgres: write 50 / 51 / 52 and pull 34 / 35 / 36
   // while a baseline took a second insert into its own table and the pull
   // read that table for checkpoints; 48 / 49 / 50 and 33 / 34 / 35 once the
-  // update row carries the baseline's source version vector.
-  expect(write.statements).toBeLessThanOrEqual(50);
-  expect(pull.statements).toBeLessThanOrEqual(35);
+  // update row carries the baseline's source version vector. Batched history
+  // and adjacent reads now use write 38 / 39 and pull 26 / 27 (PGlite /
+  // SQLite), plus the Postgres transaction-control allowance.
+  expect(write.statements).toBeLessThanOrEqual(
+    38 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
+  expect(pull.statements).toBeLessThanOrEqual(
+    26 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
 }, 30_000);
 
 test("a seeded document create stays within its statement budget", async () => {
@@ -178,7 +195,11 @@ test("a seeded document create stays within its statement budget", async () => {
   // document row, re-locked heads the create held, re-read billing the create
   // checked, built an unread pull page, and every lock and bundle read was
   // repeated; 67 / 67 / 69 once it reused them (after RETURNING checks).
-  expect(seeded.statements).toBeLessThanOrEqual(69);
+  // Policy and adjacent-read batching now uses 56 on PGlite / SQLite,
+  // plus the two Postgres transaction-control statements.
+  expect(seeded.statements).toBeLessThanOrEqual(
+    56 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
 }, 30_000);
 
 test("a full pull page loads its updates as sets", async () => {
@@ -229,6 +250,9 @@ test("a full pull page loads its updates as sets", async () => {
   // itself from stored byte lengths and loaded each as a set.
   // 41 / 42 (Postgres 43) before the sync unit of the database efficiency
   // audit; 33 / 34 (Postgres 35) after; 32 / 33 (Postgres 34) once
-  // checkpoints rode on the update rows.
-  expect(pull.statements).toBeLessThanOrEqual(34);
+  // checkpoints rode on the update rows. Policy and adjacent-read batching
+  // now uses 25 / 26 (PGlite / SQLite), plus the Postgres control statement.
+  expect(pull.statements).toBeLessThanOrEqual(
+    25 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
 }, 60_000);

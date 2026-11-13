@@ -9,11 +9,14 @@ import {
   type OrganizationContainerGrantRow,
   toOrganizationGroupContainerResponse,
 } from "./containerGrants";
-import { loadUsersById, type UserKeyRow } from "./users";
+import {
+  loadUserSigningFingerprints,
+  type UserSigningFingerprintRow,
+} from "./users";
 
 function toOrganizationContainerGrantResponse(input: {
   row: OrganizationContainerGrantRow;
-  usersById: ReadonlyMap<string, UserKeyRow>;
+  usersById: ReadonlyMap<string, UserSigningFingerprintRow>;
 }): OrganizationContainerGrantResponse {
   const { row } = input;
   if (!isOrganizationContainerGrantSubjectType(row.subjectType)) {
@@ -48,8 +51,8 @@ export async function listOrganizationContainerGrantResponsesInTransaction(input
   );
   const usersById =
     userIds.length > 0
-      ? await loadUsersById(input.executor, userIds)
-      : new Map<string, UserKeyRow>();
+      ? await loadUserSigningFingerprints(input.executor, userIds)
+      : new Map<string, UserSigningFingerprintRow>();
   return rows.map((row) =>
     toOrganizationContainerGrantResponse({
       row,

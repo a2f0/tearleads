@@ -87,6 +87,33 @@ export async function getPrincipalPolicyArtifactsForState(
     stateHash,
     executor,
   );
+  return principalPolicyArtifactsFromRows(
+    principalType,
+    principalId,
+    stateHash,
+    rows,
+  );
+}
+
+/** Operation-local handoff, never retained across verification calls. */
+export interface PrincipalPolicyArtifactRead {
+  readonly stateHash: string;
+  artifacts?: {
+    payload: StoredPrincipalStatePayload | null;
+    memberEnvelopes: PrincipalStateMemberEnvelope[];
+  };
+}
+
+type ArtifactRow = Awaited<
+  ReturnType<typeof readPrincipalPolicyArtifactRows>
+>[number];
+
+export function principalPolicyArtifactsFromRows(
+  principalType: ManagedRecipientPrincipalType,
+  principalId: string,
+  stateHash: string,
+  rows: readonly ArtifactRow[],
+) {
   let payload: StoredPrincipalStatePayload | null = null;
   const memberEnvelopes: PrincipalStateMemberEnvelope[] = [];
   for (const row of rows) {

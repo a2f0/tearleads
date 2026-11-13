@@ -4,7 +4,7 @@ import {
   compareCanonicalStrings,
   type PrincipalHistoryIndexNode,
 } from "@tearleads/crypto";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 
 export async function selectPrincipalHistoryIndexNode(
   executor: DatabaseSession,
@@ -16,6 +16,17 @@ export async function selectPrincipalHistoryIndexNode(
     .where(eq(principalHistoryIndexNodes.hash, hash))
     .limit(1);
   return row ?? null;
+}
+
+export async function selectPrincipalHistoryIndexNodes(
+  executor: DatabaseSession,
+  hashes: readonly string[],
+): Promise<PrincipalHistoryIndexNode[]> {
+  if (hashes.length === 0) return [];
+  return executor
+    .select()
+    .from(principalHistoryIndexNodes)
+    .where(inArray(principalHistoryIndexNodes.hash, [...new Set(hashes)]));
 }
 
 export async function upsertPrincipalHistoryIndexNodes(

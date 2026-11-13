@@ -57,11 +57,18 @@ export interface DocumentLinkSetFrontier {
   readonly linkedContainerIds: readonly string[];
 }
 
+type DocumentHeadRead = {
+  readonly current: Awaited<ReturnType<typeof getCurrentDocumentHeadWithLinks>>;
+};
+
 async function readDocumentLinkSetHead(
   documentId: string,
   executor: DatabaseSession,
+  stored?: DocumentHeadRead,
 ) {
-  const current = await getCurrentDocumentHeadWithLinks(documentId, executor);
+  const current = stored
+    ? stored.current
+    : await getCurrentDocumentHeadWithLinks(documentId, executor);
   if (!current) {
     throw new DocumentKekTargetError(
       "Document link-set manifest head missing",
@@ -85,10 +92,12 @@ async function readDocumentLinkSetHead(
 export async function readDocumentLinkSetFrontier(
   documentId: string,
   executor: DatabaseSession,
+  stored?: DocumentHeadRead,
 ): Promise<DocumentLinkSetFrontier> {
   const { head, linkedContainerIds } = await readDocumentLinkSetHead(
     documentId,
     executor,
+    stored,
   );
   return {
     documentId,

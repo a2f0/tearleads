@@ -1,3 +1,4 @@
+export { getDocumentWithCurrentHeadAndLinks } from "../shared/internal/accessManifestHeadReads";
 export type {
   DocumentKekTargetsRead,
   DocumentLinkSetFrontier,

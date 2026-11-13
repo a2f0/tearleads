@@ -43,6 +43,50 @@ export async function loadLatestDocumentContentKeyEpochRow(
   return row ?? null;
 }
 
+export async function loadDocumentContentKeyBundle(
+  documentId: string,
+  contentKeyEpoch: number,
+  executor: DatabaseSession,
+): Promise<StoredDocumentContentKeyBundle | null> {
+  const rows = await executor
+    .select({
+      epoch: documentContentKeyEpochs,
+      target: {
+        containerId: documentContentKeyTargets.containerId,
+        containerManifestHash: documentContentKeyTargets.containerManifestHash,
+        containerKeyEpochId: documentContentKeyTargets.containerKeyEpochId,
+        containerKeyEpoch: documentContentKeyTargets.containerKeyEpoch,
+        wrappedKey: documentContentKeyTargets.wrappedKey,
+        wrappingMetadata: documentContentKeyTargets.wrappingMetadata,
+      },
+    })
+    .from(documentContentKeyEpochs)
+    .leftJoin(
+      documentContentKeyTargets,
+      eq(
+        documentContentKeyTargets.documentContentKeyEpochId,
+        documentContentKeyEpochs.id,
+      ),
+    )
+    .where(
+      and(
+        eq(documentContentKeyEpochs.documentId, documentId),
+        eq(documentContentKeyEpochs.contentKeyEpoch, contentKeyEpoch),
+      ),
+    );
+  const row = rows[0]?.epoch;
+  if (!row) return null;
+  return {
+    documentId: row.documentId,
+    contentKeyEpoch: row.contentKeyEpoch,
+    linkSetManifestHash: row.linkSetManifestHash,
+    targetHash: row.targetHash,
+    targets: sortTargetEnvelopes(
+      rows.flatMap(({ target }) => (target ? [target] : [])),
+    ),
+  };
+}
+
 async function listDocumentContentKeyTargetRows(
   documentContentKeyEpochId: string,
   executor: DatabaseSession,

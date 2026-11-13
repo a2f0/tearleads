@@ -19,6 +19,7 @@ import {
 } from "./access";
 import { loadOrganizationDirectoryInTransaction } from "./directory";
 import { listOrganizationContainerGrantResponsesInTransaction } from "./grants";
+import { loadOrganizationGroupCatalog } from "./groupCatalog";
 import { loadOrganizationGroupMembershipsInTransaction } from "./groupMemberships";
 import { loadOrganizationGroupsInTransaction } from "./groups";
 import {
@@ -109,12 +110,18 @@ async function loadSnapshotResponse(
 ): Promise<OrganizationReadModelResponse> {
   const directory = await loadDirectoryLane(input);
   const grants = await loadGrantsLane(input);
+  const catalog = await loadOrganizationGroupCatalog(
+    input.tx,
+    input.organizationId,
+  );
   const groups = await loadOrganizationGroupsInTransaction({
+    catalog,
     executor: input.tx,
     organization: input.organization,
     organizationId: input.organizationId,
   });
   const groupMemberships = await loadOrganizationGroupMembershipsInTransaction({
+    catalog,
     executor: input.tx,
     organizationId: input.organizationId,
   });

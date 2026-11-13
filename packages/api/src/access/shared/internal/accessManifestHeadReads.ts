@@ -2,6 +2,7 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
+  documents,
 } from "@tearleads/api-shared/schema";
 import type { AccessObjectKind } from "@tearleads/crypto";
 import { and, asc, eq, inArray } from "drizzle-orm";
@@ -101,5 +102,49 @@ export async function getCurrentDocumentHeadWithLinks(
   return {
     head: toStoredAccessManifestHead(first.head),
     links: rows.flatMap(({ link }) => (link ? [link] : [])),
+  };
+}
+
+/** Keep authoritative existence distinct from a missing/corrupt head. */
+export async function getDocumentWithCurrentHeadAndLinks(
+  documentId: string,
+  executor: DatabaseSession,
+) {
+  const rows = await executor
+    .select({
+      documentId: documents.id,
+      head: accessManifestHeads,
+      link: {
+        manifestHash: accessManifestDocumentLinkProjection.manifestHash,
+        documentId: accessManifestDocumentLinkProjection.documentId,
+        containerId: accessManifestDocumentLinkProjection.containerId,
+      },
+    })
+    .from(documents)
+    .leftJoin(
+      accessManifestHeads,
+      and(
+        eq(accessManifestHeads.objectKind, "document"),
+        eq(accessManifestHeads.objectId, documents.id),
+      ),
+    )
+    .leftJoin(
+      accessManifestDocumentLinkProjection,
+      eq(
+        accessManifestDocumentLinkProjection.manifestHash,
+        accessManifestHeads.manifestHash,
+      ),
+    )
+    .where(eq(documents.id, documentId))
+    .orderBy(asc(accessManifestDocumentLinkProjection.containerId));
+  const first = rows[0];
+  return {
+    exists: first !== undefined,
+    current: first?.head
+      ? {
+          head: toStoredAccessManifestHead(first.head),
+          links: rows.flatMap(({ link }) => (link ? [link] : [])),
+        }
+      : null,
   };
 }

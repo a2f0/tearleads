@@ -211,7 +211,7 @@ export async function recordDocumentLinkSetChange(input: {
   });
 }
 
-export async function ensureDocumentExists(input: {
+async function ensureDocumentExists(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
 }): Promise<void> {
