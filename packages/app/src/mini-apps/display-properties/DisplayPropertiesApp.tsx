@@ -19,7 +19,7 @@ export function DisplayPropertiesApp() {
     const element = contentRef.current;
     if (!element) return;
     const measure = () => {
-      const { offsetWidth: width, offsetHeight: height } = element;
+      const { width, height } = element.getBoundingClientRect();
       if (width === 0 || height === 0) return;
       setContentSize((previous) =>
         previous?.width === width && previous.height === height
