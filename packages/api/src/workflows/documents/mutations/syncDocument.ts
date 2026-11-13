@@ -8,7 +8,7 @@ import {
   getDocumentContentKeyBundle,
   type StoredDocumentContentKeyBundle,
 } from "../../../access/read/documentContentKeyStore";
-import { readCurrentCommitLsn } from "../../../documents/commitLsn";
+import { readCommitCheckpoint } from "../../../documents/commitLsn";
 import {
   assertMinLsnSatisfied,
   readDocumentUpdateUpperBound,
@@ -333,12 +333,9 @@ export async function runDocumentSyncWorkflow(
         userId: input.userId,
       }),
     );
-    const commitLsnMode = "tracked";
-    const commitLsn = await readCurrentCommitLsn(db);
     const response: DocumentSyncResponse = {
       ...transactionResult.responseWithoutCommit,
-      commitLsn,
-      commitLsnMode,
+      ...(await readCommitCheckpoint(db)),
     };
     return {
       containerRekeys: transactionResult.containerRekeys,

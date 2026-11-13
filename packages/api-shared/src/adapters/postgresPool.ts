@@ -1,4 +1,4 @@
-import pg, { type PoolClient } from "pg";
+import pg, { type PoolClient, type PoolConfig } from "pg";
 import {
   PostgresConnectionError,
   postgresConnectionFailure,
@@ -16,6 +16,13 @@ type ConnectCallback = (
  * transactions use the promise overload; both must share this boundary.
  */
 export class PostgresPool extends pg.Pool {
+  constructor(
+    config?: PoolConfig,
+    private readonly verifyClient?: (client: PoolClient) => Promise<void>,
+  ) {
+    super(config);
+  }
+
   override connect(): Promise<PoolClient>;
   override connect(callback: ConnectCallback): void;
   override connect(
@@ -33,7 +40,14 @@ export class PostgresPool extends pg.Pool {
   private async acquire(): Promise<PoolClient> {
     for (let attempt = 1; ; attempt++) {
       try {
-        return await super.connect();
+        const client = await super.connect();
+        try {
+          await this.verifyClient?.(client);
+          return client;
+        } catch (error) {
+          client.release(true);
+          throw error;
+        }
       } catch (error) {
         const failure = postgresConnectionFailure(error);
         if (attempt < 2 && failure.retryable && !this.ending) continue;
