@@ -114,7 +114,7 @@ test("the PIN privacy screen preserves the live keyring and gated editor through
     expect(view.getByRole("dialog")).toBeTruthy();
     expect(previousWindow.isConnected).toBe(true);
 
-    // A layout update must not remount the host or drop its captured PIN gate.
+    // A host re-render must not remount it or drop its captured PIN gate.
     view.rerender(scene("routed"));
     wake();
     await waitFor(() => expect(view.getByLabelText("PIN code")).toBeTruthy());

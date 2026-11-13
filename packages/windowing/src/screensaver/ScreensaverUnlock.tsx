@@ -30,7 +30,7 @@ export function ScreensaverUnlock({
         setPin("");
       }}
     >
-      <h2>Screen locked</h2>
+      <h2>Return to your session</h2>
       <p>Enter your PIN code to return.</p>
       <label>
         PIN code

@@ -45,7 +45,7 @@ export function ScreensaverOverlay({
         interactive
           ? "Enter your PIN code to unlock, or cancel to return to the screensaver."
           : locked
-            ? "Press Escape to unlock."
+            ? "Press Escape to enter your PIN."
             : "Press Escape to exit."
       }
       className={`screensaver-overlay${interactive ? " screensaver-overlay--unlock" : ""}`}

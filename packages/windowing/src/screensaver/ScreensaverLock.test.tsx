@@ -39,6 +39,7 @@ function mount(verifyPin: ScreensaverPinVerifier) {
   const view = render(scene(verifyPin));
   return {
     ...view,
+    isActive: () => controls.isActive,
     start: () => act(() => controls.start()),
     stop: () => act(() => controls.stop()),
     removeVerifier: () => view.rerender(scene()),
@@ -63,20 +64,25 @@ test("wrong PIN and stop cannot reveal the desktop; only the correct PIN exits",
   const view = mount(async (pin) => pin === "824913");
   const start = view.getByRole("button", { name: "Start" });
   start.focus();
+  expect(view.isActive()).toBe(false);
   view.start();
+  expect(view.isActive()).toBe(true);
   wake();
   expect(view.getByLabelText("PIN code")).toBeTruthy();
   expect(document.body.inert).toBe(true);
+  expect(view.isActive()).toBe(true);
   view.stop();
   expect(view.getByLabelText("PIN code")).toBeTruthy();
   await submit(view, "000000");
   expect(view.getByRole("alert").textContent).toContain("incorrect");
   expect(document.body.inert).toBe(true);
+  expect(view.isActive()).toBe(true);
   await submit(view, "824913");
   act(() => jest.runAllTimers());
   expect(view.queryByRole("dialog")).toBeNull();
   expect(document.body.inert).toBe(false);
   expect(document.activeElement).toBe(start);
+  expect(view.isActive()).toBe(false);
 });
 
 test.each(["button", "Escape"])(
@@ -149,10 +155,12 @@ test("cancel aborts verification and ignores a late success during a later attem
   view.start();
   wake();
   await submit(view, "824913");
+  expect(view.isActive()).toBe(true);
   fireEvent.click(view.getByRole("button", { name: "Cancel" }));
   act(() => jest.advanceTimersByTime(0));
   expect(signals[0]?.aborted).toBe(true);
   expect(view.getByText("animation")).toBeTruthy();
+  expect(view.isActive()).toBe(true);
   wake();
   await submit(view, "000000");
   await act(async () => first.resolve(true));

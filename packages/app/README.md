@@ -47,8 +47,9 @@ returns to the artwork. Editors, unsaved changes, sessions, and app data remain
 live underneath, including across workspace and layout changes. This hides
 the app from view; it does not lock the keyring or secure live app data.
 **Lock** remains a separate security action that locks the local keyring.
-If PIN verification cannot recover from a storage failure, reloading may be
-necessary and can discard unsaved edits.
+An active gate fails closed if another tab removes the PIN or storage prevents
+verification. If verification cannot recover, reloading may be necessary and
+can discard unsaved edits; removing the PIN elsewhere does not dismiss a gate.
 
 The isolated two-peer demo does not expose this action: its peers have
 independent runtimes and PINs rather than one app-wide privacy gate.
