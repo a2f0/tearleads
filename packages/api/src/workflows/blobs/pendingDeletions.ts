@@ -59,8 +59,8 @@ async function loadPendingDeletions(
 ): Promise<PendingBlobDeletionPage> {
   const limit = Math.min(100, Math.max(1, Math.trunc(input.limit)));
   const { organizationId } = input.access;
-  // Start each phase from its partial-index predicate, not the permanent
-  // registry. An empty queue must not scan all historical blob generations.
+  // Separate phase predicates allow partial-index scans instead of filtering
+  // the permanent registry. Large pending backlogs can still require sorting.
   // Both bounded branches share one snapshot and one id ordering, so moving
   // between phases cannot move an item to a different pagination lane.
   const scope = and(
