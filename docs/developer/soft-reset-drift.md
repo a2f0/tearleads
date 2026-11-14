@@ -13,7 +13,7 @@ may differ in these explicitly listed response fields:
 - `restapi_object.database`: `default_branch_table_count`, `ready`,
   `schema_last_updated_at`, `state`, `updated_at`.
 - `restapi_object.main_protection`: `has_roles`, `latest_image_version`,
-  `ready`, `schema_last_updated_at`, `state`, `updated_at`.
+  `ready`, `schema_last_updated_at`, `stale_schema`, `state`, `updated_at`.
 
 The [validator](../../scripts/deploy/softResetDrift.ts) compares both the
 string-valued `api_data` map and the parsed JSON object in `api_response`.
@@ -51,6 +51,23 @@ storage inventory and emptiness, but inspects only a PostgreSQL no-op plan;
 it does **not** perform a post-recreation storage drift plan. The normal plan
 scope, configured identities, token permissions, and inspected saved-plan-byte
 checks remain mandatory for every plan, even alongside either exception.
+
+## Storage token modification-time exception
+
+In the storage stack only, a managed `update` for exactly
+`module.storage.cloudflare_account_token.objects` may differ only in its
+computed `modified_on` timestamp. Cloudflare readback can report a later value
+than the creation snapshot, without any planned token change.
+
+The [storage validator](../../scripts/deploy/softResetStorageDrift.ts) requires
+two different, known, parseable UTC timestamps and nonempty string `id`,
+`account_id`, and `name` on both snapshots. Every other attribute must remain
+structurally identical, including token value, issuance time, status, expiry,
+activation time, policies, permission groups, and serialized resource scope.
+Missing or malformed timestamps, unknown refreshed values, other resources,
+stacks, modes, and actions are not exempt. The `after_unknown` rules and
+preflight/destroy/create coverage are the same as the bucket exception above.
+These exceptions do not refresh or apply Terraform state automatically.
 
 ## A refused run still needs manual recovery
 
