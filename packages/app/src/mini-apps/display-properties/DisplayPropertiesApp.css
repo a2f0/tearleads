@@ -1,0 +1,9 @@
+/* Keep the gallery's preferred width even in a smaller window;
+   its height remains intrinsic, so Fit to Content can measure every control. */
+.app-display-properties {
+  width: 420px;
+}
+
+.routed-pane-main .app-display-properties {
+  width: auto;
+}

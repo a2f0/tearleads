@@ -1,4 +1,7 @@
-import { useMiniAppRouteSegments } from "@tearleads/windowing";
+import {
+  useMiniAppRouteSegments,
+  useWindowContentSize,
+} from "@tearleads/windowing";
 import { type PropsWithChildren, useEffect, useRef } from "react";
 import { isMiniAppId, type MiniAppId } from "../../mini-apps/types";
 import {
@@ -8,11 +11,13 @@ import {
 import { useOptionalLogActions } from "../../providers/logging/LogProvider";
 import { useDiagnosticBreadcrumb } from "../../providers/logging/useDiagnosticBreadcrumb";
 import { AppErrorBoundary } from "../shared/AppErrorBoundary";
+import { MINI_APP_CONTENT_SIZES } from "./miniAppContentSizes";
 
 export function MiniAppBoundary({
   appId,
   children,
 }: PropsWithChildren<{ appId: MiniAppId }>) {
+  useWindowContentSize(MINI_APP_CONTENT_SIZES[appId]);
   const diagnostics = useDiagnostics();
   const breadcrumb = useDiagnosticBreadcrumb(appId);
   const logs = useOptionalLogActions();
