@@ -27,6 +27,10 @@ import { createTestUser } from "@tearleads/test-utils";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import { eq, inArray } from "drizzle-orm";
 import { createRegistrationRequestBody } from "../../../test/helpers/api/submitRegistration";
+import {
+  seedTouchCounts,
+  traceDocumentCreate,
+} from "../../../test/helpers/documentCreateTouchFixture";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { registerUser } from "./registration";
 
@@ -61,34 +65,18 @@ for (const full of [false, true]) {
   test(`registration bounds statements and commits every initial update (full=${full})`, async () => {
     const request = await fixture(full);
     const counter = { statements: 0 };
-    const result = await withDatabaseStatementCounter(counter, () =>
-      registerUser(createServiceTestRuntime(), request),
+    const { result, queries } = await traceDocumentCreate(() =>
+      withDatabaseStatementCounter(counter, () =>
+        registerUser(createServiceTestRuntime(), request),
+      ),
     );
-    // PGlite: 646 / 1,570 before, 536 / 1,274 after batching, 471 / 1,088 by
-    // the database efficiency audit, 393 / 883 once signer rows are read once
-    // per transaction and fresh manifests skip their no-op projection deletes.
-    // Batched current payload/envelopes remove another 20 / 44 statements.
-    // 373 / 841 on PGlite and 365 / 827 on SQLite, then 370 / 838 and
-    // 362 / 824 once the principal state signer read joined the transaction's
-    // signer memo; Postgres also counts its two transaction controls. Then
-    // 344 / 786 (PGlite), 336 / 772 (SQLite), and 346 / 788 (Postgres) once
-    // inserts verify their RETURNING rows and the metadata reservation reads
-    // its evidence in one statement. The audit's sync unit (KEK targets once
-    // per sync, held locks and manifest bundles reused, the seed's pull page
-    // skipped) then took them to 304 / 655, 299 / 646,
-    // and 306 / 657. Hash acknowledgements skip each created container's KEK
-    // history read: 303 / 652, 298 / 643, and 305 / 654. Deriving built-in
-    // grants and dropping the principal epoch-key copy then took them to
-    // 298 / 647, 293 / 638, and 300 / 649. Memoizing current principal
-    // states and organization descriptors under their locks then took them
-    // to 288 / 637, 283 / 628, and 290 / 639. Policy read batching and
-    // projection handoffs measured 242 / 534 on PGlite before identity
-    // commitments. Keeping the three registry-verification reads gives
-    // 245 / 537 on the current fixture. PostgreSQL's two transaction-control
-    // statements remain an allowance, not a measured PostgreSQL result.
-    expect(counter.statements).toBeLessThanOrEqual(
-      (full ? 537 : 245) + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
-    );
+    // Two/six real seeds reuse only their immediate create evidence and touch
+    // last, once. PostgreSQL counts two transaction-control statements too.
+    console.info("create-seed-registration", {
+      full,
+      statements: counter.statements,
+    });
+
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
     const stored = await db
@@ -110,6 +98,16 @@ for (const full of [false, true]) {
     }
     expect(result.organizationId).toBe(request.organizationId);
     expect(result.systemContainers).toHaveLength(full ? 1 : 0);
+    const documentIds = updates.map((update) =>
+      String(Reflect.get(update.writeHeader, "objectId")),
+    );
+    expect(new Set(documentIds).size).toBe(updates.length);
+    expect(await seedTouchCounts(queries, documentIds)).toEqual(
+      updates.map(() => 1),
+    );
+    expect(counter.statements).toBeLessThanOrEqual(
+      (full ? 441 : 215) + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    );
   });
 }
 

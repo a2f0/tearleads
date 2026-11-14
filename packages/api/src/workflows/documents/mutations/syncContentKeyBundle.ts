@@ -42,6 +42,7 @@ function isStaleSyncStateError(error: unknown): boolean {
  * otherwise.
  */
 export async function resolveSyncContentKeyBundle(input: {
+  readonly createdBundle?: StoredDocumentContentKeyBundle | undefined;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly lockedTargets: DocumentKekTargetsRead;
@@ -56,6 +57,7 @@ export async function resolveSyncContentKeyBundle(input: {
             input.request.contentKeyBundle,
           ),
           resolvedTargets: input.lockedTargets,
+          createdBundle: input.createdBundle,
         },
         input.executor,
       ),
@@ -73,6 +75,7 @@ export async function resolveSyncContentKeyBundle(input: {
         executor: input.executor,
         allowHistoricalParentEpochs: input.request.outgoingUpdates.length === 0,
         resolvedTargets: input.lockedTargets,
+        createdBundle: input.createdBundle,
       }),
       servedStaleBundle: false,
     };

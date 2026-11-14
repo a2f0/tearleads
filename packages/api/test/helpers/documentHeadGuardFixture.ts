@@ -4,6 +4,10 @@ import { createTestUser } from "@tearleads/test-utils";
 import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { getCurrentAccessManifestHead } from "../../src/access/read/accessManifestStore";
+import {
+  type DocumentKekTargetsRead,
+  resolveCurrentDocumentKekTargets,
+} from "../../src/access/read/documentKekTargets";
 import { routeApp } from "../../src/routeApp";
 import { loadCurrentDocumentManifest } from "../../src/workflows/documents/mutations/shared/verification";
 import { authenticate } from "./authenticate";
@@ -25,6 +29,10 @@ export async function documentHeadGuardFixture() {
   const child = await createChildContainer({ parent: root, signer: owner });
   const document = await createDocument({ owner, root });
   const previousManifest = await loadCurrentDocumentManifest(document.id, db);
+  const previousTargets: DocumentKekTargetsRead = {
+    allowHistoricalParentEpochs: false,
+    targets: await resolveCurrentDocumentKekTargets(document.id, db),
+  };
   const previousHead = await getCurrentAccessManifestHead(
     "document",
     document.id,
@@ -74,6 +82,7 @@ export async function documentHeadGuardFixture() {
     nextRequest,
     previousHead,
     previousManifest,
+    previousTargets,
     root,
     unlink: () =>
       Promise.resolve(

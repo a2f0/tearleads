@@ -62,13 +62,18 @@ async function createInitialProfileDocument(input: {
     throw new OrganizationProvisioningError(labels.missingId, 400);
   }
 
-  const { created, linkedContainerIds, lockedContainerHeads } =
-    await createDocumentWithExecutor({
-      executor: tx,
-      fingerprint: signer.fingerprint,
-      request,
-      userId,
-    });
+  const {
+    created,
+    linkedContainerIds,
+    lockedContainerHeads,
+    createdDocumentSeed,
+  } = await createDocumentWithExecutor({
+    containerTouch: "seed",
+    executor: tx,
+    fingerprint: signer.fingerprint,
+    request,
+    userId,
+  });
   if (created.id !== requestDocumentId) {
     throw new OrganizationProvisioningError(labels.responseMismatch, 400);
   }
@@ -84,6 +89,7 @@ async function createInitialProfileDocument(input: {
     executor: tx,
     fingerprint: signer.fingerprint,
     lockedContainerHeads,
+    createdDocumentSeed,
     request: request.initialSync,
     signingPublicKey: signer.signingPublicKey,
     userId,

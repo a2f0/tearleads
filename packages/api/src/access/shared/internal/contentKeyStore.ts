@@ -6,91 +6,13 @@ import type {
 import { KeyingVerificationError, type WriteHeader } from "@tearleads/crypto";
 import type { AnyColumn } from "drizzle-orm";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
+import type {
+  ContentKeyBundle,
+  ContentKeyEpochRow,
+  ContentKeyStoreInput,
+  CreateContentKeyStoreOptions,
+} from "./contentKeyStoreTypes";
 import { targetEnvelopeBundlesEqual } from "./targetEnvelopeBundles";
-
-interface ContentKeyBundle<TTarget> {
-  readonly contentKeyEpoch: number;
-  readonly targetHash: string;
-  readonly targets: readonly TTarget[];
-}
-
-interface ContentKeyStoreInput<TTarget> {
-  readonly contentKeyEpoch: number;
-  readonly targetHash: string;
-  readonly targets: readonly TTarget[];
-}
-
-interface StorePreparationInput<TInput, TBundle, TCurrentTargets> {
-  readonly currentTargets: TCurrentTargets;
-  readonly input: TInput;
-  readonly latestBundle: TBundle | null;
-}
-
-interface ReconcileBundleInput<TInput, TBundle, TCurrentTargets, TPreparation>
-  extends StorePreparationInput<TInput, TBundle, TCurrentTargets> {
-  readonly existingBundle: TBundle;
-  readonly executor: DatabaseSession;
-  readonly preparation: TPreparation;
-}
-
-interface ContentKeyEpochRow {
-  readonly contentKeyEpoch: number;
-  readonly id: string;
-}
-
-interface CreateContentKeyStoreOptions<
-  TTarget,
-  TInput extends ContentKeyStoreInput<TTarget>,
-  TEpochRow extends ContentKeyEpochRow,
-  TBundle extends ContentKeyBundle<TTarget>,
-  TCurrentTargets,
-  TPreparation,
-> {
-  readonly createBundleConflictError: () => Error;
-  readonly createMissingEpochError: () => Error;
-  readonly getIdentifier: (input: TInput) => string;
-  readonly insertEpochRow: (
-    input: TInput,
-    executor: DatabaseSession,
-  ) => Promise<TEpochRow | null>;
-  readonly insertTargets: (
-    epochId: string,
-    targets: readonly TTarget[],
-    executor: DatabaseSession,
-  ) => Promise<void>;
-  readonly loadEpochRow: (
-    identifier: string,
-    contentKeyEpoch: number,
-    executor: DatabaseSession,
-  ) => Promise<TEpochRow | null>;
-  readonly loadLatestEpochRow: (
-    identifier: string,
-    executor: DatabaseSession,
-  ) => Promise<TEpochRow | null>;
-  readonly prepareStore: (
-    input: StorePreparationInput<TInput, TBundle, TCurrentTargets>,
-  ) => TPreparation;
-  readonly reconcileExistingBundle: (
-    input: ReconcileBundleInput<TInput, TBundle, TCurrentTargets, TPreparation>,
-  ) => Promise<TBundle>;
-  readonly refreshExistingBundleMetadata: (input: {
-    readonly existingBundle: TBundle;
-    readonly executor: DatabaseSession;
-    readonly nextBundle: TInput;
-  }) => Promise<TBundle>;
-  readonly sortTargetEnvelopes: (
-    targets: readonly TTarget[],
-  ) => readonly TTarget[];
-  readonly targetEnvelopeEqual: (left: TTarget, right: TTarget) => boolean;
-  readonly toStoredBundle: (
-    row: TEpochRow,
-    executor: DatabaseSession,
-  ) => Promise<TBundle>;
-  readonly validateCurrentTargets: (
-    input: TInput,
-    executor: DatabaseSession,
-  ) => Promise<TCurrentTargets>;
-}
 
 class ContentKeyStore<
   TTarget,
@@ -149,10 +71,16 @@ class ContentKeyStore<
     identifier: string,
     contentKeyEpoch: number,
     executor: DatabaseSession,
+    createdBundle?: TBundle,
   ): Promise<{
     readonly existingBundle: TBundle | null;
     readonly latestBundle: TBundle | null;
   }> {
+    // A caller may carry the genuine bundle just created for this identifier
+    // in this transaction. All validation and reconciliation still run below.
+    if (createdBundle?.contentKeyEpoch === contentKeyEpoch) {
+      return { existingBundle: createdBundle, latestBundle: createdBundle };
+    }
     const latestRow = await this.options.loadLatestEpochRow(
       identifier,
       executor,
@@ -208,6 +136,7 @@ class ContentKeyStore<
   async storeInTransaction(
     input: TInput,
     executor: DatabaseTransaction,
+    createdBundle?: TBundle,
   ): Promise<TBundle & { readonly currentTargets: TCurrentTargets }> {
     const identifier = this.options.getIdentifier(input);
     const currentTargets = await this.options.validateCurrentTargets(
@@ -218,6 +147,7 @@ class ContentKeyStore<
       identifier,
       input.contentKeyEpoch,
       executor,
+      createdBundle,
     );
     const preparation = this.options.prepareStore({
       currentTargets,

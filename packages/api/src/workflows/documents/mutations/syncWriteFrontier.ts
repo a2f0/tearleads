@@ -5,6 +5,7 @@ import {
   lockUnheldAccessManifestHeads,
 } from "../../../access/read/accessManifestStore";
 import {
+  type DocumentKekTargetsRead,
   type DocumentLinkSetFrontier,
   resolveCurrentDocumentKekTargets,
 } from "../../../access/read/documentKekTargets";
@@ -28,6 +29,7 @@ export type LockedContainerHeads = Awaited<
  * the container head rows the lock read are returned for the write proof.
  */
 export async function lockSyncDocumentWriteFrontier(input: {
+  readonly createdTargets?: DocumentKekTargetsRead | undefined;
   readonly authorizingContainerIds: readonly string[];
   readonly documentId: string;
   readonly frontier: Pick<
@@ -72,16 +74,21 @@ export async function lockSyncDocumentWriteFrontier(input: {
     input.tx,
     "share",
   );
-  await lockUnheldAccessManifestHeads(
+  const lockedDocumentHeads = await lockUnheldAccessManifestHeads(
     "document",
     [input.documentId],
     input.tx,
     "update",
   );
-  const lockedTargets = await resolveCurrentDocumentKekTargets(
-    input.documentId,
-    input.tx,
-  );
+  // Only a genuine create's strict read may cross this immediate seed seam.
+  // Any newly acquired row supersedes it; ordinary sync always resolves here.
+  const lockedTargets =
+    input.createdTargets?.allowHistoricalParentEpochs === false &&
+    input.createdTargets.targets.documentId === input.documentId &&
+    lockedContainerHeads.size === 0 &&
+    lockedDocumentHeads.size === 0
+      ? input.createdTargets.targets
+      : await resolveCurrentDocumentKekTargets(input.documentId, input.tx);
   if (
     lockedTargets.linkSetManifestHash !== input.frontier.linkSetManifestHash
   ) {

@@ -14,6 +14,7 @@ import { storeVerifiedAccessManifest } from "./accessManifestStore";
 import {
   DocumentContentKeyBundleError,
   storeDocumentContentKeyBundle,
+  storeDocumentContentKeyBundleInTransaction,
 } from "./documentContentKeyStore";
 
 test("storeDocumentContentKeyBundle requires a new content key epoch after container move", async () => {
@@ -117,7 +118,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after conta
     setup.documentId,
     db,
   );
-  await storeDocumentContentKeyBundle(
+  const createdBundle = await storeDocumentContentKeyBundle(
     {
       documentId: setup.documentId,
       contentKeyEpoch: 1,
@@ -186,15 +187,19 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after conta
 
   const rotatedEnvelopes = targetEnvelopes(rekeyedTargets, "rotated");
   await expect(
-    storeDocumentContentKeyBundle(
-      {
-        documentId: setup.documentId,
-        contentKeyEpoch: 2,
-        linkSetManifestHash: rekeyedTargets.linkSetManifestHash,
-        targetHash: rekeyedTargets.documentKeyTargetHash,
-        targets: rotatedEnvelopes,
-      },
-      db,
+    db.transaction((executor) =>
+      storeDocumentContentKeyBundleInTransaction(
+        {
+          documentId: setup.documentId,
+          contentKeyEpoch: 2,
+          linkSetManifestHash: rekeyedTargets.linkSetManifestHash,
+          targetHash: rekeyedTargets.documentKeyTargetHash,
+          targets: rotatedEnvelopes,
+          // A real older bundle is not the requested new epoch: read afresh.
+          createdBundle,
+        },
+        executor,
+      ),
     ),
   ).resolves.toMatchObject({
     contentKeyEpoch: 2,

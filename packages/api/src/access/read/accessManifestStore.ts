@@ -1,6 +1,7 @@
 export {
   getStoredAccessEventByObjectType,
   getStoredAccessEvents,
+  toStoredAccessEvent,
 } from "../shared/internal/accessEventLookup";
 export {
   getAccessManifestBundle,

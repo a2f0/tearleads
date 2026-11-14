@@ -209,12 +209,14 @@ async function createInitialRootMetadataDocument(
     );
   }
 
-  const { created, lockedContainerHeads } = await createDocumentWithExecutor({
-    executor: tx,
-    fingerprint: signer.fingerprint,
-    request: input.initialRootMetadataDocument,
-    userId: input.userId,
-  });
+  const { created, lockedContainerHeads, createdDocumentSeed } =
+    await createDocumentWithExecutor({
+      containerTouch: "seed",
+      executor: tx,
+      fingerprint: signer.fingerprint,
+      request: input.initialRootMetadataDocument,
+      userId: input.userId,
+    });
   if (created.id !== rootMetadata.metadataDocumentId) {
     throw new OrganizationProvisioningError(
       "Initial root metadata response does not match root container metadata",
@@ -231,6 +233,7 @@ async function createInitialRootMetadataDocument(
     executor: tx,
     fingerprint: signer.fingerprint,
     lockedContainerHeads,
+    createdDocumentSeed,
     request: input.initialRootMetadataDocument.initialSync,
     signingPublicKey: signer.signingPublicKey,
     userId: input.userId,

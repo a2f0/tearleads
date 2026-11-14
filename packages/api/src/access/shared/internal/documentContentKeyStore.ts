@@ -290,7 +290,13 @@ export async function storeDocumentContentKeyBundleInTransaction(
   input: StoreDocumentContentKeyBundleInput,
   executor: DatabaseTransaction,
 ): Promise<StoredDocumentContentKeyBundleWithTargets> {
-  return documentContentKeyStore.storeInTransaction(input, executor);
+  return documentContentKeyStore.storeInTransaction(
+    input,
+    executor,
+    input.createdBundle?.documentId === input.documentId
+      ? input.createdBundle
+      : undefined,
+  );
 }
 
 /**
@@ -300,6 +306,8 @@ export async function storeDocumentContentKeyBundleInTransaction(
  * getLatestCurrentDocumentContentKeyBundle instead.
  */
 export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
+  /** The immediate create's stored result; no writes may intervene. */
+  readonly createdBundle?: StoredDocumentContentKeyBundle | undefined;
   readonly documentId: string;
   readonly contentKeyEpoch: number;
   readonly expectedLinkSetManifestHash: string;
@@ -327,11 +335,15 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
     throw staleBundle("Document link-set manifest hash is stale");
   }
 
-  const bundle = await getDocumentContentKeyBundle(
-    input.documentId,
-    input.contentKeyEpoch,
-    executor,
-  );
+  const bundle =
+    input.createdBundle?.documentId === input.documentId &&
+    input.createdBundle.contentKeyEpoch === input.contentKeyEpoch
+      ? input.createdBundle
+      : await getDocumentContentKeyBundle(
+          input.documentId,
+          input.contentKeyEpoch,
+          executor,
+        );
   if (!bundle) {
     throw new DocumentContentKeyBundleError(
       "Document content-key bundle missing",

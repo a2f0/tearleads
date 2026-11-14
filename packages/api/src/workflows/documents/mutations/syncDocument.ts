@@ -18,6 +18,7 @@ import type { AppliedContainerRekey } from "../../containers/mutations";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import type { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import { DocumentMutationError, toMutationError } from "./errors";
+import type { CreatedDocumentSeed } from "./shared/createdDocumentSeed";
 import { assertProvisionedDocumentInitialUpdate } from "./shared/provisionedInitialUpdate";
 import { resolveSyncPullPagePlan } from "./syncPullPagination";
 import {
@@ -153,6 +154,7 @@ export interface DocumentSyncWorkflowResult {
 }
 
 interface DocumentCreateSeedInput {
+  readonly createdDocumentSeed?: CreatedDocumentSeed | undefined;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
@@ -258,6 +260,7 @@ export async function appendProvisionedDocumentInitialUpdate(
     seed: {
       documentInsertedInTransaction: true,
       syncEligibleOrganizationId: null,
+      createdDocumentSeed: input.createdDocumentSeed,
       lockedContainerHeads: input.lockedContainerHeads,
     },
   });
@@ -282,6 +285,7 @@ export function appendDocumentCreateSeed(
       documentInsertedInTransaction: true,
       syncEligibleOrganizationId: input.syncEligibleOrganizationId,
       lockedContainerHeads: input.lockedContainerHeads,
+      createdDocumentSeed: input.createdDocumentSeed,
     },
   });
 }

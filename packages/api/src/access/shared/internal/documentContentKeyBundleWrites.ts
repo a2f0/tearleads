@@ -16,6 +16,8 @@ import {
 import type { DocumentKekTargetsRead } from "./documentKekTargets";
 
 export interface StoreDocumentContentKeyBundleInput {
+  /** Genuine immediate-create result, with no intervening bundle writes. */
+  readonly createdBundle?: StoredDocumentContentKeyBundle | undefined;
   readonly documentId: string;
   readonly contentKeyEpoch: number;
   readonly linkSetManifestHash: string;
