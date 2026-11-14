@@ -14,12 +14,16 @@ import { recordDocumentManifestObservationInTransaction } from "../../../access/
 import { readCommitCheckpoint } from "../../../documents/commitLsn";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
-import { assertRosterProfileDocumentIdCanBeCreated } from "../../organizations/rosterProfileBindingInvariant";
+
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { markStoredDocumentManifest } from "../markStoredDocumentManifest";
 import { lockDocumentLifecycleInTransaction } from "./documentLifecycleLock";
 import { DocumentMutationError, toMutationError } from "./errors";
 import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
+import {
+  type CreatedDocumentSeed,
+  rememberCreatedDocumentSeed,
+} from "./shared/createdDocumentSeed";
 import type { LockedContainerHeadRows } from "./shared/currentContainerPaths";
 import {
   assertCreateCanAdvanceDocumentHead,
@@ -50,6 +54,7 @@ export interface DocumentCreateWorkflowResult {
 
 /** A create committed in the caller's transaction, and its link set. */
 export interface DocumentCreatedInTransaction {
+  readonly createdDocumentSeed: CreatedDocumentSeed;
   readonly created: DocumentCreateResponse;
   readonly linkedContainerIds: readonly string[];
   readonly lockedContainerHeads: LockedContainerHeadRows;
@@ -65,6 +70,7 @@ export async function commitDocumentCreateSeedInTransaction(input: {
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly seed: DocumentCreateRequest["initialSync"];
+  readonly createdDocumentSeed?: CreatedDocumentSeed | undefined;
   readonly lockedContainerHeads?: LockedContainerHeadRows | undefined;
   readonly syncEligibleOrganizationId: string;
   readonly userId: string;
@@ -75,6 +81,7 @@ export async function commitDocumentCreateSeedInTransaction(input: {
     executor: input.executor,
     fingerprint: input.fingerprint,
     request: input.seed,
+    createdDocumentSeed: input.createdDocumentSeed,
     lockedContainerHeads: input.lockedContainerHeads,
     signingPublicKey: await loadSignerPublicKey(input.executor, {
       error: (message, status) => new DocumentMutationError(message, status),
@@ -109,6 +116,7 @@ export async function runCreateDocumentWorkflow(
           linkedContainerIds,
           organizationId,
           lockedContainerHeads,
+          createdDocumentSeed,
         } = await createDocumentInTransaction({
           executor: tx,
           fingerprint: input.fingerprint,
@@ -123,6 +131,7 @@ export async function runCreateDocumentWorkflow(
           executor: tx,
           fingerprint: input.fingerprint,
           seed: input.request.initialSync,
+          createdDocumentSeed,
           lockedContainerHeads,
           syncEligibleOrganizationId: organizationId,
           userId: input.userId,
@@ -176,6 +185,8 @@ async function lockCreateContainerPath(
 }
 
 interface CreateDocumentWithExecutorInput {
+  /** "seed" requires a successful initial update before this transaction commits. */
+  readonly containerTouch?: "create" | "seed";
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly request: DocumentCreateRequest;
@@ -185,10 +196,21 @@ interface CreateDocumentWithExecutorInput {
 export async function createDocumentWithExecutor(
   input: CreateDocumentWithExecutorInput,
 ): Promise<DocumentCreatedInTransaction> {
-  const { created, linkedContainerIds, lockedContainerHeads } =
-    await createDocumentInTransaction(input);
-  await touchContainers(input.executor, linkedContainerIds);
-  return { created, linkedContainerIds, lockedContainerHeads };
+  const {
+    created,
+    linkedContainerIds,
+    lockedContainerHeads,
+    createdDocumentSeed,
+  } = await createDocumentInTransaction(input);
+  if (input.containerTouch !== "seed") {
+    await touchContainers(input.executor, linkedContainerIds);
+  }
+  return {
+    created,
+    linkedContainerIds,
+    lockedContainerHeads,
+    createdDocumentSeed,
+  };
 }
 
 // The content-key bundle store resolves the document's current KEK targets
@@ -202,6 +224,7 @@ async function createDocumentInTransaction(
   readonly linkedContainerIds: readonly string[];
   readonly organizationId: string;
   readonly lockedContainerHeads: LockedContainerHeadRows;
+  readonly createdDocumentSeed: CreatedDocumentSeed;
 }> {
   try {
     const event = await verifyDocumentEvent({
@@ -249,10 +272,7 @@ async function createDocumentInTransaction(
       input.executor,
       manifest.state.documentId,
     );
-    await assertRosterProfileDocumentIdCanBeCreated({
-      documentId: manifest.state.documentId,
-      executor: input.executor,
-    });
+
     await assertCreateCanAdvanceDocumentHead(
       input.executor,
       manifest.state.documentId,
@@ -290,6 +310,11 @@ async function createDocumentInTransaction(
       linkedContainerIds: manifest.state.linkedContainerIds,
       organizationId: contentKeyBundle.currentTargets.organizationId,
       lockedContainerHeads,
+      createdDocumentSeed: rememberCreatedDocumentSeed(
+        input.executor,
+        manifest,
+        contentKeyBundle,
+      ),
     };
   } catch (error) {
     const mutationError = toMutationError(error);

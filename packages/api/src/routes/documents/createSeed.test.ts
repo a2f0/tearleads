@@ -16,6 +16,7 @@ import { buildChildCreateRequest } from "../../../test/helpers/containerMutation
 import type { CreatedDocumentFixture } from "../../../test/helpers/documentAcknowledgementFixture";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import {
+  asVerifiedContainerManifest,
   bootstrapRoot,
   createDocumentRequest,
   type StoredRootFixture,
@@ -109,6 +110,7 @@ test("a seeded create commits its seed in the create transaction", async () => {
 
 test("a seed skips its billing check only for the organization the create admitted", async () => {
   const { owner, root } = await registeredRoot();
+  const { root: otherRoot } = await registeredRoot();
   const { request } = await seededCreateRequest({ owner, root });
   const organizationId = String(
     Reflect.get(request.manifest, "organizationId"),
@@ -116,26 +118,31 @@ test("a seed skips its billing check only for the organization the create admitt
   await setTestOrganizationBillingLocal(organizationId);
   const seedAfterCreate = (syncEligibleOrganizationId: string) =>
     db.transaction(async (tx) => {
-      const { created } = await createDocumentWithExecutor({
-        executor: tx,
-        fingerprint: owner.fingerprint,
-        request,
-        userId: owner.userId,
-      });
+      const { created, createdDocumentSeed, lockedContainerHeads } =
+        await createDocumentWithExecutor({
+          executor: tx,
+          fingerprint: owner.fingerprint,
+          request,
+          userId: owner.userId,
+        });
       return commitDocumentCreateSeedInTransaction({
         documentId: created.id,
         executor: tx,
         fingerprint: owner.fingerprint,
         seed: request.initialSync,
+        createdDocumentSeed,
+        lockedContainerHeads,
         syncEligibleOrganizationId,
         userId: owner.userId,
       });
     });
 
   // Admitting another organization does not cover this one's lapsed billing.
-  await expect(seedAfterCreate(crypto.randomUUID())).rejects.toBeInstanceOf(
-    OrganizationSyncDisabledError,
-  );
+  await expect(
+    seedAfterCreate(
+      asVerifiedContainerManifest(otherRoot.bundle).state.organizationId,
+    ),
+  ).rejects.toBeInstanceOf(OrganizationSyncDisabledError);
   // The organization the caller admitted is not checked twice.
   await expect(seedAfterCreate(organizationId)).resolves.toMatchObject({
     insertedUpdateIds: [expect.any(String)],

@@ -14,6 +14,7 @@ export async function prepareSyncDocumentTransaction(input: {
   readonly documentId: string;
   /** A create's seed: the transaction itself just inserted the row. */
   readonly documentInsertedInTransaction: boolean;
+  readonly createdFrontier?: DocumentLinkSetFrontier | undefined;
   readonly request: DocumentSyncRequest;
   readonly tx: DatabaseTransaction;
   readonly userId: string;
@@ -29,11 +30,9 @@ export async function prepareSyncDocumentTransaction(input: {
   // the server's stored links rather than request path material. Access and
   // the lock plan need only the linked container ids; the KEK targets are
   // resolved once, after the heads are locked.
-  const frontier = await readDocumentLinkSetFrontier(
-    input.documentId,
-    input.tx,
-    stored,
-  );
+  const frontier =
+    input.createdFrontier ??
+    (await readDocumentLinkSetFrontier(input.documentId, input.tx, stored));
   await ensureSyncDocumentAccess({
     containerIds: frontier.linkedContainerIds,
     executor: input.tx,

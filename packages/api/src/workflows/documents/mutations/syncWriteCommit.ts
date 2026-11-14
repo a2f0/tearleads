@@ -10,6 +10,10 @@ import { applyContainerRekeys } from "../../containers/mutations";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import { documentSyncStateStale } from "./errors";
 import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
+import {
+  type CreatedDocumentSeed,
+  takeCreatedDocumentSeed,
+} from "./shared/createdDocumentSeed";
 import type { LockedContainerHeadRows } from "./shared/currentContainerPaths";
 import { touchDocumentAndLinkedContainers } from "./shared/documentRows";
 import { verifySyncWriteAuthorizationProof } from "./shared/verification";
@@ -76,6 +80,7 @@ function syncAuthorizingContainerIds(request: DocumentSyncRequest): string[] {
  * epochs. The content-key check reuses this read at the same strictness.
  */
 async function lockSyncDocumentFrontier(input: {
+  readonly createdTargets?: DocumentKekTargetsRead | undefined;
   readonly documentId: string;
   readonly frontier: DocumentLinkSetFrontier;
   readonly request: DocumentSyncRequest;
@@ -87,6 +92,7 @@ async function lockSyncDocumentFrontier(input: {
 }> {
   if (input.request.outgoingUpdates.length > 0) {
     const locked = await lockSyncDocumentWriteFrontier({
+      createdTargets: input.createdTargets,
       authorizingContainerIds: syncAuthorizingContainerIds(input.request),
       documentId: input.documentId,
       frontier: input.frontier,
@@ -151,6 +157,7 @@ export interface SyncDocumentWriteInput {
  * an attachment bind's for the document's deferred first update.
  */
 export interface CreateSeedContext {
+  readonly createdDocumentSeed?: CreatedDocumentSeed | undefined;
   /** Actual rows read by the carrying transaction, with no later head writes. */
   readonly lockedContainerHeads?: LockedContainerHeadRows | undefined;
   /** A create inserted the document row itself; a bind's document exists. */
@@ -195,11 +202,24 @@ export interface CommittedSyncDocumentWrites {
   readonly servedStaleBundle: boolean;
 }
 
+function takeSyncCreateSeed(input: SyncDocumentWriteInput) {
+  return input.seed?.documentInsertedInTransaction &&
+    !input.request.containerRekeys?.length
+    ? takeCreatedDocumentSeed({
+        seed: input.seed.createdDocumentSeed,
+        executor: input.tx,
+        documentId: input.documentId,
+      })
+    : undefined;
+}
+
 export async function commitSyncDocumentWrites(
   input: SyncDocumentWriteInput,
 ): Promise<CommittedSyncDocumentWrites> {
+  const createdDocument = takeSyncCreateSeed(input);
   const frontier = await prepareSyncDocumentTransaction({
     ...input,
+    createdFrontier: createdDocument?.frontier,
     documentInsertedInTransaction:
       input.seed?.documentInsertedInTransaction ?? false,
   });
@@ -218,6 +238,7 @@ export async function commitSyncDocumentWrites(
   // against update-sequence allocation, then resolve the targets once.
   const { lockedContainerHeads, lockedTargets } =
     await lockSyncDocumentFrontier({
+      createdTargets: createdDocument?.targets,
       documentId: input.documentId,
       frontier,
       request: input.request,
@@ -257,6 +278,11 @@ export async function commitSyncDocumentWrites(
   });
   const { contentKeyBundle, servedStaleBundle } =
     await resolveSyncContentKeyBundle({
+      createdBundle:
+        createdDocument &&
+        createdDocument.targets.targets === lockedTargets.targets
+          ? createdDocument.bundle
+          : undefined,
       documentId: input.documentId,
       executor: input.tx,
       lockedTargets,

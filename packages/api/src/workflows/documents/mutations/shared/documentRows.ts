@@ -9,16 +9,18 @@ import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import {
   getCurrentAccessManifestHead,
-  getStoredAccessEventByObjectType,
   type StoredAccessManifestHead,
+  toStoredAccessEvent,
 } from "../../../../access/read/accessManifestStore";
 import { uniqueSortedStrings } from "../../../../utils/array";
 import { isUniqueViolation } from "../../../../utils/databaseErrors";
+
 import {
   DocumentMutationError,
   documentManifestAlreadyExists,
   documentNotFound,
 } from "../errors";
+import { readDocumentCreateGuardRows } from "./documentCreateGuardRows";
 
 /**
  * Insert the document row. The links themselves are the stored manifest's
@@ -63,18 +65,15 @@ export async function assertCreateCanAdvanceDocumentHead(
   documentId: string,
   linkedContainerIds: readonly string[],
 ): Promise<void> {
-  const [metadataBinding] = await executor
-    .select({
-      containerId: containerMetadataDocuments.containerId,
-      liveContainerId: containers.id,
-    })
-    .from(containerMetadataDocuments)
-    .leftJoin(
-      containers,
-      eq(containers.id, containerMetadataDocuments.containerId),
-    )
-    .where(eq(containerMetadataDocuments.documentId, documentId))
-    .limit(1);
+  const rows = await readDocumentCreateGuardRows(executor, documentId);
+  const rosterId = rows.find((row) => row.kind === "roster")?.rosterId;
+  if (rosterId) {
+    throw new DocumentMutationError(
+      "Bound roster profile document IDs cannot be recreated",
+      409,
+    );
+  }
+  const metadataBinding = rows.find((row) => row.kind === "metadata");
   if (metadataBinding && metadataBinding.liveContainerId === null) {
     throw new DocumentMutationError(
       "Document ID belongs to a deleted container",
@@ -93,21 +92,19 @@ export async function assertCreateCanAdvanceDocumentHead(
     );
   }
 
-  const purgeEvent = await getStoredAccessEventByObjectType({
-    eventType: "document.purge",
-    executor,
-    objectId: documentId,
-    objectKind: "document",
-  });
+  const purges = rows.filter((row) => row.kind === "purge");
+  if (purges.length > 1) {
+    throw new Error("Stored access event type is not unique for its object");
+  }
+  const purgeEvent = purges[0]?.event;
   if (purgeEvent) {
+    // Existence alone loses stored version/dependency/canonical-body refusals.
+    // Decode only after roster/metadata and duplicate precedence is decided.
+    toStoredAccessEvent(purgeEvent);
     throw new DocumentMutationError("Document was permanently purged", 409);
   }
 
-  const head = await getCurrentAccessManifestHead(
-    "document",
-    documentId,
-    executor,
-  );
+  const head = rows.find((row) => row.kind === "head");
   if (head) {
     throw documentManifestAlreadyExists();
   }
