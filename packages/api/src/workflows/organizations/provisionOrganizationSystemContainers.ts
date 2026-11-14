@@ -33,13 +33,17 @@ async function createProvisionedSystemContainer(
     });
   assertContainerSystemSlot(container, input.request.systemSlot ?? null);
 
-  const { created: metadataDocument, lockedContainerHeads } =
-    await createDocumentWithExecutor({
-      executor: tx,
-      fingerprint: input.signer.fingerprint,
-      request: input.request.metadataDocument,
-      userId: input.userId,
-    });
+  const {
+    created: metadataDocument,
+    lockedContainerHeads,
+    createdDocumentSeed,
+  } = await createDocumentWithExecutor({
+    containerTouch: "seed",
+    executor: tx,
+    fingerprint: input.signer.fingerprint,
+    request: input.request.metadataDocument,
+    userId: input.userId,
+  });
   if (metadataDocument.id !== metadataDocumentId) {
     throw new OrganizationProvisioningError(
       "Provisioned system container metadata document mismatch",
@@ -51,6 +55,7 @@ async function createProvisionedSystemContainer(
     executor: tx,
     fingerprint: input.signer.fingerprint,
     lockedContainerHeads,
+    createdDocumentSeed,
     request: input.request.initialMetadataSync,
     signingPublicKey: input.signer.signingPublicKey,
     userId: input.userId,

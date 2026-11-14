@@ -13,6 +13,11 @@ import {
   type CreatedDocumentFixture,
   withDocumentMutationArtifacts,
 } from "../../../../test/helpers/documentAcknowledgementFixture";
+import {
+  seedTouchCounts,
+  traceDocumentCreate,
+  unseededTouchCount,
+} from "../../../../test/helpers/documentCreateTouchFixture";
 import { createSignedDocumentSyncRequest } from "../../../../test/helpers/documentUpdateRequests";
 import {
   bootstrapRoot,
@@ -34,8 +39,10 @@ function post(token: string, path: string, body: unknown) {
 
 async function counted<T>(work: () => T | Promise<T>) {
   const counter = { statements: 0 };
-  const result = await withDatabaseStatementCounter(counter, work);
-  return { result, statements: counter.statements };
+  const { result, queries } = await traceDocumentCreate(() =>
+    withDatabaseStatementCounter(counter, async () => work()),
+  );
+  return { result, queries, statements: counter.statements };
 }
 
 test("document create, sync write, and sync pull stay within their statement budgets", async () => {
@@ -52,6 +59,8 @@ test("document create, sync write, and sync pull stay within their statement bud
   const createdBody = await create.result.json();
   invariant(isDocumentCreateResponse(createdBody), "expected created document");
   const created = withDocumentMutationArtifacts(createRequest, createdBody);
+
+  expect(await unseededTouchCount(create.queries, created.id)).toBe(1);
 
   const first = await createSignedDocumentSyncRequest({ created, owner, root });
   const second = await createSignedDocumentSyncRequest({
@@ -81,19 +90,8 @@ test("document create, sync write, and sync pull stay within their statement bud
   );
   expect(pull.result.status).toBe(200);
 
-  // Measured with PGlite / SQLite: create 55 / 56, write 80 / 81, and pull
-  // 58 / 59 before signer rows were read once per transaction, the KEK target
-  // resolution stopped repeating, and the document head joined its links;
-  // 41 / 42, 64 / 65, and 46 / 47 after. Create 39 / 40 / 41 (Postgres third),
-  // then 37 / 38 / 39 once inserts verify their RETURNING rows. Write 57 / 58 /
-  // 59 and pull 41 / 42 / 43 before the database efficiency audit's sync unit
-  // resolved the targets once after the locks and reused the locked heads and
-  // each transaction's manifest bundles: create 36 / 37 / 38,
-  // write 47 / 48 / 49, pull 33 / 34 / 35. Checkpoints riding on the update
-  // rows then dropped the response's checkpoint read: write 46 / 47 / 48,
-  // pull 32 / 33 / 34. History batching, adjacent reads and joined admission
-  // reads now use create 32 / 33, write 36 / 37, pull 25 / 26 (PGlite /
-  // SQLite). Keep the Postgres transaction-control allowance in the bounds.
+  // Guard batching removes three create statements. The ordinary sync write
+  // and pull retain their existing ceilings and fresh-resolution paths.
   console.info(
     "locked-head-create-baseline",
     JSON.stringify({
@@ -103,7 +101,7 @@ test("document create, sync write, and sync pull stay within their statement bud
     }),
   );
   expect(create.statements).toBeLessThanOrEqual(
-    31 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    28 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
   expect(write.statements).toBeLessThanOrEqual(
     36 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
@@ -204,15 +202,12 @@ test("a seeded document create stays within its statement budget", async () => {
   expect(body.id).toBe(planned.id);
   expect(body.manifestHash).toBe(create.expectedManifestHash);
   expect(body.initialSync?.acceptedOutgoingUpdateIds).toEqual([update.id]);
+  expect(await seedTouchCounts(seeded.queries, [body.id])).toEqual([1]);
   console.info("locked-head-seeded-create", seeded.statements);
-  // PGlite / SQLite / Postgres: 90 / 90 / 92 while the seed re-read the
-  // document row, re-locked heads the create held, re-read billing the create
-  // checked, built an unread pull page, and every lock and bundle read was
-  // repeated; 67 / 67 / 69 once it reused them (after RETURNING checks).
-  // Policy and adjacent-read batching now uses 56 on PGlite / SQLite,
-  // plus the two Postgres transaction-control statements.
+  // Reuse the create frontier, strict targets and stored bundle, not access or
+  // signature checks. The public seed already touched its containers once.
   expect(seeded.statements).toBeLessThanOrEqual(
-    52 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    43 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
 }, 30_000);
 

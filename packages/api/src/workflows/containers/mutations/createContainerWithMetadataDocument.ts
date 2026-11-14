@@ -58,7 +58,9 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
           created: metadataDocument,
           linkedContainerIds,
           lockedContainerHeads,
+          createdDocumentSeed,
         } = await createDocumentWithExecutor({
+          containerTouch: input.request.initialMetadataSync ? "seed" : "create",
           executor: tx,
           fingerprint: input.fingerprint,
           request: input.request.metadataDocument,
@@ -85,6 +87,7 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
             executor: tx,
             fingerprint: input.fingerprint,
             lockedContainerHeads,
+            createdDocumentSeed,
             seed: input.request.initialMetadataSync,
             syncEligibleOrganizationId: container.organizationId,
             userId: input.userId,
