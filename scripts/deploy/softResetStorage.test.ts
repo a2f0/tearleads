@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fixture } from "./softReset.testUtils";
-import { bucketLocationDrift } from "./softResetDrift.testUtils";
+import {
+  bucketLocationDrift,
+  tokenModifiedOnDrift,
+} from "./softResetDrift.testUtils";
 
 const phases = ["storage-no-op", "storage-delete", "storage-create"];
 
@@ -11,7 +14,10 @@ function benignDrift(f: ReturnType<typeof fixture>) {
     join(f.root, "plan-drift.json"),
     JSON.stringify(
       Object.fromEntries(
-        phases.map((phase) => [phase, [bucketLocationDrift()]]),
+        phases.map((phase) => [
+          phase,
+          [bucketLocationDrift(), tokenModifiedOnDrift()],
+        ]),
       ),
     ),
   );
@@ -193,7 +199,7 @@ test.each(["prod", "staging"] as const)(
   (tier) => {
     const f = fixture(tier);
     try {
-      const drift = [bucketLocationDrift(tier)];
+      const drift = [bucketLocationDrift(tier), tokenModifiedOnDrift(tier)];
       writeFileSync(
         join(f.root, "plan-drift.json"),
         JSON.stringify(

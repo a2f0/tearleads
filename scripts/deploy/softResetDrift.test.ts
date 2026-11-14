@@ -39,7 +39,8 @@ for (const name of names) {
       ["cluster_size", "PS-10"],
       ["unknown_field", "SECRET_CANARY"],
       [name === "database" ? "has_roles" : "default_branch_table_count", 7],
-    ])(
+      ...(name === "database" ? [["stale_schema", true] as const] : []),
+    ] as const)(
       `${name} ${representation}: refuses changed %s alongside benign metadata`,
       (key, value) => {
         const drift = metadataDrift(name);

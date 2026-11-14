@@ -12,15 +12,30 @@ const phases = [
   "postgres-no-op-recreated",
 ];
 
-test.each(["prod", "staging"] as const)(
-  "%s metadata-only observations survive every inspected plan and fresh verification",
-  (tier) => {
+test.each([
+  ["prod", false],
+  ["staging", false],
+  ["prod", true],
+  ["staging", true],
+] as const)(
+  "%s metadata-only observations (schemaOnly=%j) survive every inspected plan and fresh verification",
+  (tier, schemaOnly) => {
     const f = fixture(tier);
     try {
-      const drift = [
-        metadataDrift("database", tier),
-        metadataDrift("main_protection", tier),
-      ];
+      const branch = metadataDrift("main_protection", tier);
+      if (schemaOnly) {
+        branch.change.after = structuredClone(branch.change.before);
+        Object.assign(object(branch.change.after.api_data), {
+          stale_schema: "true",
+        });
+        branch.change.after.api_response = JSON.stringify({
+          ...JSON.parse(String(branch.change.before.api_response)),
+          stale_schema: true,
+        });
+      }
+      const drift = schemaOnly
+        ? [branch]
+        : [metadataDrift("database", tier), branch];
       writeFileSync(
         join(f.root, "plan-drift.json"),
         JSON.stringify(
