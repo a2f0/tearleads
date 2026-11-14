@@ -1,10 +1,11 @@
 # Container views
 
-Explorer can display a container through one of its linked documents. Use
-**Set primary document** on a writable container, choose a document, and use
-**Change primary document** or **Clear primary document** to change that
-preference. **Contents** always returns to the existing list, including
-subcontainers, uploads and row actions.
+Explorer can display a container through one of its linked documents. Select
+the container, open **Get Info → General**, and choose its **Primary document**
+from the standard dropdown. Choose **None** to clear the preference. These
+settings appear only in Get Info; the folder view keeps **Contact view** and
+**Contents**, which returns to the list of subcontainers, uploads and row
+actions.
 
 ## Identity and persistence
 
@@ -21,8 +22,8 @@ serialized metadata commit rechecks access and membership before persistence.
 Rejected writes leave live metadata and snapshots unchanged. Clearing does
 not require the old target to exist.
 
-New offline documents are disabled in the selector until their first sync
-assigns the canonical id, with an explanation beside the action. We do not
+New offline documents are omitted from the dropdown until their first sync
+assigns the canonical id, with an explanation beside the field. We do not
 write `document_id` to simulate registration. Supporting pending draft
 identities would require a durable, bounded reverse lookup for
 `recoveryDocumentId ?? deriveStableDocumentId(localId)`; this view does not
@@ -45,9 +46,16 @@ and next navigation. **Open** routes to the existing note view for editing
 when permitted. Note filtering occurs before SQL counting and pagination;
 previews never create an unbounded set of document stores.
 
-Container selection loads twenty candidates per page. Primary selection is
-hidden for read-only, metadata-unready and Trash views. Document renderers
-retain their own access checks; Trash also forces them read-only.
+Container selection loads twenty candidates per page, with the current primary
+resolved separately so its label survives paging. If sync reduces the candidate
+count while a later page is selected, **Previous documents** remains available
+to return to the remaining choices. A failed current-title lookup shows an error
+without blocking the available choices. Background projection
+refreshes retain the open dropdown's choices and current label until replacement
+data arrives. **None** remains available when the target is missing or the
+candidate query fails. Primary selection is hidden for read-only,
+metadata-unready and Trash views. Document renderers retain their own access
+checks; Trash also forces them read-only.
 
 ## Adding a renderer
 
@@ -58,9 +66,10 @@ retain their own access checks; Trash also forces them read-only.
    `document-types/registry.ts`. Its optional `ContainerView` receives explicit
    local, canonical and selected-container ids plus the read-only flag. The
    ordinary editor fallback does not opt a type into container rendering.
-3. Keep generic selection/fallback controls in `ContainerDocumentView`. Its
-   contact-first layout appends the shared `ContainerNotes` section; adapt
-   that composition explicitly if a future type needs different sections.
+3. Keep selection in `ContainerPrimaryDocumentField` in Get Info, and rendering
+   and fallback in `ContainerDocumentView`. The contact-first layout appends
+   the shared `ContainerNotes` section; adapt that composition explicitly if a
+   future type needs different sections.
 4. Add registry and mounted-view tests for the new kind, including fallback,
    identity, scope changes and Contents access.
 
@@ -69,14 +78,15 @@ An unchanged primary stays mounted during a projection refresh, preserving
 contact edits and focus. Identity, scope or access changes invalidate it;
 unavailable or failed results drop the retained view. Saves use
 `idle | saving | failed` transitions and a synchronous double-submit guard.
-The save owner outlives the Contents toggle, so switching cannot hide a failed
-save. Container or account changes remount the view session: late results
-cannot update its successor, and late save failures still reach the logger.
+The field stays mounted while other Get Info tabs are selected, so returning
+to General retains pending saves and errors. Container or account changes
+remount the field session: late results cannot update its successor, and late
+save failures still reach the logger.
 
 The [browser regression](../../packages/app-web/e2e/container-views.spec.ts)
 restores a synthetic registered-document backup through the shipping UI, then
-exercises selection, avatar/fields, note previews, Contents, reload, change
-and clear at desktop and phone sizes. It is not a remote registration or
-live-sync test. Console diagnostics retain connection refusals from the absent
-local development API; JavaScript errors, CSP violations and unrelated
-console errors fail the regression.
+exercises General-tab dropdown selection, avatar/fields, note previews,
+Contents, reload, change and clear at desktop and phone sizes. It is not a
+remote registration or live-sync test. Console diagnostics retain connection
+refusals from the absent local development API; JavaScript errors, CSP
+violations and unrelated console errors fail the regression.

@@ -22,6 +22,48 @@ test.beforeAll(async ({ browserName }, testInfo) => {
   folderId = JSON.parse(stdout.trim()).folderId;
 });
 
+async function assertNoPrimaryManagement(page: Page) {
+  await expect(
+    page.getByRole("combobox", { name: "Primary document", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", {
+      name: /^(Set|Change|Clear) primary document$/,
+    }),
+  ).toHaveCount(0);
+}
+
+async function openPrimaryDocumentSettings(page: Page) {
+  await assertNoPrimaryManagement(page);
+  await page.getByRole("button", { name: "Get Info", exact: true }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`/app/explorer/containers/${folderId}/info$`, "u"),
+  );
+  const general = page.getByRole("tab", { name: "General", exact: true });
+  await general.click();
+  await expect(general).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByRole("combobox", { name: "Primary document", exact: true }),
+  ).toBeEnabled();
+}
+
+async function choosePrimaryDocument(page: Page, title: string) {
+  const primary = page.getByRole("combobox", {
+    name: "Primary document",
+    exact: true,
+  });
+  await primary.click();
+  await page.getByRole("option", { name: title, exact: true }).click();
+  await expect(primary).toContainText(title);
+  await expect(primary).toBeEnabled();
+  // Use the public folder route, including a fresh load of persisted metadata.
+  await page.goto(`/app/explorer/containers/${folderId}`);
+  await expect(
+    page.getByRole("button", { name: "Get Info", exact: true }),
+  ).toBeVisible();
+  await assertNoPrimaryManagement(page);
+}
+
 async function assertContactAndNotes(page: Page) {
   const contact = page.locator(".container-document-view");
   const notes = page.getByRole("region", { name: "Container notes" });
@@ -102,15 +144,8 @@ async function assertContactEditingSurvivesRefresh(page: Page) {
 }
 
 async function assertUnsupportedFallback(page: Page) {
-  await page
-    .getByRole("button", { name: "Set primary document", exact: true })
-    .click();
-  await page
-    .getByRole("button", {
-      name: "Use Follow-up notes as primary",
-      exact: true,
-    })
-    .click();
+  await openPrimaryDocumentSettings(page);
+  await choosePrimaryDocument(page, "Follow-up notes");
   await expect(
     page.getByText(
       "No specialized view for this document type. Showing contents.",
@@ -119,12 +154,13 @@ async function assertUnsupportedFallback(page: Page) {
   await expect(
     page.getByRole("button", { name: "Supporting files", exact: true }).last(),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Clear primary document", exact: true })
-    .click();
+  await openPrimaryDocumentSettings(page);
+  await choosePrimaryDocument(page, "None");
   await expect(
-    page.getByRole("button", { name: "Set primary document", exact: true }),
-  ).toBeVisible();
+    page.getByText(
+      "No specialized view for this document type. Showing contents.",
+    ),
+  ).toHaveCount(0);
 }
 
 async function observeBrowserErrors(page: Page) {
@@ -184,31 +220,32 @@ for (const viewport of [
     });
     await clearStaleLocalState(page);
     await page.goto(`/app/explorer/containers/${folderId}`);
-    await expect(
-      page.getByRole("button", { name: "Set primary document", exact: true }),
-    ).toBeVisible();
+    await assertNoPrimaryManagement(page);
     await expect(
       page
         .getByRole("button", { name: "Supporting files", exact: true })
         .last(),
     ).toBeVisible();
-    await page
-      .getByRole("button", { name: "Set primary document", exact: true })
-      .click();
-    await expect(
-      page.getByRole("button", {
-        name: "Use Offline draft as primary",
-        exact: true,
-      }),
-    ).toBeDisabled();
+    await openPrimaryDocumentSettings(page);
+    const primary = page.getByRole("combobox", {
+      name: "Primary document",
+      exact: true,
+    });
+    await expect(primary).toContainText("None");
     await expect(
       page.getByText(
         "New offline documents become available here after their first sync.",
       ),
     ).toBeVisible();
-    await page
-      .getByRole("button", { name: "Use Ada Lovelace as primary", exact: true })
-      .click();
+    await primary.click();
+    await expect(
+      page.getByRole("option", { name: "Ada Lovelace", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("option", { name: "Offline draft", exact: true }),
+    ).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await choosePrimaryDocument(page, "Ada Lovelace");
     await assertContactAndNotes(page);
     await assertContactEditingSurvivesRefresh(page);
     await page.getByRole("button", { name: "Contents", exact: true }).click();
@@ -226,23 +263,22 @@ for (const viewport of [
         .locator(".container-document-view")
         .getByText("Ada Lovelace", { exact: true }),
     ).toBeVisible();
-    await page
-      .getByRole("button", { name: "Change primary document", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Use Grace Hopper as primary", exact: true })
-      .click();
+    await assertNoPrimaryManagement(page);
+    await openPrimaryDocumentSettings(page);
+    await expect(
+      page.getByRole("combobox", { name: "Primary document", exact: true }),
+    ).toContainText("Ada Lovelace");
+    await choosePrimaryDocument(page, "Grace Hopper");
     await expect(
       page
         .locator(".container-document-view")
         .getByText("Grace Hopper", { exact: true }),
     ).toBeVisible();
-    await page
-      .getByRole("button", { name: "Clear primary document", exact: true })
-      .click();
+    await openPrimaryDocumentSettings(page);
     await expect(
-      page.getByRole("button", { name: "Set primary document", exact: true }),
-    ).toBeVisible();
+      page.getByRole("combobox", { name: "Primary document", exact: true }),
+    ).toContainText("Grace Hopper");
+    await choosePrimaryDocument(page, "None");
     await expect(
       page
         .getByRole("button", { name: "Supporting files", exact: true })

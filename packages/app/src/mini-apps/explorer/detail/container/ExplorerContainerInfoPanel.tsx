@@ -1,5 +1,5 @@
 import type { ContainerInfo, ContainerNode } from "@tearleads/client-sdk";
-import { useId } from "react";
+import { type ReactNode, useId } from "react";
 import {
   MiniAppFormPanel,
   MiniAppStatus,
@@ -169,6 +169,7 @@ function ExplorerContainerInfoTabPanel(params: {
   ) => void;
   onShareWithPeer: () => void;
   peerUserId: string | null;
+  primaryDocumentSettings: ReactNode;
   resolveUserLabel: ExplorerAttributionUserLabelResolver | undefined;
   setContainerIcon: (
     containerId: string,
@@ -194,6 +195,9 @@ function ExplorerContainerInfoTabPanel(params: {
           setContainerIcon={params.setContainerIcon}
         />
       ) : null}
+      <div hidden={params.activeTab !== "general"}>
+        {params.primaryDocumentSettings}
+      </div>
       <ExplorerContainerInfoNoRemoteInfo
         activeTab={params.activeTab}
         containerInfoError={params.containerInfoError}
@@ -257,9 +261,9 @@ export function ExplorerContainerInfoPanel(
         containerId={params.containerId}
         containerName={params.containerName}
       />
-      {isSubmitting ? (
-        <ExplorerContainerInfoSharingProgress />
-      ) : (
+      {isSubmitting ? <ExplorerContainerInfoSharingProgress /> : null}
+      {/* Keep the General field's save owner mounted during sharing. */}
+      <div hidden={isSubmitting}>
         <div className="explorer-info">
           <ExplorerContainerInfoTabs
             activeTab={activeTab}
@@ -287,13 +291,14 @@ export function ExplorerContainerInfoPanel(
             onOpenGrant={params.onOpenGrant}
             onShareWithPeer={handleShareWithPeer}
             peerUserId={params.peerUserId}
+            primaryDocumentSettings={params.primaryDocumentSettings}
             resolveUserLabel={params.resolveUserLabel}
             setContainerIcon={params.setContainerIcon}
             setPanelError={setPanelError}
             shareDraft={shareDraft}
           />
         </div>
-      )}
+      </div>
       {panelError ? (
         <MiniAppStatus tone="error">{panelError}</MiniAppStatus>
       ) : null}

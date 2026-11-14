@@ -140,6 +140,13 @@ projections. The explicit sign-in is intentional: restoring content must not
 silently select an account or resume a remote session. Identity recovery and
 data restoration are separate user actions.
 
+Backup and restore require an initialized destination local identity and open
+that identity's database before capturing the database and blob store. An
+identity change while opening the database rejects the operation. This keeps
+restored attachments out of the startup memory store, which is discarded when
+identity initialization completes. The backup does not select its author's
+identity as the destination.
+
 Password-protected backups authenticate their contents with AES-GCM. Opting out
 of a password removes both encryption and integrity protection: anyone with the
 file can read or modify it. Restore enforces the device's existing pin and
