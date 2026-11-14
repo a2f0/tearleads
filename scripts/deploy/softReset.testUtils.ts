@@ -4,13 +4,15 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 export function fixture(tier: "prod" | "staging" = "prod") {
-  const root = mkdtempSync(join(tmpdir(), "soft-reset-"));
+  // Git reports physical paths; macOS TMPDIR commonly starts with /var.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "soft-reset-")));
   const home = join(root, "home");
   const repo = join(root, "repo");
   const bin = join(root, "bin");

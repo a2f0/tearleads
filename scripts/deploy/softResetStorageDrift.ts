@@ -16,7 +16,7 @@ function record(value: unknown): StorageRecord | undefined {
     : undefined;
 }
 
-function bucket(value: unknown) {
+function identifiedResource(value: unknown) {
   const fields = record(value);
   if (
     !fields ||
@@ -46,8 +46,8 @@ export function bucketLocationCasingOnly(
       !isDeepStrictEqual(change.after_unknown, {}))
   )
     return false;
-  const before = bucket(change.before);
-  const after = bucket(change.after);
+  const before = identifiedResource(change.before);
+  const after = identifiedResource(change.after);
   if (!before || !after) return false;
   const { location: oldLocation, ...oldValues } = before;
   const { location: newLocation, ...newValues } = after;
@@ -59,6 +59,41 @@ export function bucketLocationCasingOnly(
     /^(apac|eeur|enam|weur|wnam|oc)$/i.test(oldLocation) &&
     oldLocation !== newLocation &&
     oldLocation.toLowerCase() === newLocation.toLowerCase() &&
+    isDeepStrictEqual(oldValues, newValues)
+  );
+}
+
+function timestamp(value: unknown) {
+  return typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value)
+    ? Date.parse(value)
+    : Number.NaN;
+}
+
+export function tokenModifiedOnOnly(resource: StorageRecord, stack: string) {
+  if (
+    stack !== "storage" ||
+    resource.address !== "module.storage.cloudflare_account_token.objects" ||
+    resource.mode !== "managed"
+  )
+    return false;
+  const change = record(resource.change);
+  if (
+    !change ||
+    !isDeepStrictEqual(change.actions, ["update"]) ||
+    (Object.hasOwn(change, "after_unknown") &&
+      !isDeepStrictEqual(change.after_unknown, {}))
+  )
+    return false;
+  const before = identifiedResource(change.before);
+  const after = identifiedResource(change.after);
+  if (!before || !after) return false;
+  const { modified_on: oldTime, ...oldValues } = before;
+  const { modified_on: newTime, ...newValues } = after;
+  // This computed timestamp may settle after creation. Token identity,
+  // credentials, status, expiry and serialized permissions remain exact.
+  return (
+    timestamp(newTime) > timestamp(oldTime) &&
     isDeepStrictEqual(oldValues, newValues)
   );
 }
