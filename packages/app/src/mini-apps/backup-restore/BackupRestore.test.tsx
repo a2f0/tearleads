@@ -24,7 +24,8 @@ import {
   type BackupProgress,
   useLocalBackupOperations,
 } from "../../providers/db/useLocalBackupOperations";
-import { BackupRestore } from "./BackupRestore";
+import { useIdentity } from "../../providers/identity/IdentityProvider";
+import { BackupRestoreApp } from "./BackupRestoreApp";
 
 const originalWebSocket = globalThis.WebSocket;
 
@@ -36,7 +37,7 @@ afterAll(() => {
 });
 afterEach(cleanupIdentityManagerTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
-function renderBackupRestore(saveGate?: Promise<void>) {
+async function renderBackupRestore(saveGate?: Promise<void>) {
   const savedFiles: SaveFileRequest[] = [];
   const hostConfig = createIdentityManagerHostConfig().withOverrides({
     createFileSaver: () => ({
@@ -48,13 +49,17 @@ function renderBackupRestore(saveGate?: Promise<void>) {
   });
   const view = render(
     <AppRuntimeProvider autoProvisionEnabled={false} hostConfig={hostConfig}>
-      <BackupRestore />
+      <BackupRestoreApp />
     </AppRuntimeProvider>,
   );
+  fireEvent.click(
+    await view.findByRole("button", { name: "Generate Key Pair" }),
+  );
+  await view.findByRole("button", { name: "Export Backup" });
   return { ...view, savedFiles };
 }
 
-type BackupRestoreView = ReturnType<typeof renderBackupRestore>;
+type BackupRestoreView = Awaited<ReturnType<typeof renderBackupRestore>>;
 
 function chooseBackup(view: BackupRestoreView, text: string | Promise<string>) {
   fireEvent.change(view.getByLabelText("Backup Restore File"), {
@@ -84,8 +89,8 @@ async function exportBackup(view: BackupRestoreView, password?: string) {
   return new TextDecoder().decode(savedFile.data);
 }
 
-test("exposes Backup and Restore as separate tabs, Backup first", () => {
-  const view = renderBackupRestore();
+test("exposes Backup and Restore as separate tabs, Backup first", async () => {
+  const view = await renderBackupRestore();
   expect(view.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
     "Backup",
     "Restore",
@@ -98,8 +103,8 @@ test("exposes Backup and Restore as separate tabs, Backup first", () => {
   expect(view.queryByRole("button", { name: "Choose Backup File" })).toBeNull();
 });
 
-test("selecting the Restore tab swaps to the restore form", () => {
-  const view = renderBackupRestore();
+test("selecting the Restore tab swaps to the restore form", async () => {
+  const view = await renderBackupRestore();
   fireEvent.click(view.getByRole("tab", { name: "Restore" }));
   expect(
     view.getByRole("tab", { name: "Restore" }).getAttribute("aria-selected"),
@@ -111,8 +116,8 @@ test("selecting the Restore tab swaps to the restore form", () => {
   expect(view.queryByRole("button", { name: "Export Backup" })).toBeNull();
 });
 
-test("requires matching passwords unless the checkbox is checked", () => {
-  const view = renderBackupRestore();
+test("requires matching passwords unless the checkbox is checked", async () => {
+  const view = await renderBackupRestore();
   fireEvent.click(view.getByRole("button", { name: "Export Backup" }));
   expect(view.queryByText("Enter a backup password.")).toBeTruthy();
   fireEvent.change(view.getByLabelText("Password"), {
@@ -125,8 +130,8 @@ test("requires matching passwords unless the checkbox is checked", () => {
   expect(view.queryByText("Backup passwords do not match.")).toBeTruthy();
 });
 
-test("Choose Backup File does not submit the restore form", () => {
-  const view = renderBackupRestore();
+test("Choose Backup File does not submit the restore form", async () => {
+  const view = await renderBackupRestore();
   fireEvent.click(view.getByRole("tab", { name: "Restore" }));
   const picker = spyOn(view.getByLabelText("Backup Restore File"), "click");
   try {
@@ -138,8 +143,8 @@ test("Choose Backup File does not submit the restore form", () => {
   }
 });
 
-test("the checkbox hides both password fields and restores them when unchecked", () => {
-  const view = renderBackupRestore();
+test("the checkbox hides both password fields and restores them when unchecked", async () => {
+  const view = await renderBackupRestore();
   const checkbox = view.getByRole("checkbox", {
     name: "Back up without a password",
   });
@@ -158,7 +163,7 @@ test("the checkbox hides both password fields and restores them when unchecked",
 test.each(["{", '{"format":"unknown"}'])(
   "a rejected file clears the picker for reselection: %s",
   async (text) => {
-    const view = renderBackupRestore();
+    const view = await renderBackupRestore();
     fireEvent.click(view.getByRole("tab", { name: "Restore" }));
     const input = view.getByLabelText("Backup Restore File");
     if (!(input instanceof HTMLInputElement)) {
@@ -184,7 +189,7 @@ test.each(["{", '{"format":"unknown"}'])(
 );
 
 test("exports without a password despite stale mismatched fields and restores without prompting", async () => {
-  const view = renderBackupRestore();
+  const view = await renderBackupRestore();
   fireEvent.change(view.getByLabelText("Password"), {
     target: { value: "unused-password" },
   });
@@ -211,7 +216,7 @@ test("Reload App clears the stale caches, keeps session records and reloads", as
     () => undefined,
   );
   try {
-    const view = renderBackupRestore();
+    const view = await renderBackupRestore();
     const text = await exportBackup(view);
     fireEvent.click(view.getByRole("tab", { name: "Restore" }));
     await act(async () => chooseBackup(view, text));
@@ -237,7 +242,7 @@ test("Reload App clears the stale caches, keeps session records and reloads", as
 });
 
 test("encrypted backups still require the correct password and can be retried", async () => {
-  const view = renderBackupRestore();
+  const view = await renderBackupRestore();
   const text = await exportBackup(view, "test-password");
   expect(backupFileRequiresPassword(text)).toBe(true);
   fireEvent.click(view.getByRole("tab", { name: "Restore" }));
@@ -263,7 +268,7 @@ test("encrypted backups still require the correct password and can be retried", 
 
 test("the password option is disabled while the backup is being saved", async () => {
   const gate = createDeferred();
-  const view = renderBackupRestore(gate.promise);
+  const view = await renderBackupRestore(gate.promise);
   try {
     fireEvent.click(view.getByRole("checkbox"));
     fireEvent.click(view.getByRole("button", { name: "Export Backup" }));
@@ -282,7 +287,7 @@ test("the password option is disabled while the backup is being saved", async ()
 });
 
 test("switching files clears stale restore data and ignores superseded file reads", async () => {
-  const view = renderBackupRestore();
+  const view = await renderBackupRestore();
   const plaintext = await exportBackup(view);
   const payload = await decodeBackupFile({ text: plaintext });
   const encrypted = await encodeBackupFile({ password: "password", payload });
@@ -305,24 +310,31 @@ test.each([undefined, "password"])(
   "backup progress matches encryption (password: %s)",
   async (password) => {
     const hostConfig = createIdentityManagerHostConfig();
-    const { result } = renderHook(useLocalBackupOperations, {
-      wrapper: ({ children }) => (
-        <AppRuntimeProvider
-          autoProvisionEnabled={false}
-          hostConfig={hostConfig}
-        >
-          {children}
-        </AppRuntimeProvider>
-      ),
-    });
+    const { result } = renderHook(
+      () => ({
+        backup: useLocalBackupOperations(),
+        identity: useIdentity(),
+      }),
+      {
+        wrapper: ({ children }) => (
+          <AppRuntimeProvider
+            autoProvisionEnabled={false}
+            hostConfig={hostConfig}
+          >
+            {children}
+          </AppRuntimeProvider>
+        ),
+      },
+    );
     const exportProgress: BackupProgress["phase"][] = [];
     const restoreProgress: BackupProgress["phase"][] = [];
     await act(async () => {
-      const backup = await result.current.exportLocalBackup({
+      await result.current.identity.generateKey();
+      const backup = await result.current.backup.exportLocalBackup({
         onProgress: ({ phase }) => exportProgress.push(phase),
         password,
       });
-      await result.current.restoreLocalBackup({
+      await result.current.backup.restoreLocalBackup({
         onProgress: ({ phase }) => restoreProgress.push(phase),
         password,
         text: backup.text,

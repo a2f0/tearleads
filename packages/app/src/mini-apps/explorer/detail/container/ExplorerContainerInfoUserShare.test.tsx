@@ -117,6 +117,7 @@ function panelElement(
     logError: () => undefined,
     onOpenGrant: () => undefined,
     peerUserId: null,
+    primaryDocumentSettings: null,
     readModelProjection: readModel,
     resolveUserLabel: (userId) =>
       userId ? (PROFILE_NAMES[userId] ?? null) : null,
