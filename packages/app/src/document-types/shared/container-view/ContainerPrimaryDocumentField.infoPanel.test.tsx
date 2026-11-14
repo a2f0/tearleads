@@ -30,6 +30,7 @@ test("General owns the actual dropdown and preserves pending saves and failures 
   };
   const scope = createDomainScope();
   const pending = Promise.withResolvers<ContainerNode | null>();
+  const sharing = Promise.withResolvers<boolean>();
   const setPrimary = mock(() => pending.promise);
   const logError = mock(() => {});
   const documentQueries = {
@@ -49,8 +50,8 @@ test("General owns the actual dropdown and preserves pending saves and failures 
   const view = render(
     <ExplorerContainerInfoPanel
       canManageIcon={false}
-      canShareContainer={false}
-      canShareWithPeer={false}
+      canShareContainer
+      canShareWithPeer
       containerIcon={null}
       containerId={node.id}
       containerName={node.name}
@@ -58,11 +59,11 @@ test("General owns the actual dropdown and preserves pending saves and failures 
       containerSyncStatus="synced"
       loadContainerInfo={async () => ({
         local: { createdAt: null, updatedAt: null },
-        remoteInfo: null,
+        remoteInfo: { grantRows: [], grants: [], groups: [], syncCursors: [] },
       })}
       logError={logError}
       onOpenGrant={() => {}}
-      peerUserId={null}
+      peerUserId="peer-user"
       primaryDocumentSettings={
         <ContainerPrimaryDocumentField
           node={node}
@@ -82,7 +83,7 @@ test("General owns the actual dropdown and preserves pending saves and failures 
         userId: "user-1",
       }}
       shareWithGroup={async () => false}
-      shareWithUser={async () => false}
+      shareWithUser={() => sharing.promise}
     />,
   );
   await waitFor(() =>
@@ -117,9 +118,17 @@ test("General owns the actual dropdown and preserves pending saves and failures 
   expect(original.disabled).toBe(true);
   fireEvent.click(original);
   expect(setPrimary).toHaveBeenCalledTimes(1);
-  fireEvent.click(view.getByRole("tab", { name: "Security" }));
+  fireEvent.click(view.getByRole("tab", { name: "Sharing" }));
+  fireEvent.click(view.getByRole("button", { name: "Share With Peer" }));
+  await waitFor(() =>
+    expect(view.queryByRole("tab", { name: "General" })).toBeNull(),
+  );
   await act(async () => pending.reject(new Error("Primary update rejected")));
   expect(view.queryByRole("alert")).toBeNull();
+  await act(async () => sharing.resolve(true));
+  await waitFor(() =>
+    expect(view.queryByRole("tab", { name: "General" })).not.toBeNull(),
+  );
   fireEvent.click(view.getByRole("tab", { name: "General" }));
   expect(view.getByRole("alert").textContent).toBe("Primary update rejected");
   expect(view.getByRole("combobox", { name: "Primary document" })).toBe(

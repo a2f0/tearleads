@@ -261,9 +261,9 @@ export function ExplorerContainerInfoPanel(
         containerId={params.containerId}
         containerName={params.containerName}
       />
-      {isSubmitting ? (
-        <ExplorerContainerInfoSharingProgress />
-      ) : (
+      {isSubmitting ? <ExplorerContainerInfoSharingProgress /> : null}
+      {/* Keep the General field's save owner mounted during sharing. */}
+      <div hidden={isSubmitting}>
         <div className="explorer-info">
           <ExplorerContainerInfoTabs
             activeTab={activeTab}
@@ -298,7 +298,7 @@ export function ExplorerContainerInfoPanel(
             shareDraft={shareDraft}
           />
         </div>
-      )}
+      </div>
       {panelError ? (
         <MiniAppStatus tone="error">{panelError}</MiniAppStatus>
       ) : null}
