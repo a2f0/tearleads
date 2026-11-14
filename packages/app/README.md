@@ -54,6 +54,13 @@ can discard unsaved edits; removing the PIN elsewhere does not dismiss a gate.
 The isolated two-peer demo does not expose this action: its peers have
 independent runtimes and PINs rather than one app-wide privacy gate.
 
+## Creating documents
+
+In Explorer, choose **New Document** and use **Search document types** to narrow
+the available types as you type. Search matches part of a type's name, ignores
+case and surrounding spaces, and shows a message when nothing matches. Clear
+the search to restore every type, then select a type to open its editor.
+
 ## Tests
 
 ```sh
