@@ -1,0 +1,21 @@
+.pending-blob-deletion-identity {
+  display: grid;
+  gap: var(--space-xs);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.pending-blob-deletion-timeline {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+  white-space: normal;
+}
+
+.pending-blob-deletion-timeline dt {
+  font-size: var(--font-size-sm);
+}
+
+.pending-blob-deletion-timeline dd {
+  margin: 0;
+}

@@ -1,4 +1,5 @@
 import type {
+  PendingBlobDeletionsResponse,
   RootIdentitiesResponse,
   RootIdentityDetailResponse,
   RootIdentityOrganizationsResponse,
@@ -15,6 +16,12 @@ import {
 } from "./rootSuspensionHandlers";
 
 export const rootConsoleHandlers = [
+  http.get("http://localhost:3001/root/blobs/pending-deletion", () =>
+    HttpResponse.json<PendingBlobDeletionsResponse>({
+      blobs: [],
+      nextAfterId: null,
+    }),
+  ),
   http.get("http://localhost:3001/root/identities", ({ request }) => {
     const query = new URL(request.url).searchParams;
     const fingerprintPrefix = query.get("fingerprint");

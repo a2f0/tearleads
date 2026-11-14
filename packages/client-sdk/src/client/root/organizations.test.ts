@@ -40,6 +40,7 @@ function createRuntime() {
       apiClient: {
         getRootOrganizationDataUsageResult: failAfterRelease,
         listRootDataUsageReportResult: failAfterRelease,
+        listRootPendingBlobDeletionsResult: failAfterRelease,
         getRootIdentityResult: failAfterRelease,
         listRootIdentitiesResult: failAfterRelease,
         listRootIdentityOrganizationsResult: failAfterRelease,
@@ -73,6 +74,7 @@ test("every organization, report, audit and suspension call is locally gated and
     identities: (root) => root.listOrganizationIdentities("org"),
     usage: (root) => root.loadOrganizationDataUsage("org"),
     report: (root) => root.listDataUsageReport(),
+    pendingDeletions: (root) => root.listPendingBlobDeletions(),
     opsHealth: (root) => root.loadOpsHealthReport(),
     revenuecat: (root) => root.listOrganizationRevenuecatEvents("org"),
     revenuecatReport: (root) => root.listRevenuecatEventsReport(),

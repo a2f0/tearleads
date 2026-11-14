@@ -250,6 +250,14 @@ export {
   updateOrganizationRosterEntryOperation,
 } from "./organizations";
 export {
+  listOrganizationPendingBlobDeletionsOperation,
+  listRootPendingBlobDeletionsOperation,
+  type PendingBlobDeletionsQuery,
+  PendingBlobDeletionsQuerySchema,
+  type RootPendingBlobDeletionsQuery,
+  RootPendingBlobDeletionsQuerySchema,
+} from "./pendingBlobDeletions";
+export {
   type PrincipalPolicyPageQuery,
   PrincipalPolicyPageQuerySchema,
 } from "./principalPolicyPageQuery";

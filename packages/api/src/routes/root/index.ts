@@ -5,6 +5,7 @@ import { createRootDataUsageRoute } from "./dataUsage";
 import { createRootIdentitiesRoute } from "./identities";
 import { createRootOpsHealthRoute } from "./opsHealth";
 import { createRootOrganizationsRoute } from "./organizations";
+import { createRootPendingBlobDeletionsRoute } from "./pendingBlobDeletions";
 import { createRootRevenuecatEventsRoute } from "./revenuecatEvents";
 import type { RootRouterDeps } from "./shared";
 import { createRootSuspensionRoute } from "./suspension";
@@ -24,6 +25,7 @@ export function createRootRouter(deps: RootRouterDeps) {
   rootRouter.route("/", createRootOrganizationsRoute(deps));
 
   rootRouter.route("/", createRootDataUsageRoute(deps));
+  rootRouter.route("/", createRootPendingBlobDeletionsRoute(deps));
 
   rootRouter.route("/", createRootOpsHealthRoute(deps));
 
