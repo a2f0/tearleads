@@ -225,6 +225,16 @@ interface ExplorerDetailPanelProps {
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }
 
+function isContainerReadOnly(
+  params: ExplorerDetailPanelProps,
+  containerId: string | null | undefined,
+) {
+  return isContainerUnderTrash(params.nodes, containerId, {
+    currentOrganizationId: params.currentOrganizationId,
+    trashSystemSlot: params.trashSystemSlot,
+  });
+}
+
 export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
   // A failed SQLite boot makes every detail route non-functional (they all read
   // from the local database), so gate the whole panel on the error — matching
@@ -317,10 +327,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
               node={infoNode}
               documentQueries={params.documentQueries}
               revision={params.documentListRevision}
-              readOnly={isContainerUnderTrash(params.nodes, infoNode.id, {
-                currentOrganizationId: params.currentOrganizationId,
-                trashSystemSlot: params.trashSystemSlot,
-              })}
+              readOnly={isContainerReadOnly(params, infoNode.id)}
               setPrimary={params.setContainerPrimaryDocument}
               logError={params.logError}
             />
@@ -389,14 +396,6 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
   if (selectedDocument) {
     // A document living anywhere under Trash renders read-only: no edit button,
     // no note edit mode, no blob attach/detach. Enforced in the UI only.
-    const selectedDocumentReadOnly = isContainerUnderTrash(
-      params.nodes,
-      selectedDocument.containerId,
-      {
-        currentOrganizationId: params.currentOrganizationId,
-        trashSystemSlot: params.trashSystemSlot,
-      },
-    );
     return (
       <ExplorerDocumentDetail
         currentSigningFingerprint={params.currentSigningFingerprint}
@@ -411,7 +410,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         onInitialEditingConsumed={
           params.onInitialEditingSelectedDocumentConsumed
         }
-        readOnly={selectedDocumentReadOnly}
+        readOnly={isContainerReadOnly(params, selectedDocument.containerId)}
         refreshError={params.refreshError}
         selectedDocument={selectedDocument}
         showHeaderSyncIndicator={params.showHeaderSyncIndicator}
@@ -427,10 +426,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         revision={params.documentListRevision}
         documentQueries={params.documentQueries}
         onOpenDocument={params.selectDocumentProjection}
-        readOnly={isContainerUnderTrash(params.nodes, selectedNode.id, {
-          currentOrganizationId: params.currentOrganizationId,
-          trashSystemSlot: params.trashSystemSlot,
-        })}
+        readOnly={isContainerReadOnly(params, selectedNode.id)}
       >
         <ExplorerContainerDetail
           onRecoveryChanged={params.onRecoveryChanged}

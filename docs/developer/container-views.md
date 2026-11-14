@@ -47,8 +47,10 @@ when permitted. Note filtering occurs before SQL counting and pagination;
 previews never create an unbounded set of document stores.
 
 Container selection loads twenty candidates per page, with the current primary
-resolved separately so its label survives paging. A failed current-title lookup
-shows an error without blocking the available choices. Background projection
+resolved separately so its label survives paging. If sync reduces the candidate
+count while a later page is selected, **Previous documents** remains available
+to return to the remaining choices. A failed current-title lookup shows an error
+without blocking the available choices. Background projection
 refreshes retain the open dropdown's choices and current label until replacement
 data arrives. **None** remains available when the target is missing or the
 candidate query fails. Primary selection is hidden for read-only,

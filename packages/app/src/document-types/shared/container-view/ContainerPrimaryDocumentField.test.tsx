@@ -325,3 +325,50 @@ test("a container without a primary starts at None and can select a document", a
     expect(view.getByRole("combobox").textContent).toContain("Contact 0"),
   );
 });
+
+test.each([0, 1, 20])(
+  "a shrinking document count of %i keeps a route back from the second page",
+  async (remaining) => {
+    const p = setup();
+    let totalCount = 23;
+    p.documentQueries.listContainerDocumentSidebarWindow = async ({
+      offset,
+      limit,
+    }) => ({
+      rows: Array.from(
+        { length: Math.max(0, Math.min(limit, totalCount - offset)) },
+        (_, index) => candidate(offset + index),
+      ),
+      totalCount,
+    });
+    const view = render(<ContainerPrimaryDocumentField {...p} />);
+    fireEvent.click(
+      await view.findByRole("button", { name: "Next documents" }),
+    );
+    openOptions(view);
+    expect(
+      await view.findByRole("option", { name: "Contact 22" }),
+    ).toBeTruthy();
+    fireEvent.keyDown(view.getByRole("combobox"), { key: "Escape" });
+    totalCount = remaining;
+    await act(async () => {
+      view.rerender(<ContainerPrimaryDocumentField {...p} revision={1} />);
+    });
+    fireEvent.click(view.getByRole("button", { name: "Previous documents" }));
+    openOptions(view);
+    if (remaining > 0) {
+      fireEvent.click(await view.findByRole("option", { name: "Contact 0" }));
+      await waitFor(() =>
+        expect(p.setPrimary).toHaveBeenCalledWith("folder", "remote-0"),
+      );
+    } else {
+      expect(
+        await view.findByText("No documents in this container."),
+      ).toBeTruthy();
+      fireEvent.click(view.getByRole("option", { name: "None" }));
+      await waitFor(() =>
+        expect(p.setPrimary).toHaveBeenCalledWith("folder", null),
+      );
+    }
+  },
+);

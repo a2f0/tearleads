@@ -67,7 +67,8 @@ function PrimaryDocumentPages({
   busy: boolean;
   onPage: (offset: number) => void;
 }) {
-  if (totalCount === undefined || totalCount <= PAGE_SIZE) return null;
+  if (totalCount === undefined || (offset === 0 && totalCount <= PAGE_SIZE))
+    return null;
   return (
     <nav aria-label="Primary document pages" className="mini-app-actions">
       <MiniAppButton
