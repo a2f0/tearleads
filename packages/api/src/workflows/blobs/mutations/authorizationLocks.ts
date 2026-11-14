@@ -1,7 +1,7 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
-  lockAccessManifestHeadsForShare,
-  lockAccessManifestHeadsForUpdate,
+  lockAccessManifestHeadRows,
+  type StoredAccessManifestHead,
 } from "../../../access/read/accessManifestStore";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { BlobMutationError } from "./types";
@@ -56,32 +56,41 @@ export async function lockAttachmentAuthorizationHeadsForShare(input: {
    */
   readonly exclusiveDocumentId?: string | undefined;
   readonly executor: DatabaseTransaction;
-}): Promise<void> {
-  const lockedContainerIds = await lockAccessManifestHeadsForShare(
+}): Promise<{
+  readonly containerHeads: ReadonlyMap<string, StoredAccessManifestHead>;
+  readonly documentHeads: ReadonlyMap<string, StoredAccessManifestHead>;
+}> {
+  const containerRows = await lockAccessManifestHeadRows(
     "container",
     input.containerIds,
     input.executor,
+    "share",
   );
-  assertEveryPlannedHeadWasLocked(input.containerIds, lockedContainerIds);
+  assertEveryPlannedHeadWasLocked(
+    input.containerIds,
+    containerRows.map((row) => row.objectId),
+  );
 
-  const lockedDocumentIds: string[] = [];
+  const documentRows: StoredAccessManifestHead[] = [];
   for (const run of planAttachmentDocumentHeadLockRuns(
     input.documentIds,
     input.exclusiveDocumentId,
   )) {
-    lockedDocumentIds.push(
-      ...(run.mode === "update"
-        ? await lockAccessManifestHeadsForUpdate(
-            "document",
-            run.objectIds,
-            input.executor,
-          )
-        : await lockAccessManifestHeadsForShare(
-            "document",
-            run.objectIds,
-            input.executor,
-          )),
+    documentRows.push(
+      ...(await lockAccessManifestHeadRows(
+        "document",
+        run.objectIds,
+        input.executor,
+        run.mode,
+      )),
     );
   }
-  assertEveryPlannedHeadWasLocked(input.documentIds, lockedDocumentIds);
+  assertEveryPlannedHeadWasLocked(
+    input.documentIds,
+    documentRows.map((row) => row.objectId),
+  );
+  return {
+    containerHeads: new Map(containerRows.map((row) => [row.objectId, row])),
+    documentHeads: new Map(documentRows.map((row) => [row.objectId, row])),
+  };
 }

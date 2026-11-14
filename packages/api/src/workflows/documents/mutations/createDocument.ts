@@ -7,7 +7,7 @@ import type {
   DocumentCreateResponse,
   DocumentCreateSeedResponse,
 } from "@tearleads/validators/response";
-import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
+import { lockAccessManifestHeadRows } from "../../../access/read/accessManifestStore";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
 import { recordDocumentManifestObservationInTransaction } from "../../../access/write/documentManifestObservationStore";
@@ -20,6 +20,7 @@ import { markStoredDocumentManifest } from "../markStoredDocumentManifest";
 import { lockDocumentLifecycleInTransaction } from "./documentLifecycleLock";
 import { DocumentMutationError, toMutationError } from "./errors";
 import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
+import type { LockedContainerHeadRows } from "./shared/currentContainerPaths";
 import {
   assertCreateCanAdvanceDocumentHead,
   insertDocumentRow,
@@ -51,6 +52,7 @@ export interface DocumentCreateWorkflowResult {
 export interface DocumentCreatedInTransaction {
   readonly created: DocumentCreateResponse;
   readonly linkedContainerIds: readonly string[];
+  readonly lockedContainerHeads: LockedContainerHeadRows;
 }
 
 /**
@@ -63,6 +65,7 @@ export async function commitDocumentCreateSeedInTransaction(input: {
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly seed: DocumentCreateRequest["initialSync"];
+  readonly lockedContainerHeads?: LockedContainerHeadRows | undefined;
   readonly syncEligibleOrganizationId: string;
   readonly userId: string;
 }): Promise<DocumentCreateSeedResult | null> {
@@ -72,6 +75,7 @@ export async function commitDocumentCreateSeedInTransaction(input: {
     executor: input.executor,
     fingerprint: input.fingerprint,
     request: input.seed,
+    lockedContainerHeads: input.lockedContainerHeads,
     signingPublicKey: await loadSignerPublicKey(input.executor, {
       error: (message, status) => new DocumentMutationError(message, status),
       fingerprint: input.fingerprint,
@@ -100,13 +104,17 @@ export async function runCreateDocumentWorkflow(
   try {
     const { created, linkedContainerIds, seed } = await db.transaction(
       async (tx) => {
-        const { created, linkedContainerIds, organizationId } =
-          await createDocumentInTransaction({
-            executor: tx,
-            fingerprint: input.fingerprint,
-            request: input.request,
-            userId: input.userId,
-          });
+        const {
+          created,
+          linkedContainerIds,
+          organizationId,
+          lockedContainerHeads,
+        } = await createDocumentInTransaction({
+          executor: tx,
+          fingerprint: input.fingerprint,
+          request: input.request,
+          userId: input.userId,
+        });
         // Public boundary: registration bootstraps its documents via
         // createDocumentWithExecutor directly, so gate only here.
         await assertOrganizationCanSync(tx, organizationId, input.userId);
@@ -115,6 +123,7 @@ export async function runCreateDocumentWorkflow(
           executor: tx,
           fingerprint: input.fingerprint,
           seed: input.request.initialSync,
+          lockedContainerHeads,
           syncEligibleOrganizationId: organizationId,
           userId: input.userId,
         });
@@ -149,10 +158,10 @@ export async function runCreateDocumentWorkflow(
 async function lockCreateContainerPath(
   executor: DatabaseTransaction,
   request: DocumentCreateRequest,
-): Promise<void> {
+) {
   // Freeze the authorizing path through commit. Deletion takes the same
   // container heads exclusively before checking emptiness and deleting rows.
-  await lockAccessManifestHeadsForShare(
+  const rows = await lockAccessManifestHeadRows(
     "container",
     uniqueSortedContainerIds([
       ...(request.targetContainerPathRefs ?? []).map((ref) => ref.containerId),
@@ -161,7 +170,9 @@ async function lockCreateContainerPath(
       ),
     ]),
     executor,
+    "share",
   );
+  return new Map(rows.map((head) => [head.objectId, head]));
 }
 
 interface CreateDocumentWithExecutorInput {
@@ -174,10 +185,10 @@ interface CreateDocumentWithExecutorInput {
 export async function createDocumentWithExecutor(
   input: CreateDocumentWithExecutorInput,
 ): Promise<DocumentCreatedInTransaction> {
-  const { created, linkedContainerIds } =
+  const { created, linkedContainerIds, lockedContainerHeads } =
     await createDocumentInTransaction(input);
   await touchContainers(input.executor, linkedContainerIds);
-  return { created, linkedContainerIds };
+  return { created, linkedContainerIds, lockedContainerHeads };
 }
 
 // The content-key bundle store resolves the document's current KEK targets
@@ -190,6 +201,7 @@ async function createDocumentInTransaction(
   readonly created: DocumentCreateResponse;
   readonly linkedContainerIds: readonly string[];
   readonly organizationId: string;
+  readonly lockedContainerHeads: LockedContainerHeadRows;
 }> {
   try {
     const event = await verifyDocumentEvent({
@@ -209,10 +221,14 @@ async function createDocumentInTransaction(
       requests: input.request.containerRekeys,
       userId: input.userId,
     });
-    await lockCreateContainerPath(input.executor, input.request);
+    const lockedContainerHeads = await lockCreateContainerPath(
+      input.executor,
+      input.request,
+    );
     const manifest = await verifyDocumentManifestFromRequest({
       event,
       executor: input.executor,
+      lockedContainerHeads,
       request: input.request,
     });
 
@@ -273,6 +289,7 @@ async function createDocumentInTransaction(
       },
       linkedContainerIds: manifest.state.linkedContainerIds,
       organizationId: contentKeyBundle.currentTargets.organizationId,
+      lockedContainerHeads,
     };
   } catch (error) {
     const mutationError = toMutationError(error);

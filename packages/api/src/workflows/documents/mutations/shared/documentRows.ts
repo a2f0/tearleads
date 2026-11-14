@@ -10,6 +10,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import {
   getCurrentAccessManifestHead,
   getStoredAccessEventByObjectType,
+  type StoredAccessManifestHead,
 } from "../../../../access/read/accessManifestStore";
 import { uniqueSortedStrings } from "../../../../utils/array";
 import { isUniqueViolation } from "../../../../utils/databaseErrors";
@@ -115,6 +116,7 @@ export async function assertCreateCanAdvanceDocumentHead(
 export async function assertDocumentLinkSetCanAdvance(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
+  readonly lockedHead?: StoredAccessManifestHead | null;
   readonly manifest: VerifiedDocumentLinkSetManifest;
   readonly previousManifest: VerifiedDocumentLinkSetManifest;
 }): Promise<void> {
@@ -125,11 +127,14 @@ export async function assertDocumentLinkSetCanAdvance(input: {
     throw new DocumentMutationError("Document id mismatch", 400);
   }
 
-  const currentHead = await getCurrentAccessManifestHead(
-    "document",
-    input.documentId,
-    input.executor,
-  );
+  const currentHead =
+    input.lockedHead !== undefined
+      ? input.lockedHead
+      : await getCurrentAccessManifestHead(
+          "document",
+          input.documentId,
+          input.executor,
+        );
   if (!currentHead) {
     throw new DocumentMutationError("Document manifest head missing", 404);
   }

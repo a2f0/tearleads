@@ -42,7 +42,7 @@ function heldLockMode(mode: "share" | "update"): HeldLockMode {
   return mode === "share" ? "shared" : "exclusive";
 }
 
-async function lockAccessManifestHeadRows(
+export async function lockAccessManifestHeadRows(
   objectKind: AccessObjectKind,
   objectIds: readonly string[],
   executor: DatabaseSession,
