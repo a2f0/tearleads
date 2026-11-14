@@ -6,13 +6,13 @@ import {
 import {
   getLatestBlobContentKeyBundle,
   getLatestBlobContentKeyBundles,
-  replaceBlobContentKeyTargetsForExistingBundle,
 } from "./blobContentKeyStore";
 import {
   assertSubmittedTargetsMatchCurrent,
   BlobContentKeyBundleError,
   type StoredBlobContentKeyBundle,
 } from "./blobContentKeyTargets";
+import { persistBlobContentKeyTargets } from "./blobContentKeyTargetWrites";
 import {
   type BlobKekTargetPrefetch,
   prefetchBlobKekTargets,
@@ -111,7 +111,7 @@ export async function rewrapDocumentBlobContentKeyInTransaction(
       }) => target,
     ),
   );
-  await replaceBlobContentKeyTargetsForExistingBundle({
+  await persistBlobContentKeyTargets({
     existingBundle,
     executor,
     nextBundle: {
