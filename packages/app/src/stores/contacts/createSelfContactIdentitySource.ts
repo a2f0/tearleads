@@ -1,10 +1,11 @@
-import type { Tearleads } from "@tearleads/client-sdk";
+import type { LocalProjectionView, Tearleads } from "@tearleads/client-sdk";
 import { loadCurrentSelfContactIdentity } from "./currentSelfContactIdentity";
 import type { SelfContactIdentitySource } from "./currentSelfContactIdentityState";
+import { subscribeToSelfContactIdentityDiscovery } from "./selfContactIdentityDiscovery";
 
 export function createSelfContactIdentitySource(
   sdk: Tearleads,
-  subscribeDiscovery: SelfContactIdentitySource["subscribe"],
+  view: Pick<LocalProjectionView, "getSnapshot" | "subscribe">,
 ): SelfContactIdentitySource {
   const version = sdk.runtime.version;
   const runtime = sdk.documents.workflowRuntime(null);
@@ -18,11 +19,24 @@ export function createSelfContactIdentitySource(
     isCurrent: () => enabled && sdk.runtime.version === version,
     load: () => loadCurrentSelfContactIdentity(execSql, fingerprint),
     subscribe: (listener) => {
-      const stopPersisted = sdk.documents.subscribe(listener, {
-        containerId: null,
-      });
-      const stopDiscovery = subscribeDiscovery(listener);
+      let active = true;
+      const notify = () => {
+        if (active) listener();
+      };
+      const stopPersisted = sdk.documents.subscribe(
+        (_document, change) => {
+          // Births, placement changes and relinks can change identity;
+          // content-only autosaves cannot. Do not filter by kind or folder.
+          if (change.placementChanged) notify();
+        },
+        { containerId: null },
+      );
+      const stopDiscovery = subscribeToSelfContactIdentityDiscovery(
+        view,
+        notify,
+      );
       return () => {
+        active = false;
         stopPersisted();
         stopDiscovery();
       };

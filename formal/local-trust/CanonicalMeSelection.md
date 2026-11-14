@@ -67,7 +67,9 @@ store. Candidate enumeration and repeated queue-time revalidation are
 collapsed; records do not move, disappear, or lose access during a run. The
 bound does not enumerate multiple preexisting aliases, test identity hashing,
 prove signer trust, model address CRDT semantics, or cover the separate
-retained remove/move/purge action-authority machine. Those need their runtime
-regressions. No compatibility lookup, migration, or reset is modeled or
-introduced. Current-format same-document recovery remains part of the valid
-selection paths.
+retained remove/move/purge action-authority machine. Notification filtering and
+stable UI identity views are also outside this model; see the
+[identity source](../../packages/app/src/stores/contacts/createSelfContactIdentitySource.ts)
+and its runtime regressions. No compatibility lookup, migration, or reset is
+modeled or introduced. Current-format same-document recovery remains part of
+the valid selection paths.

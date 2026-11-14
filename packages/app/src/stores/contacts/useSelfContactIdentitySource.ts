@@ -137,6 +137,20 @@ export function useSelfContactIdentitySource(
     if (!source.enabled) return;
     return subscribeIdentity(source, dispatch);
   }, [source]);
+  const authority =
+    state.status === "ready" || state.status === "refreshing" ? state : null;
+  const identity = authority?.identity;
+  const isCurrent = authority?.isCurrent;
+  const runWhenCurrent = authority?.runWhenCurrent;
+  // Request generations guard admission, not the displayed identity. Keep
+  // consumers' view stable while equivalent metadata reads come and go.
+  const readyView = useMemo<SelfContactIdentityView>(
+    () =>
+      identity && isCurrent && runWhenCurrent
+        ? { status: "ready", identity, isCurrent, runWhenCurrent }
+        : PENDING_IDENTITY,
+    [identity, isCurrent, runWhenCurrent],
+  );
   // Effects run after render. Never expose a previous scope's resolved role
   // during the replacement's first frame, or after its authority expires.
   if (
@@ -147,5 +161,7 @@ export function useSelfContactIdentitySource(
       !state.isCurrent())
   )
     return PENDING_IDENTITY;
-  return state.status === "refreshing" ? { ...state, status: "ready" } : state;
+  return state.status === "ready" || state.status === "refreshing"
+    ? readyView
+    : state;
 }

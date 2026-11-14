@@ -9,10 +9,7 @@ export function useCurrentSelfContactIdentity(): SelfContactIdentityView {
   const sdk = useTearleads();
   const { view } = useDeviceFirstContainerContents();
   const source = useRuntimeScopedMemo(
-    () =>
-      createSelfContactIdentitySource(sdk, (listener) =>
-        view.subscribe(listener),
-      ),
+    () => createSelfContactIdentitySource(sdk, view),
     [sdk, view],
   );
   return useSelfContactIdentitySource(source);

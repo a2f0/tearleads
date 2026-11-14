@@ -139,6 +139,55 @@ test("admission joins a newer equivalent refresh without waiting for a supersede
   }
 });
 
+test("equivalent metadata refreshes preserve the published identity view", async () => {
+  const identity = await identityFor("stable-identity-view");
+  const initial = Promise.resolve(identity);
+  const entered = Promise.withResolvers<void>();
+  const held = Promise.withResolvers<CurrentSelfContactIdentity>();
+  let refreshing = false;
+  let refresh: () => void = () => undefined;
+  const source: SelfContactIdentitySource = {
+    enabled: true,
+    isCurrent: () => true,
+    load: () => {
+      if (!refreshing) return initial;
+      entered.resolve();
+      return held.promise;
+    },
+    subscribe: (listener) => {
+      refresh = listener;
+      return () => undefined;
+    },
+  };
+  const view = renderHook(() => useSelfContactIdentitySource(source));
+  try {
+    await act(async () => {
+      await initial;
+    });
+    const retained = view.result.current;
+    expect(retained.status).toBe("ready");
+    await act(async () => {
+      refreshing = true;
+      refresh();
+      await entered.promise;
+    });
+    expect(view.result.current).toBe(retained);
+    view.rerender();
+    expect(view.result.current).toBe(retained);
+    await act(async () => {
+      held.resolve({ ...identity, localIds: new Set(identity.localIds) });
+      await held.promise;
+    });
+    expect(view.result.current).toBe(retained);
+  } finally {
+    await act(async () => {
+      held.resolve(identity);
+      await held.promise;
+    });
+    view.unmount();
+  }
+});
+
 for (const outcome of ["failed", "unmounted", "expired"] as const) {
   test(`${outcome} refresh releases admission without reviving its authority`, async () => {
     const identity = await identityFor(`refresh-${outcome}`);

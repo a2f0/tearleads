@@ -70,6 +70,16 @@ their effect, after asynchronous preparation. An equivalent refresh preserves
 their authority; changed identity, failed reads, or expired scope refuse them.
 Once persistence starts, a later identity refresh does not cancel that write.
 
+The [identity source](../../stores/contacts/createSelfContactIdentitySource.ts)
+reloads on births, relinks, placement, and structural discovery changes, not
+ordinary autosaves. Discovery compares readiness, bucket membership, local IDs,
+current document IDs, and placement without filtering by kind or folder:
+canonical aliases can initially be note-shaped shells outside Contacts.
+Equivalent reads preserve the displayed identity object and action authority.
+This is not a general metadata-change feed: uncached deletions and arbitrary
+recovery-only SQL changes require their owning operation's invalidation or
+runtime replacement; the discovery comparison alone cannot observe them.
+
 ## Roster and organization profiles
 
 Ordinary profiles are not canonical personal Me. The
