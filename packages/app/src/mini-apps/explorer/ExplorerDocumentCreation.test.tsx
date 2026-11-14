@@ -27,13 +27,41 @@ async function waitForPersistedSummaryFlush() {
 }
 
 test(
-  "Explorer file menu creates the selected document kind",
+  "Explorer file menu filters document types and creates the selected kind",
   async () => {
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
     const explorer = await openExplorer(view);
     await openExplorerNewStructuredDocumentRoute(explorer);
+    const picker = within(
+      within(explorer).getByRole("region", { name: "New document" }),
+    );
+    const search = picker.getByRole("searchbox", {
+      name: "Search document types",
+    });
+    const allTypes = picker
+      .getAllByRole("button")
+      .map((button) => button.textContent);
+
+    fireEvent.change(search, { target: { value: "  cArD  " } });
+    expect(picker.getByRole("button", { name: "Credit Card" })).toBeTruthy();
+    expect(picker.queryByRole("button", { name: "Note" })).toBeNull();
+
+    fireEvent.change(search, { target: { value: "no matching type" } });
+    expect(picker.queryAllByRole("button")).toEqual([]);
+    expect(picker.getByRole("status").textContent).toBe(
+      "No document types match your search.",
+    );
+
+    for (const value of ["", "   "]) {
+      fireEvent.change(search, { target: { value } });
+      expect(
+        picker.getAllByRole("button").map((button) => button.textContent),
+      ).toEqual(allTypes);
+      expect(picker.queryByRole("status")).toBeNull();
+    }
+    fireEvent.change(search, { target: { value: "credit" } });
 
     fireEvent.click(
       within(explorer).getByRole("button", { name: "Credit Card" }),
