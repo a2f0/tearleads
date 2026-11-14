@@ -1,5 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import { bucketLocationCasingOnly } from "./softResetStorageDrift";
+import {
+  bucketLocationCasingOnly,
+  tokenModifiedOnOnly,
+} from "./softResetStorageDrift";
 
 type DriftRecord = Record<string, unknown> &
   Partial<
@@ -32,6 +35,7 @@ const protectionMetadata = [
   "latest_image_version",
   "ready",
   "schema_last_updated_at",
+  "stale_schema",
   "state",
   "updated_at",
 ];
@@ -131,7 +135,8 @@ export function validateResourceDrift(
         !resource ||
         (!isDeepStrictEqual(change?.actions, ["no-op"]) &&
           !metadataOnly(resource, stack) &&
-          !bucketLocationCasingOnly(resource, stack))
+          !bucketLocationCasingOnly(resource, stack) &&
+          !tokenModifiedOnOnly(resource, stack))
       );
     })
   )

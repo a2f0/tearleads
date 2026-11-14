@@ -32,7 +32,11 @@ export function metadataDrift(
   const metadata =
     name === "database"
       ? { default_branch_table_count: 0 }
-      : { has_roles: false, latest_image_version: "fixture-v1" };
+      : {
+          has_roles: false,
+          latest_image_version: "fixture-v1",
+          stale_schema: false,
+        };
   const observed = {
     ...metadata,
     ready: false,
@@ -50,7 +54,11 @@ export function metadataDrift(
     ...observed,
     ...(name === "database"
       ? { default_branch_table_count: 42 }
-      : { has_roles: true, latest_image_version: "fixture-v2" }),
+      : {
+          has_roles: true,
+          latest_image_version: "fixture-v2",
+          stale_schema: true,
+        }),
     ready: true,
     schema_last_updated_at: "2026-01-02T00:00:00Z",
     state: "ready",
@@ -92,6 +100,48 @@ export function metadataDrift(
       before: snapshot(observed),
       after: snapshot(refreshed),
       after_unknown: {},
+    },
+  };
+}
+
+export function tokenModifiedOnDrift(tier: "prod" | "staging" = "prod") {
+  const before: Record<string, unknown> & {
+    modified_on?: unknown;
+    policies?: unknown;
+  } = {
+    id: "fixture-token-id",
+    account_id: "a".repeat(32),
+    name: `tearleads-blobs-${tier}-objects`,
+    issued_on: "2026-01-01T00:00:00Z",
+    modified_on: "2026-01-01T00:00:00Z",
+    last_used_on: null,
+    condition: null,
+    status: "active",
+    expires_on: null,
+    not_before: null,
+    value: "fixture-token-value",
+    policies: [
+      {
+        effect: "allow",
+        resources: JSON.stringify({
+          [`com.cloudflare.edge.r2.bucket.${"a".repeat(32)}_default_tearleads-blobs-${tier}`]:
+            "*",
+        }),
+        permission_groups: [{ id: "2efd5506f9c8494dacb1fa10a3e7d5b6" }],
+      },
+    ],
+  };
+  return {
+    address: "module.storage.cloudflare_account_token.objects",
+    mode: "managed",
+    change: {
+      actions: ["update"],
+      before,
+      after: {
+        ...structuredClone(before),
+        modified_on: "2026-01-01T00:00:01Z",
+      } as typeof before,
+      after_unknown: {} as unknown,
     },
   };
 }
