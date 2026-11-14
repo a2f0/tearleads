@@ -1,4 +1,7 @@
 import { expect, test } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { runInNewContext } from "node:vm";
 import {
   createMainProcessSentryDefine,
@@ -6,27 +9,37 @@ import {
   createRendererEnvironmentDefines,
 } from "./rendererEnvironment";
 
-function evaluateRendererEnvironment(
+async function evaluateRendererEnvironment(
   environment: Record<string, string | undefined>,
 ) {
-  const transpiler = new Bun.Transpiler({
-    define: createRendererEnvironmentDefines(environment),
-    loader: "js",
-    target: "browser",
-  });
-  const code = transpiler.transformSync(`globalThis.rendererEnvironment = {
-    api: process.env.BUN_PUBLIC_API_BASE_URL ?? "http://localhost:3001",
-    ws: process.env.BUN_PUBLIC_WS_URL,
-    version: process.env.BUN_PUBLIC_APP_VERSION ?? "unknown",
-    commit: process.env.BUN_PUBLIC_GIT_SHA ?? "unknown",
-    packages: JSON.parse(process.env.BUN_PUBLIC_PACKAGE_VERSIONS ?? "{}"),
-  };`);
-  // A WebView has no Node process global. Unreplaced reads must fail here.
-  return runInNewContext(code, {});
+  const directory = await mkdtemp(join(tmpdir(), "renderer-environment-"));
+  try {
+    const entrypoint = join(directory, "renderer.ts");
+    await writeFile(
+      entrypoint,
+      `globalThis.rendererEnvironment = {
+        api: process.env.BUN_PUBLIC_API_BASE_URL ?? "http://localhost:3001",
+        ws: process.env.BUN_PUBLIC_WS_URL,
+        version: process.env.BUN_PUBLIC_APP_VERSION ?? "unknown",
+        commit: process.env.BUN_PUBLIC_GIT_SHA ?? "unknown",
+        packages: JSON.parse(process.env.BUN_PUBLIC_PACKAGE_VERSIONS ?? "{}"),
+      };`,
+    );
+    const bundle = await Bun.build(
+      createRendererBuildConfig(environment, entrypoint),
+    );
+    const [output] = bundle.outputs;
+    if (!bundle.success || !output) throw new AggregateError(bundle.logs);
+    // Exercise the packaged renderer config in a WebView-like realm with no
+    // Node process global: a missing public define must fail at runtime.
+    return runInNewContext(await output.text(), {});
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
-test("an unset desktop environment uses its defaults without Node globals", () => {
-  expect(evaluateRendererEnvironment({})).toEqual({
+test("an unset packaged desktop environment uses defaults without Node globals", async () => {
+  expect(await evaluateRendererEnvironment({})).toEqual({
     api: "http://localhost:3001",
     ws: undefined,
     version: "unknown",
@@ -35,9 +48,9 @@ test("an unset desktop environment uses its defaults without Node globals", () =
   });
 });
 
-test("desktop build overrides remain literal strings in the browser", () => {
+test("packaged desktop build overrides remain literal strings in the browser", async () => {
   expect(
-    evaluateRendererEnvironment({
+    await evaluateRendererEnvironment({
       BUN_PUBLIC_API_BASE_URL: "https://api.example.test",
       BUN_PUBLIC_WS_URL: "wss://api.example.test/events",
       BUN_PUBLIC_APP_VERSION: 'release-"quoted"',

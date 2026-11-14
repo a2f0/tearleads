@@ -38,6 +38,8 @@ BUN_PUBLIC_APP_VERSION="$(
 )"
 export BUN_PUBLIC_GIT_SHA
 export BUN_PUBLIC_APP_VERSION
+# Unlike the optional Git identity, manifests must be complete: fail the build
+# rather than publish a partial package-version snapshot.
 BUN_PUBLIC_PACKAGE_VERSIONS="$(
   bun --no-env-file --config=/dev/null \
     "$(dirname "$0")/packageVersions.ts"
