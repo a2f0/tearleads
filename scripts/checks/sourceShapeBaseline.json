@@ -72,10 +72,6 @@
       "lines": 522,
       "bytes": 21345
     },
-    "packages/client-sdk/src/client/organizations/index.ts": {
-      "lines": 503,
-      "bytes": 14588
-    },
     "packages/client-sdk/src/index.ts": {
       "lines": 633,
       "bytes": 18726

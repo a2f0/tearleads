@@ -42,7 +42,7 @@ import {
   authenticatedOrganizationId,
   runForOrganization,
 } from "./organizationWorkflowRuntime";
-import { listOrganizationPendingBlobDeletions } from "./pendingBlobDeletions";
+import { listPendingBlobDeletions } from "./pendingBlobDeletions";
 import {
   type AbandonOrganizationPolicyMutationInput,
   abandonPendingOrganizationPolicyMutation,
@@ -150,11 +150,7 @@ class OrganizationsService implements Organizations {
     organizationId: string,
     query?: PendingBlobDeletionsQuery,
   ) {
-    return listOrganizationPendingBlobDeletions(
-      this.runtimeService,
-      organizationId,
-      query,
-    );
+    return listPendingBlobDeletions(this.runtimeService, organizationId, query);
   }
 
   async addUserToGroup(input: AddOrganizationGroupUserInput) {

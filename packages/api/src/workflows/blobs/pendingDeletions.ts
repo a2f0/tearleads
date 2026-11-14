@@ -16,7 +16,6 @@ import {
   isNotNull,
   isNull,
   notExists,
-  or,
   sql,
 } from "drizzle-orm";
 import { wallClockNowExpression } from "../../utils/postgresSql";
@@ -40,65 +39,80 @@ export interface PendingBlobDeletionPage {
   readonly afterId: string | null;
 }
 
+const fields = {
+  blobId: blobAuditObjects.blobId,
+  organizationId: blobAuditObjects.organizationId,
+  byteLength: blobAuditObjects.byteLength,
+  dereferencedAt: blobs.dereferencedAt,
+  reclaimAttemptedAt: blobs.reclaimAttemptedAt,
+  prunedAt: blobAuditObjects.prunedAt,
+  objectDeleteAttemptedAt: blobAuditObjects.objectDeleteAttemptedAt,
+  status: sql<PendingBlobDeletion["status"]>`case
+    when ${blobs.id} is null then 'deletion-pending'
+    when ${blobs.dereferencedAt} + ${DEFAULT_BLOB_GC_GRACE_PERIOD_MS} * interval '1 millisecond' <= ${wallClockNowExpression()} then 'eligible'
+    else 'grace-period' end`,
+};
+
 async function loadPendingDeletions(
   executor: DatabaseSession,
   input: PendingDeletionPageInput,
 ): Promise<PendingBlobDeletionPage> {
   const limit = Math.min(100, Math.max(1, Math.trunc(input.limit)));
   const { organizationId } = input.access;
-  // The durable registry owns identity and organization even after live pruning.
-  // A single snapshot and one id ordering spans both lifecycle phases, so a
-  // transition does not move an item to a different pagination lane.
-  const rows = await executor
-    .select({
-      blobId: blobAuditObjects.blobId,
-      organizationId: blobAuditObjects.organizationId,
-      byteLength: blobAuditObjects.byteLength,
-      dereferencedAt: blobs.dereferencedAt,
-      reclaimAttemptedAt: blobs.reclaimAttemptedAt,
-      prunedAt: blobAuditObjects.prunedAt,
-      objectDeleteAttemptedAt: blobAuditObjects.objectDeleteAttemptedAt,
-      status: sql<PendingBlobDeletion["status"]>`case
-        when ${blobs.id} is null then 'deletion-pending'
-        when ${blobs.dereferencedAt} + ${DEFAULT_BLOB_GC_GRACE_PERIOD_MS} * interval '1 millisecond' <= ${wallClockNowExpression()} then 'eligible'
-        else 'grace-period' end`,
-    })
+  // Start each phase from its partial-index predicate, not the permanent
+  // registry. An empty queue must not scan all historical blob generations.
+  // Both bounded branches share one snapshot and one id ordering, so moving
+  // between phases cannot move an item to a different pagination lane.
+  const scope = and(
+    organizationId === undefined
+      ? undefined
+      : eq(blobAuditObjects.organizationId, organizationId),
+    input.afterId === undefined
+      ? undefined
+      : gt(blobAuditObjects.blobId, input.afterId),
+    isNull(blobAuditObjects.objectDeletedAt),
+    notExists(
+      executor
+        .select({ id: attachmentBindings.id })
+        .from(attachmentBindings)
+        .where(
+          and(
+            eq(attachmentBindings.blobId, blobAuditObjects.blobId),
+            isNull(attachmentBindings.detachedAt),
+          ),
+        ),
+    ),
+  );
+  const live = executor
+    .select(fields)
+    .from(blobs)
+    .innerJoin(blobAuditObjects, eq(blobAuditObjects.blobId, blobs.id))
+    .where(
+      and(
+        scope,
+        isNotNull(blobs.dereferencedAt),
+        isNull(blobAuditObjects.prunedAt),
+      ),
+    )
+    .orderBy(asc(blobs.id))
+    .limit(limit + 1);
+  const pruned = executor
+    .select(fields)
     .from(blobAuditObjects)
     .leftJoin(blobs, eq(blobs.id, blobAuditObjects.blobId))
     .where(
       and(
-        organizationId === undefined
-          ? undefined
-          : eq(blobAuditObjects.organizationId, organizationId),
-        input.afterId === undefined
-          ? undefined
-          : gt(blobAuditObjects.blobId, input.afterId),
-        isNull(blobAuditObjects.objectDeletedAt),
-        notExists(
-          executor
-            .select({ id: attachmentBindings.id })
-            .from(attachmentBindings)
-            .where(
-              and(
-                eq(attachmentBindings.blobId, blobAuditObjects.blobId),
-                isNull(attachmentBindings.detachedAt),
-              ),
-            ),
-        ),
-        or(
-          and(
-            isNotNull(blobs.dereferencedAt),
-            isNull(blobAuditObjects.prunedAt),
-          ),
-          and(
-            isNull(blobs.id),
-            isNotNull(blobAuditObjects.prunedAt),
-            isNotNull(blobAuditObjects.liveStorageKey),
-          ),
-        ),
+        scope,
+        isNull(blobs.id),
+        isNotNull(blobAuditObjects.prunedAt),
+        isNotNull(blobAuditObjects.liveStorageKey),
       ),
     )
     .orderBy(asc(blobAuditObjects.blobId))
+    .limit(limit + 1);
+  const rows = await live
+    .unionAll(pruned)
+    .orderBy(sql`"blob_id"`)
     .limit(limit + 1);
   const page = rows.slice(0, limit);
   return {

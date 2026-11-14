@@ -4,24 +4,17 @@ import {
   captureOrganizationPresentationAccessAttempt,
   isOrganizationPresentationAccessAttemptCurrent,
 } from "../../workflows/organizations/readModel/organizationPresentationAccessState";
+import type { RootRequestOutcome } from "../../workflows/root";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { activeOrganizationDataRuntime } from "./organizationWorkflowRuntime";
 import { currentOrganizationMutation } from "./principalMutationScope";
 
-export type PendingBlobDeletionsOutcome =
-  | { readonly ok: true; readonly data: PendingBlobDeletionsResponse }
-  | {
-      readonly ok: false;
-      readonly status: number | null;
-      readonly message: string;
-    };
-
 /** Live server-authorized snapshots, never persisted in the usage projection. */
-export async function listOrganizationPendingBlobDeletions(
+export async function listPendingBlobDeletions(
   service: InternalRuntime,
   organizationId: string,
   query: PendingBlobDeletionsQuery = {},
-): Promise<PendingBlobDeletionsOutcome> {
+): Promise<RootRequestOutcome<PendingBlobDeletionsResponse>> {
   const active = activeOrganizationDataRuntime(service, organizationId);
   if (!active) {
     return {

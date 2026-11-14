@@ -8,9 +8,10 @@ Part of the [client SDK guide](../client-sdk.md).
 optionally filtered by `organizationId`.
 `tearleads.organizations.listPendingBlobDeletions(organizationId, query?)`
 reads the active organization's queue; the API verifies current admin access.
-Both accept `cursor` and `limit` (default 50, maximum 100) and return
-`{ ok: true, data }` or `{ ok: false, status, message }`. Local session/access
-changes suppress in-flight outcomes with a null status.
+Both accept `cursor` and `limit` (default 50, maximum 100) and return the public
+`RootRequestOutcome<PendingBlobDeletionsPage>` type: `{ ok: true, data }` or
+`{ ok: false, status, message }`. Local session/access changes suppress in-flight
+outcomes with a null status.
 
 The root entry point exports `PendingBlobDeletion`, `PendingBlobDeletionsPage`,
 `PendingBlobDeletionsQueryInput`, and `RootPendingBlobDeletionsQueryInput`.

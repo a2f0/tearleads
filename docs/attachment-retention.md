@@ -71,8 +71,10 @@ Consequences:
 
 Root operators can inspect the read-only **Pending deletion** report under
 **Root → Reports**. Organization admins have a **Pending deletion** tab under
-**Org Manager → Usage**, restricted to their organization. Ordinary members do
-not have access to either queue.
+**Org Manager → Usage**, restricted to their organization. This intentionally
+includes lifecycle metadata for blobs in containers the admin cannot read;
+organization administration does not grant access to their encrypted content.
+Ordinary members do not have access to either queue.
 
 The queue reports encrypted byte sizes and lifecycle metadata, not file
 contents, decryption keys, or object-store locations. It distinguishes the grace

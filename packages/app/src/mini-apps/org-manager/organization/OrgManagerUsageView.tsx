@@ -33,7 +33,7 @@ const USAGE_TABS: ReadonlyArray<MiniAppTabDescriptor<UsageTabId>> = [
 
 const ADMIN_USAGE_TABS: ReadonlyArray<MiniAppTabDescriptor<UsageTabId>> = [
   ...USAGE_TABS,
-  { id: "pending-deletion", label: "Pending deletion" },
+  { id: "pending-deletion", label: DATA_USAGE_LABELS.usagePendingDeletionTab },
 ];
 
 function DeviceDataUsageMetrics({

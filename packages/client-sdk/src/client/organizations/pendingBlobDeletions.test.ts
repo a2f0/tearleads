@@ -7,7 +7,7 @@ import {
   createWorkflowInputFixture,
 } from "../../../test/helpers/internalRuntimeFixtures";
 import { denyOrganizationPresentationAccess } from "../../workflows/organizations/readModel/organizationPresentationAccessState";
-import { listOrganizationPendingBlobDeletions } from "./pendingBlobDeletions";
+import { listPendingBlobDeletions } from "./pendingBlobDeletions";
 
 function fixture() {
   const pending =
@@ -46,7 +46,7 @@ function fixture() {
 for (const change of ["changeSession", "denyAccess"] as const) {
   test(`pending deletion reply is discarded after ${change}`, async () => {
     const f = fixture();
-    const request = listOrganizationPendingBlobDeletions(f.service, "org");
+    const request = listPendingBlobDeletions(f.service, "org");
     f[change]();
     f.pending.resolve({ ok: true, data: { blobs: [], nextAfterId: "opaque" } });
     expect(await request).toEqual({
@@ -60,17 +60,15 @@ for (const change of ["changeSession", "denyAccess"] as const) {
 
 test("inactive organization does not dispatch and successful snapshots are not cached", async () => {
   const f = fixture();
-  expect(
-    (await listOrganizationPendingBlobDeletions(f.service, "other")).ok,
-  ).toBe(false);
+  expect((await listPendingBlobDeletions(f.service, "other")).ok).toBe(false);
   expect(f.calls()).toBe(0);
   const page = { blobs: [], nextAfterId: "opaque" };
   f.pending.resolve({ ok: true, data: page });
-  expect(await listOrganizationPendingBlobDeletions(f.service, "org")).toEqual({
+  expect(await listPendingBlobDeletions(f.service, "org")).toEqual({
     ok: true,
     data: page,
   });
-  await listOrganizationPendingBlobDeletions(f.service, "org");
+  await listPendingBlobDeletions(f.service, "org");
   expect(f.calls()).toBe(2);
 });
 
@@ -86,7 +84,7 @@ test("server denial keeps status and message without exposing transport internal
     statusText: "Forbidden",
     report: () => {},
   });
-  expect(await listOrganizationPendingBlobDeletions(f.service, "org")).toEqual({
+  expect(await listPendingBlobDeletions(f.service, "org")).toEqual({
     ok: false,
     status: 403,
     message: "Admin access required",
