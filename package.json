@@ -103,7 +103,7 @@
     "test:static-analysis": "bun scripts/testing/testStaticAnalysis.ts",
     "test:architecture": "bun scripts/testing/testArchitecture.ts",
     "test:step-timings": "cd scripts/lib && bun test stepTimings.test.ts",
-    "test:soft-reset": "bun test scripts/deploy/softReset.test.ts scripts/deploy/softResetSafety.test.ts scripts/deploy/softResetRecovery.test.ts scripts/deploy/softResetCancel.test.ts scripts/deploy/softResetPolicy.test.ts scripts/deploy/softResetProcess.test.ts scripts/deploy/softResetRuntime.test.ts scripts/deploy/softResetNatural.test.ts scripts/deploy/softResetNaturalRuntime.test.ts scripts/deploy/softResetGit.test.ts scripts/deploy/softResetMetadata.test.ts scripts/deploy/softResetDrift.test.ts scripts/deploy/softResetStorage.test.ts scripts/deploy/softResetStorageDrift.test.ts",
+    "test:soft-reset": "bun test scripts/deploy/softReset.test.ts scripts/deploy/softResetSafety.test.ts scripts/deploy/softResetRecovery.test.ts scripts/deploy/softResetCancel.test.ts scripts/deploy/softResetPolicy.test.ts scripts/deploy/softResetProcess.test.ts scripts/deploy/softResetRuntime.test.ts scripts/deploy/softResetNatural.test.ts scripts/deploy/softResetNaturalRuntime.test.ts scripts/deploy/softResetGit.test.ts scripts/deploy/softResetMetadata.test.ts scripts/deploy/softResetDrift.test.ts scripts/deploy/softResetStorage.test.ts scripts/deploy/softResetStorageDrift.test.ts scripts/deploy/softResetTokenDrift.test.ts",
     "test:install-dependencies": "cd scripts/lib && bun test installDependencies.test.ts",
     "test:npm-publish": "cd scripts/release && bun test releasePlan.test.ts publishPolicy.test.ts publishNpmPackage.test.ts",
     "test:biome:promises": "bun scripts/testing/testBiomePromises.ts",
