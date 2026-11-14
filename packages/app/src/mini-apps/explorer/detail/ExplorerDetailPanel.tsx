@@ -81,10 +81,9 @@ function ExplorerNewStructuredDocumentRoutePanel(params: {
 
   return (
     <ExplorerNewStructuredDocumentPanel
-      // Creating the document routes straight to it. Do not step back through
-      // the selection route first: that would push a history entry, leaving the
-      // blank document-type picker behind for the back button to land on
-      // (useExplorerRoute replaces the picker when the new document opens).
+      key={creationNode.id}
+      // Creation replaces the picker route. Do not add an intermediate
+      // selection-route history entry for Back to land on.
       onCreateDocument={(documentKind) =>
         openInlineDocument(route.containerId, documentKind)
       }
