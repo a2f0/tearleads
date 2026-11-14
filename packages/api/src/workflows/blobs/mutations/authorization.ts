@@ -307,7 +307,7 @@ export async function lockAttachmentAuthorizationForShare(input: {
   readonly executor: DatabaseTransaction;
   readonly proof: AttachmentAuthorizationProof;
   readonly request: BlobAttachmentBindRequest | BlobAttachmentDetachRequest;
-}): Promise<void> {
+}) {
   const { documentSync } = input;
   const existingBlobResolution =
     input.blobId === undefined || input.contentKeyTargets === undefined
@@ -360,7 +360,7 @@ export async function lockAttachmentAuthorizationForShare(input: {
     existingBlobTargets,
     linkedContainerIds,
   });
-  await lockAttachmentAuthorizationHeadsForShare({
+  const lockedHeads = await lockAttachmentAuthorizationHeadsForShare({
     ...lockPlan,
     exclusiveDocumentId: documentSync ? input.documentId : undefined,
     executor: input.executor,
@@ -380,6 +380,7 @@ export async function lockAttachmentAuthorizationForShare(input: {
   const lockedManifest = await loadCurrentDocumentManifest(
     input.documentId,
     input.executor,
+    lockedHeads.documentHeads.get(input.documentId) ?? null,
   );
   if (
     lockedManifest.manifestHash !== input.proof.documentManifest.manifestHash
@@ -390,7 +391,9 @@ export async function lockAttachmentAuthorizationForShare(input: {
     input.executor,
     input.request.authorizingContainerPathRefs,
     "authorizingContainerPathRefs",
+    lockedHeads.containerHeads,
   );
+  return lockedHeads.containerHeads;
 }
 
 export async function applyAttachmentContainerRekeys(input: {

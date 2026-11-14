@@ -29,8 +29,9 @@ import {
  * request rather than two roundtrips per reference. Order is preserved.
  */
 /**
- * Container heads this transaction read with the lock that still holds them;
- * they stay current until it ends, so the freshness pin may use them.
+ * Actual container rows read under locks held by this transaction. Reuse only
+ * before any intervening write to these heads: locks exclude competing writers,
+ * not this transaction's own writes. A held-lock marker is not a row snapshot.
  */
 export type LockedContainerHeadRows = ReadonlyMap<
   string,
@@ -177,6 +178,7 @@ export async function assertCurrentContainerPathRefs(
   executor: DatabaseSession,
   refs: readonly ContainerManifestRef[] | undefined,
   label: string,
+  lockedHeads?: LockedContainerHeadRows,
 ): Promise<VerifiedContainerAccessManifest[] | undefined> {
   if (refs === undefined) {
     return undefined;
@@ -184,6 +186,7 @@ export async function assertCurrentContainerPathRefs(
   const path = await resolveCurrentContainerManifestRefs(
     executor,
     refs.map((ref, index) => ({ ref, refLabel: `${label}[${index}]` })),
+    lockedHeads,
   );
   assertContainerPathEdges(path, label);
   return path;

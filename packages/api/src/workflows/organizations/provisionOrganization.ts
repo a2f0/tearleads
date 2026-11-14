@@ -209,7 +209,7 @@ async function createInitialRootMetadataDocument(
     );
   }
 
-  const { created } = await createDocumentWithExecutor({
+  const { created, lockedContainerHeads } = await createDocumentWithExecutor({
     executor: tx,
     fingerprint: signer.fingerprint,
     request: input.initialRootMetadataDocument,
@@ -230,6 +230,7 @@ async function createInitialRootMetadataDocument(
     documentId: created.id,
     executor: tx,
     fingerprint: signer.fingerprint,
+    lockedContainerHeads,
     request: input.initialRootMetadataDocument.initialSync,
     signingPublicKey: signer.signingPublicKey,
     userId: input.userId,

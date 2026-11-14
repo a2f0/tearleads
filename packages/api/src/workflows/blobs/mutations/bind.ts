@@ -248,13 +248,23 @@ async function verifyAndLockBindSlot(input: {
   return { activeBinding, verifiedBinding };
 }
 
-function lockBindAttachmentAuthorization(
+async function verifyAndLockBindAuthorization(
   input: BindBlobAttachmentInput,
   documentId: string,
-  proof: AttachmentAuthorizationProof,
   tx: DatabaseTransaction,
-): Promise<void> {
-  return lockAttachmentAuthorizationForShare({
+) {
+  // These queries share one transaction connection, so run sequentially.
+  const signingPublicKey = await loadSignerPublicKey(tx, {
+    ...input,
+    error: (message, status) => new BlobMutationError(message, status),
+  });
+  const proof = await verifyAttachmentAuthorizationProof({
+    bodyDocumentId: documentId,
+    executor: tx,
+    request: input.request,
+  });
+  await assertAttachmentOrganizationCanSync(tx, proof, input.userId);
+  const lockedContainerHeads = await lockAttachmentAuthorizationForShare({
     blobId: input.blobId,
     contentKeyTargets: input.request.contentKeyBundle.targets,
     documentId,
@@ -263,6 +273,7 @@ function lockBindAttachmentAuthorization(
     proof,
     request: input.request,
   });
+  return { lockedContainerHeads, proof, signingPublicKey };
 }
 
 function storeBindingKeys(
@@ -284,6 +295,9 @@ function storeBindingKeys(
  */
 async function appendCarriedDocumentSync(carried: {
   readonly input: BindBlobAttachmentInput;
+  readonly lockedContainerHeads: Awaited<
+    ReturnType<typeof lockAttachmentAuthorizationForShare>
+  >;
   readonly proof: AttachmentAuthorizationProof;
   readonly signingPublicKey: Uint8Array;
   readonly tx: DatabaseTransaction;
@@ -295,6 +309,7 @@ async function appendCarriedDocumentSync(carried: {
     documentId,
     executor: carried.tx,
     fingerprint: input.fingerprint,
+    lockedContainerHeads: carried.lockedContainerHeads,
     request: input.request.documentSync,
     signingPublicKey: carried.signingPublicKey,
     syncEligibleOrganizationId: organizationId,
@@ -329,18 +344,8 @@ async function bindBlobAttachmentTransaction(
     request: input.request,
     userId: input.userId,
   });
-  // These queries share one transaction connection, so run sequentially.
-  const signingPublicKey = await loadSignerPublicKey(tx, {
-    ...input,
-    error: (message, status) => new BlobMutationError(message, status),
-  });
-  const proof = await verifyAttachmentAuthorizationProof({
-    bodyDocumentId: bindBody.documentId,
-    executor: tx,
-    request: input.request,
-  });
-  await assertAttachmentOrganizationCanSync(tx, proof, input.userId);
-  await lockBindAttachmentAuthorization(input, bindBody.documentId, proof, tx);
+  const { lockedContainerHeads, proof, signingPublicKey } =
+    await verifyAndLockBindAuthorization(input, bindBody.documentId, tx);
   const { activeBinding, verifiedBinding } = await verifyAndLockBindSlot({
     bindBody,
     blobId: input.blobId,
@@ -403,6 +408,7 @@ async function bindBlobAttachmentTransaction(
   return {
     acceptedOutgoingUpdateIds: await appendCarriedDocumentSync({
       input,
+      lockedContainerHeads,
       proof,
       signingPublicKey,
       tx,

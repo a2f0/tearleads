@@ -54,13 +54,16 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
           });
         assertContainerSystemSlot(container, input.request.systemSlot ?? null);
 
-        const { created: metadataDocument, linkedContainerIds } =
-          await createDocumentWithExecutor({
-            executor: tx,
-            fingerprint: input.fingerprint,
-            request: input.request.metadataDocument,
-            userId: input.userId,
-          });
+        const {
+          created: metadataDocument,
+          linkedContainerIds,
+          lockedContainerHeads,
+        } = await createDocumentWithExecutor({
+          executor: tx,
+          fingerprint: input.fingerprint,
+          request: input.request.metadataDocument,
+          userId: input.userId,
+        });
         if (metadataDocument.id !== metadataDocumentId) {
           throw new ContainerMutationError(
             "Metadata document does not match container metadata state",
@@ -81,6 +84,7 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
             documentId: metadataDocument.id,
             executor: tx,
             fingerprint: input.fingerprint,
+            lockedContainerHeads,
             seed: input.request.initialMetadataSync,
             syncEligibleOrganizationId: container.organizationId,
             userId: input.userId,

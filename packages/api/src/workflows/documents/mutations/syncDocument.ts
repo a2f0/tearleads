@@ -158,6 +158,7 @@ interface DocumentCreateSeedInput {
   readonly fingerprint: string;
   readonly request: DocumentSyncRequest;
   readonly signingPublicKey: Uint8Array;
+  readonly lockedContainerHeads?: CreateSeedContext["lockedContainerHeads"];
   readonly userId: string;
 }
 
@@ -257,6 +258,7 @@ export async function appendProvisionedDocumentInitialUpdate(
     seed: {
       documentInsertedInTransaction: true,
       syncEligibleOrganizationId: null,
+      lockedContainerHeads: input.lockedContainerHeads,
     },
   });
 }
@@ -279,6 +281,7 @@ export function appendDocumentCreateSeed(
     seed: {
       documentInsertedInTransaction: true,
       syncEligibleOrganizationId: input.syncEligibleOrganizationId,
+      lockedContainerHeads: input.lockedContainerHeads,
     },
   });
 }
@@ -303,6 +306,7 @@ export function appendAttachmentBindDocumentSync(
     seed: {
       documentInsertedInTransaction: false,
       headLocksHeld: true,
+      lockedContainerHeads: input.lockedContainerHeads,
       syncEligibleOrganizationId: input.syncEligibleOrganizationId,
     },
   });

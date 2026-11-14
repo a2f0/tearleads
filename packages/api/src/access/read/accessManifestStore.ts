@@ -8,9 +8,11 @@ export {
 } from "../shared/internal/accessManifestBundleReads";
 export {
   listUnheldAccessManifestHeads,
+  lockAccessManifestHeadRows,
   lockAccessManifestHeadsForShare,
   lockAccessManifestHeadsForUpdate,
   lockUnheldAccessManifestHeads,
+  type StoredAccessManifestHead,
 } from "../shared/internal/accessManifestHeadLocks";
 export {
   getCurrentAccessManifestHead,

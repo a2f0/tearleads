@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import {
+  db,
+  getDefaultApiDatabaseKind,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
 import {
   attachmentBindings,
   documentUpdates,
@@ -101,7 +105,10 @@ test("a bind commits the document sync it carries after its binding", async () =
   const fixture = await documentWithRoot();
   const { blobId, request, updateId } = await stagedBindWithSync(fixture);
 
-  const response = await bind(fixture.owner, blobId, request);
+  const counter = { statements: 0 };
+  const response = await withDatabaseStatementCounter(counter, () =>
+    bind(fixture.owner, blobId, request),
+  );
 
   expect(response.documentSync).toMatchObject({
     acceptedOutgoingUpdateIds: [updateId],
@@ -111,6 +118,10 @@ test("a bind commits the document sync it carries after its binding", async () =
     bindingBlobIds: [blobId],
     updateIds: [updateId],
   });
+  console.info("locked-head-bind-carry", counter.statements);
+  expect(counter.statements).toBeLessThanOrEqual(
+    76 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
 }, 20_000);
 
 test("a bind without a document sync reports none", async () => {
@@ -118,13 +129,20 @@ test("a bind without a document sync reports none", async () => {
   const { blobId, request } = await stagedBindWithSync(fixture);
   const { documentSync: _omitted, ...plain } = request;
 
-  const response = await bind(fixture.owner, blobId, plain);
+  const counter = { statements: 0 };
+  const response = await withDatabaseStatementCounter(counter, () =>
+    bind(fixture.owner, blobId, plain),
+  );
 
   expect(response.documentSync).toBeUndefined();
   expect(await storedState(fixture.document.id)).toEqual({
     bindingBlobIds: [blobId],
     updateIds: [],
   });
+  console.info("locked-head-bind-plain", counter.statements);
+  expect(counter.statements).toBeLessThanOrEqual(
+    54 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
 }, 20_000);
 
 test("a detach ignores a stray documentSync field", async () => {

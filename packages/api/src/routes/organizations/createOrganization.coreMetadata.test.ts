@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import {
+  db,
+  getDefaultApiDatabaseKind,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
 import {
   containerMetadataDocuments,
   organizationBilling,
@@ -105,7 +109,11 @@ test("POST /organizations atomically stores core metadata bodies readable on loc
     "expected core metadata update ids",
   );
 
-  const createResponse = await submitCreateOrganization(user, body);
+  const counter = { statements: 0 };
+  const createResponse = await withDatabaseStatementCounter(counter, () =>
+    submitCreateOrganization(user, body),
+  );
+  console.info("locked-head-profile-seeds", counter.statements);
   expect(createResponse.status).toBe(200);
   const createResponseBody = await createResponse.json();
   invariant(
@@ -150,4 +158,28 @@ test("POST /organizations atomically stores core metadata bodies readable on loc
     initialSync: organizationContainer.initialMetadataSync,
     user,
   });
+  const profileUpdateIds: string[] = [];
+  for (const profile of [
+    body.initialRosterProfileDocument,
+    body.initialOrganizationProfileDocument,
+  ]) {
+    invariant(
+      isProvisionedDocumentRequest(profile),
+      "expected provisioned profile",
+    );
+    profileUpdateIds.push(
+      ...profile.initialSync.outgoingUpdates.map((update) => update.id),
+    );
+    await expectProvisionedDocumentReadable({
+      documentId: documentCreateRequestId(profile),
+      initialSync: profile.initialSync,
+      user,
+    });
+  }
+  expect(createResponseBody.committedProfileUpdateIds).toEqual(
+    profileUpdateIds,
+  );
+  expect(counter.statements).toBeLessThanOrEqual(
+    418 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
 });

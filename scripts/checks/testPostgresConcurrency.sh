@@ -67,6 +67,7 @@ exec bun test \
   src/routes/documents/deleteCreateConcurrency.pg.test.ts \
   src/routes/documents/linkBlobRewrapConcurrency.pg.test.ts \
   src/routes/documents/linkDeleteConcurrency.pg.test.ts \
+  src/routes/documents/lockedHeadConcurrency.pg.test.ts \
   src/routes/documents/metadataDeleteCreateConcurrency.pg.test.ts \
   src/routes/documents/deletedContainerReferences.test.ts \
   src/routes/documents/grantSyncConcurrency.pg.test.ts \
