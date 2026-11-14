@@ -5,6 +5,7 @@ import type {
 import { normalizeDocumentAccessEventBody } from "@tearleads/crypto";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import type { DocumentLinkSetMutationResponse } from "@tearleads/validators/response";
+import type { StoredAccessManifestHead } from "../../../access/read/accessManifestStore";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
@@ -112,6 +113,7 @@ async function advanceDocumentLinkSet(input: {
   readonly documentId: string;
   readonly eventType: "document.link" | "document.unlink";
   readonly executor: DatabaseTransaction;
+  readonly lockedHead: StoredAccessManifestHead | null;
   readonly manifest: Parameters<typeof documentMutationAcknowledgement>[0];
   readonly previousManifest: Parameters<
     typeof documentMutationAcknowledgement
@@ -165,18 +167,19 @@ async function lockDocumentLinkSetMutationFrontier(input: {
     input.documentId,
     input.executor,
   );
-  await lockDocumentLinkSetMutationHeads({
+  const lockedHeads = await lockDocumentLinkSetMutationHeads({
     ...input,
     previousLinkedContainerIds: observed.state.linkedContainerIds,
   });
   const locked = await loadCurrentDocumentManifest(
     input.documentId,
     input.executor,
+    lockedHeads.documentHead,
   );
   if (locked.manifestHash !== observed.manifestHash) {
     throw new DocumentMutationError("Document manifest is stale", 409);
   }
-  return locked;
+  return { previousManifest: locked, lockedHeads };
 }
 
 async function preauthorizeDocumentLinkSetMutation(input: {
@@ -296,15 +299,13 @@ async function mutateDocumentLinkSetWithExecutor(
       requests: input.request.containerRekeys,
       userId: input.userId,
     });
-    const previousManifest = await lockDocumentLinkSetMutationFrontier({
-      documentId: input.documentId,
-      executor: input.executor,
-      request: input.request,
-    });
+    const { previousManifest, lockedHeads } =
+      await lockDocumentLinkSetMutationFrontier(input);
     const authorization =
       await verifyDocumentLinkSetMutationAuthorizationFromRequest({
         event,
         executor: input.executor,
+        lockedContainerHeads: lockedHeads.containerHeads,
         previousManifest,
         request: input.request,
       });
@@ -323,6 +324,7 @@ async function mutateDocumentLinkSetWithExecutor(
       documentId: input.documentId,
       eventType: input.eventType,
       executor: input.executor,
+      lockedHead: lockedHeads.documentHead,
       manifest,
       previousManifest,
       request: input.request,

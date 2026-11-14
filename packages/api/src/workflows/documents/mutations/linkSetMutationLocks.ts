@@ -2,8 +2,8 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import { isUuidV4String } from "@tearleads/validators/util";
 import {
-  lockAccessManifestHeadsForShare,
-  lockAccessManifestHeadsForUpdate,
+  lockAccessManifestHeadRows,
+  type StoredAccessManifestHead,
 } from "../../../access/read/accessManifestStore";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { DocumentMutationError } from "./errors";
@@ -74,23 +74,27 @@ export async function lockDocumentLinkSetMutationHeads(input: {
   readonly executor: DatabaseTransaction;
   readonly previousLinkedContainerIds: readonly string[];
   readonly request: DocumentLinkSetMutationRequest;
-}): Promise<void> {
+}): Promise<{
+  readonly containerHeads: ReadonlyMap<string, StoredAccessManifestHead>;
+  readonly documentHead: StoredAccessManifestHead | null;
+}> {
+  const containerHeads = new Map<string, StoredAccessManifestHead>();
+  let documentHead: StoredAccessManifestHead | null = null;
   await executeDocumentLinkSetMutationLockPlan(
     createDocumentLinkSetMutationLockPlan(input),
     async (step) => {
-      if (step.mode === "share") {
-        await lockAccessManifestHeadsForShare(
-          step.objectKind,
-          step.objectIds,
-          input.executor,
-        );
+      const rows = await lockAccessManifestHeadRows(
+        step.objectKind,
+        step.objectIds,
+        input.executor,
+        step.mode,
+      );
+      if (step.objectKind === "container") {
+        for (const row of rows) containerHeads.set(row.objectId, row);
       } else {
-        await lockAccessManifestHeadsForUpdate(
-          step.objectKind,
-          step.objectIds,
-          input.executor,
-        );
+        documentHead = rows[0] ?? null;
       }
     },
   );
+  return { containerHeads, documentHead };
 }

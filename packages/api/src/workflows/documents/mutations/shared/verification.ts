@@ -21,6 +21,7 @@ import type {
 import {
   getAccessManifestBundles,
   getCurrentAccessManifestHead,
+  type StoredAccessManifestHead,
 } from "../../../../access/read/accessManifestStore";
 import type { resolveCurrentDocumentKekTargets as resolveTargets } from "../../../../access/read/documentKekTargets";
 import {
@@ -112,6 +113,7 @@ export async function verifyDocumentEvent(input: {
 export async function verifyDocumentManifestFromRequest(input: {
   readonly event: VerifiedAccessEvent;
   readonly executor: DatabaseTransaction;
+  readonly lockedContainerHeads?: LockedContainerHeadRows;
   readonly request: DocumentCreateRequest;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   assertDependencies(input.request, input.event.event);
@@ -120,11 +122,13 @@ export async function verifyDocumentManifestFromRequest(input: {
     input.executor,
     input.request.targetContainerPathRefs,
     "targetContainerPathRefs",
+    input.lockedContainerHeads,
   );
   const authorizingContainerPaths = await assertCurrentContainerPathRefGroups(
     input.executor,
     input.request.authorizingContainerPathRefs,
     "authorizingContainerPathRefs",
+    input.lockedContainerHeads,
   );
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
     input.executor,
@@ -166,6 +170,7 @@ interface VerifiedDocumentLinkSetMutationAuthorization {
 export async function verifyDocumentLinkSetMutationAuthorizationFromRequest(input: {
   readonly event: VerifiedAccessEvent;
   readonly executor: DatabaseTransaction;
+  readonly lockedContainerHeads?: LockedContainerHeadRows;
   readonly previousManifest: VerifiedDocumentLinkSetManifest;
   readonly request: DocumentLinkSetMutationRequest;
 }): Promise<VerifiedDocumentLinkSetMutationAuthorization> {
@@ -177,11 +182,13 @@ export async function verifyDocumentLinkSetMutationAuthorizationFromRequest(inpu
     input.executor,
     input.request.targetContainerPathRefs,
     "targetContainerPathRefs",
+    input.lockedContainerHeads,
   );
   const authorizingContainerPaths = await assertCurrentContainerPathRefGroups(
     input.executor,
     input.request.authorizingContainerPathRefs,
     "authorizingContainerPathRefs",
+    input.lockedContainerHeads,
   );
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
     input.executor,
@@ -255,12 +262,12 @@ async function resolveStoredDocumentManifest(
 export async function loadCurrentDocumentManifest(
   documentId: string,
   executor: DatabaseSession,
+  lockedHead?: StoredAccessManifestHead | null,
 ): Promise<VerifiedDocumentLinkSetManifest> {
-  const head = await getCurrentAccessManifestHead(
-    "document",
-    documentId,
-    executor,
-  );
+  const head =
+    lockedHead !== undefined
+      ? lockedHead
+      : await getCurrentAccessManifestHead("document", documentId, executor);
   if (!head) {
     throw new DocumentMutationError("Document manifest head missing", 404);
   }

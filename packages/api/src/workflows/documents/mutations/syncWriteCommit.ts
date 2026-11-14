@@ -10,6 +10,7 @@ import { applyContainerRekeys } from "../../containers/mutations";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import { documentSyncStateStale } from "./errors";
 import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
+import type { LockedContainerHeadRows } from "./shared/currentContainerPaths";
 import { touchDocumentAndLinkedContainers } from "./shared/documentRows";
 import { verifySyncWriteAuthorizationProof } from "./shared/verification";
 import { ensureSyncDocumentAccess } from "./syncAccess";
@@ -150,6 +151,8 @@ export interface SyncDocumentWriteInput {
  * an attachment bind's for the document's deferred first update.
  */
 export interface CreateSeedContext {
+  /** Actual rows read by the carrying transaction, with no later head writes. */
+  readonly lockedContainerHeads?: LockedContainerHeadRows | undefined;
   /** A create inserted the document row itself; a bind's document exists. */
   readonly documentInsertedInTransaction: boolean;
   /**
@@ -229,11 +232,20 @@ export async function commitSyncDocumentWrites(
     userId: input.userId,
   });
   await assertSyncBillingAllowed(input, currentTargets.organizationId);
+  // A lock excludes competing writers, not this transaction's own rekeys.
+  // Carried seeds currently forbid rekeys; keep that boundary explicit here
+  // too, rather than letting a future caller reuse a pre-rekey snapshot.
+  const carriedHeads = input.request.containerRekeys?.length
+    ? undefined
+    : input.seed?.lockedContainerHeads;
   const writeAuthorization = await verifySyncWriteAuthorizationProof({
     currentTargets,
     documentId: input.documentId,
     executor: input.tx,
-    ...(lockedContainerHeads ? { lockedContainerHeads } : {}),
+    lockedContainerHeads: new Map([
+      ...(carriedHeads ?? []),
+      ...(lockedContainerHeads ?? []),
+    ]),
     request: input.request,
   });
   // Must run before the bundle store below advances the latest epoch and

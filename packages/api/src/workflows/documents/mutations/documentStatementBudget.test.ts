@@ -94,8 +94,16 @@ test("document create, sync write, and sync pull stay within their statement bud
   // pull 32 / 33 / 34. History batching, adjacent reads and joined admission
   // reads now use create 32 / 33, write 36 / 37, pull 25 / 26 (PGlite /
   // SQLite). Keep the Postgres transaction-control allowance in the bounds.
+  console.info(
+    "locked-head-create-baseline",
+    JSON.stringify({
+      create: create.statements,
+      write: write.statements,
+      pull: pull.statements,
+    }),
+  );
   expect(create.statements).toBeLessThanOrEqual(
-    32 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    31 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
   expect(write.statements).toBeLessThanOrEqual(
     36 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
@@ -191,6 +199,12 @@ test("a seeded document create stays within its statement budget", async () => {
 
   const seeded = await counted(() => post(owner.token, "/documents", request));
   expect(seeded.result.status).toBe(200);
+  const body = await seeded.result.json();
+  invariant(isDocumentCreateResponse(body), "expected seeded document");
+  expect(body.id).toBe(planned.id);
+  expect(body.manifestHash).toBe(create.expectedManifestHash);
+  expect(body.initialSync?.acceptedOutgoingUpdateIds).toEqual([update.id]);
+  console.info("locked-head-seeded-create", seeded.statements);
   // PGlite / SQLite / Postgres: 90 / 90 / 92 while the seed re-read the
   // document row, re-locked heads the create held, re-read billing the create
   // checked, built an unread pull page, and every lock and bundle read was
@@ -198,7 +212,7 @@ test("a seeded document create stays within its statement budget", async () => {
   // Policy and adjacent-read batching now uses 56 on PGlite / SQLite,
   // plus the two Postgres transaction-control statements.
   expect(seeded.statements).toBeLessThanOrEqual(
-    56 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    52 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
 }, 30_000);
 
