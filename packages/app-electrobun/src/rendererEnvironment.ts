@@ -5,6 +5,7 @@ const publicEnvironmentNames = [
   "BUN_PUBLIC_WS_URL",
   "BUN_PUBLIC_APP_VERSION",
   "BUN_PUBLIC_GIT_SHA",
+  "BUN_PUBLIC_PACKAGE_VERSIONS",
 ];
 
 // Release diagnostics, selected per tier by scripts/withSentryReleaseEnv.ts from

@@ -10,7 +10,6 @@ export function useApiRequestMetrics() {
   );
   return {
     snapshot,
-    hasIdentity: signingFingerprint !== null,
     reset: () => apiRequests.reset(signingFingerprint),
   };
 }

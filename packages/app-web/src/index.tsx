@@ -43,6 +43,7 @@ const hostConfig = createAppHostConfig({
   // Stamped by scripts/lib/withBuildInfoEnv.sh and inlined by `bun build --env`.
   buildInfo: createAppBuildInfo({
     commit: process.env.BUN_PUBLIC_GIT_SHA,
+    packageVersionsJson: process.env.BUN_PUBLIC_PACKAGE_VERSIONS,
     target: "web",
     version: process.env.BUN_PUBLIC_APP_VERSION,
   }),

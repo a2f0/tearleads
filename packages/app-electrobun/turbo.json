@@ -2,6 +2,15 @@
   "$schema": "https://turborepo.com/schema.json",
   "extends": ["//"],
   "tasks": {
+    "build": {
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/scripts/lib/withBuildInfoEnv.sh",
+        "$TURBO_ROOT$/scripts/lib/packageVersions.ts"
+      ]
+    },
     "test": {
       "description": "Release suites read repository scripts and the downloads Terraform stacks by path. Explicit globs bypass .gitignore, so the negations keep local state out of the hash.",
       "inputs": [

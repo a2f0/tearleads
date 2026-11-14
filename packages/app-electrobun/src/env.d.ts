@@ -9,6 +9,7 @@ declare namespace NodeJS {
      */
     BUN_PUBLIC_APP_VERSION?: string;
     BUN_PUBLIC_GIT_SHA?: string;
+    BUN_PUBLIC_PACKAGE_VERSIONS?: string;
     /**
      * Private error diagnostics, inlined only by the packaged release build.
      * Reporting stays off unless all four are present and well formed; see
