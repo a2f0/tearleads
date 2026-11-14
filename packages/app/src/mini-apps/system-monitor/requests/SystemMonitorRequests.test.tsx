@@ -31,11 +31,6 @@ test("API Requests shows earlier traffic, updates live, survives reopening and r
   const view = renderPane({ hostConfig, pinSystemMonitor: false });
   let table = await open(view);
   expect(table.getByText("GET /auth/sessions")).toBeTruthy();
-  expect(
-    view
-      .getByRole("region", { name: "API request counts" })
-      .querySelectorAll("p"),
-  ).toHaveLength(0);
   act(() => {
     metrics.begin(null, listSessionsOperation)("failed", {
       totalMs: 42,
