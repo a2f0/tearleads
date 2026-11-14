@@ -17,5 +17,6 @@ export async function createCanonicalSelfContactIdentity(
       localIds: new Set([localId, ...aliases]),
     },
     isCurrent: () => true,
+    runWhenCurrent: async (work) => work(),
   };
 }

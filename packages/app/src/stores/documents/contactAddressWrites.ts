@@ -5,6 +5,7 @@ import {
   type ContactAddressFields,
   isContactAddressRow,
 } from "../../document-types/contact/contactAddressModel";
+import { ContactAddressWriteRefusal } from "../../document-types/contact/contactAddressWriteRefusal";
 
 import {
   type ContactAddressCreationState,
@@ -112,7 +113,13 @@ export async function updateContactAddressRow(
   const current = captureWriter(store, guard);
   const values = trimFields(fields);
   return queue(store, current, async () => {
-    address(store, id, current);
+    // This lookup precedes even recovery work. Later address() checks may
+    // follow a live mutation or flush and must retain uncertain outcomes.
+    const initialRow = writable(store, current).rows.find(
+      (row) => row.id === id,
+    );
+    if (!initialRow || !isContactAddressRow(initialRow))
+      throw new ContactAddressWriteRefusal(SAVE_FAILURE);
     await flushPending(store, current);
     const row = address(store, id, current);
     const patch = Object.fromEntries(
@@ -150,7 +157,12 @@ export async function removeContactAddressRow(
       // permanently block a fresh explicit deletion of the same row.
       await flushPending(store, current);
     } else {
-      address(store, id, current);
+      // Only a fresh missing target is proven untouched: the retry branch can
+      // already have flushed an older unconfirmed deletion. Shared address()
+      // and writable() checks also run after effects and must stay uncertain.
+      const row = writable(store, current).rows.find((row) => row.id === id);
+      if (!row || !isContactAddressRow(row))
+        throw new ContactAddressWriteRefusal(SAVE_FAILURE);
       pending.add(id);
     }
     // A previous SDK refusal may have made no mutation. After flushing any

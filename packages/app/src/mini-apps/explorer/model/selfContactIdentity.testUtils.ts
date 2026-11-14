@@ -40,6 +40,7 @@ export async function createReadySelfIdentity(
       localIds: new Set([localId]),
     },
     isCurrent,
+    runWhenCurrent: async (work) => (isCurrent() ? work() : null),
   };
 }
 

@@ -13,10 +13,25 @@ type AddressDraft = {
 };
 export type ContactAddressEditorState =
   | { status: "idle" }
-  | { status: "removeFailed"; id: string; error: string }
-  | { status: "removing"; id: string; requestId: number }
+  | {
+      status: "removeFailed";
+      id: string;
+      recovery: "none" | "unconfirmed";
+      error: string;
+    }
+  | {
+      status: "removing";
+      id: string;
+      recovery: "none" | "unconfirmed";
+      requestId: number;
+    }
   | { status: "editing"; draft: AddressDraft; error: string | null }
-  | { status: "saving"; draft: AddressDraft; requestId: number };
+  | {
+      status: "saving";
+      draft: AddressDraft;
+      previousSubmitted: AddressDraft["submitted"];
+      requestId: number;
+    };
 
 type EditorEvent =
   | { type: "cancel" }
@@ -24,6 +39,7 @@ type EditorEvent =
   | { type: "change"; key: ContactAddressFieldKey; value: string }
   | { type: "save"; requestId: number }
   | { type: "remove"; id: string; requestId: number }
+  | { type: "refused"; requestId: number; error: string }
   | { type: "failed"; requestId: number; error: string }
   | { type: "saved"; requestId: number };
 
@@ -33,9 +49,7 @@ export function transitionContactAddressEditor(
 ): ContactAddressEditorState {
   switch (event.type) {
     case "cancel":
-      return state.status === "editing" && state.draft.submitted === null
-        ? { status: "idle" }
-        : state;
+      return cancelEditor(state);
     case "edit":
       return state.status === "idle"
         ? {
@@ -63,12 +77,18 @@ export function transitionContactAddressEditor(
         : state;
     case "save":
       return saveDraft(state, event.requestId);
+    case "refused":
     case "failed":
       return finishOperation(state, event);
     case "remove":
       return state.status === "idle" ||
         (state.status === "removeFailed" && state.id === event.id)
-        ? { status: "removing", id: event.id, requestId: event.requestId }
+        ? {
+            status: "removing",
+            id: event.id,
+            recovery: state.status === "removeFailed" ? state.recovery : "none",
+            requestId: event.requestId,
+          }
         : state;
     case "saved":
       return finishOperation(state, event);
@@ -77,6 +97,15 @@ export function transitionContactAddressEditor(
       return exhaustive;
     }
   }
+}
+
+function cancelEditor(
+  state: ContactAddressEditorState,
+): ContactAddressEditorState {
+  return (state.status === "editing" && state.draft.submitted === null) ||
+    (state.status === "removeFailed" && state.recovery === "none")
+    ? { status: "idle" }
+    : state;
 }
 
 function saveDraft(
@@ -97,20 +126,34 @@ function saveDraft(
   return {
     status: "saving",
     draft: { ...state.draft, submitted: retryPatch(state.draft) },
+    previousSubmitted: state.draft.submitted,
     requestId: requestId,
   };
 }
 
 function finishOperation(
   state: ContactAddressEditorState,
-  event: Extract<EditorEvent, { type: "saved" | "failed" }>,
+  event: Extract<EditorEvent, { type: "saved" | "failed" | "refused" }>,
 ): ContactAddressEditorState {
   if (state.status !== "saving" && state.status !== "removing") return state;
   if (state.requestId !== event.requestId) return state;
   if (event.type === "saved") return { status: "idle" };
+  // A refusal clears only this attempt, never earlier uncertain effects.
   return state.status === "saving"
-    ? { status: "editing", draft: state.draft, error: event.error }
-    : { status: "removeFailed", id: state.id, error: event.error };
+    ? {
+        status: "editing",
+        draft:
+          event.type === "refused"
+            ? { ...state.draft, submitted: state.previousSubmitted }
+            : state.draft,
+        error: event.error,
+      }
+    : {
+        status: "removeFailed",
+        id: state.id,
+        recovery: event.type === "refused" ? state.recovery : "unconfirmed",
+        error: event.error,
+      };
 }
 
 function retryPatch(draft: AddressDraft): Partial<ContactAddressFields> {

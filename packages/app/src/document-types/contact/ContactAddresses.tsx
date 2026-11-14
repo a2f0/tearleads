@@ -61,14 +61,7 @@ export function ContactAddresses(props: ContactAddressesProps) {
           {error}
         </MiniAppStatus>
       ) : null}
-      {state.status === "removeFailed" ? (
-        <MiniAppButton
-          disabled={!editor.writable}
-          onClick={() => editor.remove(state.id)}
-        >
-          Retry address removal
-        </MiniAppButton>
-      ) : null}
+      <ContactAddressRemovalRecovery editor={editor} />
       <ContactAddressesEditor editor={editor} />
       {addresses.map((row) => (
         <ContactAddressesCard
@@ -100,5 +93,29 @@ export function ContactAddresses(props: ContactAddressesProps) {
         />
       ) : null}
     </section>
+  );
+}
+
+function ContactAddressRemovalRecovery({
+  editor,
+}: {
+  editor: ReturnType<typeof useContactAddressEditor>;
+}) {
+  const { state, dispatch } = editor;
+  if (state.status !== "removeFailed") return null;
+  return (
+    <>
+      <MiniAppButton
+        disabled={!editor.writable}
+        onClick={() => editor.remove(state.id)}
+      >
+        Retry address removal
+      </MiniAppButton>
+      {state.recovery === "none" ? (
+        <MiniAppButton onClick={() => dispatch({ type: "cancel" })}>
+          Dismiss address removal
+        </MiniAppButton>
+      ) : null}
+    </>
   );
 }

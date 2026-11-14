@@ -61,12 +61,17 @@ export function useContactsStoreForContainer(
 
   // Bootstrap and Explorer also refresh this shared store, without removal
   // ports. Bind this consumer's ports and lifetime to its own action instead.
-  const removeContact = useRuntimeScopedMemo(() => {
+  const removeContact = useRuntimeScopedMemo<
+    ContactsStore["removeContact"]
+  >(() => {
     const version = tearleads.runtime.version;
-    return (contactId: string) =>
+    return (contactId, operation) =>
       store.removeContact(contactId, {
         runtime,
-        isCurrent: () => tearleads.runtime.version === version,
+        isCurrent: () =>
+          tearleads.runtime.version === version &&
+          (operation?.isCurrent() ?? true),
+        runWhenCurrent: operation?.runWhenCurrent,
       });
   }, [runtime, store, tearleads]);
   return useMemo(() => ({ ...store, removeContact }), [removeContact, store]);

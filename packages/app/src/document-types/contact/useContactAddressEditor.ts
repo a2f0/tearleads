@@ -15,12 +15,14 @@ import {
   type ContactAddressFields,
   isContactAddressRow,
 } from "./contactAddressModel";
+import { ContactAddressWriteRefusal } from "./contactAddressWriteRefusal";
 
 export interface ContactAddressEditorInput {
   rows: ReadonlyArray<DocumentRow> | undefined;
   disabled: boolean;
   isEditing: boolean;
   // Adapters must acknowledge persistence, not merely resolution of SDK calls.
+  // Only a proven pre-effect refusal may throw ContactAddressWriteRefusal.
   onAddAddress: (
     fields: ContactAddressFields,
     intent: object,
@@ -40,7 +42,7 @@ async function applyAddressOperation(
   isCurrent: () => boolean,
 ) {
   if (input.disabled || !input.isEditing || input.rows === undefined)
-    throw new Error("Address editing is unavailable.");
+    throw new ContactAddressWriteRefusal("Address editing is unavailable.");
   if (state.status === "removing")
     return input.onRemoveAddress(state.id, isCurrent);
   const { id, values, intent, submitted } = state.draft;
@@ -48,7 +50,7 @@ async function applyAddressOperation(
     id !== null &&
     !input.rows.some((row) => row.id === id && isContactAddressRow(row))
   )
-    throw new Error(
+    throw new ContactAddressWriteRefusal(
       "This address is no longer available. Reload this contact to review its current state.",
     );
   if (id === null) {
@@ -99,7 +101,10 @@ export function useContactAddressEditor(input: ContactAddressEditorInput) {
       .catch((error: unknown) => {
         if (!cancelled)
           dispatch({
-            type: "failed",
+            type:
+              error instanceof ContactAddressWriteRefusal
+                ? "refused"
+                : "failed",
             requestId: state.requestId,
             error:
               error instanceof Error

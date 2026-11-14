@@ -154,14 +154,24 @@ async function removeContactFromRuntime(
   }
 
   await queueContactWrite(state, "Contacts: failed to remove contact.", () =>
-    removeContactInCurrentScope(state, contactId, { runtime, isCurrent }),
+    removeContactInCurrentScope(state, contactId, {
+      runtime,
+      isCurrent,
+      runWhenCurrent: operation?.runWhenCurrent,
+    }),
   );
 }
 
 async function removeContactInCurrentScope(
   state: ContactsStoreState,
   contactId: string,
-  { runtime, isCurrent }: ContactRemovalOperation,
+  {
+    runtime,
+    isCurrent,
+    runWhenCurrent,
+  }: ContactRemovalOperation & {
+    readonly runtime: ContactsRuntime;
+  },
 ): Promise<void> {
   if (!isCurrent()) return;
   const contactDocument = await loadContactDocumentSummary(runtime, contactId);
@@ -187,10 +197,13 @@ async function removeContactInCurrentScope(
   }
   if (target.status !== "target") return;
 
-  const movedContact = await runtime.moveDocumentToTrash(
-    contactDocument,
-    target.trashContainerId,
-  );
+  // Preparation may have started a new metadata read. Join its admission at
+  // the effect, then recheck runtime scope without an intervening await.
+  const move = () =>
+    isCurrent()
+      ? runtime.moveDocumentToTrash(contactDocument, target.trashContainerId)
+      : null;
+  const movedContact = await (runWhenCurrent ? runWhenCurrent(move) : move());
   if (!movedContact || !isCurrent()) return;
 
   const trackedStore = state.contactDocumentStoresById.get(contactId);

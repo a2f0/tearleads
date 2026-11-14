@@ -173,6 +173,8 @@ async function prepareRegisteredContacts() {
       status: "ready",
       identity: selfContactIdentity,
       isCurrent: () => sdk.runtime.version === identityVersion,
+      runWhenCurrent: async (work) =>
+        sdk.runtime.version === identityVersion ? work() : null,
     },
     trashSystemSlot:
       systemContainers.find((item) => item.kind === "trash")?.systemSlot ??

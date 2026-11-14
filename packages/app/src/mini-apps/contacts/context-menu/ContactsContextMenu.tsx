@@ -7,6 +7,7 @@ import {
   matchesSelfContactIdentity,
   type SelfContactIdentityView,
 } from "../../../stores/contacts/currentSelfContactIdentityState";
+import type { ContactsContextValue } from "../../../stores/contacts/types";
 import { useMiniAppListContextMenu } from "../../shared/list-panel/useMiniAppListContextMenu";
 import { NewContactIcon } from "../../shared/newContactIcon";
 import { CONTACTS_LABELS } from "../labels";
@@ -41,7 +42,7 @@ export interface ContactsContextMenuModel {
 export function useContactsContextMenu(params: {
   canWrite: boolean;
   entries: ContactEntries;
-  removeContact: (contactId: string) => Promise<void>;
+  removeContact: ContactsContextValue["removeContact"];
   selectedContactId: string | null;
   selfContactIdentity: SelfContactIdentityView;
   setSelectedContactId: (contactId: string | null) => void;
@@ -104,7 +105,12 @@ export function useContactsContextMenu(params: {
     if (selectedContactId === contactId) {
       setSelectedContactId(null);
     }
-    await removeContact(contactId);
+    await selfContactIdentity.runWhenCurrent(() =>
+      removeContact(contactId, {
+        isCurrent: selfContactIdentity.isCurrent,
+        runWhenCurrent: selfContactIdentity.runWhenCurrent,
+      }),
+    );
   }, [
     closeContextMenu,
     canRemoveContextMenuContact,

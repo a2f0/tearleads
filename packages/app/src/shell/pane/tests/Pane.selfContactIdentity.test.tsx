@@ -209,3 +209,87 @@ test(
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 );
+
+// The menu/store composition tests exercise the real refreshable authority.
+// Here a held admission port isolates its forwarding through the real provider
+// and SDK move, which a test-side copy of the consumer adapter cannot prove.
+test.each([false, true])(
+  "Contacts provider carries late removal admission (admit=%s)",
+  async (admit) => {
+    const { view, current } = captureContactsModel();
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    let pending: Promise<void> | undefined;
+    try {
+      await generateIdentityAndWaitForDb(view);
+      await waitFor(() => {
+        expect(current().model.ready).toBe(true);
+        expect(current().contacts.canWrite).toBe(true);
+      }, WAIT_OPTIONS);
+      let contactId: string | null = null;
+      await act(async () => {
+        contactId = await current().contacts.createContact({
+          firstName: "Late admission",
+        });
+      });
+      invariant(contactId, "Contact was not persisted");
+      const id = contactId;
+      const sql = current().sdk.database.execSql;
+      invariant(sql, "SQLite executor is missing");
+      const before = await defaultDocumentsPersistence.loadDocument(sql, id);
+      invariant(before?.containerId, "Contact has no persisted placement");
+      let admissions = 0;
+      let settled = false;
+      await act(async () => {
+        pending = current()
+          .contacts.removeContact(id, {
+            isCurrent: () => true,
+            runWhenCurrent: async (work) => {
+              admissions += 1;
+              entered.resolve();
+              await release.promise;
+              return admit ? work() : null;
+            },
+          })
+          .then(() => {
+            settled = true;
+          });
+        await Promise.race([
+          entered.promise,
+          pending.then(() => {
+            throw new Error("Removal settled before caller admission");
+          }),
+        ]);
+      });
+      expect(admissions).toBe(1);
+      expect(settled).toBe(false);
+      expect(await defaultDocumentsPersistence.loadDocument(sql, id)).toEqual(
+        before,
+      );
+      await act(async () => {
+        release.resolve();
+        await pending;
+      });
+      expect(settled).toBe(true);
+      const after = await defaultDocumentsPersistence.loadDocument(sql, id);
+      invariant(after?.containerId, "Contact lost its durable record");
+      if (!admit) {
+        expect(after).toEqual(before);
+      } else {
+        expect(after.containerId).not.toBe(before.containerId);
+        await waitFor(() => {
+          const destination = current()
+            .contents.containerStore.getSnapshot()
+            .nodes.find((node) => node.id === after.containerId);
+          expect(destination?.systemSlot).toBe(current().trashSlot);
+        }, WAIT_OPTIONS);
+      }
+    } finally {
+      await act(async () => {
+        release.resolve();
+        await pending;
+      });
+    }
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
+);

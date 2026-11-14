@@ -98,7 +98,13 @@ for (const kind of [
         ? { status: "pending" }
         : kind === "failed"
           ? { status: "failed", error: new Error("Identity read refused") }
-          : { status: "ready", identity, isCurrent: () => kind !== "expired" };
+          : {
+              status: "ready",
+              identity,
+              isCurrent: () => kind !== "expired",
+              runWhenCurrent: async (work) =>
+                kind !== "expired" ? work() : null,
+            };
     const removed: string[] = [];
     let remove: () => Promise<void> = async () => {
       throw new Error("Menu not mounted");
@@ -140,7 +146,12 @@ test("a retained contact removal callback refuses expired identity", async () =>
   const view = render(
     <IdentityMenuHarness
       entry={entry}
-      identity={{ status: "ready", identity, isCurrent: () => current }}
+      identity={{
+        status: "ready",
+        identity,
+        isCurrent: () => current,
+        runWhenCurrent: async (work) => (current ? work() : null),
+      }}
       onModel={(model) => {
         remove = model.removeContextMenuContact;
       }}

@@ -28,8 +28,10 @@ retain a per-draft identity rather than matching field values, so independent
 identical addresses remain distinct. A failed save may already have changed
 live Loro state: its draft is retained and cancellation is disabled until
 recovery. Failed removals keep a retry action even if the row disappears from
-the live snapshot. Navigating away is not a rollback. Success acknowledges
-local persistence, not remote synchronization.
+the live snapshot. An explicit refusal before effects permits cancellation or
+dismissal only when no earlier attempt remains uncertain; refusing a retry
+does not erase that earlier uncertainty. Navigating away is not a rollback.
+Success acknowledges local persistence, not remote synchronization.
 
 Address mutations carry their current writable/editor scope into the SDK's
 write queue, including pending-delta flushes. The SDK rechecks that guard before
@@ -61,6 +63,12 @@ successful self write. Scope and write authority still apply; deterministic
 identity is not permission to write or delete. CRDT convergence reconciles
 updates within one document identity, not histories of different documents.
 This contract does not trigger a local-data or environment reset.
+
+Contacts removal and Explorer move/purge protect canonical Me and its resolved
+same-document aliases. Retained actions wait for pending identity reads before
+their effect, after asynchronous preparation. An equivalent refresh preserves
+their authority; changed identity, failed reads, or expired scope refuse them.
+Once persistence starts, a later identity refresh does not cancel that write.
 
 ## Attribution
 

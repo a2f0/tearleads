@@ -118,7 +118,96 @@ function observeDocumentEffects(sdk: Tearleads) {
 }
 
 // Actual providers/model and call-through SDK effects, not a supplied identity
-// port. The scope is same-database A-B-A, not a different-user account switch.
+// port. Replacement coverage is same-database A-B-A, not an account switch.
+test(
+  "Explorer retains an ordinary delete across an unrelated document save",
+  async () => {
+    const { view, current } = captureExplorerModel();
+    const sdk = current().sdk;
+    const effects = observeDocumentEffects(sdk);
+    try {
+      await generateIdentityAndWaitForDb(view);
+      await waitFor(() => {
+        expect(current().model.explorer.ready).toBe(true);
+        expect(current().contacts.ready).toBe(true);
+      }, WAIT_OPTIONS);
+      const sql = sdk.database.execSql;
+      invariant(sql, "SQLite executor is missing");
+      const ids: string[] = [];
+      await act(async () => {
+        for (const firstName of ["Target", "Unrelated"]) {
+          const id = await current().contacts.createContact({ firstName });
+          invariant(id, "Ordinary contact was not persisted");
+          ids.push(id);
+        }
+      });
+      const [id, otherId] = ids;
+      invariant(id && otherId, "Missing ordinary contact IDs");
+      const before = await defaultDocumentsPersistence.loadDocument(sql, id);
+      invariant(before?.containerId, "Ordinary contact has no placement");
+      const sourceContainerId = before.containerId;
+      const unrelated = sdk.documents.open({
+        localId: otherId,
+        containerId: sourceContainerId,
+      });
+      expect(await unrelated.ensureInitialized()).toBe(true);
+      // Keep destination provisioning outside this identity-refresh regression:
+      // the retained action must already know the existing Trash node.
+      await act(async () => {
+        expect(
+          await current().model.explorer.ensureTrashContainer(),
+        ).not.toBeNull();
+      });
+      await waitFor(() => {
+        const { explorer } = current().model;
+        expect(
+          explorer.nodes.some(
+            (node) =>
+              node.systemSlot != null &&
+              node.systemSlot === explorer.trashSystemSlot,
+          ),
+        ).toBe(true);
+      }, WAIT_OPTIONS);
+      act(() =>
+        current().model.selectDocumentProjection(id, sourceContainerId),
+      );
+      const retained = await waitFor(() => {
+        const model = current().model;
+        expect(model.selection.selectedDocument?.id).toBe(id);
+        expect(model.canDeleteSelectedDocument).toBe(true);
+        return model.deleteDocument;
+      }, WAIT_OPTIONS);
+      const version = sdk.runtime.version;
+      await act(async () => {
+        await unrelated.setStructuredFields("contact", {
+          nickname: "Unrelated content save",
+        });
+      });
+      expect(sdk.runtime.version).toBe(version);
+      expect(unrelated.hasUnsavedLocalEdits()).toBe(false);
+      await act(async () => {
+        await retained(id, sourceContainerId);
+      });
+      expect(effects.calls).toEqual([{ kind: "move", id }]);
+      const after = await defaultDocumentsPersistence.loadDocument(sql, id);
+      invariant(after?.containerId, "Moved contact lost its durable record");
+      expect(after.containerId).not.toBe(sourceContainerId);
+      expect(
+        current().model.explorer.nodes.find(
+          (node) => node.id === after.containerId,
+        )?.systemSlot,
+      ).toBe(current().model.explorer.trashSystemSlot);
+      expect(
+        (await defaultDocumentsPersistence.loadDocument(sql, otherId))
+          ?.containerId,
+      ).toBe(sourceContainerId);
+    } finally {
+      effects.restore();
+    }
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
+);
+
 test.each(["move", "purge"] as const)(
   "Explorer model retires a retained %s callback after database A-B-A",
   async (kind) => {

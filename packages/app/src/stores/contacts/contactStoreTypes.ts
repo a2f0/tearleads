@@ -14,6 +14,7 @@ import type {
   ContactEntryPatch,
 } from "../../document-types/contact/contactDocumentModel";
 import type { DeleteToTrashTarget } from "../systemContainerTrash";
+import type { SelfContactIdentityAuthority } from "./currentSelfContactIdentityState";
 import type { EnsureSelfContactInput } from "./selfContact";
 
 export interface ContactsSnapshot {
@@ -46,8 +47,12 @@ export interface ContactsRuntime {
 
 /** Caller-owned removal ports must not be replaced by a read-only subscriber. */
 export interface ContactRemovalOperation {
-  readonly runtime: ContactsRuntime;
+  // A bound consumer supplies its own ports when the UI passes admission only.
+  readonly runtime?: ContactsRuntime | undefined;
   readonly isCurrent: () => boolean;
+  readonly runWhenCurrent?:
+    | SelfContactIdentityAuthority["runWhenCurrent"]
+    | undefined;
 }
 
 export interface ContactsStore {

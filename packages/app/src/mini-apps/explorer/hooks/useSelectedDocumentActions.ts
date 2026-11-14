@@ -112,44 +112,47 @@ function useMoveDocumentAction(params: MoveDocumentActionParams) {
         documentId,
         linkedContainerIdsByDocumentId,
       });
-      if (!existingDocument) {
+      const identity = rulesContext.selfContactIdentity;
+      if (!existingDocument || identity.status !== "ready") {
         return null;
       }
-      if (
-        !canMoveExplorerActionDocument({
-          appData,
-          document: existingDocument,
-          nodes,
-          rulesContext,
-          targetContainerId,
-        })
-      ) {
-        return null;
-      }
-
-      const moveResult = await moveExplorerNote({
-        appData,
-        expandNode,
-        mergeDocumentSummary,
-        note: existingDocument,
-        replaceLinkedContainers: options?.replaceLinkedContainers,
-        setLinkedContainerIdsForDocument,
-        sourceContainerId: options?.sourceContainerId,
-        targetContainerId,
-      });
-      if (moveResult.linksChanged) {
-        // Blank only the containers the move touched: the source(s) it left and
-        // the target it joined. Other orgs' expanded containers stay put.
-        onDocumentLinksChanged(
-          [
+      return identity.runWhenCurrent(async () => {
+        if (
+          !canMoveExplorerActionDocument({
+            appData,
+            document: existingDocument,
+            nodes,
+            rulesContext,
             targetContainerId,
-            existingDocument.containerId,
-            options?.sourceContainerId,
-          ].filter((id): id is string => typeof id === "string"),
-        );
-      }
+          })
+        ) {
+          return null;
+        }
 
-      return moveResult.note;
+        const moveResult = await moveExplorerNote({
+          appData,
+          expandNode,
+          mergeDocumentSummary,
+          note: existingDocument,
+          replaceLinkedContainers: options?.replaceLinkedContainers,
+          setLinkedContainerIdsForDocument,
+          sourceContainerId: options?.sourceContainerId,
+          targetContainerId,
+        });
+        if (moveResult.linksChanged) {
+          // Blank only the containers the move touched: the source(s) it left and
+          // the target it joined. Other orgs' expanded containers stay put.
+          onDocumentLinksChanged(
+            [
+              targetContainerId,
+              existingDocument.containerId,
+              options?.sourceContainerId,
+            ].filter((id): id is string => typeof id === "string"),
+          );
+        }
+
+        return moveResult.note;
+      });
     },
     [
       appData,
@@ -192,32 +195,36 @@ function usePurgeDocumentAction(params: {
       if (!existingDocument || !canWriteDocumentSummary(existingDocument)) {
         return null;
       }
-      // The pinned self contact can never be purged, even if it is already
-      // parked under Trash — purge destroys the document server-side by id.
-      if (!canMutateDocumentByIdentity(rulesContext, existingDocument)) {
-        return null;
-      }
-      if (
-        existingDocument.containerId !== null &&
-        !canWriteContainerNode(
-          nodes.find((node) => node.id === existingDocument.containerId),
-        )
-      ) {
-        return null;
-      }
+      const identity = rulesContext.selfContactIdentity;
+      if (identity.status !== "ready") return null;
+      return identity.runWhenCurrent(() => {
+        // The pinned self contact can never be purged, even if it is already
+        // parked under Trash — purge destroys the document server-side by id.
+        if (!canMutateDocumentByIdentity(rulesContext, existingDocument)) {
+          return null;
+        }
+        if (
+          existingDocument.containerId !== null &&
+          !canWriteContainerNode(
+            nodes.find((node) => node.id === existingDocument.containerId),
+          )
+        ) {
+          return null;
+        }
 
-      // A never-synced document purges locally; a synced one needs an
-      // authenticated, online session for the server delete — mirror the move
-      // action's branching so the action matches the menu-enable gate.
-      const canPurgeDocument =
-        existingDocument.documentId === null
-          ? canMutateUnsyncedSelectedDocument(appData)
-          : canMutateSelectedDocument(appData);
-      if (!canPurgeDocument) {
-        return null;
-      }
+        // A never-synced document purges locally; a synced one needs an
+        // authenticated, online session for the server delete — mirror the move
+        // action's branching so the action matches the menu-enable gate.
+        const canPurgeDocument =
+          existingDocument.documentId === null
+            ? canMutateUnsyncedSelectedDocument(appData)
+            : canMutateSelectedDocument(appData);
+        if (!canPurgeDocument) {
+          return null;
+        }
 
-      return purgeExplorerNote({ appData, note: existingDocument });
+        return purgeExplorerNote({ appData, note: existingDocument });
+      });
     },
     [appData, documentSummaries, loadDocumentSummary, nodes, rulesContext],
   );

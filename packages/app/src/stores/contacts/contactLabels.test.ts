@@ -22,6 +22,7 @@ const CURRENT_SELF_IDENTITY = {
     localIds: new Set([SELF_LOCAL_ID]),
   },
   isCurrent: () => true,
+  runWhenCurrent: async (work) => work(),
 } satisfies SelfContactIdentityView;
 
 test("resolves the unnamed self-contact to You when matched by fingerprint", () => {
