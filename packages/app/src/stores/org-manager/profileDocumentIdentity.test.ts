@@ -168,6 +168,40 @@ test("recovery-only aliases are found without rewriting their identity", async (
   }
 });
 
+test("profile recovery lookup does not load unrelated records", async () => {
+  const h = await fixture();
+  try {
+    const wanted = await deriveStableDocumentId(preferredLocalId);
+    await h.seed("bounded-recovery-alias", wanted);
+    await h.database.execSql(
+      "UPDATE documents SET document_id = NULL, recovery_document_id = :recovery WHERE local_id = :localId",
+      { ":recovery": wanted, ":localId": "bounded-recovery-alias" },
+    );
+    for (let index = 0; index < 16; index += 1) {
+      const id = `unrelated-profile-${index}`;
+      await h.seed(id, await deriveStableDocumentId(id));
+    }
+    const load = spyOn(defaultDocumentsPersistence, "loadDocument");
+    try {
+      expect(await resolveProfileDocumentIdentity(h.input)).toMatchObject({
+        status: "existing",
+        localId: "bounded-recovery-alias",
+        documentId: wanted,
+      });
+      expect(
+        load.mock.calls
+          .map(([, id]) => id)
+          .filter((id) => id.startsWith("unrelated-profile-")),
+      ).toEqual([]);
+      expect(load.mock.calls.length).toBeLessThanOrEqual(3);
+    } finally {
+      load.mockRestore();
+    }
+  } finally {
+    h.close();
+  }
+});
+
 test("an expired lookup cannot resolve or open a profile after an A-B-A runtime change", async () => {
   const h = await fixture();
   const version = h.sdk.runtime.version;

@@ -4,6 +4,7 @@ import {
   defaultDocumentsPersistence,
   deriveStableDocumentId,
 } from "@tearleads/client-sdk";
+import { loadDocumentIdentityCandidates } from "../documents/documentIdentityCandidates";
 
 type ProfileDocumentIdentity =
   | {
@@ -102,14 +103,14 @@ async function resolveOtherProfileOwner(
   );
   if (!current()) return { status: "unavailable" };
   // Recovery-only identities are absent from the current-identity lookup.
+  // Select their metadata rather than loading every history in the container.
   const candidates = owner
     ? [owner]
     : [
         target,
-        ...(await defaultDocumentsPersistence.findDocumentLocalIdsByContainerId(
-          execSql,
-          input.containerId,
-        )),
+        ...(await loadDocumentIdentityCandidates(execSql, target, [target]))
+          .filter((row) => row.containerId === input.containerId)
+          .map((row) => row.localId),
       ];
   if (!current()) return { status: "unavailable" };
   for (const localId of new Set(candidates)) {

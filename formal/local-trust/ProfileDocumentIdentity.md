@@ -46,13 +46,16 @@ The editors resolve and admit existing targets through
 [`profileDocumentBinding.ts`](../../packages/app/src/mini-apps/org-manager/profile/profileDocumentBinding.ts),
 with request-tagged completion in
 [`profileDocumentRequestMachine.ts`](../../packages/app/src/mini-apps/org-manager/profile/profileDocumentRequestMachine.ts).
+Recovery candidates come from the narrow metadata query in
+[`documentIdentityCandidates.ts`](../../packages/app/src/stores/documents/documentIdentityCandidates.ts),
+not a full-record read for every document in the profile container.
 The birth transaction is
 [`createDocumentWithHistoryCheckpoint.ts`](../../packages/client-sdk/src/data/persistence/documents/internal/createDocumentWithHistoryCheckpoint.ts).
 
 | Model action or predicate | Production seam |
 | --- | --- |
 | `FinishPreferredRead`, `ResolvedIdentity` | `resolveProfileDocumentIdentity` choosing a known pointer or persisted identity before `deriveStableDocumentId` |
-| `BeginLookup`, `FinishLookup` | `defaultDocumentsPersistence.findLocalIdByDocumentId`, then recovery candidates from `findDocumentLocalIdsByContainerId`, with `recordIdentity` validation; `resolveProfileDocumentIdentity` uses the captured runtime and checks currency after awaits |
+| `BeginLookup`, `FinishLookup` | `defaultDocumentsPersistence.findLocalIdByDocumentId`, then container-scoped recovery candidates from `loadDocumentIdentityCandidates`, with `recordIdentity` validation; `resolveProfileDocumentIdentity` uses the captured runtime and checks currency after awaits |
 | `OpenExisting`, `FinishOpen` | `createRosterProfileDocument` and `createOrganizationProfileDocument` reopening through `Documents.open` and `ensureInitialized`, without applying creation seeds to an existing row |
 | `ExplicitPointerNeverCreates` | `RosterProfileEditor` and `OrganizationProfileEditor` use `useProfileDocumentBinding`; `resolveBinding` accepts only an existing identity before mounting `DocumentsProvider` |
 | `AttemptBirth` | `createStoredDocumentWithHistoryCheckpoint` and `classifyExistingBirth` refusing a remote-alias birth under `runSerializedSqlMutation`; concurrent same-local winner restoration is outside this bound |

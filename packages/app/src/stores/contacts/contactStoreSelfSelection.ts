@@ -3,6 +3,7 @@ import {
   deriveStableDocumentId,
 } from "@tearleads/client-sdk";
 import { versionVectorsEqual } from "@tearleads/loro";
+import { loadDocumentIdentityCandidates } from "../documents/documentIdentityCandidates";
 import type { ContactsStoreState } from "./contactStoreTypes";
 import type { ResolvedSelfContactIdentity } from "./selfContact";
 
@@ -27,14 +28,45 @@ interface SelfContactSelectionContext {
 function collectSelfContactCandidateIds(
   context: SelfContactSelectionContext,
 ): Set<string> {
-  const { identity, remoteAlias, knownIds, unsettledIds } = context;
+  const { identity, remoteAlias, knownIds } = context;
   return new Set([
     identity.localId,
     identity.documentId,
     ...(remoteAlias ? [remoteAlias] : []),
     ...knownIds,
-    ...unsettledIds,
   ]);
+}
+
+async function loadSelfContactKnownIds(
+  context: Omit<SelfContactSelectionContext, "knownIds">,
+): Promise<Set<string>> {
+  const { state, identity, containerId, remoteAlias, unsettledIds } = context;
+  const candidates = await loadDocumentIdentityCandidates(
+    state.runtime.documents.infra.execSql,
+    identity.documentId,
+    [identity.localId, identity.documentId],
+  );
+  const knownIds = new Set(
+    candidates
+      .filter(
+        (row) =>
+          row.containerId === containerId ||
+          row.localId === remoteAlias ||
+          unsettledIds.has(row.localId) ||
+          state.entriesById.has(row.localId),
+      )
+      .map((row) => row.localId),
+  );
+  for (const [id, entry] of state.entriesById) {
+    if (
+      id === identity.localId ||
+      id === identity.documentId ||
+      entry.documentId === identity.documentId
+    ) {
+      knownIds.add(id);
+    }
+  }
+  return knownIds;
 }
 
 type SelfContactRecordInspection =
@@ -135,20 +167,21 @@ export async function loadSelfContactSelection(
     return { status: "refused" };
   }
 
-  // Include unhydrated discovery shells and reset aliases, not only Contacts'
-  // scalar projection. None may be bypassed by creating another history.
-  const persistedIds =
-    await defaultDocumentsPersistence.findDocumentLocalIdsByContainerId(
-      execSql,
-      containerId,
-    );
-  if (!current()) return { status: "refused" };
   const remoteAlias = await defaultDocumentsPersistence.findLocalIdByDocumentId(
     execSql,
     identity.documentId,
   );
   if (!current()) return { status: "refused" };
-  const knownIds = new Set([...persistedIds, ...state.entriesById.keys()]);
+  // Include matching unhydrated and recovery aliases, not every history in
+  // the address book. Recheck all placement/access guards on the loaded rows.
+  const knownIds = await loadSelfContactKnownIds({
+    state,
+    identity,
+    containerId,
+    remoteAlias,
+    unsettledIds,
+  });
+  if (!current()) return { status: "refused" };
   const context: SelfContactSelectionContext = {
     state,
     identity,

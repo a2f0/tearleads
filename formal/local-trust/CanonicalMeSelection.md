@@ -20,11 +20,17 @@ The selector lives in
 [`contactStoreSelfSelection.ts`](../../packages/app/src/stores/contacts/contactStoreSelfSelection.ts);
 bootstrap and identity-only writes live in
 [`contactStoreSelfContact.ts`](../../packages/app/src/stores/contacts/contactStoreSelfContact.ts).
+Candidate metadata comes from
+[`documentIdentityCandidates.ts`](../../packages/app/src/stores/documents/documentIdentityCandidates.ts).
+Unrelated contact records need not be loaded or hashed. Selected candidates
+still undergo the same full-record placement, access, readiness, and authority
+checks at each selection boundary. This model does not prove query cost or
+index coverage.
 
 | Model action or predicate | Production seam |
 | --- | --- |
 | `Planned`, `ActualIdentity`, `ResolvedIdentity` | `getSelfContactLocalId`, `deriveStableDocumentId`, and `loadSelfContactSelection`; persisted `documentId` precedes `recoveryDocumentId` and planned derivation |
-| `FinishSelection`, `Candidates` | `loadSelfContactSelection`, `collectSelfContactCandidateIds`, and `advanceSelfContactSelection` selecting only the canonical remote stream, not matching profile fields |
+| `FinishSelection`, `Candidates` | `loadSelfContactSelection`, `loadSelfContactKnownIds`, `collectSelfContactCandidateIds`, and `advanceSelfContactSelection` selecting only the canonical remote stream, not matching profile fields |
 | `Eligible`, `EnsureSelected` | `inspectSelfContactRecord`, `advanceSelfContactSelection`, and `ensureSelfContactFromRuntime` refusing unavailable, read-only, wrong-placement, or unhydrated targets |
 | `Acknowledge` | `writeSelectedSelfContactIdentity` and the final `loadSelfContactSelection` in `ensureSelfContactFromRuntime` acknowledging the same eligible contact |
 | `ExpireScope`, `AbortStale` | `captureContactsScope` and the caller guard carried through `ensureSelfContactFromRuntime` |
