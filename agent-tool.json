@@ -29,6 +29,32 @@
     "checksTimeoutSeconds": 3600
   },
   "versions": {
+    "packages": [
+      ".",
+      "packages/api",
+      "packages/api-client",
+      "packages/api-cli",
+      "packages/api-shared",
+      "packages/app",
+      "packages/app-web",
+      "packages/app-capacitor",
+      "packages/app-electrobun",
+      "packages/bob-and-alice",
+      "packages/cli",
+      "packages/client-sdk",
+      "packages/crypto",
+      "packages/diagnostics",
+      "packages/encoding",
+      "packages/loro",
+      "packages/performance",
+      "packages/sqlite-instance",
+      "packages/sqlite-worker",
+      "packages/test-utils",
+      "packages/ui",
+      "packages/validators",
+      "packages/website",
+      "packages/windowing"
+    ],
     "bundles": ["packages/client-sdk"],
     "validate": [["bun", "run", "lint:source-shape", "--", "--staged"]]
   },

@@ -36,7 +36,20 @@ async function withLauncher(
         join(import.meta.dirname, "../../../scripts/lib/withBuildInfoEnv.sh"),
       ),
     );
-    await Bun.write(join(packageDir, "package.json"), '{"version":"1.2.3"}\n');
+    await Bun.write(
+      join(root, "scripts/lib/packageVersions.ts"),
+      Bun.file(
+        join(import.meta.dirname, "../../../scripts/lib/packageVersions.ts"),
+      ),
+    );
+    await Bun.write(
+      join(root, "package.json"),
+      '{"name":"tearleads","version":"0.1.0","workspaces":["packages/app-electrobun"]}\n',
+    );
+    await Bun.write(
+      join(packageDir, "package.json"),
+      '{"name":"app-electrobun","version":"1.2.3"}\n',
+    );
     await run({ root, packageDir, script, bin: join(root, "bin") });
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -65,11 +78,14 @@ test("every Bun process up to the Sentry release wrapper starts without dotenv f
     });
     expect(build.exitCode, build.stderr.toString()).toBe(0);
     const unset = bunLaunchVariables.map((name) => `${name}=unset`).join(" ");
-    const [version, wrapper, ...rest] = (await Bun.file(log).text())
+    const [version, packages, wrapper, ...rest] = (await Bun.file(log).text())
       .trimEnd()
       .split("\n");
     expect(version).toStartWith(
       `${unset}|production|--no-env-file --config=/dev/null -e `,
+    );
+    expect(packages).toStartWith(
+      `${unset}|production|--no-env-file --config=/dev/null `,
     );
     expect(wrapper).toBe(
       `${unset}|production|--no-env-file --config=/dev/null scripts/withSentryReleaseEnv.ts bun --bun run electrobun build --env=canary`,
@@ -169,6 +185,7 @@ test("the build identity and every child describe this checkout whatever GIT_* n
     const head = fixtureGit(root, "rev-parse", "--short", "HEAD");
     expect((await Bun.file(log).text()).trimEnd().split("\n")).toEqual([
       " 0",
+      `${head} 0`,
       `${head} 0`,
     ]);
   });
