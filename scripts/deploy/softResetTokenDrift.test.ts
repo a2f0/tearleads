@@ -1,9 +1,14 @@
-import { expect, test } from "bun:test";
+import { beforeEach, expect, test } from "bun:test";
 import { validateResourceDrift } from "./softResetDrift";
 import { tokenModifiedOnDrift } from "./softResetDrift.testUtils";
 import { object } from "./softResetPlans";
 
 const message = "Terraform drift requires manual reconciliation.";
+
+beforeEach(() => {
+  // A refusal must not pass because its unmodified fixture was already invalid.
+  validateResourceDrift([tokenModifiedOnDrift()], "storage");
+});
 
 test.each([
   ["id", "foreign-token"],
@@ -140,3 +145,12 @@ test("token exception requires only a managed update with a changed timestamp", 
   drift.change.after.modified_on = drift.change.before.modified_on;
   expect(() => validateResourceDrift([drift], "storage")).toThrow(message);
 });
+
+test.each(["2025-12-31T23:59:59Z", "2026-01-01T00:00:00.000Z"])(
+  "token refuses non-advancing modification time %s",
+  (time) => {
+    const drift = tokenModifiedOnDrift();
+    drift.change.after.modified_on = time;
+    expect(() => validateResourceDrift([drift], "storage")).toThrow(message);
+  },
+);

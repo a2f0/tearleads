@@ -64,11 +64,10 @@ export function bucketLocationCasingOnly(
 }
 
 function timestamp(value: unknown) {
-  return (
-    typeof value === "string" &&
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value) &&
-    Number.isFinite(Date.parse(value))
-  );
+  return typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value)
+    ? Date.parse(value)
+    : Number.NaN;
 }
 
 export function tokenModifiedOnOnly(resource: StorageRecord, stack: string) {
@@ -94,9 +93,7 @@ export function tokenModifiedOnOnly(resource: StorageRecord, stack: string) {
   // This computed timestamp may settle after creation. Token identity,
   // credentials, status, expiry and serialized permissions remain exact.
   return (
-    timestamp(oldTime) &&
-    timestamp(newTime) &&
-    oldTime !== newTime &&
+    timestamp(newTime) > timestamp(oldTime) &&
     isDeepStrictEqual(oldValues, newValues)
   );
 }

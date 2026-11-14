@@ -23,6 +23,10 @@ configuration. All other top-level resource values, including `data`, IDs,
 and paths, must match exactly. Malformed or unknown refreshed values refuse
 this exception. No-op drift entries remain accepted as before.
 
+The branch's `stale_schema` observation, like table counts and schema
+timestamps, can change after baseline migrations. This permits observing
+schema changes, not changing resource configuration or deletion protection.
+
 Changes to deletion protection, identity, region, replicas, size, or any other
 unlisted field still refuse, even if present in only one response representation.
 Other PostgreSQL resources, deletes, and replacements are not exempt.
@@ -60,12 +64,13 @@ computed `modified_on` timestamp. Cloudflare readback can report a later value
 than the creation snapshot, without any planned token change.
 
 The [storage validator](../../scripts/deploy/softResetStorageDrift.ts) requires
-two different, known, parseable UTC timestamps and nonempty string `id`,
-`account_id`, and `name` on both snapshots. Every other attribute must remain
-structurally identical, including token value, issuance time, status, expiry,
-activation time, policies, permission groups, and serialized resource scope.
-Missing or malformed timestamps, unknown refreshed values, other resources,
-stacks, modes, and actions are not exempt. The `after_unknown` rules and
+two known, parseable UTC timestamps, with the refreshed time strictly later,
+and nonempty string `id`, `account_id`, and `name` on both snapshots. Every
+other attribute must remain structurally identical, including token value,
+issuance time, status, expiry, activation time, policies, permission groups,
+and serialized resource scope. Equal or earlier times, missing or malformed
+timestamps, unknown refreshed values, other resources, stacks, modes, and
+actions are not exempt. The `after_unknown` rules and
 preflight/destroy/create coverage are the same as the bucket exception above.
 These exceptions do not refresh or apply Terraform state automatically.
 
