@@ -3,6 +3,7 @@ import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
 import {
   cleanupPaneTestEnvironment,
+  createExplorerChildContainer,
   generateIdentityAndWaitForDb,
   getExplorerContainerItem,
   openExplorer,
@@ -27,13 +28,45 @@ async function waitForPersistedSummaryFlush() {
 }
 
 test(
-  "Explorer file menu creates the selected document kind",
+  "Explorer file menu filters document types and creates the selected kind",
   async () => {
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
     const explorer = await openExplorer(view);
     await openExplorerNewStructuredDocumentRoute(explorer);
+    const picker = within(
+      within(explorer).getByRole("region", { name: "New document" }),
+    );
+    const search = picker.getByRole("searchbox", {
+      name: "Search document types",
+    });
+    const allTypes = picker
+      .getAllByRole("button")
+      .map((button) => button.textContent);
+
+    fireEvent.change(search, { target: { value: "  cArD  " } });
+    expect(
+      picker.getAllByRole("button").map((button) => button.textContent),
+    ).toEqual(["Credit Card"]);
+
+    fireEvent.change(search, { target: { value: "no matching type" } });
+    expect(picker.queryAllByRole("button")).toEqual([]);
+    expect(picker.getByRole("status").textContent).toBe(
+      "No document types match your search.",
+    );
+
+    for (const value of ["", "   "]) {
+      fireEvent.change(search, { target: { value } });
+      expect(
+        picker.getAllByRole("button").map((button) => button.textContent),
+      ).toEqual(allTypes);
+      expect(picker.getByRole("status").textContent).toBe("");
+    }
+    fireEvent.change(search, { target: { value: "credit" } });
+    expect(
+      picker.getAllByRole("button").map((button) => button.textContent),
+    ).toEqual(["Credit Card"]);
 
     fireEvent.click(
       within(explorer).getByRole("button", { name: "Credit Card" }),
@@ -60,13 +93,22 @@ test(
 );
 
 test(
-  "Explorer context menu creates the selected document kind",
+  "Explorer resets search for another container and creates the selected kind",
   async () => {
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
     const explorer = await openExplorer(view);
-    fireEvent.contextMenu(getExplorerContainerItem(explorer, "/"), {
+    await createExplorerChildContainer(view, explorer, "Documents");
+    fireEvent.click(getExplorerContainerItem(explorer, "/"));
+    await openExplorerNewStructuredDocumentRoute(explorer);
+    fireEvent.change(
+      within(explorer).getByRole("searchbox", {
+        name: "Search document types",
+      }),
+      { target: { value: "no matching type" } },
+    );
+    fireEvent.contextMenu(getExplorerContainerItem(explorer, "Documents"), {
       clientX: 180,
       clientY: 180,
     });
