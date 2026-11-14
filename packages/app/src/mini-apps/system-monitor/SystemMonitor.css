@@ -61,14 +61,27 @@
  * squeeze the label column until multi-word keys ("OS Color Scheme", "Reduced
  * Motion", "SQLite Worker") wrap mid-word on a phone.
  */
-.system-monitor-environment-table th,
 .system-monitor-status-table th {
   white-space: nowrap;
 }
 
-.system-monitor-environment-table td,
 .system-monitor-status-table td {
   width: 100%;
+}
+
+/* Package names can be wider than a phone; preserve room for their versions. */
+.system-monitor-environment-table {
+  table-layout: fixed;
+}
+
+.system-monitor-environment-table th {
+  width: 45%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.system-monitor-environment-table td {
+  width: 55%;
 }
 
 .system-monitor-feature-flags {

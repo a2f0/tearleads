@@ -209,3 +209,18 @@ their failures minutes into a push:
 Before a push, prefer `bun run check:fast` over a hand-picked subset. It covers
 the static half of the gate in a few minutes; sampling its checks individually
 lets a gate failure surface late in a long push.
+
+## Package versions
+
+`bun run agent-tool versions prepare <base-oid>` versions the root manifest
+alongside changed workspaces. The root starts at `0.1.0`; subsequent shipped
+changes bump it one patch beyond the merge base, including workspace-only
+changes. Keep `versions.packages` in
+[`agent-tool.json`](../../agent-tool.json) equal to `"."` plus every workspace
+in the root [`package.json`](../../package.json): explicit package selection
+replaces automatic discovery.
+
+Web, Capacitor, and Electrobun capture all those manifest versions at build
+time for System Monitor's **Environment** tab and copied support report.
+Their build hashes include all workspace manifests so cached bundles cannot
+report stale package versions.

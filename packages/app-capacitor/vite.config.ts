@@ -11,9 +11,8 @@ import { sentryAssetsPlugin } from "./scripts/sentryAssetsPlugin.ts";
 // Build identity for the System Monitor's Environment tab and support report.
 // The web and electrobun targets get these from scripts/lib/withBuildInfoEnv.sh,
 // which exports `BUN_PUBLIC_*` for Bun's bundler to inline; Vite has no
-// equivalent passthrough, so this config resolves the same two values and
-// `define`s them. Both degrade to "unknown" rather than failing the build, since
-// a release can be built from a source tarball with no .git directory.
+// equivalent passthrough, so this config supplies VITE_ variables instead.
+// Commit and app version degrade to "unknown" for incomplete source archives.
 const UNKNOWN_BUILD_VALUE = "unknown";
 
 function readGitCommit(): string {
@@ -46,6 +45,15 @@ function readAppVersion(): string {
 Object.assign(process.env, {
   VITE_APP_VERSION: readAppVersion(),
   VITE_GIT_SHA: readGitCommit(),
+  VITE_PACKAGE_VERSIONS: execFileSync(
+    "bun",
+    [
+      "--no-env-file",
+      "--config=/dev/null",
+      resolve(import.meta.dirname, "../../scripts/lib/packageVersions.ts"),
+    ],
+    { encoding: "utf8" },
+  ).trim(),
 });
 
 const {

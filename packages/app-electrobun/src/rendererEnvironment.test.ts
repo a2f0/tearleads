@@ -1,4 +1,7 @@
 import { expect, test } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { runInNewContext } from "node:vm";
 import {
   createMainProcessSentryDefine,
@@ -6,69 +9,60 @@ import {
   createRendererEnvironmentDefines,
 } from "./rendererEnvironment";
 
-function evaluateRendererEnvironment(
+async function evaluateRendererEnvironment(
   environment: Record<string, string | undefined>,
 ) {
-  const transpiler = new Bun.Transpiler({
-    define: createRendererEnvironmentDefines(environment),
-    loader: "js",
-    target: "browser",
-  });
-  const code = transpiler.transformSync(`globalThis.rendererEnvironment = {
-    api: process.env.BUN_PUBLIC_API_BASE_URL ?? "http://localhost:3001",
-    ws: process.env.BUN_PUBLIC_WS_URL,
-    version: process.env.BUN_PUBLIC_APP_VERSION ?? "unknown",
-    commit: process.env.BUN_PUBLIC_GIT_SHA ?? "unknown",
-  };`);
-  // A WebView has no Node process global. Unreplaced reads must fail here.
-  return runInNewContext(code, {});
+  const directory = await mkdtemp(join(tmpdir(), "renderer-environment-"));
+  try {
+    const entrypoint = join(directory, "renderer.ts");
+    await writeFile(
+      entrypoint,
+      `globalThis.rendererEnvironment = {
+        api: process.env.BUN_PUBLIC_API_BASE_URL ?? "http://localhost:3001",
+        ws: process.env.BUN_PUBLIC_WS_URL,
+        version: process.env.BUN_PUBLIC_APP_VERSION ?? "unknown",
+        commit: process.env.BUN_PUBLIC_GIT_SHA ?? "unknown",
+        packages: JSON.parse(process.env.BUN_PUBLIC_PACKAGE_VERSIONS ?? "{}"),
+      };`,
+    );
+    const bundle = await Bun.build(
+      createRendererBuildConfig(environment, entrypoint),
+    );
+    const [output] = bundle.outputs;
+    if (!bundle.success || !output) throw new AggregateError(bundle.logs);
+    // Exercise the packaged renderer config in a WebView-like realm with no
+    // Node process global: a missing public define must fail at runtime.
+    return runInNewContext(await output.text(), {});
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
-test("an unset desktop environment uses its defaults without Node globals", () => {
-  expect(evaluateRendererEnvironment({})).toEqual({
+test("an unset packaged desktop environment uses defaults without Node globals", async () => {
+  expect(await evaluateRendererEnvironment({})).toEqual({
     api: "http://localhost:3001",
     ws: undefined,
     version: "unknown",
     commit: "unknown",
+    packages: {},
   });
 });
 
-test("desktop build overrides remain literal strings in the browser", () => {
+test("packaged desktop build overrides remain literal strings in the browser", async () => {
   expect(
-    evaluateRendererEnvironment({
+    await evaluateRendererEnvironment({
       BUN_PUBLIC_API_BASE_URL: "https://api.example.test",
       BUN_PUBLIC_WS_URL: "wss://api.example.test/events",
       BUN_PUBLIC_APP_VERSION: 'release-"quoted"',
       BUN_PUBLIC_GIT_SHA: "abcdef1",
+      BUN_PUBLIC_PACKAGE_VERSIONS: '{"tearleads":"0.1.2","app":"0.2.3"}',
     }),
   ).toEqual({
     api: "https://api.example.test",
     ws: "wss://api.example.test/events",
     version: 'release-"quoted"',
     commit: "abcdef1",
-  });
-});
-
-test("renderer build config applies the public environment defines", () => {
-  expect(
-    createRendererBuildConfig(
-      { BUN_PUBLIC_API_BASE_URL: "https://api.example.test" },
-      "renderer.html",
-    ),
-  ).toEqual({
-    define: {
-      "process.env.BUN_PUBLIC_API_BASE_URL": '"https://api.example.test"',
-      "process.env.BUN_PUBLIC_APP_VERSION": "undefined",
-      "process.env.BUN_PUBLIC_GIT_SHA": "undefined",
-      "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT": "undefined",
-      "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_DSN": "undefined",
-      "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT": "undefined",
-      "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_TARGET": "undefined",
-      "process.env.BUN_PUBLIC_WS_URL": "undefined",
-    },
-    entrypoints: ["renderer.html"],
-    format: "esm",
-    target: "browser",
+    packages: { tearleads: "0.1.2", app: "0.2.3" },
   });
 });
 

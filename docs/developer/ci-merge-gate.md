@@ -49,10 +49,11 @@ cached passes, from its own checkout's Turbo cache. Local
 [`check:fast`](./verification.md#before-a-push) and the direct model commands
 still execute TLC.
 
-Website-only source changes and website version bumps leave application test and
-platform verification hashes unchanged, so ordinary website edits stay
-independent without extracting application code. Shared UI changes invalidate
-the website and app consumers; shared validators can also invalidate API and SDK
+Website-only source changes leave application unit-test and platform-verification
+hashes unchanged. Version bumps also invalidate client bundle and browser-test
+hashes because System Monitor reports every workspace's build-time version.
+Shared UI changes invalidate the website and app consumers; shared validators
+can also invalidate API and SDK
 checks. Website deployment scripts are tested in `app-capacitor`, so changing
 them invalidates its suite. Local screenshot captures feed only the website
 build; CI does not recapture them.

@@ -5,6 +5,10 @@
     "e2e": {
       "inputs": [
         "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/scripts/lib/withBuildInfoEnv.sh",
+        "$TURBO_ROOT$/scripts/lib/packageVersions.ts",
         "$TURBO_ROOT$/packages/website/src/clickTracking.ts",
         "$TURBO_ROOT$/packages/app/test/container-view-seed/**"
       ]
@@ -12,6 +16,10 @@
     "build": {
       "inputs": [
         "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/scripts/lib/withBuildInfoEnv.sh",
+        "$TURBO_ROOT$/scripts/lib/packageVersions.ts",
         "$TURBO_ROOT$/assets/brand/**",
         "$TURBO_ROOT$/agent-tool.json"
       ]
