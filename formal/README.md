@@ -97,6 +97,15 @@ properties are safety properties.
 
 Model-specific gaps:
 
+- `ProfileDocumentIdentity` checks positive completion for existing materialized
+  profiles under stable scope and fair successful local work. Discovery after
+  a lookup miss may refuse that invocation; transparent retry is not assumed.
+  Runtime capture is a boundary assumption, not a second-database simulation.
+- `CanonicalMeSelection` collapses candidate enumeration and revalidation; it
+  does not cover retained remove/move/purge action authority or changing access.
+- `ContactAddressRecovery` checks one draft and retry for safety, not eventual
+  recovery under persistent failure. It abstracts content and does not prove
+  Loro merge correctness or per-cell attribution.
 - `ContainerGrantScope` treats [grant](../docs/glossary/access.md#grant) preparation
   and roster removal as atomic transitions, with no concurrent transaction model
   or group membership.

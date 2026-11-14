@@ -40,6 +40,9 @@ formal/local-trust/UnacknowledgedInput.tla|formal/local-trust/UnacknowledgedInpu
 formal/local-trust/ContainerCreateAdoption.tla|formal/local-trust/ContainerCreateAdoption.cfg
 formal/local-trust/ContainerMoveReplay.tla|formal/local-trust/ContainerMoveReplay.cfg
 formal/local-trust/QueuedDocumentCreate.tla|formal/local-trust/QueuedDocumentCreate.cfg
+formal/local-trust/ProfileDocumentIdentity.tla|formal/local-trust/ProfileDocumentIdentity.cfg
+formal/local-trust/CanonicalMeSelection.tla|formal/local-trust/CanonicalMeSelection.cfg
+formal/local-trust/ContactAddressRecovery.tla|formal/local-trust/ContactAddressRecovery.cfg
 formal/realtime/ContainerInterest.tla|formal/realtime/ContainerInterest.cfg
 formal/realtime/OrganizationReadModelStamps.tla|formal/realtime/OrganizationReadModelStamps.cfg
 formal/document-sync/AttachmentContentIdentity.tla|formal/document-sync/AttachmentContentIdentity.cfg

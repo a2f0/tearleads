@@ -15,12 +15,13 @@ import {
   useDocument,
 } from "../../../stores/documents/DocumentsProvider";
 import { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import { ORG_MANAGER_LABELS } from "../labels";
+import { useProfileDocumentBinding } from "../profile/profileDocumentBinding";
 import {
   blurOnEnter,
   ProfileReadOnlyField,
   useProfileDocumentLink,
-} from "../hooks/profileDocumentEditor";
-import { ORG_MANAGER_LABELS } from "../labels";
+} from "../profile/profileDocumentEditor";
 
 function OrganizationProfileDocumentFields({
   canEdit,
@@ -109,7 +110,7 @@ function OrganizationProfileDocumentFields({
           value={localName}
           onBlur={() => {
             const nextName = localName.trim();
-            if (nextName !== (name ?? "")) {
+            if (canWrite && nextName !== (name ?? "")) {
               void setStructuredFields(ORGANIZATION_PROFILE_DOCUMENT_KIND, {
                 name: nextName,
               });
@@ -149,74 +150,24 @@ export function OrganizationProfileEditor({
     ensureOrganizationMetadataContainer,
     ensureOrganizationProfileDocument,
   } = useOrgManagerActions();
-  const [activeProfileDocumentId, setActiveProfileDocumentId] = useState<
-    string | null
-  >(profileDocumentId);
-  const [profileContainerId, setProfileContainerId] = useState<string | null>(
-    null,
-  );
-  const [profileUnavailable, setProfileUnavailable] = useState(false);
-  const localId = getOrganizationProfileDocumentLocalId({ organizationId });
+  const binding = useProfileDocumentBinding({
+    documentId: profileDocumentId,
+    // Metadata is readable by Members; the roster-profile container is not.
+    ensureContainer: ensureOrganizationMetadataContainer,
+    ensureDocument:
+      !profileDocumentId && canEdit
+        ? ensureOrganizationProfileDocument
+        : undefined,
+    organizationId,
+    preferredLocalId: getOrganizationProfileDocumentLocalId({ organizationId }),
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    setActiveProfileDocumentId(profileDocumentId);
-    setProfileContainerId(null);
-    setProfileUnavailable(false);
-
-    const ensureDocument = profileDocumentId
-      ? Promise.resolve(profileDocumentId)
-      : canEdit
-        ? ensureOrganizationProfileDocument(null)
-        : Promise.resolve(null);
-
-    void ensureDocument
-      .then((documentId) => {
-        if (cancelled) {
-          return;
-        }
-        setActiveProfileDocumentId(documentId);
-        if (!documentId) {
-          setProfileUnavailable(true);
-          return null;
-        }
-
-        // The organization profile document lives in the org-wide metadata
-        // container (where provisioning creates it and where the Members group
-        // has read), so bind the editor's store to that container rather than
-        // the Admins-only roster-profile container.
-        return ensureOrganizationMetadataContainer();
-      })
-      .then((container) => {
-        if (cancelled || !container) {
-          return;
-        }
-        setProfileContainerId(container.id);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setProfileUnavailable(true);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-    // Deliberately not keyed on `pending`: a managed refresh flips it while the
-    // editor is mounted, and re-running here would clear the resolved container
-    // and unmount the document store mid-edit. `pending` only decides which
-    // message a still-unresolved editor shows.
-  }, [
-    canEdit,
-    ensureOrganizationMetadataContainer,
-    ensureOrganizationProfileDocument,
-    profileDocumentId,
-  ]);
-
-  if (!activeProfileDocumentId || !profileContainerId) {
+  // `pending` only affects unresolved messaging. A managed refresh must not
+  // unmount a ready document provider and discard an uncommitted name draft.
+  if (binding.status !== "ready") {
     return (
       <MiniAppStatus>
-        {profileUnavailable && !pending
+        {binding.status === "unavailable" && !pending
           ? ORG_MANAGER_LABELS.organizationProfileUnavailable
           : ORG_MANAGER_LABELS.loadingOrganizationProfile}
       </MiniAppStatus>
@@ -225,17 +176,18 @@ export function OrganizationProfileEditor({
 
   return (
     <DocumentsProvider
-      containerId={profileContainerId}
-      documentId={activeProfileDocumentId}
+      containerId={binding.value.containerId}
+      documentId={binding.value.documentId}
       initialDocumentKind={ORGANIZATION_PROFILE_DOCUMENT_KIND}
-      localId={localId}
+      localId={binding.value.localId}
+      readOnly={!canEdit}
     >
       <OrganizationProfileDocumentFields
         canEdit={canEdit}
-        localId={localId}
+        localId={binding.value.localId}
         onNameChange={onNameChange}
-        profileContainerId={profileContainerId}
-        profileDocumentId={activeProfileDocumentId}
+        profileContainerId={binding.value.containerId}
+        profileDocumentId={binding.value.documentId}
       />
     </DocumentsProvider>
   );

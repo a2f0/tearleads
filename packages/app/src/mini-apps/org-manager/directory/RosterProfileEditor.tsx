@@ -18,13 +18,13 @@ import {
   getRosterProfileDisplayName,
   getRosterProfileDocumentRelinkInput,
 } from "../../../stores/org-manager/profileDocuments";
-import { createBoundedRetrySchedule } from "../hooks/boundedRetry";
+import { ORG_MANAGER_LABELS } from "../labels";
+import { useProfileDocumentBinding } from "../profile/profileDocumentBinding";
 import {
   blurOnEnter,
   ProfileReadOnlyField,
   useProfileDocumentLink,
-} from "../hooks/profileDocumentEditor";
-import { ORG_MANAGER_LABELS } from "../labels";
+} from "../profile/profileDocumentEditor";
 
 function useSyncedFieldValue(value: string | null | undefined) {
   const normalizedValue = value ?? "";
@@ -58,7 +58,7 @@ function RosterProfileTextField({
         disabled={disabled}
         value={localValue}
         onBlur={() => {
-          if (localValue !== committedValue) {
+          if (!disabled && localValue !== committedValue) {
             onCommit(localValue);
           }
         }}
@@ -85,6 +85,7 @@ function RosterProfileDocumentFields({
   user: OrganizationDirectoryUser;
 }) {
   const {
+    canWrite,
     documentId,
     ready,
     relink,
@@ -107,7 +108,7 @@ function RosterProfileDocumentFields({
         : null,
     [localId, profileContainerId, user.profileDocumentId],
   );
-  const { linkReady: profileLinkReady } = useProfileDocumentLink({
+  const { linkFailed, linkReady: profileLinkReady } = useProfileDocumentLink({
     documentId,
     profileDocumentId: user.profileDocumentId,
     ready,
@@ -115,7 +116,7 @@ function RosterProfileDocumentFields({
     relinkInput,
   });
   const canEditFields = canEdit && isEditing;
-  const disabled = !canEditFields || !ready || !profileLinkReady;
+  const disabled = !canEditFields || !canWrite || !ready || !profileLinkReady;
 
   useEffect(() => {
     if (!ready || !profileLinkReady) {
@@ -127,7 +128,11 @@ function RosterProfileDocumentFields({
 
   return (
     <div className="org-manager-roster-profile">
-      {!ready || !profileLinkReady ? (
+      {linkFailed ? (
+        <MiniAppStatus>
+          {ORG_MANAGER_LABELS.profileDocumentUnavailable}
+        </MiniAppStatus>
+      ) : !ready || !profileLinkReady ? (
         <MiniAppStatus>
           {ORG_MANAGER_LABELS.loadingProfileDocument}
         </MiniAppStatus>
@@ -197,58 +202,17 @@ export function RosterProfileEditor({
   user: OrganizationDirectoryUser;
 }) {
   const { ensureRosterProfileContainer } = useOrgManagerActions();
-  const [profileContainerId, setProfileContainerId] = useState<string | null>(
-    null,
-  );
-  const [profileContainerUnavailable, setProfileContainerUnavailable] =
-    useState(false);
-  const localId = getRosterProfileDocumentLocalId({
+  const preferredLocalId = getRosterProfileDocumentLocalId({
     organizationId,
     userId: user.userId,
   });
-
-  useEffect(() => {
-    setProfileContainerId(null);
-    setProfileContainerUnavailable(false);
-    if (!user.profileDocumentId) {
-      return;
-    }
-
-    // A null container is ambiguous: usually the org-manager operation scope is
-    // not active yet (session, database, or organization still settling), but it
-    // can also be a container-contents snapshot that never arrives or a create
-    // that failed. Reporting the first null as unavailable showed an error for
-    // what is normally a startup race; never reporting it would strand the
-    // editor on "Loading" forever, since nothing else re-runs this effect. Retry
-    // on the shared bounded schedule, then say it is unavailable.
-    const retry = createBoundedRetrySchedule(attempt);
-    function attempt() {
-      void ensureRosterProfileContainer()
-        .then((container) => {
-          if (retry.cancelled) {
-            return;
-          }
-          if (container?.id) {
-            setProfileContainerId(container.id);
-            return;
-          }
-          if (retry.exhausted) {
-            setProfileContainerUnavailable(true);
-            return;
-          }
-
-          retry.scheduleNext();
-        })
-        .catch(() => {
-          if (!retry.cancelled) {
-            setProfileContainerUnavailable(true);
-          }
-        });
-    }
-    attempt();
-
-    return () => retry.cancel();
-  }, [ensureRosterProfileContainer, user.profileDocumentId]);
+  const binding = useProfileDocumentBinding({
+    documentId: user.profileDocumentId,
+    ensureContainer: ensureRosterProfileContainer,
+    organizationId,
+    preferredLocalId,
+    retryContainer: true,
+  });
 
   if (!user.profileDocumentId) {
     return (
@@ -260,10 +224,10 @@ export function RosterProfileEditor({
     );
   }
 
-  if (!profileContainerId) {
+  if (binding.status !== "ready") {
     return (
       <MiniAppStatus>
-        {profileContainerUnavailable
+        {binding.status === "unavailable"
           ? ORG_MANAGER_LABELS.profileDocumentUnavailable
           : ORG_MANAGER_LABELS.loadingProfileDocument}
       </MiniAppStatus>
@@ -272,17 +236,18 @@ export function RosterProfileEditor({
 
   return (
     <DocumentsProvider
-      containerId={profileContainerId}
-      documentId={user.profileDocumentId}
+      containerId={binding.value.containerId}
+      documentId={binding.value.documentId}
       initialDocumentKind="contact"
-      localId={localId}
+      localId={binding.value.localId}
+      readOnly={!canEdit || !isEditing}
     >
       <RosterProfileDocumentFields
         canEdit={canEdit}
         isEditing={isEditing}
-        localId={localId}
+        localId={binding.value.localId}
         onDisplayNameChange={onDisplayNameChange}
-        profileContainerId={profileContainerId}
+        profileContainerId={binding.value.containerId}
         user={user}
       />
     </DocumentsProvider>

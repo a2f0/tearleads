@@ -70,6 +70,48 @@ their effect, after asynchronous preparation. An equivalent refresh preserves
 their authority; changed identity, failed reads, or expired scope refuse them.
 Once persistence starts, a later identity refresh does not cancel that write.
 
+## Roster and organization profiles
+
+Ordinary profiles are not canonical personal Me. The
+[profile identity resolver](../../stores/org-manager/profileDocumentIdentity.ts)
+uses a known profile pointer when one is supplied; otherwise a persisted
+current identity wins over recovery identity and planned derivation. An
+unrelated document occupying the preferred creation-local ID must not override
+a known pointer. Resolve the actual persisted local ID for that stream and
+reopen it without applying creation seeds. Existing names, addresses, unknown
+rows, and other content remain on the same document; no histories are merged,
+rekeyed to another ID, or purged by this lookup.
+
+The [profile factories](../../stores/org-manager/profileDocuments.ts) seed only
+a new birth. Editors opening an explicit profile pointer do not turn a failed
+lookup into creation. The resolver captures one Documents workflow runtime,
+and callers retain their generation guard across awaits so an old lookup or
+open cannot publish into a new scope. Identity reuse does not bypass document
+readiness, access checks, or existing current-format recovery.
+
+The generic SDK birth transaction still refuses a remote alias discovered
+before its write lock. Explicitly reopening a proven existing profile is not
+permission to weaken that guard. Discovery landing after a negative lookup can
+therefore refuse that attempt rather than create a duplicate history; a later
+invocation resolves the now-persisted row.
+
+## Bounded model coverage
+
+The [profile identity model](../../../../../formal/local-trust/ProfileDocumentIdentity.md)
+checks discovery/birth ordering, identity precedence, retained opaque content,
+stale results, and positive completion for existing materialized profiles under
+stable scope and fair successful local work. The
+[canonical Me model](../../../../../formal/local-trust/CanonicalMeSelection.md)
+checks selection and bootstrap admission, including same-stream recovery. The
+[address recovery model](../../../../../formal/local-trust/ContactAddressRecovery.md)
+checks queued admission, clean-state add reconciliation, durable
+acknowledgement, and retaining earlier uncertainty after a later refusal.
+
+These are bounded models, not proofs of CRDT correctness, per-cell attribution,
+or complete application behavior. Runtime tests cover those implementations
+and the separate retained remove/move/purge identity-authority machine. No
+compatibility shim, migration, or reset follows from these contracts.
+
 ## Attribution
 
 Each address's details show the last-editor attribution for its current cells,

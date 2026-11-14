@@ -3,15 +3,19 @@ import type {
   DocumentStoreRelinkInput,
   Documents,
   ResolvedUserIdentity,
+  StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import {
   buildOrganizationProfileDocumentPatch,
   buildRosterProfileDocumentPatch,
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+  defaultDocumentsPersistence,
   getOrganizationProfileDocumentLocalId,
   getRosterProfileDocumentLocalId,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
 } from "@tearleads/client-sdk";
+import { versionVectorsEqual } from "@tearleads/loro";
+import { resolveProfileDocumentIdentity } from "./profileDocumentIdentity";
 
 const PROFILE_DOCUMENT_SYNC_TIMEOUT_MS = 15_000;
 
@@ -121,6 +125,7 @@ export async function createRosterProfileDocument(input: {
   isSelf: boolean;
   names?: RosterProfileNames | undefined;
   organizationId: string;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<string | null> {
   const fields = {
     ...buildRosterProfileDocumentPatch({
@@ -130,25 +135,17 @@ export async function createRosterProfileDocument(input: {
     }),
     ...presentRosterProfileNames(input.names),
   };
-  // A created profile carries its fields in its birth, so the write below
-  // changes nothing; it still fills a profile whose record already existed.
-  const store = input.documents.open({
+  return ensureProfileDocument({
     containerId: input.containerId,
-    initialDocumentKind: "contact",
-    initialStructuredFields: fields,
-    localId: getRosterProfileDocumentLocalId({
+    documents: input.documents,
+    documentKind: "contact",
+    fields,
+    preferredLocalId: getRosterProfileDocumentLocalId({
       organizationId: input.organizationId,
       userId: input.identity.userId,
     }),
+    stillCurrent: input.stillCurrent ?? (() => true),
   });
-
-  await store.setStructuredFields("contact", fields);
-  if (!store.getSnapshot().ready) {
-    return null;
-  }
-  store.requestSync();
-
-  return waitForRemoteDocumentId(store);
 }
 
 export async function createOrganizationProfileDocument(input: {
@@ -156,25 +153,90 @@ export async function createOrganizationProfileDocument(input: {
   documents: Documents;
   name?: string | undefined;
   organizationId: string;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<string | null> {
   const fields = buildOrganizationProfileDocumentPatch({
     name: input.name ?? DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
   });
-  // As for roster profiles: the birth carries the fields when it creates one.
-  const store = input.documents.open({
+  return ensureProfileDocument({
     containerId: input.containerId,
-    initialDocumentKind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
-    initialStructuredFields: fields,
-    localId: getOrganizationProfileDocumentLocalId({
+    documents: input.documents,
+    documentKind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
+    fields,
+    preferredLocalId: getOrganizationProfileDocumentLocalId({
       organizationId: input.organizationId,
     }),
+    stillCurrent: input.stillCurrent ?? (() => true),
   });
+}
 
-  await store.setStructuredFields(ORGANIZATION_PROFILE_DOCUMENT_KIND, fields);
-  if (!store.getSnapshot().ready) {
+type EnsureProfileDocumentInput = {
+  containerId: string;
+  documents: Documents;
+  documentKind: StoredDocumentKind;
+  fields: Record<string, string | undefined>;
+  preferredLocalId: string;
+  stillCurrent: () => boolean;
+};
+
+type SelectedProfileIdentity = Exclude<
+  Awaited<ReturnType<typeof resolveProfileDocumentIdentity>>,
+  { status: "unavailable" }
+>;
+
+async function finishProfileDocument(
+  input: EnsureProfileDocumentInput,
+  selected: SelectedProfileIdentity,
+  store: DocumentStore,
+): Promise<string | null> {
+  // Birth-only fields must not overwrite an existing profile's user edits,
+  // including when another initializer wins the same local key.
+  const record = await defaultDocumentsPersistence.loadDocument(
+    selected.runtime.infra.execSql,
+    selected.localId,
+  );
+  if (!input.stillCurrent() || !record) return null;
+  if (
+    selected.documentId &&
+    (record.documentId ?? record.recoveryDocumentId) !== selected.documentId
+  )
     return null;
-  }
+  if (record.documentId && store.getSnapshot().documentId !== record.documentId)
+    return null;
+  if (store.getSnapshot().documentKind !== input.documentKind) return null;
   store.requestSync();
+  if (
+    (record.documentId ?? record.recoveryDocumentId) &&
+    versionVectorsEqual(record.snapshotEndVersion, "")
+  )
+    return null;
+  const documentId = await waitForRemoteDocumentId(store);
+  return input.stillCurrent() ? documentId : null;
+}
 
-  return waitForRemoteDocumentId(store);
+async function ensureProfileDocument(
+  input: EnsureProfileDocumentInput,
+): Promise<string | null> {
+  // Discovery may win after selection but before the atomic birth. The SDK
+  // refuses that birth; resolve its existing owner once, never weaken the guard.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const selected = await resolveProfileDocumentIdentity(input);
+    if (selected.status === "unavailable" || !input.stillCurrent()) return null;
+    const store = input.documents.open(
+      {
+        containerId: input.containerId,
+        documentId: selected.documentId,
+        initialDocumentKind: input.documentKind,
+        initialStructuredFields:
+          selected.status === "create" ? input.fields : undefined,
+        localId: selected.localId,
+      },
+      { workflowRuntime: selected.runtime },
+    );
+    const initialized = await store.ensureInitialized();
+    if (!input.stillCurrent()) return null;
+    if (!initialized) continue;
+    return finishProfileDocument(input, selected, store);
+  }
+  return null;
 }

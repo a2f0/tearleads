@@ -340,6 +340,15 @@ those identities take precedence during sync. Hosts can read them through
 Matching ids does not establish signer identity, write access, verified
 adoption, redundant history, or permission to merge or purge a document.
 
+First-birth persistence is not an alias resolver.
+`createDocumentWithHistoryCheckpoint` returns `null` for an existing requested
+local row and a `remote-alias` result when another local row already owns the
+requested remote identity. That result refuses a second birth; it does not
+adopt, overwrite, or merge the alias. A host reopening a known profile must
+resolve its actual persisted local ID, use the captured workflow runtime, and
+open without creation seeds. Scope, readiness, and access checks still apply.
+See [custom document persistence](../custom-document-persistence.md).
+
 ### Unsaved document writes
 
 `hasPendingLocalDocumentWrites(domainScope)` synchronously reports whether any

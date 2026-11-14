@@ -1,5 +1,5 @@
-import { afterEach, expect, test } from "bun:test";
-import type { OrganizationUserDetail } from "@tearleads/client-sdk";
+import { afterEach, beforeEach, expect, test } from "bun:test";
+import { type OrganizationUserDetail, Tearleads } from "@tearleads/client-sdk";
 import {
   useWindowTitleBarActions,
   WindowMenuProvider,
@@ -11,13 +11,28 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { ContextType, PropsWithChildren } from "react";
-import { OrgManagerContext } from "../../../stores/org-manager/OrgManagerProvider";
+import type { PropsWithChildren } from "react";
+import { installProfileEditorHost } from "../../../../test/helpers/org-manager/profileEditorHarness";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { UserDetailView } from "./UserDetailView";
 
-afterEach(() => cleanup());
+let closeSdkHost = () => {};
+beforeEach(() => {
+  const sdk = new Tearleads();
+  sdk.network.setOnline(false);
+  const restoreHost = installProfileEditorHost(sdk, {
+    ensureRosterProfileContainer: async () => null,
+  });
+  closeSdkHost = () => {
+    restoreHost();
+    sdk.dispose();
+  };
+});
+afterEach(() => {
+  cleanup();
+  closeSdkHost();
+});
 
 const rosterUser: OrganizationUserDetail["user"] = {
   createdAt: "2026-05-20T12:00:00.000Z",
@@ -47,12 +62,6 @@ const detail: OrganizationUserDetail = {
   user: rosterUser,
 };
 
-// The inlined RosterProfileEditor only needs the container ensure; resolving
-// null keeps it on its loading status without mounting a document store.
-const orgManagerActionsStub = {
-  ensureRosterProfileContainer: async () => null,
-} as unknown as NonNullable<ContextType<typeof OrgManagerContext>>;
-
 function ToolbarProbe() {
   const actions = useWindowTitleBarActions();
 
@@ -73,12 +82,10 @@ function ToolbarProbe() {
 
 function TestProviders({ children }: PropsWithChildren) {
   return (
-    <OrgManagerContext.Provider value={orgManagerActionsStub}>
-      <WindowMenuProvider>
-        <ToolbarProbe />
-        {children}
-      </WindowMenuProvider>
-    </OrgManagerContext.Provider>
+    <WindowMenuProvider>
+      <ToolbarProbe />
+      {children}
+    </WindowMenuProvider>
   );
 }
 

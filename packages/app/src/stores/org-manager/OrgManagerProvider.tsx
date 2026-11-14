@@ -219,7 +219,8 @@ function useEnsureRosterProfileDocument(
     | "isOperationScopeActive"
   >,
 ): OrgManagerBehavior["ensureRosterProfileDocument"] {
-  const { documents, organizations, userIdentities } = useTearleads();
+  const tearleads = useTearleads();
+  const { documents, organizations, userIdentities } = tearleads;
   const {
     captureOperationScope,
     ensureRosterProfileContainer,
@@ -250,7 +251,7 @@ function useEnsureRosterProfileDocument(
         return null;
       }
       const identity = requireVerifiedIdentity(trustedIdentity, user.userId);
-
+      const runtimeVersion = tearleads.runtime.version;
       const profileDocumentId = await createRosterProfileDocument({
         containerId: ensuredContainer.id,
         documents,
@@ -258,8 +259,15 @@ function useEnsureRosterProfileDocument(
         isSelf: identity.userId === operationScope.userId,
         names,
         organizationId: operationScope.organizationId,
+        stillCurrent: () =>
+          tearleads.runtime.version === runtimeVersion &&
+          isOperationScopeActive(operationScope),
       });
-      if (!profileDocumentId || !isOperationScopeActive(operationScope)) {
+      if (
+        !profileDocumentId ||
+        tearleads.runtime.version !== runtimeVersion ||
+        !isOperationScopeActive(operationScope)
+      ) {
         return null;
       }
 
@@ -271,6 +279,7 @@ function useEnsureRosterProfileDocument(
       ensureRosterProfileContainer,
       isOperationScopeActive,
       organizations,
+      tearleads,
       userIdentities,
     ],
   );
@@ -284,7 +293,8 @@ function useEnsureOrganizationProfileDocument(
     | "isOperationScopeActive"
   >,
 ): OrgManagerBehavior["ensureOrganizationProfileDocument"] {
-  const { documents, organizations } = useTearleads();
+  const tearleads = useTearleads();
+  const { documents, organizations } = tearleads;
   const {
     captureOperationScope,
     ensureOrganizationMetadataContainer,
@@ -308,12 +318,20 @@ function useEnsureOrganizationProfileDocument(
         return null;
       }
 
+      const runtimeVersion = tearleads.runtime.version;
       const nextProfileDocumentId = await createOrganizationProfileDocument({
         containerId: ensuredContainer.id,
         documents,
         organizationId: operationScope.organizationId,
+        stillCurrent: () =>
+          tearleads.runtime.version === runtimeVersion &&
+          isOperationScopeActive(operationScope),
       });
-      if (!nextProfileDocumentId || !isOperationScopeActive(operationScope)) {
+      if (
+        !nextProfileDocumentId ||
+        tearleads.runtime.version !== runtimeVersion ||
+        !isOperationScopeActive(operationScope)
+      ) {
         return null;
       }
 
@@ -326,6 +344,7 @@ function useEnsureOrganizationProfileDocument(
       ensureOrganizationMetadataContainer,
       isOperationScopeActive,
       organizations,
+      tearleads,
     ],
   );
 }
