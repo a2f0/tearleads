@@ -67,6 +67,53 @@ Consequences:
 - fresh-client bootstrap uses the current live baseline and live attachments,
   not every historical attachment version
 
+### Pending deletion visibility
+
+Root operators can inspect the read-only **Pending deletion** report under
+**Root → Reports**. Organization admins have a **Pending deletion** tab under
+**Org Manager → Usage**, restricted to their organization. This intentionally
+includes lifecycle metadata for blobs in containers the admin cannot read;
+organization administration does not grant access to their encrypted content.
+Ordinary members do not have access to either queue.
+
+The queue reports encrypted byte sizes and lifecycle metadata, not file
+contents, decryption keys, or object-store locations. It distinguishes the grace
+period, eligibility for collection, and physical object deletion still pending
+after live-state pruning. Reclaim and object-deletion attempt timestamps help
+identify work that maintenance has retried.
+
+The normal grace period is 24 hours from the last active reference being
+removed. **Eligible after** is not a deletion deadline: hourly maintenance,
+batch limits, retries, and rebinding can change the outcome. Refresh reads the
+current server state; a reattached or physically deleted blob leaves the queue.
+After live-state pruning, the original dereference time is no longer retained
+and is not shown. The queue does not extend retention or provide recovery.
+
+The metadata endpoints are
+`GET /organizations/:organizationId/blobs/pending-deletion` (organization admin)
+and `GET /root/blobs/pending-deletion` (audited root operator). Both are paginated;
+the root endpoint also accepts an organization ID filter.
+
+#### SDK queries
+
+`tearleads.root.listPendingBlobDeletions(query?)` reads the operator queue,
+optionally filtered by `organizationId`.
+`tearleads.organizations.listPendingBlobDeletions(organizationId, query?)`
+reads the active organization's queue; the API verifies current admin access.
+Both accept `cursor` and `limit` (default 50, maximum 100) and return the public
+`RootRequestOutcome<PendingBlobDeletionsPage>` type: `{ ok: true, data }` or
+`{ ok: false, status, message }`. Local session/access changes suppress in-flight
+outcomes with a null status.
+
+The root entry point exports `PendingBlobDeletion`, `PendingBlobDeletionsPage`,
+`PendingBlobDeletionsQueryInput`, and `RootPendingBlobDeletionsQueryInput`.
+Pages contain `blobs` and `nextAfterId`; pass that opaque continuation as
+`cursor`, or stop when it is null. Snapshots are not cached. Status is
+`grace-period`, `eligible`, or `deletion-pending`; eligibility is not a
+guaranteed deletion time. This read-only surface exposes no content, storage
+keys, download URLs, restore, or immediate deletion operation.
+Blob IDs accept UUID versions 1–5, matching the existing blob route contract.
+
 ## Rationale
 
 Keeping detached blobs as "history" would create the appearance of durable audit

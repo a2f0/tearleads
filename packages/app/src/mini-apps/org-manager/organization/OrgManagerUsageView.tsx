@@ -21,13 +21,19 @@ import {
 import { DataUsageView } from "../../shared/DataUsageView";
 import { DATA_USAGE_LABELS } from "../../shared/dataUsageLabels";
 import type { DeviceDataUsageState } from "./deviceDataUsageState";
+import { OrganizationPendingBlobDeletion } from "./OrganizationPendingBlobDeletion";
 import { useDeviceDataUsage } from "./useDeviceDataUsage";
 
-type UsageTabId = "synced" | "device";
+type UsageTabId = "synced" | "device" | "pending-deletion";
 
 const USAGE_TABS: ReadonlyArray<MiniAppTabDescriptor<UsageTabId>> = [
   { id: "synced", label: DATA_USAGE_LABELS.usageSyncedTab },
   { id: "device", label: DATA_USAGE_LABELS.usageDeviceTab },
+];
+
+const ADMIN_USAGE_TABS: ReadonlyArray<MiniAppTabDescriptor<UsageTabId>> = [
+  ...USAGE_TABS,
+  { id: "pending-deletion", label: DATA_USAGE_LABELS.usagePendingDeletionTab },
 ];
 
 function DeviceDataUsageMetrics({
@@ -123,28 +129,37 @@ function DeviceDataUsagePanel({ organizationId }: { organizationId: string }) {
 export function OrgManagerUsageView({
   canSync,
   dataUsage,
+  isOrgAdmin,
   organizationId,
   pending,
 }: {
   canSync: boolean | null;
   dataUsage: OrganizationDataUsage | null;
+  isOrgAdmin: boolean;
   organizationId: string;
   pending: boolean;
 }) {
   const idPrefix = useId();
   const [activeTab, setActiveTab] = useState<UsageTabId>("synced");
+  const visibleTab =
+    activeTab === "pending-deletion" && !isOrgAdmin ? "synced" : activeTab;
 
   return (
     <div>
       <MiniAppTabList
-        activeTab={activeTab}
+        activeTab={visibleTab}
         idPrefix={idPrefix}
         label={DATA_USAGE_LABELS.usageTabsLabel}
         onSelect={setActiveTab}
-        tabs={USAGE_TABS}
+        tabs={isOrgAdmin ? ADMIN_USAGE_TABS : USAGE_TABS}
       />
-      <MiniAppTabPanel activeTab={activeTab} idPrefix={idPrefix}>
-        {activeTab === "synced" ? (
+      <MiniAppTabPanel activeTab={visibleTab} idPrefix={idPrefix}>
+        {visibleTab === "pending-deletion" ? (
+          <OrganizationPendingBlobDeletion
+            key={organizationId}
+            organizationId={organizationId}
+          />
+        ) : visibleTab === "synced" ? (
           <DataUsageView
             canSync={canSync}
             dataUsage={dataUsage}

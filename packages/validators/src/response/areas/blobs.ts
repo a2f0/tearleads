@@ -45,3 +45,9 @@ export {
   type MultipartBlobStageNotFoundErrorResponse,
   MultipartBlobStageNotFoundErrorResponseSchema,
 } from "../multipartBlobStageError";
+export {
+  type PendingBlobDeletion,
+  PendingBlobDeletionSchema,
+  type PendingBlobDeletionsResponse,
+  PendingBlobDeletionsResponseSchema,
+} from "../pendingBlobDeletions";

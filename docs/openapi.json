@@ -7481,6 +7481,131 @@
         "additionalProperties": {},
         "description": "The 402 a sync write gets when its organization cannot sync."
       },
+      "PendingBlobDeletion": {
+        "type": "object",
+        "properties": {
+          "blobId": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+            "type": "string"
+          },
+          "organizationId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "byteLength": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "grace-period",
+              "eligible",
+              "deletion-pending"
+            ]
+          },
+          "dereferencedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the last live binding was removed; null after pruning."
+          },
+          "eligibleAfter": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "End of the grace period; null after pruning."
+          },
+          "reclaimAttemptedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prunedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When live database state was pruned, leaving physical deletion pending."
+          },
+          "objectDeleteAttemptedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "blobId",
+          "organizationId",
+          "byteLength",
+          "status",
+          "dereferencedAt",
+          "eligibleAfter",
+          "reclaimAttemptedAt",
+          "prunedAt",
+          "objectDeleteAttemptedAt"
+        ],
+        "additionalProperties": {},
+        "description": "Read-only blob deletion lifecycle metadata. Eligibility uses the database clock and the garbage collector's grace duration, not a promised deletion time. Object keys, content and cryptographic metadata are never included."
+      },
+      "PendingBlobDeletionsResponse": {
+        "type": "object",
+        "properties": {
+          "blobs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PendingBlobDeletion"
+            }
+          },
+          "nextAfterId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Opaque continuation passed as cursor, or null at the end."
+          }
+        },
+        "required": [
+          "blobs",
+          "nextAfterId"
+        ],
+        "additionalProperties": {},
+        "description": "A bounded page of pending blob deletions, ordered by blob id."
+      },
       "PrincipalContainerGrantRequest": {
         "type": "object",
         "properties": {
@@ -9175,6 +9300,7 @@
               "root.access.grant",
               "root.access.revoke",
               "root.auditEvents.list",
+              "root.blobs.pendingDeletion.list",
               "root.identities.get",
               "root.identities.list",
               "root.identities.organizations.list",
@@ -18921,6 +19047,140 @@
         ]
       }
     },
+    "/organizations/{organizationId}/blobs/pending-deletion": {
+      "get": {
+        "operationId": "organizations.blobs.pendingDeletion.list",
+        "summary": "List an organization's pending blob deletions",
+        "description": "Requires current verified organization administrator policy. Read-only lifecycle metadata ordered by blob id, including pending physical deletion after pruning. Active, rebound and physically deleted blobs are omitted. Eligibility is a snapshot, not a promised deletion time. Pass nextAfterId as cursor; pages default to 50 and are bounded to 100.",
+        "tags": [
+          "Organizations"
+        ],
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingBlobDeletionsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/organizations/{organizationId}/data-usage": {
       "get": {
         "operationId": "organizations.dataUsage.get",
@@ -21029,6 +21289,140 @@
               }
             },
             "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/root/blobs/pending-deletion": {
+      "get": {
+        "operationId": "root.blobs.pendingDeletion.list",
+        "summary": "List pending blob deletions across organizations",
+        "description": "Root-only, audited read-only lifecycle metadata, ordered by blob id. Includes grace-period orphans and durable physical-deletion work; never exposes object keys or blob content. Eligibility is a database-clock snapshot, not a promised deletion time. Pass nextAfterId as cursor; pages default to 50 and are bounded to 100.",
+        "tags": [
+          "Root operator"
+        ],
+        "parameters": [
+          {
+            "explode": true,
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "organizationId",
+            "required": false,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingBlobDeletionsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "500": {
             "content": {

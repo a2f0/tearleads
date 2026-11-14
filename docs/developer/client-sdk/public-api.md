@@ -2,6 +2,14 @@
 
 Part of the [client SDK guide](../client-sdk.md).
 
+## Pending blob deletion snapshots
+
+The SDK exposes read-only root and organization-admin queues through
+`tearleads.root.listPendingBlobDeletions` and
+`tearleads.organizations.listPendingBlobDeletions`. See
+[pending-deletion SDK queries](../../attachment-retention.md#sdk-queries)
+for arguments, exported types, pagination, and outcome handling.
+
 ## Container primary documents
 
 `ContainerContentsStore.setContainerPrimaryDocument(containerId, documentId)`

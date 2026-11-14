@@ -8,11 +8,13 @@ import {
   listRootOrganizationIdentities,
   listRootOrganizationRevenuecatEvents,
   listRootOrganizations,
+  listRootPendingBlobDeletions,
   listRootRevenuecatEventsReport,
   loadRootIdentity,
   loadRootOpsHealthReport,
   loadRootOrganization,
   loadRootOrganizationDataUsage,
+  type PendingBlobDeletionsPage,
   type RootAuditApi,
   type RootAuditEventsPage,
   type RootAuditEventsQueryInput,
@@ -33,6 +35,8 @@ import {
   type RootOrganizationsApi,
   type RootOrganizationsPage,
   type RootOrganizationsQueryInput,
+  type RootPendingBlobDeletionsApi,
+  type RootPendingBlobDeletionsQueryInput,
   type RootRequestOutcome,
   type RootRevenuecatApi,
   type RootRevenuecatEventsQueryInput,
@@ -59,9 +63,13 @@ type RootApi = RootIdentitiesApi &
   RootOpsHealthApi &
   RootRevenuecatApi &
   RootAuditApi &
+  RootPendingBlobDeletionsApi &
   RootSuspensionApi;
 
 export interface Root {
+  listPendingBlobDeletions(
+    query?: RootPendingBlobDeletionsQueryInput,
+  ): Promise<RootRequestOutcome<PendingBlobDeletionsPage>>;
   /** Recorded operator actions, newest first; each listing is recorded too. */
   listAuditEvents(
     query?: RootAuditEventsQueryInput,
@@ -246,6 +254,8 @@ function guardedRootCalls(
   guarded: GuardedRootRequest,
 ): Omit<Root, "isAvailable"> {
   return {
+    listPendingBlobDeletions: (query) =>
+      guarded((api) => listRootPendingBlobDeletions(api, query)),
     listAuditEvents: (query) =>
       guarded((api) => listRootAuditEvents(api, query)),
     loadOrganizationDataUsage: (organizationId) =>

@@ -558,6 +558,9 @@ export {
   registerIdentity,
 } from "./workflows/registration";
 export type {
+  PendingBlobDeletion,
+  PendingBlobDeletionsPage,
+  PendingBlobDeletionsQueryInput,
   RootIdentitiesApi,
   RootIdentitiesPage,
   RootIdentitiesQueryInput,
@@ -565,6 +568,7 @@ export type {
   RootIdentityDetail,
   RootIdentityOrganization,
   RootIdentitySession,
+  RootPendingBlobDeletionsQueryInput,
   RootRequestOutcome,
 } from "./workflows/root";
 export {
