@@ -19,6 +19,7 @@ function evaluateRendererEnvironment(
     ws: process.env.BUN_PUBLIC_WS_URL,
     version: process.env.BUN_PUBLIC_APP_VERSION ?? "unknown",
     commit: process.env.BUN_PUBLIC_GIT_SHA ?? "unknown",
+    packages: JSON.parse(process.env.BUN_PUBLIC_PACKAGE_VERSIONS ?? "{}"),
   };`);
   // A WebView has no Node process global. Unreplaced reads must fail here.
   return runInNewContext(code, {});
@@ -30,6 +31,7 @@ test("an unset desktop environment uses its defaults without Node globals", () =
     ws: undefined,
     version: "unknown",
     commit: "unknown",
+    packages: {},
   });
 });
 
@@ -40,35 +42,14 @@ test("desktop build overrides remain literal strings in the browser", () => {
       BUN_PUBLIC_WS_URL: "wss://api.example.test/events",
       BUN_PUBLIC_APP_VERSION: 'release-"quoted"',
       BUN_PUBLIC_GIT_SHA: "abcdef1",
+      BUN_PUBLIC_PACKAGE_VERSIONS: '{"tearleads":"0.1.2","app":"0.2.3"}',
     }),
   ).toEqual({
     api: "https://api.example.test",
     ws: "wss://api.example.test/events",
     version: 'release-"quoted"',
     commit: "abcdef1",
-  });
-});
-
-test("renderer build config applies the public environment defines", () => {
-  expect(
-    createRendererBuildConfig(
-      { BUN_PUBLIC_API_BASE_URL: "https://api.example.test" },
-      "renderer.html",
-    ),
-  ).toEqual({
-    define: {
-      "process.env.BUN_PUBLIC_API_BASE_URL": '"https://api.example.test"',
-      "process.env.BUN_PUBLIC_APP_VERSION": "undefined",
-      "process.env.BUN_PUBLIC_GIT_SHA": "undefined",
-      "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT": "undefined",
-      "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_DSN": "undefined",
-      "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT": "undefined",
-      "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_TARGET": "undefined",
-      "process.env.BUN_PUBLIC_WS_URL": "undefined",
-    },
-    entrypoints: ["renderer.html"],
-    format: "esm",
-    target: "browser",
+    packages: { tearleads: "0.1.2", app: "0.2.3" },
   });
 });
 

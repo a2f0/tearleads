@@ -9,7 +9,6 @@ import {
 import { useApiRequestMetrics } from "../../../providers/api/useApiRequestMetrics";
 import { useSystemMonitorClearAction } from "../useSystemMonitorClearAction";
 import {
-  apiRequestTimingDescription,
   apiRequestTimingHeaders,
   listApiRequestTimingRows,
 } from "./apiRequestTiming";
@@ -29,7 +28,7 @@ const timingColumns = apiRequestTimingHeaders.map((header) => ({
 }));
 
 export function SystemMonitorRequests() {
-  const { snapshot, hasIdentity, reset } = useApiRequestMetrics();
+  const { snapshot, reset } = useApiRequestMetrics();
   useSystemMonitorClearAction({
     id: "system-monitor-reset-requests",
     label: "Reset request counts",
@@ -41,20 +40,6 @@ export function SystemMonitorRequests() {
       aria-label="API request counts"
       className="system-monitor-requests"
     >
-      <p>
-        {hasIdentity
-          ? "Requests for the current identity."
-          : "Requests made without an identity."}{" "}
-        Counts are kept in memory until reload or reset, including while this
-        monitor is closed.
-      </p>
-      <p>
-        Each HTTP attempt counts, including retries. Cached reads and WebSocket
-        messages are excluded. Succeeded means HTTP 2xx/3xx; failed means HTTP
-        4xx/5xx or a connection failure, even if the app handles that response.
-        Counts do not include later response validation.
-      </p>
-      <p>{apiRequestTimingDescription}</p>
       <MiniAppInfoTable className="mini-app-info-table--borderless">
         <tbody>
           <MiniAppInfoRow label="Counting since">

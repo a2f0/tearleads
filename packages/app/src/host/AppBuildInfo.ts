@@ -6,6 +6,7 @@ type AppBuildTarget = "capacitor" | "electrobun" | "web";
 /** Build identity stamped by each deployment target's own bundler. */
 export interface AppBuildInfo {
   readonly commit: string;
+  readonly packageVersions: Readonly<Record<string, string>>;
   readonly target: AppBuildTarget;
   readonly version: string;
 }
@@ -15,6 +16,7 @@ const UNKNOWN_BUILD_VALUE = "unknown";
 /** Empty strings and absent defines share one stable support-report sentinel. */
 export function createAppBuildInfo(input: {
   readonly commit: string | undefined;
+  readonly packageVersionsJson: string | undefined;
   readonly target: AppBuildTarget;
   readonly version: string | undefined;
 }): AppBuildInfo {
@@ -23,6 +25,8 @@ export function createAppBuildInfo(input: {
       input.commit === undefined || input.commit === ""
         ? UNKNOWN_BUILD_VALUE
         : input.commit,
+    // Produced by the build-time manifest reader; absent in unbundled hosts.
+    packageVersions: JSON.parse(input.packageVersionsJson ?? "{}"),
     target: input.target,
     version:
       input.version === undefined || input.version === ""
