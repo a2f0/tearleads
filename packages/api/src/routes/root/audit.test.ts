@@ -76,6 +76,14 @@ beforeAll(async () => {
 test("every root operation records who asked for what before it answers", async () => {
   const requests = [
     {
+      action: "root.blobs.pendingDeletion.list",
+      path: `/root/blobs/pending-deletion?organizationId=${memberOrganizationId}`,
+      expected: {
+        filter: `organizationId=${memberOrganizationId}`,
+        targetOrganizationId: memberOrganizationId,
+      },
+    },
+    {
       action: "root.identities.list",
       path: `/root/identities?fingerprint=${member.fingerprint.slice(0, 8)}&rootOnly=true&userId=${member.userId}`,
       expected: {

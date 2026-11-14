@@ -1,4 +1,5 @@
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+import type { PendingBlobDeletionsQuery } from "@tearleads/validators/operation";
 import type {
   PrincipalPolicyMutationResponse,
   StripeCheckoutSessionResponse,
@@ -26,6 +27,7 @@ import type { OrganizationDataUsageCoordinator } from "./organizationDataUsage";
 import type { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import type { OrganizationMemberships } from "./organizationMemberships";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
+import type { PendingBlobDeletionsOutcome } from "./pendingBlobDeletions";
 import type {
   AbandonOrganizationPolicyMutationInput,
   DiscardUnreadableOrganizationPolicyMutationInput,
@@ -55,6 +57,10 @@ export interface OrganizationGroupMutationResult {
 }
 
 export interface Organizations {
+  listPendingBlobDeletions(
+    organizationId: string,
+    query?: PendingBlobDeletionsQuery,
+  ): Promise<PendingBlobDeletionsOutcome>;
   discardUnreadablePolicyMutation: (
     input: DiscardUnreadableOrganizationPolicyMutationInput,
   ) => Promise<boolean>;

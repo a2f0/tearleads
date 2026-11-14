@@ -1149,6 +1149,26 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{organizationId}/blobs/pending-deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List an organization's pending blob deletions
+         * @description Requires current verified organization administrator policy. Read-only lifecycle metadata ordered by blob id, including pending physical deletion after pruning. Active, rebound and physically deleted blobs are omitted. Eligibility is a snapshot, not a promised deletion time. Pass nextAfterId as cursor; pages default to 50 and are bounded to 100.
+         */
+        get: operations["organizations.blobs.pendingDeletion.list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{organizationId}/data-usage": {
         parameters: {
             query?: never;
@@ -1405,6 +1425,26 @@ export type paths = {
          * @description Pages recorded root operator actions newest first, optionally only those involving one identity or organization. Only root operators may call it, and reading the trail is itself recorded.
          */
         get: operations["root.auditEvents.list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/root/blobs/pending-deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pending blob deletions across organizations
+         * @description Root-only, audited read-only lifecycle metadata, ordered by blob id. Includes grace-period orphans and durable physical-deletion work; never exposes object keys or blob content. Eligibility is a database-clock snapshot, not a promised deletion time. Pass nextAfterId as cursor; pages default to 50 and are bounded to 100.
+         */
+        get: operations["root.blobs.pendingDeletion.list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3753,6 +3793,32 @@ export type components = {
              * @enum {string}
              */
             reason: "billing_inactive" | "sync_seat_unassigned";
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description Read-only blob deletion lifecycle metadata. Eligibility uses the database clock and the garbage collector's grace duration, not a promised deletion time. Object keys, content and cryptographic metadata are never included. */
+        PendingBlobDeletion: {
+            blobId: string;
+            byteLength: number;
+            /** @description When the last live binding was removed; null after pruning. */
+            dereferencedAt: string | null;
+            /** @description End of the grace period; null after pruning. */
+            eligibleAfter: string | null;
+            objectDeleteAttemptedAt: string | null;
+            organizationId: string;
+            /** @description When live database state was pruned, leaving physical deletion pending. */
+            prunedAt: string | null;
+            reclaimAttemptedAt: string | null;
+            /** @enum {string} */
+            status: "grace-period" | "eligible" | "deletion-pending";
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A bounded page of pending blob deletions, ordered by blob id. */
+        PendingBlobDeletionsResponse: {
+            blobs: components["schemas"]["PendingBlobDeletion"][];
+            /** @description Opaque continuation passed as cursor, or null at the end. */
+            nextAfterId: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -9875,6 +9941,94 @@ export interface operations {
             };
         };
     };
+    "organizations.blobs.pendingDeletion.list": {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingBlobDeletionsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     "organizations.dataUsage.get": {
         parameters: {
             query?: never;
@@ -11139,6 +11293,93 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "root.blobs.pendingDeletion.list": {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                organizationId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingBlobDeletionsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1,4 +1,5 @@
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+import type { PendingBlobDeletionsQuery } from "@tearleads/validators/operation";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import {
   cancelStripeSubscription,
@@ -41,6 +42,7 @@ import {
   authenticatedOrganizationId,
   runForOrganization,
 } from "./organizationWorkflowRuntime";
+import { listOrganizationPendingBlobDeletions } from "./pendingBlobDeletions";
 import {
   type AbandonOrganizationPolicyMutationInput,
   abandonPendingOrganizationPolicyMutation,
@@ -141,6 +143,17 @@ class OrganizationsService implements Organizations {
       this.runtimeService,
       this.containerContents,
       openReconciler,
+    );
+  }
+
+  listPendingBlobDeletions(
+    organizationId: string,
+    query?: PendingBlobDeletionsQuery,
+  ) {
+    return listOrganizationPendingBlobDeletions(
+      this.runtimeService,
+      organizationId,
+      query,
     );
   }
 

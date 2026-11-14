@@ -15,6 +15,7 @@ export const ROOT_AUDIT_ACTIONS = [
   "root.access.grant",
   "root.access.revoke",
   "root.auditEvents.list",
+  "root.blobs.pendingDeletion.list",
   "root.identities.get",
   "root.identities.list",
   "root.identities.organizations.list",

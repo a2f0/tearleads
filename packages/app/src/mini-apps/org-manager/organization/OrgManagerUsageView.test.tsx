@@ -94,6 +94,7 @@ function renderUsageView(input: {
     <OrgManagerUsageView
       canSync={true}
       dataUsage={SYNCED_USAGE}
+      isOrgAdmin={false}
       organizationId={organizationId}
       pending={false}
     />

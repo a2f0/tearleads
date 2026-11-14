@@ -110,6 +110,9 @@ function createDeferredRootRuntime() {
     },
     workflowInput: () => ({
       apiClient: {
+        listRootPendingBlobDeletionsResult: async () => {
+          throw new Error("not used");
+        },
         getRootOrganizationDataUsageResult: async () => {
           throw new Error("not used");
         },
@@ -306,6 +309,9 @@ test("a real SDK key-pair swap drops an in-flight lookup", async () => {
     subscribe: (listener) => sdk.runtime.subscribe(listener),
     workflowInput: () => ({
       apiClient: {
+        listRootPendingBlobDeletionsResult: async () => {
+          throw new Error("not used");
+        },
         getRootOrganizationDataUsageResult: async () => {
           throw new Error("not used");
         },

@@ -4,6 +4,7 @@ import { createOrganizationCreateRoute } from "./create";
 import { createOrganizationDataUsageRoute } from "./dataUsage";
 import { createOrganizationGroupsRoute } from "./groups";
 import { createOrganizationMutationsRoute } from "./mutations";
+import { createOrganizationPendingBlobDeletionsRoute } from "./pendingBlobDeletions";
 import { createOrganizationPolicyHistoryRoute } from "./policyHistory";
 import { createOrganizationProfileRoute } from "./profile";
 import { createOrganizationReadModelRoute } from "./readModel";
@@ -15,6 +16,10 @@ export function createOrganizationsRouter(deps: OrganizationsRouterDeps) {
 
   organizationsRouter.route("/", createOrganizationCreateRoute(deps));
   organizationsRouter.route("/", createOrganizationDataUsageRoute(deps));
+  organizationsRouter.route(
+    "/",
+    createOrganizationPendingBlobDeletionsRoute(deps),
+  );
   organizationsRouter.route("/", createOrganizationGroupsRoute(deps));
   organizationsRouter.route("/", createOrganizationMutationsRoute(deps));
   organizationsRouter.route("/", createOrganizationProfileRoute(deps));

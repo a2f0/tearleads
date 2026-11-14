@@ -82,6 +82,10 @@ import {
   updateOrganizationRosterEntryOperation,
 } from "./organizations";
 import {
+  listOrganizationPendingBlobDeletionsOperation,
+  listRootPendingBlobDeletionsOperation,
+} from "./pendingBlobDeletions";
+import {
   commitOrganizationGroupPolicyOperation,
   getPrincipalMemberEnvelopesOperation,
   getPrincipalPolicyOperation,
@@ -181,6 +185,8 @@ export const protocolOperations: readonly [
   typeof cancelStripeSubscriptionOperation,
   typeof changeStripePlanOperation,
   typeof getOrganizationDataUsageOperation,
+  typeof listOrganizationPendingBlobDeletionsOperation,
+  typeof listRootPendingBlobDeletionsOperation,
   typeof getOrganizationReadModelOperation,
   typeof getOrganizationPolicyHistoryOperation,
   typeof createOrganizationGroupOperation,
@@ -268,6 +274,8 @@ export const protocolOperations: readonly [
   cancelStripeSubscriptionOperation,
   changeStripePlanOperation,
   getOrganizationDataUsageOperation,
+  listOrganizationPendingBlobDeletionsOperation,
+  listRootPendingBlobDeletionsOperation,
   getOrganizationReadModelOperation,
   getOrganizationPolicyHistoryOperation,
   createOrganizationGroupOperation,
