@@ -11,7 +11,8 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: "bun src/servers/e2eServer.ts",
+    command:
+      "sh ../../scripts/lib/withBuildInfoEnv.sh bun src/servers/e2eServer.ts",
     url: baseURL,
     reuseExistingServer: false,
     stdout: "pipe",

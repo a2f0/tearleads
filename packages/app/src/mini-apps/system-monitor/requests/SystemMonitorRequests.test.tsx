@@ -62,7 +62,7 @@ test("API Requests shows earlier traffic, updates live, survives reopening and r
   reopened.unmount();
 });
 
-test("copy reports read current counts without subscribing the Logs tab to requests", async () => {
+test("copy reports include current request outcomes and timings without subscribing the Logs tab", async () => {
   const hostConfig = createTestHostConfig({
     localIdentityNamespace: "request-report-test",
   });
@@ -92,13 +92,31 @@ test("copy reports read current counts without subscribing the Logs tab to reque
     const before = status.mock.calls.length;
     act(() => {
       metrics.begin(null, listSessionsOperation)("succeeded");
+      metrics.begin(null, listSessionsOperation)("failed", {
+        totalMs: 42,
+        databaseMs: 17,
+      });
+      metrics.begin(null, listSessionsOperation)("cancelled");
+      metrics.begin(null, listSessionsOperation);
     });
     expect(status.mock.calls.length).toBe(before);
     fireEvent.click(
       view.getByRole("button", { name: "Copy report for support" }),
     );
-    expect(copied).toContain("| Total requests | 1 |");
-    expect(copied).toContain("| GET /auth/sessions | 1 | 0 | 1 | 0 | 0 |");
+    expect(copied).toContain("## API Requests");
+    expect(copied).toContain("| Total requests | 4 |");
+    expect(copied).toContain("| In flight | 1 |");
+    expect(copied).toContain("| Succeeded | 1 |");
+    expect(copied).toContain("| Failed | 1 |");
+    expect(copied).toContain("| Cancelled | 1 |");
+    expect(copied).toContain("| GET /auth/sessions | 4 | 1 | 1 | 1 | 1 |");
+    expect(copied).toContain("### Timing");
+    expect(copied).toContain(
+      "| Endpoint | Total ms | p50 ms | p95 ms | Max ms | Server p50 ms | DB p50 ms |",
+    );
+    expect(copied).toMatch(
+      /\| GET \/auth\/sessions \| [\d.]+ \| [\d.]+ \| [\d.]+ \| [\d.]+ \| 42 \| 17 \|/,
+    );
     view.unmount();
   } finally {
     status.mockRestore();
