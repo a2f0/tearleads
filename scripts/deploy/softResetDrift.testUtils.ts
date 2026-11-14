@@ -114,6 +114,8 @@ export function tokenModifiedOnDrift(tier: "prod" | "staging" = "prod") {
     name: `tearleads-blobs-${tier}-objects`,
     issued_on: "2026-01-01T00:00:00Z",
     modified_on: "2026-01-01T00:00:00Z",
+    last_used_on: null,
+    condition: null,
     status: "active",
     expires_on: null,
     not_before: null,

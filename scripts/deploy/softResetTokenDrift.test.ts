@@ -15,6 +15,8 @@ test.each([
   ["account_id", "b".repeat(32)],
   ["name", "tearleads-downloads-prod-objects"],
   ["issued_on", "2026-01-02T00:00:00Z"],
+  ["last_used_on", "2026-01-02T00:00:00Z"],
+  ["condition", { request_ip: { in: ["192.0.2.0/24"] } }],
   ["status", "disabled"],
   ["expires_on", "2026-01-02T00:00:00Z"],
   ["not_before", "2026-01-02T00:00:00Z"],

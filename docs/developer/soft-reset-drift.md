@@ -54,7 +54,7 @@ destroy/create plans. The current post-recreation `verify-fresh` phase checks
 storage inventory and emptiness, but inspects only a PostgreSQL no-op plan;
 it does **not** perform a post-recreation storage drift plan. The normal plan
 scope, configured identities, token permissions, and inspected saved-plan-byte
-checks remain mandatory for every plan, even alongside either exception.
+checks remain mandatory for every plan, even alongside any exception.
 
 ## Storage token modification-time exception
 
