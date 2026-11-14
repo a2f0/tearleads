@@ -4,6 +4,7 @@ import {
   arraySchema,
   loosePlainObject,
   safeNonNegativeIntegerSchema,
+  uuidStringSchema,
   uuidV4StringSchema,
 } from "../schema";
 
@@ -13,7 +14,7 @@ const timestampSchema = registerJsonSchemaFragment(z.iso.datetime(), {
 });
 
 export const PendingBlobDeletionSchema = loosePlainObject({
-  blobId: uuidV4StringSchema,
+  blobId: uuidStringSchema,
   organizationId: uuidV4StringSchema,
   byteLength: safeNonNegativeIntegerSchema,
   status: z.literal(["grace-period", "eligible", "deletion-pending"]),

@@ -10,7 +10,7 @@ import { DEFAULT_BLOB_GC_GRACE_PERIOD_MS } from "../../workflows/blobs/gc/graceP
 import { runReclaimDereferencedBlobsWorkflow } from "../../workflows/blobs/gc/reclaimDereferencedBlobs";
 import { listRootPendingBlobDeletions } from "./pendingDeletions";
 
-test("pages span both phases, remain scoped and continue after the cursor row disappears", async () => {
+test("pages with v5 blob IDs span phases, remain scoped and continue after the cursor row disappears", async () => {
   const managed = createDefaultManagedApiDatabase({ API_DATABASE: "memory" });
   try {
     await managed.migrate();
@@ -18,7 +18,10 @@ test("pages span both phases, remain scoped and continue after the cursor row di
     const runtime = createServiceTestRuntime(db);
     const organizationId = crypto.randomUUID();
     const otherOrganizationId = crypto.randomUUID();
-    const ids = Array.from({ length: 6 }, () => crypto.randomUUID()).sort();
+    const ids = Array.from(
+      { length: 6 },
+      (_, index) => `0000000${index}-0000-5000-8000-000000000000`,
+    );
     const [firstId, cursorId, nextId, fourthId] = ids;
     if (!firstId || !cursorId || !nextId || !fourthId) {
       throw new Error("Expected six sorted blob IDs");

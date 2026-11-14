@@ -1,10 +1,10 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import type {
-  PendingBlobDeletionsQuery,
-  RootPendingBlobDeletionsQuery,
+import {
+  BlobBytesPathParamsSchema,
+  type PendingBlobDeletionsQuery,
+  type RootPendingBlobDeletionsQuery,
 } from "@tearleads/validators/operation";
 import type { PendingBlobDeletionsResponse } from "@tearleads/validators/response";
-import { isUuidV4String } from "@tearleads/validators/util";
 import { z } from "zod";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
 import {
@@ -20,7 +20,7 @@ export class PendingBlobDeletionsError extends Error {
 function pageInput(query: PendingBlobDeletionsQuery, scope: string) {
   const schema = z.custom<Record<string, unknown>>(isPlainObject).pipe(
     z.object({
-      afterId: z.string().refine(isUuidV4String),
+      afterId: BlobBytesPathParamsSchema.shape.blobId,
       scope: z.literal(scope),
     }),
   );

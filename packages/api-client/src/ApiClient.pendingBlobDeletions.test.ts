@@ -9,7 +9,7 @@ import { ApiClient } from "./ApiClient";
 
 const organizationId = "11111111-1111-4111-8111-111111111111";
 const blob = {
-  blobId: "22222222-2222-4222-8222-222222222222",
+  blobId: "22222222-2222-1222-8222-222222222222",
   organizationId,
   byteLength: 123,
   status: "eligible" as const,

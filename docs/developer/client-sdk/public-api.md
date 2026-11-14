@@ -20,6 +20,7 @@ Pages contain `blobs` and `nextAfterId`; pass that opaque continuation as
 `grace-period`, `eligible`, or `deletion-pending`; eligibility is not a
 guaranteed deletion time. This read-only surface exposes no content, storage
 keys, download URLs, restore, or immediate deletion operation.
+Blob IDs accept UUID versions 1–5, matching the existing blob route contract.
 
 ## Container primary documents
 
