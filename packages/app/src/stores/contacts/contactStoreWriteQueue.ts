@@ -22,13 +22,26 @@ export async function contactsRuntimeWritable(
   );
 }
 
-/** True while the store still has the database and identity it had now. */
+/** Bind admission and acknowledgment to this exact store/account lifetime. */
 export function captureContactsScope(state: ContactsStoreState): () => boolean {
-  const { domainScope } = state.runtime.documents.state;
+  const { containerId, domainScope } = state.runtime.documents.state;
   const { execSql } = state.runtime.documents.infra;
+  const { userId, isAuthenticated, organizationId } =
+    state.runtime.documents.auth;
+  const { signingFingerprint } = state.runtime.documents.crypto;
+  const generation = state.initializationGeneration;
+  const authorityGeneration = state.authorityGeneration;
   return () =>
+    state.initializationGeneration === generation &&
+    state.authorityGeneration === authorityGeneration &&
+    state.runtime.documents.state.containerId === containerId &&
     state.runtime.documents.state.domainScope === domainScope &&
-    state.runtime.documents.infra.execSql === execSql;
+    state.runtime.documents.infra.execSql === execSql &&
+    state.runtime.documents.infra.dbStatus === "ready" &&
+    state.runtime.documents.auth.userId === userId &&
+    state.runtime.documents.auth.isAuthenticated === isAuthenticated &&
+    state.runtime.documents.auth.organizationId === organizationId &&
+    state.runtime.documents.crypto.signingFingerprint === signingFingerprint;
 }
 
 /**

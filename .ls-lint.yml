@@ -15,6 +15,13 @@ ls:
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-17
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
 
+  # Keep identity-admission races separate from ordinary document actions;
+  # combining their fixtures would exceed the 500-line source-file budget.
+  packages/app/src/mini-apps/explorer/hooks:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-33
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-17
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-4
+
   packages/app/src/mini-apps/explorer/detail:
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-15
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-6

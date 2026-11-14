@@ -5,23 +5,16 @@ const SELF_CONTACT_ID_PREFIX = "self_contact_v1_";
 export interface EnsureSelfContactInput {
   readonly deferRemoteSync?: boolean | null | undefined;
   readonly encapsulationPublicKey?: string | null | undefined;
-  /** Existing-contact lookup hint only; never written into the contact. */
-  readonly lookupUserId?: string | null | undefined;
+  /** When supplied, must be the current signing identity's canonical local id. */
   readonly localId?: string | null | undefined;
   readonly userId?: string | null | undefined;
 }
 
 export interface ResolvedSelfContactIdentity {
+  readonly documentId: string;
   readonly encapsulationPublicKey: string | null;
-  readonly localId: string | null;
+  readonly localId: string;
   readonly userId: string | null;
-}
-
-function normalizeOptionalString(
-  value: string | null | undefined,
-): string | null {
-  const trimmed = value?.trim() ?? "";
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 export function getSelfContactLocalId(signingFingerprint: string): string {
@@ -37,62 +30,6 @@ export function isCurrentSelfContactLocalId(
   );
 }
 
-export function findPrimarySelfContact(
-  entriesById: ReadonlyMap<string, ContactEntry>,
-  identity: ResolvedSelfContactIdentity,
-  lookupUserId?: string | null | undefined,
-): ContactEntry | null {
-  // A recovered contact can be stored under its remote document id, so the
-  // deterministic local id alone cannot find it after logout. The retained
-  // session user id is a lookup hint only; it never changes the identity that
-  // ensureSelfContact may persist.
-  const matchingUserId =
-    identity.userId ?? normalizeOptionalString(lookupUserId);
-  // A writable self entry with this userId under a non-deterministic id is the
-  // recovered cross-device identity. It outranks the creation fallback even if
-  // that fallback was already promoted with the same userId while remote
-  // hydration was in flight. Unrelated and read-only entries cannot displace a
-  // self contact that this device can maintain.
-  if (!matchingUserId) {
-    return identity.localId
-      ? (entriesById.get(identity.localId) ?? null)
-      : null;
-  }
-  const recovered = findWritableUserContact(
-    entriesById,
-    matchingUserId,
-    (entry) =>
-      entry.isSelf && (!identity.localId || entry.id !== identity.localId),
-  );
-  if (recovered) {
-    return recovered;
-  }
-
-  if (identity.localId) {
-    const localContact = entriesById.get(identity.localId) ?? null;
-    if (localContact) {
-      return localContact;
-    }
-  }
-
-  // Preserve the existing promotion behavior when no deterministic fallback
-  // exists, but never select a shared/read-only contact for a write operation.
-  return findWritableUserContact(entriesById, matchingUserId, () => true);
-}
-
-function findWritableUserContact(
-  entriesById: ReadonlyMap<string, ContactEntry>,
-  userId: string,
-  matches: (entry: ContactEntry) => boolean,
-): ContactEntry | null {
-  for (const entry of entriesById.values()) {
-    if (entry.userId === userId && entry.canWrite !== false && matches(entry)) {
-      return entry;
-    }
-  }
-  return null;
-}
-
 export function isSelfContactCurrent(
   entry: ContactEntry | null,
   identity: ResolvedSelfContactIdentity,
@@ -102,53 +39,4 @@ export function isSelfContactCurrent(
     entry.userId === identity.userId &&
     entry.encapsulationPublicKey === identity.encapsulationPublicKey
   );
-}
-
-export function resolveSelfContactId(
-  existingContact: ContactEntry | null,
-  identity: ResolvedSelfContactIdentity,
-): string | null {
-  return existingContact?.id ?? identity.localId ?? identity.userId;
-}
-
-export function toResolvedSelfContactIdentity(
-  input: EnsureSelfContactInput,
-  fallback?: {
-    readonly encapsulationPublicKey: string;
-    readonly userId: string;
-  },
-): ResolvedSelfContactIdentity | null {
-  const identity = {
-    encapsulationPublicKey: normalizeOptionalString(
-      fallback?.encapsulationPublicKey ?? input.encapsulationPublicKey,
-    ),
-    localId: normalizeOptionalString(input.localId),
-    userId: normalizeOptionalString(fallback?.userId ?? input.userId),
-  };
-
-  return identity.localId || identity.userId ? identity : null;
-}
-
-export function shouldRemoveDuplicateSelfContact(
-  entry: ContactEntry,
-  primaryContactId: string,
-  identity: ResolvedSelfContactIdentity,
-): boolean {
-  if (entry.id === primaryContactId || !entry.isSelf) {
-    return false;
-  }
-
-  if (entry.firstName || entry.lastName || entry.nickname) {
-    return false;
-  }
-
-  const userMatches =
-    entry.userId === null ||
-    (identity.userId !== null && entry.userId === identity.userId);
-  const encapsulationKeyMatches =
-    entry.encapsulationPublicKey === null ||
-    (identity.encapsulationPublicKey !== null &&
-      entry.encapsulationPublicKey === identity.encapsulationPublicKey);
-
-  return userMatches && encapsulationKeyMatches;
 }

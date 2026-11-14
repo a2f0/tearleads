@@ -8,9 +8,13 @@ afterEach(() => cleanup());
 
 test("contacts context projects only its public store and snapshot surface", () => {
   const updateContact = mock(async () => undefined);
+  const addContactAddress = mock(async () => "address");
   const unused = mock(async () => undefined);
   const snapshot = { entries: [], ready: true };
   const store = {
+    addContactAddress,
+    removeContactAddress: unused,
+    updateContactAddress: unused,
     createContact: unused,
     ensureSelfContact: unused,
     getSnapshot: () => snapshot,
@@ -35,6 +39,9 @@ test("contacts context projects only its public store and snapshot surface", () 
 
   expect(Object.keys(view.result.current).sort()).toEqual(
     [
+      "addContactAddress",
+      "removeContactAddress",
+      "updateContactAddress",
       "canWrite",
       "createContact",
       "entries",
@@ -47,6 +54,9 @@ test("contacts context projects only its public store and snapshot surface", () 
     ].sort(),
   );
   expect(view.result.current.updateContact).toBe(updateContact);
+  expect(view.result.current.addContactAddress).toBe(addContactAddress);
+  expect(view.result.current.updateContactAddress).toBe(unused);
+  expect(view.result.current.removeContactAddress).toBe(unused);
   expect("ensureSelfContact" in view.result.current).toBe(false);
   expect("updateRuntime" in view.result.current).toBe(false);
 });

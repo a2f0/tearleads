@@ -85,6 +85,7 @@ function ContactsContextMenuModelHarness(params: { entries: ContactEntry[] }) {
     entries: params.entries,
     removeContact: async () => undefined,
     selectedContactId: null,
+    selfContactIdentity: { status: "pending" },
     setSelectedContactId: () => undefined,
   });
 

@@ -6,6 +6,7 @@ import {
   EXPLORER_ORPHANED_DOCUMENTS_ID,
 } from "../../../stores/explorer/orphanedDocuments";
 import { deriveBuiltInSystemContainers } from "../../../stores/systemContainers";
+import { createCanonicalSelfContactIdentity } from "./canonicalSelfContact.testUtils";
 import {
   createExplorerContainerRulesContext,
   type ExplorerContainerRulesContext,
@@ -21,12 +22,13 @@ const CONTACTS_SLOT = "contacts-slot";
 const TRASH_SLOT = "trash-slot";
 const CONTACTS_CONTAINER_ID = "contacts-container";
 const TRASH_CONTAINER_ID = "trash-container";
+const selfContactIdentity = await createCanonicalSelfContactIdentity("abc");
 
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
   currentOrganizationId: null,
-  currentSigningFingerprint: null,
+  selfContactIdentity,
   trashSystemSlot: TRASH_SLOT,
 });
 
@@ -145,7 +147,7 @@ test("an unlinked null-container document can be moved from recovery", () => {
       contactsContainerId: CONTACTS_CONTAINER_ID,
       contactsSystemSlot: CONTACTS_SLOT,
       currentOrganizationId: "org-1",
-      currentSigningFingerprint: null,
+      selfContactIdentity,
       trashSystemSlot: TRASH_SLOT,
     }),
     new Map([["document-1", []]]),
@@ -252,11 +254,12 @@ test("the self contact in contacts cannot be moved to trash", () => {
     contactsContainerId: CONTACTS_CONTAINER_ID,
     contactsSystemSlot: CONTACTS_SLOT,
     currentOrganizationId: null,
-    currentSigningFingerprint: "abc",
+    selfContactIdentity,
     trashSystemSlot: TRASH_SLOT,
   });
   const contactDocument = documentSummary({
     id: "self_contact_v1_abc",
+    documentId: selfContactIdentity.identity.documentId,
     containerId: CONTACTS_CONTAINER_ID,
     documentKind: "contact",
   });
@@ -279,11 +282,12 @@ test("the self contact cannot be moved out of a linked user container", () => {
     contactsContainerId: CONTACTS_CONTAINER_ID,
     contactsSystemSlot: CONTACTS_SLOT,
     currentOrganizationId: null,
-    currentSigningFingerprint: "abc",
+    selfContactIdentity,
     trashSystemSlot: TRASH_SLOT,
   });
   const linkedSelfContact = documentSummary({
     id: "self_contact_v1_abc",
+    documentId: selfContactIdentity.identity.documentId,
     containerId: "user-container",
   });
   const options = moveTargets(
@@ -327,7 +331,7 @@ async function createBuiltInSystemContainerFixture(): Promise<{
       contactsContainerId: CONTACTS_CONTAINER_ID,
       contactsSystemSlot: CONTACTS_SLOT,
       currentOrganizationId: null,
-      currentSigningFingerprint: null,
+      selfContactIdentity,
       trashSystemSlot: TRASH_SLOT,
     }),
   };

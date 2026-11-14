@@ -50,7 +50,10 @@ function useSystemBootstrapInput(input: {
   readonly storeNodes: ReadonlyArray<ContainerNode>;
   readonly systemContainers: ReadonlyArray<UserSystemContainer>;
   readonly tearleads: Tearleads;
-}): SystemBootstrapRunInput | null {
+}): {
+  readonly bootstrapInput: SystemBootstrapRunInput | null;
+  readonly contactsContainerId: string | null;
+} {
   const appData = useTearleadsRuntime();
   const signingPrivateKey =
     appData.crypto.signingKeyPair?.signingPrivateKey ?? null;
@@ -74,7 +77,7 @@ function useSystemBootstrapInput(input: {
     rootContainerId: appData.state.containerId,
   });
 
-  return useMemo(() => {
+  const bootstrapInput = useMemo(() => {
     if (
       !input.enabled ||
       input.bootstrapContacts === null ||
@@ -115,6 +118,7 @@ function useSystemBootstrapInput(input: {
     input.tearleads,
     signingPrivateKey,
   ]);
+  return { bootstrapInput, contactsContainerId: contactsContainer?.id ?? null };
 }
 
 export function SystemBootstrapProvider({
@@ -138,7 +142,7 @@ export function SystemBootstrapProvider({
     isAuthenticated: appData.auth.isAuthenticated,
     primaryLocalOrganization,
   });
-  const bootstrapInput = useSystemBootstrapInput({
+  const { bootstrapInput, contactsContainerId } = useSystemBootstrapInput({
     bootstrapContacts,
     enabled,
     store,
@@ -149,6 +153,7 @@ export function SystemBootstrapProvider({
   });
   const contextValue = useSystemBootstrapController({
     bootstrapInput,
+    contactsContainerId,
     enabled,
     logError: tearleads.logError,
     runBootstrap: runSystemBootstrap,

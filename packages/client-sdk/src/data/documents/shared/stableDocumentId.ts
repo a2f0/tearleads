@@ -15,6 +15,8 @@ const STABLE_DOCUMENT_ID_NAMESPACE_BYTES = new Uint8Array([
  * makes the first remote create idempotent: if the server commits the create but
  * the response is lost, the retry re-sends the same id and the server reports a
  * conflict the client can adopt, instead of creating a second orphan document.
+ * An existing remote or recovery id takes precedence over this planned id.
+ * Derivation is not proof of ownership or permission to adopt, merge, or purge.
  */
 export function deriveStableDocumentId(localId: string): Promise<string> {
   return deriveStableUuidV4Shaped(STABLE_DOCUMENT_ID_NAMESPACE_BYTES, localId);

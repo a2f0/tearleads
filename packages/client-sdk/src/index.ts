@@ -312,6 +312,8 @@ export {
   updateContainerContentsStoreRuntime,
 } from "./stores/container-contents";
 export type {
+  DocumentMutationGuard,
+  DocumentMutationOptions,
   DocumentSnapshot,
   DocumentStoreFacade,
   DocumentStoreOpenOptions,
@@ -448,6 +450,7 @@ export {
   DocumentRawHistoryUnavailableError,
   defaultDocumentsPersistence,
   deletePersistedDocument,
+  deriveStableDocumentId,
   isDatabaseUnavailableError,
   isDocumentSyncUpdateIsolationError,
   persistedDocumentCreateStateFromResponse,

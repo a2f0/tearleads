@@ -3,7 +3,6 @@ import type { ResolvedUserIdentity } from "@tearleads/client-sdk";
 import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
-  deletePersistedDocument,
   openDocumentStore,
 } from "@tearleads/client-sdk";
 import { getSQLitePersistenceRuntime } from "@tearleads/client-sdk/sqlite";
@@ -27,9 +26,9 @@ import {
 type SqlRuntimeBase = Awaited<ReturnType<typeof createSqlRuntimeBase>>;
 const CONTACTS_CONTAINER_ID = "builtin-contacts-container";
 
-async function createContactsRuntime(): Promise<
-  ContactsRuntime & { close: () => void }
-> {
+async function createContactsRuntime(
+  signingFingerprint = "self-signing-fingerprint",
+): Promise<ContactsRuntime & { close: () => void }> {
   const runtimeBase: SqlRuntimeBase = await createSqlRuntimeBase(
     "contacts-store-test",
   );
@@ -41,6 +40,7 @@ async function createContactsRuntime(): Promise<
       ...runtimeInputBase.auth,
       userId: "self-user",
     },
+    crypto: { ...runtimeInputBase.crypto, signingFingerprint },
     infra: {
       ...runtimeInputBase.infra,
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
@@ -53,16 +53,8 @@ async function createContactsRuntime(): Promise<
 
   return {
     close,
-    deleteDocument: async (localId) => {
-      await deletePersistedDocument({
-        documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-        execSql: runtimeInputBase.infra.execSql,
-        localId,
-        persistence: defaultDocumentsPersistence,
-      });
-      return true;
-    },
     documents,
+    listPendingWrites: async () => [],
     loadDocumentSummary: () => Promise.resolve(null),
     moveDocumentToTrash: () => Promise.resolve(null),
     openDocumentStore: (input) =>
@@ -236,6 +228,9 @@ test("contacts store imports self keys without a synthetic nickname", async () =
 
     expect(store.getSnapshot().entries).toContainEqual({
       canWrite: true,
+      documentId: null,
+      rows: [],
+      syncing: false,
       encapsulationPublicKey: selfKey.encapsulationPublicKey,
       firstName: "",
       id: contactId,
@@ -260,7 +255,6 @@ test("contacts store imports self keys without a synthetic nickname", async () =
 });
 
 test("contacts store ensures self contact from deterministic local identity", async () => {
-  const runtime = await createContactsRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const selfKey: ResolvedUserIdentity = {
@@ -272,6 +266,7 @@ test("contacts store ensures self contact from deterministic local identity", as
     signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
     userId: "self-user",
   };
+  const runtime = await createContactsRuntime(selfKey.signingKeyFingerprint);
   const store = createContactsStore(runtime, {
     resolveVerified: async () => {
       throw new Error("unexpected remote self key fetch");
@@ -316,6 +311,9 @@ test("contacts store ensures self contact from deterministic local identity", as
 
     expect(store.getSnapshot().entries).toContainEqual({
       canWrite: true,
+      documentId: null,
+      rows: [],
+      syncing: false,
       encapsulationPublicKey: selfKey.encapsulationPublicKey,
       firstName: "",
       id: selfContactId,
@@ -371,35 +369,62 @@ test("contacts store does not reseed a You nickname for existing self contacts",
       "Contacts store did not initialize.",
     );
 
-    const existingContactId = await store.createContact({
+    const distinctContactId = await store.createContact({
       firstName: "Local",
       lastName: "User",
       nickname: "",
       userId: selfKey.userId,
     });
-    expect(existingContactId).not.toBeNull();
+    if (!distinctContactId) throw new Error("Missing same-user contact");
+    const execSql = runtime.documents.infra.execSql;
+    const distinctBefore =
+      await defaultDocumentsPersistence.loadHistoryRestoreState(
+        execSql,
+        distinctContactId,
+      );
+    expect(distinctBefore).not.toBeNull();
 
     const importedContactId = await store.importVerifiedUser(selfKey.userId);
-    expect(importedContactId).toBe(existingContactId);
-
-    await waitForCondition(
-      () =>
-        store
-          .getSnapshot()
-          .entries.some(
-            (entry) =>
-              entry.id === existingContactId &&
-              entry.isSelf &&
-              entry.encapsulationPublicKey === selfKey.encapsulationPublicKey,
-          ),
-      "Existing self contact was not updated from key import.",
-    );
-
+    const canonicalId = getSelfContactLocalId(selfKey.signingKeyFingerprint);
+    expect(importedContactId).toBe(canonicalId);
+    expect(importedContactId).not.toBe(distinctContactId);
+    for (const nickname of ["Chosen nickname", ""]) {
+      await store.updateContact(canonicalId, { nickname });
+      expect(await store.importVerifiedUser(selfKey.userId)).toBe(canonicalId);
+      expect(
+        await store.ensureSelfContact({
+          localId: canonicalId,
+          userId: selfKey.userId,
+          encapsulationPublicKey: selfKey.encapsulationPublicKey,
+          deferRemoteSync: true,
+        }),
+      ).toBe(canonicalId);
+      expect(
+        store.getSnapshot().entries.find((entry) => entry.id === canonicalId)
+          ?.nickname,
+      ).toBe(nickname);
+      const projections =
+        await defaultDocumentsPersistence.listDocuments(execSql);
+      expect(projections.find((entry) => entry.id === canonicalId)?.title).toBe(
+        nickname || "Untitled contact",
+      );
+    }
+    expect(
+      await defaultDocumentsPersistence.loadHistoryRestoreState(
+        execSql,
+        distinctContactId,
+      ),
+    ).toEqual(distinctBefore);
     expect(
       store
         .getSnapshot()
-        .entries.find((entry) => entry.id === existingContactId)?.nickname,
-    ).toBe("");
+        .entries.find((entry) => entry.id === distinctContactId),
+    ).toMatchObject({
+      firstName: "Local",
+      lastName: "User",
+      nickname: "",
+      isSelf: false,
+    });
   } finally {
     runtime.close();
   }

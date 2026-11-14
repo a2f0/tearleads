@@ -3,6 +3,7 @@ import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import type { FormEvent } from "react";
+import { createCanonicalSelfContactIdentity } from "../model/canonicalSelfContact.testUtils";
 import { createExplorerContainerRulesContext } from "../model/containerRules";
 import { useExplorerModalController } from "./controller";
 
@@ -17,7 +18,7 @@ const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
   currentOrganizationId: null,
-  currentSigningFingerprint: null,
+  selfContactIdentity: await createCanonicalSelfContactIdentity("fingerprint"),
   trashSystemSlot: TRASH_SLOT,
 });
 

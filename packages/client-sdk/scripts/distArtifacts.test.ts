@@ -10,6 +10,7 @@ import {
 import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
+import { deriveStableDocumentId } from "../src/data/documents/shared/stableDocumentId";
 
 const packageRoot = join(import.meta.dir, "..");
 const distPath = join(packageRoot, "dist");
@@ -17,6 +18,18 @@ const distPath = join(packageRoot, "dist");
 // The one deliberately shipped fixture module: it backs the package's
 // "./testing" subpath export.
 const publicTestingEntry = "data/trustedUserIdentity/testFixtures";
+
+test("public document identity uses the remote-create derivation", async () => {
+  const publicApi = await import(join(distPath, "index.js"));
+  const derive: unknown = Reflect.get(publicApi, "deriveStableDocumentId");
+  expect(typeof derive).toBe("function");
+  if (typeof derive !== "function") {
+    throw new Error("Public document identity derivation is missing");
+  }
+  for (const localId of ["stable-personal-document", "distinct-profile"]) {
+    expect(await derive(localId)).toBe(await deriveStableDocumentId(localId));
+  }
+});
 
 async function listDistFiles(): Promise<string[]> {
   const entries = await readdir(distPath, {

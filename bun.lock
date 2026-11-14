@@ -97,13 +97,14 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.187",
+      "version": "0.1.188",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/crypto": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
         "@tearleads/encoding": "workspace:*",
+        "@tearleads/loro": "workspace:*",
         "@tearleads/ui": "workspace:*",
         "@tearleads/validators": "workspace:*",
         "@tearleads/windowing": "workspace:*",
@@ -116,7 +117,6 @@
       "devDependencies": {
         "@a2f0/continuity": "catalog:",
         "@happy-dom/global-registrator": "catalog:testing",
-        "@tearleads/loro": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
         "@tearleads/test-utils": "workspace:*",
         "@testing-library/react": "catalog:testing",
@@ -189,7 +189,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.44",
+      "version": "0.1.45",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -235,7 +235,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.190",
+      "version": "0.1.191",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",

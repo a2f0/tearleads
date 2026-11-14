@@ -48,6 +48,7 @@ export function useContactsStoreForContainer(
   contactsContainerId: string | null,
   resolveTrashContainerForDocument?: ContactsRuntime["resolveTrashContainerForDocument"],
 ): ContactsStore {
+  const tearleads = useTearleads();
   const runtime = useContactsRuntime(
     contactsContainerId,
     resolveTrashContainerForDocument,
@@ -58,7 +59,22 @@ export function useContactsStoreForContainer(
     store.updateRuntime(runtime);
   }, [store, runtime]);
 
-  return store;
+  // Bootstrap and Explorer also refresh this shared store, without removal
+  // ports. Bind this consumer's ports and lifetime to its own action instead.
+  const removeContact = useRuntimeScopedMemo<
+    ContactsStore["removeContact"]
+  >(() => {
+    const version = tearleads.runtime.version;
+    return (contactId, operation) =>
+      store.removeContact(contactId, {
+        runtime,
+        isCurrent: () =>
+          tearleads.runtime.version === version &&
+          (operation?.isCurrent() ?? true),
+        runWhenCurrent: operation?.runWhenCurrent,
+      });
+  }, [runtime, store, tearleads]);
+  return useMemo(() => ({ ...store, removeContact }), [removeContact, store]);
 }
 
 function useContactsRuntime(
@@ -152,18 +168,16 @@ export function createContactsRuntimeForContainer(
   loadDocumentSummary: ContactsRuntime["loadDocumentSummary"] = (localId) =>
     tearleads.containerContents.documentQueries().loadDocumentSummary(localId),
 ): ContactsRuntime {
-  const documentLinks = tearleads.containerContents.documentLinks();
   return {
-    deleteDocument: (localId) => tearleads.documents.delete(localId),
     documents: documentsRuntime,
+    listPendingWrites: () =>
+      tearleads.containerContents.documentQueries().listPendingWrites(),
     loadDocumentSummary,
     moveDocumentToTrash,
     openDocumentStore: (input) =>
       tearleads.documents.open(input, {
         workflowRuntime: documentsRuntime,
       }),
-    purgeDocument: async (document) =>
-      (await documentLinks.purgeDocument({ note: document })) !== null,
     resolveTrashContainerForDocument,
     subscribeToPersistedDocuments: (listener) =>
       tearleads.documents.subscribe(listener, {

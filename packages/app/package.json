@@ -1,6 +1,6 @@
 {
   "name": "app",
-  "version": "0.1.187",
+  "version": "0.1.188",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -19,6 +19,7 @@
     "@tearleads/crypto": "workspace:*",
     "@tearleads/diagnostics": "workspace:*",
     "@tearleads/encoding": "workspace:*",
+    "@tearleads/loro": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "@tearleads/windowing": "workspace:*",
@@ -32,7 +33,6 @@
     "@a2f0/continuity": "catalog:",
     "@happy-dom/global-registrator": "catalog:testing",
     "@testing-library/react": "catalog:testing",
-    "@tearleads/loro": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "@tearleads/test-utils": "workspace:*",
     "@types/bun": "catalog:",

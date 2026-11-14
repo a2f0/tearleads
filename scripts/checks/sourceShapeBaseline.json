@@ -73,8 +73,12 @@
       "bytes": 21345
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 629,
-      "bytes": 18603
+      "lines": 632,
+      "bytes": 18681
+    },
+    "packages/client-sdk/src/workflows/README.md": {
+      "lines": 505,
+      "bytes": 35737
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 587,

@@ -194,6 +194,13 @@ it:
 - Org Manager: opening a roster user without a profile document creates one
   only for a link-verified user; otherwise it asks for their identity link.
 
+Importing the current user's verified identity targets
+[canonical personal Me](../../packages/app/src/document-types/contact/README.md#personal-me-identity),
+not a distinct roster profile or arbitrary same-user contact. The greenfield
+contract has no legacy self-contact adoption or automatic history migration.
+Peer-contact import remains idempotent within its address book; neither path
+turns an identity pin into authority to purge another document.
+
 The SDK enforces the same rule below the app. `organizations.addUserToGroup`
 and a container store's `shareWithUser` throw `UnverifiedUserIdentityError`
 (code `user_identity_unverified`) for a target whose pin is missing or only

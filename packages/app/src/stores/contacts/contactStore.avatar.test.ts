@@ -42,8 +42,8 @@ async function createContactsRuntime(): Promise<
 
   return {
     close,
-    deleteDocument: () => Promise.resolve(true),
     documents,
+    listPendingWrites: async () => [],
     loadDocumentSummary: () => Promise.resolve(null),
     moveDocumentToTrash: () => Promise.resolve(null),
     openDocumentStore: (input) =>

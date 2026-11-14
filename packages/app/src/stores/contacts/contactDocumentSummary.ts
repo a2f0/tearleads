@@ -1,16 +1,16 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import type { ContactsStoreState } from "./contactStoreTypes";
+import type { ContactsRuntime } from "./contactStoreTypes";
 
 export async function loadContactDocumentSummary(
-  state: ContactsStoreState,
+  runtime: ContactsRuntime,
   contactId: string,
 ): Promise<DocumentSummary | null> {
-  const containerId = state.runtime.documents.state.containerId;
+  const containerId = runtime.documents.state.containerId;
   if (!containerId) {
     return null;
   }
 
-  const document = await state.runtime.loadDocumentSummary(contactId);
+  const document = await runtime.loadDocumentSummary(contactId);
   if (
     !document ||
     document.containerId !== containerId ||

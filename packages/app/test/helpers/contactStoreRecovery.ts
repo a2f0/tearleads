@@ -1,7 +1,6 @@
 import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
-  deletePersistedDocument,
   openDocumentStore,
   subscribeToPersistedDocuments,
 } from "@tearleads/client-sdk";
@@ -48,16 +47,8 @@ export async function createRecoveryContactsRuntime(input: {
 
   return {
     close,
-    deleteDocument: async (localId) => {
-      await deletePersistedDocument({
-        documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-        execSql: documents.infra.execSql,
-        localId,
-        persistence: defaultDocumentsPersistence,
-      });
-      return true;
-    },
     documents,
+    listPendingWrites: async () => [],
     loadDocumentSummary: () => Promise.resolve(null),
     moveDocumentToTrash: () => Promise.resolve(null),
     openDocumentStore: (documentInput) =>
@@ -68,12 +59,18 @@ export async function createRecoveryContactsRuntime(input: {
         documentInput.documentId ?? null,
         documentInput.initialText,
         documentInput.initialDocumentKind,
+        {
+          initialRows: documentInput.initialRows,
+          initialStructuredFields: documentInput.initialStructuredFields,
+        },
       ),
     subscribeToPersistedDocuments: (listener) =>
       subscribeToPersistedDocuments(documents.state.domainScope, listener),
   };
 }
 
+// These are DISTINCT documents, not recovery aliases. Matching identity fields
+// must never authorize adoption, deletion, or edit redirection between them.
 export async function seedDuplicateSelfContacts(runtime: ContactsRuntime) {
   const localId = getSelfContactLocalId("offline-self");
   for (const id of [localId, "recovered-self"]) {
@@ -93,4 +90,23 @@ export async function seedDuplicateSelfContacts(runtime: ContactsRuntime) {
     );
   }
   return localId;
+}
+
+// Model identities already admitted to local persistence. This does not grant
+// producer permission to create an alias or merge its independently kept log.
+export async function setPersistedContactDocumentIdentity(
+  runtime: ContactsRuntime,
+  localId: string,
+  documentId: string,
+) {
+  const execSql = runtime.documents.infra.execSql;
+  const record = await defaultDocumentsPersistence.loadDocument(
+    execSql,
+    localId,
+  );
+  if (!record) throw new Error(`Missing seeded contact ${localId}`);
+  await defaultDocumentsPersistence.saveDocument(execSql, {
+    ...record,
+    documentId,
+  });
 }

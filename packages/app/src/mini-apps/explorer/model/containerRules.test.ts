@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { createCanonicalSelfContactIdentity } from "./canonicalSelfContact.testUtils";
 import {
   canAddDocumentToContainerByRules,
   canAdminContainerNode,
@@ -25,13 +26,16 @@ const CONTACTS_CONTAINER_ID = "contacts-container";
 // "self_contact_v1_abc" is the viewer's own "You" contact.
 const SELF_SIGNING_FINGERPRINT = "abc";
 const RECOVERED_SELF_CONTACT_ID = "remote-self-document-id";
+const selfContactIdentity = await createCanonicalSelfContactIdentity(
+  SELF_SIGNING_FINGERPRINT,
+  [RECOVERED_SELF_CONTACT_ID],
+);
 
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
   currentOrganizationId: null,
-  currentSelfContactLocalId: RECOVERED_SELF_CONTACT_ID,
-  currentSigningFingerprint: SELF_SIGNING_FINGERPRINT,
+  selfContactIdentity,
   trashSystemSlot: TRASH_SLOT,
 });
 
@@ -45,7 +49,9 @@ const sharedRulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
   currentOrganizationId: VIEWER_ORG_ID,
-  currentSigningFingerprint: SELF_SIGNING_FINGERPRINT,
+  selfContactIdentity: await createCanonicalSelfContactIdentity(
+    SELF_SIGNING_FINGERPRINT,
+  ),
   trashSystemSlot: TRASH_SLOT,
 });
 
@@ -267,9 +273,17 @@ test("the self contact is pinned in every container it is viewed from", () => {
   // the contact by identity, not by container.
   for (const id of ["self_contact_v1_abc", RECOVERED_SELF_CONTACT_ID]) {
     for (const containerId of [CONTACTS_CONTAINER_ID, "user-container"]) {
-      expect(
-        isPinnedSelfContact(rulesContext, documentSummary({ id, containerId })),
-      ).toBe(true);
+      for (const documentId of [
+        selfContactIdentity.identity.documentId,
+        null,
+      ]) {
+        expect(
+          isPinnedSelfContact(
+            rulesContext,
+            documentSummary({ id, containerId, documentId }),
+          ),
+        ).toBe(true);
+      }
     }
   }
 });
@@ -291,25 +305,31 @@ test("only the viewer's own self contact is pinned", () => {
 test("isSelfContactDocument matches only the viewer's own self-contact id", () => {
   expect(
     isSelfContactDocument(
-      { id: "self_contact_v1_abc" },
-      SELF_SIGNING_FINGERPRINT,
+      { id: "self_contact_v1_abc", documentId: null },
+      selfContactIdentity.identity,
     ),
   ).toBe(true);
   expect(
     isSelfContactDocument(
-      { id: "self_contact_v1_peer" },
-      SELF_SIGNING_FINGERPRINT,
+      { id: "self_contact_v1_peer", documentId: null },
+      selfContactIdentity.identity,
     ),
   ).toBe(false);
   expect(
-    isSelfContactDocument({ id: "local-contact-2" }, SELF_SIGNING_FINGERPRINT),
+    isSelfContactDocument(
+      { id: "local-contact-2", documentId: null },
+      selfContactIdentity.identity,
+    ),
   ).toBe(false);
-  expect(isSelfContactDocument(undefined, SELF_SIGNING_FINGERPRINT)).toBe(
+  expect(isSelfContactDocument(undefined, selfContactIdentity.identity)).toBe(
     false,
   );
-  expect(isSelfContactDocument({ id: "self_contact_v1_abc" }, null)).toBe(
-    false,
-  );
+  expect(
+    isSelfContactDocument(
+      { id: "self_contact_v1_abc", documentId: null },
+      null,
+    ),
+  ).toBe(false);
 });
 
 test("a peer's shared contacts folder enforces contacts rules by name", () => {

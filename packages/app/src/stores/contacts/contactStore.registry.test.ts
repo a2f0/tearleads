@@ -10,8 +10,8 @@ import type { ContactsStoreDependencies } from "./contactStoreTypes";
 
 function contactsRuntime(documents: DocumentsRuntime): ContactsRuntime {
   return {
-    deleteDocument: () => Promise.resolve(true),
     documents,
+    listPendingWrites: async () => [],
     loadDocumentSummary: () => Promise.resolve(null),
     moveDocumentToTrash: () => Promise.resolve(null),
     openDocumentStore: () => {

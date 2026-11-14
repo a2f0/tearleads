@@ -3,6 +3,7 @@ export {
   unwrapDocumentContentKeyTarget,
 } from "../../data/documents/shared/projection";
 export { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
+export { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
 export { selectDocumentSyncOutgoingBatch } from "../../data/documents/shared/sync/documentSyncOutgoingBatch";
 export {
   type DocumentSyncUpdateIsolationError,

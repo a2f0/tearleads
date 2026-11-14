@@ -330,6 +330,16 @@ neither performs nor authorizes a deployed-data reset. Follow the
 [identity-bound reset requirements](../greenfield-reset.md#identity-bound-principal-format);
 do not silently clear pins or checkpoints to make obsolete data load.
 
+### Document identity
+
+The root export `deriveStableDocumentId(localId): Promise<string>` returns the
+planned remote id using the same namespace and algorithm as first remote
+creation. It does not replace a persisted `documentId` or `recoveryDocumentId`;
+those identities take precedence during sync. Hosts can read them through
+`defaultDocumentsPersistence.loadDocument` and the public `DocumentRecord`.
+Matching ids does not establish signer identity, write access, verified
+adoption, redundant history, or permission to merge or purge a document.
+
 ### Unsaved document writes
 
 `hasPendingLocalDocumentWrites(domainScope)` synchronously reports whether any
@@ -339,8 +349,34 @@ later save or sync has covered. A store reports the two through
 `hasQueuedWrites()` and `hasUnsavedLocalEdits()`. Hosts can check it before an
 unload that would terminate the SQLite worker. A typing burst keeps at most one
 write in flight and one queued: a queued `setText` superseded by a newer
-`setText`, or a `setStructuredFields` patch whose every field a newer
-non-deferred patch sets again, never persists on its own.
+`setText`, or an unguarded, non-deferred `setStructuredFields` patch whose
+every field newer unguarded, non-deferred patches set again, never persists on
+its own.
+
+### Host-controlled mutation admission
+
+`DocumentMutationGuard` and `DocumentMutationOptions` are named SDK root type
+exports. Pass `{ stillCurrent: () => current }` as the final optional argument
+to `addRow(fields, options)`, `updateRowFields(id, patch, options)`, or
+`removeRow(id, options)`. `setStructuredFields(kind, patch, options)` accepts the
+same guard alongside its existing `deferRemoteSync` option. Row methods accept
+only the admission guard; they do not acquire deferred-sync behavior.
+
+`stillCurrent` must be synchronous and side-effect-free. The store checks it
+after readiness and again when its real local write queue admits the operation,
+before Loro mutation or a pending-delta flush, including an empty structured
+patch. False makes that operation a no-op. A thrown predicate also refuses,
+reports through existing write-failure diagnostics, and leaves the queue usable.
+`addRow` still resolves its allocated id on refusal, so an id is not a success
+acknowledgement; the other methods resolve void as before. Store facades forward
+the guard unchanged.
+
+Guarded structured writes neither publish optimistically nor participate in
+field-write coalescing: a later refused write cannot suppress an earlier valid
+one. Omitting the guard preserves existing behavior. This is not cancellation
+or rollback: initialization may run before admission, and an edit already
+admitted can finish persisting even if the predicate later becomes false.
+Existing unsaved edits remain available for a separately admitted retry.
 
 ### Queued document updates
 

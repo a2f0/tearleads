@@ -2,8 +2,8 @@
 // states and one pure transition. The React controller in
 // SystemBootstrapProvider dispatches events; nothing here touches React.
 //
-// Each run is tagged with the input it started from (`run`). Run results carry
-// that tag and only the run the state is currently running may finish it, so a
+// Each invocation gets a fresh tag (`run`), even when it reuses its input.
+// Results carry that tag and only the currently running attempt may finish, so a
 // late result from an earlier run never lands after a reset or a newer run.
 
 export type SystemBootstrapStatus =
@@ -13,8 +13,13 @@ export type SystemBootstrapStatus =
   | "ready"
   | "error";
 
-/** Identity of one provisioning run: the input object it started from. */
+/** Identity of one provisioning invocation, not its reusable input. */
 export type SystemBootstrapRunTag = object;
+
+interface SystemBootstrapAttempt {
+  readonly run: SystemBootstrapRunTag;
+  readonly wakePending: boolean;
+}
 
 // `hasCompleted` latches once the first provisioning run for this scope
 // completes. The gate (isBootstrapping) only blanks the mini-app for that
@@ -24,11 +29,16 @@ export type SystemBootstrapRunTag = object;
 // the latch.
 export type SystemBootstrapState =
   | { readonly status: "idle" }
-  | { readonly status: "waiting"; readonly hasCompleted: boolean }
+  | {
+      readonly status: "waiting";
+      readonly hasCompleted: boolean;
+      readonly attempt: SystemBootstrapAttempt | null;
+    }
   | {
       readonly status: "running";
       readonly hasCompleted: boolean;
       readonly run: SystemBootstrapRunTag;
+      readonly wakePending: boolean;
     }
   | { readonly status: "ready" }
   | {
@@ -48,6 +58,8 @@ export type SystemBootstrapEvent =
   | { readonly type: "run-succeeded"; readonly run: SystemBootstrapRunTag }
   /** The run finished without provisioning everything (e.g. no self contact). */
   | { readonly type: "run-incomplete"; readonly run: SystemBootstrapRunTag }
+  | { readonly type: "contacts-persisted"; readonly run: SystemBootstrapRunTag }
+  | { readonly type: "wake-consumed"; readonly run: SystemBootstrapRunTag }
   | {
       readonly type: "run-failed";
       readonly run: SystemBootstrapRunTag;
@@ -70,7 +82,7 @@ export function initialSystemBootstrapState(
   enabled: boolean,
 ): SystemBootstrapState {
   return enabled
-    ? { hasCompleted: false, status: "waiting" }
+    ? { attempt: null, hasCompleted: false, status: "waiting" }
     : SYSTEM_BOOTSTRAP_IDLE;
 }
 
@@ -93,9 +105,9 @@ export function hasSystemBootstrapCompleted(
 
 function waiting(state: SystemBootstrapState): SystemBootstrapState {
   const hasCompleted = hasSystemBootstrapCompleted(state);
-  return state.status === "waiting" && state.hasCompleted === hasCompleted
+  return state.status === "waiting" && state.attempt === null
     ? state
-    : { hasCompleted, status: "waiting" };
+    : { attempt: null, hasCompleted, status: "waiting" };
 }
 
 function isCurrentRun(
@@ -115,6 +127,7 @@ function startRun(
         hasCompleted: hasSystemBootstrapCompleted(state),
         run,
         status: "running",
+        wakePending: false,
       };
 }
 
@@ -125,6 +138,42 @@ function failRun(
 ): SystemBootstrapState {
   return isCurrentRun(state, run)
     ? { error, hasCompleted: state.hasCompleted, status: "error" }
+    : state;
+}
+
+function persistContacts(
+  state: SystemBootstrapState,
+  run: SystemBootstrapRunTag,
+): SystemBootstrapState {
+  if (state.status !== "running" && state.status !== "waiting") return state;
+  const attempt = state.status === "running" ? state : state.attempt;
+  if (!attempt || attempt.run !== run || attempt.wakePending) return state;
+  return state.status === "running"
+    ? { ...state, wakePending: true }
+    : { ...state, attempt: { run, wakePending: true } };
+}
+
+function consumeWake(
+  state: SystemBootstrapState,
+  run: SystemBootstrapRunTag,
+): SystemBootstrapState {
+  return state.status === "waiting" &&
+    state.attempt?.run === run &&
+    state.attempt.wakePending
+    ? { ...state, attempt: { run, wakePending: false } }
+    : state;
+}
+
+function incompleteRun(
+  state: SystemBootstrapState,
+  run: SystemBootstrapRunTag,
+): SystemBootstrapState {
+  return isCurrentRun(state, run)
+    ? {
+        attempt: { run, wakePending: state.wakePending },
+        hasCompleted: state.hasCompleted,
+        status: "waiting",
+      }
     : state;
 }
 
@@ -151,7 +200,11 @@ export function transitionSystemBootstrap(
     case "run-succeeded":
       return isCurrentRun(state, event.run) ? { status: "ready" } : state;
     case "run-incomplete":
-      return isCurrentRun(state, event.run) ? waiting(state) : state;
+      return incompleteRun(state, event.run);
+    case "contacts-persisted":
+      return persistContacts(state, event.run);
+    case "wake-consumed":
+      return consumeWake(state, event.run);
     case "run-failed":
       return failRun(state, event.run, event.error);
     case "run-superseded":

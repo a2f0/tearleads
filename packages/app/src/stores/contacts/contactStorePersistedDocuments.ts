@@ -68,7 +68,6 @@ async function applyPersistedContactDocument(
   const entry = contactEntryFromDocumentStore(contactId, store);
   if (entry) {
     upsertContactEntry(state, entry);
-    state.onContactEntry(entry);
   }
 }
 

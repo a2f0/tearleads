@@ -1,46 +1,29 @@
 import type { DomainScope } from "@tearleads/client-sdk";
-import {
-  type ContactEntry,
-  type ContactEntryPatch,
-  contactEntryToStructuredFieldPatch,
-} from "../../document-types/contact/contactDocumentModel";
+import type { ContactEntryPatch } from "../../document-types/contact/contactDocumentModel";
 import { createDocumentDraft } from "../documents/documentDraft";
 import { TrashUnavailableError } from "../systemContainerTrash";
 import { loadContactDocumentSummary } from "./contactDocumentSummary";
 import {
+  addContactAddressInStore,
+  removeContactAddressInStore,
+  updateContactAddressInStore,
+} from "./contactStoreAddresses";
+import {
   removeContactAvatarInStore,
   setContactAvatarInStore,
 } from "./contactStoreAvatar";
+import { writeContactPatch } from "./contactStoreFieldWrites";
 import {
-  type ContactStoreOperationGuard,
-  removeDuplicateSelfContacts,
-} from "./contactStoreDuplicateSelfCleanup";
-import {
-  ensureContactDocumentStore,
   ensureContactsInitialized,
   hasContactsContainerRuntime,
   resetContactsStore,
 } from "./contactStoreInitialization";
-import {
-  createLateSelfContactReconciliation,
-  hydrateLateSelfContactFallback,
-} from "./contactStoreLateSelfReconciliation";
-import {
-  contactEntryFromDocumentStore,
-  findContactByUserId,
-  findSelfContact,
-  getUserIdentityForSelfContact,
-} from "./contactStoreLookup";
+import { findContactByUserId } from "./contactStoreLookup";
 import { connectContactsStoreToPersistedDocuments } from "./contactStorePersistedDocuments";
-import {
-  resolveContactWriteTarget,
-  resumeRemoteContactCleanup,
-} from "./contactStoreRemoteCleanup";
-import {
-  removeContactEntry,
-  upsertContactEntry,
-} from "./contactStoreSnapshotMutations";
+import { ensureSelfContactFromRuntime } from "./contactStoreSelfContact";
+import { removeContactEntry } from "./contactStoreSnapshotMutations";
 import type {
+  ContactRemovalOperation,
   ContactsRuntime,
   ContactsStore,
   ContactsStoreDependencies,
@@ -53,12 +36,7 @@ import {
 } from "./contactStoreWriteQueue";
 import {
   type EnsureSelfContactInput,
-  findPrimarySelfContact,
   getSelfContactLocalId,
-  isSelfContactCurrent,
-  type ResolvedSelfContactIdentity,
-  resolveSelfContactId,
-  toResolvedSelfContactIdentity,
 } from "./selfContact";
 
 export type { ContactsRuntime, ContactsStore, EnsureSelfContactInput };
@@ -71,169 +49,25 @@ const contactsStoresByScope = new WeakMap<
   DomainScope,
   Map<string | null, ContactsStore>
 >();
-const allowContactStoreOperation = () => true;
-
-async function writeContactPatch(
-  state: ContactsStoreState,
-  contactId: string,
-  patch: ContactEntryPatch,
-  options: {
-    readonly deferRemoteSync?: boolean | undefined;
-    readonly guard?: ContactStoreOperationGuard | undefined;
-    /** A contact this write creates opens with the patch as its birth. */
-    readonly seedBirth?: boolean | undefined;
-  } = {},
-): Promise<void> {
-  const guard = options.guard ?? allowContactStoreOperation;
-  if (!guard()) {
-    return;
-  }
-  contactId = resolveContactWriteTarget(state, contactId);
-  const fields = contactEntryToStructuredFieldPatch(patch);
-  const store = ensureContactDocumentStore(state, contactId, {
-    deferRemoteSync: options.deferRemoteSync,
-    ...(options.seedBirth ? { initialFields: fields } : {}),
-  });
-  const snapshot = store.getSnapshot();
-  if (snapshot.ready && !snapshot.canWrite) {
-    return;
-  }
-
-  // A no-op after a seeded birth (equal values); applies to existing records.
-  await store.setStructuredFields("contact", fields, {
-    deferRemoteSync: options.deferRemoteSync,
-  });
-  if (!guard()) {
-    return;
-  }
-  const entry = contactEntryFromDocumentStore(contactId, store);
-  if (entry) {
-    upsertContactEntry(state, entry);
-  }
-}
 
 async function createContactFromRuntime(
   state: ContactsStoreState,
   patch: ContactEntryPatch,
 ): Promise<string | null> {
-  if (!(await contactsRuntimeWritable(state))) {
-    return null;
-  }
+  const current = captureContactsScope(state);
+  if (!(await contactsRuntimeWritable(state)) || !current()) return null;
 
   const contactId = createDocumentDraft({ documentKind: "contact" }).id;
-  await queueContactWrite(state, "Contacts: failed to create contact.", () =>
-    writeContactPatch(state, contactId, patch, { seedBirth: true }),
-  );
-  return contactId;
-}
-
-async function resolveSelfContactIdentity(
-  state: ContactsStoreState,
-  input: EnsureSelfContactInput,
-): Promise<ResolvedSelfContactIdentity | null> {
-  if (input.userId && !input.encapsulationPublicKey?.trim()) {
-    const userIdentity = await getUserIdentityForSelfContact(
-      state.dependencies,
-      input.userId,
-    );
-    return userIdentity
-      ? toResolvedSelfContactIdentity(input, userIdentity)
-      : null;
-  }
-
-  return toResolvedSelfContactIdentity(input);
-}
-
-async function ensureSelfContactFromRuntime(
-  state: ContactsStoreState,
-  input: EnsureSelfContactInput,
-  guard: ContactStoreOperationGuard = allowContactStoreOperation,
-): Promise<string | null> {
-  if (!(await contactsRuntimeWritable(state)) || !guard()) {
-    return null;
-  }
-
-  const identity = await resolveSelfContactIdentity(state, input);
-  if (!guard() || !identity) {
-    return null;
-  }
-
-  const existingContact = findPrimarySelfContact(
-    state.entriesById,
-    identity,
-    input.lookupUserId,
-  );
-  const selectedContactId = resolveSelfContactId(existingContact, identity);
-  if (!selectedContactId) {
-    return null;
-  }
-  let contactId = resolveContactWriteTarget(state, selectedContactId);
-  const deferRemoteSync = input.deferRemoteSync === true;
-  // A signed-out bootstrap only knows the deterministic device-local id. If
-  // that id already belongs to a self contact promoted while authenticated,
-  // preserve its remote identity instead of replacing the user id and public
-  // key with nulls and leaving a spurious deferred edit behind on logout.
-  const preservesExistingRemoteIdentity =
-    deferRemoteSync &&
-    identity.userId === null &&
-    identity.encapsulationPublicKey === null &&
-    existingContact?.isSelf === true;
-  const current =
-    preservesExistingRemoteIdentity ||
-    isSelfContactCurrent(existingContact, identity);
-  if (!guard()) {
-    return null;
-  }
-
-  await queueContactWrite(
+  const saved = await queueContactWrite(
     state,
-    "Contacts: failed to ensure self contact.",
-    async () => {
-      if (!guard()) {
-        return;
-      }
-      contactId = resolveContactWriteTarget(state, contactId);
-      if (!current || !deferRemoteSync) {
-        await removeDuplicateSelfContacts(state, contactId, identity, guard);
-        if (!guard()) {
-          return;
-        }
-        await writeContactPatch(
-          state,
-          contactId,
-          {
-            encapsulationPublicKey: identity.encapsulationPublicKey,
-            isSelf: true,
-            userId: identity.userId,
-          },
-          {
-            deferRemoteSync,
-            guard,
-          },
-        );
-        return;
-      }
-      await removeDuplicateSelfContacts(state, contactId, identity, guard);
-    },
+    "Contacts: failed to create contact.",
+    () =>
+      writeContactPatch(state, contactId, patch, {
+        guard: current,
+        seedBirth: true,
+      }),
   );
-  return contactId;
-}
-
-async function reconcileLatePersistedSelfContact(
-  state: ContactsStoreState,
-  entry: ContactEntry,
-): Promise<void> {
-  const reconciliation = createLateSelfContactReconciliation(state, entry);
-  if (!reconciliation) {
-    return;
-  }
-  await hydrateLateSelfContactFallback(state, reconciliation);
-
-  await ensureSelfContactFromRuntime(
-    state,
-    reconciliation.input,
-    reconciliation.canApply,
-  );
+  return saved ? contactId : null;
 }
 
 async function updateContactFromRuntime(
@@ -241,13 +75,11 @@ async function updateContactFromRuntime(
   contactId: string,
   patch: ContactEntryPatch,
 ): Promise<void> {
-  contactId = resolveContactWriteTarget(state, contactId);
-  if (!(await contactsRuntimeWritable(state, contactId))) {
-    return;
-  }
+  const current = captureContactsScope(state);
+  if (!(await contactsRuntimeWritable(state, contactId)) || !current()) return;
 
   await queueContactWrite(state, "Contacts: failed to update contact.", () =>
-    writeContactPatch(state, contactId, patch),
+    writeContactPatch(state, contactId, patch, { guard: current }),
   );
 }
 
@@ -255,55 +87,55 @@ async function importUserFromRuntime(
   state: ContactsStoreState,
   userId: string,
 ): Promise<string | null> {
-  // Verify in, and later write to, this store's own database.
-  const stillScoped = captureContactsScope(state);
+  // Verify in, and later write to, this store's own database and identity.
+  const current = captureContactsScope(state);
   const scope = state.runtime.documents.state.domainScope;
   const userIdentity = await state.dependencies.resolveVerified(userId, scope);
-  if (!userIdentity || !stillScoped()) return null;
-  if (!(await contactsRuntimeWritable(state)) || !stillScoped()) return null;
+  if (!userIdentity || userIdentity.userId !== userId || !current()) {
+    return null;
+  }
+  if (!(await contactsRuntimeWritable(state)) || !current()) return null;
 
-  const isSelf = userIdentity.userId === state.runtime.documents.auth.userId;
+  if (userId === state.runtime.documents.auth.userId) {
+    if (
+      userIdentity.signingKeyFingerprint !==
+      state.runtime.documents.crypto.signingFingerprint
+    ) {
+      return null;
+    }
+    return ensureSelfContactFromRuntime(
+      state,
+      {
+        encapsulationPublicKey: userIdentity.encapsulationPublicKey,
+        localId: getSelfContactLocalId(userIdentity.signingKeyFingerprint),
+        userId,
+      },
+      current,
+    );
+  }
+
   const contactId = await queueContactWrite(
     state,
     "Contacts: failed to import user key.",
     async () => {
-      if (!stillScoped()) return null;
+      if (!current()) return null;
       const containerId = state.runtime.documents.state.containerId;
       if (!containerId) return null;
-      // Scope imports to their address book while retaining create idempotency
-      // across devices that have not hydrated their local contact projections.
-      const existingContact = isSelf
-        ? findSelfContact(state.entriesById, userIdentity.userId)
-        : findContactByUserId(state.entriesById, userIdentity.userId);
-      const importedContactId = resolveContactWriteTarget(
-        state,
-        existingContact?.id ??
-          `contact_v1_${containerId}_${userIdentity.userId}`,
-      );
-      const identity = toResolvedSelfContactIdentity({
-        encapsulationPublicKey: userIdentity.encapsulationPublicKey,
-        userId: userIdentity.userId,
-      });
-      // The self contact keeps its own two-step bootstrap semantics.
-      await writeContactPatch(
+      // Peer imports remain idempotent within their own address book.
+      const importedContactId =
+        findContactByUserId(state.entriesById, userId)?.id ??
+        `contact_v1_${containerId}_${userId}`;
+      const saved = await writeContactPatch(
         state,
         importedContactId,
         {
           encapsulationPublicKey: userIdentity.encapsulationPublicKey,
-          isSelf,
-          userId: userIdentity.userId,
+          isSelf: false,
+          userId,
         },
-        { seedBirth: !isSelf },
+        { guard: current, seedBirth: true },
       );
-      if (isSelf && identity) {
-        await removeDuplicateSelfContacts(
-          state,
-          importedContactId,
-          identity,
-          allowContactStoreOperation,
-        );
-      }
-      return importedContactId;
+      return saved ? importedContactId : null;
     },
   );
   return contactId ?? null;
@@ -312,58 +144,72 @@ async function importUserFromRuntime(
 async function removeContactFromRuntime(
   state: ContactsStoreState,
   contactId: string,
+  operation?: ContactRemovalOperation,
 ): Promise<void> {
-  if (!(await contactsRuntimeWritable(state, contactId))) {
+  const scopeCurrent = captureContactsScope(state);
+  const runtime = operation?.runtime ?? state.runtime;
+  const isCurrent = () => scopeCurrent() && (operation?.isCurrent() ?? true);
+  if (!(await contactsRuntimeWritable(state, contactId)) || !isCurrent()) {
     return;
   }
 
-  await queueContactWrite(
-    state,
-    "Contacts: failed to remove contact.",
-    async () => {
-      const contactDocument = await loadContactDocumentSummary(
-        state,
-        contactId,
-      );
-      if (!contactDocument) {
-        state.dependencies.logError(
-          `Contacts: failed to remove contact because document ${contactId} could not be loaded.`,
-        );
-        return;
-      }
-
-      // Resolve the Trash for the contact's OWN container (org-aware), lazily
-      // provisioning the viewer's Trash when needed. Without a target the
-      // contact stays in place — never a purge — and an unavailable Trash (a
-      // fresh device before its root syncs) is reported rather than swallowed.
-      const resolveTrashContainer =
-        state.runtime.resolveTrashContainerForDocument;
-      if (!resolveTrashContainer) {
-        return;
-      }
-      const target = await resolveTrashContainer(contactDocument);
-      if (target.status === "unavailable") {
-        state.dependencies.logError(new TrashUnavailableError(target.reason));
-        return;
-      }
-      if (target.status !== "target") {
-        return;
-      }
-
-      const movedContact = await state.runtime.moveDocumentToTrash(
-        contactDocument,
-        target.trashContainerId,
-      );
-      if (!movedContact) {
-        return;
-      }
-
-      const trackedStore = state.contactDocumentStoresById.get(contactId);
-      trackedStore?.unsubscribe();
-      state.contactDocumentStoresById.delete(contactId);
-      removeContactEntry(state, contactId);
-    },
+  await queueContactWrite(state, "Contacts: failed to remove contact.", () =>
+    removeContactInCurrentScope(state, contactId, {
+      runtime,
+      isCurrent,
+      runWhenCurrent: operation?.runWhenCurrent,
+    }),
   );
+}
+
+async function removeContactInCurrentScope(
+  state: ContactsStoreState,
+  contactId: string,
+  {
+    runtime,
+    isCurrent,
+    runWhenCurrent,
+  }: ContactRemovalOperation & {
+    readonly runtime: ContactsRuntime;
+  },
+): Promise<void> {
+  if (!isCurrent()) return;
+  const contactDocument = await loadContactDocumentSummary(runtime, contactId);
+  if (!isCurrent()) return;
+  if (!contactDocument) {
+    state.dependencies.logError(
+      `Contacts: failed to remove contact because document ${contactId} could not be loaded.`,
+    );
+    return;
+  }
+
+  // Resolve the Trash for the contact's OWN container (org-aware), lazily
+  // provisioning the viewer's Trash when needed. Without a target the
+  // contact stays in place — never a purge — and an unavailable Trash (a
+  // fresh device before its root syncs) is reported rather than swallowed.
+  const resolveTrashContainer = runtime.resolveTrashContainerForDocument;
+  if (!resolveTrashContainer) return;
+  const target = await resolveTrashContainer(contactDocument);
+  if (!isCurrent()) return;
+  if (target.status === "unavailable") {
+    state.dependencies.logError(new TrashUnavailableError(target.reason));
+    return;
+  }
+  if (target.status !== "target") return;
+
+  // Preparation may have started a new metadata read. Join its admission at
+  // the effect, then recheck runtime scope without an intervening await.
+  const move = () =>
+    isCurrent()
+      ? runtime.moveDocumentToTrash(contactDocument, target.trashContainerId)
+      : null;
+  const movedContact = await (runWhenCurrent ? runWhenCurrent(move) : move());
+  if (!movedContact || !isCurrent()) return;
+
+  const trackedStore = state.contactDocumentStoresById.get(contactId);
+  trackedStore?.unsubscribe();
+  state.contactDocumentStoresById.delete(contactId);
+  removeContactEntry(state, contactId);
 }
 
 function updateContactsStoreRuntime(
@@ -371,6 +217,18 @@ function updateContactsStoreRuntime(
   runtime: ContactsRuntime,
 ): void {
   const previousDocuments = state.runtime.documents;
+  if (
+    previousDocuments.auth.userId !== runtime.documents.auth.userId ||
+    previousDocuments.auth.organizationId !==
+      runtime.documents.auth.organizationId ||
+    previousDocuments.auth.isAuthenticated !==
+      runtime.documents.auth.isAuthenticated ||
+    previousDocuments.crypto.signingFingerprint !==
+      runtime.documents.crypto.signingFingerprint
+  ) {
+    // Returning to the same keys after logout does not revive an old write.
+    state.authorityGeneration += 1;
+  }
   const previousContainerId = state.runtime.documents.state.containerId;
   const previousDbStatus = state.runtime.documents.infra.dbStatus;
   const previousDomainScope = state.runtime.documents.state.domainScope;
@@ -417,13 +275,6 @@ function updateContactsStoreRuntime(
     connectContactsStoreToPersistedDocuments(state);
   }
   ensureContactsInitialized(state);
-  if (
-    runtime.documents.state.online &&
-    runtime.documents.auth.isAuthenticated &&
-    (!previousDocuments.state.online || !previousDocuments.auth.isAuthenticated)
-  ) {
-    resumeRemoteContactCleanup(state);
-  }
 }
 
 export function createContactsStore(
@@ -431,6 +282,7 @@ export function createContactsStore(
   dependencies: ContactsStoreDependencies,
 ): ContactsStore {
   const state: ContactsStoreState = {
+    authorityGeneration: 0,
     contactDocumentStoresById: new Map(),
     dependencies,
     entriesById: new Map(),
@@ -438,16 +290,6 @@ export function createContactsStore(
     initialized: false,
     initializePromise: null,
     listeners: new Set(),
-    onContactEntry: (entry) => {
-      void reconcileLatePersistedSelfContact(state, entry).catch(
-        (error: unknown) => {
-          state.dependencies.logError(
-            "Contacts: failed to reconcile a hydrated self contact.",
-            error,
-          );
-        },
-      );
-    },
     pendingSnapshotFlush: false,
     persistedDocumentsUnsubscribe: null,
     runtime: initialRuntime,
@@ -457,11 +299,24 @@ export function createContactsStore(
   connectContactsStoreToPersistedDocuments(state);
 
   return {
+    addContactAddress: (contactId, fields, intent, isCurrent) =>
+      addContactAddressInStore(state, contactId, fields, intent, isCurrent),
+    updateContactAddress: (contactId, addressId, patch, isCurrent) =>
+      updateContactAddressInStore(
+        state,
+        contactId,
+        addressId,
+        patch,
+        isCurrent,
+      ),
+    removeContactAddress: (contactId, addressId, isCurrent) =>
+      removeContactAddressInStore(state, contactId, addressId, isCurrent),
     createContact: (patch) => createContactFromRuntime(state, patch),
     ensureSelfContact: (input) => ensureSelfContactFromRuntime(state, input),
     getSnapshot: () => state.snapshot,
     importVerifiedUser: (userId) => importUserFromRuntime(state, userId),
-    removeContact: (contactId) => removeContactFromRuntime(state, contactId),
+    removeContact: (contactId, operation) =>
+      removeContactFromRuntime(state, contactId, operation),
     removeContactAvatar: (contactId) =>
       removeContactAvatarInStore(state, contactId),
     setContactAvatar: (contactId, upload) =>

@@ -165,12 +165,11 @@ export async function saveDocumentRecord(
       : await persistDocumentState(persistenceInput);
   if (!persistedDocumentState) {
     // With a stale generation the teardown that invalidated it owns the
-    // state. With a current (or absent) generation, the refusal means the
-    // durable row was deleted by ANOTHER subsystem while this persist was
-    // queued (the resurrect guard): this store is a zombie — clear it so
-    // callers that ignore the result stop advancing state or scheduling
-    // sync against a document that no longer exists.
-    if (isCurrent()) {
+    // state. A refused birth never owned a durable row and remains retryable.
+    // For an existing record, refusal means another subsystem deleted its
+    // durable row (the resurrect guard): retire that store so callers cannot
+    // keep advancing state or syncing a document that no longer exists.
+    if (!createsPlacement && isCurrent()) {
       markDocumentStoreRemoved(state);
     }
     void runDocumentOrphanMaintenance(state);

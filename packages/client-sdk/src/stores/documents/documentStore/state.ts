@@ -474,6 +474,8 @@ export function refreshAttachabilitySnapshot(state: DocumentStoreState) {
     ...state.snapshot,
     canAttach: canAttachFiles(state),
     canWrite: canWriteDocument(state),
+    // Publish runtime identity before a caller captures its write authority.
+    currentAuthorId: resolveCurrentAuthorId(state),
     effectiveAccessLevel: normalizeEffectiveAccessLevel(
       state.record?.effectiveAccessLevel,
     ),

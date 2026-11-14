@@ -5,13 +5,16 @@ import type {
   DocumentsRuntime,
   DomainScope,
   OpenDocumentInput,
+  PendingWriteQueueItem,
   ResolvedUserIdentity,
 } from "@tearleads/client-sdk";
+import type { ContactAddressFields } from "../../document-types/contact/contactAddressModel";
 import type {
   ContactEntry,
   ContactEntryPatch,
 } from "../../document-types/contact/contactDocumentModel";
 import type { DeleteToTrashTarget } from "../systemContainerTrash";
+import type { SelfContactIdentityAuthority } from "./currentSelfContactIdentityState";
 import type { EnsureSelfContactInput } from "./selfContact";
 
 export interface ContactsSnapshot {
@@ -20,8 +23,8 @@ export interface ContactsSnapshot {
 }
 
 export interface ContactsRuntime {
-  deleteDocument: (localId: string) => Promise<boolean>;
   documents: DocumentsRuntime;
+  listPendingWrites: () => Promise<ReadonlyArray<PendingWriteQueueItem>>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   moveDocumentToTrash: (
     note: DocumentSummary,
@@ -30,7 +33,6 @@ export interface ContactsRuntime {
   openDocumentStore: (
     input: OpenDocumentInput & { readonly localId: string },
   ) => DocumentStore;
-  purgeDocument?: ((document: DocumentSummary) => Promise<boolean>) | undefined;
   // Resolve the Trash a specific contact document should move into, org-awarely
   // and lazily provisioning the viewer's own Trash. A non-target outcome leaves
   // the contact in place and says why. Absent on bootstrap-only runtimes that
@@ -43,7 +45,35 @@ export interface ContactsRuntime {
     | undefined;
 }
 
+/** Caller-owned removal ports must not be replaced by a read-only subscriber. */
+export interface ContactRemovalOperation {
+  // A bound consumer supplies its own ports when the UI passes admission only.
+  readonly runtime?: ContactsRuntime | undefined;
+  readonly isCurrent: () => boolean;
+  readonly runWhenCurrent?:
+    | SelfContactIdentityAuthority["runWhenCurrent"]
+    | undefined;
+}
+
 export interface ContactsStore {
+  updateContactAddress: (
+    contactId: string,
+    addressId: string,
+    patch: Partial<ContactAddressFields>,
+    isCurrent?: () => boolean,
+  ) => Promise<void>;
+  removeContactAddress: (
+    contactId: string,
+    addressId: string,
+    isCurrent?: () => boolean,
+  ) => Promise<void>;
+  /** Reuse an opaque draft identity on retries; omission starts a new intent. */
+  addContactAddress: (
+    contactId: string,
+    fields: ContactAddressFields,
+    intent?: object,
+    isCurrent?: () => boolean,
+  ) => Promise<string | null>;
   createContact: (patch: ContactEntryPatch) => Promise<string | null>;
   ensureSelfContact: (input: EnsureSelfContactInput) => Promise<string | null>;
   getSnapshot: () => ContactsSnapshot;
@@ -52,7 +82,10 @@ export interface ContactsStore {
    * this device's own keys) established; `null` for any other user.
    */
   importVerifiedUser: (userId: string) => Promise<string | null>;
-  removeContact: (contactId: string) => Promise<void>;
+  removeContact: (
+    contactId: string,
+    operation?: ContactRemovalOperation,
+  ) => Promise<void>;
   removeContactAvatar: (contactId: string) => Promise<void>;
   setContactAvatar: (
     contactId: string,
@@ -85,6 +118,7 @@ export interface TrackedContactDocumentStore {
 }
 
 export interface ContactsStoreState {
+  authorityGeneration: number;
   contactDocumentStoresById: Map<string, TrackedContactDocumentStore>;
   dependencies: ContactsStoreDependencies;
   entriesById: Map<string, ContactEntry>;
@@ -92,7 +126,6 @@ export interface ContactsStoreState {
   initializePromise: Promise<void> | null;
   initialized: boolean;
   listeners: Set<() => void>;
-  onContactEntry: (entry: ContactEntry) => void;
   pendingSnapshotFlush: boolean;
   persistedDocumentsUnsubscribe: (() => void) | null;
   runtime: ContactsRuntime;

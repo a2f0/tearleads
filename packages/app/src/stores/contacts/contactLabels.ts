@@ -3,24 +3,28 @@ import {
   type ContactEntry,
   getContactDisplayName,
 } from "../../document-types/contact/contactDocumentModel";
+import {
+  matchesSelfContactIdentity,
+  type SelfContactIdentityView,
+} from "./currentSelfContactIdentityState";
 import { isCurrentSelfContactLocalId } from "./selfContact";
 
 const YOU_LABEL = "You";
 
 export function findCurrentSelfContactLocalId(
   entries: ReadonlyArray<ContactEntry>,
-  currentUserId: string | null | undefined,
+  selfContactIdentity: SelfContactIdentityView | null | undefined,
 ): string | null {
-  if (!currentUserId) {
+  if (
+    selfContactIdentity?.status !== "ready" ||
+    !selfContactIdentity.isCurrent()
+  ) {
     return null;
   }
 
   return (
-    entries.find(
-      (entry) =>
-        entry.isSelf &&
-        entry.userId === currentUserId &&
-        entry.canWrite !== false,
+    entries.find((entry) =>
+      matchesSelfContactIdentity(selfContactIdentity.identity, entry),
     )?.id ?? null
   );
 }
