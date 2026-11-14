@@ -8,6 +8,7 @@ import type {
 } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { createCanonicalSelfContactIdentity } from "../model/canonicalSelfContact.testUtils";
 import { createExplorerContainerRulesContext } from "../model/containerRules";
 import { getSelectedDocumentMutationState } from "./selectedDocumentMutationState";
 import { useExplorerDocumentDownload } from "./useExplorerDocumentDownload";
@@ -24,7 +25,7 @@ const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
   currentOrganizationId: null,
-  currentSigningFingerprint: "fingerprint",
+  selfContactIdentity: await createCanonicalSelfContactIdentity("fingerprint"),
   trashSystemSlot: TRASH_SLOT,
 });
 
@@ -286,7 +287,8 @@ test("Explorer offers and creates a link while offline, then invalidates the des
     contactsContainerId: null,
     contactsSystemSlot: null,
     currentOrganizationId: "org",
-    currentSigningFingerprint: null,
+    selfContactIdentity:
+      await createCanonicalSelfContactIdentity("fingerprint"),
     trashSystemSlot: null,
   });
   const linkedTargets: string[] = [];

@@ -160,6 +160,11 @@ reads.
 
 ## Documents
 
+`deriveStableDocumentId(localId)` exposes the same pure identity derivation used
+for first remote creation. Existing remote and recovery ids take precedence;
+the derived id alone authorizes neither adoption nor history retirement. See
+[document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
+
 The documents facade admits explicit `historyMode: "raw"` reads through
 `syncRemoteDocument`. A raw consumer must start at a null version vector, send
 no writes, validate every bounded page in scratch state, and publish only after

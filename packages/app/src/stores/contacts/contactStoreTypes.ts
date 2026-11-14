@@ -5,6 +5,7 @@ import type {
   DocumentsRuntime,
   DomainScope,
   OpenDocumentInput,
+  PendingWriteQueueItem,
   ResolvedUserIdentity,
 } from "@tearleads/client-sdk";
 import type { ContactAddressFields } from "../../document-types/contact/contactAddressModel";
@@ -21,8 +22,8 @@ export interface ContactsSnapshot {
 }
 
 export interface ContactsRuntime {
-  deleteDocument: (localId: string) => Promise<boolean>;
   documents: DocumentsRuntime;
+  listPendingWrites: () => Promise<ReadonlyArray<PendingWriteQueueItem>>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   moveDocumentToTrash: (
     note: DocumentSummary,
@@ -31,7 +32,6 @@ export interface ContactsRuntime {
   openDocumentStore: (
     input: OpenDocumentInput & { readonly localId: string },
   ) => DocumentStore;
-  purgeDocument?: ((document: DocumentSummary) => Promise<boolean>) | undefined;
   // Resolve the Trash a specific contact document should move into, org-awarely
   // and lazily provisioning the viewer's own Trash. A non-target outcome leaves
   // the contact in place and says why. Absent on bootstrap-only runtimes that
@@ -42,6 +42,12 @@ export interface ContactsRuntime {
   subscribeToPersistedDocuments?:
     | ((listener: (document: DocumentSummary) => void) => () => void)
     | undefined;
+}
+
+/** Caller-owned removal ports must not be replaced by a read-only subscriber. */
+export interface ContactRemovalOperation {
+  readonly runtime: ContactsRuntime;
+  readonly isCurrent: () => boolean;
 }
 
 export interface ContactsStore {
@@ -71,7 +77,10 @@ export interface ContactsStore {
    * this device's own keys) established; `null` for any other user.
    */
   importVerifiedUser: (userId: string) => Promise<string | null>;
-  removeContact: (contactId: string) => Promise<void>;
+  removeContact: (
+    contactId: string,
+    operation?: ContactRemovalOperation,
+  ) => Promise<void>;
   removeContactAvatar: (contactId: string) => Promise<void>;
   setContactAvatar: (
     contactId: string,
@@ -104,6 +113,7 @@ export interface TrackedContactDocumentStore {
 }
 
 export interface ContactsStoreState {
+  authorityGeneration: number;
   contactDocumentStoresById: Map<string, TrackedContactDocumentStore>;
   dependencies: ContactsStoreDependencies;
   entriesById: Map<string, ContactEntry>;
@@ -111,7 +121,6 @@ export interface ContactsStoreState {
   initializePromise: Promise<void> | null;
   initialized: boolean;
   listeners: Set<() => void>;
-  onContactEntry: (entry: ContactEntry) => void;
   pendingSnapshotFlush: boolean;
   persistedDocumentsUnsubscribe: (() => void) | null;
   runtime: ContactsRuntime;

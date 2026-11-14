@@ -13,19 +13,23 @@ const ERROR = new Error("boom");
 
 const idle: SystemBootstrapState = { status: "idle" };
 const waiting: SystemBootstrapState = {
+  attempt: null,
   hasCompleted: false,
   status: "waiting",
 };
 const waitingDone: SystemBootstrapState = {
+  attempt: null,
   hasCompleted: true,
   status: "waiting",
 };
 const runningA: SystemBootstrapState = {
+  wakePending: false,
   hasCompleted: false,
   run: RUN_A,
   status: "running",
 };
 const rerunningA: SystemBootstrapState = {
+  wakePending: false,
   hasCompleted: true,
   run: RUN_A,
   status: "running",
@@ -78,13 +82,13 @@ describe("system bootstrap transitions", () => {
       "running + run-incomplete",
       runningA,
       { run: RUN_A, type: "run-incomplete" },
-      waiting,
+      { ...waiting, attempt: { run: RUN_A, wakePending: false } },
     ],
     [
       "rerun + run-incomplete keeps the latch",
       rerunningA,
       { run: RUN_A, type: "run-incomplete" },
-      waitingDone,
+      { ...waitingDone, attempt: { run: RUN_A, wakePending: false } },
     ],
     [
       "running + run-failed",
@@ -181,6 +185,7 @@ describe("system bootstrap transitions", () => {
       hasCompleted: false,
       run: RUN_B,
       status: "running",
+      wakePending: false,
     });
   });
 
@@ -194,8 +199,113 @@ describe("system bootstrap transitions", () => {
       hasCompleted: false,
       run: RUN_B,
       status: "running",
+      wakePending: false,
     });
     expect(run(state, [{ run: RUN_B, type: "run-succeeded" }])).toEqual(ready);
+  });
+
+  test("a matching wake coalesces during work and survives incomplete settlement once", () => {
+    const pending = transitionSystemBootstrap(runningA, {
+      run: RUN_A,
+      type: "contacts-persisted",
+    });
+    expect(pending).toEqual({ ...runningA, wakePending: true });
+    expect(
+      transitionSystemBootstrap(pending, {
+        run: RUN_A,
+        type: "contacts-persisted",
+      }),
+    ).toBe(pending);
+    const incomplete = transitionSystemBootstrap(pending, {
+      run: RUN_A,
+      type: "run-incomplete",
+    });
+    expect(incomplete).toEqual({
+      ...waiting,
+      attempt: { run: RUN_A, wakePending: true },
+    });
+    const consumed = transitionSystemBootstrap(incomplete, {
+      run: RUN_A,
+      type: "wake-consumed",
+    });
+    expect(consumed).toEqual({
+      ...waiting,
+      attempt: { run: RUN_A, wakePending: false },
+    });
+    expect(
+      transitionSystemBootstrap(consumed, {
+        run: RUN_A,
+        type: "wake-consumed",
+      }),
+    ).toBe(consumed);
+    expect(
+      run(consumed, [
+        { run: RUN_B, type: "run-started" },
+        { run: RUN_A, type: "contacts-persisted" },
+        { run: RUN_B, type: "run-incomplete" },
+      ]),
+    ).toEqual({ ...waiting, attempt: { run: RUN_B, wakePending: false } });
+  });
+
+  test("a waiting attempt accepts its wake and rejects another attempt's ticket", () => {
+    const incomplete = transitionSystemBootstrap(runningA, {
+      run: RUN_A,
+      type: "run-incomplete",
+    });
+    expect(
+      transitionSystemBootstrap(incomplete, {
+        run: RUN_B,
+        type: "contacts-persisted",
+      }),
+    ).toBe(incomplete);
+    const pending = transitionSystemBootstrap(incomplete, {
+      run: RUN_A,
+      type: "contacts-persisted",
+    });
+    expect(pending).toEqual({
+      ...waiting,
+      attempt: { run: RUN_A, wakePending: true },
+    });
+    expect(
+      transitionSystemBootstrap(pending, {
+        run: RUN_B,
+        type: "wake-consumed",
+      }),
+    ).toBe(pending);
+    expect(
+      transitionSystemBootstrap(pending, { type: "input-missing" }),
+    ).toEqual(waiting);
+  });
+
+  test.each<[string, SystemBootstrapState]>([
+    ["idle", idle],
+    ["unattempted waiting", waiting],
+    ["ready", ready],
+    ["error", failed],
+  ])("%s ignores persistence and wake consumption", (_name, state) => {
+    expect(
+      transitionSystemBootstrap(state, {
+        run: RUN_A,
+        type: "contacts-persisted",
+      }),
+    ).toBe(state);
+    expect(
+      transitionSystemBootstrap(state, {
+        run: RUN_A,
+        type: "wake-consumed",
+      }),
+    ).toBe(state);
+  });
+
+  test.each<[SystemBootstrapEvent, SystemBootstrapState]>([
+    [{ run: RUN_A, type: "run-succeeded" }, ready],
+    [{ run: RUN_A, type: "run-failed", error: ERROR }, failed],
+    [{ type: "disable" }, idle],
+    [{ run: RUN_A, type: "run-superseded", inputMissing: true }, waiting],
+  ])("%o discards a pending wake", (event, expected) => {
+    expect(
+      transitionSystemBootstrap({ ...runningA, wakePending: true }, event),
+    ).toEqual(expected);
   });
 
   test("only states that can carry an error do, and idle never completed", () => {

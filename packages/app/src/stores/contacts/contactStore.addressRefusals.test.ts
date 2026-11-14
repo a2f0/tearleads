@@ -68,8 +68,8 @@ test("row persistence refusal is observable and does not poison later address wr
   let refuse = true;
   const harness = await createContactAddressHarness((store) => ({
     ...store,
-    addRow: (fields) =>
-      refuse ? Promise.resolve("not-saved") : store.addRow(fields),
+    addRow: (...args) =>
+      refuse ? Promise.resolve("not-saved") : store.addRow(...args),
   }));
   try {
     const id = await harness.store.createContact({ firstName: "Ada" });

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { createCanonicalSelfContactIdentity } from "../model/canonicalSelfContact.testUtils";
 import { createExplorerContainerRulesContext } from "../model/containerRules";
 import {
   createExplorerTargetLookups,
@@ -29,13 +30,13 @@ const selectedDocument: DocumentSummary = {
   updatedAt: "2026-06-01T00:00:00.000Z",
 };
 
+const selfContactIdentity =
+  await createCanonicalSelfContactIdentity("fingerprint");
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: "contacts-container",
   contactsSystemSlot: "contacts-slot",
   currentOrganizationId: null,
-  // The viewer's self-contact id derives from this fingerprint, so
-  // "self_contact_v1_fingerprint" is the viewer's own "You" contact.
-  currentSigningFingerprint: "fingerprint",
+  selfContactIdentity,
   trashSystemSlot: "trash-slot",
 });
 
@@ -150,6 +151,7 @@ test("document delete is disabled for the self contact in the contacts container
         ...selectedDocument,
         containerId: "contacts-container",
         id: "self_contact_v1_fingerprint",
+        documentId: selfContactIdentity.identity.documentId,
       },
     }).canDeleteSelectedDocument,
   ).toBe(false);
@@ -164,6 +166,7 @@ test("document delete is disabled for the self contact linked into another conta
         ...selectedDocument,
         containerId: "source-container",
         id: "self_contact_v1_fingerprint",
+        documentId: selfContactIdentity.identity.documentId,
       },
       selectedDocumentLinkedContainerIds: [
         "contacts-container",
@@ -203,6 +206,7 @@ test("document purge is disabled for the self contact even when under trash", ()
         ...selectedDocument,
         containerId: "trash",
         id: "self_contact_v1_fingerprint",
+        documentId: selfContactIdentity.identity.documentId,
       },
       trashContainerId: "trash",
     }).canPurgeSelectedDocument,

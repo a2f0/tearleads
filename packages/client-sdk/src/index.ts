@@ -450,6 +450,7 @@ export {
   DocumentRawHistoryUnavailableError,
   defaultDocumentsPersistence,
   deletePersistedDocument,
+  deriveStableDocumentId,
   isDatabaseUnavailableError,
   isDocumentSyncUpdateIsolationError,
   persistedDocumentCreateStateFromResponse,

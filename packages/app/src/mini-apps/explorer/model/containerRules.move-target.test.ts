@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { createCanonicalSelfContactIdentity } from "./canonicalSelfContact.testUtils";
 import {
   canMoveDocumentToContainerByRules,
   createExplorerContainerRulesContext,
@@ -9,12 +10,13 @@ import {
 const CONTACTS_SLOT = "contacts-slot";
 const TRASH_SLOT = "trash-slot";
 const CONTACTS_CONTAINER_ID = "contacts-container";
+const selfContactIdentity = await createCanonicalSelfContactIdentity("abc");
 
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
   currentOrganizationId: null,
-  currentSigningFingerprint: "abc",
+  selfContactIdentity,
   trashSystemSlot: TRASH_SLOT,
 });
 
@@ -74,7 +76,10 @@ test("contacts contents can only move to trash from the contacts container", () 
 });
 
 test("the contacts-to-trash exception does not apply to the self contact", () => {
-  const selfContact = contactDocument({ id: "self_contact_v1_abc" });
+  const selfContact = contactDocument({
+    id: "self_contact_v1_abc",
+    documentId: selfContactIdentity.identity.documentId,
+  });
   expect(
     canMoveDocumentToContainerByRules(
       rulesContext,

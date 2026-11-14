@@ -272,6 +272,9 @@ async function initializeDocumentStore(
     state,
   });
   if (!restored) {
+    if (state.localWriteGeneration === initializeGeneration) {
+      state.initializePromise = null;
+    }
     return;
   }
   const activePersistedState = restored.activePersistedState;
@@ -378,12 +381,12 @@ export function ensureDocumentStoreInitialized(
 
 export async function awaitInitializationForSync(state: DocumentStoreState) {
   if (!state.initializePromise) {
-    return true;
+    return state.initialized;
   }
 
   try {
     await state.initializePromise;
-    return true;
+    return state.initialized;
   } catch (error) {
     if (isDatabaseUnavailableError(error)) {
       return false;

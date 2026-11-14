@@ -4,6 +4,9 @@ import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvide
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import { useContacts } from "../../../stores/contacts/ContactsProvider";
+import { findCurrentSelfContactLocalId } from "../../../stores/contacts/contactLabels";
+import type { SelfContactIdentityView } from "../../../stores/contacts/currentSelfContactIdentityState";
+import { useCurrentSelfContactIdentity } from "../../../stores/contacts/useCurrentSelfContactIdentity";
 import { useContactsSidebarPanel } from "../ContactsSidebar";
 import {
   type ContactsContextMenuModel,
@@ -49,6 +52,7 @@ function useSelectInitialSelfContact(input: {
   ready: boolean;
   route: ContactsRoute;
   selectedContactId: string | null;
+  selfContactIdentity: SelfContactIdentityView;
   setSelectedContactId: (contactId: string) => void;
 }) {
   const {
@@ -57,6 +61,7 @@ function useSelectInitialSelfContact(input: {
     ready,
     route,
     selectedContactId,
+    selfContactIdentity,
     setSelectedContactId,
   } = input;
   const selectedInitialSelfRef = useRef(false);
@@ -72,19 +77,28 @@ function useSelectInitialSelfContact(input: {
       return;
     }
 
-    const selfEntry = entries.find((entry) => entry.isSelf);
-    if (!selfEntry) {
+    const selfId = findCurrentSelfContactLocalId(entries, selfContactIdentity);
+    if (!selfId) {
       return;
     }
     selectedInitialSelfRef.current = true;
-    setSelectedContactId(selfEntry.id);
-  }, [enabled, entries, ready, route, selectedContactId, setSelectedContactId]);
+    setSelectedContactId(selfId);
+  }, [
+    enabled,
+    entries,
+    ready,
+    route,
+    selectedContactId,
+    selfContactIdentity,
+    setSelectedContactId,
+  ]);
 }
 
 export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   const compactRoutedMode = useCompactRoutedMode();
   const appData = useTearleadsRuntime();
   const contacts = useContacts();
+  const selfContactIdentity = useCurrentSelfContactIdentity();
   const { canWrite, entries, ready } = contacts;
   const { isAuthenticated } = useCryptoSession();
   const { logError } = useLog();
@@ -108,6 +122,7 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
     entries,
     removeContact: contacts.removeContact,
     selectedContactId: selectionState.selectedContactId,
+    selfContactIdentity,
     setSelectedContactId: selectionState.setSelectedContactRouteAware,
   });
 
@@ -117,6 +132,7 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
     ready,
     route: routeState.route,
     selectedContactId: selectionState.selectedContactId,
+    selfContactIdentity,
     setSelectedContactId: selectionState.setSelectedContactId,
   });
   useImportContactMessage({

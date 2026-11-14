@@ -29,23 +29,6 @@ export function findContactByUserId(
   return null;
 }
 
-export function findSelfContact(
-  entriesById: ReadonlyMap<string, ContactEntry>,
-  userId: string,
-): ContactEntry | null {
-  let selfContact: ContactEntry | null = null;
-  for (const entry of entriesById.values()) {
-    if (entry.userId === userId) {
-      return entry;
-    }
-    if (entry.isSelf && !selfContact) {
-      selfContact = entry;
-    }
-  }
-
-  return selfContact;
-}
-
 export async function getUserIdentityForSelfContact(
   dependencies: ContactKeyLookupDependencies,
   userId: string,

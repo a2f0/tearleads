@@ -20,7 +20,7 @@ export function createInitialDocumentRows(input: {
   saveClientProjection: Parameters<
     DocumentsPersistence["createDocumentWithHistoryCheckpoint"]
   >[4];
-}): Promise<string | null> {
+}): ReturnType<DocumentsPersistence["createDocumentWithHistoryCheckpoint"]> {
   return input.persistence.createDocumentWithHistoryCheckpoint(
     input.execSql,
     input.record,

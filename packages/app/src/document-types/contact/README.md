@@ -19,8 +19,8 @@ value. Unknown row types are preserved for future contact record types.
 [Explorer's document view](ContactDocument.tsx). The Contacts store initially
 loads a scalar SQLite projection; addresses show a loading state until their
 Loro document is ready. Address contents are not indexed in that projection.
-Duplicate-self cleanup must preserve contacts containing rows, including rows
-that the current address editor does not recognize.
+Distinct contacts keep their own rows and histories, including row types the
+current address editor does not recognize.
 
 Both adapters use the same
 [address writer](../../stores/documents/contactAddressWrites.ts). Add retries
@@ -37,6 +37,30 @@ starting the queued mutation; creation retries retain both their original and
 current caller's authority. Expiry before this point prevents the write, but
 expiry after live mutation is not rollback and does not cancel persistence
 already underway. The adapter still refuses a stale completion.
+
+## Personal Me identity
+
+Self-contact bootstrap and self-import use one canonical document for the
+current signing identity. Its creation-local ID is
+`getSelfContactLocalId(signingFingerprint)`; its remote ID is the public SDK's
+`deriveStableDocumentId` of that local ID. Recovery may use another local alias
+for the same remote document. A persisted `documentId` or `recoveryDocumentId`
+takes precedence over deriving a planned ID from an alias.
+
+This is a greenfield contract: there is no compatibility lookup or migration
+for older container/user-derived self-contact IDs. A separate contact is not
+adopted as Me merely because its user ID, keys, or `isSelf` field match. Roster
+profile documents remain separate, including when moved or linked into
+Contacts. Bootstrap and self-import do not merge or purge distinct documents,
+and ordinary scalar, avatar, and address edits are not redirected to another
+contact. Existing names and address rows are not reseeded by bootstrap.
+
+Current-format same-document recovery remains supported. An unavailable,
+read-only, or unsettled-placement target must not be acknowledged as a
+successful self write. Scope and write authority still apply; deterministic
+identity is not permission to write or delete. CRDT convergence reconciles
+updates within one document identity, not histories of different documents.
+This contract does not trigger a local-data or environment reset.
 
 ## Attribution
 

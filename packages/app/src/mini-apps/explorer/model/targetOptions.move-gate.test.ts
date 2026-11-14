@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { createCanonicalSelfContactIdentity } from "./canonicalSelfContact.testUtils";
 import { createExplorerContainerRulesContext } from "./containerRules";
 import {
   createExplorerTargetLookups,
@@ -26,7 +27,7 @@ const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: null,
   contactsSystemSlot: null,
   currentOrganizationId: null,
-  currentSigningFingerprint: null,
+  selfContactIdentity: await createCanonicalSelfContactIdentity("fingerprint"),
   trashSystemSlot: TRASH_SLOT,
 });
 

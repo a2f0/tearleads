@@ -7,7 +7,6 @@ import {
 } from "../documents/contactAddressWrites";
 import { ensureContactDocumentStore } from "./contactStoreInitialization";
 import { contactEntryFromDocumentStore } from "./contactStoreLookup";
-import { resolveContactWriteTarget } from "./contactStoreRemoteCleanup";
 import { upsertContactEntry } from "./contactStoreSnapshotMutations";
 import type { ContactsStoreState } from "./contactStoreTypes";
 import {
@@ -21,23 +20,16 @@ async function mutateAddress<T>(
   mutate: (store: DocumentStore, current: () => boolean) => Promise<T>,
   isCurrent: () => boolean = () => true,
 ): Promise<T> {
-  const scoped = captureAddressScope(state);
+  const scoped = captureContactsScope(state);
   const current = () => scoped() && isCurrent();
-  contactId = resolveContactWriteTarget(state, contactId);
   const result = state.writeChain
     .catch(() => undefined)
     .then(async () => {
       if (!current() || !(await contactsRuntimeWritable(state)) || !current()) {
         throw new Error("Contact address scope is no longer writable.");
       }
-      const target = await hydrateAddressTarget(state, contactId, current);
-      const { store } = target;
-      contactId = target.contactId;
-      if (
-        !current() ||
-        !store.getSnapshot().canWrite ||
-        resolveContactWriteTarget(state, contactId) !== contactId
-      ) {
+      const store = await hydrateAddressTarget(state, contactId, current);
+      if (!current() || !store.getSnapshot().canWrite) {
         throw new Error("Contact address target changed before saving.");
       }
       const result = await mutate(
@@ -45,8 +37,7 @@ async function mutateAddress<T>(
         () =>
           current() &&
           state.entriesById.has(contactId) &&
-          state.entriesById.get(contactId)?.canWrite !== false &&
-          resolveContactWriteTarget(state, contactId) === contactId,
+          state.entriesById.get(contactId)?.canWrite !== false,
       );
       if (!current())
         throw new Error("Contact address scope changed while saving.");
@@ -66,47 +57,28 @@ async function mutateAddress<T>(
   return result;
 }
 
-function captureAddressScope(state: ContactsStoreState): () => boolean {
-  const scoped = captureContactsScope(state);
-  const generation = state.initializationGeneration;
-  const { auth, crypto, state: runtimeState } = state.runtime.documents;
-  return () =>
-    scoped() &&
-    state.initializationGeneration === generation &&
-    state.runtime.documents.auth.userId === auth.userId &&
-    state.runtime.documents.auth.isAuthenticated === auth.isAuthenticated &&
-    state.runtime.documents.crypto.signingFingerprint ===
-      crypto.signingFingerprint &&
-    state.runtime.documents.state.containerId === runtimeState.containerId &&
-    state.runtime.documents.infra.dbStatus === "ready";
-}
-
 async function hydrateAddressTarget(
   state: ContactsStoreState,
   contactId: string,
   current: () => boolean,
 ) {
-  for (;;) {
-    contactId = resolveContactWriteTarget(state, contactId);
-    if (!current() || !state.entriesById.has(contactId))
-      throw new Error("Contact not available.");
-    const store = ensureContactDocumentStore(state, contactId);
-    const ready = await store.ensureInitialized();
-    if (!current())
-      throw new Error("Contact address scope changed while loading.");
-    if (resolveContactWriteTarget(state, contactId) !== contactId) continue;
-    const snapshot = store.getSnapshot();
-    if (
-      !ready ||
-      !snapshot.ready ||
-      !snapshot.canWrite ||
-      snapshot.documentKind !== "contact" ||
-      state.entriesById.get(contactId)?.canWrite === false
-    ) {
-      throw new Error("Contact addresses are not writable.");
-    }
-    return { contactId, store };
+  if (!current() || !state.entriesById.has(contactId))
+    throw new Error("Contact not available.");
+  const store = ensureContactDocumentStore(state, contactId);
+  const ready = await store.ensureInitialized();
+  if (!current())
+    throw new Error("Contact address scope changed while loading.");
+  const snapshot = store.getSnapshot();
+  if (
+    !ready ||
+    !snapshot.ready ||
+    !snapshot.canWrite ||
+    snapshot.documentKind !== "contact" ||
+    state.entriesById.get(contactId)?.canWrite === false
+  ) {
+    throw new Error("Contact addresses are not writable.");
   }
+  return store;
 }
 
 export async function addContactAddressInStore(

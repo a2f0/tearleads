@@ -3,6 +3,10 @@ import { UserMinusIcon } from "@phosphor-icons/react/dist/csr/UserMinus";
 import { type ContextMenuState, Menu, MenuItem } from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useMemo } from "react";
 import { CopyIdentityLinkMenuItem } from "../../../components/identity/CopyIdentityLinkMenuItem";
+import {
+  matchesSelfContactIdentity,
+  type SelfContactIdentityView,
+} from "../../../stores/contacts/currentSelfContactIdentityState";
 import { useMiniAppListContextMenu } from "../../shared/list-panel/useMiniAppListContextMenu";
 import { NewContactIcon } from "../../shared/newContactIcon";
 import { CONTACTS_LABELS } from "../labels";
@@ -39,6 +43,7 @@ export function useContactsContextMenu(params: {
   entries: ContactEntries;
   removeContact: (contactId: string) => Promise<void>;
   selectedContactId: string | null;
+  selfContactIdentity: SelfContactIdentityView;
   setSelectedContactId: (contactId: string | null) => void;
 }): ContactsContextMenuModel {
   const {
@@ -46,6 +51,7 @@ export function useContactsContextMenu(params: {
     entries,
     removeContact,
     selectedContactId,
+    selfContactIdentity,
     setSelectedContactId,
   } = params;
   const {
@@ -71,7 +77,12 @@ export function useContactsContextMenu(params: {
       contextMenu?.id.kind === "contact" &&
       contextMenuEntry !== undefined &&
       contextMenuEntry.canWrite !== false &&
-      !contextMenuEntry.isSelf,
+      selfContactIdentity.status === "ready" &&
+      selfContactIdentity.isCurrent() &&
+      !matchesSelfContactIdentity(
+        selfContactIdentity.identity,
+        contextMenuEntry,
+      ),
   );
   const contextMenuContactUserId =
     contextMenu?.id.kind === "contact"
@@ -79,7 +90,12 @@ export function useContactsContextMenu(params: {
       : null;
 
   const removeContextMenuContact = useCallback(async () => {
-    if (contextMenu?.id.kind !== "contact" || !canRemoveContextMenuContact) {
+    if (
+      contextMenu?.id.kind !== "contact" ||
+      !canRemoveContextMenuContact ||
+      selfContactIdentity.status !== "ready" ||
+      !selfContactIdentity.isCurrent()
+    ) {
       return;
     }
 
@@ -95,6 +111,7 @@ export function useContactsContextMenu(params: {
     contextMenu,
     removeContact,
     selectedContactId,
+    selfContactIdentity,
     setSelectedContactId,
   ]);
 

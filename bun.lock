@@ -104,6 +104,7 @@
         "@tearleads/crypto": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
         "@tearleads/encoding": "workspace:*",
+        "@tearleads/loro": "workspace:*",
         "@tearleads/ui": "workspace:*",
         "@tearleads/validators": "workspace:*",
         "@tearleads/windowing": "workspace:*",
@@ -116,7 +117,6 @@
       "devDependencies": {
         "@a2f0/continuity": "catalog:",
         "@happy-dom/global-registrator": "catalog:testing",
-        "@tearleads/loro": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
         "@tearleads/test-utils": "workspace:*",
         "@testing-library/react": "catalog:testing",
@@ -2217,6 +2217,8 @@
     "anymatch/picomatch": ["picomatch@2.3.2", "", {}, "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA=="],
 
     "apache-arrow/@types/node": ["@types/node@25.9.9", "", { "dependencies": { "undici-types": ">=7.24.0 <7.24.7" } }, "sha512-b4e2xxj/yMeT2hNlD6x7zNFiQK2Dlmkb9CQ6v3/1G2RezKN4YS2lcEv8lzGm1mhs4f2lM4yNAMI/zUDBZBBt7w=="],
+
+    "app-web/@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#ccec49f", {}, "a2f0-continuity-ccec49f", "sha512-SwQMufS2JVURyMbhehQMLvNnvuJsqDQihxvsLGnFjeVWwsweJTRy9esLA4dnJziHq2u36qlSG0uzAsQOk0hAbQ=="],
 
     "astro/cookie": ["cookie@2.0.1", "", {}, "sha512-yuToqVvRrj6pfDXREyQAAv8SkAEk/8GS3jQRTiUMm66TVtBYmqQeoEjL2Lmq8Rpo6271vH76InTChTitEAm65w=="],
 

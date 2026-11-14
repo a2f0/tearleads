@@ -35,9 +35,9 @@ test("updates only changed allowed cells and removes only the selected address",
   const patches: Readonly<Record<string, string>>[] = [];
   const harness = await createContactAddressHarness((store) => ({
     ...store,
-    updateRowFields: async (id, patch) => {
+    updateRowFields: async (id, patch, options) => {
       patches.push(patch);
-      await store.updateRowFields(id, patch);
+      await store.updateRowFields(id, patch, options);
     },
   }));
   try {

@@ -18,10 +18,10 @@ import {
 import {
   canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
+  canMutateDocumentByIdentity,
   canWriteContainerNode,
   canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
-  isPinnedSelfContact,
 } from "../model/containerRules";
 import { getDocumentByLocalId } from "../model/documentSummaries";
 import type { ExplorerDocumentMutationOptions } from "./explorerModelTypes";
@@ -194,7 +194,7 @@ function usePurgeDocumentAction(params: {
       }
       // The pinned self contact can never be purged, even if it is already
       // parked under Trash — purge destroys the document server-side by id.
-      if (isPinnedSelfContact(rulesContext, existingDocument)) {
+      if (!canMutateDocumentByIdentity(rulesContext, existingDocument)) {
         return null;
       }
       if (

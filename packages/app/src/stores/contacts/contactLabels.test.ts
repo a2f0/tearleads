@@ -1,14 +1,28 @@
 import { expect, test } from "bun:test";
+import {
+  deriveStableDocumentId,
+  getRosterProfileDocumentLocalId,
+} from "@tearleads/client-sdk";
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
 import {
   findCurrentSelfContactLocalId,
   getViewerRelativeContactDocumentLabel,
 } from "./contactLabels";
+import type { SelfContactIdentityView } from "./currentSelfContactIdentityState";
 import { getSelfContactLocalId } from "./selfContact";
 
 const FINGERPRINT = "fp-123";
 const USER_ID = "11111111-2222-3333-4444-555555555555";
 const SELF_LOCAL_ID = getSelfContactLocalId(FINGERPRINT);
+const CURRENT_SELF_IDENTITY = {
+  status: "ready",
+  identity: {
+    documentId: await deriveStableDocumentId(SELF_LOCAL_ID),
+    localId: SELF_LOCAL_ID,
+    localIds: new Set([SELF_LOCAL_ID]),
+  },
+  isCurrent: () => true,
+} satisfies SelfContactIdentityView;
 
 test("resolves the unnamed self-contact to You when matched by fingerprint", () => {
   // Unnamed self-contacts project their userId (a UUID) as the title, so the
@@ -126,24 +140,68 @@ function contactEntry(
   };
 }
 
-test("selects only the writable projected self contact for the current user", () => {
+test("a same-user roster profile cannot replace canonical Me protection", async () => {
+  const documentId = await deriveStableDocumentId(SELF_LOCAL_ID);
+  const rosterId = await deriveStableDocumentId(
+    getRosterProfileDocumentLocalId({
+      organizationId: "contact-labels-personal-organization",
+      userId: USER_ID,
+    }),
+  );
   const entries = [
     contactEntry({
-      id: "read-only-self",
+      id: rosterId,
+      documentId: rosterId,
       isSelf: true,
       userId: USER_ID,
-      canWrite: false,
+    }),
+    contactEntry({
+      id: documentId,
+      documentId,
+      isSelf: true,
+      userId: USER_ID,
+    }),
+  ];
+  expect(findCurrentSelfContactLocalId(entries, CURRENT_SELF_IDENTITY)).toBe(
+    documentId,
+  );
+});
+
+test("selects canonical Me regardless of mutable self fields or write access", () => {
+  const entries = [
+    contactEntry({
+      id: SELF_LOCAL_ID,
+      documentId: "different-bound-document",
+      isSelf: true,
+      userId: USER_ID,
     }),
     contactEntry({ id: "other-user-self", isSelf: true, userId: "other-user" }),
     contactEntry({ id: "same-user-not-self", userId: USER_ID }),
     contactEntry({
-      id: "current-self",
-      isSelf: true,
-      userId: USER_ID,
-      canWrite: undefined,
+      id: "read-only-canonical-alias",
+      documentId: CURRENT_SELF_IDENTITY.identity.documentId,
+      isSelf: false,
+      userId: null,
+      canWrite: false,
     }),
   ];
 
-  expect(findCurrentSelfContactLocalId(entries, USER_ID)).toBe("current-self");
+  expect(findCurrentSelfContactLocalId(entries, CURRENT_SELF_IDENTITY)).toBe(
+    "read-only-canonical-alias",
+  );
   expect(findCurrentSelfContactLocalId(entries, null)).toBeNull();
+});
+
+test("unresolved or expired identity never selects a projected self contact", () => {
+  const entries = [
+    contactEntry({ id: SELF_LOCAL_ID, isSelf: true, userId: USER_ID }),
+  ];
+  const identities: SelfContactIdentityView[] = [
+    { status: "pending" },
+    { status: "failed", error: new Error("identity unavailable") },
+    { ...CURRENT_SELF_IDENTITY, isCurrent: () => false },
+  ];
+  for (const identity of identities) {
+    expect(findCurrentSelfContactLocalId(entries, identity)).toBeNull();
+  }
 });
