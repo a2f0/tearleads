@@ -160,9 +160,8 @@ reads.
 
 ## Documents
 
-`deriveStableDocumentId(localId)` exposes the same pure identity derivation used
-for first remote creation. Existing remote and recovery ids take precedence;
-the derived id alone authorizes neither adoption nor history retirement. See
+`deriveStableDocumentId(localId)` is the pure first-creation id derivation;
+persisted remote and recovery ids take precedence. See
 [document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
 
 The documents facade admits explicit `historyMode: "raw"` reads through
@@ -222,13 +221,9 @@ take that option, with `remoteSyncMode`, as a trailing
 ### Queued local writes
 
 Unguarded, non-deferred field writes coalesce once later patches cover every
-field; text writes coalesce to the newest value.
-`hasPendingLocalDocumentWrites(domainScope)` reports queued or undurable edits.
-`DocumentMutationGuard` (rows) and its extension `DocumentMutationOptions`
-(structured fields) are root exports. Their synchronous `stillCurrent` predicate
-is checked after readiness and at queue admission, before mutation or retry
-flush. Guarded structured writes neither publish optimistically nor coalesce.
-See [host-controlled mutation admission](../../../../docs/developer/client-sdk/public-api.md#host-controlled-mutation-admission).
+field; text writes coalesce to the newest value. See
+[`hasPendingLocalDocumentWrites`](../../../../docs/developer/client-sdk/public-api.md#unsaved-document-writes)
+and [`stillCurrent` admission](../../../../docs/developer/client-sdk/public-api.md#host-controlled-mutation-admission).
 
 ### Persistence notifications
 

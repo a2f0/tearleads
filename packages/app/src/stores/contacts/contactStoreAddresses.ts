@@ -1,5 +1,6 @@
 import type { DocumentStore } from "@tearleads/client-sdk";
 import type { ContactAddressFields } from "../../document-types/contact/contactAddressModel";
+import { ContactAddressWriteRefusal } from "../../document-types/contact/contactAddressWriteRefusal";
 import {
   addContactAddressRow,
   removeContactAddressRow,
@@ -25,12 +26,17 @@ async function mutateAddress<T>(
   const result = state.writeChain
     .catch(() => undefined)
     .then(async () => {
+      // Guards before `mutate` are pre-effect refusals; the editor may dismiss.
       if (!current() || !(await contactsRuntimeWritable(state)) || !current()) {
-        throw new Error("Contact address scope is no longer writable.");
+        throw new ContactAddressWriteRefusal(
+          "Contact address scope is no longer writable.",
+        );
       }
       const store = await hydrateAddressTarget(state, contactId, current);
       if (!current() || !store.getSnapshot().canWrite) {
-        throw new Error("Contact address target changed before saving.");
+        throw new ContactAddressWriteRefusal(
+          "Contact address target changed before saving.",
+        );
       }
       const result = await mutate(
         store,
@@ -46,7 +52,8 @@ async function mutateAddress<T>(
       return result;
     })
     .catch((error: unknown) => {
-      state.dependencies.logError("Contacts: failed to save address.", error);
+      if (!(error instanceof ContactAddressWriteRefusal))
+        state.dependencies.logError("Contacts: failed to save address.", error);
       throw error;
     });
   // Preserve rejection for the caller without poisoning the serialization tail.
@@ -63,11 +70,13 @@ async function hydrateAddressTarget(
   current: () => boolean,
 ) {
   if (!current() || !state.entriesById.has(contactId))
-    throw new Error("Contact not available.");
+    throw new ContactAddressWriteRefusal("Contact not available.");
   const store = ensureContactDocumentStore(state, contactId);
   const ready = await store.ensureInitialized();
   if (!current())
-    throw new Error("Contact address scope changed while loading.");
+    throw new ContactAddressWriteRefusal(
+      "Contact address scope changed while loading.",
+    );
   const snapshot = store.getSnapshot();
   if (
     !ready ||
@@ -76,7 +85,7 @@ async function hydrateAddressTarget(
     snapshot.documentKind !== "contact" ||
     state.entriesById.get(contactId)?.canWrite === false
   ) {
-    throw new Error("Contact addresses are not writable.");
+    throw new ContactAddressWriteRefusal("Contact addresses are not writable.");
   }
   return store;
 }

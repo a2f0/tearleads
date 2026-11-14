@@ -45,13 +45,17 @@ export function ensureContactDocumentStore(
           initialStructuredFields: options.initialFields,
         }),
   });
-  const unsubscribe = store.subscribe(() => {
+  const project = () => {
     const entry = contactEntryFromDocumentStore(contactId, store);
     if (entry) {
       upsertContactEntry(state, entry);
     }
-  });
+  };
+  const unsubscribe = store.subscribe(project);
   state.contactDocumentStoresById.set(contactId, { store, unsubscribe });
+  // Document stores are shared per domain: one another view already loaded is
+  // ready now and emits nothing until its next change.
+  project();
   return store;
 }
 

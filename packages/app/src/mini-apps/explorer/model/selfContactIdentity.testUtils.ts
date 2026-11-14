@@ -46,20 +46,14 @@ export async function createReadySelfIdentity(
 
 export function createSelfIdentityRules(
   selfContactIdentity: SelfContactIdentityView,
-  currentSelfContactLocalId = getSelfContactLocalId(SELF_IDENTITY_FINGERPRINT),
 ) {
-  // A variable permits the new view before production consumes it, without a
-  // cast. The old authority fields only keep the pre-fix input type satisfied.
-  const input = {
+  return createExplorerContainerRulesContext({
     contactsContainerId: "contacts",
     contactsSystemSlot: "contacts-slot",
     currentOrganizationId: "identity-org",
-    currentSelfContactLocalId,
-    currentSigningFingerprint: SELF_IDENTITY_FINGERPRINT,
     selfContactIdentity,
     trashSystemSlot: "trash-slot",
-  };
-  return createExplorerContainerRulesContext(input);
+  });
 }
 
 export function identityDocument(

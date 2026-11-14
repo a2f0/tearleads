@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createContactAddressHarness } from "../../../test/helpers/contacts/contactAddressHarness";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { readContactAddressFields } from "../../document-types/contact/contactAddressModel";
+import { ContactAddressWriteRefusal } from "../../document-types/contact/contactAddressWriteRefusal";
 import type { ContactsStore } from "./contactStoreTypes";
 
 const fields = readContactAddressFields({ street: "Main" });
@@ -74,8 +75,10 @@ for (const operation of operations) {
       canWrite = false;
       held = false;
       hydration.resolve(true);
-      expect(await result).toBeInstanceOf(Error);
+      // Pre-effect: the editor may dismiss the draft, and nothing is logged.
+      expect(await result).toBeInstanceOf(ContactAddressWriteRefusal);
       expect(mutations).toBe(0);
+      expect(harness.errors).toEqual([]);
     } finally {
       hydration.resolve(false);
       harness.close();
@@ -139,7 +142,7 @@ for (const change of ["user", "fingerprint", "container"] as const) {
       });
       held = false;
       hydration.resolve(true);
-      expect(await result).toBeInstanceOf(Error);
+      expect(await result).toBeInstanceOf(ContactAddressWriteRefusal);
       expect(writes).toBe(0);
     } finally {
       hydration.resolve(false);
@@ -159,7 +162,9 @@ test("incomplete hydration cannot create an address", async () => {
     const id = await harness.store.createContact({ firstName: "Ada" });
     if (!id) throw new Error("Missing contact");
     incomplete = true;
-    await expect(harness.store.addContactAddress(id, fields)).rejects.toThrow();
+    await expect(
+      harness.store.addContactAddress(id, fields),
+    ).rejects.toBeInstanceOf(ContactAddressWriteRefusal);
     expect(harness.documentStores.get(id)?.getSnapshot().rows).toEqual([]);
   } finally {
     harness.close();

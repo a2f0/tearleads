@@ -42,8 +42,6 @@ function controllerFixture(options: { readonly strict?: boolean } = {}) {
     targetKey: "stable-target",
     tearleads,
   } as unknown as SystemBootstrapRunInput;
-  // Variable assignment keeps this test valid before the optional wake source
-  // is implemented; the existing controller ignores contactsContainerId.
   const input = {
     bootstrapInput,
     contactsContainerId: "contacts",

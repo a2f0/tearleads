@@ -76,10 +76,6 @@
       "lines": 636,
       "bytes": 18804
     },
-    "packages/client-sdk/src/workflows/README.md": {
-      "lines": 505,
-      "bytes": 35988
-    },
     "scripts/architecture/subsystems.ts": {
       "lines": 587,
       "bytes": 22367

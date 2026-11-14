@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import { createContactAddressHarness } from "../../../test/helpers/contacts/contactAddressHarness";
+import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { readContactAddressFields } from "../../document-types/contact/contactAddressModel";
+import { createContactsStore } from "./contactStore";
 
 test("adds a contact address through the document store and projects hydrated rows", async () => {
   const harness = await createContactAddressHarness();
@@ -79,6 +81,34 @@ test("updates only changed allowed cells and removes only the selected address",
         .entries.find((entry) => entry.id === id)
         ?.rows?.map((row) => row.id),
     ).toEqual([second, unknown]);
+  } finally {
+    harness.close();
+  }
+});
+
+test("a store tracking an already-loaded contact document projects its addresses", async () => {
+  const harness = await createContactAddressHarness();
+  try {
+    const id = await harness.store.createContact({ firstName: "Ada" });
+    if (!id) throw new Error("Missing contact");
+    const addressId = await harness.store.addContactAddress(
+      id,
+      readContactAddressFields({ street: "Main" }),
+    );
+    if (!addressId) throw new Error("Missing address");
+    // The shared document store is ready before this store tracks it.
+    const tracking = createContactsStore(harness.runtime, {
+      resolveVerified: () => Promise.resolve(null),
+      logError: () => undefined,
+    });
+    tracking.updateRuntime(harness.runtime);
+    const rows = () =>
+      tracking.getSnapshot().entries.find((entry) => entry.id === id)?.rows;
+    await waitForCondition(
+      () => rows() !== undefined,
+      "Already-loaded addresses were not projected",
+    );
+    expect(rows()?.map((row) => row.id)).toEqual([addressId]);
   } finally {
     harness.close();
   }

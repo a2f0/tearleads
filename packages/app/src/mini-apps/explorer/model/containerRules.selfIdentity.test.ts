@@ -88,7 +88,7 @@ for (const containerId of ["linked-folder", "trash"]) {
   });
 }
 
-test("a distinct same-user roster is not pinned by the old projected self id", async () => {
+test("a distinct same-user roster is not pinned as Me", async () => {
   const identity = await createReadySelfIdentity();
   const roster = {
     ...identityDocument({
@@ -104,7 +104,7 @@ test("a distinct same-user roster is not pinned by the old projected self id", a
     isSelf: true,
     userId: "current-user",
   };
-  const rulesContext = createSelfIdentityRules(identity, roster.id);
+  const rulesContext = createSelfIdentityRules(identity);
   expect(roster.documentId).not.toBe(identity.identity.documentId);
   expect(identity.identity.localIds.has(roster.id)).toBe(false);
   expect({
