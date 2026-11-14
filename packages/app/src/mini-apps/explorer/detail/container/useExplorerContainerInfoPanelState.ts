@@ -4,7 +4,13 @@ import type {
   ContainerShareAccessLevel,
   OrganizationDirectoryAndGroups,
 } from "@tearleads/client-sdk";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  type FormEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import type { MiniAppSelectMenuOption } from "../../../../components/mini-app/controls/MiniAppSelectMenuState";
 import { EXPLORER_LABELS } from "../../labels";
 import type { MiniAppWindowPosition } from "../../types";
@@ -33,6 +39,7 @@ export interface ExplorerContainerInfoPanelProps {
   containerNamesById: ReadonlyMap<string, string>;
   canShareContainer: boolean;
   canShareWithPeer: boolean;
+  primaryDocumentSettings: ReactNode;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   logError: (message: string | Error, cause?: unknown) => void;
   onOpenGrant: (

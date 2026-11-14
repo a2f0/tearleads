@@ -6,13 +6,7 @@ import {
   type DocumentSummary,
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  waitFor,
-} from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import * as Notes from "../../note/NoteDocumentApp";
 import { getDocumentTypeDefinition } from "../../registry";
 import { ContainerDocumentView } from "./ContainerDocumentView";
@@ -42,14 +36,7 @@ function setup() {
     scope: createDomainScope(),
     revision: 0,
     readOnly: false,
-    logError: mock(() => {}),
     onOpenDocument: () => {},
-    setPrimary: mock(
-      async (
-        _id: string,
-        _documentId: string | null,
-      ): Promise<ContainerNode | null> => node,
-    ),
     documentQueries: {
       loadContainerDocumentSummary: async () => contact,
       listContainerDocumentSidebarWindow: async () => ({
@@ -120,7 +107,7 @@ test("late notes do not cross container or account boundaries", async () => {
 });
 
 test.each(["no-primary", "unknown", "unavailable", "failed"])(
-  "%s primary keeps the listing and never erases preference",
+  "%s primary keeps the listing without management controls",
   async (reason) => {
     const p = setup();
     p.node = {
@@ -139,27 +126,8 @@ test.each(["no-primary", "unknown", "unavailable", "failed"])(
     await act(async () => {});
     expect(view.getByText("Normal listing")).toBeTruthy();
     expect(view.queryByRole("button", { name: "Contact view" })).toBeNull();
-    expect(p.setPrimary).not.toHaveBeenCalled();
-  },
-);
-
-test.each(["read", "trash", "recovery"])(
-  "%s mode hides primary mutations",
-  async (reason) => {
-    const p = setup();
-    p.readOnly = reason === "trash";
-    p.node = {
-      ...node,
-      primaryDocumentId: null,
-      effectiveAccessLevel: reason === "read" ? "read" : "admin",
-      metadataReady: reason !== "recovery",
-    };
-    const view = render(
-      <ContainerDocumentView {...p}>{contents()}</ContainerDocumentView>,
-    );
-    await act(async () => {});
     expect(
-      view.queryByRole("button", { name: "Set primary document" }),
+      view.queryByRole("combobox", { name: "Primary document" }),
     ).toBeNull();
   },
 );
@@ -198,76 +166,3 @@ test.each(["container", "account"])(
     }
   },
 );
-
-test("Contents toggle does not hide a failed save and rapid clicks only submit once", async () => {
-  const renderer = spyOn(
-    getDocumentTypeDefinition("contact"),
-    "ContainerView",
-  ).mockImplementation(() => <div>Contact</div>);
-  try {
-    const p = setup();
-    const pending = Promise.withResolvers<ContainerNode | null>();
-    p.setPrimary = mock(() => pending.promise);
-    const view = render(
-      <ContainerDocumentView {...p}>{contents()}</ContainerDocumentView>,
-    );
-    await waitFor(() =>
-      expect(view.queryByRole("button", { name: "Contents" })).not.toBeNull(),
-    );
-    const clear = view.getByRole("button", { name: "Clear primary document" });
-    fireEvent.click(clear);
-    fireEvent.click(clear);
-    fireEvent.click(view.getByRole("button", { name: "Contents" }));
-    expect(p.setPrimary).toHaveBeenCalledTimes(1);
-    await act(async () => {
-      pending.reject(new Error("Save rejected"));
-    });
-    expect(view.getByRole("alert").textContent).toBe("Save rejected");
-    expect(view.getByText("Normal listing")).toBeTruthy();
-    expect(p.logError).toHaveBeenCalledTimes(1);
-  } finally {
-    renderer.mockRestore();
-  }
-});
-
-test("late save failure is logged but cannot contaminate a newly selected container", async () => {
-  const p = setup();
-  p.node = { ...node, primaryDocumentId: null };
-  const pending = Promise.withResolvers<ContainerNode | null>();
-  p.setPrimary = mock(() => pending.promise);
-  p.documentQueries.listContainerDocumentSidebarWindow = async () => ({
-    rows: [
-      {
-        containerId: "folder",
-        localId: contact.id,
-        documentId: contact.documentId,
-        documentKind: "contact",
-        title: "Ada",
-        updatedAt: null,
-        syncState: syncedContainerDocumentObjectSyncState,
-      },
-    ],
-    totalCount: 1,
-  });
-  const view = render(
-    <ContainerDocumentView {...p}>{contents()}</ContainerDocumentView>,
-  );
-  fireEvent.click(view.getByRole("button", { name: "Set primary document" }));
-  await waitFor(() =>
-    expect(
-      view.queryByRole("button", { name: "Use Ada as primary" }),
-    ).not.toBeNull(),
-  );
-  fireEvent.click(view.getByRole("button", { name: "Use Ada as primary" }));
-  view.rerender(
-    <ContainerDocumentView {...p} node={{ ...p.node, id: "other" }}>
-      {contents()}
-    </ContainerDocumentView>,
-  );
-  await act(async () => {
-    pending.reject(new Error("Old failure"));
-  });
-  expect(p.logError).toHaveBeenCalledTimes(1);
-  expect(view.queryByRole("alert")).toBeNull();
-  expect(p.setPrimary).toHaveBeenCalledWith("folder", "remote-contact");
-});

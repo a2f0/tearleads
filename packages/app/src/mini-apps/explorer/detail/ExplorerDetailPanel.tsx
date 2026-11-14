@@ -17,6 +17,7 @@ import { AccountBootstrapLoadingPanel } from "../../../components/identity/Accou
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import { ContainerDocumentView } from "../../../document-types/shared/container-view/ContainerDocumentView";
+import { ContainerPrimaryDocumentField } from "../../../document-types/shared/container-view/ContainerPrimaryDocumentField";
 import type { ExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
@@ -309,6 +310,22 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         peerUserId={params.peerUserId}
         resolveUserLabel={params.attributionUserLabelResolver}
         setContainerIcon={params.setContainerIcon}
+        primaryDocumentSettings={
+          infoNode ? (
+            <ContainerPrimaryDocumentField
+              scope={params.domainScope}
+              node={infoNode}
+              documentQueries={params.documentQueries}
+              revision={params.documentListRevision}
+              readOnly={isContainerUnderTrash(params.nodes, infoNode.id, {
+                currentOrganizationId: params.currentOrganizationId,
+                trashSystemSlot: params.trashSystemSlot,
+              })}
+              setPrimary={params.setContainerPrimaryDocument}
+              logError={params.logError}
+            />
+          ) : null
+        }
         shareScope={{
           domainScope: params.domainScope,
           organizationId: params.currentOrganizationId,
@@ -409,8 +426,6 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         node={selectedNode}
         revision={params.documentListRevision}
         documentQueries={params.documentQueries}
-        setPrimary={params.setContainerPrimaryDocument}
-        logError={params.logError}
         onOpenDocument={params.selectDocumentProjection}
         readOnly={isContainerUnderTrash(params.nodes, selectedNode.id, {
           currentOrganizationId: params.currentOrganizationId,

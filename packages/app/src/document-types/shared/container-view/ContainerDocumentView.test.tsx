@@ -6,7 +6,13 @@ import {
   type DocumentSummary,
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
 import * as Notes from "../../note/NoteDocumentApp";
 import { getDocumentTypeDefinition } from "../../registry";
 import { ContainerDocumentView } from "./ContainerDocumentView";
@@ -38,9 +44,7 @@ function props(overrides = {}) {
     scope,
     revision: 0,
     readOnly: false,
-    logError: () => {},
     onOpenDocument: () => {},
-    setPrimary: async () => node,
     documentQueries: {
       loadContainerDocumentSummary: async () => contact,
       listContainerDocumentSidebarWindow: async () => ({
@@ -52,29 +56,13 @@ function props(overrides = {}) {
   };
 }
 
-test("missing primary falls back without erasing it and keeps clear/change controls", async () => {
-  const writes: unknown[] = [];
+test("missing primary falls back to contents without management controls", async () => {
   const view = render(
     <ContainerDocumentView
       {...props({
         documentQueries: {
           ...props().documentQueries,
           loadContainerDocumentSummary: async () => null,
-          listContainerDocumentSidebarWindow: async () => ({
-            totalCount: 1,
-            rows: [
-              {
-                localId: "local-b",
-                documentId: "remote-b",
-                documentKind: "contact",
-                title: "Grace",
-              },
-            ],
-          }),
-        },
-        setPrimary: async (id: string, value: string | null) => {
-          writes.push([id, value]);
-          return { ...node, primaryDocumentId: value };
         },
       })}
     >
@@ -89,24 +77,8 @@ test("missing primary falls back without erasing it and keeps clear/change contr
     ).toBe(true),
   );
   expect(view.queryByText("Normal listing") !== null).toBe(true);
-  expect(writes).toEqual([]);
-  fireEvent.click(
-    view.getByRole("button", { name: "Change primary document" }),
-  );
-  await waitFor(() =>
-    expect(
-      view.queryByRole("button", { name: "Use Grace as primary" }) !== null,
-    ).toBe(true),
-  );
-  fireEvent.click(view.getByRole("button", { name: "Use Grace as primary" }));
-  await waitFor(() => expect(writes).toEqual([["folder", "remote-b"]]));
-  fireEvent.click(view.getByRole("button", { name: "Clear primary document" }));
-  await waitFor(() =>
-    expect(writes).toEqual([
-      ["folder", "remote-b"],
-      ["folder", null],
-    ]),
-  );
+  expect(view.queryByRole("combobox", { name: "Primary document" })).toBeNull();
+  expect(view.queryByRole("button", { name: /primary document/i })).toBeNull();
 });
 
 test("contact view shows scoped read-only notes below it in bounded pages", async () => {
@@ -199,7 +171,9 @@ test("registered primary renders with its exact identity and can return to Conte
     expect(view.queryByText("Normal listing")).toBeNull();
     fireEvent.click(view.getByRole("button", { name: "Contents" }));
     expect(view.queryByText("Normal listing") !== null).toBe(true);
-    fireEvent.click(view.getByRole("button", { name: "Contact view" }));
+    await act(async () => {
+      fireEvent.click(view.getByRole("button", { name: "Contact view" }));
+    });
     expect(view.queryByText("Contact local-contact in folder") !== null).toBe(
       true,
     );

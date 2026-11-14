@@ -11,32 +11,16 @@ import {
 } from "../../../components/mini-app/MiniAppLayout";
 import { getDocumentTypeDefinition } from "../../registry";
 import { ContainerNotes } from "./ContainerNotes";
-import { ContainerPrimaryControls } from "./ContainerPrimaryControls";
 import { useContainerViewResource } from "./useContainerViewResource";
-import { usePrimaryDocumentSave } from "./usePrimaryDocumentSave";
 
 interface ContainerDocumentViewProps {
   children: ReactNode;
   documentQueries: ContainerDocumentQueries;
-  logError: (message: string | Error, cause?: unknown) => void;
   node: ContainerNode;
   onOpenDocument: (localId: string, containerId: string) => void;
   readOnly: boolean;
   revision: number;
   scope: DomainScope;
-  setPrimary: (
-    containerId: string,
-    documentId: string | null,
-  ) => Promise<ContainerNode | null>;
-}
-
-function canManagePrimary(node: ContainerNode, readOnly: boolean) {
-  return (
-    !readOnly &&
-    node.metadataReady !== false &&
-    (node.effectiveAccessLevel === "admin" ||
-      node.effectiveAccessLevel === "write")
-  );
 }
 
 function usePrimaryDocument({
@@ -71,20 +55,6 @@ function usePrimaryDocument({
 function ContainerViewSession(props: ContainerDocumentViewProps) {
   const { node, documentQueries, revision } = props;
   const [showContents, setShowContents] = useState(false);
-  const [choosing, setChoosing] = useState(false);
-  const canManage = canManagePrimary(node, props.readOnly);
-  const saving = usePrimaryDocumentSave({
-    containerId: node.id,
-    canManage,
-    setPrimary: props.setPrimary,
-    logError: props.logError,
-  });
-  const choose = async (documentId: string | null) => {
-    if (await saving.save(documentId)) {
-      setChoosing(false);
-      setShowContents(false);
-    }
-  };
   const primary = usePrimaryDocument(props);
   const document =
     primary.status === "ready" || primary.status === "refreshing"
@@ -96,16 +66,6 @@ function ContainerViewSession(props: ContainerDocumentViewProps) {
   const View = definition?.ContainerView;
   return (
     <>
-      <ContainerPrimaryControls
-        node={node}
-        documentQueries={documentQueries}
-        revision={revision}
-        canManage={canManage}
-        saving={saving.state}
-        choosing={choosing}
-        setChoosing={setChoosing}
-        choose={choose}
-      />
       {node.primaryDocumentId && primary.status === "ready" && !document ? (
         <MiniAppStatus>
           Primary document is unavailable on this device. Showing contents.
