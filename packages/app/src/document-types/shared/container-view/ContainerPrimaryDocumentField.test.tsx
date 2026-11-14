@@ -247,6 +247,59 @@ test("list failure still allows clearing an unavailable primary", async () => {
   );
 });
 
+test("a failed current-title lookup still allows selecting another document", async () => {
+  const p = setup();
+  p.documentQueries.loadContainerDocumentSummary = async () => {
+    throw new Error("Current title unavailable");
+  };
+  const view = render(<ContainerPrimaryDocumentField {...p} />);
+  await waitFor(() =>
+    expect(view.queryByText(/Current title unavailable/)).not.toBeNull(),
+  );
+  openOptions(view);
+  fireEvent.click(await view.findByRole("option", { name: "Contact 0" }));
+  await waitFor(() =>
+    expect(p.setPrimary).toHaveBeenCalledWith("folder", "remote-0"),
+  );
+});
+
+test("an open dropdown keeps its choices and title during a sync refresh", async () => {
+  const p = setup();
+  const initialPage = { rows: [candidate(0)], totalCount: 23 };
+  const nextPage = Promise.withResolvers<typeof initialPage>();
+  const nextPrimary = Promise.withResolvers<DocumentSummary>();
+  p.documentQueries.listContainerDocumentSidebarWindow = mock(() =>
+    Promise.resolve(initialPage),
+  )
+    .mockImplementationOnce(async () => initialPage)
+    .mockImplementation(() => nextPage.promise);
+  p.documentQueries.loadContainerDocumentSummary = mock(async () => current)
+    .mockImplementationOnce(async () => current)
+    .mockImplementation(() => nextPrimary.promise);
+  const view = render(<ContainerPrimaryDocumentField {...p} />);
+  await waitFor(() =>
+    expect(view.getByRole("combobox").textContent).toContain("Current contact"),
+  );
+  openOptions(view);
+  view.rerender(<ContainerPrimaryDocumentField {...p} revision={1} />);
+  expect(view.getByRole("combobox").textContent).toContain("Current contact");
+  expect(view.getByRole("option", { name: "Contact 0" })).toBeTruthy();
+  expect(view.getByRole("button", { name: "Next documents" })).toBeTruthy();
+  expect(view.queryByText("Loading documents…")).toBeNull();
+  await act(async () => {
+    nextPage.resolve({ rows: [candidate(1)], totalCount: 23 });
+    nextPrimary.resolve({ ...current, title: "Updated contact" });
+  });
+  await waitFor(() =>
+    expect(view.getByRole("combobox").textContent).toContain("Updated contact"),
+  );
+  expect(view.queryByRole("option", { name: "Contact 0" })).toBeNull();
+  fireEvent.click(view.getByRole("option", { name: "Contact 1" }));
+  await waitFor(() =>
+    expect(p.setPrimary).toHaveBeenCalledWith("folder", "remote-1"),
+  );
+});
+
 test("a container without a primary starts at None and can select a document", async () => {
   const p = setup();
   p.node = { ...node, primaryDocumentId: null };

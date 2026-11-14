@@ -5,7 +5,7 @@ import type {
   DocumentSummary,
   DomainScope,
 } from "@tearleads/client-sdk";
-import { useCallback, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import { MiniAppSelectMenu } from "../../../components/mini-app/controls/MiniAppSelectMenu";
 import type { MiniAppSelectMenuOption } from "../../../components/mini-app/controls/MiniAppSelectMenuState";
 import {
@@ -95,25 +95,43 @@ function ContainerPrimaryDocumentFieldSession({
   logError,
 }: ContainerPrimaryDocumentFieldProps) {
   const [offset, setOffset] = useState(0);
-  const load = useCallback(async () => {
+  const selectId = useId();
+  const pageIdentity = useMemo(() => ({}), [node.id, documentQueries, offset]);
+  const load = useCallback(() => {
     void revision;
-    const [page, primary] = await Promise.all([
-      documentQueries.listContainerDocumentSidebarWindow({
-        containerId: node.id,
-        offset,
-        limit: PAGE_SIZE,
-      }),
-      node.primaryDocumentId
-        ? documentQueries.loadContainerDocumentSummary({
-            containerId: node.id,
-            documentId: node.primaryDocumentId,
-          })
-        : Promise.resolve(null),
-    ]);
-    return { page, primary };
-  }, [node.id, node.primaryDocumentId, documentQueries, offset, revision]);
-  const resource = useContainerViewResource(load);
-  const data = resource.status === "ready" ? resource.value : null;
+    return documentQueries.listContainerDocumentSidebarWindow({
+      containerId: node.id,
+      offset,
+      limit: PAGE_SIZE,
+    });
+  }, [node.id, documentQueries, offset, revision]);
+  const resource = useContainerViewResource(load, pageIdentity);
+  const data =
+    resource.status === "ready" || resource.status === "refreshing"
+      ? resource.value
+      : null;
+  const primaryIdentity = useMemo(
+    () => ({}),
+    [node.id, node.primaryDocumentId, documentQueries],
+  );
+  const loadPrimary = useCallback(() => {
+    void revision;
+    return node.primaryDocumentId
+      ? documentQueries.loadContainerDocumentSummary({
+          containerId: node.id,
+          documentId: node.primaryDocumentId,
+        })
+      : Promise.resolve(null);
+  }, [node.id, node.primaryDocumentId, documentQueries, revision]);
+  const primaryResource = useContainerViewResource(
+    loadPrimary,
+    primaryIdentity,
+  );
+  const primary =
+    primaryResource.status === "ready" ||
+    primaryResource.status === "refreshing"
+      ? primaryResource.value
+      : undefined;
   const saving = usePrimaryDocumentSave({
     containerId: node.id,
     canManage: true,
@@ -121,19 +139,16 @@ function ContainerPrimaryDocumentFieldSession({
     logError,
   });
   const busy = saving.state.status === "saving";
-  const options = primaryOptions(
-    data?.page.rows,
-    data?.primary,
-    node.primaryDocumentId,
-  );
+  const options = primaryOptions(data?.rows, primary, node.primaryDocumentId);
 
   return (
     <MiniAppInfoSection heading="Container view">
       <MiniAppFieldGroup>
-        <span>Primary document</span>
+        <label htmlFor={selectId}>Primary document</label>
         <MiniAppSelectMenu
           ariaLabel="Primary document"
           disabled={busy}
+          id={selectId}
           onChange={(value) => {
             void saving.save(value || null);
           }}
@@ -152,12 +167,17 @@ function ContainerPrimaryDocumentFieldSession({
       {resource.status === "failed" ? (
         <MiniAppStatus tone="error">{resource.error}</MiniAppStatus>
       ) : null}
-      {data?.page.totalCount === 0 ? (
+      {primaryResource.status === "failed" ? (
+        <MiniAppStatus tone="error">
+          Could not load the current primary document: {primaryResource.error}
+        </MiniAppStatus>
+      ) : null}
+      {data?.totalCount === 0 ? (
         <MiniAppStatus>No documents in this container.</MiniAppStatus>
       ) : null}
       <PrimaryDocumentPages
         offset={offset}
-        totalCount={data?.page.totalCount}
+        totalCount={data?.totalCount}
         busy={busy}
         onPage={setOffset}
       />
