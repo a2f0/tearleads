@@ -142,6 +142,7 @@ function OrgManagerContent({
           billingMatchesOrganization ? (billing.view?.canSync ?? null) : null
         }
         dataUsage={model.dataUsage}
+        isOrgAdmin={model.isOrgAdmin}
         organizationId={organizationId}
         pending={model.dataUsagePending}
       />

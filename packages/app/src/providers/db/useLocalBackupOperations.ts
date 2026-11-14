@@ -39,13 +39,23 @@ export function useLocalBackupOperations() {
   const tearleads = useTearleads();
 
   const resolveRuntime = useCallback(async () => {
-    await database.ensureReady();
+    const signingFingerprint = tearleads.identity.signingFingerprint;
+    if (!signingFingerprint || !tearleads.identity.signingKeyPair) {
+      throw new Error("Local identity is not ready for backup or restore.");
+    }
+    await database.ensureIdentityReady(signingFingerprint);
+    if (
+      tearleads.identity.signingFingerprint !== signingFingerprint ||
+      !tearleads.identity.signingKeyPair
+    ) {
+      throw new Error("Local identity changed during backup or restore.");
+    }
 
     return {
       blobStore: tearleads.blobs.store,
       databaseId: tearleads.database.id,
       executor: tearleads.database.requireExecSql("Backup / restore"),
-      signingFingerprint: tearleads.identity.signingFingerprint,
+      signingFingerprint,
     };
   }, [database, tearleads]);
 

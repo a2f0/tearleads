@@ -2,6 +2,26 @@
 
 Part of the [client SDK guide](../client-sdk.md).
 
+## Pending blob deletion snapshots
+
+`tearleads.root.listPendingBlobDeletions(query?)` reads the operator queue,
+optionally filtered by `organizationId`.
+`tearleads.organizations.listPendingBlobDeletions(organizationId, query?)`
+reads the active organization's queue; the API verifies current admin access.
+Both accept `cursor` and `limit` (default 50, maximum 100) and return the public
+`RootRequestOutcome<PendingBlobDeletionsPage>` type: `{ ok: true, data }` or
+`{ ok: false, status, message }`. Local session/access changes suppress in-flight
+outcomes with a null status.
+
+The root entry point exports `PendingBlobDeletion`, `PendingBlobDeletionsPage`,
+`PendingBlobDeletionsQueryInput`, and `RootPendingBlobDeletionsQueryInput`.
+Pages contain `blobs` and `nextAfterId`; pass that opaque continuation as
+`cursor`, or stop when it is null. Snapshots are not cached. Status is
+`grace-period`, `eligible`, or `deletion-pending`; eligibility is not a
+guaranteed deletion time. This read-only surface exposes no content, storage
+keys, download URLs, restore, or immediate deletion operation.
+Blob IDs accept UUID versions 1–5, matching the existing blob route contract.
+
 ## Container primary documents
 
 `ContainerContentsStore.setContainerPrimaryDocument(containerId, documentId)`

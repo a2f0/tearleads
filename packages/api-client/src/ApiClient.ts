@@ -56,6 +56,8 @@ export class ApiClient extends ApiClientAreas {
   // Organizations: read model, roster, profile, and memberships.
   createOrganization = this.organizations.createOrganization;
   createOrganizationResult = this.organizations.createOrganizationResult;
+  listOrganizationPendingBlobDeletionsResult =
+    this.organizations.listOrganizationPendingBlobDeletionsResult;
   getOrganizationReadModelResult =
     this.organizations.getOrganizationReadModelResult;
   getOrganizationDataUsageResult =
@@ -91,6 +93,8 @@ export class ApiClient extends ApiClientAreas {
   getRootOrganizationDataUsageResult =
     this.root.getRootOrganizationDataUsageResult;
   listRootAuditEventsResult = this.root.listRootAuditEventsResult;
+  listRootPendingBlobDeletionsResult =
+    this.root.listRootPendingBlobDeletionsResult;
   getRootOpsHealthReportResult = this.root.getRootOpsHealthReportResult;
   listRootRevenuecatEventsReportResult =
     this.root.listRootRevenuecatEventsReportResult;

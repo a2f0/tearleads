@@ -17,6 +17,7 @@ import { AccountBootstrapLoadingPanel } from "../../../components/identity/Accou
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import { ContainerDocumentView } from "../../../document-types/shared/container-view/ContainerDocumentView";
+import { ContainerPrimaryDocumentField } from "../../../document-types/shared/container-view/ContainerPrimaryDocumentField";
 import type { ExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
@@ -224,6 +225,16 @@ interface ExplorerDetailPanelProps {
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }
 
+function isContainerReadOnly(
+  params: ExplorerDetailPanelProps,
+  containerId: string | null | undefined,
+) {
+  return isContainerUnderTrash(params.nodes, containerId, {
+    currentOrganizationId: params.currentOrganizationId,
+    trashSystemSlot: params.trashSystemSlot,
+  });
+}
+
 export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
   // A failed SQLite boot makes every detail route non-functional (they all read
   // from the local database), so gate the whole panel on the error — matching
@@ -309,6 +320,19 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         peerUserId={params.peerUserId}
         resolveUserLabel={params.attributionUserLabelResolver}
         setContainerIcon={params.setContainerIcon}
+        primaryDocumentSettings={
+          infoNode ? (
+            <ContainerPrimaryDocumentField
+              scope={params.domainScope}
+              node={infoNode}
+              documentQueries={params.documentQueries}
+              revision={params.documentListRevision}
+              readOnly={isContainerReadOnly(params, infoNode.id)}
+              setPrimary={params.setContainerPrimaryDocument}
+              logError={params.logError}
+            />
+          ) : null
+        }
         shareScope={{
           domainScope: params.domainScope,
           organizationId: params.currentOrganizationId,
@@ -372,14 +396,6 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
   if (selectedDocument) {
     // A document living anywhere under Trash renders read-only: no edit button,
     // no note edit mode, no blob attach/detach. Enforced in the UI only.
-    const selectedDocumentReadOnly = isContainerUnderTrash(
-      params.nodes,
-      selectedDocument.containerId,
-      {
-        currentOrganizationId: params.currentOrganizationId,
-        trashSystemSlot: params.trashSystemSlot,
-      },
-    );
     return (
       <ExplorerDocumentDetail
         currentSigningFingerprint={params.currentSigningFingerprint}
@@ -394,7 +410,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         onInitialEditingConsumed={
           params.onInitialEditingSelectedDocumentConsumed
         }
-        readOnly={selectedDocumentReadOnly}
+        readOnly={isContainerReadOnly(params, selectedDocument.containerId)}
         refreshError={params.refreshError}
         selectedDocument={selectedDocument}
         showHeaderSyncIndicator={params.showHeaderSyncIndicator}
@@ -409,13 +425,8 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         node={selectedNode}
         revision={params.documentListRevision}
         documentQueries={params.documentQueries}
-        setPrimary={params.setContainerPrimaryDocument}
-        logError={params.logError}
         onOpenDocument={params.selectDocumentProjection}
-        readOnly={isContainerUnderTrash(params.nodes, selectedNode.id, {
-          currentOrganizationId: params.currentOrganizationId,
-          trashSystemSlot: params.trashSystemSlot,
-        })}
+        readOnly={isContainerReadOnly(params, selectedNode.id)}
       >
         <ExplorerContainerDetail
           onRecoveryChanged={params.onRecoveryChanged}

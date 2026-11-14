@@ -43,6 +43,14 @@ export {
   type RootOrganizationsQueryInput,
 } from "./organizations";
 export {
+  listRootPendingBlobDeletions,
+  type PendingBlobDeletion,
+  type PendingBlobDeletionsPage,
+  type PendingBlobDeletionsQueryInput,
+  type RootPendingBlobDeletionsApi,
+  type RootPendingBlobDeletionsQueryInput,
+} from "./pendingBlobDeletions";
+export {
   listRootOrganizationRevenuecatEvents,
   listRootRevenuecatEventsReport,
   type RootOrganizationRevenuecatEvent,

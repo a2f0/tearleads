@@ -21,6 +21,7 @@ import { RootMenu } from "./RootMenu";
 import { useRootSidebarPanel } from "./RootSidebar";
 import { DataUsageReportView } from "./reports/DataUsageReportView";
 import { OpsHealthReportView } from "./reports/OpsHealthReportView";
+import { PendingBlobDeletionReport } from "./reports/PendingBlobDeletionReport";
 import { RevenuecatReportView } from "./revenuecat/RevenuecatReportView";
 import {
   IDENTITIES_ROOT_ROUTE,
@@ -106,6 +107,7 @@ function RootContent({
         <DataUsageReportView
           onSelectOrganization={openReportedOrganization("data-usage")}
         />
+        <PendingBlobDeletionReport />
       </>
     );
   }

@@ -145,6 +145,7 @@ function containerInfoPanelElement(input: ContainerInfoPanelInput = {}) {
     logError: () => undefined,
     onOpenGrant: input.onOpenGrant ?? (() => undefined),
     peerUserId: "peer-user-1",
+    primaryDocumentSettings: null,
     setContainerIcon: input.setContainerIcon ?? (async () => null),
     shareWithGroup: input.shareWithGroup ?? (async () => true),
     shareScope: TEST_SHARE_SCOPE,

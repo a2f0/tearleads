@@ -4,6 +4,8 @@ import {
   getOrganizationReadModelOperation,
   listOrganizationGroupMembersOperation,
   listOrganizationMembershipsOperation,
+  listOrganizationPendingBlobDeletionsOperation,
+  type PendingBlobDeletionsQuery,
   requestOrganizationLeaveOperation,
   updateOrganizationMembershipOperation,
   updateOrganizationProfileOperation,
@@ -20,6 +22,7 @@ import type {
   OrganizationDataUsageResponse,
   OrganizationMembershipResponse,
   OrganizationReadModelResponse,
+  PendingBlobDeletionsResponse,
 } from "@tearleads/validators/response";
 import type { OrganizationLeaveRequest } from "@tearleads/validators/util";
 import { bindPrototypeMethods } from "../requestInternals";
@@ -40,6 +43,18 @@ import type { ApiClientContext } from "./apiClientContext";
 export class OrganizationArea {
   constructor(private readonly context: ApiClientContext) {
     bindPrototypeMethods(this, OrganizationArea.prototype);
+  }
+
+  listOrganizationPendingBlobDeletionsResult(
+    organizationId: string,
+    query: PendingBlobDeletionsQuery = {},
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<PendingBlobDeletionsResponse>> {
+    return this.context.transport.requestResult(
+      listOrganizationPendingBlobDeletionsOperation,
+      { params: { organizationId }, query },
+      options,
+    );
   }
 
   createOrganization(request: CreateOrganizationRequest) {

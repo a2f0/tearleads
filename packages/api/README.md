@@ -34,6 +34,15 @@ explains the protocol planes. The
 [`docs/openapi.json`](../../docs/openapi.json) artifact is generated from the
 operation contracts.
 
+Root operators can inspect the read-only blob deletion queue at
+`GET /root/blobs/pending-deletion`, optionally filtered by `organizationId`.
+Current signed-policy organization admins can inspect only their organization
+at `GET /organizations/:organizationId/blobs/pending-deletion`. Both return
+bounded cursor pages of lifecycle metadata, including pending physical deletion
+after live-row pruning, without object keys or content. Eligibility uses the
+database clock and the garbage collector's shared grace duration; it is not a
+promise of when deletion will finish. Root reads are audited before querying.
+
 ## Local development
 
 ```sh

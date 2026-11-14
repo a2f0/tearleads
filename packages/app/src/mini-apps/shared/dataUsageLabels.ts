@@ -23,6 +23,7 @@ export const DATA_USAGE_LABELS = {
   usageDocument: "document",
   usageDocuments: "Documents",
   usageDocumentsUnit: "documents",
+  usagePendingDeletionTab: "Pending deletion",
   usageSyncedTab: "Synced",
   usageSyncOff:
     "Sync is off for this organization, so locally queued metadata and files may not appear here.",

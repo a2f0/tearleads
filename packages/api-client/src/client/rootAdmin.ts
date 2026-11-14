@@ -11,17 +11,20 @@ import {
   listRootOrganizationIdentitiesOperation,
   listRootOrganizationRevenuecatEventsOperation,
   listRootOrganizationsOperation,
+  listRootPendingBlobDeletionsOperation,
   listRootRevenuecatEventsReportOperation,
   type RootAuditEventsQuery,
   type RootIdentitiesQuery,
   type RootOrganizationPageQuery,
   type RootOrganizationsQuery,
+  type RootPendingBlobDeletionsQuery,
   type RootRevenuecatEventsQuery,
   type RootRevenuecatEventsReportQuery,
   suspendRootIdentityOperation,
 } from "@tearleads/validators/operation";
 import type {
   OrganizationDataUsageResponse,
+  PendingBlobDeletionsResponse,
   RootAuditEventsResponse,
   RootDataUsageReportResponse,
   RootIdentitiesResponse,
@@ -43,6 +46,17 @@ import type { ApiClientContext } from "./apiClientContext";
 export class RootAdminArea {
   constructor(private readonly context: ApiClientContext) {
     bindPrototypeMethods(this, RootAdminArea.prototype);
+  }
+
+  listRootPendingBlobDeletionsResult(
+    query: RootPendingBlobDeletionsQuery = {},
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<PendingBlobDeletionsResponse>> {
+    return this.context.transport.requestResult(
+      listRootPendingBlobDeletionsOperation,
+      { params: {}, query },
+      options,
+    );
   }
 
   getRootOrganizationDataUsageResult(

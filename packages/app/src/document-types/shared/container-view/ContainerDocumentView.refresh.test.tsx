@@ -52,9 +52,7 @@ function setup() {
     scope: createDomainScope(),
     revision: 0,
     readOnly: false,
-    logError: () => {},
     onOpenDocument: () => {},
-    setPrimary: async () => node,
     documentQueries: {
       loadContainerDocumentSummary: async () => contact,
       listContainerDocumentSidebarWindow: async () => ({
