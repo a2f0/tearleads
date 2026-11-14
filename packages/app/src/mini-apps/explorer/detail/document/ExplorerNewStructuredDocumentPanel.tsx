@@ -32,7 +32,6 @@ export function ExplorerNewStructuredDocumentPanel(params: Props) {
   return (
     <MiniAppPanel
       className="explorer-detail explorer-detail--new-structured-document"
-      key={selectedNode.id}
       scroll
     >
       <MiniAppHeader>
@@ -56,11 +55,18 @@ export function ExplorerNewStructuredDocumentPanel(params: Props) {
             onChange={(event) => setQuery(event.currentTarget.value)}
           />
         </MiniAppField>
-        {documentTypes.length === 0 && (
-          <MiniAppStatus role="status">
-            {EXPLORER_LABELS.newStructuredDocumentNoMatches}
-          </MiniAppStatus>
-        )}
+        <MiniAppStatus
+          role="status"
+          className={
+            documentTypes.length > 0
+              ? "mini-app-status-announcement"
+              : undefined
+          }
+        >
+          {documentTypes.length === 0
+            ? EXPLORER_LABELS.newStructuredDocumentNoMatches
+            : ""}
+        </MiniAppStatus>
         <div className="explorer-document-type-grid">
           {documentTypes.map((definition) => {
             const DocumentTypeIcon = definition.createIcon;

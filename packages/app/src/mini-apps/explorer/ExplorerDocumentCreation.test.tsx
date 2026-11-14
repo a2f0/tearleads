@@ -3,6 +3,7 @@ import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
 import {
   cleanupPaneTestEnvironment,
+  createExplorerChildContainer,
   generateIdentityAndWaitForDb,
   getExplorerContainerItem,
   openExplorer,
@@ -45,8 +46,9 @@ test(
       .map((button) => button.textContent);
 
     fireEvent.change(search, { target: { value: "  cArD  " } });
-    expect(picker.getByRole("button", { name: "Credit Card" })).toBeTruthy();
-    expect(picker.queryByRole("button", { name: "Note" })).toBeNull();
+    expect(
+      picker.getAllByRole("button").map((button) => button.textContent),
+    ).toEqual(["Credit Card"]);
 
     fireEvent.change(search, { target: { value: "no matching type" } });
     expect(picker.queryAllByRole("button")).toEqual([]);
@@ -59,9 +61,12 @@ test(
       expect(
         picker.getAllByRole("button").map((button) => button.textContent),
       ).toEqual(allTypes);
-      expect(picker.queryByRole("status")).toBeNull();
+      expect(picker.getByRole("status").textContent).toBe("");
     }
     fireEvent.change(search, { target: { value: "credit" } });
+    expect(
+      picker.getAllByRole("button").map((button) => button.textContent),
+    ).toEqual(["Credit Card"]);
 
     fireEvent.click(
       within(explorer).getByRole("button", { name: "Credit Card" }),
@@ -88,13 +93,22 @@ test(
 );
 
 test(
-  "Explorer context menu creates the selected document kind",
+  "Explorer resets search for another container and creates the selected kind",
   async () => {
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
     const explorer = await openExplorer(view);
-    fireEvent.contextMenu(getExplorerContainerItem(explorer, "/"), {
+    await createExplorerChildContainer(view, explorer, "Documents");
+    fireEvent.click(getExplorerContainerItem(explorer, "/"));
+    await openExplorerNewStructuredDocumentRoute(explorer);
+    fireEvent.change(
+      within(explorer).getByRole("searchbox", {
+        name: "Search document types",
+      }),
+      { target: { value: "no matching type" } },
+    );
+    fireEvent.contextMenu(getExplorerContainerItem(explorer, "Documents"), {
       clientX: 180,
       clientY: 180,
     });
