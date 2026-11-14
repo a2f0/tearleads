@@ -24,6 +24,11 @@ function installClipboard(writeText: Clipboard["writeText"]): void {
 
 const TEST_BUILD_INFO = createAppBuildInfo({
   commit: "abc1234",
+  packageVersionsJson: JSON.stringify({
+    tearleads: "0.1.2",
+    app: "0.2.3",
+    "@tearleads/client-sdk": "0.3.4",
+  }),
   target: "web",
   version: "9.9.9",
 });
@@ -73,6 +78,15 @@ test("environment tab reports build identity from the host config", async () => 
   expect(view.getByText("web")).toBeTruthy();
   expect(view.getByText("9.9.9")).toBeTruthy();
   expect(view.getByText("abc1234")).toBeTruthy();
+  expect(
+    view.getByText("Package: tearleads").closest("tr")?.textContent,
+  ).toContain("0.1.2");
+  expect(view.getByText("Package: app").closest("tr")?.textContent).toContain(
+    "0.2.3",
+  );
+  expect(
+    view.getByText("Package: @tearleads/client-sdk").closest("tr")?.textContent,
+  ).toContain("0.3.4");
   // The native build number row is always present; with no reader on the web
   // test host config it stays unknown rather than dropping the row.
   expect(view.getByText(ENVIRONMENT_LABELS.buildNumber)).toBeTruthy();
@@ -176,6 +190,9 @@ test("copy button serializes every tab regardless of which one is open", async (
   expect(report).toContain("## Logs");
   expect(report).toContain(`| ${ENVIRONMENT_LABELS.appVersion} | 9.9.9 |`);
   expect(report).toContain(`| ${ENVIRONMENT_LABELS.buildCommit} | abc1234 |`);
+  expect(report).toContain("| Package: tearleads | 0.1.2 |");
+  expect(report).toContain("| Package: app | 0.2.3 |");
+  expect(report).toContain("| Package: @tearleads/client-sdk | 0.3.4 |");
   // Status comes from the snapshot, not from a mounted Status tab.
   expect(report).toContain("| SQLite Worker |");
 

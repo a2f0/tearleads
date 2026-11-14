@@ -64,9 +64,10 @@ const { apiBaseUrl, wsUrl } = resolveAppHostRuntimeConfig({
 const hostConfig = createAppHostConfig({
   apiBaseUrl,
   diagnostics: await configureNativeSentry(),
-  // Resolved and inlined by the `define` block in vite.config.ts.
+  // Resolved and inlined by vite.config.ts.
   buildInfo: createAppBuildInfo({
     commit: import.meta.env.VITE_GIT_SHA,
+    packageVersionsJson: import.meta.env.VITE_PACKAGE_VERSIONS,
     target: "capacitor",
     version: import.meta.env.VITE_APP_VERSION,
   }),

@@ -52,6 +52,7 @@ renderApp(createRoot(elem), {
     // in electrobun.config.ts.
     buildInfo: createAppBuildInfo({
       commit: process.env.BUN_PUBLIC_GIT_SHA,
+      packageVersionsJson: process.env.BUN_PUBLIC_PACKAGE_VERSIONS,
       target: "electrobun",
       version: process.env.BUN_PUBLIC_APP_VERSION,
     }),

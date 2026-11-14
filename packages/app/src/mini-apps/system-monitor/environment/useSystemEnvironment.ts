@@ -141,6 +141,9 @@ export function useSystemEnvironment(): ReadonlyArray<EnvironmentRow> {
       { label: ENVIRONMENT_LABELS.deviceMemory, value: readDeviceMemory() },
       { label: ENVIRONMENT_LABELS.touch, value: readTouchSupport() },
       { label: ENVIRONMENT_LABELS.storage, value: storage },
+      ...Object.entries(buildInfo?.packageVersions ?? {}).map(
+        ([name, version]) => ({ label: `Package: ${name}`, value: version }),
+      ),
       // Last, and always present: every field above it is a guess derived from
       // this string, so support needs it to check the guesses.
       { label: ENVIRONMENT_LABELS.userAgent, value: userAgent },
