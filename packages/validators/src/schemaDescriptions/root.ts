@@ -1,5 +1,7 @@
 import { describeSchema } from "../jsonSchemaAnnotations";
 import {
+  PendingBlobDeletionSchema,
+  PendingBlobDeletionsResponseSchema,
   RootAuditEventResponseSchema,
   RootAuditEventsResponseSchema,
   RootDataUsageReportResponseSchema,
@@ -174,4 +176,22 @@ describeSchema(
   RootAuditEventsResponseSchema,
   "A page of recorded operator actions, newest first.",
   { nextCursor: "Opaque cursor for the next page, or null at the end." },
+);
+
+describeSchema(
+  PendingBlobDeletionSchema,
+  "Read-only blob deletion lifecycle metadata. Eligibility uses the database clock and the garbage collector's grace duration, not a promised deletion time. Object keys, content and cryptographic metadata are never included.",
+  {
+    dereferencedAt:
+      "When the last live binding was removed; null after pruning.",
+    eligibleAfter: "End of the grace period; null after pruning.",
+    prunedAt:
+      "When live database state was pruned, leaving physical deletion pending.",
+  },
+);
+
+describeSchema(
+  PendingBlobDeletionsResponseSchema,
+  "A bounded page of pending blob deletions, ordered by blob id.",
+  { nextAfterId: "Opaque continuation passed as cursor, or null at the end." },
 );

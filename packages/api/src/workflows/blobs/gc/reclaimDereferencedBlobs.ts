@@ -24,12 +24,8 @@ import {
 import { wallClockNowExpression } from "../../../utils/postgresSql";
 import { assertBlobStorageKeyOrganization } from "../storageKeys";
 import { selectFairBlobWorkCandidates } from "./fairBlobWorkSelection";
+import { DEFAULT_BLOB_GC_GRACE_PERIOD_MS } from "./gracePeriod";
 
-// A blob soft-deleted by purge is reclaimed only after this grace period, giving
-// an in-flight or shortly-following re-bind time to revive it before the
-// irreversible hard delete. Correctness does not depend on the grace (the
-// per-blob FOR UPDATE + reachability re-check is authoritative); it is margin.
-const DEFAULT_GRACE_PERIOD_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 1000;
 
@@ -297,7 +293,7 @@ export async function runReclaimDereferencedBlobsWorkflow(
   // shorten the grace period. Explicit `now` remains a deterministic test and
   // maintenance override.
   const now = input.now ?? (await readDatabaseWallClock(db));
-  const gracePeriodMs = input.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
+  const gracePeriodMs = input.gracePeriodMs ?? DEFAULT_BLOB_GC_GRACE_PERIOD_MS;
   const cutoff = new Date(now.getTime() - gracePeriodMs);
   const limit = normalizeLimit(input.limit);
   const scopedBlobIds = input.blobIds ? [...new Set(input.blobIds)] : undefined;

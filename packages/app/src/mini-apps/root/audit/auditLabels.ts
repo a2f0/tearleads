@@ -5,6 +5,7 @@ const ROOT_AUDIT_ACTION_LABELS: Record<RootAuditAction, string> = {
   "root.access.grant": "Granted root",
   "root.access.revoke": "Revoked root",
   "root.auditEvents.list": "Viewed audit trail",
+  "root.blobs.pendingDeletion.list": "Viewed pending blob deletions",
   "root.identities.get": "Viewed identity",
   "root.identities.list": "Listed identities",
   "root.identities.organizations.list": "Viewed identity organizations",
