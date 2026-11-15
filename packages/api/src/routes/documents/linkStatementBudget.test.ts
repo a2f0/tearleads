@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { withDatabaseStatementCounter } from "@tearleads/api-shared/postgres";
+import {
+  getDefaultApiDatabaseKind,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
 import { readKeyingCanonicalJson } from "@tearleads/crypto";
 import { createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -104,15 +107,15 @@ test("linking a document with k attachments stays within its statement budget", 
     expect(linked.result).toMatchObject({ status: 200 });
     sweep.push(linked.statements);
   }
-  // Measured with PGlite / SQLite (Postgres equals SQLite) at 0 / 1 / 3
-  // attachments: 71 / 86 / 114 and 73 / 88 / 116 while each blob reread its
-  // epoch rows and resolved its targets alone (+14 per blob); 66 / 79 / 87 and
-  // 68 / 81 / 89 once the content-key stores stopped re-reading rows they held
-  // and a link set-loads its rewrap preconditions (+4 per blob).
+  // A rewrap persists its targets without selecting them again for a discarded
+  // return value. Keep the consumed reconciliation and create read-backs.
+  // PostgreSQL logs BEGIN/COMMIT; PGlite uses its native transaction method.
+  const transactionStatements =
+    getDefaultApiDatabaseKind() === "postgres" ? 2 : 0;
   expect(sweep).toHaveLength(3);
-  expect(sweep[0]).toBeLessThanOrEqual(68);
-  expect(sweep[1]).toBeLessThanOrEqual(81);
-  expect(sweep[2]).toBeLessThanOrEqual(89);
+  expect(sweep[0]).toBeLessThanOrEqual(45 + transactionStatements);
+  expect(sweep[1]).toBeLessThanOrEqual(57 + transactionStatements);
+  expect(sweep[2]).toBeLessThanOrEqual(63 + transactionStatements);
 }, 180_000);
 
 test("a blob download stays within its statement budget", async () => {

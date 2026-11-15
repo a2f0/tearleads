@@ -22,11 +22,14 @@ import {
   targetEnvelopeEqual,
 } from "./blobContentKeyTargets";
 import {
+  insertBlobContentKeyTargets,
+  persistBlobContentKeyTargets,
+} from "./blobContentKeyTargetWrites";
+import {
   BlobKekTargetError,
   resolveCurrentBlobKekTargets,
 } from "./blobKekTargets";
 import { createContentKeyStore } from "./contentKeyStore";
-import { resolveRetainedBlobTargetEnvelopes } from "./retainedBlobTargetEnvelopes";
 
 export type {
   BlobContentKeyTargetEnvelope,
@@ -222,86 +225,12 @@ export async function getLatestBlobContentKeyBundle(
   return blobContentKeyStore.getLatestBundle(blobId, executor);
 }
 
-async function insertBlobContentKeyTargets(input: {
-  readonly blobContentKeyEpochId: string;
-  readonly bundleTargetHash: string;
-  readonly executor: DatabaseSession;
-  readonly targets: readonly BlobContentKeyTargetEnvelope[];
-}) {
-  if (input.targets.length === 0) {
-    return;
-  }
-
-  await input.executor
-    .insert(blobContentKeyTargets)
-    .values(
-      input.targets.map((target) => ({
-        blobContentKeyEpochId: input.blobContentKeyEpochId,
-        bundleTargetHash: input.bundleTargetHash,
-        bindingId: target.bindingId,
-        documentId: target.documentId,
-        containerId: target.containerId,
-        containerManifestHash: target.containerManifestHash,
-        containerKeyEpochId: target.containerKeyEpochId,
-        containerKeyEpoch: target.containerKeyEpoch,
-        wrappedKey: target.wrappedKey,
-        wrappingMetadata: target.wrappingMetadata,
-      })),
-    )
-    .onConflictDoNothing({
-      target: [
-        blobContentKeyTargets.blobContentKeyEpochId,
-        blobContentKeyTargets.bundleTargetHash,
-        blobContentKeyTargets.bindingId,
-        blobContentKeyTargets.documentId,
-        blobContentKeyTargets.containerId,
-      ],
-    });
-}
-
-export async function replaceBlobContentKeyTargetsForExistingBundle(input: {
+async function replaceBlobContentKeyTargetsForExistingBundle(input: {
   readonly existingBundle: StoredBlobContentKeyBundle;
   readonly nextBundle: BlobContentKeyBundleInput;
   readonly executor: DatabaseSession;
 }): Promise<StoredBlobContentKeyBundle> {
-  // The update returns the epoch row as stored. The retained-envelope read
-  // and the target insert below touch only target rows, and the caller holds
-  // the blob row lock, so the row needs neither a load before nor a reload
-  // after; an error after the update still rolls the transaction back.
-  const [epochRow] = await input.executor
-    .update(blobContentKeyEpochs)
-    .set({
-      targetHash: input.nextBundle.targetHash,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(blobContentKeyEpochs.blobId, input.nextBundle.blobId),
-        eq(
-          blobContentKeyEpochs.contentKeyEpoch,
-          input.nextBundle.contentKeyEpoch,
-        ),
-      ),
-    )
-    .returning();
-  if (!epochRow)
-    throw new BlobContentKeyBundleError(
-      "Failed to load blob content-key epoch",
-      409,
-    );
-  const targets = await resolveRetainedBlobTargetEnvelopes({
-    currentTargets: input.existingBundle.targets,
-    epochId: epochRow.id,
-    executor: input.executor,
-    targets: input.nextBundle.targets,
-  });
-  await insertBlobContentKeyTargets({
-    blobContentKeyEpochId: epochRow.id,
-    bundleTargetHash: input.nextBundle.targetHash,
-    executor: input.executor,
-    targets,
-  });
-
+  const epochRow = await persistBlobContentKeyTargets(input);
   return toStoredBundle(epochRow, input.executor);
 }
 

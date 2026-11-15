@@ -6,12 +6,16 @@ import { db } from "@tearleads/api-shared/postgres";
 import { sql } from "drizzle-orm";
 
 interface QueryHook {
-  readonly before?: (query: string) => Promise<void>;
-  readonly after?: (query: string) => Promise<void>;
+  readonly before?: (query: string, tx: DatabaseTransaction) => Promise<void>;
+  readonly after?: (query: string, tx: DatabaseTransaction) => Promise<void>;
 }
 
 // Gates surround real Drizzle execution; no SQL or result is substituted.
-function observeBuilder<T extends object>(builder: T, hook: QueryHook): T {
+function observeBuilder<T extends object>(
+  builder: T,
+  hook: QueryHook,
+  tx: DatabaseTransaction,
+): T {
   return new Proxy(builder, {
     get(target, property) {
       const value = Reflect.get(target, property, target);
@@ -26,11 +30,11 @@ function observeBuilder<T extends object>(builder: T, hook: QueryHook): T {
             if (typeof toSql !== "function")
               throw new Error("Expected SQL builder");
             const query = String(toSql.call(target).sql);
-            await hook.before?.(query);
+            await hook.before?.(query, tx);
             const result = await Reflect.apply(value, target, [
               (rows: unknown) => rows,
             ]);
-            await hook.after?.(query);
+            await hook.after?.(query, tx);
             return result;
           };
           return execute().then(resolve, reject);
@@ -39,7 +43,7 @@ function observeBuilder<T extends object>(builder: T, hook: QueryHook): T {
       return (...args: unknown[]) => {
         const result: unknown = Reflect.apply(value, target, args);
         return result !== null && typeof result === "object"
-          ? observeBuilder(result, hook)
+          ? observeBuilder(result, hook, tx)
           : result;
       };
     },
@@ -79,7 +83,7 @@ export function probeTransactions(database: ApiDatabase, hook: QueryHook = {}) {
                   );
                   if (builder === null || typeof builder !== "object")
                     throw new Error("Expected query builder");
-                  return observeBuilder(builder, hook);
+                  return observeBuilder(builder, hook, tx);
                 };
               },
             });
