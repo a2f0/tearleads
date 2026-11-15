@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds default to the plain-HTTP development API on the emulator's
+     host alias (scripts/dev/runAndroid.sh). Add a device's host LAN address
+     here when testing on hardware. Release builds keep the platform default,
+     which refuses cleartext traffic. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

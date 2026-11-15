@@ -88,12 +88,21 @@ remove them when the stated checks pass without the pin.
   migration](https://github.com/RevenueCat/purchases-capacitor/blob/14.0.0/migrations/v14-MIGRATION.md)
   is validated through native startup, purchase, and restore on both platforms.
   Compile and bridge-unit tests alone do not establish live store behavior.
-- Android uses AGP 9's built-in Kotlin support, compile SDK 37, AndroidX Core
-  1.19.1, and the Capacitor template's Cordova 14.0.1. Biometric 8.9.1 supports
-  the hidden `FingerprintManager` API through reflection. Keep target SDK 36
-  until a separate Android behavior migration validates a higher target.
-- Java 25 LTS remains the supported Android runtime with Gradle 9.8.2. Change
-  the pair only after upstream compatibility and the Android build are verified.
+- Android uses AGP 9's built-in Kotlin support, compile and target SDK 37,
+  AndroidX Core 1.19.1, and the Capacitor template's Cordova 14.0.1. Biometric
+  8.9.1 supports the hidden `FingerprintManager` API through reflection.
+  Debug builds declare and request Android 17's
+  [local network permission](https://developer.android.com/privacy-and-security/local-network-permission)
+  and allow cleartext only to the emulator host `10.0.2.2`, so they can reach
+  the development API; release builds declare neither. Raise the target only
+  with a reviewed behavior migration for that Android release, like the
+  [Android 17 changes](https://developer.android.com/about/versions/17/behavior-changes-17),
+  and the Maestro offline flows passing on an emulator at that API level.
+- Java 25 LTS remains the supported Android runtime with Gradle 9.9.1; Gradle
+  [runs on Java 25](https://docs.gradle.org/current/userguide/compatibility.html)
+  from 9.1.0. Keep the `.mise.toml` Gradle pin equal to the checksum-pinned
+  wrapper, because the Android scripts regenerate the untracked wrapper JAR
+  from it. Change the pair only after the Android build is verified.
 - LocalStack 4.14.0 supports the local workflow without account credentials.
   Preserve that workflow when considering a newer release.
 - CI uses PostgreSQL 18.6; staging and production each use an independent
