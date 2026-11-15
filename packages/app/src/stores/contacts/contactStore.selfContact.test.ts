@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import type { ResolvedUserIdentity } from "@tearleads/client-sdk";
 import {
+  createDocumentStore,
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
-  deletePersistedDocument,
   openDocumentStore,
 } from "@tearleads/client-sdk";
 import { createMockApiClient } from "@tearleads/test-utils";
@@ -32,6 +32,10 @@ async function createContactsRuntime(): Promise<
       ...runtimeInputBase.auth,
       userId: "self-user",
     },
+    crypto: {
+      ...runtimeInputBase.crypto,
+      signingFingerprint: "self-signing-fingerprint",
+    },
     infra: {
       ...runtimeInputBase.infra,
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
@@ -44,16 +48,8 @@ async function createContactsRuntime(): Promise<
 
   return {
     close,
-    deleteDocument: async (localId) => {
-      await deletePersistedDocument({
-        documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-        execSql: runtimeInputBase.infra.execSql,
-        localId,
-        persistence: defaultDocumentsPersistence,
-      });
-      return true;
-    },
     documents,
+    listPendingWrites: async () => [],
     loadDocumentSummary: () => Promise.resolve(null),
     moveDocumentToTrash: () => Promise.resolve(null),
     openDocumentStore: (input) =>
@@ -122,6 +118,13 @@ test("contacts store promotes a deferred self contact on later ensure", async ()
       userId: selfKey.userId,
     });
     expect(structuredFieldDeferOptions).toEqual([true, false]);
+    const reopened = createDocumentStore(selfContactId, runtime.documents);
+    expect(await reopened.ensureInitialized()).toBe(true);
+    expect(reopened.getSnapshot().structuredFields).toMatchObject({
+      encapsulationPublicKey: selfKey.encapsulationPublicKey,
+      isSelf: "1",
+      userId: selfKey.userId,
+    });
   } finally {
     runtime.close();
   }
@@ -174,12 +177,45 @@ test("signed-out ensure preserves a promoted self contact without a deferred edi
     });
     expect(structuredFieldDeferOptions).toEqual([false]);
 
-    await store.ensureSelfContact({
-      deferRemoteSync: true,
-      localId: selfContactId,
+    const execSql = runtime.documents.infra.execSql;
+    const before = await defaultDocumentsPersistence.loadDocument(
+      execSql,
+      selfContactId,
+    );
+    const history = await defaultDocumentsPersistence.loadHistoryRestoreState(
+      execSql,
+      selfContactId,
+    );
+    expect(before).not.toBeNull();
+    expect(history).not.toBeNull();
+    store.updateRuntime({
+      ...runtime,
+      documents: {
+        ...runtime.documents,
+        auth: {
+          ...runtime.documents.auth,
+          isAuthenticated: false,
+          userId: null,
+        },
+      },
     });
+    expect(
+      await store.ensureSelfContact({
+        deferRemoteSync: true,
+        localId: selfContactId,
+      }),
+    ).toBe(selfContactId);
 
     expect(structuredFieldDeferOptions).toEqual([false]);
+    expect(
+      await defaultDocumentsPersistence.loadDocument(execSql, selfContactId),
+    ).toEqual(before);
+    expect(
+      await defaultDocumentsPersistence.loadHistoryRestoreState(
+        execSql,
+        selfContactId,
+      ),
+    ).toEqual(history);
     expect(store.getSnapshot().entries).toContainEqual(
       expect.objectContaining({
         encapsulationPublicKey: selfKey.encapsulationPublicKey,

@@ -58,7 +58,6 @@ function getSelfContactInput(input: {
       includeRemoteIdentity && appData.crypto.encapsulationKeyPair
         ? bytesToBase64(appData.crypto.encapsulationKeyPair.publicKey)
         : null,
-    lookupUserId: appData.auth.userId,
     localId,
     userId,
   };

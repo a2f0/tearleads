@@ -316,6 +316,12 @@ Persisted-document notifications repaint an open Contacts store after late
 recovery. Root-set and organization-profile signals likewise refresh the open
 organization switcher.
 
+Personal Me bootstrap and self-import use the
+[canonical contact identity](../../packages/app/src/document-types/contact/README.md#personal-me-identity).
+Same-document recovery remains supported; distinct same-user or roster
+documents are not automatically adopted, deleted, or used as replacement edit
+targets. There is no legacy self-contact migration or reconnect purge queue.
+
 The Organizations dashboard reads the same shared container store and lists
 every organization present in the local tree, including one reached only
 through a folder shared from beneath an unreachable root. A card's folders are
@@ -391,7 +397,7 @@ still an operation failure.
 | Local read completion | Reads superseded by deletion or reconciliation are discarded; ordinary reads publish before a coalesced trailing refresh, so autosaves cannot starve the view. | [`localProjectionStore.races.test.ts`](../../packages/client-sdk/src/stores/local-projection/localProjectionStore.races.test.ts) |
 | Database replacement | Replacing the adapter or domain resets summary caches and pending reads; an old read cannot publish into the replacement. | [`localProjectionStore.races.test.ts`](../../packages/client-sdk/src/stores/local-projection/localProjectionStore.races.test.ts) |
 | Projection notification | Change detection covers links and every summary field. | [`localProjectionStore.races.test.ts`](../../packages/client-sdk/src/stores/local-projection/localProjectionStore.races.test.ts) |
-| Self-contact bootstrap | Self-key resolution stays local; remote duplicate cleanup runs outside the contact write queue, keeps duplicates until an authorized purge succeeds, retries on reconnect, and keeps edits on the retained self contact. | [`contactStore.offline.test.ts`](../../packages/app/src/stores/contacts/contactStore.offline.test.ts), [`contactStore.cleanupSettlement.test.ts`](../../packages/app/src/stores/contacts/contactStore.cleanupSettlement.test.ts), [`contactStore.importDuringCleanup.test.ts`](../../packages/app/src/stores/contacts/contactStore.importDuringCleanup.test.ts) |
+| Self-contact bootstrap | Self-key resolution stays local; bootstrap and self-import use canonical Me without adopting or deleting distinct documents. A deferred retry acknowledges dirty identity only after persistence. | [`contactStore.personalRole.test.ts`](../../packages/app/src/stores/contacts/contactStore.personalRole.test.ts), [`contactStore.selfContactCanonical.test.ts`](../../packages/app/src/stores/contacts/contactStore.selfContactCanonical.test.ts), [`contactStore.deferredSelfAcknowledgment.test.ts`](../../packages/app/src/stores/contacts/contactStore.deferredSelfAcknowledgment.test.ts) |
 | Container mutation queue | Explicit online work is serialized apart from ordinary folder writes; never-synced folder deletion stays local; system-folder probes watch only their slot. | [`containerLocalWritesDuringProbe.test.ts`](../../packages/client-sdk/src/stores/container-contents/containerLocalWritesDuringProbe.test.ts), [`ensureSystemContainerDeviceFirst.test.ts`](../../packages/client-sdk/src/stores/container-contents/ensureSystemContainerDeviceFirst.test.ts) |
 | System bootstrap | System-folder creation and icon correction go through the local queue. | [`systemContainerBootstrap.offline.test.ts`](../../packages/app/src/providers/system-bootstrap/systemContainerBootstrap.offline.test.ts) |
 | Document rotation | One remote operation runs per live document lane, the local queue is held only for the checked installation, and generation guards exclude replaced runtimes and database resets. | [`rotationCoordinatorLiveness.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/rotation/rotationCoordinatorLiveness.test.ts), [`rotationConcurrentEdits.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/rotation/rotationConcurrentEdits.test.ts), [`rotationRecoveryGuards.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/rotation/rotationRecoveryGuards.test.ts) |

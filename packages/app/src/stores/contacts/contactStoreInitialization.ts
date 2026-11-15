@@ -5,7 +5,6 @@ import type {
 import { loadProjectedContacts } from "./contactProjection";
 import { sortContactEntries } from "./contactSnapshot";
 import { contactEntryFromDocumentStore } from "./contactStoreLookup";
-import { resetRemoteContactCleanup } from "./contactStoreRemoteCleanup";
 import {
   setContactsSnapshot,
   upsertContactEntry,
@@ -46,19 +45,21 @@ export function ensureContactDocumentStore(
           initialStructuredFields: options.initialFields,
         }),
   });
-  const unsubscribe = store.subscribe(() => {
+  const project = () => {
     const entry = contactEntryFromDocumentStore(contactId, store);
     if (entry) {
       upsertContactEntry(state, entry);
-      state.onContactEntry(entry);
     }
-  });
+  };
+  const unsubscribe = store.subscribe(project);
   state.contactDocumentStoresById.set(contactId, { store, unsubscribe });
+  // Document stores are shared per domain: one another view already loaded is
+  // ready now and emits nothing until its next change.
+  project();
   return store;
 }
 
 export function resetContactsStore(state: ContactsStoreState): void {
-  resetRemoteContactCleanup(state);
   state.persistedDocumentsUnsubscribe?.();
   state.persistedDocumentsUnsubscribe = null;
   for (const trackedStore of state.contactDocumentStoresById.values()) {
@@ -104,7 +105,6 @@ async function initializeContactsStore(
   });
   for (const entry of entries) {
     ensureContactDocumentStore(state, entry.id);
-    state.onContactEntry(entry);
   }
   state.initialized = true;
 }

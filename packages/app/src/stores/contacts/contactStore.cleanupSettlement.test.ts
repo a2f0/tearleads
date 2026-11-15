@@ -1,15 +1,14 @@
-import { expect, test } from "bun:test";
-import { defaultDocumentsPersistence } from "@tearleads/client-sdk";
+import { expect, spyOn, test } from "bun:test";
+import { createDocumentStore } from "@tearleads/client-sdk";
 import {
-  CONTACTS_CONTAINER_ID,
   createRecoveryContactsRuntime,
   seedDuplicateSelfContacts,
 } from "../../../test/helpers/contactStoreRecovery";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { loadProjectedContacts } from "./contactProjection";
 import { type ContactsRuntime, createContactsStore } from "./contactStore";
+import * as ContactWriteQueue from "./contactStoreWriteQueue";
 
-test("an edit queued during duplicate deletion keeps its retained-contact target", async () => {
+test("a scalar edit queued behind a write stays on its original document", async () => {
   const base = await createRecoveryContactsRuntime({
     signingFingerprint: "offline-self",
     userId: "self-user",
@@ -17,78 +16,87 @@ test("an edit queued during duplicate deletion keeps its retained-contact target
   const localId = await seedDuplicateSelfContacts(base);
   const started = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
-  let edit: Promise<void> | undefined;
+  const enqueued = Promise.withResolvers<void>();
+  let observingEdit = false;
+  const queue = ContactWriteQueue.queueContactWrite;
+  const observe: typeof queue = (state, message, work) => {
+    const result = queue(state, message, work);
+    if (observingEdit && message === "Contacts: failed to update contact.")
+      enqueued.resolve();
+    return result;
+  };
+  const observer = spyOn(
+    ContactWriteQueue,
+    "queueContactWrite",
+  ).mockImplementation(observe);
+  const errors: unknown[] = [];
   const runtime: ContactsRuntime = {
     ...base,
-    documents: {
-      ...base.documents,
-      state: { ...base.documents.state, online: true },
-    },
-    openDocumentStore: (input) => ({
-      ...base.openDocumentStore(input),
-      subscribe: () => () => {},
-    }),
-    loadDocumentSummary: async (id) =>
-      id === localId
-        ? {
-            id,
-            containerId: CONTACTS_CONTAINER_ID,
-            documentId: "remote-fallback",
-            title: "self-user",
-            updatedAt: "2026-09-05T00:00:00.000Z",
+    openDocumentStore: (input) => {
+      const document = base.openDocumentStore(input);
+      return {
+        ...document,
+        setStructuredFields: async (...args) => {
+          const { nickname } = args[1];
+          if (input.localId === localId && nickname === "Blocker") {
+            started.resolve();
+            await release.promise;
           }
-        : null,
-    purgeDocument: async () => {
-      await defaultDocumentsPersistence.deleteDocument(
-        base.documents.infra.execSql,
-        localId,
-      );
-      return true;
-    },
-    deleteDocument: async (id) => {
-      started.resolve();
-      await release.promise;
-      return base.deleteDocument(id);
+          return document.setStructuredFields(...args);
+        },
+      };
     },
   };
   const store = createContactsStore(runtime, {
     resolveVerified: async () => null,
-    logError: () => {},
+    logError: (message, cause) => errors.push({ message, cause }),
   });
+  let blocker: Promise<void> | undefined;
+  let edit: Promise<void> | undefined;
   try {
     store.updateRuntime(runtime);
-    await started.promise;
-    edit = store.updateContact(localId, {
-      firstName: "Queued during settlement",
-    });
-    release.resolve();
-    await edit;
     await waitForCondition(
-      () => !store.getSnapshot().entries.some((entry) => entry.id === localId),
-      "Duplicate did not settle",
+      () => store.getSnapshot().ready,
+      "Contacts not ready",
     );
-    expect(
-      (
-        await loadProjectedContacts(
-          base.documents.infra.execSql,
-          CONTACTS_CONTAINER_ID,
-        )
-      ).find((entry) => entry.id === "recovered-self")?.firstName,
-    ).toBe("Queued during settlement");
-    expect(
-      await defaultDocumentsPersistence.loadDocument(
-        base.documents.infra.execSql,
-        localId,
-      ),
-    ).toBeNull();
+    blocker = store.updateContact(localId, { nickname: "Blocker" });
+    await Promise.race([
+      started.promise,
+      blocker.then(() => {
+        throw new Error("Blocker settled before entering its write");
+      }),
+    ]);
+    observingEdit = true;
+    edit = store.updateContact(localId, { firstName: "Queued edit" });
+    await Promise.race([
+      enqueued.promise,
+      edit.then(() => {
+        throw new Error("Edit settled before joining the write queue");
+      }),
+    ]);
+    release.resolve();
+    await Promise.all([blocker, edit]);
+    const original = createDocumentStore(localId, base.documents);
+    const distinct = createDocumentStore("recovered-self", base.documents);
+    expect(await original.ensureInitialized()).toBe(true);
+    expect(await distinct.ensureInitialized()).toBe(true);
+    expect(original.getSnapshot().structuredFields).toMatchObject({
+      firstName: "Queued edit",
+      nickname: "Blocker",
+    });
+    expect(distinct.getSnapshot().structuredFields).toMatchObject({
+      firstName: "Recovered",
+    });
+    expect(errors).toEqual([]);
   } finally {
     release.resolve();
-    await edit;
+    await Promise.allSettled([blocker, edit]);
+    observer.mockRestore();
     store.updateRuntime({
-      ...base,
+      ...runtime,
       documents: {
-        ...base.documents,
-        infra: { ...base.documents.infra, dbStatus: "terminated" },
+        ...runtime.documents,
+        infra: { ...runtime.documents.infra, dbStatus: "terminated" },
       },
     });
     base.close();

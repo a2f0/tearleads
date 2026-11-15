@@ -1,10 +1,14 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import {
   type DocumentStore,
-  type Documents,
+  defaultDocumentsPersistence,
+  deriveStableDocumentId,
   getRosterProfileDocumentLocalId,
   type OrganizationDirectoryUser,
+  Tearleads,
 } from "@tearleads/client-sdk";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
 import { createRosterProfileDocument } from "./profileDocuments";
 
 const user: OrganizationDirectoryUser = {
@@ -35,67 +39,68 @@ test("roster profile documents use stable org-scoped local ids", () => {
 });
 
 test("roster profile documents persist trusted identity fields", async () => {
-  let documentId: string | null = null;
-  let initialStructuredFields: unknown;
-  let requestSyncCalls = 0;
-  let structuredFields: Readonly<Record<string, string | undefined>> = {};
-  let unsubscribeCalls = 0;
-  const store = {
-    ensureInitialized: () => Promise.resolve(true),
-    getSnapshot: () => ({ documentId, ready: true }),
-    requestSync: () => {
-      requestSyncCalls += 1;
-    },
-    setStructuredFields: (
-      _documentKind: string,
-      patch: Readonly<Record<string, string | undefined>>,
-    ) => {
-      structuredFields = patch;
-      return Promise.resolve();
-    },
-    subscribe: (listener: () => void) => {
-      documentId = "profile-document-1";
-      listener();
-      return () => {
-        unsubscribeCalls += 1;
-      };
-    },
-  } as unknown as DocumentStore;
-  const documents = {
-    open: (input: {
-      containerId?: string | null | undefined;
-      initialStructuredFields?: unknown;
-    }) => {
-      expect(input.containerId).toBe("roster-profile-container-1");
-      initialStructuredFields = input.initialStructuredFields;
-      return store;
-    },
-  } as unknown as Documents;
-
-  const createdDocumentId = await createRosterProfileDocument({
-    containerId: "roster-profile-container-1",
-    documents,
-    identity: {
-      encapsulationPublicKey: "trusted-encapsulation-public-key",
-      userId: user.userId,
-    },
-    isSelf: true,
-    names: { firstName: " Ada ", lastName: "Lovelace", nickname: "  " },
-    organizationId: "organization-1",
+  const database = await createTestExecSql("fresh-roster-profile");
+  const sdk = new Tearleads({
+    database: { execSql: database.execSql, id: "fresh-roster-profile" },
+    documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   });
-
-  expect(createdDocumentId).toBe("profile-document-1");
-  const expectedFields = {
-    encapsulationPublicKey: "trusted-encapsulation-public-key",
-    firstName: "Ada",
-    isSelf: "1",
-    lastName: "Lovelace",
-    userId: user.userId,
-  };
-  // A created profile's birth carries the fields; the same write still fills
-  // a profile whose record already existed.
-  expect(initialStructuredFields).toEqual(expectedFields);
-  expect(structuredFields).toEqual(expectedFields);
-  expect(unsubscribeCalls).toBe(1);
-  expect(requestSyncCalls).toBe(1);
+  sdk.network.setOnline(false);
+  const opened = Promise.withResolvers<DocumentStore>();
+  const originalOpen = sdk.documents.open.bind(sdk.documents);
+  const open = spyOn(sdk.documents, "open").mockImplementation((...args) => {
+    const store = originalOpen(...args);
+    opened.resolve(store);
+    return store;
+  });
+  let active = true;
+  let created: Promise<unknown> | undefined;
+  try {
+    const localId = getRosterProfileDocumentLocalId({
+      organizationId: "organization-1",
+      userId: user.userId,
+    });
+    const documentId = await deriveStableDocumentId(localId);
+    created = createRosterProfileDocument({
+      containerId: "roster-profile-container-1",
+      documents: sdk.documents,
+      identity: {
+        encapsulationPublicKey: "trusted-encapsulation-public-key",
+        userId: user.userId,
+      },
+      isSelf: true,
+      names: { firstName: " Ada ", lastName: "Lovelace", nickname: "  " },
+      organizationId: "organization-1",
+      stillCurrent: () => active,
+    }).catch((error: unknown) => error);
+    const store = await opened.promise;
+    expect(await store.ensureInitialized()).toBe(true);
+    expect(store.getSnapshot().structuredFields).toEqual({
+      encapsulationPublicKey: "trusted-encapsulation-public-key",
+      firstName: "Ada",
+      isSelf: "1",
+      lastName: "Lovelace",
+      nickname: "",
+      userId: user.userId,
+    });
+    // Complete local identity binding through the actual store. This tests the
+    // factory's awaited publication, not an authenticated server create.
+    expect(
+      await store.relink({
+        localId,
+        containerId: "roster-profile-container-1",
+        documentId,
+        accessEpoch: 1,
+      }),
+    ).not.toBeNull();
+    expect(await created).toBe(documentId);
+    expect(
+      await defaultDocumentsPersistence.loadDocument(database.execSql, localId),
+    ).toMatchObject({ documentId, title: "Ada Lovelace" });
+  } finally {
+    active = false;
+    await created;
+    open.mockRestore();
+    sdk.dispose();
+    database.close();
+  }
 });

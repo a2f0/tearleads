@@ -1,423 +1,369 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import {
-  type DocumentSummary,
   defaultDocumentsPersistence,
+  deriveStableDocumentId,
   type ResolvedUserIdentity,
 } from "@tearleads/client-sdk";
 import {
-  CONTACTS_CONTAINER_ID,
   createRecoveryContactsRuntime,
+  setPersistedContactDocumentIdentity,
 } from "../../../test/helpers/contactStoreRecovery";
-import { createDeferred } from "../../../test/helpers/databaseRuntimeFactories";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import {
   type ContactsRuntime,
   createContactsStore,
   getSelfContactLocalId,
 } from "./contactStore";
+import * as ContactWriteQueue from "./contactStoreWriteQueue";
 
-test("named recovered self contact remains under its remote local id", async () => {
-  const selfKey: ResolvedUserIdentity = {
-    encapsulationKeyFingerprint: "self-encapsulation-fingerprint",
-    encapsulationPublicKey: "self-encapsulation-public-key",
-    signingKeyFingerprint: "self-signing-fingerprint",
-    signingPublicKey: "self-signing-public-key",
-    userId: "self-user",
+const SELF: ResolvedUserIdentity = {
+  encapsulationKeyFingerprint: "self-encapsulation-fingerprint",
+  encapsulationPublicKey: "self-encapsulation-public-key",
+  signingKeyFingerprint: "self-signing-fingerprint",
+  signingPublicKey: "self-signing-public-key",
+  userId: "self-user",
+};
+
+function selfInput(localId: string) {
+  return {
+    localId,
+    userId: SELF.userId,
+    encapsulationPublicKey: SELF.encapsulationPublicKey,
+    deferRemoteSync: true,
   };
+}
+
+async function durable(runtime: ContactsRuntime, id: string) {
+  const execSql = runtime.documents.infra.execSql;
+  return {
+    record: await defaultDocumentsPersistence.loadDocument(execSql, id),
+    history: await defaultDocumentsPersistence.loadHistoryRestoreState(
+      execSql,
+      id,
+    ),
+  };
+}
+
+test("named canonical remote Me survives recovery and a signed-out no-write ensure", async () => {
   const runtime = await createRecoveryContactsRuntime({
-    signingFingerprint: selfKey.signingKeyFingerprint,
-    userId: selfKey.userId,
+    signingFingerprint: SELF.signingKeyFingerprint,
+    userId: SELF.userId,
   });
-  const store = createContactsStore(runtime, {
-    resolveVerified: async () => {
-      throw new Error("unexpected remote self key fetch");
-    },
-    logError: (message, cause) => {
-      throw new Error(String(message), { cause });
-    },
-  });
-
+  const localId = getSelfContactLocalId(SELF.signingKeyFingerprint);
+  const remoteId = await deriveStableDocumentId(localId);
+  const errors: unknown[] = [];
   try {
-    store.updateRuntime(runtime);
-    await waitForCondition(
-      () => store.getSnapshot().ready,
-      "Contacts store did not initialize.",
-    );
-    const recoveredContactId = await store.createContact({
-      encapsulationPublicKey: selfKey.encapsulationPublicKey,
-      firstName: "Recovered",
-      isSelf: true,
-      lastName: "User",
-      nickname: "Primary",
-      userId: selfKey.userId,
-    });
-    expect(recoveredContactId).not.toBeNull();
-
-    await waitForCondition(
-      () =>
-        store
-          .getSnapshot()
-          .entries.some(
-            (entry) => entry.id === recoveredContactId && entry.isSelf,
-          ),
-      "Recovered self contact did not appear.",
-    );
-    const contactId = await store.ensureSelfContact({
-      encapsulationPublicKey: selfKey.encapsulationPublicKey,
-      localId: getSelfContactLocalId(selfKey.signingKeyFingerprint),
-      userId: selfKey.userId,
-    });
-    expect(contactId).toBe(recoveredContactId);
-    await waitForCondition(
-      () =>
-        store.getSnapshot().entries.filter((entry) => entry.isSelf).length ===
-          1 && store.getSnapshot().entries[0]?.id === recoveredContactId,
-      "Recovered self contact was reseeded under a device-local id.",
-    );
-    expect(store.getSnapshot().entries[0]).toMatchObject({
-      firstName: "Recovered",
-      lastName: "User",
-      nickname: "Primary",
-    });
-
-    const signedOutContactId = await store.ensureSelfContact({
-      deferRemoteSync: true,
-      localId: getSelfContactLocalId(selfKey.signingKeyFingerprint),
-      lookupUserId: selfKey.userId,
-    });
-    expect(signedOutContactId).toBe(recoveredContactId);
-    expect(store.getSnapshot().entries.filter((entry) => entry.isSelf)).toEqual(
-      [expect.objectContaining({ id: recoveredContactId })],
-    );
-  } finally {
-    runtime.close();
-  }
-});
-
-test("late recovered self contact replaces a promoted local fallback", async () => {
-  const signingFingerprint = "recovered-self-signing-fingerprint";
-  const userId = "recovered-self-user";
-  const encapsulationPublicKey = "recovered-self-encapsulation-key";
-  const runtime = await createRecoveryContactsRuntime({
-    signingFingerprint,
-    userId,
-  });
-  const store = createContactsStore(runtime, {
-    resolveVerified: async () => null,
-    logError: (message, cause) => {
-      throw new Error(String(message), { cause });
-    },
-  });
-
-  try {
-    store.updateRuntime(runtime);
-    await waitForCondition(
-      () => store.getSnapshot().ready,
-      "Contacts store did not initialize.",
-    );
-    const localId = getSelfContactLocalId(signingFingerprint);
-    await store.ensureSelfContact({
-      deferRemoteSync: true,
-      encapsulationPublicKey,
-      localId,
-      userId,
-    });
-    await waitForCondition(
-      () =>
-        store
-          .getSnapshot()
-          .entries.some(
-            (entry) => entry.id === localId && entry.userId === userId,
-          ),
-      "Local self contact was not promoted.",
-    );
-
-    const remoteDocumentId = "recovered-self-document";
-    const recoveredContact = runtime.openDocumentStore({
-      containerId: CONTACTS_CONTAINER_ID,
-      documentId: remoteDocumentId,
-      initialDocumentKind: "contact",
-      localId: remoteDocumentId,
-    });
-    await recoveredContact.setStructuredFields(
-      "contact",
-      { encapsulationPublicKey, isSelf: "1", userId },
-      { deferRemoteSync: true },
-    );
-    await waitForCondition(() => {
-      const entries = store.getSnapshot().entries;
-      return entries.length === 1 && entries[0]?.id === remoteDocumentId;
-    }, "Recovered self contact did not replace the local fallback.");
-    expect(store.getSnapshot().entries[0]).toMatchObject({
-      encapsulationPublicKey,
-      id: remoteDocumentId,
-      isSelf: true,
-      userId,
-    });
-    await expect(
-      defaultDocumentsPersistence.loadDocument(
-        runtime.documents.infra.execSql,
-        localId,
-      ),
-    ).resolves.toBeNull();
-  } finally {
-    runtime.close();
-  }
-});
-
-test("late recovered self contact purges a remotely synced fallback", async () => {
-  const signingFingerprint = "synced-fallback-signing-fingerprint";
-  const userId = "synced-fallback-user";
-  const encapsulationPublicKey = "synced-fallback-encapsulation-key";
-  const localId = getSelfContactLocalId(signingFingerprint);
-  const remoteFallbackDocument: DocumentSummary = {
-    containerId: CONTACTS_CONTAINER_ID,
-    documentId: "synced-fallback-document",
-    documentKind: "contact",
-    id: localId,
-    title: userId,
-    updatedAt: "2026-07-12T00:00:00.000Z",
-  };
-  const baseRuntime = await createRecoveryContactsRuntime({
-    runtimeKey: "contacts-store-synced-fallback-test",
-    signingFingerprint,
-    userId,
-  });
-  const cleanupOperations: string[] = [];
-  const runtime: ContactsRuntime & { close: () => void } = {
-    ...baseRuntime,
-    documents: {
-      ...baseRuntime.documents,
-      state: { ...baseRuntime.documents.state, online: true },
-    },
-    deleteDocument: async (deletedLocalId) => {
-      cleanupOperations.push(`delete:${deletedLocalId}`);
-      return baseRuntime.deleteDocument(deletedLocalId);
-    },
-    loadDocumentSummary: async (loadedLocalId) =>
-      loadedLocalId === localId ? remoteFallbackDocument : null,
-    purgeDocument: async (document) => {
-      cleanupOperations.push(`purge:${document.documentId}`);
-      return true;
-    },
-  };
-  const store = createContactsStore(runtime, {
-    resolveVerified: async () => null,
-    logError: (message, cause) => {
-      throw new Error(String(message), { cause });
-    },
-  });
-
-  try {
-    store.updateRuntime(runtime);
-    await waitForCondition(
-      () => store.getSnapshot().ready,
-      "Contacts store did not initialize.",
-    );
-    await store.ensureSelfContact({
-      deferRemoteSync: true,
-      encapsulationPublicKey,
-      localId,
-      userId,
-    });
-
-    const recoveredDocumentId = "synced-fallback-recovered-document";
-    const recoveredContact = runtime.openDocumentStore({
-      containerId: CONTACTS_CONTAINER_ID,
-      documentId: recoveredDocumentId,
-      initialDocumentKind: "contact",
-      localId: recoveredDocumentId,
-    });
-    await recoveredContact.setStructuredFields(
-      "contact",
-      { encapsulationPublicKey, isSelf: "1", userId },
-      { deferRemoteSync: true },
-    );
-
-    await waitForCondition(() => {
-      const entries = store.getSnapshot().entries;
-      return entries.length === 1 && entries[0]?.id === recoveredDocumentId;
-    }, "Recovered self contact did not replace the synced fallback.");
-    expect(cleanupOperations).toEqual([
-      `purge:${remoteFallbackDocument.documentId}`,
-      `delete:${localId}`,
-    ]);
-    await expect(
-      defaultDocumentsPersistence.loadDocument(
-        runtime.documents.infra.execSql,
-        localId,
-      ),
-    ).resolves.toBeNull();
-  } finally {
-    runtime.close();
-  }
-});
-
-test("late self reconciliation stops after an identity lookup crosses runtimes", async () => {
-  const staleKey: ResolvedUserIdentity = {
-    encapsulationKeyFingerprint: "stale-encapsulation-fingerprint",
-    encapsulationPublicKey: "stale-encapsulation-key",
-    signingKeyFingerprint: "stale-signing-fingerprint",
-    signingPublicKey: "stale-signing-key",
-    userId: "stale-user",
-  };
-  const lookupStarted = createDeferred();
-  const lookupResult = createDeferred<ResolvedUserIdentity | null>();
-  const staleRuntime = await createRecoveryContactsRuntime({
-    runtimeKey: "contacts-store-stale-lookup-runtime",
-    signingFingerprint: staleKey.signingKeyFingerprint,
-    userId: staleKey.userId,
-  });
-  const replacementRuntime = await createRecoveryContactsRuntime({
-    containerId: "replacement-contacts-container",
-    runtimeKey: "contacts-store-replacement-lookup-runtime",
-    signingFingerprint: "replacement-signing-fingerprint",
-    userId: "replacement-user",
-  });
-  const store = createContactsStore(staleRuntime, {
-    resolveVerified: async () => null,
-    getLocalUserIdentity: async () => {
-      lookupStarted.resolve(undefined);
-      return lookupResult.promise;
-    },
-    logError: (message, cause) => {
-      throw new Error(String(message), { cause });
-    },
-  });
-
-  try {
-    store.updateRuntime(staleRuntime);
-    await waitForCondition(() => store.getSnapshot().ready, "Store not ready.");
-    const staleDocumentId = "stale-recovered-self-document";
-    const staleContact = staleRuntime.openDocumentStore({
-      containerId: CONTACTS_CONTAINER_ID,
-      documentId: staleDocumentId,
-      initialDocumentKind: "contact",
-      localId: staleDocumentId,
-    });
-    await staleContact.setStructuredFields(
-      "contact",
-      { isSelf: "1", userId: staleKey.userId },
-      { deferRemoteSync: true },
-    );
-    await lookupStarted.promise;
-
-    store.updateRuntime(replacementRuntime);
-    await waitForCondition(
-      () =>
-        store.getSnapshot().ready && store.getSnapshot().entries.length === 0,
-      "Replacement store not ready.",
-    );
-    lookupResult.resolve(staleKey);
-    await lookupResult.promise;
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
-
-    expect(store.getSnapshot().entries).toEqual([]);
-    await expect(
-      defaultDocumentsPersistence.loadDocument(
-        replacementRuntime.documents.infra.execSql,
-        getSelfContactLocalId(staleKey.signingKeyFingerprint),
-      ),
-    ).resolves.toBeNull();
-  } finally {
-    lookupResult.resolve(null);
-    staleRuntime.close();
-    replacementRuntime.close();
-  }
-});
-
-test("late self reconciliation rechecks its runtime inside the write chain", async () => {
-  const staleKey: ResolvedUserIdentity = {
-    encapsulationKeyFingerprint: "queued-stale-encapsulation-fingerprint",
-    encapsulationPublicKey: "queued-stale-encapsulation-key",
-    signingKeyFingerprint: "queued-stale-signing-fingerprint",
-    signingPublicKey: "queued-stale-signing-key",
-    userId: "queued-stale-user",
-  };
-  const deleteStarted = createDeferred();
-  const releaseDelete = createDeferred();
-  const deleteFinished = createDeferred();
-  const staleRuntime = await createRecoveryContactsRuntime({
-    runtimeKey: "contacts-store-stale-write-runtime",
-    signingFingerprint: staleKey.signingKeyFingerprint,
-    userId: staleKey.userId,
-  });
-  const originalDeleteDocument = staleRuntime.deleteDocument;
-  const blockedStaleRuntime: ContactsRuntime = {
-    ...staleRuntime,
-    deleteDocument: async (localId) => {
-      deleteStarted.resolve(undefined);
-      await releaseDelete.promise;
-      try {
-        return await originalDeleteDocument(localId);
-      } finally {
-        deleteFinished.resolve(undefined);
-      }
-    },
-  };
-  const replacementRuntime = await createRecoveryContactsRuntime({
-    containerId: "queued-replacement-contacts-container",
-    runtimeKey: "contacts-store-replacement-write-runtime",
-    signingFingerprint: "queued-replacement-signing-fingerprint",
-    userId: "queued-replacement-user",
-  });
-  const store = createContactsStore(blockedStaleRuntime, {
-    resolveVerified: async () => {
-      throw new Error("unexpected self key fetch");
-    },
-    logError: (message, cause) => {
-      throw new Error(String(message), { cause });
-    },
-  });
-
-  try {
-    store.updateRuntime(blockedStaleRuntime);
-    await waitForCondition(() => store.getSnapshot().ready, "Store not ready.");
-    const localId = getSelfContactLocalId(staleKey.signingKeyFingerprint);
-    await store.ensureSelfContact({
-      deferRemoteSync: true,
-      encapsulationPublicKey: staleKey.encapsulationPublicKey,
-      localId,
-      userId: staleKey.userId,
-    });
-    const remoteDocumentId = "queued-stale-recovered-document";
-    const recoveredContact = blockedStaleRuntime.openDocumentStore({
-      containerId: CONTACTS_CONTAINER_ID,
-      documentId: remoteDocumentId,
-      initialDocumentKind: "contact",
-      localId: remoteDocumentId,
-    });
-    await recoveredContact.setStructuredFields(
+    await runtime.openDocumentStore({ localId: remoteId }).setStructuredFields(
       "contact",
       {
-        encapsulationPublicKey: staleKey.encapsulationPublicKey,
+        encapsulationPublicKey: SELF.encapsulationPublicKey,
+        firstName: "Recovered",
+        lastName: "User",
+        nickname: "Primary",
         isSelf: "1",
-        userId: staleKey.userId,
+        userId: SELF.userId,
       },
       { deferRemoteSync: true },
     );
-    await deleteStarted.promise;
-
-    store.updateRuntime(replacementRuntime);
+    await setPersistedContactDocumentIdentity(runtime, remoteId, remoteId);
+    const before = await durable(runtime, remoteId);
+    expect(before.history).not.toBeNull();
+    const store = createContactsStore(runtime, {
+      resolveVerified: async () => {
+        throw new Error("Unexpected remote self key lookup");
+      },
+      logError: (message, cause) => errors.push({ message, cause }),
+    });
+    store.updateRuntime(runtime);
     await waitForCondition(
-      () =>
-        store.getSnapshot().ready && store.getSnapshot().entries.length === 0,
-      "Replacement store not ready.",
+      () => store.getSnapshot().ready,
+      "Contacts not ready",
     );
-    releaseDelete.resolve(undefined);
-    await deleteFinished.promise;
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
-
-    expect(store.getSnapshot().entries).toEqual([]);
-    await expect(
-      defaultDocumentsPersistence.loadDocument(
-        replacementRuntime.documents.infra.execSql,
-        remoteDocumentId,
-      ),
-    ).resolves.toBeNull();
+    expect(await store.ensureSelfContact(selfInput(localId))).toBe(remoteId);
+    const signedOut: ContactsRuntime = {
+      ...runtime,
+      documents: {
+        ...runtime.documents,
+        auth: {
+          ...runtime.documents.auth,
+          isAuthenticated: false,
+          userId: null,
+        },
+      },
+    };
+    store.updateRuntime(signedOut);
+    expect(
+      await store.ensureSelfContact({ localId, deferRemoteSync: true }),
+    ).toBe(remoteId);
+    expect(await durable(runtime, remoteId)).toEqual(before);
+    expect((await durable(runtime, localId)).record).toBeNull();
+    expect(store.getSnapshot().entries).toEqual([
+      expect.objectContaining({
+        id: remoteId,
+        firstName: "Recovered",
+        lastName: "User",
+        nickname: "Primary",
+        userId: SELF.userId,
+      }),
+    ]);
+    expect(errors).toEqual([]);
   } finally {
-    releaseDelete.resolve(undefined);
-    staleRuntime.close();
-    replacementRuntime.close();
+    runtime.close();
+  }
+});
+
+test("a late distinct same-user remote contact cannot replace promoted canonical Me", async () => {
+  const runtime = await createRecoveryContactsRuntime({
+    signingFingerprint: SELF.signingKeyFingerprint,
+    userId: SELF.userId,
+  });
+  const localId = getSelfContactLocalId(SELF.signingKeyFingerprint);
+  const errors: unknown[] = [];
+  const store = createContactsStore(runtime, {
+    resolveVerified: async () => null,
+    logError: (message, cause) => errors.push({ message, cause }),
+  });
+  try {
+    store.updateRuntime(runtime);
+    expect(await store.ensureSelfContact(selfInput(localId))).toBe(localId);
+    const canonicalBefore = await durable(runtime, localId);
+    const remoteId = await deriveStableDocumentId("distinct-same-user-contact");
+    await runtime.openDocumentStore({ localId: remoteId }).setStructuredFields(
+      "contact",
+      {
+        encapsulationPublicKey: SELF.encapsulationPublicKey,
+        isSelf: "1",
+        userId: SELF.userId,
+      },
+      { deferRemoteSync: true },
+    );
+    await setPersistedContactDocumentIdentity(runtime, remoteId, remoteId);
+    await waitForCondition(
+      () => store.getSnapshot().entries.some((entry) => entry.id === remoteId),
+      "Late distinct contact was not discovered",
+    );
+    const distinctBefore = await durable(runtime, remoteId);
+    expect(await store.ensureSelfContact(selfInput(localId))).toBe(localId);
+    expect(await durable(runtime, localId)).toEqual(canonicalBefore);
+    expect(await durable(runtime, remoteId)).toEqual(distinctBefore);
+    expect(store.getSnapshot().entries).toHaveLength(2);
+    expect(errors).toEqual([]);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("a synced canonical Me and a distinct same-user stream both retain their histories", async () => {
+  const runtime = await createRecoveryContactsRuntime({
+    signingFingerprint: SELF.signingKeyFingerprint,
+    userId: SELF.userId,
+  });
+  const localId = getSelfContactLocalId(SELF.signingKeyFingerprint);
+  const canonicalRemoteId = await deriveStableDocumentId(localId);
+  const otherId = await deriveStableDocumentId("other-self-labelled-document");
+  const ids = [localId, otherId];
+  const errors: unknown[] = [];
+  try {
+    for (const id of ids) {
+      await runtime.openDocumentStore({ localId: id }).setStructuredFields(
+        "contact",
+        {
+          encapsulationPublicKey: SELF.encapsulationPublicKey,
+          isSelf: "1",
+          userId: SELF.userId,
+        },
+        { deferRemoteSync: true },
+      );
+      await setPersistedContactDocumentIdentity(
+        runtime,
+        id,
+        id === localId ? canonicalRemoteId : otherId,
+      );
+    }
+    const before = await Promise.all(ids.map((id) => durable(runtime, id)));
+    expect(before.every((entry) => entry.history !== null)).toBe(true);
+    const store = createContactsStore(runtime, {
+      resolveVerified: async () => null,
+      logError: (message, cause) => errors.push({ message, cause }),
+    });
+    store.updateRuntime(runtime);
+    expect(await store.ensureSelfContact(selfInput(localId))).toBe(localId);
+    expect(await Promise.all(ids.map((id) => durable(runtime, id)))).toEqual(
+      before,
+    );
+    expect(errors).toEqual([]);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("self ensure stops after an identity lookup crosses runtimes", async () => {
+  const stale = await createRecoveryContactsRuntime({
+    signingFingerprint: SELF.signingKeyFingerprint,
+    userId: SELF.userId,
+  });
+  const replacement = await createRecoveryContactsRuntime({
+    containerId: "replacement-contacts",
+    runtimeKey: "replacement-lookup",
+    signingFingerprint: "replacement-fingerprint",
+    userId: "replacement-user",
+  });
+  const started = Promise.withResolvers<void>();
+  const result = Promise.withResolvers<ResolvedUserIdentity | null>();
+  const errors: unknown[] = [];
+  const store = createContactsStore(stale, {
+    resolveVerified: async () => null,
+    getLocalUserIdentity: async () => {
+      started.resolve();
+      return result.promise;
+    },
+    logError: (message, cause) => errors.push({ message, cause }),
+  });
+  const localId = getSelfContactLocalId(SELF.signingKeyFingerprint);
+  let ensuring: Promise<string | null> | undefined;
+  try {
+    store.updateRuntime(stale);
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Contacts not ready",
+    );
+    ensuring = store.ensureSelfContact({
+      localId,
+      userId: SELF.userId,
+      deferRemoteSync: true,
+    });
+    await Promise.race([
+      started.promise,
+      ensuring.then(() => {
+        throw new Error("Ensure bypassed the identity lookup barrier");
+      }),
+    ]);
+    store.updateRuntime(replacement);
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Replacement not ready",
+    );
+    result.resolve(SELF);
+    expect(await ensuring).toBeNull();
+    expect((await durable(stale, localId)).record).toBeNull();
+    expect((await durable(replacement, localId)).record).toBeNull();
+    expect(store.getSnapshot().entries).toEqual([]);
+    expect(errors).toEqual([]);
+  } finally {
+    result.resolve(null);
+    await Promise.allSettled([ensuring]);
+    stale.close();
+    replacement.close();
+  }
+});
+
+test("self ensure rechecks its runtime inside the real write chain", async () => {
+  const stale = await createRecoveryContactsRuntime({
+    signingFingerprint: SELF.signingKeyFingerprint,
+    userId: SELF.userId,
+  });
+  const replacement = await createRecoveryContactsRuntime({
+    containerId: "replacement-contacts",
+    runtimeKey: "replacement-queued",
+    signingFingerprint: "replacement-fingerprint",
+    userId: "replacement-user",
+  });
+  const localId = getSelfContactLocalId(SELF.signingKeyFingerprint);
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const enqueued = Promise.withResolvers<void>();
+  const errors: unknown[] = [];
+  const runtime: ContactsRuntime = {
+    ...stale,
+    openDocumentStore: (input) => {
+      const document = stale.openDocumentStore(input);
+      return {
+        ...document,
+        setStructuredFields: async (...args) => {
+          const { firstName } = args[1];
+          if (input.localId === "blocker" && firstName === "Blocked") {
+            started.resolve();
+            await release.promise;
+          }
+          return document.setStructuredFields(...args);
+        },
+      };
+    },
+  };
+  const original = ContactWriteQueue.queueContactWrite;
+  const observe: typeof original = (state, message, work) => {
+    const result = original(state, message, work);
+    if (message === "Contacts: failed to ensure self contact.")
+      enqueued.resolve();
+    return result;
+  };
+  const observer = spyOn(
+    ContactWriteQueue,
+    "queueContactWrite",
+  ).mockImplementation(observe);
+  const store = createContactsStore(runtime, {
+    resolveVerified: async () => null,
+    logError: (message, cause) => errors.push({ message, cause }),
+  });
+  let blocker: Promise<void> | undefined;
+  let ensuring: Promise<string | null> | undefined;
+  try {
+    await stale.openDocumentStore({ localId }).setStructuredFields(
+      "contact",
+      {
+        isSelf: "1",
+        userId: SELF.userId,
+        encapsulationPublicKey: SELF.encapsulationPublicKey,
+      },
+      { deferRemoteSync: true },
+    );
+    await stale
+      .openDocumentStore({ localId: "blocker" })
+      .setStructuredFields(
+        "contact",
+        { firstName: "Blocker" },
+        { deferRemoteSync: true },
+      );
+    const before = await durable(stale, localId);
+    store.updateRuntime(runtime);
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Contacts not ready",
+    );
+    blocker = store.updateContact("blocker", { firstName: "Blocked" });
+    await Promise.race([
+      started.promise,
+      blocker.then(() => {
+        throw new Error("Blocker did not enter its write");
+      }),
+    ]);
+    ensuring = store.ensureSelfContact({
+      ...selfInput(localId),
+      encapsulationPublicKey: "changed-key",
+    });
+    await Promise.race([
+      enqueued.promise,
+      ensuring.then(() => {
+        throw new Error("Ensure did not join the write queue");
+      }),
+    ]);
+    store.updateRuntime(replacement);
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Replacement not ready",
+    );
+    release.resolve();
+    expect(await ensuring).toBeNull();
+    await blocker;
+    expect(await durable(stale, localId)).toEqual(before);
+    expect((await durable(replacement, localId)).record).toBeNull();
+    expect(store.getSnapshot().entries).toEqual([]);
+    expect(errors).toEqual([]);
+  } finally {
+    release.resolve();
+    await Promise.allSettled([blocker, ensuring]);
+    observer.mockRestore();
+    stale.close();
+    replacement.close();
   }
 });

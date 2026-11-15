@@ -45,6 +45,11 @@ function createContactsDetailPanelProps(
   } = {},
 ): Parameters<typeof ContactsDetailPanel>[0] {
   return {
+    addressActions: {
+      addContactAddress: async () => null,
+      updateContactAddress: async () => undefined,
+      removeContactAddress: async () => undefined,
+    },
     blobStore: emptyBlobStore,
     canCreate: false,
     canImport: false,
@@ -192,6 +197,34 @@ test("contacts selected detail opens read-only before entering edit mode", () =>
   );
   expect(view.getByRole("button", { name: "Done" })).toBeTruthy();
 });
+
+test.each(["currentUserId", "currentSigningFingerprint"] as const)(
+  "contact address drafts reset when %s changes",
+  (scopeField) => {
+    const props = createContactsDetailPanelProps({
+      entries: [{ ...contactEntry, rows: [] }],
+      selectedContactId: contactEntry.id,
+    });
+    function panel(value: typeof props) {
+      return (
+        <AppHostConfigProvider value={hostConfig}>
+          <WindowMenuProvider>
+            <RoutedChromeProbe />
+            <ContactsDetailPanel {...value} />
+          </WindowMenuProvider>
+        </AppHostConfigProvider>
+      );
+    }
+    const view = render(panel(props));
+    fireEvent.click(view.getByRole("button", { name: "Edit" }));
+    fireEvent.click(view.getByRole("button", { name: "Add address" }));
+    fireEvent.change(view.getByLabelText("Street address"), {
+      target: { value: "Private unsaved draft" },
+    });
+    view.rerender(panel({ ...props, [scopeField]: "replacement-identity" }));
+    expect(view.queryByRole("form", { name: "Address editor" })).toBeNull();
+  },
+);
 
 test("contacts selected detail edits from the toolbar", async () => {
   const view = renderContactsDetailPanel({
@@ -404,6 +437,34 @@ test("contacts detail opens the area context menu from selected panel whitespace
   fireEvent.contextMenu(panel);
 
   expect(areaContextMenuCount).toBe(1);
+});
+
+test("contacts detail displays postal addresses from the selected document rows", () => {
+  const rows = [
+    {
+      id: "home-address",
+      fields: {
+        recordType: "postalAddress",
+        label: "Home",
+        street: "12 King Street",
+      },
+      createdAt: "",
+      createdBy: "",
+      createdByPeer: null,
+      updatedAt: "",
+      updatedBy: "",
+      updatedByPeer: null,
+      fieldEditors: {},
+    },
+  ];
+  const selected = { ...contactEntry, rows };
+  const view = renderContactsDetailPanel({
+    entries: [selected],
+    selectedContactId: selected.id,
+  });
+
+  expect(view.getByText("12 King Street")).toBeTruthy();
+  expect(view.getByText("Home")).toBeTruthy();
 });
 
 test("contacts detail does not open the area context menu from contact rows", () => {

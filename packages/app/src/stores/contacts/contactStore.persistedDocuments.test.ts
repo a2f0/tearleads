@@ -2,8 +2,6 @@ import { expect, test } from "bun:test";
 import {
   createDocumentsWorkflowRuntime,
   type DocumentSummary,
-  defaultDocumentsPersistence,
-  deletePersistedDocument,
   openDocumentStore,
   subscribeToPersistedDocuments,
 } from "@tearleads/client-sdk";
@@ -51,16 +49,8 @@ async function createPersistedContactsRuntime(): Promise<
 
   return {
     close,
-    deleteDocument: async (localId) => {
-      await deletePersistedDocument({
-        documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-        execSql: documents.infra.execSql,
-        localId,
-        persistence: defaultDocumentsPersistence,
-      });
-      return true;
-    },
     documents,
+    listPendingWrites: async () => [],
     loadDocumentSummary: () => Promise.resolve(null),
     moveDocumentToTrash: () => Promise.resolve(null),
     openDocumentStore: (input) =>

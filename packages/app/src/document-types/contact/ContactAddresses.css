@@ -1,0 +1,58 @@
+.contact-addresses,
+.contact-addresses-editor,
+.contact-addresses-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.contact-addresses {
+  width: 100%;
+  max-width: var(--form-measure);
+}
+
+.contact-addresses-card,
+.contact-addresses-editor {
+  padding: var(--space-md);
+  border: 1px solid var(--color-hairline);
+}
+
+.contact-addresses-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.contact-addresses-fields > *,
+.contact-addresses input {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.contact-addresses h3,
+.contact-addresses h4,
+.contact-addresses dl,
+.contact-addresses dd,
+.contact-addresses p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.contact-addresses dl {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.contact-addresses dt {
+  font-weight: 600;
+}
+
+.contact-addresses dd {
+  white-space: pre-wrap;
+}
+
+.contact-addresses-attribution-note {
+  font-size: 0.85em;
+}

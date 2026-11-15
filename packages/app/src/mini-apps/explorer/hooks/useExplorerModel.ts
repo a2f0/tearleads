@@ -11,6 +11,7 @@ import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
 import { findCurrentSelfContactLocalId } from "../../../stores/contacts/contactLabels";
 import { useContactsStoreForContainer } from "../../../stores/contacts/useContactsStoreForContainer";
+import { useCurrentSelfContactIdentity } from "../../../stores/contacts/useCurrentSelfContactIdentity";
 import { useExplorerDocumentQueries } from "../../../stores/explorer/documentQueries";
 import {
   EXPLORER_TRASH_CONTAINER_ICON,
@@ -115,6 +116,7 @@ export function useExplorerModel(
     handleDocumentLinksChanged,
   } = useDocumentLinkProjectionVersion();
   const documentQueries = useExplorerDocumentQueries(appData);
+  const selfContactIdentity = useCurrentSelfContactIdentity();
   const {
     bumpDocumentListRevision,
     documentListRevision,
@@ -166,9 +168,9 @@ export function useExplorerModel(
     () =>
       findCurrentSelfContactLocalId(
         contactsSnapshot.entries,
-        appData.auth.userId,
+        selfContactIdentity,
       ),
-    [appData.auth.userId, contactsSnapshot.entries],
+    [selfContactIdentity, contactsSnapshot.entries],
   );
   const rulesContext = useMemo(
     () =>
@@ -177,15 +179,13 @@ export function useExplorerModel(
         contactsContainerId,
         contactsSystemSlot: explorer.contactsSystemSlot,
         currentOrganizationId: appData.auth.organizationId ?? null,
-        currentSelfContactLocalId,
-        currentSigningFingerprint: appData.crypto.signingFingerprint,
+        selfContactIdentity,
         trashSystemSlot: explorer.trashSystemSlot,
       }),
     [
       appData.auth.organizationId,
-      appData.crypto.signingFingerprint,
       contactsContainerId,
-      currentSelfContactLocalId,
+      selfContactIdentity,
       explorer.builtInSystemContainers,
       explorer.contactsSystemSlot,
       explorer.trashSystemSlot,

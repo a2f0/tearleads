@@ -160,6 +160,10 @@ reads.
 
 ## Documents
 
+`deriveStableDocumentId(localId)` is the pure first-creation id derivation;
+persisted remote and recovery ids take precedence. See
+[document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
+
 The documents facade admits explicit `historyMode: "raw"` reads through
 `syncRemoteDocument`. A raw consumer must start at a null version vector, send
 no writes, validate every bounded page in scratch state, and publish only after
@@ -216,14 +220,10 @@ take that option, with `remoteSyncMode`, as a trailing
 
 ### Queued local writes
 
-Document stores coalesce local edits queued behind an in-flight commit. A
-`setText` superseded by a newer `setText` skips, as does a non-deferred
-`setStructuredFields` patch once newer non-deferred patches set every one of
-its fields; the newest write persists the delta since the outgoing marker.
-`hasPendingLocalDocumentWrites(domainScope)`, exported from the SDK root, reports
-whether any open store in the scope holds edits not yet durable in SQLite:
-queued writes (`hasQueuedWrites()`) and applied edits whose save failed
-(`hasUnsavedLocalEdits()`).
+Unguarded, non-deferred field writes coalesce once later patches cover every
+field; text writes coalesce to the newest value. See
+[`hasPendingLocalDocumentWrites`](../../../../docs/developer/client-sdk/public-api.md#unsaved-document-writes)
+and [`stillCurrent` admission](../../../../docs/developer/client-sdk/public-api.md#host-controlled-mutation-admission).
 
 ### Persistence notifications
 

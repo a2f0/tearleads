@@ -2,6 +2,8 @@ import { useWindowFileMenuItem, useWindowSidebar } from "@tearleads/windowing";
 import { CopyMyIdentityLinkButton } from "../../components/identity/CopyMyIdentityLinkButton";
 import { IdentityLinkSignIn } from "../../components/identity/IdentityLinkSignIn";
 import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
+import { isContactAddressRow } from "../../document-types/contact/contactAddressModel";
+import { useRowWritersForDocument } from "../../stores/documents/useDocumentRowWriters";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import { ContactsContextMenuLayer } from "./context-menu/ContactsContextMenu";
 import "./Contacts.css";
@@ -24,8 +26,20 @@ function ContactsDetailRoute({
 }: {
   model: ReturnType<typeof useContactsModel>;
 }) {
+  const selected = model.entries.find(
+    (entry) => entry.id === model.selectedContactId,
+  );
+  const resolveAddressWriter = useRowWritersForDocument({
+    documentId: selected?.documentId ?? null,
+    enabled:
+      model.route === "selection" &&
+      selected?.rows?.some(isContactAddressRow) === true,
+    syncing: selected?.syncing ?? false,
+  });
   return (
     <ContactsDetailPanel
+      addressActions={model.addressActions}
+      resolveAddressWriter={resolveAddressWriter}
       blobStore={model.blobStore}
       canCreate={model.canCreate}
       canImport={model.canImport}

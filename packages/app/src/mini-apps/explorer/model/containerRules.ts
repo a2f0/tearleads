@@ -4,7 +4,12 @@ import {
   type DocumentSummary,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { isCurrentSelfContactLocalId } from "../../../stores/contacts/selfContact";
+import type { CurrentSelfContactIdentity } from "../../../stores/contacts/currentSelfContactIdentity";
+import {
+  matchesSelfContactIdentity,
+  type SelfContactIdentityView,
+  selfContactIdentityAdmission,
+} from "../../../stores/contacts/currentSelfContactIdentityState";
 import {
   type BuiltInSystemContainer,
   getSharedSystemContainerRulesByName,
@@ -23,8 +28,7 @@ export interface ExplorerContainerRulesContext {
   contactsContainerId: string | null;
   contactsSystemSlot: ContainerSystemSlot | null;
   currentOrganizationId: string | null;
-  currentSelfContactLocalId: string | null;
-  currentSigningFingerprint: string | null;
+  selfContactIdentity: SelfContactIdentityView;
   rulesBySystemSlot: ReadonlyMap<ContainerSystemSlot, UserSystemContainerRules>;
 }
 
@@ -37,8 +41,7 @@ interface ExplorerContainerRulesInput {
   contactsContainerId: string | null;
   contactsSystemSlot: ContainerSystemSlot | null;
   currentOrganizationId: string | null;
-  currentSelfContactLocalId?: string | null | undefined;
-  currentSigningFingerprint: string | null;
+  selfContactIdentity: SelfContactIdentityView;
   trashSystemSlot: ContainerSystemSlot | null;
 }
 
@@ -73,8 +76,7 @@ export function createExplorerContainerRulesContext(
     contactsContainerId: input.contactsContainerId,
     contactsSystemSlot: input.contactsSystemSlot,
     currentOrganizationId: input.currentOrganizationId,
-    currentSelfContactLocalId: input.currentSelfContactLocalId ?? null,
-    currentSigningFingerprint: input.currentSigningFingerprint,
+    selfContactIdentity: input.selfContactIdentity,
     rulesBySystemSlot,
   };
 }
@@ -229,21 +231,28 @@ export function canUploadToContainerIdByRules(
   );
 }
 
-// A document is the viewer's own "You" contact when its local id matches either
-// the fingerprint-derived local bootstrap id or the writable recovered self
-// projection. Matching an exact resolved id — not merely the shared
-// self-contact prefix — keeps a peer's self contact from being mistaken for the
-// viewer's own wherever that contact is viewed.
+// Personal Me follows persisted document identity and all of its known local
+// aliases, not mutable contact fields or a single projected Contacts row.
 export function isSelfContactDocument(
-  document: Pick<DocumentSummary, "id"> | undefined,
-  signingFingerprint: string | null | undefined,
-  projectedSelfContactLocalId?: string | null | undefined,
+  document: Pick<DocumentSummary, "id" | "documentId"> | undefined,
+  identity: CurrentSelfContactIdentity | null | undefined,
 ): boolean {
-  return document
-    ? isCurrentSelfContactLocalId(document.id, signingFingerprint) ||
-        (Boolean(projectedSelfContactLocalId) &&
-          document.id === projectedSelfContactLocalId)
-    : false;
+  return Boolean(
+    document && identity && matchesSelfContactIdentity(identity, document),
+  );
+}
+
+// Every kind is gated: canonical Me aliases can first surface as note-shaped
+// discovery shells. `absent` (no signing identity) has no Me to protect.
+export function canMutateDocumentByIdentity(
+  context: ExplorerContainerRulesContext,
+  document: Pick<DocumentSummary, "id" | "documentId"> | undefined,
+): boolean {
+  return (
+    document !== undefined &&
+    selfContactIdentityAdmission(context.selfContactIdentity) !== null &&
+    !isPinnedSelfContact(context, document)
+  );
 }
 
 // A document may move out of its current container unless that container pins
@@ -277,10 +286,12 @@ export function canMoveDocumentToContainerByRules(
   context: ExplorerContainerRulesContext,
   currentContainer: ContainerRulesNode | null | undefined,
   destinationContainer: ContainerRulesNode | undefined,
-  document: Pick<DocumentSummary, "documentKind" | "id"> | undefined,
+  document:
+    | Pick<DocumentSummary, "documentKind" | "documentId" | "id">
+    | undefined,
 ): boolean {
   if (
-    isPinnedSelfContact(context, document) ||
+    !canMutateDocumentByIdentity(context, document) ||
     !canAddDocumentToContainerByRules(context, destinationContainer, document)
   ) {
     return false;
@@ -370,19 +381,19 @@ export function canLinkDocumentIntoContainerByRules(
 // so guarding only delete would leave the self contact destroyable via Move.
 export function isPinnedSelfContact(
   context: ExplorerContainerRulesContext,
-  document: Pick<DocumentSummary, "id"> | undefined,
+  document: Pick<DocumentSummary, "id" | "documentId"> | undefined,
 ): boolean {
+  const identity = context.selfContactIdentity;
   if (
-    !isSelfContactDocument(
-      document,
-      context.currentSigningFingerprint,
-      context.currentSelfContactLocalId,
-    )
+    identity.status !== "ready" ||
+    !isSelfContactDocument(document, identity.identity)
   ) {
     return false;
   }
+  // Identity can resolve before the Contacts container/slot is discovered.
+  // Its configured protection must not disappear during that loading window.
   const contactsRules = context.contactsSystemSlot
     ? context.rulesBySystemSlot.get(context.contactsSystemSlot)
-    : null;
+    : getUserSystemContainerRulesByKind("contacts");
   return contactsRules?.protectSelfDocumentFromDelete === true;
 }

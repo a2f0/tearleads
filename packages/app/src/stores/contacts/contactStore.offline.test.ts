@@ -1,177 +1,155 @@
 import { expect, test } from "bun:test";
-import { defaultDocumentsPersistence } from "@tearleads/client-sdk";
+import {
+  createDocumentStore,
+  defaultDocumentsPersistence,
+} from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
-  CONTACTS_CONTAINER_ID,
   createRecoveryContactsRuntime,
-  seedDuplicateSelfContacts as seedDuplicates,
+  seedDuplicateSelfContacts,
 } from "../../../test/helpers/contactStoreRecovery";
-import { createDeferred } from "../../../test/helpers/databaseRuntimeFactories";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { loadProjectedContacts } from "./contactProjection";
+import { getContactAvatarRef } from "../../document-types/contact/contactAvatarSlot";
 import { type ContactsRuntime, createContactsStore } from "./contactStore";
 
 for (const reconnect of ["before", "after", "database"] as const) {
-  const reconnectBeforeFailure = reconnect === "before";
-  test(`local edits finish during a stalled purge and recover on ${reconnect} reconnect`, async () => {
+  test(`local edits retain distinct contacts across ${reconnect} reconnect`, async () => {
     const base = await createRecoveryContactsRuntime({
       signingFingerprint: "offline-self",
       userId: "self-user",
     });
-    const localId = await seedDuplicates(base);
-    const purgeStarted = createDeferred();
-    const releasePurge = createDeferred<boolean>();
-    let attempts = 0;
+    const localId = await seedDuplicateSelfContacts(base);
+    const execSql = base.documents.infra.execSql;
+    const history = await defaultDocumentsPersistence.loadHistoryRestoreState(
+      execSql,
+      "recovered-self",
+    );
+    expect(history).not.toBeNull();
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const errors: unknown[] = [];
     const runtime: ContactsRuntime = {
       ...base,
-      // Documents remain locally seeded; only the duplicate cleanup gets an
-      // online runtime. A lost API response is held independently of local I/O.
-      documents: {
-        ...base.documents,
-        state: { ...base.documents.state, online: true },
-      },
-      loadDocumentSummary: async (id) =>
-        id === localId
-          ? {
-              id,
-              containerId: CONTACTS_CONTAINER_ID,
-              documentId: "remote-fallback",
-              documentKind: "contact",
-              title: "self-user",
-              updatedAt: "2026-09-05T00:00:00.000Z",
+      openDocumentStore: (input) => {
+        const document = base.openDocumentStore(input);
+        return {
+          ...document,
+          setStructuredFields: async (...args) => {
+            const { firstName } = args[1];
+            if (input.localId === localId && firstName === "Offline edit") {
+              started.resolve();
+              await release.promise;
             }
-          : null,
-      purgeDocument: async () => {
-        attempts += 1;
-        purgeStarted.resolve(undefined);
-        return releasePurge.promise;
+            return document.setStructuredFields(...args);
+          },
+        };
       },
     };
-    let reloads = 0;
     const reconnected: ContactsRuntime = {
       ...runtime,
-      loadDocumentSummary: async (id) => {
-        reloads += 1;
-        return runtime.loadDocumentSummary(id);
-      },
-      purgeDocument: async () => {
-        attempts += 1;
-        return true;
+      documents: {
+        ...runtime.documents,
+        state: { ...runtime.documents.state, online: true },
       },
     };
     const store = createContactsStore(runtime, {
       resolveVerified: async () => {
         throw new Error("Unexpected remote key lookup");
       },
-      logError: (message, cause) => {
-        throw new Error(String(message), { cause });
-      },
+      logError: (message, cause) => errors.push({ message, cause }),
     });
+    let edit: Promise<void> | undefined;
     try {
       store.updateRuntime(runtime);
       await waitForCondition(
         () => store.getSnapshot().ready,
         "Contacts did not load locally",
       );
-      await purgeStarted.promise;
-      let ensured = false;
-      const ensure = store
-        .ensureSelfContact({
+      edit = store.updateContact(localId, { firstName: "Offline edit" });
+      await Promise.race([
+        started.promise,
+        edit.then(() => {
+          throw new Error("Edit settled before entering the write barrier");
+        }),
+      ]);
+      if (reconnect === "before") store.updateRuntime(reconnected);
+      release.resolve();
+      await edit;
+      if (reconnect === "database") {
+        store.updateRuntime({
+          ...runtime,
+          documents: {
+            ...runtime.documents,
+            infra: { ...runtime.documents.infra, dbStatus: "idle" },
+          },
+        });
+      }
+      store.updateRuntime(reconnected);
+      await waitForCondition(
+        () => store.getSnapshot().ready,
+        "Contacts did not reconnect",
+      );
+      expect(
+        await store.ensureSelfContact({
           localId,
           userId: "self-user",
           encapsulationPublicKey: "self-key",
           deferRemoteSync: true,
-        })
-        .then(() => {
-          ensured = true;
-        });
-      await waitForCondition(
-        () => ensured,
-        "Self bootstrap waited for remote cleanup",
-      );
-      await ensure;
-      const created = await store.createContact({ firstName: "Offline edit" });
-      expect(created).not.toBeNull();
-      expect(attempts).toBe(1);
+        }),
+      ).toBe(localId);
+      const reopened = createDocumentStore(localId, base.documents);
+      expect(await reopened.ensureInitialized()).toBe(true);
+      expect(reopened.getSnapshot().structuredFields).toMatchObject({
+        firstName: "Offline edit",
+      });
       expect(
         await defaultDocumentsPersistence.loadDocument(
-          base.documents.infra.execSql,
-          localId,
+          execSql,
+          "recovered-self",
         ),
       ).not.toBeNull();
-
-      if (reconnectBeforeFailure) {
-        store.updateRuntime(base);
-        store.updateRuntime(reconnected);
-        expect(attempts).toBe(1);
-      }
-      releasePurge.resolve(false);
-      await releasePurge.promise;
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      if (!reconnectBeforeFailure) {
-        store.updateRuntime(base);
-        expect(attempts).toBe(1);
-        if (reconnect === "database") {
-          store.updateRuntime({
-            ...reconnected,
-            documents: {
-              ...reconnected.documents,
-              infra: { ...reconnected.documents.infra, dbStatus: "idle" },
-            },
-          });
-        }
-        store.updateRuntime(reconnected);
-      }
-      await waitForCondition(
-        () =>
-          !store.getSnapshot().entries.some((entry) => entry.id === localId),
-        "Remote cleanup did not retry after reconnect",
-      );
-      expect(attempts).toBe(2);
-      expect(reloads).toBeGreaterThan(0);
       expect(
-        await defaultDocumentsPersistence.loadDocument(
-          base.documents.infra.execSql,
-          localId,
+        await defaultDocumentsPersistence.loadHistoryRestoreState(
+          execSql,
+          "recovered-self",
         ),
-      ).toBeNull();
+      ).toEqual(history);
+      expect(errors).toEqual([]);
     } finally {
-      releasePurge.resolve(false);
+      release.resolve();
+      await Promise.allSettled([edit]);
+      store.updateRuntime({
+        ...runtime,
+        documents: {
+          ...runtime.documents,
+          infra: { ...runtime.documents.infra, dbStatus: "terminated" },
+        },
+      });
       base.close();
     }
   });
 }
 
-test("offline self bootstrap retains synced duplicates without calling purge or resolving keys remotely", async () => {
-  const base = await createRecoveryContactsRuntime({
+test("offline Me bootstrap keeps distinct same-user documents without remote key lookup", async () => {
+  const runtime = await createRecoveryContactsRuntime({
     signingFingerprint: "offline-self",
     userId: "self-user",
   });
-  const localId = await seedDuplicates(base);
+  const localId = await seedDuplicateSelfContacts(runtime);
   let requests = 0;
-  const runtime: ContactsRuntime = {
-    ...base,
-    loadDocumentSummary: async (id) => ({
-      id,
-      containerId: CONTACTS_CONTAINER_ID,
-      documentId: "remote-fallback",
-      title: "self-user",
-      updatedAt: "2026-09-05T00:00:00.000Z",
-    }),
-    purgeDocument: async () => {
-      requests += 1;
-      return false;
-    },
-  };
+  const errors: unknown[] = [];
   const store = createContactsStore(runtime, {
     resolveVerified: async () => {
       requests += 1;
       return null;
     },
-    logError: (message, cause) => {
-      throw new Error(String(message), { cause });
-    },
+    logError: (message, cause) => errors.push({ message, cause }),
   });
+  const execSql = runtime.documents.infra.execSql;
+  const ids = [localId, "recovered-self"];
+  const before = await Promise.all(
+    ids.map((id) => defaultDocumentsPersistence.loadDocument(execSql, id)),
+  );
   try {
     store.updateRuntime(runtime);
     await waitForCondition(
@@ -185,158 +163,31 @@ test("offline self bootstrap retains synced duplicates without calling purge or 
         encapsulationPublicKey: "self-key",
         deferRemoteSync: true,
       }),
-    ).toBe("recovered-self");
+    ).toBe(localId);
     expect(
       await store.ensureSelfContact({ localId, userId: "self-user" }),
     ).toBeNull();
     expect(requests).toBe(0);
     expect(
-      await defaultDocumentsPersistence.loadDocument(
-        base.documents.infra.execSql,
-        localId,
+      await Promise.all(
+        ids.map((id) => defaultDocumentsPersistence.loadDocument(execSql, id)),
       ),
-    ).not.toBeNull();
+    ).toEqual(before);
+    expect(errors).toEqual([]);
   } finally {
-    base.close();
+    runtime.close();
   }
 });
 
-test.each([false, true])(
-  "a confirmed purge retries local cleanup but preserves a recreated identity (%s)",
-  async (recreate) => {
+for (const target of ["canonical", "distinct"] as const) {
+  test(`scalar and avatar edits stay on the ${target} document`, async () => {
     const base = await createRecoveryContactsRuntime({
       signingFingerprint: "offline-self",
       userId: "self-user",
     });
-    const localId = await seedDuplicates(base);
-    const original = await defaultDocumentsPersistence.loadDocument(
-      base.documents.infra.execSql,
-      localId,
-    );
-    if (!original) throw new Error("Missing duplicate fixture");
-    let recreated = false;
-    let reloads = 0;
-    let purges = 0;
-    let localDeletes = 0;
-    const errors: string[] = [];
-    const runtime: ContactsRuntime = {
-      ...base,
-      documents: {
-        ...base.documents,
-        state: { ...base.documents.state, online: true },
-      },
-      // No incidental document-store notification may rescue the cleanup retry.
-      openDocumentStore: (input) => ({
-        ...base.openDocumentStore(input),
-        subscribe: () => () => {},
-      }),
-      loadDocumentSummary: async (id) => {
-        if (purges > 0) reloads += 1;
-        return id === localId && (purges === 0 || recreated)
-          ? {
-              id,
-              containerId: CONTACTS_CONTAINER_ID,
-              documentId: recreated ? "remote-replacement" : "remote-fallback",
-              title: "self-user",
-              updatedAt: "2026-09-05T00:00:00.000Z",
-            }
-          : null;
-      },
-      purgeDocument: async () => {
-        purges += 1;
-        // Model the purge workflow's durable removal before the app settles its cache.
-        await defaultDocumentsPersistence.deleteDocument(
-          base.documents.infra.execSql,
-          localId,
-        );
-        return true;
-      },
-      deleteDocument: async (id) => {
-        localDeletes += 1;
-        return localDeletes === 1 ? false : base.deleteDocument(id);
-      },
-    };
-    const store = createContactsStore(runtime, {
-      resolveVerified: async () => null,
-      logError: (message) => {
-        errors.push(String(message));
-      },
-    });
-    try {
-      store.updateRuntime(runtime);
-      await waitForCondition(
-        () => errors.length === 1,
-        "Local cleanup did not reach its injected failure",
-      );
-      expect(purges).toBe(1);
-      expect(localDeletes).toBe(1);
-      expect(
-        store.getSnapshot().entries.some((entry) => entry.id === localId),
-      ).toBe(true);
-      expect(
-        await defaultDocumentsPersistence.loadDocument(
-          base.documents.infra.execSql,
-          localId,
-        ),
-      ).toBeNull();
-      if (recreate) {
-        await defaultDocumentsPersistence.saveDocument(
-          base.documents.infra.execSql,
-          { ...original, documentId: "remote-replacement" },
-        );
-        recreated = true;
-      }
-      const previousReloads = reloads;
-      store.updateRuntime(base);
-      store.updateRuntime(runtime);
-      if (recreate) {
-        await waitForCondition(
-          () => reloads > previousReloads,
-          "Cleanup retry did not recheck the replacement",
-        );
-        expect(localDeletes).toBe(1);
-        expect(
-          (
-            await defaultDocumentsPersistence.loadDocument(
-              base.documents.infra.execSql,
-              localId,
-            )
-          )?.documentId,
-        ).toBe("remote-replacement");
-        expect(purges).toBe(1);
-        return;
-      }
-      await waitForCondition(
-        () =>
-          !store.getSnapshot().entries.some((entry) => entry.id === localId),
-        "Acknowledged purge did not finish its local cleanup",
-        1500,
-      );
-      expect(purges).toBe(1);
-      expect(localDeletes).toBe(2);
-    } finally {
-      store.updateRuntime({
-        ...base,
-        documents: {
-          ...base.documents,
-          infra: { ...base.documents.infra, dbStatus: "terminated" },
-        },
-      });
-      base.close();
-    }
-  },
-);
-
-test.each([false, true])(
-  "editing a duplicate during purge saves to the retained self contact (purge succeeds: %s)",
-  async (purgeSucceeds) => {
-    const base = await createRecoveryContactsRuntime({
-      signingFingerprint: "offline-self",
-      userId: "self-user",
-    });
-    const localId = await seedDuplicates(base);
-    const started = createDeferred();
-    const release = createDeferred();
+    const localId = await seedDuplicateSelfContacts(base);
+    const targetId = target === "canonical" ? localId : "recovered-self";
+    const otherId = target === "canonical" ? "recovered-self" : localId;
     const runtime: ContactsRuntime = {
       ...base,
       documents: {
@@ -345,114 +196,90 @@ test.each([false, true])(
           ...base.documents.crypto,
           encapsulationKeyPair: generateKemSeedAndKeyPair(),
         },
-        state: { ...base.documents.state, online: true },
       },
       openDocumentStore: (input) => {
         const document = base.openDocumentStore(input);
         document.updateRuntime(runtime.documents);
         return document;
       },
-      loadDocumentSummary: async (id) =>
-        id === localId
-          ? {
-              id,
-              containerId: CONTACTS_CONTAINER_ID,
-              documentId: "remote-fallback",
-              title: "self-user",
-              updatedAt: "2026-09-05T00:00:00.000Z",
-            }
-          : null,
-      purgeDocument: async () => {
-        started.resolve(undefined);
-        await release.promise;
-        if (purgeSucceeds) await base.deleteDocument(localId);
-        return purgeSucceeds;
-      },
     };
+    const errors: unknown[] = [];
     const store = createContactsStore(runtime, {
       resolveVerified: async () => null,
-      logError: () => {},
+      logError: (message, cause) => errors.push({ message, cause }),
     });
     try {
       store.updateRuntime(runtime);
-      await started.promise;
-      let edited = false;
-      const edit = store
-        .updateContact(localId, { firstName: "Saved during purge" })
-        .then(() => {
-          edited = true;
-        });
       await waitForCondition(
-        () => edited,
-        "Contact edit waited for remote purge",
-        1500,
-      );
-      await edit;
-      expect(
-        store
-          .getSnapshot()
-          .entries.find((entry) => entry.id === "recovered-self")?.firstName,
-      ).toBe("Saved during purge");
-      const saved = await loadProjectedContacts(
-        base.documents.infra.execSql,
-        CONTACTS_CONTAINER_ID,
+        () => store.getSnapshot().ready,
+        "Contacts not ready",
       );
       expect(
-        saved.find((entry) => entry.id === "recovered-self")?.firstName,
-      ).toBe("Saved during purge");
-      const avatarBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-      await store.setContactAvatar(localId, {
-        bytes: avatarBytes,
+        await store.ensureSelfContact({
+          localId,
+          userId: "self-user",
+          encapsulationPublicKey: "self-key",
+          deferRemoteSync: true,
+        }),
+      ).toBe(localId);
+      const execSql = base.documents.infra.execSql;
+      const otherBefore =
+        await defaultDocumentsPersistence.loadHistoryRestoreState(
+          execSql,
+          otherId,
+        );
+      expect(otherBefore).not.toBeNull();
+      await store.updateContact(targetId, { firstName: "Saved on original" });
+      // This fixture's open swaps crypto runtimes. Capture the store before
+      // the fire-and-forget avatar write so its generation stays current.
+      const document = runtime.openDocumentStore({ localId: targetId });
+      const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+      await store.setContactAvatar(targetId, {
+        bytes,
         mimeType: "image/png",
         name: "self.png",
       });
       await waitForCondition(
         () =>
           Boolean(
-            store
-              .getSnapshot()
-              .entries.find((entry) => entry.id === "recovered-self")?.avatar
-              ?.storageKey,
-          ),
-        "Avatar edit waited for the retiring contact",
-        1500,
+            store.getSnapshot().entries.find((entry) => entry.id === targetId)
+              ?.avatar?.storageKey,
+          ) &&
+          !document.hasQueuedWrites() &&
+          !document.hasUnsavedLocalEdits(),
+        "Avatar did not persist on its original document",
       );
-      const avatarKey = store
-        .getSnapshot()
-        .entries.find((entry) => entry.id === "recovered-self")
-        ?.avatar?.storageKey;
-      if (!avatarKey) throw new Error("Retained avatar missing");
-      expect(await base.documents.infra.blobStore.readBytes(avatarKey)).toEqual(
-        avatarBytes,
+      const reopened = createDocumentStore(targetId, runtime.documents);
+      expect(await reopened.ensureInitialized()).toBe(true);
+      const snapshot = reopened.getSnapshot();
+      expect(snapshot.structuredFields).toMatchObject({
+        firstName: "Saved on original",
+      });
+      const avatar = getContactAvatarRef(
+        snapshot.attachments,
+        snapshot.attachmentStorageKeyBySlotId,
       );
-      release.resolve(undefined);
-      if (purgeSucceeds)
-        await waitForCondition(
-          () =>
-            !store.getSnapshot().entries.some((entry) => entry.id === localId),
-          "Duplicate did not finish purge",
-        );
+      if (!avatar?.storageKey)
+        throw new Error("Durable original avatar missing");
       expect(
-        (
-          await loadProjectedContacts(
-            base.documents.infra.execSql,
-            CONTACTS_CONTAINER_ID,
-          )
-        ).find((entry) => entry.id === "recovered-self")?.firstName,
-      ).toBe("Saved during purge");
-      expect(await base.documents.infra.blobStore.readBytes(avatarKey)).toEqual(
-        avatarBytes,
-      );
+        await base.documents.infra.blobStore.readBytes(avatar.storageKey),
+      ).toEqual(bytes);
+      expect(
+        await defaultDocumentsPersistence.loadHistoryRestoreState(
+          execSql,
+          otherId,
+        ),
+      ).toEqual(otherBefore);
+      expect(errors).toEqual([]);
     } finally {
-      release.resolve(undefined);
       store.updateRuntime({
-        ...base,
+        ...runtime,
         documents: {
-          ...base.documents,
-          infra: { ...base.documents.infra, dbStatus: "terminated" },
+          ...runtime.documents,
+          infra: { ...runtime.documents.infra, dbStatus: "terminated" },
         },
       });
       base.close();
     }
-  },
-);
+  });
+}

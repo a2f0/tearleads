@@ -306,6 +306,26 @@ seed leaves the queue only once committed, and that a peer edit's hint
 arriving before the create response still leads to a pull, and that a refused
 bind carry neither drops the row nor publishes it unbound.
 
+### Profile and Contact Identity
+
+[ProfileDocumentIdentity](./local-trust/ProfileDocumentIdentity.md) checks
+reopening materialized roster/organization profiles by their persisted local
+identity, precedence of a known pointer and current/recovery identities,
+discovery before or after birth, preservation of opaque content, and stale
+lookup/open refusal. Stable-scope completion for existing profiles prevents a
+refuse-everything resolver from satisfying the model.
+
+[CanonicalMeSelection](./local-trust/CanonicalMeSelection.md) separately checks
+canonical personal Me selection, current-format same-stream recovery,
+ineligible-target refusal, and retained content. Matching fields on another
+contact do not establish Me. Valid stable-scope targets must complete.
+
+[ContactAddressRecovery](./local-trust/ContactAddressRecovery.md) bounds one
+address draft and retry through queued admission, uncertain persistence,
+clean-state row-ID reconciliation, and no-effect refusal. It checks local
+acknowledgement and cancellation safety, not CRDT merge correctness or
+unconditional retry progress.
+
 ### Document Move Placement
 
 [`local-trust/DocumentMovePlacement.tla`](./local-trust/DocumentMovePlacement.tla)

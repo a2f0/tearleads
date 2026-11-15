@@ -1,3 +1,4 @@
+import type { DocumentRow } from "@tearleads/client-sdk";
 import type { ContactAvatarRef } from "./contactAvatarSlot";
 import {
   type ContactDocumentFields,
@@ -10,6 +11,9 @@ export interface ContactEntry {
   // live only in the document store); consumers render a silhouette either way.
   avatar?: ContactAvatarRef | undefined;
   canWrite?: boolean | undefined;
+  documentId?: string | null | undefined;
+  rows?: ReadonlyArray<DocumentRow> | undefined;
+  syncing?: boolean | undefined;
   encapsulationPublicKey: string | null;
   firstName: string;
   id: string;
@@ -54,6 +58,9 @@ export function contactFieldsToEntry(
   options: {
     avatar?: ContactAvatarRef | null | undefined;
     canWrite?: boolean | undefined;
+    documentId?: string | null | undefined;
+    rows?: ReadonlyArray<DocumentRow> | undefined;
+    syncing?: boolean | undefined;
   } = {},
 ): ContactEntry {
   const userId = normalizeOptionalString(fields.userId);
@@ -64,6 +71,9 @@ export function contactFieldsToEntry(
   return {
     ...(options.avatar ? { avatar: options.avatar } : {}),
     canWrite: options.canWrite ?? true,
+    documentId: options.documentId,
+    rows: options.rows,
+    syncing: options.syncing,
     encapsulationPublicKey:
       encapsulationPublicKey.length > 0 ? encapsulationPublicKey : null,
     firstName: fields.firstName.trim(),

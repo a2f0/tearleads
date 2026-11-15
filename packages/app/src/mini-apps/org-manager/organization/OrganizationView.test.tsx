@@ -1,5 +1,5 @@
-import { afterEach, expect, test } from "bun:test";
-import type { OrganizationDirectory } from "@tearleads/client-sdk";
+import { afterEach, beforeEach, expect, test } from "bun:test";
+import { type OrganizationDirectory, Tearleads } from "@tearleads/client-sdk";
 import {
   act,
   cleanup,
@@ -9,11 +9,25 @@ import {
   within,
 } from "@testing-library/react";
 import type { ContextType } from "react";
+import { installProfileEditorRuntime } from "../../../../test/helpers/org-manager/profileEditorHarness";
 import { OrgManagerContext } from "../../../stores/org-manager/OrgManagerProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { OrganizationView } from "./OrganizationView";
 
-afterEach(() => cleanup());
+let closeSdkHost = () => {};
+beforeEach(() => {
+  const sdk = new Tearleads();
+  sdk.network.setOnline(false);
+  const restoreRuntime = installProfileEditorRuntime(sdk);
+  closeSdkHost = () => {
+    restoreRuntime();
+    sdk.dispose();
+  };
+});
+afterEach(() => {
+  cleanup();
+  closeSdkHost();
+});
 
 const orgManagerActionsStub = {
   ensureOrganizationMetadataContainer: async () => null,

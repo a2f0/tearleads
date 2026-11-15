@@ -65,6 +65,45 @@ function createStore(
   };
 }
 
+test("the facade forwards mutation guards unchanged after rebinding", async () => {
+  const options = { stillCurrent: () => false };
+  const fields = { value: "row" };
+  const received: unknown[][] = [];
+  const target = {
+    ...createStore(() => undefined),
+    addRow: async (...args: Parameters<DocumentStore["addRow"]>) => {
+      received.push(args);
+      return "forwarded-row";
+    },
+    updateRowFields: async (
+      ...args: Parameters<DocumentStore["updateRowFields"]>
+    ) => {
+      received.push(args);
+    },
+    removeRow: async (...args: Parameters<DocumentStore["removeRow"]>) => {
+      received.push(args);
+    },
+    setStructuredFields: async (
+      ...args: Parameters<DocumentStore["setStructuredFields"]>
+    ) => {
+      received.push(args);
+    },
+  };
+  const facade = createDocumentStoreFacade(createStore(() => undefined));
+  facade.rebindTo(target);
+  expect(await facade.addRow(fields, options)).toBe("forwarded-row");
+  await facade.updateRowFields("row", fields, options);
+  await facade.removeRow("row", options);
+  await facade.setStructuredFields("contact", fields, options);
+  expect(received).toEqual([
+    [fields, options],
+    ["row", fields, options],
+    ["row", options],
+    ["contact", fields, options],
+  ]);
+  for (const args of received) expect(args.at(-1)).toBe(options);
+});
+
 test("requestRegisteredDocumentRemoteSync skips unopened documents", () => {
   const domainScope = {} as DomainScope;
 

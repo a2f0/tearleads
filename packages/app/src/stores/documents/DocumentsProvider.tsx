@@ -4,6 +4,7 @@ import {
   type DocumentContextValue,
   type DocumentStore,
   type DocumentsRuntime,
+  getOrCreateDocumentStore,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import {
@@ -11,6 +12,7 @@ import {
   type PropsWithChildren,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
 } from "react";
 import {
@@ -24,6 +26,8 @@ import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearle
 export { DEFAULT_DOCUMENT_ID };
 
 export const DocumentContext = createContext<DocumentStore | null>(null);
+// Stable across ordinary snapshots, replaced for database/account/key changes.
+export const DocumentWriteScopeContext = createContext<object | null>(null);
 
 // A host-forced read-only flag, kept out of the SDK document snapshot because it
 // is a UI concern (e.g. the document lives in the Trash) rather than an
@@ -79,30 +83,42 @@ export function DocumentsProvider({
         : tearleads.documents.workflowRuntime(containerId),
     [containerId, tearleads],
   );
-  const store = useMemo(
-    () =>
-      tearleads.documents.open(
-        {
-          containerId,
-          documentId,
-          initialDocumentKind,
-          initialText,
-          localId,
-        },
-        { workflowRuntime: runtime },
-      ),
+  const writeScope = useMemo(
+    () => ({
+      domainScope: runtime.state.domainScope,
+      execSql: runtime.infra.execSql,
+      dbStatus: runtime.infra.dbStatus,
+      containerId: runtime.state.containerId,
+      userId: runtime.auth.userId,
+      isAuthenticated: runtime.auth.isAuthenticated,
+      signingFingerprint: runtime.crypto.signingFingerprint,
+    }),
     [
-      containerId,
-      documentId,
-      initialDocumentKind,
-      initialText,
-      localId,
-      runtime,
-      tearleads,
+      runtime.state.domainScope,
+      runtime.infra.execSql,
+      runtime.infra.dbStatus,
+      runtime.state.containerId,
+      runtime.auth.userId,
+      runtime.auth.isAuthenticated,
+      runtime.crypto.signingFingerprint,
     ],
   );
+  const store = useMemo(
+    () =>
+      // Resolve the scoped handle here; defer runtime metadata notifications
+      // until this render commits instead of using open's immediate refresh.
+      getOrCreateDocumentStore(
+        runtime.state.domainScope,
+        localId,
+        runtime,
+        documentId,
+        initialText,
+        initialDocumentKind,
+      ),
+    [documentId, initialDocumentKind, initialText, localId, runtime],
+  );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     store.updateRuntime(runtime);
   }, [store, runtime]);
 
@@ -121,9 +137,11 @@ export function DocumentsProvider({
 
   return (
     <DocumentContext.Provider value={store}>
-      <DocumentReadOnlyContext.Provider value={readOnly}>
-        {children}
-      </DocumentReadOnlyContext.Provider>
+      <DocumentWriteScopeContext.Provider value={writeScope}>
+        <DocumentReadOnlyContext.Provider value={readOnly}>
+          {children}
+        </DocumentReadOnlyContext.Provider>
+      </DocumentWriteScopeContext.Provider>
     </DocumentContext.Provider>
   );
 }

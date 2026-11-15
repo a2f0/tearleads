@@ -4,6 +4,9 @@ import type { ContactsStore } from "./contactStoreTypes";
 export interface ContactsContextValue
   extends Pick<
     ContactsStore,
+    | "addContactAddress"
+    | "removeContactAddress"
+    | "updateContactAddress"
     | "createContact"
     | "importVerifiedUser"
     | "removeContact"

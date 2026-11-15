@@ -3,10 +3,10 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
+  canMutateDocumentByIdentity,
   canWriteContainerNode,
   canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
-  isPinnedSelfContact,
 } from "../model/containerRules";
 import type { MoveTargetOption } from "../model/targetOptions";
 
@@ -61,7 +61,8 @@ export function getSelectedDocumentMutationState(params: {
     appData.infra.dbStatus === "ready" &&
     selectedDocument !== undefined &&
     selectedDocumentWritable &&
-    selectedDocumentContainerWritable;
+    selectedDocumentContainerWritable &&
+    canMutateDocumentByIdentity(rulesContext, selectedDocument);
   const canDeleteContainerScopedDocument =
     canMoveSelectedDocument &&
     selectedDocument !== undefined &&
@@ -71,8 +72,7 @@ export function getSelectedDocumentMutationState(params: {
     canDeleteSelectedDocument:
       canDeleteContainerScopedDocument &&
       canResolveTrashContainer &&
-      selectedDocument.containerId !== trashContainerId &&
-      !isPinnedSelfContact(rulesContext, selectedDocument),
+      selectedDocument.containerId !== trashContainerId,
     canLinkSelectedDocument:
       canActivateSelectedDocument &&
       selectedDocumentWritable &&
@@ -87,7 +87,7 @@ export function getSelectedDocumentMutationState(params: {
       selectedDocument.containerId !== null &&
       selectedDocumentWritable &&
       selectedDocumentContainerWritable &&
-      !isPinnedSelfContact(rulesContext, selectedDocument) &&
+      canMutateDocumentByIdentity(rulesContext, selectedDocument) &&
       // Purge applies anywhere under trash, not only at the trash root: a
       // document parked in a user-created subfolder of trash is still trashed.
       // Rules-based (org-aware) so it matches the read-only-when-trashed gate —

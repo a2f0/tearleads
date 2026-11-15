@@ -1,8 +1,9 @@
-import { afterEach, expect, test } from "bun:test";
-import type {
-  OrganizationDirectory,
-  OrganizationDirectoryUser,
-  OrganizationUserDetail,
+import { afterEach, beforeEach, expect, test } from "bun:test";
+import {
+  type OrganizationDirectory,
+  type OrganizationDirectoryUser,
+  type OrganizationUserDetail,
+  Tearleads,
 } from "@tearleads/client-sdk";
 import {
   useWindowTitleBarActions,
@@ -16,6 +17,7 @@ import {
   within,
 } from "@testing-library/react";
 import type { ContextType, PropsWithChildren } from "react";
+import { installProfileEditorRuntime } from "../../../../test/helpers/org-manager/profileEditorHarness";
 import { OrgManagerContext } from "../../../stores/org-manager/OrgManagerProvider";
 import type { RosterProfileNames } from "../../../stores/org-manager/profileDocuments";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -26,8 +28,20 @@ const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
   "clipboard",
 );
 
+let closeSdkHost = () => {};
+beforeEach(() => {
+  const sdk = new Tearleads();
+  sdk.network.setOnline(false);
+  const restoreRuntime = installProfileEditorRuntime(sdk);
+  closeSdkHost = () => {
+    restoreRuntime();
+    sdk.dispose();
+  };
+});
+
 afterEach(() => {
   cleanup();
+  closeSdkHost();
   if (originalClipboardDescriptor) {
     Object.defineProperty(navigator, "clipboard", originalClipboardDescriptor);
   } else {
@@ -70,8 +84,7 @@ const detail: OrganizationUserDetail = {
   user: rosterUser,
 };
 
-// The inlined RosterProfileEditor only needs the container ensure; resolving
-// null keeps it on its loading status without mounting a document store.
+// Resolving no container keeps the hosted editor from mounting a document store.
 const orgManagerActionsStub = {
   ensureRosterProfileContainer: async () => null,
 } as unknown as NonNullable<ContextType<typeof OrgManagerContext>>;

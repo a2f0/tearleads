@@ -37,6 +37,9 @@ sync, or workflow internals directly.
 The [UI design system](../../docs/ui-design-system.md) describes the two shells
 and the chrome conventions across desktop, tablet, and phone.
 
+[Contact addresses](src/document-types/contact/README.md) documents the shared
+Contacts/Explorer editor, repeated Loro records, and attribution boundaries.
+
 The regular app offers **Start Screensaver** from the bare-desktop context
 menu, the desktop Start menu, and the routed taskbar. It runs the shared
 grayscale lasers animation on demand; there is no idle timer. Without a PIN,

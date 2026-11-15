@@ -4,23 +4,11 @@ Part of the [client SDK guide](../client-sdk.md).
 
 ## Pending blob deletion snapshots
 
-`tearleads.root.listPendingBlobDeletions(query?)` reads the operator queue,
-optionally filtered by `organizationId`.
-`tearleads.organizations.listPendingBlobDeletions(organizationId, query?)`
-reads the active organization's queue; the API verifies current admin access.
-Both accept `cursor` and `limit` (default 50, maximum 100) and return the public
-`RootRequestOutcome<PendingBlobDeletionsPage>` type: `{ ok: true, data }` or
-`{ ok: false, status, message }`. Local session/access changes suppress in-flight
-outcomes with a null status.
-
-The root entry point exports `PendingBlobDeletion`, `PendingBlobDeletionsPage`,
-`PendingBlobDeletionsQueryInput`, and `RootPendingBlobDeletionsQueryInput`.
-Pages contain `blobs` and `nextAfterId`; pass that opaque continuation as
-`cursor`, or stop when it is null. Snapshots are not cached. Status is
-`grace-period`, `eligible`, or `deletion-pending`; eligibility is not a
-guaranteed deletion time. This read-only surface exposes no content, storage
-keys, download URLs, restore, or immediate deletion operation.
-Blob IDs accept UUID versions 1–5, matching the existing blob route contract.
+The SDK exposes read-only root and organization-admin queues through
+`tearleads.root.listPendingBlobDeletions` and
+`tearleads.organizations.listPendingBlobDeletions`. See
+[pending-deletion SDK queries](../../attachment-retention.md#sdk-queries)
+for arguments, exported types, pagination, and outcome handling.
 
 ## Container primary documents
 
@@ -350,6 +338,25 @@ neither performs nor authorizes a deployed-data reset. Follow the
 [identity-bound reset requirements](../greenfield-reset.md#identity-bound-principal-format);
 do not silently clear pins or checkpoints to make obsolete data load.
 
+### Document identity
+
+The root export `deriveStableDocumentId(localId): Promise<string>` returns the
+planned remote id using the same namespace and algorithm as first remote
+creation. It does not replace a persisted `documentId` or `recoveryDocumentId`;
+those identities take precedence during sync. Hosts can read them through
+`defaultDocumentsPersistence.loadDocument` and the public `DocumentRecord`.
+Matching ids does not establish signer identity, write access, verified
+adoption, redundant history, or permission to merge or purge a document.
+
+First-birth persistence is not an alias resolver. Its root type
+`DocumentBirthResult` is a timestamp, `null` for an existing requested local
+row, or a `remote-alias` result when another local row already owns the
+requested remote identity. That result refuses a second birth; it does not
+adopt, overwrite, or merge the alias. A host reopening a known profile must
+resolve its actual persisted local ID, use the captured workflow runtime, and
+open without creation seeds. Scope, readiness, and access checks still apply.
+See [custom document persistence](../custom-document-persistence.md).
+
 ### Unsaved document writes
 
 `hasPendingLocalDocumentWrites(domainScope)` synchronously reports whether any
@@ -359,8 +366,34 @@ later save or sync has covered. A store reports the two through
 `hasQueuedWrites()` and `hasUnsavedLocalEdits()`. Hosts can check it before an
 unload that would terminate the SQLite worker. A typing burst keeps at most one
 write in flight and one queued: a queued `setText` superseded by a newer
-`setText`, or a `setStructuredFields` patch whose every field a newer
-non-deferred patch sets again, never persists on its own.
+`setText`, or an unguarded, non-deferred `setStructuredFields` patch whose
+every field newer unguarded, non-deferred patches set again, never persists on
+its own.
+
+### Host-controlled mutation admission
+
+`DocumentMutationGuard` and `DocumentMutationOptions` are named SDK root type
+exports. Pass `{ stillCurrent: () => current }` as the final optional argument
+to `addRow(fields, options)`, `updateRowFields(id, patch, options)`, or
+`removeRow(id, options)`. `setStructuredFields(kind, patch, options)` accepts the
+same guard alongside its existing `deferRemoteSync` option. Row methods accept
+only the admission guard; they do not acquire deferred-sync behavior.
+
+`stillCurrent` must be synchronous and side-effect-free. The store checks it
+after readiness and again when its real local write queue admits the operation,
+before Loro mutation or a pending-delta flush, including an empty structured
+patch. False makes that operation a no-op. A thrown predicate also refuses,
+reports through existing write-failure diagnostics, and leaves the queue usable.
+`addRow` still resolves its allocated id on refusal, so an id is not a success
+acknowledgement; the other methods resolve void as before. Store facades forward
+the guard unchanged.
+
+Guarded structured writes neither publish optimistically nor participate in
+field-write coalescing: a later refused write cannot suppress an earlier valid
+one. Omitting the guard preserves existing behavior. This is not cancellation
+or rollback: initialization may run before admission, and an edit already
+admitted can finish persisting even if the predicate later becomes false.
+Existing unsaved edits remain available for a separately admitted retry.
 
 ### Queued document updates
 

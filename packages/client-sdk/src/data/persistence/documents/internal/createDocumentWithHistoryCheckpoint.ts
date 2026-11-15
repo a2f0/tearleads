@@ -1,5 +1,10 @@
+import { and, desc, eq, or } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
-import { documentHistoryCheckpoints } from "../../../sqlite/schema/documentRecordSchema";
+import { deriveStableDocumentId } from "../../../documents/shared/stableDocumentId";
+import {
+  documentHistoryCheckpoints,
+  documents,
+} from "../../../sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";
 import { insertDocumentPendingUpdateWithHistoryInTransaction } from "../records/documentPendingUpdatePersistence";
@@ -8,6 +13,19 @@ import {
   createDocumentRowsIfAbsent,
   resolveDocumentSaveTimestamp,
 } from "./documentRows";
+
+function classifyExistingBirth(
+  requestedLocalId: string,
+  requestedDocumentId: string,
+  existingLocalId: string,
+) {
+  if (existingLocalId === requestedLocalId) return null;
+  return {
+    status: "remote-alias" as const,
+    documentId: requestedDocumentId,
+    localId: existingLocalId,
+  };
+}
 
 export async function createStoredDocumentWithHistoryCheckpoint(
   execSql: Parameters<
@@ -25,7 +43,9 @@ export async function createStoredDocumentWithHistoryCheckpoint(
   saveClientProjection: Parameters<
     DocumentsPersistence["createDocumentWithHistoryCheckpoint"]
   >[4],
-): Promise<string | null> {
+): ReturnType<DocumentsPersistence["createDocumentWithHistoryCheckpoint"]> {
+  const requestedDocumentId =
+    document.documentId ?? (await deriveStableDocumentId(document.id));
   return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
     getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
       async (tx) => {
@@ -36,6 +56,30 @@ export async function createStoredDocumentWithHistoryCheckpoint(
         });
         if (options?.stillCurrent && !options.stillCurrent()) {
           return null;
+        }
+        // Check under the same immediate transaction as the birth. A lookup
+        // before entering it misses discovery committed while creation waits.
+        // Prefer an existing local winner so its normal restore path survives.
+        const [existing] = await tx
+          .select({ localId: documents.localId })
+          .from(documents)
+          .where(
+            and(
+              eq(documents.appKind, DOCUMENTS_APP_KIND),
+              or(
+                eq(documents.localId, document.id),
+                eq(documents.documentId, requestedDocumentId),
+              ),
+            ),
+          )
+          .orderBy(desc(eq(documents.localId, document.id)))
+          .limit(1);
+        if (existing) {
+          return classifyExistingBirth(
+            document.id,
+            requestedDocumentId,
+            existing.localId,
+          );
         }
         const created = await createDocumentRowsIfAbsent({
           document,

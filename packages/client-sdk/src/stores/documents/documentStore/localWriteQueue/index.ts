@@ -2,7 +2,7 @@ import type { DocumentStoreState } from "../state";
 
 /**
  * Queued local writes coalesce per key: `text` for `setText`, and
- * `field:<name>` per structured field a non-deferred patch sets. A write still
+ * `field:<name>` per field an unguarded, non-deferred patch sets. A write still
  * waiting on the write chain is superseded once a newer write claims EVERY key
  * it covers. It then skips entirely — no apply, no persist — because the newer
  * writes carry each of its values, and the persist that applies them exports

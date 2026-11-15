@@ -312,6 +312,8 @@ export {
   updateContainerContentsStoreRuntime,
 } from "./stores/container-contents";
 export type {
+  DocumentMutationGuard,
+  DocumentMutationOptions,
   DocumentSnapshot,
   DocumentStoreFacade,
   DocumentStoreOpenOptions,
@@ -422,6 +424,7 @@ export {
   shareRemoteContainer,
 } from "./workflows/containers";
 export type {
+  DocumentBirthResult,
   DocumentRecord,
   DocumentSyncContainerRekeyBuilder,
   DocumentSyncPullContinuation,
@@ -448,6 +451,7 @@ export {
   DocumentRawHistoryUnavailableError,
   defaultDocumentsPersistence,
   deletePersistedDocument,
+  deriveStableDocumentId,
   isDatabaseUnavailableError,
   isDocumentSyncUpdateIsolationError,
   persistedDocumentCreateStateFromResponse,

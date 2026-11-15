@@ -19,6 +19,7 @@ import {
   type PersistedDocumentState,
 } from "./documentMutationCommit";
 
+export type { DocumentBirthResult } from "../../data/persistence/documents/documentBirthResult";
 export type {
   AttachmentRemovalRows,
   AttachmentStagingRows,

@@ -180,11 +180,13 @@ export function renderDualPane({
   autoProvisionLeft = true,
   autoProvisionRight = true,
   children,
+  rightPaneProvider: RightPaneProvider = PaneProvider,
   seedPeerIdentities = false,
 }: {
   autoProvisionLeft?: boolean;
   autoProvisionRight?: boolean;
   children?: ReactNode;
+  rightPaneProvider?: typeof PaneProvider;
   seedPeerIdentities?: boolean;
 } = {}): ReturnType<typeof render> {
   const hostConfig = createTestHostConfig({
@@ -208,12 +210,12 @@ export function renderDualPane({
           </PaneProvider>
         </PaneSideProvider>
         <PaneSideProvider side="right">
-          <PaneProvider hostConfig={hostConfig}>
+          <RightPaneProvider hostConfig={hostConfig}>
             <AppTestRuntimeScopeProbe />
             {autoProvisionRight && <PaneAutoProvisioner />}
             {children}
             <Pane className="pane pane-right" />
-          </PaneProvider>
+          </RightPaneProvider>
         </PaneSideProvider>
       </DualPaneProvider>
     </DeveloperModeProvider>,

@@ -1,15 +1,13 @@
 import { expect, test } from "bun:test";
 import { defaultDocumentsPersistence } from "@tearleads/client-sdk";
 import {
-  CONTACTS_CONTAINER_ID,
   createRecoveryContactsRuntime,
   seedDuplicateSelfContacts,
 } from "../../../test/helpers/contactStoreRecovery";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { loadProjectedContacts } from "./contactProjection";
 import { type ContactsRuntime, createContactsStore } from "./contactStore";
 
-test("importing a self key during purge retains the surviving unnamed contact", async () => {
+test("self import waits for canonical hydration without adopting an unnamed same-user document", async () => {
   const base = await createRecoveryContactsRuntime({
     signingFingerprint: "offline-self",
     userId: "self-user",
@@ -22,36 +20,30 @@ test("importing a self key during purge retains the surviving unnamed contact", 
       { firstName: "" },
       { deferRemoteSync: true },
     );
+  const execSql = base.documents.infra.execSql;
+  const before = await defaultDocumentsPersistence.loadHistoryRestoreState(
+    execSql,
+    "recovered-self",
+  );
+  expect(before).not.toBeNull();
   const started = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
-  const purged: string[] = [];
   const runtime: ContactsRuntime = {
     ...base,
-    documents: {
-      ...base.documents,
-      state: { ...base.documents.state, online: true },
-    },
-    loadDocumentSummary: async (id) =>
-      (await defaultDocumentsPersistence.loadDocument(
-        base.documents.infra.execSql,
-        id,
-      ))
-        ? {
-            id,
-            containerId: CONTACTS_CONTAINER_ID,
-            documentId: `remote-${id}`,
-            title: "self-user",
-            updatedAt: "2026-09-05T00:00:00.000Z",
-          }
-        : null,
-    purgeDocument: async (summary) => {
-      purged.push(summary.id);
-      started.resolve();
-      await release.promise;
-      await base.deleteDocument(summary.id);
-      return true;
+    openDocumentStore: (input) => {
+      const document = base.openDocumentStore(input);
+      if (input.localId !== localId) return document;
+      return {
+        ...document,
+        ensureInitialized: async () => {
+          started.resolve();
+          await release.promise;
+          return document.ensureInitialized();
+        },
+      };
     },
   };
+  const errors: unknown[] = [];
   const store = createContactsStore(runtime, {
     resolveVerified: async () => ({
       userId: "self-user",
@@ -60,41 +52,46 @@ test("importing a self key during purge retains the surviving unnamed contact", 
       signingKeyFingerprint: "offline-self",
       signingPublicKey: "self-signing-key",
     }),
-    logError: () => {},
+    logError: (message, cause) => errors.push({ message, cause }),
   });
+  let importing: Promise<string | null> | undefined;
   try {
     store.updateRuntime(runtime);
-    await started.promise;
-    let imported: string | null | undefined;
-    const importing = store.importVerifiedUser("self-user").then((id) => {
-      imported = id;
-    });
     await waitForCondition(
-      () => imported !== undefined,
-      "Key import waited for duplicate purge",
+      () => store.getSnapshot().ready,
+      "Contacts not ready",
     );
-    await importing;
-    expect(imported).toBe("recovered-self");
-    expect(purged).toEqual([localId]);
+    importing = store.importVerifiedUser("self-user");
+    await Promise.race([
+      started.promise,
+      importing.then(() => {
+        throw new Error("Import settled without hydrating canonical Me");
+      }),
+    ]);
     release.resolve();
-    await waitForCondition(
-      () => !store.getSnapshot().entries.some((entry) => entry.id === localId),
-      "Fallback purge did not settle",
-    );
-    const contacts = await loadProjectedContacts(
-      base.documents.infra.execSql,
-      CONTACTS_CONTAINER_ID,
-    );
-    expect(contacts.map((entry) => entry.id)).toEqual(["recovered-self"]);
-    expect(contacts[0]?.encapsulationPublicKey).toBe("self-key");
-    expect(purged).toEqual([localId]);
+    expect(await importing).toBe(localId);
+    expect(await store.importVerifiedUser("self-user")).toBe(localId);
+    expect(
+      await defaultDocumentsPersistence.loadHistoryRestoreState(
+        execSql,
+        "recovered-self",
+      ),
+    ).toEqual(before);
+    expect(
+      store
+        .getSnapshot()
+        .entries.map((entry) => entry.id)
+        .sort(),
+    ).toEqual([localId, "recovered-self"].sort());
+    expect(errors).toEqual([]);
   } finally {
     release.resolve();
+    await Promise.allSettled([importing]);
     store.updateRuntime({
-      ...base,
+      ...runtime,
       documents: {
-        ...base.documents,
-        infra: { ...base.documents.infra, dbStatus: "terminated" },
+        ...runtime.documents,
+        infra: { ...runtime.documents.infra, dbStatus: "terminated" },
       },
     });
     base.close();

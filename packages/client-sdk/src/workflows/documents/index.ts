@@ -3,6 +3,7 @@ export {
   unwrapDocumentContentKeyTarget,
 } from "../../data/documents/shared/projection";
 export { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
+export { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
 export { selectDocumentSyncOutgoingBatch } from "../../data/documents/shared/sync/documentSyncOutgoingBatch";
 export {
   type DocumentSyncUpdateIsolationError,
@@ -71,6 +72,7 @@ export {
   type AttachmentRemovalRows,
   type AttachmentStagingRows,
   DOCUMENTS_APP_KIND,
+  type DocumentBirthResult,
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,

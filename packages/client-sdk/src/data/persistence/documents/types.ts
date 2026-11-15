@@ -8,6 +8,7 @@ import type {
 } from "../../documents/documentSummary";
 import type { DocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
 import type { ExecSql } from "../../sqlite/sqlSchema";
+import type { DocumentBirthResult } from "./documentBirthResult";
 import type { DocumentOrphanBlobPersistence } from "./orphanBlobPersistence";
 import type { QueuedPendingUpdateReplacementPort } from "./queuedUpdateReplacementPort";
 import type {
@@ -152,6 +153,8 @@ export interface DocumentsPersistence
   /**
    * Atomically create the canonical row, standard projections, and birth
    * checkpoint. Returns null when another initializer already owns localId.
+   * A remote-alias result refuses a second birth; discovery alone is not
+   * authority to adopt the existing record or replace its history.
    */
   createDocumentWithHistoryCheckpoint: (
     execSql: ExecSql,
@@ -172,7 +175,7 @@ export interface DocumentsPersistence
       transactionExecSql: ExecSql,
       updatedAt: string,
     ) => Promise<void>,
-  ) => Promise<string | null>;
+  ) => Promise<DocumentBirthResult>;
   /**
    * Conditionally commit one already-prepared mutation against the exact
    * durable record it was derived from. The identity/progress comparison,

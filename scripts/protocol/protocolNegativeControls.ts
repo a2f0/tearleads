@@ -2,6 +2,7 @@ import { ACKNOWLEDGEMENT_NEGATIVE_CONTROLS } from "./protocolAcknowledgementNega
 import { ANCESTOR_RECOVERY_NEGATIVE_CONTROLS } from "./protocolAncestorRecoveryNegativeControls";
 import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeControls";
 import { BASELINE_DOMINANCE_NEGATIVE_CONTROLS } from "./protocolBaselineDominanceNegativeControls";
+import { CONTACT_PROFILE_NEGATIVE_CONTROLS } from "./protocolContactProfileNegativeControls";
 import { CONTAINER_ADOPTION_NEGATIVE_CONTROLS } from "./protocolContainerAdoptionNegativeControls";
 import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegativeControls";
 import { CONTAINER_GRANT_SCOPE_NEGATIVE_CONTROLS } from "./protocolContainerGrantScopeNegativeControls";
@@ -50,6 +51,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...CONTAINER_INTEREST_NEGATIVE_CONTROLS,
   ...HISTORICAL_POLICY_NEGATIVE_CONTROLS,
   ...ATTACHMENT_NEGATIVE_CONTROLS,
+  ...CONTACT_PROFILE_NEGATIVE_CONTROLS,
   ...CONTENT_WRITE_NEGATIVE_CONTROLS,
   ...BASELINE_DOMINANCE_NEGATIVE_CONTROLS,
   ...TOMBSTONE_NEGATIVE_CONTROLS,

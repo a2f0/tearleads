@@ -4,6 +4,7 @@ import {
   useDocument,
   useDocumentReadOnly,
 } from "../../stores/documents/DocumentsProvider";
+import { useDocumentRowWriters } from "../../stores/documents/useDocumentRowWriters";
 import {
   StructuredDocument,
   useStructuredDocumentEditAction,
@@ -11,6 +12,7 @@ import {
 } from "../shared/StructuredDocument";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
 import "./ContactDocument.css";
+import { ContactAddresses } from "./ContactAddresses";
 import { ContactAvatarControl } from "./ContactAvatarControl";
 import { ContactFields } from "./ContactFields";
 import {
@@ -19,6 +21,7 @@ import {
 } from "./contactAvatarSlot";
 import { readContactFields } from "./contactDocumentModel";
 import type { ContactFieldValues } from "./contactFieldDescriptors";
+import { useContactDocumentAddresses } from "./useContactDocumentAddresses";
 
 type ContactStructuredFieldSetter = ReturnType<
   typeof useDocument
@@ -116,8 +119,10 @@ function ContactDocumentAvatar({
 export function ContactDocument(params: {
   initialEditing?: boolean | undefined;
 }) {
-  const { canWrite, ready, setStructuredFields, structuredFields } =
-    useDocument();
+  const document = useDocument();
+  const addressActions = useContactDocumentAddresses();
+  const resolveRowWriter = useDocumentRowWriters(document.rows.length > 0);
+  const { canWrite, ready, setStructuredFields, structuredFields } = document;
   const [isEditing, , toggleEditing] = useStructuredDocumentEditing(
     canWrite,
     params.initialEditing,
@@ -131,6 +136,17 @@ export function ContactDocument(params: {
 
   return (
     <StructuredDocument
+      attachments={
+        <ContactAddresses
+          key={addressActions.identityKey}
+          rows={ready ? document.rows : undefined}
+          disabled={!ready || !canWrite}
+          isEditing={isEditing}
+          currentAuthorId={document.currentAuthorId}
+          resolveRowWriter={resolveRowWriter}
+          {...addressActions.actions}
+        />
+      }
       fields={
         <ContactDocumentFields
           isEditing={isEditing}

@@ -1,160 +1,107 @@
 import { expect, test } from "bun:test";
-import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
-import { findPrimarySelfContact, getSelfContactLocalId } from "./selfContact";
+import { defaultDocumentsPersistence } from "@tearleads/client-sdk";
+import { createRecoveryContactsRuntime } from "../../../test/helpers/contactStoreRecovery";
+import { waitForCondition } from "../../../test/helpers/waitForCondition";
+import { createContactsStore, getSelfContactLocalId } from "./contactStore";
 
-function contact(input: {
-  canWrite?: boolean | undefined;
-  encapsulationPublicKey: string;
-  firstName?: string | undefined;
-  id: string;
-  isSelf?: boolean | undefined;
-  lastName?: string | undefined;
-  nickname?: string | undefined;
-  userId: string | null;
-}): ContactEntry {
-  return {
-    canWrite: input.canWrite,
-    encapsulationPublicKey: input.encapsulationPublicKey,
-    firstName: input.firstName ?? "",
-    id: input.id,
-    isSelf: input.isSelf ?? true,
-    lastName: input.lastName ?? "",
-    nickname: input.nickname ?? "",
-    userId: input.userId,
-  };
+// Selection now depends on persisted canonical stream identity, not a scalar
+// Map selector. Exercise the public facade against real documents instead.
+for (const candidate of [
+  "self",
+  "promoted",
+  "non-self",
+  "read-only",
+  "named",
+] as const) {
+  test(`a ${candidate} same-user document does not displace canonical Me`, async () => {
+    const runtime = await createRecoveryContactsRuntime({
+      signingFingerprint: "self-signing-fingerprint",
+      userId: "self-user",
+    });
+    const localId = getSelfContactLocalId("self-signing-fingerprint");
+    const distinctId = "same-user-document-id";
+    const execSql = runtime.documents.infra.execSql;
+    const errors: unknown[] = [];
+    try {
+      await runtime.openDocumentStore({ localId }).setStructuredFields(
+        "contact",
+        {
+          encapsulationPublicKey: "self-key",
+          isSelf: "1",
+          ...(candidate === "promoted" ? { userId: "self-user" } : {}),
+        },
+        { deferRemoteSync: true },
+      );
+      await runtime
+        .openDocumentStore({ localId: distinctId })
+        .setStructuredFields(
+          "contact",
+          {
+            encapsulationPublicKey: "self-key",
+            isSelf: candidate === "non-self" ? "0" : "1",
+            userId: "self-user",
+            ...(candidate === "named"
+              ? {
+                  firstName: "Recovered",
+                  lastName: "User",
+                  nickname: "Primary",
+                }
+              : {}),
+          },
+          { deferRemoteSync: true },
+        );
+      if (candidate === "read-only") {
+        const record = await defaultDocumentsPersistence.loadDocument(
+          execSql,
+          distinctId,
+        );
+        if (!record) throw new Error("Missing distinct contact");
+        await defaultDocumentsPersistence.saveDocument(execSql, {
+          ...record,
+          effectiveAccessLevel: "read",
+        });
+      }
+      const before = await defaultDocumentsPersistence.loadDocument(
+        execSql,
+        distinctId,
+      );
+      const history = await defaultDocumentsPersistence.loadHistoryRestoreState(
+        execSql,
+        distinctId,
+      );
+      expect(history).not.toBeNull();
+      const store = createContactsStore(runtime, {
+        resolveVerified: async () => null,
+        logError: (message, cause) => errors.push({ message, cause }),
+      });
+      store.updateRuntime(runtime);
+      await waitForCondition(
+        () => store.getSnapshot().ready,
+        "Contacts not ready",
+      );
+      expect(
+        await store.ensureSelfContact({
+          localId,
+          userId: "self-user",
+          encapsulationPublicKey: "self-key",
+          deferRemoteSync: true,
+        }),
+      ).toBe(localId);
+      expect(
+        await defaultDocumentsPersistence.loadDocument(execSql, distinctId),
+      ).toEqual(before);
+      expect(
+        await defaultDocumentsPersistence.loadHistoryRestoreState(
+          execSql,
+          distinctId,
+        ),
+      ).toEqual(history);
+      expect(
+        store.getSnapshot().entries.some((entry) => entry.id === distinctId),
+      ).toBe(true);
+      expect(errors).toEqual([]);
+    } finally {
+      runtime.close();
+    }
+  });
 }
-
-test("remote identity wins over a provisional device-local self contact", () => {
-  const encapsulationPublicKey = "self-encapsulation-key";
-  const userId = "self-user";
-  const localId = getSelfContactLocalId("self-signing-fingerprint");
-  const provisional = contact({
-    encapsulationPublicKey,
-    id: localId,
-    userId: null,
-  });
-  const recovered = contact({
-    encapsulationPublicKey,
-    id: "remote-document-id",
-    userId,
-  });
-
-  expect(
-    findPrimarySelfContact(
-      new Map([
-        [provisional.id, provisional],
-        [recovered.id, recovered],
-      ]),
-      { encapsulationPublicKey, localId, userId },
-    ),
-  ).toBe(recovered);
-});
-
-test("remote identity wins after the device-local fallback was promoted", () => {
-  const encapsulationPublicKey = "self-encapsulation-key";
-  const userId = "self-user";
-  const localId = getSelfContactLocalId("self-signing-fingerprint");
-  const promotedLocal = contact({
-    encapsulationPublicKey,
-    id: localId,
-    userId,
-  });
-  const recovered = contact({
-    encapsulationPublicKey,
-    id: "remote-document-id",
-    userId,
-  });
-
-  expect(
-    findPrimarySelfContact(
-      new Map([
-        [promotedLocal.id, promotedLocal],
-        [recovered.id, recovered],
-      ]),
-      { encapsulationPublicKey, localId, userId },
-    ),
-  ).toBe(recovered);
-});
-
-test("a non-self same-user contact does not displace the local fallback", () => {
-  const encapsulationPublicKey = "self-encapsulation-key";
-  const userId = "self-user";
-  const localId = getSelfContactLocalId("self-signing-fingerprint");
-  const sameUserContact = contact({
-    encapsulationPublicKey,
-    id: "same-user-document-id",
-    isSelf: false,
-    userId,
-  });
-  const provisional = contact({
-    encapsulationPublicKey,
-    id: localId,
-    userId: null,
-  });
-
-  expect(
-    findPrimarySelfContact(
-      new Map([
-        [sameUserContact.id, sameUserContact],
-        [provisional.id, provisional],
-      ]),
-      { encapsulationPublicKey, localId, userId },
-    ),
-  ).toBe(provisional);
-});
-
-test("a read-only recovered self contact does not displace the local fallback", () => {
-  const encapsulationPublicKey = "self-encapsulation-key";
-  const userId = "self-user";
-  const localId = getSelfContactLocalId("self-signing-fingerprint");
-  const readOnlyRecovered = contact({
-    canWrite: false,
-    encapsulationPublicKey,
-    id: "read-only-document-id",
-    userId,
-  });
-  const provisional = contact({
-    encapsulationPublicKey,
-    id: localId,
-    userId: null,
-  });
-
-  expect(
-    findPrimarySelfContact(
-      new Map([
-        [readOnlyRecovered.id, readOnlyRecovered],
-        [provisional.id, provisional],
-      ]),
-      { encapsulationPublicKey, localId, userId },
-    ),
-  ).toBe(provisional);
-});
-
-test("a named writable recovered self contact remains primary", () => {
-  const encapsulationPublicKey = "self-encapsulation-key";
-  const userId = "self-user";
-  const localId = getSelfContactLocalId("self-signing-fingerprint");
-  const provisional = contact({
-    encapsulationPublicKey,
-    id: localId,
-    userId: null,
-  });
-  const recovered = contact({
-    encapsulationPublicKey,
-    firstName: "Recovered",
-    id: "remote-document-id",
-    lastName: "User",
-    nickname: "Primary",
-    userId,
-  });
-
-  expect(
-    findPrimarySelfContact(
-      new Map([
-        [provisional.id, provisional],
-        [recovered.id, recovered],
-      ]),
-      { encapsulationPublicKey, localId, userId },
-    ),
-  ).toBe(recovered);
-});

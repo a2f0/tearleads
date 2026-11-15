@@ -37,8 +37,8 @@ async function createBirthRuntime(): Promise<
   });
   return {
     close,
-    deleteDocument: async () => true,
     documents,
+    listPendingWrites: async () => [],
     loadDocumentSummary: async () => null,
     moveDocumentToTrash: async () => null,
     openDocumentStore: (input) =>

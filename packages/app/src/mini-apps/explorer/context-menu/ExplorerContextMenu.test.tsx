@@ -7,6 +7,7 @@ import {
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { type MouseEvent, useRef } from "react";
+import { createCanonicalSelfContactIdentity } from "../model/canonicalSelfContact.testUtils";
 import {
   createExplorerContainerRulesContext,
   type ExplorerContainerRulesContext,
@@ -18,11 +19,13 @@ import {
 
 afterEach(() => cleanup());
 
+const selfContactIdentity =
+  await createCanonicalSelfContactIdentity("fingerprint");
 const emptyRulesContext = createExplorerContainerRulesContext({
   contactsContainerId: null,
   contactsSystemSlot: null,
   currentOrganizationId: null,
-  currentSigningFingerprint: null,
+  selfContactIdentity,
   trashSystemSlot: null,
 });
 
@@ -73,7 +76,7 @@ const systemRulesContext = createExplorerContainerRulesContext({
   contactsContainerId: contactsNode.id,
   contactsSystemSlot: "contacts-slot",
   currentOrganizationId: null,
-  currentSigningFingerprint: null,
+  selfContactIdentity,
   trashSystemSlot: "trash-slot",
 });
 
@@ -314,7 +317,7 @@ test("move-to-trash gate hides for a folder under a foreign org's shared Trash",
     contactsContainerId: null,
     contactsSystemSlot: null,
     currentOrganizationId: "org-1",
-    currentSigningFingerprint: null,
+    selfContactIdentity,
     trashSystemSlot: "trash-slot",
   });
   const foreignRoot: ContainerNode = {

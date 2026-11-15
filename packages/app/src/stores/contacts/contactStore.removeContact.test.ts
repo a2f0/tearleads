@@ -3,7 +3,6 @@ import type { DocumentSummary } from "@tearleads/client-sdk";
 import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
-  deletePersistedDocument,
   openDocumentStore,
 } from "@tearleads/client-sdk";
 import { createMockApiClient } from "@tearleads/test-utils";
@@ -41,16 +40,8 @@ async function createContactsRuntime(): Promise<
 
   return {
     close,
-    deleteDocument: async (localId) => {
-      await deletePersistedDocument({
-        documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-        execSql: runtimeInputBase.infra.execSql,
-        localId,
-        persistence: defaultDocumentsPersistence,
-      });
-      return true;
-    },
     documents,
+    listPendingWrites: async () => [],
     loadDocumentSummary: (localId) =>
       loadContactDocumentSummaryForTest(documents, localId),
     moveDocumentToTrash: () => Promise.resolve(null),
@@ -165,11 +156,6 @@ test("contacts store moves removed local-only contacts to trash", async () => {
     note: DocumentSummary;
     trashContainerId: string;
   }> = [];
-  let deletedDocumentCount = 0;
-  runtime.deleteDocument = async () => {
-    deletedDocumentCount += 1;
-    return true;
-  };
   runtime.moveDocumentToTrash = async (note, trashContainerId) => {
     movedDocuments.push({ note, trashContainerId });
     return movePersistedDocumentToTrash(runtime, note, trashContainerId);
@@ -188,10 +174,14 @@ test("contacts store moves removed local-only contacts to trash", async () => {
       lastName: "Lovelace",
     });
 
+    const history = await defaultDocumentsPersistence.loadHistoryRestoreState(
+      runtime.documents.infra.execSql,
+      contactId,
+    );
+    expect(history).not.toBeNull();
     await store.removeContact(contactId);
 
     await waitForContactRemoval(store, contactId);
-    expect(deletedDocumentCount).toBe(0);
     expect(movedDocuments).toEqual([
       {
         note: expect.objectContaining({
@@ -215,10 +205,100 @@ test("contacts store moves removed local-only contacts to trash", async () => {
         documentKind: "contact",
       }),
     );
+    expect(
+      await defaultDocumentsPersistence.loadHistoryRestoreState(
+        runtime.documents.infra.execSql,
+        contactId,
+      ),
+    ).toEqual(history);
   } finally {
     runtime.close();
   }
 });
+
+test.each(["summary", "trash"] as const)(
+  "contacts store refuses removal authority expired during %s resolution",
+  async (boundary) => {
+    const runtime = await createContactsRuntime();
+    const store = createStore(runtime);
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    let pending: Promise<void> | undefined;
+    let current = true;
+    let resolvedTrash = 0;
+    const moved: string[] = [];
+    try {
+      store.updateRuntime(runtime);
+      await waitForCondition(
+        () => store.getSnapshot().ready,
+        "Contacts store did not initialize.",
+      );
+      const id = await createContact(store, {
+        firstName: "Ordinary",
+        lastName: "Contact",
+      });
+      const sql = runtime.documents.infra.execSql;
+      const before = await defaultDocumentsPersistence.loadDocument(sql, id);
+      const history = await defaultDocumentsPersistence.loadHistoryRestoreState(
+        sql,
+        id,
+      );
+      const load = runtime.loadDocumentSummary;
+      runtime.loadDocumentSummary = async (localId) => {
+        const document = await load(localId);
+        if (boundary === "summary") {
+          entered.resolve();
+          await release.promise;
+        }
+        return document;
+      };
+      runtime.resolveTrashContainerForDocument = async () => {
+        resolvedTrash += 1;
+        if (boundary === "trash") {
+          entered.resolve();
+          await release.promise;
+        }
+        return { status: "target", trashContainerId: TRASH_CONTAINER_ID };
+      };
+      runtime.moveDocumentToTrash = async (document, target) => {
+        moved.push(document.id);
+        return movePersistedDocumentToTrash(runtime, document, target);
+      };
+      pending = store.removeContact(id, {
+        runtime,
+        isCurrent: () => current,
+      });
+      await entered.promise;
+      current = false;
+      release.resolve();
+      await pending;
+      expect(resolvedTrash).toBe(boundary === "summary" ? 0 : 1);
+      expect(moved).toEqual([]);
+      expect(await defaultDocumentsPersistence.loadDocument(sql, id)).toEqual(
+        before,
+      );
+      expect(store.getSnapshot().entries.some((entry) => entry.id === id)).toBe(
+        true,
+      );
+      // A fresh action still works; do not revive the expired predicate.
+      await store.removeContact(id, { runtime, isCurrent: () => true });
+      expect(moved).toEqual([id]);
+      expect(
+        (await defaultDocumentsPersistence.loadDocument(sql, id))?.containerId,
+      ).toBe(TRASH_CONTAINER_ID);
+      expect(
+        await defaultDocumentsPersistence.loadHistoryRestoreState(sql, id),
+      ).toEqual(history);
+    } finally {
+      release.resolve();
+      try {
+        await pending;
+      } finally {
+        runtime.close();
+      }
+    }
+  },
+);
 
 test("contacts store moves removed synced contacts to trash without direct delete", async () => {
   const runtime = await createContactsRuntime();
@@ -226,11 +306,6 @@ test("contacts store moves removed synced contacts to trash without direct delet
     note: DocumentSummary;
     trashContainerId: string;
   }> = [];
-  let deletedDocumentCount = 0;
-  runtime.deleteDocument = async () => {
-    deletedDocumentCount += 1;
-    return true;
-  };
   runtime.moveDocumentToTrash = async (note, trashContainerId) => {
     movedDocuments.push({ note, trashContainerId });
     return movePersistedDocumentToTrash(runtime, note, trashContainerId);
@@ -263,10 +338,14 @@ test("contacts store moves removed synced contacts to trash without direct delet
       },
     );
 
+    const history = await defaultDocumentsPersistence.loadHistoryRestoreState(
+      runtime.documents.infra.execSql,
+      contactId,
+    );
+    expect(history).not.toBeNull();
     await store.removeContact(contactId);
 
     await waitForContactRemoval(store, contactId);
-    expect(deletedDocumentCount).toBe(0);
     expect(movedDocuments).toEqual([
       {
         note: expect.objectContaining({
@@ -290,6 +369,12 @@ test("contacts store moves removed synced contacts to trash without direct delet
         documentKind: "contact",
       }),
     );
+    expect(
+      await defaultDocumentsPersistence.loadHistoryRestoreState(
+        runtime.documents.infra.execSql,
+        contactId,
+      ),
+    ).toEqual(history);
   } finally {
     runtime.close();
   }

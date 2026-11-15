@@ -302,11 +302,16 @@ async function resolveInitialDocumentCreation(input: {
   execSql: ExecSql;
   persistInput: PersistDocumentStateInput;
   record: StoredDocumentRecord;
-  savedAt: string | null;
+  savedAt: Awaited<
+    ReturnType<DocumentsPersistence["createDocumentWithHistoryCheckpoint"]>
+  >;
 }): Promise<PersistedDocumentState | null> {
-  if (input.savedAt !== null) {
+  if (typeof input.savedAt === "string") {
     return { record: input.record, updatedAt: input.savedAt };
   }
+  // A discovered alias is not a concurrent local winner. Leave its backing
+  // store untouched and refuse until a caller can establish verified identity.
+  if (input.savedAt?.status === "remote-alias") return null;
   if (
     input.persistInput.canStartDurableMutation &&
     !input.persistInput.canStartDurableMutation()
