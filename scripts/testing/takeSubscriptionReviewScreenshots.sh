@@ -16,7 +16,7 @@ BUILD_DIR="${TMPDIR:-/tmp}/tearleads-subscription-review-derived-data"
 REVENUECAT_ENV_FILE="${SUBSCRIPTION_SCREENSHOT_REVENUECAT_ENV_FILE:-$REPO_ROOT/.secrets/prod/shared.env}"
 DEVICE_NAME="Tearleads Subscription Review"
 DEVICE_TYPE_IDENTIFIER="com.apple.CoreSimulator.SimDeviceType.iPhone-16"
-DEVICE_RUNTIME_VERSION="${IOS_SCREENSHOT_RUNTIME_VERSION:-18.0}"
+DEVICE_RUNTIME_VERSION="${IOS_SCREENSHOT_RUNTIME_VERSION:-27.2}"
 
 command -v maestro >/dev/null 2>&1 || {
   echo "Maestro is required: https://maestro.mobile.dev" >&2
@@ -59,6 +59,8 @@ reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
 echo "Using subscription review API: $VITE_API_BASE_URL"
 
 DEVICE_UDID="${IOS_SCREENSHOT_DEVICE_UDID:-}"
+# Xcode 27.2 lists a device-specific iOS 27.2 runtime (iPhone Duo only) before
+# the general one, so match on iPhone 16 support rather than version alone.
 runtime_identifier="$(
   xcrun simctl list runtimes available -j |
     jq -r --arg version "$DEVICE_RUNTIME_VERSION" --arg type "$DEVICE_TYPE_IDENTIFIER" \
