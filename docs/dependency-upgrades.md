@@ -8,7 +8,10 @@ checked in with their owning packages.
 
 Linux and macOS CI install each job's required tools from
 [`.mise.toml`](../.mise.toml) and [`mise.lock`](../mise.lock) through the pinned
-mise action. Keep Bun's `packageManager` declaration aligned with its mise pin.
+mise action. Every workflow pins the same mise `version`, which must read the
+lockfile's `lockfile_version` (format 4 needs mise 2026.11.1 or later), so bump
+those pins before running `mise lock --upgrade`. Keep Bun's `packageManager`
+declaration aligned with its mise pin.
 Ruby keeps `ruby/setup-ruby` for Bundler caching, and npm trusted publishing
 keeps `actions/setup-node`. Windows jobs keep `oven-sh/setup-bun`; their Bun
 pins must match [`.mise.toml`](../.mise.toml), since [`mise.lock`](../mise.lock)
