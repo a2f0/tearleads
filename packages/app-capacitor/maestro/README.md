@@ -18,10 +18,12 @@ lifecycle behavior.
 - [`offline-second-identity.yaml`](offline-second-identity.yaml) — provisioning
   a **second** identity from the
   Identity Manager works offline, yields a genuinely new active identity, then
-  repeatedly switches between both identities. A WebView cannot construct a
-  second SQLite worker, so the app reuses one dedicated worker across identity
-  switches (`AppHostConfig.reuseDatabaseWorker`); this flow guards that path
-  against provisioning and transition hangs.
+  repeatedly switches between both identities. The app reuses one dedicated
+  SQLite worker across identity switches (`AppHostConfig.reuseDatabaseWorker`)
+  and creates a fresh worker only when that reuse fails, for example when
+  closing the outgoing database times out on a loaded device. This flow guards
+  the reuse path against provisioning and transition hangs; the fallback runs
+  only when reuse fails.
 - [`review/subscription-review-screenshots.yaml`][file-1] — registers or logs
   in a
   persistent simulator identity against the production API, opens the real

@@ -1,9 +1,6 @@
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import {
-  createSQLiteRuntime,
-  PERSISTENT_STORAGE_POLICY,
-} from "@tearleads/client-sdk/sqlite";
+import { PERSISTENT_STORAGE_POLICY } from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
 import {
   createAppBuildInfo,
@@ -13,6 +10,7 @@ import {
 import { createRoot } from "react-dom/client";
 import { createCapacitorPurchases } from "./billing/capacitorPurchases";
 import { openCapacitorSubscriptionManagement } from "./billing/capacitorSubscriptionManagement";
+import { createCapacitorSQLiteRuntime } from "./database/capacitorSQLiteRuntime";
 import { subscribeCapacitorConnectionRefresh } from "./device/capacitorConnectionRefresh";
 import { subscribeCapacitorKeyboardVisibility } from "./device/capacitorKeyboardVisibility";
 import { createCapacitorNetworkStatus } from "./device/capacitorNetworkStatus";
@@ -22,23 +20,6 @@ import { configureNativeSentry } from "./diagnostics/sentry";
 import { deleteStagedNativeFiles } from "./files/capacitorCacheFile";
 import { createCapacitorFileSaver } from "./files/capacitorFileSaver";
 import { createCapacitorFileViewer } from "./files/capacitorFileViewer";
-
-function createCapacitorSQLiteRuntime() {
-  const workerUrl = "./worker.js";
-  // Dedicated worker (not the cross-tab shared-owner coordinator). A Capacitor
-  // WebView is a single tab, so cross-tab coordination buys nothing; and the
-  // app reuses ONE dedicated worker across identity switches (see
-  // AppHostConfig.reuseDatabaseWorker) by closing the current database and
-  // re-initializing the same worker onto the next one — which requires a
-  // dedicated worker (a cross-tab client's `close` stops the shared owner). This
-  // avoids ever constructing a second worker, which fails on a WebView and
-  // wedged provisioning of a second local identity.
-  return createSQLiteRuntime({
-    sharedWorkerConstructor: null,
-    workerConstructor: globalThis.Worker,
-    workerUrl,
-  });
-}
 
 // The native build number (Android versionCode / iOS CFBundleVersion) is stamped
 // into the native project by fastlane at release, not inlined into this bundle,

@@ -1,15 +1,12 @@
 # Provisioning a SECOND local identity must work offline (no backend).
 #
-# Regression test for the second-identity provisioning hang: on a WebView shell
-# (Capacitor Android / iOS), creating a second identity tore down the first
-# identity's SQLite worker and tried to construct a new one — which a WebView
-# cannot do (a cross-tab owner re-election never answers `init`; a fresh
-# dedicated module Worker errors on construction). The app wedged in the keyless
-# "No key pair" state ("Creating identity..." never completing), or — once the
-# teardown was made graceful — silently reverted to the first identity.
-#
-# The app reuses ONE dedicated SQLite worker across identity switches, so this
-# now provisions a genuinely new second identity with no backend running.
+# On a WebView shell (Capacitor Android / iOS) the app reuses ONE dedicated
+# SQLite worker across identity switches. When that reuse fails, for example
+# when closing the outgoing database times out, it terminates the worker and
+# builds a fresh one from a root-absolute URL. Either way, provisioning must
+# reach a genuinely new keyed identity: not wedge in the keyless "No key pair"
+# state ("Creating identity..." never completing), and not silently revert to
+# the first identity.
 #
 # Run (iOS simulator):   maestro test packages/app-capacitor/maestro/offline-second-identity.yaml
 # Run (Android emulator): same command; Maestro targets the booted device.
@@ -18,9 +15,14 @@ appId: com.tearleads.app
 ---
 # Fresh install: the FIRST local identity auto-generates offline (key generation
 # is purely local) and the app becomes usable — the Explorer shows the local
-# Contacts system folder. No backend is required to reach this state.
+# Contacts system folder. No backend is required to reach this state. Wait for
+# the app's own Menu button first: the iOS home screen also shows a "Contacts"
+# app, so a launch crash would otherwise pass the Contacts wait.
 - launchApp:
     clearState: true
+- extendedWaitUntil:
+    visible: "Menu"
+    timeout: 40000
 - extendedWaitUntil:
     visible: "Contacts"
     timeout: 40000
