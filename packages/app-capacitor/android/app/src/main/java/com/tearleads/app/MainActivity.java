@@ -15,18 +15,15 @@ public class MainActivity extends BridgeActivity {
     requestDebugLocalNetworkAccess();
   }
 
-  // Only debug builds declare ACCESS_LOCAL_NETWORK (src/debug/AndroidManifest.xml):
-  // they reach the development API on the host, which Android 17 blocks for
-  // apps targeting API 37 until the user grants local network access.
+  // Denial leaves the app usable offline; the development API stays unreachable.
   private void requestDebugLocalNetworkAccess() {
-    if (
-      !BuildConfig.DEBUG ||
-      Build.VERSION.SDK_INT < Build.VERSION_CODES.CINNAMON_BUN ||
-      checkSelfPermission(Manifest.permission.ACCESS_LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED
-    ) {
+    boolean granted =
+      Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN &&
+      checkSelfPermission(Manifest.permission.ACCESS_LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED;
+    if (!LocalNetworkAccess.shouldRequest(BuildConfig.DEBUG, Build.VERSION.SDK_INT, granted)) {
       return;
     }
-    registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {}).launch(
+    registerForActivityResult(new ActivityResultContracts.RequestPermission(), result -> {}).launch(
       Manifest.permission.ACCESS_LOCAL_NETWORK
     );
   }
