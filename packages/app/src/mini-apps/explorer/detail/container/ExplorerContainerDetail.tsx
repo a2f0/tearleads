@@ -176,6 +176,11 @@ function useExplorerContainerItems(
   useEffect(() => {
     setNarrowFrame((current) => shouldFoldCompactRows(frameWidth, current));
   }, [frameWidth]);
+  // The served rows stay on screen at the offset they were fetched for while the
+  // next scroll window loads, so a scroll that crosses a row boundary moves
+  // them rather than blanking the list until the query lands. Blanking unmounted
+  // every row on each boundary: the list flashed empty and the row under a
+  // trackpad pointer lost and regained its hover highlight as it scrolled.
   const itemWindow = useExplorerContainerItemWindow({
     ...params,
     enabled: true,
@@ -183,7 +188,6 @@ function useExplorerContainerItems(
     offset,
     sort,
   });
-  const isShowingRequestedWindow = itemWindow.offset === offset;
   const handleSort = useCallback((key: ContainerItemSort["key"]) => {
     setSort((currentSort) => getNextExplorerItemSort(currentSort, key));
   }, []);
@@ -194,8 +198,6 @@ function useExplorerContainerItems(
     handleSort,
     itemWindow,
     rowHeight,
-    rowOffset: isShowingRequestedWindow ? itemWindow.offset : offset,
-    rows: isShowingRequestedWindow ? itemWindow.rows : [],
     sort,
   };
 }
@@ -238,16 +240,8 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
     setSelectedId,
   } = params;
   const recoveryCollection = isExplorerOrphanedDocumentsId(selectedNode.id);
-  const {
-    compact,
-    frameRef,
-    handleSort,
-    itemWindow,
-    rowHeight,
-    rowOffset,
-    rows,
-    sort,
-  } = useExplorerContainerItems(params);
+  const { compact, frameRef, handleSort, itemWindow, rowHeight, sort } =
+    useExplorerContainerItems(params);
   const columnVisibility = useExplorerColumnVisibility();
   const fileDropTarget = useExplorerContainerFileDropTarget({
     selectedNode,
@@ -304,8 +298,8 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         onItemContextMenu={onItemContextMenu}
         onSort={handleSort}
         rowHeight={rowHeight}
-        rowOffset={rowOffset}
-        rows={rows}
+        rowOffset={itemWindow.offset}
+        rows={itemWindow.rows}
         selectedNode={selectedNode}
         selectDocumentProjection={selectDocumentProjection}
         setSelectedId={setSelectedId}

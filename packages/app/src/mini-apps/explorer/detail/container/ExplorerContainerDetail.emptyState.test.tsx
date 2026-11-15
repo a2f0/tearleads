@@ -1,15 +1,18 @@
 import { afterEach, expect, test } from "bun:test";
-import {
-  type ContainerDocumentQueries,
-  type ContainerItemRow,
-  type ContainerNode,
-  syncedContainerDocumentObjectSyncState,
-} from "@tearleads/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import type { MouseEvent } from "react";
+import {
+  alphaNoteRow,
+  containerA,
+  containerB,
+  containerDetailElement,
+  createDeferredDocumentQueries,
+  idleUploadManager,
+  renderContainerDetail,
+  settlePendingItemWindow,
+} from "../../../../../test/helpers/explorer/containerDetailFixtures";
 import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../../labels";
-import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
 import { renderExplorerItemCell } from "./explorerItemTableColumns";
 
 const originalClientWidthDescriptor = Object.getOwnPropertyDescriptor(
@@ -39,131 +42,8 @@ afterEach(() => {
   }
 });
 
-const containerA: ContainerNode = {
-  id: "container-a",
-  kind: "container",
-  name: "Container A",
-  organizationId: "org-1",
-  parentId: null,
-  syncState: syncedContainerDocumentObjectSyncState,
-};
-
-const containerB: ContainerNode = {
-  id: "container-b",
-  kind: "container",
-  name: "Container B",
-  organizationId: "org-1",
-  parentId: null,
-  syncState: syncedContainerDocumentObjectSyncState,
-};
-
-const alphaNoteRow: ContainerItemRow = {
-  containerId: containerA.id,
-  createdAt: null,
-  documentId: "alpha-doc",
-  documentKind: "note",
-  itemKind: "document",
-  localId: "alpha-local",
-  name: "Alpha Note",
-  syncState: syncedContainerDocumentObjectSyncState,
-  updatedAt: null,
-};
-
-type ContainerItemWindow = Awaited<
-  ReturnType<ContainerDocumentQueries["listContainerItemWindow"]>
->;
-
-interface DeferredItemWindow {
-  reject: (error: Error) => void;
-  resolve: (window: ContainerItemWindow) => void;
-}
-
-function createDeferredDocumentQueries() {
-  const pending: DeferredItemWindow[] = [];
-  const documentQueries = {
-    listContainerItemWindow: () =>
-      new Promise<ContainerItemWindow>((resolve, reject) => {
-        pending.push({ reject, resolve });
-      }),
-  } as unknown as ContainerDocumentQueries;
-  return { documentQueries, pending };
-}
-
-const idleUploadManager: ExplorerUploadManager = {
-  cancel: () => undefined,
-  cancelForContainer: () => undefined,
-  isImporting: false,
-  items: [],
-  queuedFileCount: 0,
-  queuedFileCounts: new Map(),
-  run: null,
-  startImport: () => undefined,
-};
-
-function renderContainerDetail(params: {
-  documentQueries: ContainerDocumentQueries;
-  documentListRevision?: number;
-  selectedNode?: ContainerNode;
-}) {
-  return {
-    documentListRevision: params.documentListRevision ?? 0,
-    documentQueries: params.documentQueries,
-    selectedNode: params.selectedNode ?? containerA,
-  };
-}
-
-function containerDetailElement(props: {
-  documentQueries: ContainerDocumentQueries;
-  documentListRevision: number;
-  onContainerContextMenu?:
-    | ((event: MouseEvent<HTMLElement>, containerId: string) => void)
-    | undefined;
-  selectedNode: ContainerNode;
-  showHeaderSyncIndicator?: boolean | undefined;
-  uploadManager?: ExplorerUploadManager;
-}) {
-  return (
-    <ExplorerContainerDetail
-      containerNodes={[containerA, containerB]}
-      contactAvatarUrlByLocalId={{}}
-      contextTarget={null}
-      currentOrganizationId="org-1"
-      currentSigningFingerprint={null}
-      currentSelfContactLocalId={null}
-      currentUserId={null}
-      onRecoveryChanged={() => {}}
-      documentListRevision={props.documentListRevision}
-      documentQueries={props.documentQueries}
-      uploadManager={props.uploadManager ?? idleUploadManager}
-      online
-      onContainerContextMenu={props.onContainerContextMenu ?? (() => undefined)}
-      onItemContextMenu={() => undefined}
-      refreshError={null}
-      selectDocumentProjection={() => undefined}
-      selectedNode={props.selectedNode}
-      setSelectedId={() => undefined}
-      showHeaderSyncIndicator={props.showHeaderSyncIndicator ?? false}
-      visibleSystemSlots={new Set()}
-    />
-  );
-}
-
 function headerActionsLabel(node: ContainerNode): string {
   return `${EXPLORER_LABELS.containerHeaderActionsLabel}: ${node.name}`;
-}
-
-async function settlePendingItemWindow(
-  pending: DeferredItemWindow[],
-  window: ContainerItemWindow,
-) {
-  const deferred = pending.shift();
-  if (!deferred) {
-    throw new Error("Expected a pending listContainerItemWindow call.");
-  }
-
-  await act(async () => {
-    deferred.resolve(window);
-  });
 }
 
 test("an empty container keeps No items. on refetches instead of flashing the loading row", async () => {
@@ -244,6 +124,50 @@ test("a failed initial load shows the error instead of a stuck loading row", asy
 
   expect(view.queryByText("Loading...")).toBeNull();
   expect(view.getByText("query exploded")).toBeTruthy();
+});
+
+test("scrolling to the next window keeps the served rows mounted until it lands", async () => {
+  const { documentQueries, pending } = createDeferredDocumentQueries();
+  const noteRows = Array.from({ length: 80 }, (_, index) => ({
+    ...alphaNoteRow,
+    documentId: `document-${index + 1}`,
+    localId: `local-${index + 1}`,
+    name: `Note ${index + 1}`,
+  }));
+  const settleWindowAt = (offset: number) => {
+    expect(pending.map((request) => request.offset)).toEqual([offset]);
+    return settlePendingItemWindow(pending, {
+      rows: noteRows.slice(offset, offset + 24),
+      totalCount: noteRows.length,
+    });
+  };
+  const view = render(
+    containerDetailElement(renderContainerDetail({ documentQueries })),
+  );
+  const noteRowElement = (index: number) =>
+    view.getByRole("button", { name: `Note ${index}` }).closest("tr");
+  await settleWindowAt(0);
+  const sharedRow = noteRowElement(13);
+
+  const frame = view.container.querySelector(".explorer-item-table-wrap");
+  if (!(frame instanceof HTMLElement)) {
+    throw new Error("Expected the explorer item table frame.");
+  }
+  // 720px at the 36px desktop pitch, less the 8-row overscan, asks for row 12.
+  frame.scrollTop = 720;
+  fireEvent.scroll(frame);
+
+  // The list must not blank while the next window loads: the rows fetched for
+  // offset 0 stay mounted where they were.
+  expect(noteRowElement(1)).toBeTruthy();
+  expect(noteRowElement(13)).toBe(sharedRow);
+
+  await settleWindowAt(12);
+  expect(view.queryByRole("button", { name: "Note 1" })).toBeNull();
+  expect(noteRowElement(36)).toBeTruthy();
+  // A row in both windows keeps its element, so the hover under a stationary
+  // pointer survives the window shift.
+  expect(noteRowElement(13)).toBe(sharedRow);
 });
 
 test("an active import in this container shows the status line and a working cancel", async () => {
