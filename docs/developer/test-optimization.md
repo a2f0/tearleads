@@ -179,6 +179,14 @@ bug the test correctly detected.
   stubs `setTimeout`, `clearTimeout`, and `requestAnimationFrame` and fires each
   callback by hand. Test a timer's delay and effect that way rather than
   measuring elapsed time.
+- [`workerRuntime.hibernation.pg.test.ts`](../../packages/api/src/worker/workerRuntime.hibernation.pg.test.ts)
+  proves a durable alarm closes an expired session on an evicted hub, so the
+  session check must fall due after the second eviction. A fixed 1 s delay
+  failed `main`'s Postgres lane on 2026-11-15: the hibernate, publish, and
+  hibernate commands outlasted it, and the waking publish closed the socket
+  first. Workerd's alarm runs on the real clock, so the test passes an absolute
+  `checkAt`, and an attempt whose eviction ends after it retries with a longer
+  delay instead of asserting.
 
 ## API test timeout
 
