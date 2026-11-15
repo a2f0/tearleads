@@ -18,7 +18,9 @@ fi
 # not set" on boot when it is missing, leaving a blank WebView. From the Android
 # emulator the host machine is 10.0.2.2 (not localhost, which is the emulator
 # itself); the local API (scripts/dev/runApi.sh) listens on 3001. Override for a
-# physical device (use the host's LAN IP) or a non-default API URL/port.
+# physical device (use the host's LAN IP, also allowed in the debug
+# android/app/src/debug/res/xml/network_security_config.xml) or a non-default
+# API URL/port. Debug builds request Android 17's local network permission.
 # Identity commitments require one canonical API URL for clients sharing a DB.
 # For web/native together, point the web client's BUN_PUBLIC_API_BASE_URL and
 # this build's VITE_API_BASE_URL at the same reachable URL, and set the API's
