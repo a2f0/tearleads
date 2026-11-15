@@ -141,7 +141,7 @@ test.each([
       const contender = Bun.spawnSync(
         [
           process.execPath,
-          join(clone, "scripts/deploy/softReset.ts"),
+          join(clone, "scripts/deploy/softReset/softReset.ts"),
           ...f.command.slice(2),
         ],
         { cwd: clone, env: f.env },

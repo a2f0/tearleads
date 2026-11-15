@@ -25,16 +25,18 @@ export function fixture(tier: "prod" | "staging" = "prod") {
   };
   for (const path of [home, repo, bin]) mkdirSync(path);
   writeFileSync(join(root, "tier"), tier);
-  mkdirSync(join(repo, "scripts/deploy"), { recursive: true });
+  mkdirSync(join(repo, "scripts/deploy/softReset"), { recursive: true });
   function write(path: string, text: string) {
     mkdirSync(dirname(join(repo, path)), { recursive: true });
     writeFileSync(join(repo, path), text, { mode: 0o755 });
   }
   for (const name of readdirSync(import.meta.dir)) {
     if (name.startsWith("softReset") && !name.includes(".test")) {
-      cpSync(join(import.meta.dir, name), join(repo, "scripts/deploy", name), {
-        recursive: true,
-      });
+      cpSync(
+        join(import.meta.dir, name),
+        join(repo, "scripts/deploy/softReset", name),
+        { recursive: true },
+      );
     }
   }
   cpSync(
@@ -135,7 +137,7 @@ tier_demo_hostname() { [ "$1" = prod ] && printf demo.example.test || printf dem
   }
   const command = [
     process.execPath,
-    join(repo, "scripts/deploy/softReset.ts"),
+    join(repo, "scripts/deploy/softReset/softReset.ts"),
     tier,
     "--apply",
     "--confirm",

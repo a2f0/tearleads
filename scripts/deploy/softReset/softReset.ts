@@ -18,7 +18,12 @@ import { ResetRun, refuseOverrides } from "./softResetRuntime";
 async function preflight(run: ResetRun) {
   const buildCheck = (mode: string) =>
     run.exec(
-      ["bash", "scripts/deploy/softResetPreflight.sh", run.tier, mode],
+      [
+        "bash",
+        "scripts/deploy/softReset/softResetPreflight.sh",
+        run.tier,
+        mode,
+      ],
       mode === "api" ? "terraform-state" : "bounded-command",
     );
   const identity = await run.step("credentials", async () => {
@@ -218,7 +223,7 @@ if (apply && (tier === "prod" || tier === "staging")) {
   let run: ResetRun | undefined;
   let success = false;
   try {
-    run = new ResetRun(resolve(import.meta.dir, "../.."), tier);
+    run = new ResetRun(resolve(import.meta.dir, "../../.."), tier);
     await reset(run);
     success = true;
   } catch (error) {

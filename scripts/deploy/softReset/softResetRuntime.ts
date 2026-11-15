@@ -23,6 +23,14 @@ interface Step {
   elapsedMs: number;
 }
 
+// The deploy wrappers' minutes/seconds shape (scripts/lib/stepTimings.sh) plus
+// milliseconds: 930204 prints as 15m30.204s. timings.json keeps raw ms.
+function formatElapsed(ms: number) {
+  const seconds = String(Math.floor(ms / 1000) % 60).padStart(2, "0");
+  const millis = String(ms % 1000).padStart(3, "0");
+  return `${Math.floor(ms / 60_000)}m${seconds}.${millis}s`;
+}
+
 export function refuseOverrides(run: Pick<ResetRun, "root" | "tier">) {
   for (const stack of ["postgres", "storage"]) {
     const dir = join(run.root, "terraform/stacks", run.tier, stack);
@@ -213,7 +221,9 @@ export class ResetRun {
     } finally {
       step.elapsedMs = Math.round(performance.now() - start);
       this.persist();
-      console.log(`${label}: ${step.status} (${step.elapsedMs}ms)`);
+      console.log(
+        `${label}: ${step.status} (${formatElapsed(step.elapsedMs)})`,
+      );
     }
   }
 
@@ -286,10 +296,11 @@ export class ResetRun {
     for (const signal of this.signals) process.off(signal, this.interrupt);
     console.log(`--- Timing summary: ${this.status} ---`);
     for (const step of this.steps)
-      console.log(`${step.label}\t${step.status}\t${step.elapsedMs}ms`);
-    console.log(
-      `total\t${this.status}\t${Math.round(performance.now() - this.started)}ms`,
-    );
+      console.log(
+        `${step.label}\t${step.status}\t${formatElapsed(step.elapsedMs)}`,
+      );
+    const total = Math.round(performance.now() - this.started);
+    console.log(`total\t${this.status}\t${formatElapsed(total)}`);
     if (this.status !== "succeeded") {
       console.error(
         `Stopped at ${this.steps.at(-1)?.label ?? "startup"}. Maintenance or a partial rebuild may remain. No rollback occurred.\nPreserved lock: ${this.lock}\nRead ${this.dir}/timings.json and docs/developer/greenfield-reset.md before manual recovery; do not rerun the reset.`,

@@ -37,15 +37,17 @@ checks the Judge and `benchmark` runs the three inspection tasks.
 
 ## Deployment and release shortcuts
 
-[`deploy/softReset.ts`](deploy/softReset.ts) is the web-only application reset:
-`bun run soft-reset` prints a harmless preview, and `bun run soft-reset --help`
-shows the explicit tier/confirmation syntax. An authorized apply recreates only
-the application PostgreSQL and blob R2 stacks, then deploys API, app/demo, and
-website. No mobile or desktop releases run. Read the
+[`deploy/softReset/softReset.ts`](deploy/softReset/softReset.ts) is the
+web-only application reset: `bun run soft-reset` prints a harmless preview, and
+`bun run soft-reset --help` shows the explicit tier/confirmation syntax. An
+authorized apply recreates only the application PostgreSQL and blob R2 stacks,
+then deploys API, app/demo, and website. No mobile or desktop releases run.
+Read the
 [soft-reset runbook](../docs/developer/greenfield-reset.md#web-only-soft-reset-command)
 for prerequisites, private timing records, the retained failure lock, and manual
-recovery. `bun run test:soft-reset` exercises isolated provider fixtures; it is
-also part of `check:fast` and pre-push.
+recovery. Its code and fixture tests live together in
+[`deploy/softReset/`](deploy/softReset/); `bun run test:soft-reset` runs those
+isolated provider fixtures and is also part of `check:fast` and pre-push.
 
 For website-only deployments, run
 [`./scripts/deploy/deployStagingWebsite.sh`](deploy/deployStagingWebsite.sh) or

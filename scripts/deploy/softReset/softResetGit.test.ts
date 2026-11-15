@@ -57,7 +57,7 @@ test("reset source probes override inherited fsmonitor without changing the user
     writeFileSync(
       driver,
       `
-import { ResetRun } from ${JSON.stringify(join(f.repo, "scripts/deploy/softResetRuntime.ts"))};
+import { ResetRun } from ${JSON.stringify(join(f.repo, "scripts/deploy/softReset/softResetRuntime.ts"))};
 const run = new ResetRun(${JSON.stringify(f.repo)}, "prod");
 try { await run.source(); } finally { await run.finish(false); }
 `,
@@ -96,7 +96,7 @@ test("API checkout source check disables the synthetic global fsmonitor hook", (
       [
         "/bin/bash",
         driver,
-        join(import.meta.dir, "../../packages/api/scripts/sentryBuild.sh"),
+        join(import.meta.dir, "../../../packages/api/scripts/sentryBuild.sh"),
         f.repo,
       ],
       { cwd: f.repo, env: f.env },
@@ -131,7 +131,7 @@ test("API build source probes all disable inherited fsmonitor", () => {
       [
         "/bin/bash",
         driver,
-        join(import.meta.dir, "../../packages/api/scripts/sentryBuild.sh"),
+        join(import.meta.dir, "../../../packages/api/scripts/sentryBuild.sh"),
         f.repo,
         join(f.root, "out"),
       ],
@@ -157,7 +157,7 @@ test("preflight root probe explicitly disables fsmonitor", () => {
     const result = Bun.spawnSync(
       [
         "/bin/bash",
-        join(f.repo, "scripts/deploy/softResetPreflight.sh"),
+        join(f.repo, "scripts/deploy/softReset/softResetPreflight.sh"),
         "prod",
         "credentials",
       ],
@@ -180,7 +180,7 @@ test("API diagnostics index probe disables inherited fsmonitor", () => {
     writeFileSync(
       driver,
       `
-import { diagnosticsBuild, apiBuildVersion } from ${JSON.stringify(join(import.meta.dir, "../../packages/api/scripts/diagnosticsBuild.ts"))};
+import { diagnosticsBuild, apiBuildVersion } from ${JSON.stringify(join(import.meta.dir, "../../../packages/api/scripts/diagnosticsBuild.ts"))};
 console.log(JSON.stringify({ build: diagnosticsBuild(${JSON.stringify(f.repo)}), version: apiBuildVersion(${JSON.stringify(f.repo)}) }));
 `,
     );
