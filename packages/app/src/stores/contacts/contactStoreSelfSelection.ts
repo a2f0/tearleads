@@ -38,25 +38,17 @@ function collectSelfContactCandidateIds(
 }
 
 async function loadSelfContactKnownIds(
-  context: Omit<SelfContactSelectionContext, "knownIds">,
+  state: ContactsStoreState,
+  identity: ResolvedSelfContactIdentity,
 ): Promise<Set<string>> {
-  const { state, identity, containerId, remoteAlias, unsettledIds } = context;
+  // The query is bounded to D's keys and aliases. Keep every match, including
+  // out-of-place recovery aliases: placement guards refuse them, not omission.
   const candidates = await loadDocumentIdentityCandidates(
     state.runtime.documents.infra.execSql,
     identity.documentId,
     [identity.localId, identity.documentId],
   );
-  const knownIds = new Set(
-    candidates
-      .filter(
-        (row) =>
-          row.containerId === containerId ||
-          row.localId === remoteAlias ||
-          unsettledIds.has(row.localId) ||
-          state.entriesById.has(row.localId),
-      )
-      .map((row) => row.localId),
-  );
+  const knownIds = new Set(candidates.map((row) => row.localId));
   for (const [id, entry] of state.entriesById) {
     if (
       id === identity.localId ||
@@ -174,13 +166,7 @@ export async function loadSelfContactSelection(
   if (!current()) return { status: "refused" };
   // Include matching unhydrated and recovery aliases, not every history in
   // the address book. Recheck all placement/access guards on the loaded rows.
-  const knownIds = await loadSelfContactKnownIds({
-    state,
-    identity,
-    containerId,
-    remoteAlias,
-    unsettledIds,
-  });
+  const knownIds = await loadSelfContactKnownIds(state, identity);
   if (!current()) return { status: "refused" };
   const context: SelfContactSelectionContext = {
     state,

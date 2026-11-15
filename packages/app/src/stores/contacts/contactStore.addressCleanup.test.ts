@@ -74,13 +74,22 @@ for (const content of ["address", "unknown", "empty", "incomplete"] as const) {
         ) => {
           const document = harness.runtime.openDocumentStore(input);
           if (input.localId !== id) return document;
+          // Tracked before hydration: the projection carries no rows until
+          // this store is initialized, which here never publishes.
+          let hydrated = false;
           return {
             ...document,
             subscribe: () => () => {},
-            ensureInitialized: () =>
-              content === "incomplete"
-                ? Promise.resolve(false)
-                : document.ensureInitialized(),
+            getSnapshot: () =>
+              hydrated
+                ? document.getSnapshot()
+                : { ...document.getSnapshot(), ready: false },
+            ensureInitialized: async () => {
+              if (content === "incomplete") return false;
+              const ready = await document.ensureInitialized();
+              hydrated = true;
+              return ready;
+            },
           };
         },
       };

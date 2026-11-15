@@ -5,6 +5,7 @@ import {
   deriveStableDocumentId,
 } from "@tearleads/client-sdk";
 import { loadDocumentIdentityCandidates } from "../documents/documentIdentityCandidates";
+import { sameProfileDocumentsScope } from "./profileDocumentScope";
 
 type ProfileDocumentIdentity =
   | {
@@ -29,15 +30,7 @@ interface ProfileIdentityInput {
 
 function sameRuntime(left: DocumentsRuntime, right: DocumentsRuntime): boolean {
   return (
-    left.state.domainScope === right.state.domainScope &&
-    left.infra.execSql === right.infra.execSql &&
-    right.infra.dbStatus === "ready" &&
-    left.auth.userId === right.auth.userId &&
-    left.auth.organizationId === right.auth.organizationId &&
-    left.auth.isAuthenticated === right.auth.isAuthenticated &&
-    left.crypto.signingFingerprint === right.crypto.signingFingerprint &&
-    left.crypto.signingKeyPair === right.crypto.signingKeyPair &&
-    left.crypto.encapsulationKeyPair === right.crypto.encapsulationKeyPair
+    right.infra.dbStatus === "ready" && sameProfileDocumentsScope(left, right)
   );
 }
 
@@ -65,6 +58,7 @@ interface ProfileLookup {
   readonly runtime: DocumentsRuntime;
   readonly current: () => boolean;
   readonly target: string;
+  readonly containerId: string;
   readonly owner: string | null;
 }
 
@@ -72,7 +66,7 @@ async function inspectProfileCandidate(
   lookup: ProfileLookup,
   localId: string,
 ): Promise<ProfileDocumentIdentity | { readonly status: "continue" }> {
-  const { runtime, current, target, owner } = lookup;
+  const { runtime, current, target, containerId, owner } = lookup;
   const record = await defaultDocumentsPersistence.loadDocument(
     runtime.infra.execSql,
     localId,
@@ -83,7 +77,13 @@ async function inspectProfileCandidate(
   }
   const identity = await recordIdentity(record);
   if (!current()) return { status: "unavailable" };
-  if (identity === target) return existingIdentity(record, runtime);
+  if (identity === target) {
+    // Without a current owner the match is a recovery alias. It is this
+    // profile only in the profile container; never open or rebirth elsewhere.
+    return owner === null && record.containerId !== containerId
+      ? { status: "unavailable" }
+      : existingIdentity(record, runtime);
+  }
   // Never open an occupied key with a different requested remote identity.
   return {
     status:
@@ -92,7 +92,6 @@ async function inspectProfileCandidate(
 }
 
 async function resolveOtherProfileOwner(
-  input: ProfileIdentityInput,
   lookup: Omit<ProfileLookup, "owner">,
 ): Promise<ProfileDocumentIdentity | { readonly status: "continue" }> {
   const { runtime, current, target } = lookup;
@@ -103,14 +102,15 @@ async function resolveOtherProfileOwner(
   );
   if (!current()) return { status: "unavailable" };
   // Recovery-only identities are absent from the current-identity lookup.
-  // Select their metadata rather than loading every history in the container.
+  // Select their metadata rather than loading every history in the container,
+  // and keep out-of-place matches so placement refuses them.
   const candidates = owner
     ? [owner]
     : [
         target,
-        ...(await loadDocumentIdentityCandidates(execSql, target, [target]))
-          .filter((row) => row.containerId === input.containerId)
-          .map((row) => row.localId),
+        ...(
+          await loadDocumentIdentityCandidates(execSql, target, [target])
+        ).map((row) => row.localId),
       ];
   if (!current()) return { status: "unavailable" };
   for (const localId of new Set(candidates)) {
@@ -155,10 +155,11 @@ export async function resolveProfileDocumentIdentity(
       ? existingIdentity(preferred, runtime)
       : { status: "unavailable" };
   }
-  const selected = await resolveOtherProfileOwner(input, {
+  const selected = await resolveOtherProfileOwner({
     runtime,
     current,
     target,
+    containerId: input.containerId,
   });
   if (!current()) return { status: "unavailable" };
   if (selected.status !== "continue") return selected;

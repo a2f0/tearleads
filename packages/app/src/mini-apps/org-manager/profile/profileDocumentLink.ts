@@ -1,7 +1,9 @@
-import { useEffect, useLayoutEffect, useReducer, useRef } from "react";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import { useRuntimeScopedMemo } from "../../../providers/sdk/useRuntimeScopedMemo";
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import type { useDocument } from "../../../stores/documents/DocumentsProvider";
+import {
+  isProfileDocumentScopeCurrent,
+  useProfileDocumentScope,
+} from "../../../stores/org-manager/profileDocumentScope";
 import { transitionProfileDocumentRequest } from "./profileDocumentRequestMachine";
 
 /** Relink the resolved local record, without turning read access into write. */
@@ -18,17 +20,17 @@ export function useProfileDocumentLink({
   relink: ReturnType<typeof useDocument>["relink"];
   relinkInput: Parameters<ReturnType<typeof useDocument>["relink"]>[0] | null;
 }): { linkFailed: boolean; linkReady: boolean } {
-  const tearleads = useTearleads();
-  const request = useRuntimeScopedMemo(
+  const scope = useProfileDocumentScope();
+  const request = useMemo(
     () => ({
       documentId,
       profileDocumentId,
       ready,
       relink,
       relinkInput,
-      version: tearleads.runtime.version,
+      scope,
     }),
-    [documentId, profileDocumentId, ready, relink, relinkInput, tearleads],
+    [documentId, profileDocumentId, ready, relink, relinkInput, scope],
   );
   const committedRequest = useRef<object | null>(request);
   const [state, dispatch] = useReducer(transitionProfileDocumentRequest<null>, {
@@ -46,7 +48,7 @@ export function useProfileDocumentLink({
     const stillCurrent = () =>
       active &&
       committedRequest.current === request &&
-      tearleads.runtime.version === request.version &&
+      isProfileDocumentScopeCurrent(request.scope) &&
       (request.relinkInput?.stillCurrent?.() ?? true);
     dispatch({ type: "started", request });
     if (request.ready) {
@@ -75,9 +77,8 @@ export function useProfileDocumentLink({
     return () => {
       active = false;
     };
-  }, [request, tearleads]);
-  const current =
-    state.request === request && tearleads.runtime.version === request.version;
+  }, [request]);
+  const current = state.request === request;
   return {
     linkFailed: current && state.status === "unavailable",
     linkReady: current && state.status === "ready",

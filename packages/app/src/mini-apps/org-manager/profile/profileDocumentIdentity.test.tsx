@@ -78,8 +78,10 @@ for (const kind of ["roster", "organization"] as const) {
       expect(view.queryByText(content)).toBeNull();
       expect(view.getByText(loading)).toBeTruthy();
       const version = f.sdk.runtime.version;
+      // A principal change is a documents scope change; held lookups from the
+      // previous scope must not publish.
       await act(async () => {
-        f.sdk.session.setSyncEnabled(false);
+        f.sdk.session.setUserId("00000000-0000-4000-8000-000000000098");
       });
       expect(f.sdk.runtime.version).not.toBe(version);
       await waitFor(() => expect(ensure).toHaveBeenCalledTimes(4));

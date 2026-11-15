@@ -31,9 +31,13 @@ async function fixture() {
       sdk.dispose();
       database.close();
     },
-    seed: async (localId: string, documentId: string) => {
+    seed: async (
+      localId: string,
+      documentId: string,
+      seedContainerId = containerId,
+    ) => {
       const store = sdk.documents.open({
-        containerId,
+        containerId: seedContainerId,
         documentId,
         localId,
         initialDocumentKind: "contact",
@@ -163,6 +167,42 @@ test("recovery-only aliases are found without rewriting their identity", async (
         preferredLocalId,
       ),
     ).toBeNull();
+  } finally {
+    h.close();
+  }
+});
+
+test("an out-of-place recovery-only alias is refused instead of reborn", async () => {
+  const h = await fixture();
+  try {
+    const wanted = await deriveStableDocumentId(preferredLocalId);
+    await h.seed("elsewhere-profile-alias", wanted, "elsewhere-container");
+    await h.database.execSql(
+      "UPDATE documents SET document_id = NULL, recovery_document_id = :recovery WHERE local_id = :localId",
+      { ":recovery": wanted, ":localId": "elsewhere-profile-alias" },
+    );
+    const before = await defaultDocumentsPersistence.loadDocument(
+      h.database.execSql,
+      "elsewhere-profile-alias",
+    );
+    expect(before).toMatchObject({
+      containerId: "elsewhere-container",
+      documentId: null,
+      recoveryDocumentId: wanted,
+    });
+    for (const documentId of [undefined, wanted]) {
+      const resolved = await resolveProfileDocumentIdentity({
+        ...h.input,
+        documentId,
+      });
+      expect(resolved.status).toBe("unavailable");
+    }
+    expect(
+      await defaultDocumentsPersistence.loadDocument(
+        h.database.execSql,
+        "elsewhere-profile-alias",
+      ),
+    ).toEqual(before);
   } finally {
     h.close();
   }

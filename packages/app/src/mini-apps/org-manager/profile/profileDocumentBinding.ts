@@ -1,9 +1,11 @@
 import type { Documents } from "@tearleads/client-sdk";
-import { useEffect, useLayoutEffect, useReducer, useRef } from "react";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import { useRuntimeScopedMemo } from "../../../providers/sdk/useRuntimeScopedMemo";
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { resolveProfileDocumentIdentity } from "../../../stores/org-manager/profileDocumentIdentity";
+import {
+  isProfileDocumentScopeCurrent,
+  useProfileDocumentScope,
+} from "../../../stores/org-manager/profileDocumentScope";
 import { createBoundedRetrySchedule } from "../hooks/boundedRetry";
 import {
   type ProfileDocumentRequestState,
@@ -71,10 +73,11 @@ export function useProfileDocumentBinding({
   preferredLocalId,
   retryContainer = false,
 }: ProfileDocumentBindingInput): ProfileDocumentRequestState<ProfileDocumentBinding> {
-  const tearleads = useTearleads();
+  const scope = useProfileDocumentScope();
   // Object identity distinguishes A -> B -> A, even when the final values
-  // equal the first request. A runtime notification also invalidates the bind.
-  const request = useRuntimeScopedMemo(
+  // equal the first request. Only a documents scope change, not every runtime
+  // notification, invalidates the bind.
+  const request = useMemo(
     () => ({
       documentId,
       ensureContainer,
@@ -82,7 +85,7 @@ export function useProfileDocumentBinding({
       organizationId,
       preferredLocalId,
       retryContainer,
-      version: tearleads.runtime.version,
+      scope,
     }),
     [
       documentId,
@@ -91,7 +94,7 @@ export function useProfileDocumentBinding({
       organizationId,
       preferredLocalId,
       retryContainer,
-      tearleads,
+      scope,
     ],
   );
   const committedRequest = useRef<object | null>(request);
@@ -112,7 +115,7 @@ export function useProfileDocumentBinding({
     const stillCurrent = () =>
       active &&
       committedRequest.current === request &&
-      tearleads.runtime.version === request.version;
+      isProfileDocumentScopeCurrent(request.scope);
     const unavailable = () => {
       if (stillCurrent()) dispatch({ type: "unavailable", request });
     };
@@ -122,7 +125,7 @@ export function useProfileDocumentBinding({
     async function resolve() {
       const result = await resolveBinding(
         request,
-        tearleads.documents,
+        request.scope.documents,
         stillCurrent,
       );
       if (!stillCurrent()) return;
@@ -143,11 +146,8 @@ export function useProfileDocumentBinding({
       active = false;
       retry.cancel();
     };
-  }, [request, tearleads]);
+  }, [request]);
 
   // Mask old content during render, before effect cleanup/reset can run.
-  return state.request === request &&
-    tearleads.runtime.version === request.version
-    ? state
-    : { status: "loading", request };
+  return state.request === request ? state : { status: "loading", request };
 }
