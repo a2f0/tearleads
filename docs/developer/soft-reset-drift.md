@@ -15,13 +15,14 @@ may differ in these explicitly listed response fields:
 - `restapi_object.main_protection`: `has_roles`, `latest_image_version`,
   `ready`, `schema_last_updated_at`, `stale_schema`, `state`, `updated_at`.
 
-The [validator](../../scripts/deploy/softResetDrift.ts) compares both the
-string-valued `api_data` map and the parsed JSON object in `api_response`.
-It omits only the listed fields at each response's top level, then requires
-strict structural equality. These are observations, not permission to change
-configuration. All other top-level resource values, including `data`, IDs,
-and paths, must match exactly. Malformed or unknown refreshed values refuse
-this exception. No-op drift entries remain accepted as before.
+The [validator](../../scripts/deploy/softReset/softResetDrift.ts) compares
+both the string-valued `api_data` map and the parsed JSON object in
+`api_response`. It omits only the listed fields at each response's top level,
+then requires strict structural equality. These are observations, not
+permission to change configuration. All other top-level resource values,
+including `data`, IDs, and paths, must match exactly. Malformed or unknown
+refreshed values refuse this exception. No-op drift entries remain accepted as
+before.
 
 The branch's `stale_schema` observation, like table counts and schema
 timestamps, can change after baseline migrations. This permits observing
@@ -37,9 +38,9 @@ inspection, and post-recreation verification.
 
 In the storage stack only, a managed `update` for exactly
 `cloudflare_r2_bucket.blobs` may differ only in the casing of its `location`.
-The [storage validator](../../scripts/deploy/softResetStorageDrift.ts) requires
-two known string locations that differ in case but identify the same code:
-`apac`, `eeur`, `enam`, `weur`, `wnam`, or `oc`. An actual region change,
+The [storage validator](../../scripts/deploy/softReset/softResetStorageDrift.ts)
+requires two known string locations that differ in case but identify the same
+code: `apac`, `eeur`, `enam`, `weur`, `wnam`, or `oc`. An actual region change,
 unrecognized code, missing or malformed location still refuses.
 
 Both snapshots must be objects with nonempty string `id`, `account_id`, and
@@ -63,14 +64,14 @@ In the storage stack only, a managed `update` for exactly
 computed `modified_on` timestamp. Cloudflare readback can report a later value
 than the creation snapshot, without any planned token change.
 
-The [storage validator](../../scripts/deploy/softResetStorageDrift.ts) requires
-two known, parseable UTC timestamps, with the refreshed time strictly later,
-and nonempty string `id`, `account_id`, and `name` on both snapshots. Every
-other attribute must remain structurally identical, including token value,
-issuance time, status, expiry, activation time, policies, permission groups,
-and serialized resource scope. Equal or earlier times, missing or malformed
-timestamps, unknown refreshed values, other resources, stacks, modes, and
-actions are not exempt. The `after_unknown` rules and
+The [storage validator](../../scripts/deploy/softReset/softResetStorageDrift.ts)
+requires two known, parseable UTC timestamps, with the refreshed time strictly
+later, and nonempty string `id`, `account_id`, and `name` on both snapshots.
+Every other attribute must remain structurally identical, including token
+value, issuance time, status, expiry, activation time, policies, permission
+groups, and serialized resource scope. Equal or earlier times, missing or
+malformed timestamps, unknown refreshed values, other resources, stacks, modes,
+and actions are not exempt. The `after_unknown` rules and
 preflight/destroy/create coverage are the same as the bucket exception above.
 These exceptions do not refresh or apply Terraform state automatically.
 

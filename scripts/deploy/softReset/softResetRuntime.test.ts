@@ -17,7 +17,7 @@ test.each([
       writeFileSync(
         driver,
         `
-import { ResetRun } from ${JSON.stringify(join(f.repo, "scripts/deploy/softResetRuntime.ts"))};
+import { ResetRun } from ${JSON.stringify(join(f.repo, "scripts/deploy/softReset/softResetRuntime.ts"))};
 import { writeFileSync } from "node:fs";
 const run = new ResetRun(${JSON.stringify(f.repo)}, "prod");
 let success = false;
