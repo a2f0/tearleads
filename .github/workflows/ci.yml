@@ -38,7 +38,7 @@ jobs:
       - name: Set up Bun
         uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
-          version: 2026.11.0
+          version: 2026.11.8
           install_args: bun
           cache: true
       - name: Determine platform checks
@@ -71,7 +71,7 @@ jobs:
       - name: Set up Bun
         uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
-          version: 2026.11.0
+          version: 2026.11.8
           install_args: bun
           cache: true
       - name: Install dependencies
@@ -94,7 +94,7 @@ jobs:
       - name: Set up lint tooling
         uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
-          version: 2026.11.0
+          version: 2026.11.8
           install_args: bun java shellcheck github:oasdiff/oasdiff github:tlaplus/tlaplus
           cache: true
 
@@ -163,7 +163,7 @@ jobs:
       - name: Set up model tooling
         uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
-          version: 2026.11.0
+          version: 2026.11.8
           install_args: bun java github:tlaplus/tlaplus
           cache: true
 
@@ -208,7 +208,7 @@ jobs:
       - name: Set up Bun
         uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
-          version: 2026.11.0
+          version: 2026.11.8
           install_args: bun
           cache: true
 
@@ -303,7 +303,7 @@ jobs:
       - name: Set up Bun
         uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
-          version: 2026.11.0
+          version: 2026.11.8
           install_args: bun
           cache: true
 
@@ -366,7 +366,7 @@ jobs:
       - name: Set up Bun
         uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
-          version: 2026.11.0
+          version: 2026.11.8
           install_args: bun
           cache: true
 
@@ -403,7 +403,7 @@ jobs:
       - name: Set up Lean tooling
         uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
-          version: 2026.11.0
+          version: 2026.11.8
           install_args: bun github:leanprover/lean4
           cache: true
 
@@ -423,7 +423,7 @@ jobs:
       - name: Set up Terraform tooling
         uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
-          version: 2026.11.0
+          version: 2026.11.8
           install_args: terraform tflint
           cache: true
 
