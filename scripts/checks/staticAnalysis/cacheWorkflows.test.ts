@@ -10,6 +10,7 @@ interface Workflow {
       steps?: {
         uses?: string;
         run?: string;
+        with?: { "server-port"?: number | string };
         env?: {
           CI_TURBO_PROTOCOL_CACHE?: string;
           CI_DEFER_PROTOCOL_MODELS?: string;
@@ -80,4 +81,27 @@ test("CI opts into cached model checks and native release tests use the shared t
         "bun scripts/testing/runVerifiedTurbo.ts test --filter=app-capacitor",
     ),
   ).toBe(true);
+});
+
+test("every Turbo cache server lets the OS assign its port", async () => {
+  // The action's fixed default port is inside Linux's ephemeral range, where an
+  // earlier step's outbound socket can already hold it (EADDRINUSE).
+  const files = Array.from(
+    new Bun.Glob("*.yml").scanSync(
+      `${import.meta.dir}/../../../.github/workflows`,
+    ),
+  );
+  const servers = [];
+  for (const file of files) {
+    const parsed = await workflow(file.replace(/\.yml$/, ""));
+    for (const job of Object.values(parsed.jobs)) {
+      for (const step of job.steps ?? []) {
+        if (step.uses?.startsWith("rharkor/caching-for-turbo@")) {
+          servers.push({ file, port: step.with?.["server-port"] });
+        }
+      }
+    }
+  }
+  expect(servers.length).toBeGreaterThan(0);
+  expect(servers.filter(({ port }) => String(port) !== "0")).toEqual([]);
 });

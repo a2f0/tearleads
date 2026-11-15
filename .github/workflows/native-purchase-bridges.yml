@@ -41,6 +41,24 @@ jobs:
 
       - name: Serve the Turbo remote cache from the Actions cache
         uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
+        with:
+          # A fixed port can already be held by an earlier step's socket.
+          server-port: 0
+
+      # Gradle resolves AGP, Kotlin and plugin artifacts from Google Maven and
+      # Maven Central on every cold run; a registry blip then fails the lane.
+      # Reuse resolved modules so a warm run needs no repository round trip.
+      # The key follows the tracked Gradle files (cap sync records the plugin
+      # set there) and toolchain pins, not bun.lock, which every release bumps.
+      - name: Cache Gradle dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            !~/.gradle/caches/modules-2/*.lock
+            !~/.gradle/caches/modules-2/gc.properties
+          key: gradle-modules-${{ runner.os }}-${{ hashFiles('packages/app-capacitor/android/**/*.gradle', 'packages/app-capacitor/android/gradle/wrapper/gradle-wrapper.properties', '.mise.toml') }}
+          restore-keys: gradle-modules-${{ runner.os }}-
 
       - name: Install dependencies
         run: sh scripts/lib/installDependencies.sh
@@ -69,6 +87,8 @@ jobs:
 
       - name: Serve the Turbo remote cache from the Actions cache
         uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
+        with:
+          server-port: 0
 
       - name: Install dependencies
         run: sh scripts/lib/installDependencies.sh
