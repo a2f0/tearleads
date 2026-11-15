@@ -266,12 +266,14 @@ for (const tier of ["production", "staging"]) {
   });
 }
 
+// Ruby reads an -e script in the locale's encoding, and Turbo's strict env
+// mode drops the locale, so the Unicode keychain name is spelled with escapes.
 const iosXcargsScript = [
   'require "json"',
   'require "fastlane"',
   "Fastlane.load_actions",
   'fastfile = Fastlane::FastFile.new("fastlane/Fastfile")',
-  'FastlaneCore::Helper.singleton_class.define_method(:keychain_path) { |_name| "/tmp/Signing Keys/署名 keychain-db" }',
+  'FastlaneCore::Helper.singleton_class.define_method(:keychain_path) { |_name| "/tmp/Signing Keys/\\u7F72\\u540D keychain-db" }',
   'ENV["MATCH_KEYCHAIN_NAME"] = "release keychain"',
   'xcargs = fastfile.send(:ios_build_xcargs, { build_number: 2, version: "1.0" }, "TEAM")',
   "puts JSON.generate(Shellwords.split(xcargs))",
