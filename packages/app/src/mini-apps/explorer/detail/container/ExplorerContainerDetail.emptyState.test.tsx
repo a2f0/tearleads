@@ -139,13 +139,14 @@ const pagedNoteRows = Array.from({ length: 80 }, (_, index) => ({
   name: `Note ${index + 1}`,
 }));
 
-// 720px at the 36px desktop pitch, less the 8-row overscan, asks for row 12.
-function scrollToSecondItemWindow(view: RenderResult) {
+// At the 36px desktop pitch with an 8-row overscan, 720px asks for row 12 and
+// 1080px for row 22.
+function scrollItemTable(view: RenderResult, scrollTop: number) {
   const frame = view.container.querySelector(".explorer-item-table-wrap");
   if (!(frame instanceof HTMLElement)) {
     throw new Error("Expected the explorer item table frame.");
   }
-  frame.scrollTop = 720;
+  frame.scrollTop = scrollTop;
   fireEvent.scroll(frame);
 }
 
@@ -171,7 +172,7 @@ test("scrolling to the next window keeps the served rows mounted until it lands"
   await settleWindowAt(0);
   const sharedRow = noteRowElement(13);
 
-  scrollToSecondItemWindow(view);
+  scrollItemTable(view, 720);
 
   // The list must not blank while the next window loads: the rows fetched for
   // offset 0 stay mounted where they were.
@@ -191,7 +192,7 @@ test("a failed next window reports its error while the served rows stay", async 
     renderPagedContainerDetail();
   await settleWindowAt(0);
 
-  scrollToSecondItemWindow(view);
+  scrollItemTable(view, 720);
   const request = pending.shift();
   expect(request?.offset).toBe(12);
   await act(async () => {
@@ -202,6 +203,14 @@ test("a failed next window reports its error while the served rows stay", async 
   // the failure must still be visible wherever the list is scrolled.
   expect(view.getByText("window exploded")).toBeTruthy();
   expect(noteRowElement(1)).toBeTruthy();
+
+  // The next request must not drop the line while it runs: the line's height
+  // sizes the scroll frame, so hiding it re-derives the window limit and loops
+  // a persistent failure through refetches. Only a load that succeeds clears it.
+  scrollItemTable(view, 1080);
+  expect(view.getByText("window exploded")).toBeTruthy();
+  await settleWindowAt(22);
+  expect(view.queryByText("window exploded")).toBeNull();
 });
 
 test("an active import in this container shows the status line and a working cancel", async () => {

@@ -115,12 +115,16 @@ function getContainerItemWindowView(
 
 // A refetch for the already-loaded container keeps the settled rows/count on
 // screen (stale-while-revalidate); only a container switch resets the window.
+// It keeps a previous failure too, until a load succeeds: the detail pane
+// reports that failure in a status line above the list, so clearing it when a
+// request starts would resize the scroll frame, re-derive the window limit, and
+// turn a persistent failure into a refetch loop that flashes the line.
 function startContainerItemWindowLoad(
   current: ContainerItemWindowState,
   containerId: string,
 ): ContainerItemWindowState {
   return current.loadedContainerId === containerId
-    ? { ...current, error: null, isLoading: true }
+    ? { ...current, isLoading: true }
     : { ...EMPTY_CONTAINER_ITEM_WINDOW_STATE, isLoading: true };
 }
 
