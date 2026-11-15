@@ -1,7 +1,6 @@
 import { type PropsWithChildren, useEffect, useReducer } from "react";
 import "../../components/mini-app/controls/MiniAppStatus.css";
 import {
-  cancelDeviceReset,
   isDeviceResetRequested,
   runRequestedDeviceReset,
   subscribeDeviceResetRequests,
@@ -87,6 +86,8 @@ export function DeviceResetGate({
       </div>
     );
   }
+  // No way into the app from here: part of the device may already be wiped,
+  // so the reset has to finish before anything boots on it.
   return (
     <div role="alert" className="mini-app-status">
       <p>This device could not be reset: {state.message}</p>
@@ -96,15 +97,6 @@ export function DeviceResetGate({
       </p>
       <button type="button" onClick={() => window.location.reload()}>
         Try again
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          cancelDeviceReset();
-          window.location.reload();
-        }}
-      >
-        Cancel reset
       </button>
     </div>
   );

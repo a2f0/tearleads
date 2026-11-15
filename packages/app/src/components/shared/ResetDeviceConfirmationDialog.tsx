@@ -6,28 +6,33 @@ interface ResetDeviceConfirmationDialogProps {
   readonly onCancel: () => void;
 }
 
+/** Whether confirming has started the restart, or could not record it. */
+type ResetRequestState = "idle" | "restarting" | "failed";
+
 /** Confirms a device reset, then restarts the app into it. */
 export function ResetDeviceConfirmationDialog({
   onCancel,
 }: ResetDeviceConfirmationDialogProps) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [requestState, setRequestState] = useState<ResetRequestState>("idle");
+  const restarting = requestState === "restarting";
 
   return (
     <PhraseConfirmationDialog
-      busy={busy}
-      error={error}
-      confirmLabel={busy ? "Restarting..." : "Reset Device"}
+      busy={restarting}
+      error={
+        requestState === "failed"
+          ? "Could not start the reset: storage is unavailable."
+          : null
+      }
+      confirmLabel={restarting ? "Restarting..." : "Reset Device"}
       isOpen
       onCancel={onCancel}
       onConfirm={() => {
-        setBusy(true);
-        setError(null);
         try {
           requestDeviceReset();
+          setRequestState("restarting");
         } catch {
-          setBusy(false);
-          setError("Could not start the reset: storage is unavailable.");
+          setRequestState("failed");
         }
       }}
       phrase="reset device"

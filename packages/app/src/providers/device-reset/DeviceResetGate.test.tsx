@@ -104,6 +104,5 @@ test("a failed reset reports why and never renders the app", async () => {
     ),
   ).toBe(true);
   expect(view.getByRole("button", { name: "Try again" })).toBeTruthy();
-  expect(view.getByRole("button", { name: "Cancel reset" })).toBeTruthy();
   expect(view.queryByText("app")).toBeNull();
 });

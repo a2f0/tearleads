@@ -76,11 +76,6 @@ export function isDeviceResetRequested(storage = getLocalStorage()): boolean {
   return storage?.getItem(DEVICE_RESET_REQUEST_KEY) === "1";
 }
 
-/** Drops a reset request that cannot complete, so the app boots unchanged. */
-export function cancelDeviceReset(storage = getLocalStorage()): void {
-  storage?.removeItem(DEVICE_RESET_REQUEST_KEY);
-}
-
 function deleteIndexedDbDatabase(
   factory: Pick<IDBFactory, "deleteDatabase">,
   name: string,
@@ -94,26 +89,34 @@ function deleteIndexedDbDatabase(
         new Error(`Could not delete IndexedDB database ${name}.`),
     );
   // A `blocked` deletion still completes once the other connections close, so
-  // it is left pending; the reset's timeout reports one that never does.
+  // it is left pending; the reset's timeout reports one that never does. The
+  // deletion it then finishes is part of the same reset, which cannot be
+  // cancelled once requested.
   return promise;
 }
 
 /**
  * Wipes this device's storage for a requested reset. The request is cleared
- * last, with the rest of localStorage, so a failure leaves it in place for a
- * retry.
+ * last, with the rest of localStorage, so a failure leaves it in place and the
+ * next page retries the whole reset. An aborted reset (one that took too long)
+ * stops before its next step instead of finishing after the page reported it
+ * as failed.
  */
 export async function completeDeviceReset(
   environment: DeviceResetEnvironment,
+  signal?: AbortSignal,
 ): Promise<void> {
+  signal?.throwIfAborted();
   const opfs = await environment.wipeOpfs();
   if (environment.indexedDB) {
     for (const { name } of await environment.indexedDB.databases()) {
+      signal?.throwIfAborted();
       if (name !== undefined) {
         await deleteIndexedDbDatabase(environment.indexedDB, name);
       }
     }
   }
+  signal?.throwIfAborted();
   environment.sessionStorage?.clear();
   environment.localStorage.clear();
   if (opfs === "unavailable") {
@@ -121,13 +124,16 @@ export async function completeDeviceReset(
   }
 }
 
-async function runWithDeviceResetLock(run: () => Promise<void>): Promise<void> {
+async function runWithDeviceResetLock(
+  signal: AbortSignal,
+  run: () => Promise<void>,
+): Promise<void> {
   const locks = typeof navigator === "undefined" ? undefined : navigator.locks;
   if (locks === undefined) {
     await run();
     return;
   }
-  await locks.request(DEVICE_RESET_LOCK, run);
+  await locks.request(DEVICE_RESET_LOCK, { signal }, run);
 }
 
 let pendingDeviceReset: Promise<void> | null = null;
@@ -139,30 +145,39 @@ let pendingDeviceReset: Promise<void> | null = null;
  */
 export function runRequestedDeviceReset(): Promise<void> {
   pendingDeviceReset ??= (async () => {
-    const { promise: timeout, reject } = Promise.withResolvers<never>();
+    const timeout = new AbortController();
+    const { promise: timedOut, reject } = Promise.withResolvers<never>();
+    timeout.signal.addEventListener("abort", () =>
+      reject(timeout.signal.reason),
+    );
     const timer = setTimeout(
-      () => reject(new Error("Resetting took too long.")),
+      () => timeout.abort(new Error("Resetting took too long.")),
       DEVICE_RESET_TIMEOUT_MS,
     );
     try {
+      // The race reports a step that hangs; the signal stops the steps after
+      // it.
       await Promise.race([
-        runWithDeviceResetLock(async () => {
+        runWithDeviceResetLock(timeout.signal, async () => {
           // A tab that reloaded with this one may have finished the reset
           // while this page waited for the lock.
           if (!isDeviceResetRequested()) {
             return;
           }
-          await completeDeviceReset({
-            indexedDB:
-              typeof indexedDB === "undefined"
-                ? undefined
-                : globalThis.indexedDB,
-            localStorage: globalThis.localStorage,
-            sessionStorage: globalThis.sessionStorage,
-            wipeOpfs: () => wipeOpfsStorage(),
-          });
+          await completeDeviceReset(
+            {
+              indexedDB:
+                typeof indexedDB === "undefined"
+                  ? undefined
+                  : globalThis.indexedDB,
+              localStorage: globalThis.localStorage,
+              sessionStorage: globalThis.sessionStorage,
+              wipeOpfs: () => wipeOpfsStorage(),
+            },
+            timeout.signal,
+          );
         }),
-        timeout,
+        timedOut,
       ]);
     } finally {
       clearTimeout(timer);

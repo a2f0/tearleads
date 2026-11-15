@@ -55,7 +55,8 @@ class DatabaseConnectionRegistry {
   private readonly connectionsByName = new Map<string, Set<ConnectionState>>();
   private readonly lifecycleByName = new Map<string, Promise<void>>();
   private initializingConnections = 0;
-  // Opening waits on a running wipe so no database lands in storage mid-wipe.
+  // Wipes run one after another, and opening waits on the last of them, so no
+  // database lands in storage while any wipe is still deleting.
   private storageWipe: Promise<void> = Promise.resolve();
 
   createConnection(): RegisterDatabaseWorkerOptions {
@@ -132,8 +133,11 @@ class DatabaseConnectionRegistry {
       );
     }
 
-    const wipe = wipeOpfsStorage().then(() => undefined);
-    this.storageWipe = wipe.catch(() => undefined);
+    const wipe = this.storageWipe.then(() => wipeOpfsStorage());
+    this.storageWipe = wipe.then(
+      () => undefined,
+      () => undefined,
+    );
     await wipe;
   }
 

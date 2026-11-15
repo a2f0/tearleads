@@ -115,3 +115,30 @@ test("a failed wipe keeps the request and the data so a retry can finish it", as
   expect(localStorage.getItem("tearleads.theme.choice")).toBe("dark");
   expect(sessionStorage.length).toBe(1);
 });
+
+test("a reset abandoned for taking too long stops before its remaining steps", async () => {
+  seedDeviceData();
+  const indexedDb = fakeIndexedDb(["tearleads-local-keyring"]);
+  const timeout = new AbortController();
+
+  await expect(
+    completeDeviceReset(
+      {
+        indexedDB: indexedDb.factory,
+        localStorage,
+        sessionStorage,
+        // The OPFS wipe outlasts the timeout and only then returns.
+        wipeOpfs: async () => {
+          timeout.abort(new Error("Resetting took too long."));
+          return "wiped";
+        },
+      },
+      timeout.signal,
+    ),
+  ).rejects.toThrow("Resetting took too long.");
+
+  expect(indexedDb.deleted).toEqual([]);
+  expect(isDeviceResetRequested()).toBe(true);
+  expect(localStorage.getItem("tearleads.theme.choice")).toBe("dark");
+  expect(sessionStorage.length).toBe(1);
+});

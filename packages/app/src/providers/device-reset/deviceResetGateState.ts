@@ -13,8 +13,8 @@ export type DeviceResetGateEvent =
   | { readonly type: "reset-failed"; readonly message: string }
   | { readonly type: "reset-requested-elsewhere" };
 
-// Leaving a failure (retry, cancel) or a reset made elsewhere reloads the page
-// instead of transitioning.
+// Leaving a failure (retry) or a reset made elsewhere reloads the page instead
+// of transitioning.
 export function transitionDeviceResetGate(
   state: DeviceResetGateState,
   event: DeviceResetGateEvent,
