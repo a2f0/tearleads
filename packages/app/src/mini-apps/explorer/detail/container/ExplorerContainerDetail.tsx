@@ -176,6 +176,11 @@ function useExplorerContainerItems(
   useEffect(() => {
     setNarrowFrame((current) => shouldFoldCompactRows(frameWidth, current));
   }, [frameWidth]);
+  // The served rows stay on screen at the offset they were fetched for while the
+  // next scroll window loads, so a scroll that crosses a row boundary moves
+  // them rather than blanking the list until the query lands. Blanking unmounted
+  // every row on each boundary: the list flashed empty and the row under a
+  // trackpad pointer lost and regained its hover highlight as it scrolled.
   const itemWindow = useExplorerContainerItemWindow({
     ...params,
     enabled: true,
@@ -183,7 +188,6 @@ function useExplorerContainerItems(
     offset,
     sort,
   });
-  const isShowingRequestedWindow = itemWindow.offset === offset;
   const handleSort = useCallback((key: ContainerItemSort["key"]) => {
     setSort((currentSort) => getNextExplorerItemSort(currentSort, key));
   }, []);
@@ -194,8 +198,6 @@ function useExplorerContainerItems(
     handleSort,
     itemWindow,
     rowHeight,
-    rowOffset: isShowingRequestedWindow ? itemWindow.offset : offset,
-    rows: isShowingRequestedWindow ? itemWindow.rows : [],
     sort,
   };
 }
@@ -225,6 +227,25 @@ function ExplorerContainerImportStatus({
   );
 }
 
+// The table reports a failed window load in place of rows, so a failure while
+// rows from an earlier window stay on screen would render nothing — and those
+// rows can sit off-screen once the scroll has moved past them. Report it above
+// the list instead, where it is visible at any scroll position.
+function ExplorerContainerWindowError(params: {
+  error: string | null;
+  rowCount: number;
+}) {
+  if (!params.error || params.rowCount === 0) {
+    return null;
+  }
+
+  return (
+    <MiniAppStatus as="span" tone="error">
+      {params.error}
+    </MiniAppStatus>
+  );
+}
+
 export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
   const {
     contactAvatarUrlByLocalId,
@@ -238,16 +259,8 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
     setSelectedId,
   } = params;
   const recoveryCollection = isExplorerOrphanedDocumentsId(selectedNode.id);
-  const {
-    compact,
-    frameRef,
-    handleSort,
-    itemWindow,
-    rowHeight,
-    rowOffset,
-    rows,
-    sort,
-  } = useExplorerContainerItems(params);
+  const { compact, frameRef, handleSort, itemWindow, rowHeight, sort } =
+    useExplorerContainerItems(params);
   const columnVisibility = useExplorerColumnVisibility();
   const fileDropTarget = useExplorerContainerFileDropTarget({
     selectedNode,
@@ -278,6 +291,10 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         />
       ) : null}
       <ExplorerContainerImportStatus fileDropTarget={fileDropTarget} />
+      <ExplorerContainerWindowError
+        error={itemWindow.error}
+        rowCount={itemWindow.rows.length}
+      />
       <ExplorerContainerItemTable
         compact={compact}
         contactAvatarUrlByLocalId={contactAvatarUrlByLocalId}
@@ -304,8 +321,8 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         onItemContextMenu={onItemContextMenu}
         onSort={handleSort}
         rowHeight={rowHeight}
-        rowOffset={rowOffset}
-        rows={rows}
+        rowOffset={itemWindow.offset}
+        rows={itemWindow.rows}
         selectedNode={selectedNode}
         selectDocumentProjection={selectDocumentProjection}
         setSelectedId={setSelectedId}

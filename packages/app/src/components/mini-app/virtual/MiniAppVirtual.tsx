@@ -202,14 +202,13 @@ export function useMiniAppVirtualWindow<
   // the pixel offset left alone silently scrolls the list: the same pixel
   // resolves to a different row. Rescale by the ratio, which keeps the row at
   // the top of the viewport exactly where it was — and, because the derived
-  // offset is then unchanged, avoids both a refetch and the blank frame the
-  // detail pane would otherwise show while it lands.
+  // offset is then unchanged, avoids a refetch for an offset nobody scrolled to.
   //
   // Derived during render rather than in an effect: an effect runs after the
   // render that already computed a range from the old pixel offset at the new
   // pitch, and a consumer that fetches from that range (the explorer item
-  // window) would issue a query for the transient offset and blank its list
-  // before the correction arrived.
+  // window) would issue a query for the transient offset before the correction
+  // arrived.
   const previousRowHeight = previousRowHeightRef.current;
   const rescaledScrollTop =
     previousRowHeight === rowHeight || scrollTop <= 0
