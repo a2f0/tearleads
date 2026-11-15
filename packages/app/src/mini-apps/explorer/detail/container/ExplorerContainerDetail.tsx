@@ -227,6 +227,25 @@ function ExplorerContainerImportStatus({
   );
 }
 
+// The table reports a failed window load in place of rows, so a failure while
+// rows from an earlier window stay on screen would render nothing — and those
+// rows can sit off-screen once the scroll has moved past them. Report it above
+// the list instead, where it is visible at any scroll position.
+function ExplorerContainerWindowError(params: {
+  error: string | null;
+  rowCount: number;
+}) {
+  if (!params.error || params.rowCount === 0) {
+    return null;
+  }
+
+  return (
+    <MiniAppStatus as="span" tone="error">
+      {params.error}
+    </MiniAppStatus>
+  );
+}
+
 export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
   const {
     contactAvatarUrlByLocalId,
@@ -272,6 +291,10 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         />
       ) : null}
       <ExplorerContainerImportStatus fileDropTarget={fileDropTarget} />
+      <ExplorerContainerWindowError
+        error={itemWindow.error}
+        rowCount={itemWindow.rows.length}
+      />
       <ExplorerContainerItemTable
         compact={compact}
         contactAvatarUrlByLocalId={contactAvatarUrlByLocalId}

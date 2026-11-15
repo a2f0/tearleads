@@ -1,6 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import type { ContainerNode } from "@tearleads/client-sdk";
-import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  type RenderResult,
+  render,
+} from "@testing-library/react";
 import {
   alphaNoteRow,
   containerA,
@@ -126,36 +132,46 @@ test("a failed initial load shows the error instead of a stuck loading row", asy
   expect(view.getByText("query exploded")).toBeTruthy();
 });
 
-test("scrolling to the next window keeps the served rows mounted until it lands", async () => {
-  const { documentQueries, pending } = createDeferredDocumentQueries();
-  const noteRows = Array.from({ length: 80 }, (_, index) => ({
-    ...alphaNoteRow,
-    documentId: `document-${index + 1}`,
-    localId: `local-${index + 1}`,
-    name: `Note ${index + 1}`,
-  }));
-  const settleWindowAt = (offset: number) => {
-    expect(pending.map((request) => request.offset)).toEqual([offset]);
-    return settlePendingItemWindow(pending, {
-      rows: noteRows.slice(offset, offset + 24),
-      totalCount: noteRows.length,
-    });
-  };
-  const view = render(
-    containerDetailElement(renderContainerDetail({ documentQueries })),
-  );
-  const noteRowElement = (index: number) =>
-    view.getByRole("button", { name: `Note ${index}` }).closest("tr");
-  await settleWindowAt(0);
-  const sharedRow = noteRowElement(13);
+const pagedNoteRows = Array.from({ length: 80 }, (_, index) => ({
+  ...alphaNoteRow,
+  documentId: `document-${index + 1}`,
+  localId: `local-${index + 1}`,
+  name: `Note ${index + 1}`,
+}));
 
+// 720px at the 36px desktop pitch, less the 8-row overscan, asks for row 12.
+function scrollToSecondItemWindow(view: RenderResult) {
   const frame = view.container.querySelector(".explorer-item-table-wrap");
   if (!(frame instanceof HTMLElement)) {
     throw new Error("Expected the explorer item table frame.");
   }
-  // 720px at the 36px desktop pitch, less the 8-row overscan, asks for row 12.
   frame.scrollTop = 720;
   fireEvent.scroll(frame);
+}
+
+function renderPagedContainerDetail() {
+  const { documentQueries, pending } = createDeferredDocumentQueries();
+  const view = render(
+    containerDetailElement(renderContainerDetail({ documentQueries })),
+  );
+  const settleWindowAt = (offset: number) => {
+    expect(pending.map((request) => request.offset)).toEqual([offset]);
+    return settlePendingItemWindow(pending, {
+      rows: pagedNoteRows.slice(offset, offset + 24),
+      totalCount: pagedNoteRows.length,
+    });
+  };
+  const noteRowElement = (index: number) =>
+    view.getByRole("button", { name: `Note ${index}` }).closest("tr");
+  return { noteRowElement, pending, settleWindowAt, view };
+}
+
+test("scrolling to the next window keeps the served rows mounted until it lands", async () => {
+  const { noteRowElement, settleWindowAt, view } = renderPagedContainerDetail();
+  await settleWindowAt(0);
+  const sharedRow = noteRowElement(13);
+
+  scrollToSecondItemWindow(view);
 
   // The list must not blank while the next window loads: the rows fetched for
   // offset 0 stay mounted where they were.
@@ -168,6 +184,24 @@ test("scrolling to the next window keeps the served rows mounted until it lands"
   // A row in both windows keeps its element, so the hover under a stationary
   // pointer survives the window shift.
   expect(noteRowElement(13)).toBe(sharedRow);
+});
+
+test("a failed next window reports its error while the served rows stay", async () => {
+  const { noteRowElement, pending, settleWindowAt, view } =
+    renderPagedContainerDetail();
+  await settleWindowAt(0);
+
+  scrollToSecondItemWindow(view);
+  const request = pending.shift();
+  expect(request?.offset).toBe(12);
+  await act(async () => {
+    request?.reject(new Error("window exploded"));
+  });
+
+  // The served rows still occupy the table, so its own error row cannot show;
+  // the failure must still be visible wherever the list is scrolled.
+  expect(view.getByText("window exploded")).toBeTruthy();
+  expect(noteRowElement(1)).toBeTruthy();
 });
 
 test("an active import in this container shows the status line and a working cancel", async () => {
