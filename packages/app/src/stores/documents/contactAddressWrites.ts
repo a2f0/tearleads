@@ -55,9 +55,21 @@ function writable(store: DocumentStore, current: () => boolean) {
   return store.getSnapshot();
 }
 
-function mutationOptions(store: DocumentStore, current: () => boolean) {
-  // The SDK may wait on its own write queue after our preflight succeeds.
-  return { stillCurrent: () => canWrite(store, current) };
+function mutationOptions(
+  store: DocumentStore,
+  current: () => boolean,
+  rowId?: string,
+) {
+  // The SDK may wait on its own write queue after our preflight succeeds. A
+  // row write must still target an address row when the SDK admits it.
+  return {
+    stillCurrent: () =>
+      canWrite(store, current) &&
+      (rowId === undefined ||
+        store
+          .getSnapshot()
+          .rows.some((row) => row.id === rowId && isContactAddressRow(row))),
+  };
 }
 
 function saved(store: DocumentStore, current: () => boolean, matches: boolean) {
@@ -128,7 +140,11 @@ export async function updateContactAddressRow(
       ),
     );
     if (Object.keys(patch).length)
-      await store.updateRowFields(id, patch, mutationOptions(store, current));
+      await store.updateRowFields(
+        id,
+        patch,
+        mutationOptions(store, current, id),
+      );
     const updated = address(store, id, current);
     saved(
       store,
@@ -170,7 +186,7 @@ export async function removeContactAddressRow(
     // as evidence of deletion.
     if (writable(store, current).rows.some((row) => row.id === id)) {
       address(store, id, current);
-      await store.removeRow(id, mutationOptions(store, current));
+      await store.removeRow(id, mutationOptions(store, current, id));
     }
     saved(
       store,

@@ -4,10 +4,17 @@ import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManage
 import { resolveProfileDocumentIdentity } from "../../../stores/org-manager/profileDocumentIdentity";
 import {
   isProfileDocumentScopeCurrent,
+  type ProfileDocumentScope,
   useProfileDocumentScope,
 } from "../../../stores/org-manager/profileDocumentScope";
 import { createBoundedRetrySchedule } from "../hooks/boundedRetry";
 import {
+  type ProfileDocumentDiscoveryEvent,
+  type ProfileDocumentDiscoveryState,
+  transitionProfileDocumentDiscovery,
+} from "./profileDocumentDiscoveryMachine";
+import {
+  type ProfileDocumentRequestEvent,
   type ProfileDocumentRequestState,
   transitionProfileDocumentRequest,
 } from "./profileDocumentRequestMachine";
@@ -31,6 +38,8 @@ interface ProfileDocumentBindingInput {
 
 type ProfileBindingResolution =
   | { status: "ready"; value: ProfileDocumentBinding }
+  // No local row holds the target remote id yet; discovery may persist one.
+  | { status: "missing"; containerId: string; documentId: string }
   | { status: "unavailable" | "retry" };
 
 async function resolveBinding(
@@ -51,8 +60,14 @@ async function resolveBinding(
     preferredLocalId: request.preferredLocalId,
     stillCurrent,
   });
-  if (!stillCurrent() || identity.status !== "existing")
-    return { status: "unavailable" };
+  if (!stillCurrent()) return { status: "unavailable" };
+  if (identity.status === "create")
+    return {
+      status: "missing",
+      containerId: container.id,
+      documentId: targetDocumentId,
+    };
+  if (identity.status !== "existing") return { status: "unavailable" };
   if (identity.documentId !== null && identity.documentId !== targetDocumentId)
     return { status: "unavailable" };
   return {
@@ -62,6 +77,85 @@ async function resolveBinding(
       documentId: targetDocumentId,
       localId: identity.localId,
     },
+  };
+}
+
+interface ProfileBindingRequest extends ProfileDocumentBindingInput {
+  readonly scope: ProfileDocumentScope;
+}
+
+/** Resolves one request until the returned cleanup runs. A target that is
+ * not yet local is retried on discovery; resolution never creates one. */
+function startBindingResolution(
+  request: ProfileBindingRequest,
+  isCommitted: () => boolean,
+  dispatch: (
+    event: ProfileDocumentRequestEvent<ProfileDocumentBinding>,
+  ) => void,
+): () => void {
+  let active = true;
+  const stillCurrent = () =>
+    active && isCommitted() && isProfileDocumentScopeCurrent(request.scope);
+  const unavailable = () => {
+    if (stillCurrent()) dispatch({ type: "unavailable", request });
+  };
+  const retry = createBoundedRetrySchedule(attempt);
+  let discovery: ProfileDocumentDiscoveryState = { status: "idle" };
+  const observe = (event: ProfileDocumentDiscoveryEvent) => {
+    discovery = transitionProfileDocumentDiscovery(discovery, event);
+    if (discovery.status !== "rediscovered" || !stillCurrent()) return;
+    dispatch({ type: "started", request });
+    attempt();
+  };
+  // Held for the whole request so a target persisted mid-lookup is not lost.
+  const unsubscribe = request.scope.documents.subscribe(
+    (document, { placementChanged }) =>
+      observe({ type: "persisted", document, placementChanged }),
+  );
+  const settle = (result: ProfileBindingResolution) => {
+    if (result.status === "missing") {
+      observe({
+        type: "missing",
+        containerId: result.containerId,
+        documentId: result.documentId,
+      });
+      if (discovery.status === "awaiting") unavailable();
+      return;
+    }
+    observe({ type: "settled" });
+    if (result.status === "ready") {
+      dispatch({ type: "resolved", request, value: result.value });
+    } else if (
+      result.status === "retry" &&
+      request.retryContainer &&
+      !retry.exhausted
+    ) {
+      retry.scheduleNext();
+    } else {
+      unavailable();
+    }
+  };
+  async function resolve() {
+    observe({ type: "resolving", documentId: request.documentId });
+    const result = await resolveBinding(
+      request,
+      request.scope.documents,
+      stillCurrent,
+    );
+    if (stillCurrent()) settle(result);
+  }
+  function attempt() {
+    void resolve().catch(() => {
+      observe({ type: "settled" });
+      unavailable();
+    });
+  }
+  dispatch({ type: "started", request });
+  attempt();
+  return () => {
+    active = false;
+    retry.cancel();
+    unsubscribe();
   };
 }
 
@@ -110,43 +204,15 @@ export function useProfileDocumentBinding({
     };
   }, [request]);
 
-  useEffect(() => {
-    let active = true;
-    const stillCurrent = () =>
-      active &&
-      committedRequest.current === request &&
-      isProfileDocumentScopeCurrent(request.scope);
-    const unavailable = () => {
-      if (stillCurrent()) dispatch({ type: "unavailable", request });
-    };
-    const retry = createBoundedRetrySchedule(attempt);
-    dispatch({ type: "started", request });
-
-    async function resolve() {
-      const result = await resolveBinding(
+  useEffect(
+    () =>
+      startBindingResolution(
         request,
-        request.scope.documents,
-        stillCurrent,
-      );
-      if (!stillCurrent()) return;
-      if (result.status === "retry") {
-        if (request.retryContainer && !retry.exhausted) retry.scheduleNext();
-        else unavailable();
-      } else if (result.status === "ready") {
-        dispatch({ type: "resolved", request, value: result.value });
-      } else {
-        unavailable();
-      }
-    }
-    function attempt() {
-      void resolve().catch(unavailable);
-    }
-    attempt();
-    return () => {
-      active = false;
-      retry.cancel();
-    };
-  }, [request]);
+        () => committedRequest.current === request,
+        dispatch,
+      ),
+    [request],
+  );
 
   // Mask old content during render, before effect cleanup/reset can run.
   return state.request === request ? state : { status: "loading", request };

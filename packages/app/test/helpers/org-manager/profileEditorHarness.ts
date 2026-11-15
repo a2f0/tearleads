@@ -61,6 +61,7 @@ type ProfileEditorDurableState = {
 export async function createProfileEditorHarness(
   kind: "roster" | "organization",
   access: "read" | "write" = "write",
+  presence: "local" | "undiscovered" = "local",
 ) {
   const database = await createTestExecSql(`mounted-${kind}-profile`);
   const config = {
@@ -88,11 +89,10 @@ export async function createProfileEditorHarness(
           userId: PROFILE_USER_ID,
         }
       : { name: "Existing organization", unknownProfileField: "preserve me" };
-  const firstSdk = new Tearleads(config);
-  firstSdk.network.setOnline(false);
-  let sdk = firstSdk;
-  try {
-    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+  // Real discovery persistence followed by real local materialization, which
+  // publishes the persisted-document notification a content pull would. This
+  // does not claim authenticated network discovery or a database-file reopen.
+  const discover = async (target: Tearleads) => {
     const discovered =
       await defaultDocumentsPersistence.upsertDiscoveredDocument(
         database.execSql,
@@ -106,9 +106,7 @@ export async function createProfileEditorHarness(
         },
       );
     expect(discovered.id).toBe(documentId);
-    // Real discovery persistence followed by real local materialization. This
-    // does not claim authenticated network discovery or a database-file reopen.
-    const backing = firstSdk.documents.open({
+    const backing = target.documents.open({
       containerId: PROFILE_CONTAINER_ID,
       documentId,
       initialDocumentKind: documentKind,
@@ -118,10 +116,10 @@ export async function createProfileEditorHarness(
     await backing.setStructuredFields(documentKind, fields, {
       deferRemoteSync: true,
     });
-    const rowId = await backing.addRow(UNKNOWN_PROFILE_ROW);
+    const addedRowId = await backing.addRow(UNKNOWN_PROFILE_ROW);
     expect(backing.getSnapshot().structuredFields).toMatchObject(fields);
     expect(backing.getSnapshot().rows).toMatchObject([
-      { id: rowId, fields: UNKNOWN_PROFILE_ROW },
+      { id: addedRowId, fields: UNKNOWN_PROFILE_ROW },
     ]);
     if (access === "read") {
       const record = await defaultDocumentsPersistence.loadDocument(
@@ -134,11 +132,19 @@ export async function createProfileEditorHarness(
         effectiveAccessLevel: "read",
       });
     }
+    return addedRowId;
+  };
+  const firstSdk = new Tearleads(config);
+  firstSdk.network.setOnline(false);
+  let sdk = firstSdk;
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    let rowId = presence === "local" ? await discover(firstSdk) : null;
     firstSdk.dispose();
     sdk = new Tearleads(config);
     sdk.network.setOnline(false);
     expect(await sdk.documents.findLocalIdByDocumentId(documentId)).toBe(
-      documentId,
+      presence === "local" ? documentId : null,
     );
     return {
       database,
@@ -146,9 +152,15 @@ export async function createProfileEditorHarness(
       documentKind,
       fields,
       preferredLocalId,
-      rowId,
+      get rowId() {
+        return rowId;
+      },
       get sdk() {
         return sdk;
+      },
+      /** Persist an undiscovered profile through the live SDK. */
+      async discover() {
+        rowId = await discover(sdk);
       },
       async assertOnlyOriginalRecord() {
         expect(

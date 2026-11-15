@@ -208,3 +208,47 @@ test("rechecks scope at the effect after hydration returns", async () => {
     harness.close();
   }
 });
+
+for (const operation of ["update", "remove"] as const) {
+  test(`queued ${operation} refuses a row retyped before SDK admission`, async () => {
+    let retypeId: string | null = null;
+    const harness = await createContactAddressHarness((document) => {
+      // A concurrent change lands after the writer's preflight, while the
+      // SDK write queue has not yet admitted the row mutation.
+      const retype = async () => {
+        const id = retypeId;
+        retypeId = null;
+        if (id) await document.updateRowFields(id, { recordType: "future" });
+      };
+      return {
+        ...document,
+        updateRowFields: async (id, patch, options) => {
+          await retype();
+          await document.updateRowFields(id, patch, options);
+        },
+        removeRow: async (id, options) => {
+          await retype();
+          await document.removeRow(id, options);
+        },
+      };
+    });
+    try {
+      const id = await harness.store.createContact({ firstName: "Ada" });
+      if (!id) throw new Error("Missing contact");
+      const row = await harness.store.addContactAddress(id, fields);
+      if (!row) throw new Error("Missing address");
+      retypeId = row;
+      await expect(
+        operation === "update"
+          ? harness.store.updateContactAddress(id, row, { street: "Other" })
+          : harness.store.removeContactAddress(id, row),
+      ).rejects.toThrow();
+      const rows = harness.documentStores.get(id)?.getSnapshot().rows;
+      expect(rows?.map((entry) => entry.fields)).toEqual([
+        { ...fields, recordType: "future" },
+      ]);
+    } finally {
+      harness.close();
+    }
+  });
+}
