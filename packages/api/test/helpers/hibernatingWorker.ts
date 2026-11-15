@@ -59,6 +59,7 @@ export async function startHibernatingWorker() {
           kind: string;
           message?: string;
           token?: string;
+          checkAt?: number;
         }) => {
           const response = await fetch(control, {
             method: "POST",
