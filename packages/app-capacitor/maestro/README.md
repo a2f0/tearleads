@@ -94,7 +94,7 @@ The runner creates and reuses a dedicated `Tearleads Subscription Review`
 iPhone 16 simulator so it never authenticates an unrelated simulator identity
 against production. Its first run creates one production screenshot identity;
 later runs reuse it. Set `IOS_SCREENSHOT_RUNTIME_VERSION` to override the tested
-iOS 18.0 runtime, or `IOS_SCREENSHOT_DEVICE_UDID` to select an existing dedicated
+iOS 27.2 runtime, or `IOS_SCREENSHOT_DEVICE_UDID` to select an existing dedicated
 simulator with that exact name, model, and runtime. Set
 `SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR` to change the output directory. By
 default the files land in the shared screenshot store that `.screenshots` links
