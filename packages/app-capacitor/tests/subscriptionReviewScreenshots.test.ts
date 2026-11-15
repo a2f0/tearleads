@@ -15,22 +15,30 @@ const verificationFlow = resolve(
   import.meta.dir,
   "../maestro/review/subscription-review-catalog-visible.yaml",
 );
-const runtimeIdentifier = "com.apple.CoreSimulator.SimRuntime.iOS-18-0";
+const runtimeIdentifier = "com.apple.CoreSimulator.SimRuntime.iOS-27-2";
 const deviceTypeIdentifier = "com.apple.CoreSimulator.SimDeviceType.iPhone-16";
 const dedicatedDeviceName = "Tearleads Subscription Review";
 const dedicatedUdid = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA";
 const unrelatedUdid = "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB";
 
-const runtimesJson = JSON.stringify({
-  runtimes: [
-    {
-      identifier: runtimeIdentifier,
-      isAvailable: true,
-      supportedDeviceTypes: [{ identifier: deviceTypeIdentifier }],
-      version: "18.0",
-    },
+const generalRuntime = {
+  identifier: runtimeIdentifier,
+  isAvailable: true,
+  supportedDeviceTypes: [{ identifier: deviceTypeIdentifier }],
+  version: "27.2",
+};
+// Xcode 27.2 also installs this device-specific runtime with the same version
+// and lists it before the general runtime; it cannot run an iPhone 16.
+const deviceSpecificRuntimeIdentifier =
+  "com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4";
+const deviceSpecificRuntime = {
+  identifier: deviceSpecificRuntimeIdentifier,
+  isAvailable: true,
+  supportedDeviceTypes: [
+    { identifier: "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo" },
   ],
-});
+  version: "27.2",
+};
 
 function devicesJson(devices: Array<Record<string, unknown>>) {
   return JSON.stringify({ devices: { [runtimeIdentifier]: devices } });
@@ -122,6 +130,8 @@ async function runScript(options: {
   apiKey?: null | string;
   initialDevices?: Array<Record<string, unknown>>;
   maestroFailCall?: number;
+  runtimes?: Array<Record<string, unknown>>;
+  runtimeVersion?: string;
   selectedUdid?: string;
   sipsOutput?: string;
 }) {
@@ -135,7 +145,8 @@ async function runScript(options: {
   const env: Record<string, string | undefined> = {
     ...process.env,
     IOS_SCREENSHOT_DEVICE_UDID: options.selectedUdid,
-    IOS_SCREENSHOT_RUNTIME_VERSION: "18.0",
+    // Undefined unsets an inherited override, so the script's default applies.
+    IOS_SCREENSHOT_RUNTIME_VERSION: options.runtimeVersion,
     PATH: `${shimDirectory}:${environmentValue("PATH") ?? ""}`,
     SHIM_CREATED_DEVICES_JSON: devicesJson([dedicatedDevice]),
     SHIM_CREATED_FILE: createdFile,
@@ -143,7 +154,9 @@ async function runScript(options: {
     SHIM_INITIAL_DEVICES_JSON: devicesJson(options.initialDevices ?? []),
     SHIM_MAESTRO_COUNT_FILE: resolve(testDirectory, "maestro-count"),
     SHIM_MAESTRO_FAIL_CALL: options.maestroFailCall?.toString(),
-    SHIM_RUNTIMES_JSON: runtimesJson,
+    SHIM_RUNTIMES_JSON: JSON.stringify({
+      runtimes: options.runtimes ?? [generalRuntime],
+    }),
     SHIM_SIPS_OUTPUT:
       options.sipsOutput ?? "pixelWidth: 1179\npixelHeight: 2556\nhasAlpha: no",
     SUBSCRIPTION_REVIEW_TEST_LOG: logPath,
@@ -237,6 +250,30 @@ test("ignores a stale same-name simulator of the wrong model", async () => {
   expect(result.log).toContain(
     `xcrun:simctl create ${dedicatedDeviceName} ${deviceTypeIdentifier} ${runtimeIdentifier}`,
   );
+});
+
+test("skips a same-version runtime that cannot run an iPhone 16", async () => {
+  const result = await runScript({
+    runtimes: [deviceSpecificRuntime, generalRuntime],
+  });
+
+  expect(result.exitCode, result.stderr).toBe(0);
+  // Exact lines: the general identifier is a prefix of the device-specific one.
+  expect(result.log.split("\n")).toContain(
+    `xcrun:simctl create ${dedicatedDeviceName} ${deviceTypeIdentifier} ${runtimeIdentifier}`,
+  );
+  expect(result.log).not.toContain(deviceSpecificRuntimeIdentifier);
+}, 15_000);
+
+test("rejects a requested runtime that is not installed", async () => {
+  const result = await runScript({ runtimeVersion: "18.0" });
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain(
+    "No iOS 18.0 runtime supporting iPhone 16 is installed.",
+  );
+  expect(result.log).not.toContain("xcrun:simctl create");
+  expect(result.log).not.toContain("bun:");
 });
 
 test("rejects a RevenueCat Test Store key before simulator mutation", async () => {
