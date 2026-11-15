@@ -35,7 +35,7 @@ export function cancelFixture(
 ) {
   const f = fixture();
   const wrapper = `terraform/scripts/run-${stack}-stack.sh`;
-  cpSync(join(import.meta.dir, "../..", wrapper), join(f.repo, wrapper));
+  cpSync(join(import.meta.dir, "../../..", wrapper), join(f.repo, wrapper));
   appendFileSync(
     join(f.repo, "terraform/scripts/common.sh"),
     "\nexport_tf_state_env() { :; }\n",
@@ -90,8 +90,8 @@ setInterval(() => {}, 1000);
     join(f.root, "driver.ts"),
     `
 import { writeFileSync } from "node:fs";
-import { ResetRun } from ${JSON.stringify(join(f.repo, "scripts/deploy/softResetRuntime.ts"))};
-import { applyPlan, savedPlan } from ${JSON.stringify(join(f.repo, "scripts/deploy/softResetPlans.ts"))};
+import { ResetRun } from ${JSON.stringify(join(f.repo, "scripts/deploy/softReset/softResetRuntime.ts"))};
+import { applyPlan, savedPlan } from ${JSON.stringify(join(f.repo, "scripts/deploy/softReset/softResetPlans.ts"))};
 const run = new ResetRun(${JSON.stringify(f.repo)}, "prod");
 const path = run.privateDir + "/saved.tfplan";
 const bytes = Buffer.from("inspected fixture bytes");
