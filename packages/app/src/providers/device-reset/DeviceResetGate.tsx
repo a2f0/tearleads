@@ -1,36 +1,48 @@
 import { type PropsWithChildren, useEffect, useReducer } from "react";
 import "../../components/mini-app/controls/MiniAppStatus.css";
-import {
-  isDeviceResetRequested,
-  runRequestedDeviceReset,
-  subscribeDeviceResetRequests,
-} from "./deviceReset";
+import { isDeviceResetRequested, runRequestedDeviceReset } from "./deviceReset";
 import {
   type DeviceResetGateState,
   transitionDeviceResetGate,
 } from "./deviceResetGateState";
+import {
+  holdAppPageLock,
+  reloadOnDeviceResetElsewhere,
+  wasResetElsewhere,
+} from "./deviceResetTabs";
+
+type ClearNativeCache = () => Promise<void>;
 
 interface DeviceResetGateProps extends PropsWithChildren {
+  /** The host's cleanup of files it staged outside WebView storage. */
+  readonly clearNativeCache?: ClearNativeCache | undefined;
   /** Performs the requested reset; tests substitute the page's storage. */
-  readonly completeReset?: () => Promise<void>;
+  readonly completeReset?: (
+    clearNativeCache: ClearNativeCache | undefined,
+  ) => Promise<void>;
 }
 
 /**
  * Holds the app back while a requested device reset wipes this device, so
  * nothing opens storage that is about to be removed. Without a request it
- * renders the app on the first render. When another tab resets the device it
- * unmounts the app, so this page neither holds the old data open nor writes
- * it back, and offers a reload.
+ * renders the app on the first render. While the app is mounted the page holds
+ * the app-pages lock a wipe waits on, and reloads when another page resets the
+ * device, coming back to a notice instead of the app.
  */
 export function DeviceResetGate({
   children,
+  clearNativeCache,
   completeReset = runRequestedDeviceReset,
 }: DeviceResetGateProps) {
   const [state, dispatch] = useReducer(
     transitionDeviceResetGate,
     undefined,
     (): DeviceResetGateState =>
-      isDeviceResetRequested() ? { status: "resetting" } : { status: "ready" },
+      wasResetElsewhere()
+        ? { status: "reset-elsewhere" }
+        : isDeviceResetRequested()
+          ? { status: "resetting" }
+          : { status: "ready" },
   );
 
   useEffect(() => {
@@ -38,7 +50,7 @@ export function DeviceResetGate({
       return;
     }
     let current = true;
-    void completeReset().then(
+    void completeReset(clearNativeCache).then(
       () => {
         if (current) dispatch({ type: "reset-completed" });
       },
@@ -54,17 +66,25 @@ export function DeviceResetGate({
     return () => {
       current = false;
     };
-  }, [completeReset, state.status]);
+  }, [clearNativeCache, completeReset, state.status]);
 
-  useEffect(
-    () =>
-      state.status === "ready"
-        ? subscribeDeviceResetRequests(() =>
-            dispatch({ type: "reset-requested-elsewhere" }),
-          )
-        : undefined,
-    [state.status],
-  );
+  useEffect(() => {
+    if (state.status === "reset-elsewhere") {
+      // What this tab kept for itself predates the reset; the flag that led
+      // here goes with it, so the next reload boots the app.
+      globalThis.sessionStorage?.clear();
+      return;
+    }
+    if (state.status !== "ready") {
+      return;
+    }
+    const releasePageLock = holdAppPageLock();
+    const unsubscribe = reloadOnDeviceResetElsewhere();
+    return () => {
+      unsubscribe();
+      releasePageLock();
+    };
+  }, [state.status]);
 
   if (state.status === "ready") {
     return children;

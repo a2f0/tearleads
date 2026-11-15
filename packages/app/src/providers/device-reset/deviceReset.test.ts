@@ -51,15 +51,19 @@ function seedDeviceData(): void {
   requestDeviceReset(localStorage, () => {});
 }
 
-test("a device reset wipes OPFS, every IndexedDB database, and both storages", async () => {
+test("a device reset wipes OPFS, every IndexedDB database, the native cache, and both storages", async () => {
   seedDeviceData();
   const indexedDb = fakeIndexedDb([
     "tearleads-local-keyring",
     "tearleads-local-keyring-manifests",
   ]);
   let opfsWiped = false;
+  let nativeCacheCleared = false;
 
   await completeDeviceReset({
+    clearNativeCache: async () => {
+      nativeCacheCleared = true;
+    },
     indexedDB: indexedDb.factory,
     localStorage,
     sessionStorage,
@@ -70,6 +74,7 @@ test("a device reset wipes OPFS, every IndexedDB database, and both storages", a
   });
 
   expect(opfsWiped).toBe(true);
+  expect(nativeCacheCleared).toBe(true);
   expect(indexedDb.deleted).toEqual([
     "tearleads-local-keyring",
     "tearleads-local-keyring-manifests",
@@ -84,6 +89,7 @@ test("without main-thread OPFS the reset leaves the OPFS wipe to the database wo
   seedDeviceData();
 
   await completeDeviceReset({
+    clearNativeCache: undefined,
     indexedDB: fakeIndexedDb([]).factory,
     localStorage,
     sessionStorage,
@@ -104,6 +110,7 @@ test("a failed wipe keeps the request and the data so a retry can finish it", as
 
   await expect(
     completeDeviceReset({
+      clearNativeCache: undefined,
       indexedDB: indexedDb.factory,
       localStorage,
       sessionStorage,
@@ -124,6 +131,7 @@ test("a reset abandoned for taking too long stops before its remaining steps", a
   await expect(
     completeDeviceReset(
       {
+        clearNativeCache: undefined,
         indexedDB: indexedDb.factory,
         localStorage,
         sessionStorage,

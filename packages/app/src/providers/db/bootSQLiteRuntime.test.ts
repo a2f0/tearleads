@@ -14,6 +14,7 @@ afterEach(() => {
 // wipe to the page's first database boot.
 async function resetDeviceWithoutMainThreadOpfs(): Promise<void> {
   await completeDeviceReset({
+    clearNativeCache: undefined,
     indexedDB: undefined,
     localStorage,
     sessionStorage: undefined,

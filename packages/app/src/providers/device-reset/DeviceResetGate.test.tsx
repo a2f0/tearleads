@@ -1,12 +1,12 @@
-import { afterEach, expect, test } from "bun:test";
-import { act, cleanup, render } from "@testing-library/react";
-import { useEffect } from "react";
+import { afterEach, expect, spyOn, test } from "bun:test";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { DeviceResetGate } from "./DeviceResetGate";
 import { requestDeviceReset } from "./deviceReset";
 
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  sessionStorage.clear();
 });
 
 function requestReset(): void {
@@ -48,41 +48,41 @@ test("a requested reset holds the app back until the wipe finishes", async () =>
   expect(view.getByText("app")).toBeTruthy();
 });
 
-test("a reset requested in another tab unmounts the app and offers a reload", async () => {
-  let unmounted = false;
-  function App() {
-    useEffect(
-      () => () => {
-        unmounted = true;
-      },
-      [],
-    );
-    return <p>app</p>;
-  }
-  const view = render(
-    <DeviceResetGate completeReset={async () => {}}>
-      <App />
-    </DeviceResetGate>,
-  );
+test("another page's reset reloads this one into a notice instead of the app", async () => {
+  const reload = spyOn(window.location, "reload").mockImplementation(() => {});
   const otherTab = new BroadcastChannel("tearleads.device-reset");
-
   try {
-    // This page's own request reloads it; its broadcast is for other tabs.
+    const before = render(
+      <DeviceResetGate completeReset={async () => {}}>
+        <p>app</p>
+      </DeviceResetGate>,
+    );
+    sessionStorage.setItem("tearleads.documents.session-peer-seed", "7");
+    // This page's own request reloads it through its own path; its broadcast
+    // is for the other pages and is delivered here first.
     requestReset();
-    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
-    expect(view.getByText("app")).toBeTruthy();
-
     otherTab.postMessage("other-page");
 
-    expect(
-      (await view.findByRole("status")).textContent?.includes(
-        "This device was reset in another tab or window.",
-      ),
-    ).toBe(true);
-    expect(unmounted).toBe(true);
-    expect(view.getByRole("button", { name: "Reload" })).toBeTruthy();
+    await waitFor(() => expect(reload).toHaveBeenCalled());
+    expect(reload).toHaveBeenCalledTimes(1);
+    before.unmount();
+
+    // The reloaded page.
+    const after = render(
+      <DeviceResetGate completeReset={async () => {}}>
+        <p>app</p>
+      </DeviceResetGate>,
+    );
+    expect(after.getByRole("status").textContent).toContain(
+      "This device was reset in another tab or window.",
+    );
+    expect(after.getByRole("button", { name: "Reload" })).toBeTruthy();
+    expect(after.queryByText("app")).toBeNull();
+    // What the tab kept for itself predates the reset.
+    expect(sessionStorage.length).toBe(0);
   } finally {
     otherTab.close();
+    reload.mockRestore();
   }
 });
 

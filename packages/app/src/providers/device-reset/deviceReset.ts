@@ -3,33 +3,32 @@ import {
   wipeOpfsStorage,
 } from "@tearleads/client-sdk/sqlite";
 import { getLocalStorage } from "../../utils/storedPreference";
+import { announceDeviceReset, runWithoutAppPages } from "./deviceResetTabs";
 
 // Device reset: erase everything the app keeps on this device and start it
 // fresh, as a reinstall would. Every shell keeps that data in its WebView's
 // origin storage: OPFS (databases, blobs, desktop state), IndexedDB (the local
-// keyring), localStorage, and sessionStorage.
+// keyring), localStorage, and sessionStorage. A shell that stages files
+// outside it (Capacitor's share and preview copies) clears them through its
+// `clearNativeCache` host hook.
 //
 // The running app only records the request and reloads. The next page wipes
-// before it renders anything (DeviceResetGate), so no keyring connection,
-// database worker, or queued write of the old page can hold or rewrite what is
-// being removed. The app's other tabs unmount, releasing the data they hold,
-// and wait for the user to reload them, so only one page boots the fresh
-// device. Pages that do start a reset together wipe one at a time under a Web
-// Lock, and one that gets the lock after the reset finished boots normally.
-// WKWebView (iOS and the macOS desktop shell) exposes OPFS only inside
-// workers, so there the wipe leaves a flag and the page's first database boot
-// has the SQLite worker wipe OPFS before it opens anything.
+// before it renders anything (DeviceResetGate), and only once no other page
+// has the app mounted (deviceResetTabs.ts), so no keyring connection, database
+// worker, or queued write of an old page can hold or rewrite what is being
+// removed. WKWebView (iOS and the macOS desktop shell) exposes OPFS only
+// inside workers, so there the wipe leaves a flag and the page's first
+// database boot has the SQLite worker wipe OPFS before it opens anything.
 
 const DEVICE_RESET_REQUEST_KEY = "tearleads.device-reset.requested";
 const WORKER_STORAGE_WIPE_KEY = "tearleads.device-reset.worker-storage-wipe";
-const DEVICE_RESET_CHANNEL = "tearleads.device-reset";
-const DEVICE_RESET_LOCK = "tearleads.device-reset";
 
 // Long enough for the worker handle release wipeOpfsStorage already waits on;
-// past it, something else (another tab) holds the data.
+// past it, something else (a frozen tab) holds the data.
 const DEVICE_RESET_TIMEOUT_MS = 30_000;
 
 export interface DeviceResetEnvironment {
+  readonly clearNativeCache: (() => Promise<void>) | undefined;
   readonly indexedDB:
     | Pick<IDBFactory, "databases" | "deleteDatabase">
     | undefined;
@@ -38,11 +37,8 @@ export interface DeviceResetEnvironment {
   readonly wipeOpfs: () => Promise<WipeOpfsStorageResult>;
 }
 
-// Tags this page's broadcast, which its own subscription would also receive.
-const PAGE_ID = crypto.randomUUID();
-
 /**
- * Records a device reset, tells the app's other tabs, and reloads into the
+ * Records a device reset, tells the app's other pages, and reloads into the
  * reset.
  */
 export function requestDeviceReset(
@@ -50,26 +46,8 @@ export function requestDeviceReset(
   reload: () => void = () => window.location.reload(),
 ): void {
   storage.setItem(DEVICE_RESET_REQUEST_KEY, "1");
-  if (typeof BroadcastChannel !== "undefined") {
-    const channel = new BroadcastChannel(DEVICE_RESET_CHANNEL);
-    channel.postMessage(PAGE_ID);
-    channel.close();
-  }
+  announceDeviceReset();
   reload();
-}
-
-/** Calls `listener` when another page requests a device reset. */
-export function subscribeDeviceResetRequests(listener: () => void): () => void {
-  if (typeof BroadcastChannel === "undefined") {
-    return () => {};
-  }
-  const channel = new BroadcastChannel(DEVICE_RESET_CHANNEL);
-  channel.onmessage = (event: MessageEvent<unknown>) => {
-    if (event.data !== PAGE_ID) {
-      listener();
-    }
-  };
-  return () => channel.close();
 }
 
 export function isDeviceResetRequested(storage = getLocalStorage()): boolean {
@@ -117,6 +95,8 @@ export async function completeDeviceReset(
     }
   }
   signal?.throwIfAborted();
+  await environment.clearNativeCache?.();
+  signal?.throwIfAborted();
   environment.sessionStorage?.clear();
   environment.localStorage.clear();
   if (opfs === "unavailable") {
@@ -124,26 +104,16 @@ export async function completeDeviceReset(
   }
 }
 
-async function runWithDeviceResetLock(
-  signal: AbortSignal,
-  run: () => Promise<void>,
-): Promise<void> {
-  const locks = typeof navigator === "undefined" ? undefined : navigator.locks;
-  if (locks === undefined) {
-    await run();
-    return;
-  }
-  await locks.request(DEVICE_RESET_LOCK, { signal }, run);
-}
-
 let pendingDeviceReset: Promise<void> | null = null;
 
 /**
- * Runs the requested reset against this page's storage, once per page and one
- * page at a time, failing if it does not finish within
+ * Runs the requested reset against this page's storage, once per page and only
+ * while no other page has the app mounted, failing if it does not finish within
  * {@link DEVICE_RESET_TIMEOUT_MS}.
  */
-export function runRequestedDeviceReset(): Promise<void> {
+export function runRequestedDeviceReset(
+  clearNativeCache: (() => Promise<void>) | undefined,
+): Promise<void> {
   pendingDeviceReset ??= (async () => {
     const timeout = new AbortController();
     const { promise: timedOut, reject } = Promise.withResolvers<never>();
@@ -158,14 +128,15 @@ export function runRequestedDeviceReset(): Promise<void> {
       // The race reports a step that hangs; the signal stops the steps after
       // it.
       await Promise.race([
-        runWithDeviceResetLock(timeout.signal, async () => {
-          // A tab that reloaded with this one may have finished the reset
-          // while this page waited for the lock.
+        runWithoutAppPages(timeout.signal, async () => {
+          // A page that started the same reset may have finished it while
+          // this one waited.
           if (!isDeviceResetRequested()) {
             return;
           }
           await completeDeviceReset(
             {
+              clearNativeCache,
               indexedDB:
                 typeof indexedDB === "undefined"
                   ? undefined
