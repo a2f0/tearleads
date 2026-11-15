@@ -47,7 +47,11 @@
 .routed-pane {
   position: relative;
   min-height: 0;
-  overflow: hidden;
+  /* clip, not hidden: the closed launcher sheet waits translated below the
+     pane, and an overflow: hidden pane still scrolls programmatically, so an
+     accessibility scroll to a tile (VoiceOver, UI tests) shifted the whole pane
+     up by the sheet's height instead of scrolling the sheet. */
+  overflow: clip;
   color: var(--color-dark);
   background: var(--color-light);
   --routed-sidebar-surface: color-mix(
