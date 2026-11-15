@@ -17,6 +17,7 @@ import { useIdentityManager } from "./IdentityManagerController";
 import { useIdentityManagerSidebarPanel } from "./IdentityManagerSidebar";
 import { IdentityManagerMenu } from "./menu/IdentityManagerMenu";
 import { IdentityManagerGeneralSection } from "./panels/IdentityManagerGeneralSection";
+import { IdentityManagerLocalDataSection } from "./panels/IdentityManagerLocalDataSection";
 import { IdentityManagerPinCodeSection } from "./panels/IdentityManagerPinCodeSection";
 import { IdentityManagerRecoveryKeySection } from "./panels/IdentityManagerRecoveryKeySection";
 import type { IdentityManagerView } from "./routes";
@@ -116,6 +117,10 @@ function IdentityManagerSectionContent({
 
   if (view === "pin-lock") {
     return <IdentityManagerPinCodeSection />;
+  }
+
+  if (view === "local-data") {
+    return <IdentityManagerLocalDataSection />;
   }
 
   if (view === "active-sessions") {

@@ -1,6 +1,25 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import {
+  completeDeviceReset,
+  isWorkerStorageWipePending,
+} from "../device-reset/deviceReset";
 import { bootSQLiteRuntime } from "./bootSQLiteRuntime";
+
+afterEach(() => {
+  localStorage.clear();
+});
+
+// The main thread of a WKWebView has no OPFS, so the device reset leaves the
+// wipe to the page's first database boot.
+async function resetDeviceWithoutMainThreadOpfs(): Promise<void> {
+  await completeDeviceReset({
+    indexedDB: undefined,
+    localStorage,
+    sessionStorage: undefined,
+    wipeOpfs: async () => "unavailable",
+  });
+}
 
 function createRuntime(init: SQLiteRuntime["client"]["init"]): SQLiteRuntime {
   const client: SQLiteRuntime["client"] = {
@@ -10,6 +29,7 @@ function createRuntime(init: SQLiteRuntime["client"]["init"]): SQLiteRuntime {
     exec: async () => ({ ok: true, rows: [] }),
     init,
     ping: async () => ({ ok: true, message: "pong" }),
+    wipeStorage: async () => ({ ok: true }),
   };
 
   return {
@@ -164,4 +184,56 @@ test("bootSQLiteRuntime migrates the local schema before features run", async ()
       sql.includes('INSERT INTO "local_schema_migrations"'),
     ),
   ).toBe(true);
+});
+
+test("bootSQLiteRuntime has the worker wipe OPFS for a device reset before opening the database", async () => {
+  await resetDeviceWithoutMainThreadOpfs();
+  const calls: string[] = [];
+  const runtime = createRuntime(async () => {
+    calls.push("init");
+    return { ok: true };
+  });
+  runtime.client.wipeStorage = async () => {
+    calls.push("wipeStorage");
+    return { ok: true };
+  };
+
+  await bootSQLiteRuntime(
+    runtime,
+    "test-db",
+    "memory",
+    async () => "test-key",
+    () => {},
+  );
+
+  expect(calls).toEqual(["wipeStorage", "init"]);
+  expect(isWorkerStorageWipePending()).toBe(false);
+});
+
+test("bootSQLiteRuntime opens nothing when the device-reset wipe fails, and keeps it pending", async () => {
+  await resetDeviceWithoutMainThreadOpfs();
+  const failure = new Error(
+    "Storage can only be wiped before this worker opens a database.",
+  );
+  let initialized = false;
+  const runtime = createRuntime(async () => {
+    initialized = true;
+    return { ok: true };
+  });
+  runtime.client.wipeStorage = async () => {
+    throw failure;
+  };
+
+  await expect(
+    bootSQLiteRuntime(
+      runtime,
+      "test-db",
+      "memory",
+      async () => "test-key",
+      () => {},
+    ),
+  ).rejects.toBe(failure);
+
+  expect(initialized).toBe(false);
+  expect(isWorkerStorageWipePending()).toBe(true);
 });

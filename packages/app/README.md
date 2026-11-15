@@ -64,6 +64,28 @@ the available types as you type. Search matches part of a type's name, ignores
 case and surrounding spaces, and shows a message when nothing matches. Clear
 the search to restore every type, then select a type to open its editor.
 
+## Resetting this device
+
+**Identity Manager → Local Data → Reset Device** erases everything the app
+keeps on the device and restarts it as a fresh install, on web, desktop, and
+mobile alike. A locked keychain offers the same action as **Forgot PIN? Reset
+Device**. Type `reset device` to confirm. Data on the server is not touched;
+an identity's recovery phrase signs it back in.
+
+Every shell keeps local data in its WebView's origin storage: OPFS (the SQLite
+databases, blobs, and desktop state), IndexedDB (the local keyring),
+localStorage, and sessionStorage. Confirming records a request and reloads;
+[`DeviceResetGate`](src/providers/device-reset/DeviceResetGate.tsx) then wipes
+all of it before the app renders, so nothing on the page holds or rewrites the
+data being removed, and the reload restarts the SDK from nothing. WKWebView
+(iOS and the macOS desktop) has no OPFS on the main thread, so there the first
+database boot has the SQLite worker wipe OPFS before it opens anything. On the
+web, the app's other tabs close their copy of the app and offer a reload, so
+only one page boots the fresh device. A tab that cannot respond, such as a
+frozen background tab still holding the database, makes the reset report a
+failure instead of finishing. The web app's offline asset cache is kept; it
+holds no user data.
+
 ## Tests
 
 ```sh

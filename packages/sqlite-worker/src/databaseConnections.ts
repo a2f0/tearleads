@@ -2,6 +2,7 @@ import {
   closeDatabase,
   deleteDatabase,
   execDatabaseStatement,
+  hasPersistentVfs,
   initDatabase,
 } from "./loadSqlite3";
 import type {
@@ -9,6 +10,7 @@ import type {
   DatabaseWorkerExecResult,
   DatabaseWorkerInitOptions,
 } from "./types";
+import { wipeOpfsStorage } from "./wipeOpfsStorage";
 import type { RegisterDatabaseWorkerOptions } from "./workerCore";
 
 type DatabaseHandle = Awaited<ReturnType<typeof initDatabase>>;
@@ -52,6 +54,9 @@ class DatabaseConnectionRegistry {
   private readonly databasesByName = new Map<string, DatabaseEntry>();
   private readonly connectionsByName = new Map<string, Set<ConnectionState>>();
   private readonly lifecycleByName = new Map<string, Promise<void>>();
+  private initializingConnections = 0;
+  // Opening waits on a running wipe so no database lands in storage mid-wipe.
+  private storageWipe: Promise<void> = Promise.resolve();
 
   createConnection(): RegisterDatabaseWorkerOptions {
     const state: ConnectionState = {
@@ -65,6 +70,7 @@ class DatabaseConnectionRegistry {
       onExec: (options) => this.execForConnection(state, options),
       onClose: () => this.closeConnection(state),
       onDelete: () => this.deleteConnection(state),
+      onWipeStorage: () => this.wipeStorage(),
     };
   }
 
@@ -78,6 +84,7 @@ class DatabaseConnectionRegistry {
 
     const generation = state.generation;
     state.initializing = true;
+    this.initializingConnections += 1;
 
     try {
       const entry = await this.acquireDatabase(options);
@@ -92,6 +99,7 @@ class DatabaseConnectionRegistry {
       this.addConnection(entry.dbName, state);
     } finally {
       state.initializing = false;
+      this.initializingConnections -= 1;
     }
   }
 
@@ -113,11 +121,29 @@ class DatabaseConnectionRegistry {
     return runQueued(entry, () => execDatabaseStatement(entry.db, options));
   }
 
+  private async wipeStorage(): Promise<void> {
+    if (
+      this.initializingConnections > 0 ||
+      this.databasesByName.size > 0 ||
+      hasPersistentVfs()
+    ) {
+      throw new Error(
+        "Storage can only be wiped before this worker opens a database.",
+      );
+    }
+
+    const wipe = wipeOpfsStorage().then(() => undefined);
+    this.storageWipe = wipe.catch(() => undefined);
+    await wipe;
+  }
+
   private async acquireDatabase(
     options: DatabaseWorkerInitOptions,
   ): Promise<DatabaseEntry> {
     const { dbName } = options;
     const optionsKey = initOptionsKey(options);
+
+    await this.storageWipe;
 
     await this.waitForLifecycle(dbName);
 

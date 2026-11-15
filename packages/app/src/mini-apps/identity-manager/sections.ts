@@ -1,4 +1,5 @@
 import { DevicesIcon } from "@phosphor-icons/react/dist/csr/Devices";
+import { HardDriveIcon } from "@phosphor-icons/react/dist/csr/HardDrive";
 import { IdentificationCardIcon } from "@phosphor-icons/react/dist/csr/IdentificationCard";
 import { KeyIcon } from "@phosphor-icons/react/dist/csr/Key";
 import { LockIcon } from "@phosphor-icons/react/dist/csr/Lock";
@@ -20,4 +21,5 @@ export const IDENTITY_MANAGER_SECTIONS: ReadonlyArray<
     label: "Active Sessions",
     view: "active-sessions",
   },
+  { icon: HardDriveIcon, label: "Local Data", view: "local-data" },
 ];

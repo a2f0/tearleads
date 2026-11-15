@@ -5,6 +5,10 @@ import {
   type DatabaseWorkerScope,
   registerDatabaseWorker,
 } from "../src/workerCore";
+import {
+  installOpfsMemoryShim,
+  uninstallOpfsMemoryShim,
+} from "./opfsMemoryShim";
 
 class MockWorkerScope implements DatabaseWorkerScope {
   listener:
@@ -194,4 +198,37 @@ test("same database with different init options is rejected", async () => {
       message: "Database is already initialized with different options.",
     },
   });
+});
+
+test("a worker that has opened persistent storage refuses to wipe it", async () => {
+  installOpfsMemoryShim();
+  const scope = connectSharedWorkerPort(
+    createDatabaseWorkerConnectionFactory(),
+  );
+  const dbName = `/wipe-${crypto.randomUUID()}.db`;
+
+  try {
+    expect(
+      await scope.dispatch(
+        request(1, "init", {
+          cipher: "chacha20",
+          dbName,
+          key: "secret",
+          persistence: "opfs-sahpool",
+        }),
+      ),
+    ).toEqual({ id: 1, result: { ok: true } });
+
+    expect(await scope.dispatch(request(2, "wipeStorage", undefined))).toEqual({
+      id: 2,
+      result: {
+        ok: false,
+        message:
+          "Storage can only be wiped before this worker opens a database.",
+      },
+    });
+  } finally {
+    await scope.dispatch(request(3, "delete", undefined));
+    uninstallOpfsMemoryShim();
+  }
 });

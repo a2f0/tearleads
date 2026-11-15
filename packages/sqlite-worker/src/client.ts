@@ -6,6 +6,7 @@ import type {
   DatabaseWorkerInitOptions,
   DatabaseWorkerPingResult,
   DatabaseWorkerReady,
+  DatabaseWorkerStorageWiped,
   WorkerMethod,
   WorkerRequestMap,
 } from "./types";
@@ -27,6 +28,12 @@ export interface DatabaseWorkerClient {
    * releases the handles). Callers terminate the worker after this resolves.
    */
   delete(): Promise<DatabaseWorkerDeleted>;
+  /**
+   * Device reset: ask the worker to remove everything in this origin's OPFS.
+   * Only a worker that has not opened persistent storage accepts it; the app
+   * sends it before the page's first `init` when the main thread has no OPFS.
+   */
+  wipeStorage(): Promise<DatabaseWorkerStorageWiped>;
   destroy(): void;
 }
 
@@ -148,6 +155,10 @@ export function createDatabaseWorkerClient(
     params: undefined,
   ): Promise<DatabaseWorkerDeleted>;
   function request(
+    method: "wipeStorage",
+    params: undefined,
+  ): Promise<DatabaseWorkerStorageWiped>;
+  function request(
     method: WorkerMethod,
     params: WorkerRequestMap[WorkerMethod]["params"],
   ): Promise<WorkerRequestMap[WorkerMethod]["result"]> {
@@ -187,6 +198,9 @@ export function createDatabaseWorkerClient(
     },
     delete() {
       return request("delete", undefined);
+    },
+    wipeStorage() {
+      return request("wipeStorage", undefined);
     },
     destroy() {
       if (isDestroyed) {

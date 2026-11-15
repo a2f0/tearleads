@@ -25,6 +25,7 @@ the host-facing contract. It may depend on `@tearleads/sqlite-instance` only.
 | `./default-thread` | A ready-made worker entry module |
 | `./load-sqlite3` | Load SQLite and open, close, or delete a database |
 | `./purge-opfs-database` | Remove a database's OPFS storage |
+| `./wipe-opfs-storage` | Remove everything in the origin's OPFS (device reset) |
 | `./assets` | The default worker entry point URL |
 
 Persistence is opt-in: `persistence` defaults to `"memory"`, and

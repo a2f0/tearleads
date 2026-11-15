@@ -12,6 +12,7 @@
     "./purge-opfs-database": "./src/purgeOpfsDatabase.ts",
     "./runtime": "./src/runtime.ts",
     "./types": "./src/types.ts",
+    "./wipe-opfs-storage": "./src/wipeOpfsStorage.ts",
     "./worker": "./src/worker.ts",
     "./worker-core": "./src/workerCore.ts"
   },

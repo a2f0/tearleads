@@ -23,6 +23,7 @@ test("identity manager routes preserve each section", () => {
     "recovery-key",
     "pin-lock",
     "active-sessions",
+    "local-data",
   ] as const) {
     expect(parseIdentityManagerRouteSegments([view])).toBe(view);
     expect(formatIdentityManagerRouteSegments(view)).toEqual([view]);
