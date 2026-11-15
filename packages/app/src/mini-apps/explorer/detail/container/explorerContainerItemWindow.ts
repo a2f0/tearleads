@@ -21,12 +21,12 @@ import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
  *
  * Three places have to agree on the pitch — the virtual window math (which
  * derives the fetched limit/offset in ExplorerContainerDetail), the spacer
- * padding, and the frame's `--mini-app-virtual-row-height` — or the requested
- * and served offsets diverge and the detail pane blanks the table (see
- * `isShowingRequestedWindow`). That is why this takes `narrowFrame` as an
- * argument rather than measuring: only the detail pane owns the scroll frame,
- * so it measures once and hands the result down, and the item table cannot
- * derive a second, disagreeing answer.
+ * padding, and the frame's `--mini-app-virtual-row-height` — or the spacers
+ * place the fetched rows away from the scroll offset that requested them, and
+ * the viewport shows padding instead of rows. That is why this takes
+ * `narrowFrame` as an argument rather than measuring: only the detail pane owns
+ * the scroll frame, so it measures once and hands the result down, and the item
+ * table cannot derive a second, disagreeing answer.
  *
  * `useTouchRowHeight` mirrors the bump `useMiniAppVirtualWindow` already
  * applies internally, so the rendered pitch and the window math also agree on
@@ -89,8 +89,9 @@ const EMPTY_CONTAINER_ITEM_WINDOW_STATE: ContainerItemWindowState = {
 // revision bumps, viewport-driven limit changes) must not flash the loading
 // row over settled content — an empty container would otherwise flicker
 // between "No items." and "Loading..." on every convergence event. Loading is
-// only surfaced before the container's first result, or when the requested
-// scroll window's rows are genuinely absent (totalCount > 0, rows off-window).
+// only surfaced before the container's first result, or while a refetch runs
+// for a served window that holds no rows although the container has items (a
+// window past the end of a list that shrank).
 function getContainerItemWindowView(
   state: ContainerItemWindowState,
   enabled: boolean,
@@ -114,12 +115,16 @@ function getContainerItemWindowView(
 
 // A refetch for the already-loaded container keeps the settled rows/count on
 // screen (stale-while-revalidate); only a container switch resets the window.
+// It keeps a previous failure too, until a load succeeds: the detail pane
+// reports that failure in a status line above the list, so clearing it when a
+// request starts would resize the scroll frame, re-derive the window limit, and
+// turn a persistent failure into a refetch loop that flashes the line.
 function startContainerItemWindowLoad(
   current: ContainerItemWindowState,
   containerId: string,
 ): ContainerItemWindowState {
   return current.loadedContainerId === containerId
-    ? { ...current, error: null, isLoading: true }
+    ? { ...current, isLoading: true }
     : { ...EMPTY_CONTAINER_ITEM_WINDOW_STATE, isLoading: true };
 }
 
