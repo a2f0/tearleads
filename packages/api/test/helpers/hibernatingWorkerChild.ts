@@ -43,6 +43,7 @@ const control = createServer(async (request, response) => {
       kind: string;
       message?: string;
       token?: string;
+      checkAt?: number;
     };
     console.log(`Hibernation command ${input.kind}`);
     if (input.kind === "hibernate") {
@@ -63,6 +64,9 @@ const control = createServer(async (request, response) => {
       input.kind === "schedule-session-check" ||
       input.kind === "expire-proofs"
     ) {
+      const { checkAt } = input;
+      if (input.kind === "schedule-session-check" && checkAt === undefined)
+        throw new Error("schedule-session-check needs checkAt");
       const sql = await worker.getDurableObjectStorage("RealtimeHub", {
         name: "hub",
       });
@@ -82,10 +86,7 @@ const control = createServer(async (request, response) => {
         const updated =
           input.kind === "expire-proofs"
             ? { ...saved, verifiedAt: Date.now() - 16 * 60_000 }
-            : {
-                ...saved,
-                session: { ...saved.session, nextCheckAt: Date.now() + 1_000 },
-              };
+            : { ...saved, session: { ...saved.session, nextCheckAt: checkAt } };
         await sql.exec(
           "UPDATE realtime_socket_chunks SET snapshot = ? WHERE id = ? AND part = 0",
           JSON.stringify(updated),

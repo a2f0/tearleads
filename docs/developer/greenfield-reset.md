@@ -37,7 +37,7 @@ Authoritative details:
 
 ## Web-only soft-reset command
 
-Use [`scripts/deploy/softReset.ts`](../../scripts/deploy/softReset.ts) for the
+Use [`softReset.ts`](../../scripts/deploy/softReset/softReset.ts) for the
 application-only reset with **no native mobile or desktop builds/releases**:
 
 ```sh
@@ -142,8 +142,8 @@ Each authorized run creates a mode-0700 directory under
 that same location. All clones using the same OS home share that lock; do not
 change `HOME` to evade it. `timings.json` records the pinned source, each
 started phase's status/elapsed milliseconds, and total runtime. The terminal
-prints the same summary on success, failure, SIGINT, SIGTERM, or SIGHUP.
-Cancellation exits with the first signal's code: 130 for SIGINT, 143 for
+prints it with `15m30.204s` durations on success, failure, SIGINT, SIGTERM, or
+SIGHUP. Cancellation exits with the first signal's code: 130 for SIGINT, 143 for
 SIGTERM, and 129 for SIGHUP. Later operator signals do not accelerate teardown
 or change that code, including when automatic cleanup began first. An operator
 signal during natural-exit observation starts the full policy grace; signals

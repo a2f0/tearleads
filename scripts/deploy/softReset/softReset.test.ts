@@ -200,7 +200,7 @@ for (const stack of ["postgres", "storage"]) {
   test(`production ${stack} refusal describes the direct command boundary`, () => {
     const wrapper = join(
       import.meta.dir,
-      `../../terraform/scripts/run-${stack}-stack.sh`,
+      `../../../terraform/scripts/run-${stack}-stack.sh`,
     );
     const result = Bun.spawnSync(["/bin/bash", wrapper, "prod", "destroy"], {
       env: { PATH: "/usr/bin:/bin", HOME: "/nonexistent" },

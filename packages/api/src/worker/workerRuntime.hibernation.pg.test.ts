@@ -152,27 +152,41 @@ describe.skipIf(databaseKind !== "postgres")(
     test("a durable alarm wakes an idle hub and closes an expired session", async () => {
       const user = createTestUser();
       await registerUser(user);
-      const token = await loginThroughWorker(worker.origin, user);
-      const socket = await openRealtimeSocket(worker.origin, token);
-      // Deleting the session without publication models natural expiry or a
-      // missed revocation. Bring its persisted check forward to keep the test short.
-      await worker.command({ kind: "expire-session", token });
-      await worker.command({ kind: "schedule-session-check" });
-      await worker.command({ kind: "hibernate" });
-      await worker.command({ kind: "publish", message: "{}" });
-      // Persist the earlier check, then evict again: only the durable alarm
-      // can wake the object, with no intervening request or resident timer.
-      await worker.command({ kind: "hibernate" });
-      expect(socket.socket.readyState).toBe(WebSocket.OPEN);
-      const closed = await Promise.race([
-        socket.closed,
-        Bun.sleep(10_000).then(() => {
-          throw new Error("Durable alarm did not close expired session");
-        }),
-      ]);
-      expect(closed.code).toBe(1008);
-      expect(closed.reason).toBe("Session ended");
-    }, 30_000);
+      // The durable alarm runs on workerd's real clock, which no fake timer
+      // reaches. The check must fall due only after the second eviction, or the
+      // waking publish or the still-resident hub closes the socket instead. A
+      // loaded runner can spend any fixed delay on the commands in between, so
+      // an attempt that outlasts its delay retries with a longer one.
+      for (const delayMs of [1_000, 4_000, 16_000]) {
+        const token = await loginThroughWorker(worker.origin, user);
+        const socket = await openRealtimeSocket(worker.origin, token);
+        // Deleting the session without publication models natural expiry or a
+        // missed revocation. Bring its persisted check forward to keep the test short.
+        await worker.command({ kind: "expire-session", token });
+        const checkAt = Date.now() + delayMs;
+        await worker.command({ kind: "schedule-session-check", checkAt });
+        await worker.command({ kind: "hibernate" });
+        await worker.command({ kind: "publish", message: "{}" });
+        // Persist the earlier check, then evict again: only the durable alarm
+        // can wake the object, with no intervening request or resident timer.
+        await worker.command({ kind: "hibernate" });
+        if (Date.now() >= checkAt) {
+          socket.socket.close(1000, "retry");
+          continue;
+        }
+        expect(socket.socket.readyState).toBe(WebSocket.OPEN);
+        const closed = await Promise.race([
+          socket.closed,
+          Bun.sleep(delayMs + 10_000).then(() => {
+            throw new Error("Durable alarm did not close expired session");
+          }),
+        ]);
+        expect(closed.code).toBe(1008);
+        expect(closed.reason).toBe("Session ended");
+        return;
+      }
+      throw new Error("Hibernation commands outlasted every check delay");
+    }, 60_000);
 
     test("expired proofs are evicted before routing the event that wakes the hub", async () => {
       const user = createTestUser();
