@@ -17,6 +17,7 @@ import {
   MiniAppStatus,
   MiniAppToolbar,
 } from "../components/mini-app/MiniAppLayout";
+import { ResetDeviceConfirmationDialog } from "../components/shared/ResetDeviceConfirmationDialog";
 import { useAccountBootstrapProgress } from "../identity/useAccountBootstrapProgress";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
@@ -190,6 +191,7 @@ function LocalKeyringUnlockPanel({ appName }: { appName: string }) {
   const [pinCode, setPinCode] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   const unlock = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -218,31 +220,46 @@ function LocalKeyringUnlockPanel({ appName }: { appName: string }) {
   };
 
   return (
-    <MiniAppFormPanel
-      className="local-keyring-unlock-gate-panel"
-      onSubmit={unlock}
-    >
-      <div className="local-keyring-unlock-copy">
-        <h2>Local keychain locked</h2>
-        <p>Unlock your local keys to open {appName}.</p>
-      </div>
-      <MiniAppField>
-        <span>PIN code</span>
-        <MiniAppInput
-          autoComplete="current-password"
-          disabled={unlocking}
-          inputMode="numeric"
-          type="password"
-          value={pinCode}
-          onChange={(event) => setPinCode(event.currentTarget.value)}
+    <>
+      <MiniAppFormPanel
+        className="local-keyring-unlock-gate-panel"
+        onSubmit={unlock}
+      >
+        <div className="local-keyring-unlock-copy">
+          <h2>Local keychain locked</h2>
+          <p>Unlock your local keys to open {appName}.</p>
+        </div>
+        <MiniAppField>
+          <span>PIN code</span>
+          <MiniAppInput
+            autoComplete="current-password"
+            disabled={unlocking}
+            inputMode="numeric"
+            type="password"
+            value={pinCode}
+            onChange={(event) => setPinCode(event.currentTarget.value)}
+          />
+        </MiniAppField>
+        {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
+        <MiniAppToolbar>
+          <MiniAppButton disabled={unlocking} type="submit">
+            {unlocking ? "Unlocking..." : "Unlock"}
+          </MiniAppButton>
+          {/* Without the PIN, a reset is the only way back into the app. */}
+          <MiniAppButton
+            disabled={unlocking}
+            onClick={() => setConfirmingReset(true)}
+            variant="ghost"
+          >
+            Forgot PIN? Reset Device
+          </MiniAppButton>
+        </MiniAppToolbar>
+      </MiniAppFormPanel>
+      {confirmingReset && (
+        <ResetDeviceConfirmationDialog
+          onCancel={() => setConfirmingReset(false)}
         />
-      </MiniAppField>
-      {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
-      <MiniAppToolbar>
-        <MiniAppButton disabled={unlocking} type="submit">
-          {unlocking ? "Unlocking..." : "Unlock"}
-        </MiniAppButton>
-      </MiniAppToolbar>
-    </MiniAppFormPanel>
+      )}
+    </>
   );
 }

@@ -40,6 +40,7 @@ export function createRetryableSQLiteRuntimeFactory() {
           return { ok: true };
         },
         ping: async () => ({ ok: true, message: "pong" }),
+        wipeStorage: async () => ({ ok: true }),
       };
 
       return {
@@ -145,6 +146,7 @@ export function createReusableSQLiteRuntimeFactory(options?: {
             return { ok: true };
           },
           ping: async () => ({ ok: true, message: "pong" }),
+          wipeStorage: async () => ({ ok: true }),
         };
       };
 
@@ -236,6 +238,7 @@ export function createBootTimeoutSQLiteRuntimeFactory(failureCount: number) {
           return { ok: true };
         },
         ping: async () => ({ ok: true, message: "pong" }),
+        wipeStorage: async () => ({ ok: true }),
       };
 
       return {
@@ -274,6 +277,7 @@ export function createCrashableSQLiteRuntimeFactory() {
         exec: async () => ({ ok: true, rows: [] }),
         init: async () => ({ ok: true }),
         ping: async () => ({ ok: true, message: "pong" }),
+        wipeStorage: async () => ({ ok: true }),
       };
 
       return {
@@ -310,6 +314,7 @@ export function createRecordingSQLiteRuntimeFactory() {
           return { ok: true };
         },
         ping: async () => ({ ok: true, message: "pong" }),
+        wipeStorage: async () => ({ ok: true }),
       };
 
       return {
@@ -372,6 +377,7 @@ export function createRestartSensitiveSQLiteRuntimeFactory() {
           return { ok: true };
         },
         ping: async () => ({ ok: true, message: "pong" }),
+        wipeStorage: async () => ({ ok: true }),
       };
       const terminate = () => {
         if (terminated) {
@@ -427,6 +433,7 @@ export function createUnreadableUnwipeableSQLiteRuntimeFactory() {
         },
         init: async () => ({ ok: true }),
         ping: async () => ({ ok: true, message: "pong" }),
+        wipeStorage: async () => ({ ok: true }),
       };
 
       return {
@@ -472,6 +479,7 @@ export function createUnreadableThenHealedSQLiteRuntimeFactory() {
         },
         init: async () => ({ ok: true }),
         ping: async () => ({ ok: true, message: "pong" }),
+        wipeStorage: async () => ({ ok: true }),
       };
 
       return {

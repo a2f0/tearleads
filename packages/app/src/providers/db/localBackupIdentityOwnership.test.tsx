@@ -80,6 +80,7 @@ test.each([false, true])(
           return { ok: true };
         },
         ping: async () => ({ ok: true, message: "pong" }),
+        wipeStorage: async () => ({ ok: true }),
       };
       return {
         client,

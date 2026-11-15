@@ -3,7 +3,8 @@ export type IdentityManagerView =
   | "general"
   | "recovery-key"
   | "pin-lock"
-  | "active-sessions";
+  | "active-sessions"
+  | "local-data";
 
 export function parseIdentityManagerRouteSegments(
   pathSegments: ReadonlyArray<string>,
@@ -14,7 +15,8 @@ export function parseIdentityManagerRouteSegments(
     view === "general" ||
     view === "recovery-key" ||
     view === "pin-lock" ||
-    view === "active-sessions"
+    view === "active-sessions" ||
+    view === "local-data"
   ) {
     return view;
   }

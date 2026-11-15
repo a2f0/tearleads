@@ -223,6 +223,12 @@ export interface AppHostConfigOptions {
    * from a build that simply has no version.
    */
   readonly buildInfo?: AppBuildInfo | undefined;
+  /**
+   * Device reset: removes files the shell staged outside WebView storage.
+   * Capacitor supplies one for the decrypted share and preview copies it keeps
+   * in the native cache directory; shells that stage nothing omit it.
+   */
+  readonly clearNativeCache?: (() => Promise<void>) | undefined;
   readonly createBlobStore?: BlobStoreFactory | undefined;
   readonly createLocalKeyring?: CreateLocalKeyringFn | undefined;
   /**

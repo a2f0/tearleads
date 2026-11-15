@@ -5,6 +5,10 @@ import {
   type DatabaseWorkerScope,
   registerDatabaseWorker,
 } from "../src/workerCore";
+import {
+  installOpfsMemoryShim,
+  uninstallOpfsMemoryShim,
+} from "./opfsMemoryShim";
 
 class MockWorkerScope implements DatabaseWorkerScope {
   listener:
@@ -194,4 +198,99 @@ test("same database with different init options is rejected", async () => {
       message: "Database is already initialized with different options.",
     },
   });
+});
+
+test("a worker that has opened persistent storage refuses to wipe it", async () => {
+  installOpfsMemoryShim();
+  const scope = connectSharedWorkerPort(
+    createDatabaseWorkerConnectionFactory(),
+  );
+  const dbName = `/wipe-${crypto.randomUUID()}.db`;
+
+  try {
+    expect(
+      await scope.dispatch(
+        request(1, "init", {
+          cipher: "chacha20",
+          dbName,
+          key: "secret",
+          persistence: "opfs-sahpool",
+        }),
+      ),
+    ).toEqual({ id: 1, result: { ok: true } });
+
+    expect(await scope.dispatch(request(2, "wipeStorage", undefined))).toEqual({
+      id: 2,
+      result: {
+        ok: false,
+        message:
+          "Storage can only be wiped before this worker opens a database.",
+      },
+    });
+  } finally {
+    await scope.dispatch(request(3, "delete", undefined));
+    uninstallOpfsMemoryShim();
+  }
+});
+
+test("a database opens only after every overlapping storage wipe finishes", async () => {
+  const previousNavigator = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "navigator",
+  );
+  const firstRemoval = Promise.withResolvers<void>();
+  let removals = 0;
+  // Only the first wipe is slow; a second one finds nothing left to wait on.
+  const root = {
+    async *entries() {
+      yield ["tearleads-sqlite", {}] as const;
+    },
+    async removeEntry() {
+      removals += 1;
+      if (removals === 1) {
+        await firstRemoval.promise;
+      }
+    },
+  };
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: { storage: { getDirectory: async () => root } },
+    writable: true,
+  });
+  const scope = connectSharedWorkerPort(
+    createDatabaseWorkerConnectionFactory(),
+  );
+  const send = (message: WorkerRequest) =>
+    scope.listener?.(new MessageEvent("message", { data: message }));
+
+  try {
+    const settled = [
+      send(request(1, "wipeStorage", undefined)),
+      send(request(2, "wipeStorage", undefined)),
+      send(request(3, "init", initOptions(`wiped-${crypto.randomUUID()}.db`))),
+    ];
+    // Give an unserialized open time to finish while the first wipe runs. A
+    // real delay: opening is SQLite work, and a correct registry never signals
+    // it before the wipe is released, so there is no event to await instead.
+    await Promise.race([
+      settled[2],
+      new Promise((resolve) => setTimeout(resolve, 200)),
+    ]);
+    firstRemoval.resolve();
+    await Promise.all(settled);
+
+    expect(scope.messages).toEqual([
+      { id: 1, result: { ok: true } },
+      { id: 2, result: { ok: true } },
+      { id: 3, result: { ok: true } },
+    ]);
+  } finally {
+    firstRemoval.resolve();
+    await scope.dispatch(request(4, "delete", undefined));
+    if (previousNavigator) {
+      Object.defineProperty(globalThis, "navigator", previousNavigator);
+    } else {
+      Reflect.deleteProperty(globalThis, "navigator");
+    }
+  }
 });

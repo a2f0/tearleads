@@ -476,4 +476,13 @@ export function deleteDatabase(
   );
 }
 
+/**
+ * Whether this worker has installed a persistent SAHPool VFS. An installed
+ * pool holds, or can resume, access handles on its OPFS files, so a device
+ * reset must wipe OPFS before the first one.
+ */
+export function hasPersistentVfs(): boolean {
+  return persistentVfsEntriesByStorageKey.size > 0;
+}
+
 export { execDatabaseStatement } from "./executeStatement";

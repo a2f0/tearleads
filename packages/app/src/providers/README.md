@@ -12,6 +12,11 @@ provider order for a pane.
 Presentation code should use that aggregate provider instead of rebuilding the
 individual runtime provider stack.
 
+[`device-reset/`](device-reset/deviceReset.ts) sits above the pane runtimes:
+[`DeviceResetGate`](device-reset/DeviceResetGate.tsx) wraps the whole layout in
+[`App.tsx`](../App.tsx) and performs a requested device reset before any
+provider opens storage.
+
 Domain stores and feature-level context adapters live under
 [`../stores/`](../stores/).
 Component-local providers may stay under [`components/`](../components/) when

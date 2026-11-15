@@ -64,6 +64,36 @@ the available types as you type. Search matches part of a type's name, ignores
 case and surrounding spaces, and shows a message when nothing matches. Clear
 the search to restore every type, then select a type to open its editor.
 
+## Resetting this device
+
+**Identity Manager → Local Data → Reset Device** erases everything the app
+keeps on the device and restarts it as a fresh install, on web, desktop, and
+mobile alike. A locked keychain offers the same action as **Forgot PIN? Reset
+Device**. Type `reset device` to confirm. Data on the server is not touched;
+an identity's recovery phrase signs it back in.
+
+Every shell keeps local data in its WebView's origin storage: OPFS (the SQLite
+databases, blobs, and desktop state), IndexedDB (the local keyring),
+localStorage, and sessionStorage. Capacitor also stages decrypted share and
+preview copies in its native cache directory, which it clears through the
+`clearNativeCache` host hook. Confirming records a request and reloads;
+[`DeviceResetGate`](src/providers/device-reset/DeviceResetGate.tsx) then wipes
+all of it before the app renders, so nothing on the page holds or rewrites the
+data being removed, and the reload restarts the SDK from nothing. WKWebView
+(iOS and the macOS desktop) has no OPFS on the main thread, so there the first
+database boot has the SQLite worker wipe OPFS before it opens anything.
+
+On the web, the app's other tabs reload when a reset starts and come back to a
+notice instead of the app, so only one page boots the fresh device. A page
+mounts the app only once it holds a shared Web Lock, and keeps it while the
+app is mounted; the wipe takes that lock exclusively, so it starts only after
+those pages have unloaded and none of their in-flight writes can land
+afterwards. A page that gets its lock while a reset is pending stops at the
+notice. A tab that cannot unload, such as a frozen background tab, makes the
+reset time out and report a failure; the reset then has to be retried,
+because part of the device may already be wiped.
+The web app's offline asset cache is kept; it holds no user data.
+
 ## Tests
 
 ```sh

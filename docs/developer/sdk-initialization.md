@@ -55,6 +55,7 @@ SQLite vocabulary:
 | `defineSqlTableSchema(table)` | Rendering app-owned Drizzle SQLite table definitions for `ensureSqlTables` |
 | `ExecSql`, `SqlTableSchema`, `ensureSqlTables`, `runSerializedSqlMutation` | Explicit executor, schema, and mutation helpers for host-owned persistence edges |
 | `resetConnectionSchemaMemo(execSql)` | Forgetting the connection's completed schema-ensure memo after a host operation rebuilds tables out from under the runtime (local backup restore) |
+| `wipeOpfsStorage(options?)` | Device reset: removing every entry in the origin's OPFS. It resolves `"unavailable"` where the calling thread has no OPFS (a WKWebView main thread); there the worker client's `wipeStorage()`, sent before the first `init`, does the same |
 
 Host runtime code should use this facade instead of importing
 `createDatabaseRuntime`, `createModuleDatabaseRuntime`, `DatabaseRuntime`, or

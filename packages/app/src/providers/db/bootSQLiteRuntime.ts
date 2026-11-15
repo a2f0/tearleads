@@ -7,6 +7,10 @@ import {
   type SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
+import {
+  clearWorkerStorageWipePending,
+  isWorkerStorageWipePending,
+} from "../device-reset/deviceReset";
 import { dumpDatabaseCharacteristics } from "./dumpDatabaseCharacteristics";
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
 
@@ -129,6 +133,28 @@ async function requestDurableStorage(
   }
 }
 
+// A device reset could not reach OPFS from the main thread (WKWebView), so the
+// page's first worker wipes it before opening anything. The flag stays until
+// the wipe succeeds, so a failed boot retries it.
+async function finishDeviceResetStorageWipe(
+  runtime: SQLiteRuntime,
+  log: (message: string) => void,
+): Promise<void> {
+  try {
+    await withBootRoundTripTimeout(
+      runtime.client.wipeStorage(),
+      "device reset storage wipe",
+    );
+  } catch (error) {
+    log(
+      `Failed to wipe storage for the device reset: ${describeBootError(error)}`,
+    );
+    throw error;
+  }
+  clearWorkerStorageWipePending();
+  log("Wiped storage for the device reset");
+}
+
 // Opens the SQLite database for the given name and applies the cipher key, then
 // reports the mounted database's shape before features lazily create tables.
 export async function bootSQLiteRuntime(
@@ -141,6 +167,10 @@ export async function bootSQLiteRuntime(
   const backend = persistence === "memory" ? "in-memory" : "persistent OPFS";
   log("Loading SQLite3 WASM module...");
   log(`Initializing database: ${dbName} (${backend})`);
+
+  if (isWorkerStorageWipePending()) {
+    await finishDeviceResetStorageWipe(runtime, log);
+  }
 
   if (persistence !== "memory") {
     // Request durable storage BEFORE the first write. A granted persistence

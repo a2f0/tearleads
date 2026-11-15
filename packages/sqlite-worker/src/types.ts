@@ -64,6 +64,10 @@ export interface DatabaseWorkerDeleted {
   ok: true;
 }
 
+export interface DatabaseWorkerStorageWiped {
+  ok: true;
+}
+
 export interface DatabaseWorkerPingResult {
   ok: true;
   message: "pong";
@@ -101,6 +105,13 @@ export interface WorkerRequestMap {
   delete: {
     params: undefined;
     result: DatabaseWorkerDeleted;
+  };
+  // Device reset: remove everything in this origin's OPFS from the worker, for
+  // shells whose main thread has no OPFS (WKWebView). Rejected once this worker
+  // has opened persistent storage, whose access handles it would still hold.
+  wipeStorage: {
+    params: undefined;
+    result: DatabaseWorkerStorageWiped;
   };
 }
 
