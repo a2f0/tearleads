@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import type { useDocument } from "../../../stores/documents/DocumentsProvider";
 import {
-  isProfileDocumentScopeCurrent,
-  useProfileDocumentScope,
-} from "../../../stores/org-manager/profileDocumentScope";
+  isDocumentsAuthorityCurrent,
+  useDocumentsAuthorityGeneration,
+} from "../../../stores/documents/documentsAuthority";
 import { transitionProfileDocumentRequest } from "./profileDocumentRequestMachine";
 
 /** Relink the resolved local record, without turning read access into write. */
@@ -20,17 +21,27 @@ export function useProfileDocumentLink({
   relink: ReturnType<typeof useDocument>["relink"];
   relinkInput: Parameters<ReturnType<typeof useDocument>["relink"]>[0] | null;
 }): { linkFailed: boolean; linkReady: boolean } {
-  const scope = useProfileDocumentScope();
+  const tearleads = useTearleads();
+  const authority = useDocumentsAuthorityGeneration();
   const request = useMemo(
     () => ({
+      authority,
       documentId,
       profileDocumentId,
       ready,
       relink,
       relinkInput,
-      scope,
+      tearleads,
     }),
-    [documentId, profileDocumentId, ready, relink, relinkInput, scope],
+    [
+      authority,
+      documentId,
+      profileDocumentId,
+      ready,
+      relink,
+      relinkInput,
+      tearleads,
+    ],
   );
   const committedRequest = useRef<object | null>(request);
   const [state, dispatch] = useReducer(transitionProfileDocumentRequest<null>, {
@@ -48,7 +59,7 @@ export function useProfileDocumentLink({
     const stillCurrent = () =>
       active &&
       committedRequest.current === request &&
-      isProfileDocumentScopeCurrent(request.scope) &&
+      isDocumentsAuthorityCurrent(request.tearleads, request.authority) &&
       (request.relinkInput?.stillCurrent?.() ?? true);
     dispatch({ type: "started", request });
     if (request.ready) {

@@ -191,3 +191,40 @@ test.each(["roster", "organization"] as const)(
     }
   },
 );
+
+test.each(["roster", "organization"] as const)(
+  "%s profile publishes across a non-authority notification mid-create",
+  async (kind) => {
+    const h = await createProviderLifetimeHarness(kind, "document");
+    let view: ReturnType<typeof mountOrgManager> | undefined;
+    let completion: Promise<string | null> = Promise.resolve(null);
+    try {
+      view = mountOrgManager();
+      const actions = view.result.current;
+      await act(async () => {
+        completion = ensureProfile(kind, actions, h.user);
+        await h.gate.entered;
+      });
+      const outcome: { documentId: string | null } = { documentId: null };
+      await act(async () => {
+        const version = h.sdk.runtime.version;
+        h.sdk.session.setSyncEnabled(false);
+        expect(h.sdk.runtime.version).toBeGreaterThan(version);
+        h.gate.release();
+        outcome.documentId = await completion;
+      });
+      expect(outcome.documentId).toBe(h.documentId);
+      expect(h.published).toEqual({
+        roster: kind === "roster" ? h.documentId : null,
+        organization: kind === "organization" ? h.documentId : null,
+      });
+    } finally {
+      await act(async () => {
+        h.gate.release();
+        await Promise.allSettled([completion]);
+      });
+      view?.unmount();
+      h.close();
+    }
+  },
+);

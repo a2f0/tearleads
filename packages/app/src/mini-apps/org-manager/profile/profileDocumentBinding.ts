@@ -1,12 +1,12 @@
-import type { Documents } from "@tearleads/client-sdk";
+import type { Documents, Tearleads } from "@tearleads/client-sdk";
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import {
+  isDocumentsAuthorityCurrent,
+  useDocumentsAuthorityGeneration,
+} from "../../../stores/documents/documentsAuthority";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { resolveProfileDocumentIdentity } from "../../../stores/org-manager/profileDocumentIdentity";
-import {
-  isProfileDocumentScopeCurrent,
-  type ProfileDocumentScope,
-  useProfileDocumentScope,
-} from "../../../stores/org-manager/profileDocumentScope";
 import { createBoundedRetrySchedule } from "../hooks/boundedRetry";
 import {
   type ProfileDocumentDiscoveryEvent,
@@ -81,7 +81,8 @@ async function resolveBinding(
 }
 
 interface ProfileBindingRequest extends ProfileDocumentBindingInput {
-  readonly scope: ProfileDocumentScope;
+  readonly authority: number;
+  readonly tearleads: Tearleads;
 }
 
 /** Resolves one request until the returned cleanup runs. A target that is
@@ -95,7 +96,9 @@ function startBindingResolution(
 ): () => void {
   let active = true;
   const stillCurrent = () =>
-    active && isCommitted() && isProfileDocumentScopeCurrent(request.scope);
+    active &&
+    isCommitted() &&
+    isDocumentsAuthorityCurrent(request.tearleads, request.authority);
   const unavailable = () => {
     if (stillCurrent()) dispatch({ type: "unavailable", request });
   };
@@ -108,7 +111,7 @@ function startBindingResolution(
     attempt();
   };
   // Held for the whole request so a target persisted mid-lookup is not lost.
-  const unsubscribe = request.scope.documents.subscribe(
+  const unsubscribe = request.tearleads.documents.subscribe(
     (document, { placementChanged }) =>
       observe({ type: "persisted", document, placementChanged }),
   );
@@ -139,7 +142,7 @@ function startBindingResolution(
     observe({ type: "resolving", documentId: request.documentId });
     const result = await resolveBinding(
       request,
-      request.scope.documents,
+      request.tearleads.documents,
       stillCurrent,
     );
     if (stillCurrent()) settle(result);
@@ -167,28 +170,31 @@ export function useProfileDocumentBinding({
   preferredLocalId,
   retryContainer = false,
 }: ProfileDocumentBindingInput): ProfileDocumentRequestState<ProfileDocumentBinding> {
-  const scope = useProfileDocumentScope();
+  const tearleads = useTearleads();
+  const authority = useDocumentsAuthorityGeneration();
   // Object identity distinguishes A -> B -> A, even when the final values
-  // equal the first request. Only a documents scope change, not every runtime
-  // notification, invalidates the bind.
+  // equal the first request. Only a documents authority change, not every
+  // runtime notification, invalidates the bind.
   const request = useMemo(
     () => ({
+      authority,
       documentId,
       ensureContainer,
       ensureDocument,
       organizationId,
       preferredLocalId,
       retryContainer,
-      scope,
+      tearleads,
     }),
     [
+      authority,
       documentId,
       ensureContainer,
       ensureDocument,
       organizationId,
       preferredLocalId,
       retryContainer,
-      scope,
+      tearleads,
     ],
   );
   const committedRequest = useRef<object | null>(request);

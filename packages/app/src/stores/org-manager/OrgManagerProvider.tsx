@@ -22,6 +22,7 @@ import {
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
+import { captureDocumentsAuthority } from "../documents/documentsAuthority";
 import { useOrganizationProfileContainers } from "./organizationProfileContainers";
 import {
   captureOrgManagerOperationScope,
@@ -251,7 +252,11 @@ function useEnsureRosterProfileDocument(
         return null;
       }
       const identity = requireVerifiedIdentity(trustedIdentity, user.userId);
-      const runtimeVersion = tearleads.runtime.version;
+      // Creation can wait for a remote id; realtime notifications in that
+      // window must not drop the pointer, but an authority change does.
+      const authorityCurrent = captureDocumentsAuthority(tearleads);
+      const stillCurrent = () =>
+        authorityCurrent() && isOperationScopeActive(operationScope);
       const profileDocumentId = await createRosterProfileDocument({
         containerId: ensuredContainer.id,
         documents,
@@ -259,15 +264,9 @@ function useEnsureRosterProfileDocument(
         isSelf: identity.userId === operationScope.userId,
         names,
         organizationId: operationScope.organizationId,
-        stillCurrent: () =>
-          tearleads.runtime.version === runtimeVersion &&
-          isOperationScopeActive(operationScope),
+        stillCurrent,
       });
-      if (
-        !profileDocumentId ||
-        tearleads.runtime.version !== runtimeVersion ||
-        !isOperationScopeActive(operationScope)
-      ) {
+      if (!profileDocumentId || !stillCurrent()) {
         return null;
       }
 
@@ -318,20 +317,16 @@ function useEnsureOrganizationProfileDocument(
         return null;
       }
 
-      const runtimeVersion = tearleads.runtime.version;
+      const authorityCurrent = captureDocumentsAuthority(tearleads);
+      const stillCurrent = () =>
+        authorityCurrent() && isOperationScopeActive(operationScope);
       const nextProfileDocumentId = await createOrganizationProfileDocument({
         containerId: ensuredContainer.id,
         documents,
         organizationId: operationScope.organizationId,
-        stillCurrent: () =>
-          tearleads.runtime.version === runtimeVersion &&
-          isOperationScopeActive(operationScope),
+        stillCurrent,
       });
-      if (
-        !nextProfileDocumentId ||
-        tearleads.runtime.version !== runtimeVersion ||
-        !isOperationScopeActive(operationScope)
-      ) {
+      if (!nextProfileDocumentId || !stillCurrent()) {
         return null;
       }
 

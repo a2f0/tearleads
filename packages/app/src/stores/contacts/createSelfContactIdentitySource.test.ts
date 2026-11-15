@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { deriveStableDocumentId, Tearleads } from "@tearleads/client-sdk";
 
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
+import { documentsAuthorityGeneration } from "../documents/documentsAuthority";
 import { createSelfContactIdentitySource } from "./createSelfContactIdentitySource";
 import { getSelfContactLocalId } from "./selfContact";
 
@@ -21,7 +22,11 @@ test("an SDK identity source cannot revive after database A-B-A", async () => {
   });
   try {
     const { view } = sdk.deviceFirst.open();
-    const source = createSelfContactIdentitySource(sdk, view);
+    const source = createSelfContactIdentitySource(
+      sdk,
+      view,
+      documentsAuthorityGeneration(sdk),
+    );
     expect(source.enabled).toBe(true);
     expect(source.isCurrent()).toBe(true);
     const identity = await source.load();
@@ -34,7 +39,13 @@ test("an SDK identity source cannot revive after database A-B-A", async () => {
     expect(sdk.identity.signingFingerprint).toBe(FINGERPRINT);
     expect(sdk.runtime.version).toBeGreaterThan(version);
     expect(source.isCurrent()).toBe(false);
-    expect(createSelfContactIdentitySource(sdk, view).isCurrent()).toBe(true);
+    expect(
+      createSelfContactIdentitySource(
+        sdk,
+        view,
+        documentsAuthorityGeneration(sdk),
+      ).isCurrent(),
+    ).toBe(true);
   } finally {
     sdk.dispose();
     runtime.close();
@@ -54,7 +65,11 @@ test("identity invalidation retains births, cross-folder relinks and placement",
   let stop: () => void = () => undefined;
   try {
     const { view } = sdk.deviceFirst.open();
-    const source = createSelfContactIdentitySource(sdk, view);
+    const source = createSelfContactIdentitySource(
+      sdk,
+      view,
+      documentsAuthorityGeneration(sdk),
+    );
     const canonical = await source.load();
     let invalidations = 0;
     stop = source.subscribe(() => invalidations++);

@@ -3,6 +3,7 @@ import { Tearleads } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useMemo } from "react";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
+import { documentsAuthorityGeneration } from "../documents/documentsAuthority";
 import { createSelfContactIdentitySource } from "./createSelfContactIdentitySource";
 import { useSelfContactIdentitySource } from "./useSelfContactIdentitySource";
 
@@ -34,7 +35,11 @@ test("note autosaves update the real projection without reloading self identity"
     expect(await note.ensureInitialized()).toBe(true);
     view.setActiveContainer(containerId);
     await waitFor(() => expect(title()).toBe("Before autosave"));
-    const original = createSelfContactIdentitySource(sdk, view);
+    const original = createSelfContactIdentitySource(
+      sdk,
+      view,
+      documentsAuthorityGeneration(sdk),
+    );
     let loads = 0;
     const source = {
       ...original,

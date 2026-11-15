@@ -5,6 +5,10 @@ import { useEffect, useMemo } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
 import {
+  isDocumentsAuthorityCurrent,
+  useDocumentsAuthorityGeneration,
+} from "../documents/documentsAuthority";
+import {
   type ContactsRuntime,
   type ContactsStore,
   getOrCreateContactsStore,
@@ -61,19 +65,20 @@ export function useContactsStoreForContainer(
 
   // Bootstrap and Explorer also refresh this shared store, without removal
   // ports. Bind this consumer's ports and lifetime to its own action instead.
-  const removeContact = useRuntimeScopedMemo<
-    ContactsStore["removeContact"]
-  >(() => {
-    const version = tearleads.runtime.version;
-    return (contactId, operation) =>
+  const authority = useDocumentsAuthorityGeneration();
+  const removeContact = useMemo<ContactsStore["removeContact"]>(
+    () => (contactId, operation) =>
       store.removeContact(contactId, {
         runtime,
+        // Trash provisioning can notify the runtime mid-removal; only an
+        // authority change (including A -> B -> A) refuses this removal.
         isCurrent: () =>
-          tearleads.runtime.version === version &&
+          isDocumentsAuthorityCurrent(tearleads, authority) &&
           (operation?.isCurrent() ?? true),
         runWhenCurrent: operation?.runWhenCurrent,
-      });
-  }, [runtime, store, tearleads]);
+      }),
+    [authority, runtime, store, tearleads],
+  );
   return useMemo(() => ({ ...store, removeContact }), [removeContact, store]);
 }
 

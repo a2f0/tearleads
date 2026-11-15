@@ -5,7 +5,7 @@ import {
   deriveStableDocumentId,
 } from "@tearleads/client-sdk";
 import { loadDocumentIdentityCandidates } from "../documents/documentIdentityCandidates";
-import { sameProfileDocumentsScope } from "./profileDocumentScope";
+import { sameDocumentsAuthority } from "../documents/documentsAuthority";
 
 type ProfileDocumentIdentity =
   | {
@@ -28,9 +28,11 @@ interface ProfileIdentityInput {
   readonly stillCurrent: () => boolean;
 }
 
+// The caller's `stillCurrent` carries the authority generation (A -> B -> A);
+// this field check additionally pins the runtime the lookup reads through.
 function sameRuntime(left: DocumentsRuntime, right: DocumentsRuntime): boolean {
   return (
-    right.infra.dbStatus === "ready" && sameProfileDocumentsScope(left, right)
+    right.infra.dbStatus === "ready" && sameDocumentsAuthority(left, right)
   );
 }
 
