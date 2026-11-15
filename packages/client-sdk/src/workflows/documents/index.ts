@@ -72,6 +72,7 @@ export {
   type AttachmentRemovalRows,
   type AttachmentStagingRows,
   DOCUMENTS_APP_KIND,
+  type DocumentBirthResult,
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,

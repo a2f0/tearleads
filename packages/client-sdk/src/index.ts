@@ -424,6 +424,7 @@ export {
   shareRemoteContainer,
 } from "./workflows/containers";
 export type {
+  DocumentBirthResult,
   DocumentRecord,
   DocumentSyncContainerRekeyBuilder,
   DocumentSyncPullContinuation,

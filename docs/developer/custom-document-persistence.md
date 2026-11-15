@@ -12,6 +12,7 @@ callback or insertion failure rolls back every one of those effects. It returns
 restores that winner and its durable history. If another local row already owns
 the requested remote id (explicit or derived), it returns
 `{ status: "remote-alias", documentId, localId }` without creating anything.
+The SDK root exports the full return type as `DocumentBirthResult`.
 Check both identities inside the birth transaction, preferring a same-local-id
 winner. The alias result refuses a second birth; it does not adopt, merge, or
 overwrite the existing row. A host reopening a known profile must resolve its
