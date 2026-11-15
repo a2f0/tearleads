@@ -60,25 +60,31 @@ export function wasResetElsewhere(): boolean {
 }
 
 /**
- * Holds the shared app-pages lock while the app is mounted on this page.
- * Returns its release.
+ * Holds the shared app-pages lock for as long as the app may be mounted on
+ * this page, calling `onHeld` once it is granted: at once where Web Locks are
+ * unavailable. The app must not mount before then, or a wipe already holding
+ * the lock would run under it. Returns the release.
  */
-export function holdAppPageLock(): () => void {
+export function holdAppPageLock(onHeld: () => void): () => void {
   const locks = lockManager();
   if (!locks) {
+    onHeld();
     return () => {};
   }
   const held = Promise.withResolvers<void>();
   const waiting = new AbortController();
+  let released = false;
   void locks
-    .request(
-      APP_PAGES_LOCK,
-      { mode: "shared", signal: waiting.signal },
-      () => held.promise,
-    )
+    .request(APP_PAGES_LOCK, { mode: "shared", signal: waiting.signal }, () => {
+      if (!released) {
+        onHeld();
+      }
+      return held.promise;
+    })
     // Released before it was granted.
     .catch(() => undefined);
   return () => {
+    released = true;
     waiting.abort();
     held.resolve();
   };

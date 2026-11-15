@@ -19,7 +19,7 @@ import { createCapacitorNetworkStatus } from "./device/capacitorNetworkStatus";
 import { createCapacitorScanner } from "./device/capacitorScanner";
 import { syncStatusBarWithTheme } from "./device/statusBar";
 import { configureNativeSentry } from "./diagnostics/sentry";
-import { deleteCacheFilesWithPrefix } from "./files/capacitorCacheFile";
+import { deleteStagedNativeFiles } from "./files/capacitorCacheFile";
 import { createCapacitorFileSaver } from "./files/capacitorFileSaver";
 import { createCapacitorFileViewer } from "./files/capacitorFileViewer";
 
@@ -72,11 +72,11 @@ const hostConfig = createAppHostConfig({
     target: "capacitor",
     version: import.meta.env.VITE_APP_VERSION,
   }),
-  // A device reset also removes the decrypted share and preview copies staged
-  // as files in the native cache directory, outside WebView storage. The
+  // A device reset also removes files staged natively, outside WebView
+  // storage: decrypted share and preview copies and camera captures. The
   // browser dev shell's Filesystem lives in IndexedDB, which the reset clears.
   clearNativeCache: Capacitor.isNativePlatform()
-    ? () => deleteCacheFilesWithPrefix("")
+    ? deleteStagedNativeFiles
     : undefined,
   // Capacitor runs inside a WebView (Android System WebView / iOS WKWebView).
   // The default browser keyring persists its wrapping key as a live,

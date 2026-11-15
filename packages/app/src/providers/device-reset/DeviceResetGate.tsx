@@ -24,10 +24,10 @@ interface DeviceResetGateProps extends PropsWithChildren {
 
 /**
  * Holds the app back while a requested device reset wipes this device, so
- * nothing opens storage that is about to be removed. Without a request it
- * renders the app on the first render. While the app is mounted the page holds
- * the app-pages lock a wipe waits on, and reloads when another page resets the
- * device, coming back to a notice instead of the app.
+ * nothing opens storage that is about to be removed. Otherwise it mounts the
+ * app once the page holds the app-pages lock a wipe waits on, which it keeps
+ * while the app is mounted, and reloads when another page resets the device,
+ * coming back to a notice instead of the app.
  */
 export function DeviceResetGate({
   children,
@@ -42,7 +42,7 @@ export function DeviceResetGate({
         ? { status: "reset-elsewhere" }
         : isDeviceResetRequested()
           ? { status: "resetting" }
-          : { status: "ready" },
+          : { status: "joining" },
   );
 
   useEffect(() => {
@@ -68,24 +68,39 @@ export function DeviceResetGate({
     };
   }, [clearNativeCache, completeReset, state.status]);
 
+  // One subscription and one lock across joining and ready, so the lock is
+  // never let go while the app is mounted.
+  const holdsPage = state.status === "joining" || state.status === "ready";
+  useEffect(() => {
+    if (!holdsPage) {
+      return;
+    }
+    // Subscribed first, so a reset announced while the lock is pending still
+    // reaches this page.
+    const unsubscribe = reloadOnDeviceResetElsewhere();
+    const releasePageLock = holdAppPageLock(() =>
+      dispatch({
+        resetRequested: isDeviceResetRequested(),
+        type: "page-lock-held",
+      }),
+    );
+    return () => {
+      releasePageLock();
+      unsubscribe();
+    };
+  }, [holdsPage]);
+
   useEffect(() => {
     if (state.status === "reset-elsewhere") {
       // What this tab kept for itself predates the reset; the flag that led
       // here goes with it, so the next reload boots the app.
       globalThis.sessionStorage?.clear();
-      return;
     }
-    if (state.status !== "ready") {
-      return;
-    }
-    const releasePageLock = holdAppPageLock();
-    const unsubscribe = reloadOnDeviceResetElsewhere();
-    return () => {
-      unsubscribe();
-      releasePageLock();
-    };
   }, [state.status]);
 
+  if (state.status === "joining") {
+    return null;
+  }
   if (state.status === "ready") {
     return children;
   }
@@ -99,7 +114,10 @@ export function DeviceResetGate({
   if (state.status === "reset-elsewhere") {
     return (
       <div role="status" className="mini-app-status">
-        <p>This device was reset in another tab or window.</p>
+        <p>
+          This device is being reset from another tab or window. Reload once it
+          has restarted.
+        </p>
         <button type="button" onClick={() => window.location.reload()}>
           Reload
         </button>

@@ -84,12 +84,14 @@ data being removed, and the reload restarts the SDK from nothing. WKWebView
 database boot has the SQLite worker wipe OPFS before it opens anything.
 
 On the web, the app's other tabs reload when a reset starts and come back to a
-notice instead of the app, so only one page boots the fresh device. Each page
-with the app mounted holds a shared Web Lock that the wipe takes exclusively,
-so the wipe starts only after those pages have unloaded and none of their
-in-flight writes can land afterwards. A tab that cannot unload, such as a
-frozen background tab, makes the reset time out and report a failure; the
-reset then has to be retried, because part of the device may already be wiped.
+notice instead of the app, so only one page boots the fresh device. A page
+mounts the app only once it holds a shared Web Lock, and keeps it while the
+app is mounted; the wipe takes that lock exclusively, so it starts only after
+those pages have unloaded and none of their in-flight writes can land
+afterwards. A page that gets its lock while a reset is pending stops at the
+notice. A tab that cannot unload, such as a frozen background tab, makes the
+reset time out and report a failure; the reset then has to be retried,
+because part of the device may already be wiped.
 The web app's offline asset cache is kept; it holds no user data.
 
 ## Tests

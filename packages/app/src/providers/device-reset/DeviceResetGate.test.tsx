@@ -1,7 +1,9 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { installFakeLockManager } from "../../../test/helpers/fakeLockManager";
 import { DeviceResetGate } from "./DeviceResetGate";
 import { requestDeviceReset } from "./deviceReset";
+import { runWithoutAppPages } from "./deviceResetTabs";
 
 afterEach(() => {
   cleanup();
@@ -13,7 +15,7 @@ function requestReset(): void {
   requestDeviceReset(localStorage, () => {});
 }
 
-test("without a reset request the app renders on the first render", () => {
+test("without a reset request the app renders without waiting on a wipe", () => {
   let resets = 0;
   const view = render(
     <DeviceResetGate
@@ -29,11 +31,78 @@ test("without a reset request the app renders on the first render", () => {
   expect(resets).toBe(0);
 });
 
+test("a page that starts during a wipe mounts the app only once the wipe is done", async () => {
+  const locks = installFakeLockManager();
+  const wipe = Promise.withResolvers<void>();
+  try {
+    // Another page is wiping; it cleared the request already but still holds
+    // the lock while it finishes.
+    const wiping = runWithoutAppPages(new AbortController().signal, () => {
+      return wipe.promise;
+    });
+    const view = render(
+      <DeviceResetGate completeReset={async () => {}}>
+        <p>app</p>
+      </DeviceResetGate>,
+    );
+    await locks.queued;
+    expect(view.queryByText("app")).toBeNull();
+
+    await act(async () => {
+      wipe.resolve();
+      await wiping;
+    });
+
+    expect(view.getByText("app")).toBeTruthy();
+  } finally {
+    wipe.resolve();
+    locks.restore();
+  }
+});
+
+test("a page that gets its lock while a reset is pending stops at the notice", async () => {
+  const locks = installFakeLockManager();
+  const otherPage = Promise.withResolvers<void>();
+  try {
+    const elsewhere = runWithoutAppPages(new AbortController().signal, () => {
+      return otherPage.promise;
+    });
+    const view = render(
+      <DeviceResetGate completeReset={async () => {}}>
+        <p>app</p>
+      </DeviceResetGate>,
+    );
+    await locks.queued;
+    // Another tab requests a reset before this page's lock is granted, and its
+    // wipe will then wait for this page.
+    requestReset();
+
+    await act(async () => {
+      otherPage.resolve();
+      await elsewhere;
+    });
+
+    expect(view.getByRole("status").textContent).toContain(
+      "This device is being reset from another tab or window.",
+    );
+    expect(view.queryByText("app")).toBeNull();
+  } finally {
+    otherPage.resolve();
+    locks.restore();
+  }
+});
+
 test("a requested reset holds the app back until the wipe finishes", async () => {
   requestReset();
   const wipe = Promise.withResolvers<void>();
   const view = render(
-    <DeviceResetGate completeReset={() => wipe.promise}>
+    <DeviceResetGate
+      completeReset={async () => {
+        await wipe.promise;
+        // The wipe clears localStorage, request included.
+        localStorage.clear();
+      }}
+    >
       <p>app</p>
     </DeviceResetGate>,
   );
@@ -74,7 +143,7 @@ test("another page's reset reloads this one into a notice instead of the app", a
       </DeviceResetGate>,
     );
     expect(after.getByRole("status").textContent).toContain(
-      "This device was reset in another tab or window.",
+      "This device is being reset from another tab or window.",
     );
     expect(after.getByRole("button", { name: "Reload" })).toBeTruthy();
     expect(after.queryByText("app")).toBeNull();
