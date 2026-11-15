@@ -77,6 +77,8 @@ for (const kind of [
   "pending",
   "failed",
   "expired",
+  "absent",
+  "absent-expired",
 ] as const) {
   test(`contact removal uses canonical identity: ${kind}`, async () => {
     const identity = await createIdentity();
@@ -93,18 +95,21 @@ for (const kind of [
             ...contactEntry(ordinaryId, ordinaryId),
             isSelf: kind === "roster",
           };
+    const current = kind !== "expired" && kind !== "absent-expired";
+    const admission = {
+      isCurrent: () => current,
+      runWhenCurrent: async <T,>(work: () => T | Promise<T>) =>
+        current ? work() : null,
+    };
     const identityView: SelfContactIdentityView =
       kind === "pending"
         ? { status: "pending" }
         : kind === "failed"
           ? { status: "failed", error: new Error("Identity read refused") }
-          : {
-              status: "ready",
-              identity,
-              isCurrent: () => kind !== "expired",
-              runWhenCurrent: async (work) =>
-                kind !== "expired" ? work() : null,
-            };
+          : kind === "absent" || kind === "absent-expired"
+            ? { status: "absent", ...admission }
+            : { status: "ready", identity, ...admission };
+    const removable = kind === "roster" || kind === "absent";
     const removed: string[] = [];
     let remove: () => Promise<void> = async () => {
       throw new Error("Menu not mounted");
@@ -124,12 +129,12 @@ for (const kind of [
     );
     fireEvent.contextMenu(view.getByRole("button", { name: "Contact" }));
     expect(view.getByLabelText("Can remove").textContent).toBe(
-      kind === "roster" ? "yes" : "no",
+      removable ? "yes" : "no",
     );
     await act(async () => {
       await remove();
     });
-    expect(removed).toEqual(kind === "roster" ? [entry.id] : []);
+    expect(removed).toEqual(removable ? [entry.id] : []);
   });
 }
 

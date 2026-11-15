@@ -5,6 +5,7 @@ import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { installProfileEditorRuntime } from "../../../test/helpers/org-manager/profileEditorHarness";
 import * as DeviceFirstProvider from "../device-first/DeviceFirstProvider";
 import type { SelfContactIdentityView } from "./currentSelfContactIdentityState";
+import { getSelfContactLocalId } from "./selfContact";
 import { useCurrentSelfContactIdentity } from "./useCurrentSelfContactIdentity";
 
 afterEach(cleanup);
@@ -57,6 +58,54 @@ test("a ready self identity survives non-authority runtime notifications", async
     });
     expect(ready.isCurrent()).toBe(false);
     expect(await ready.runWhenCurrent(() => "ran")).toBeNull();
+  } finally {
+    hook.unmount();
+    contents.mockRestore();
+    restoreRuntime();
+    sdk.dispose();
+    runtime.close();
+  }
+});
+
+test("a keyless ready database is absent until signing keys yield a new source", async () => {
+  const runtime = await createSqlRuntimeBase("absent-self-identity");
+  const sdk = new Tearleads({
+    database: { execSql: runtime.infra.execSql, id: "absent-self-identity" },
+    blobStore: runtime.infra.blobStore,
+    identityProvisioning: "manual",
+    logger: { log: () => undefined, logError: () => undefined },
+    online: false,
+  });
+  const { view } = sdk.deviceFirst.open();
+  const restoreRuntime = installProfileEditorRuntime(sdk);
+  const contents = spyOn(
+    DeviceFirstProvider,
+    "useDeviceFirstContainerContents",
+  ).mockReturnValue({ view } as never);
+  const hook = renderHook(() => useCurrentSelfContactIdentity());
+  try {
+    expect(sdk.runtime.input(null).infra.dbStatus).toBe("ready");
+    expect(sdk.identity.signingFingerprint).toBeNull();
+    await waitFor(() => expect(hook.result.current.status).toBe("absent"));
+    const absent = hook.result.current;
+    if (absent.status !== "absent") throw new Error("Expected absent identity");
+    expect(await absent.runWhenCurrent(() => "ran")).toBe("ran");
+
+    await act(async () => {
+      await sdk.identity.setKeyPairs({
+        encapsulationKeyPair: null,
+        signingFingerprint: "absent-self-identity",
+        signingKeyPair: null,
+      });
+    });
+    expect(absent.isCurrent()).toBe(false);
+    expect(await absent.runWhenCurrent(() => "ran")).toBeNull();
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    const ready = hook.result.current;
+    if (ready.status !== "ready") throw new Error("Expected ready identity");
+    expect(ready.identity.localId).toBe(
+      getSelfContactLocalId("absent-self-identity"),
+    );
   } finally {
     hook.unmount();
     contents.mockRestore();

@@ -6,6 +6,7 @@ import type {
   SetLinkedContainerIdsForDocument,
 } from "@tearleads/client-sdk";
 import { useCallback } from "react";
+import { selfContactIdentityAdmission } from "../../../stores/contacts/currentSelfContactIdentityState";
 import {
   activateExplorerLinkedNote,
   canMutateSelectedDocument,
@@ -112,11 +113,13 @@ function useMoveDocumentAction(params: MoveDocumentActionParams) {
         documentId,
         linkedContainerIdsByDocumentId,
       });
-      const identity = rulesContext.selfContactIdentity;
-      if (!existingDocument || identity.status !== "ready") {
+      const admission = selfContactIdentityAdmission(
+        rulesContext.selfContactIdentity,
+      );
+      if (!existingDocument || !admission) {
         return null;
       }
-      return identity.runWhenCurrent(async () => {
+      return admission.runWhenCurrent(async () => {
         if (
           !canMoveExplorerActionDocument({
             appData,
@@ -195,9 +198,11 @@ function usePurgeDocumentAction(params: {
       if (!existingDocument || !canWriteDocumentSummary(existingDocument)) {
         return null;
       }
-      const identity = rulesContext.selfContactIdentity;
-      if (identity.status !== "ready") return null;
-      return identity.runWhenCurrent(() => {
+      const admission = selfContactIdentityAdmission(
+        rulesContext.selfContactIdentity,
+      );
+      if (!admission) return null;
+      return admission.runWhenCurrent(() => {
         // The pinned self contact can never be purged, even if it is already
         // parked under Trash — purge destroys the document server-side by id.
         if (!canMutateDocumentByIdentity(rulesContext, existingDocument)) {

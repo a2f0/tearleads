@@ -8,6 +8,7 @@ import type { CurrentSelfContactIdentity } from "../../../stores/contacts/curren
 import {
   matchesSelfContactIdentity,
   type SelfContactIdentityView,
+  selfContactIdentityAdmission,
 } from "../../../stores/contacts/currentSelfContactIdentityState";
 import {
   type BuiltInSystemContainer,
@@ -241,15 +242,15 @@ export function isSelfContactDocument(
   );
 }
 
+// Every kind is gated: canonical Me aliases can first surface as note-shaped
+// discovery shells. `absent` (no signing identity) has no Me to protect.
 export function canMutateDocumentByIdentity(
   context: ExplorerContainerRulesContext,
   document: Pick<DocumentSummary, "id" | "documentId"> | undefined,
 ): boolean {
-  const identity = context.selfContactIdentity;
   return (
     document !== undefined &&
-    identity.status === "ready" &&
-    identity.isCurrent() &&
+    selfContactIdentityAdmission(context.selfContactIdentity) !== null &&
     !isPinnedSelfContact(context, document)
   );
 }

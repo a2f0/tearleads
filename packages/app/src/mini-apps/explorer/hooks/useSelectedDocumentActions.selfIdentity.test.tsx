@@ -12,6 +12,7 @@ import type {
 } from "../../../stores/contacts/currentSelfContactIdentityState";
 import { useSelfContactIdentitySource } from "../../../stores/contacts/useSelfContactIdentitySource";
 import {
+  createAbsentSelfIdentity,
   createReadySelfIdentity,
   createSelfIdentityRules,
   identityDocument,
@@ -275,7 +276,7 @@ function refreshableIdentity(identity: CurrentSelfContactIdentity) {
   let onLoad: () => void = () => undefined;
   let current: SelfContactIdentityView = { status: "pending" };
   const source: SelfContactIdentitySource = {
-    enabled: true,
+    availability: "available",
     isCurrent: () => true,
     load: () => {
       onLoad();
@@ -409,4 +410,33 @@ for (const action of ["move", "purge"] as const) {
       }
     });
   }
+}
+
+for (const action of ["move", "purge"] as const) {
+  test(`absent identity admits ${action} only while its authority is current`, async () => {
+    let current = true;
+    const identity = createAbsentSelfIdentity(() => current);
+    const document = identityDocument({
+      documentKind: "contact",
+      containerId: action === "purge" ? "trash" : "linked-folder",
+    });
+    const view = renderIdentityActions(document, () => identity);
+    try {
+      expect(
+        await invokeDestructiveAction(view.result.current, action, document),
+      ).not.toBeNull();
+      expect(view.writes).toEqual([
+        action === "move"
+          ? `move:${document.id}:destination`
+          : `purge:${document.id}`,
+      ]);
+      current = false;
+      expect(
+        await invokeDestructiveAction(view.result.current, action, document),
+      ).toBeNull();
+      expect(view.writes).toHaveLength(1);
+    } finally {
+      view.unmount();
+    }
+  });
 }

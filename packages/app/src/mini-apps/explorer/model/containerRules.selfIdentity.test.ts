@@ -11,6 +11,7 @@ import {
   isPinnedSelfContact,
 } from "./containerRules";
 import {
+  createAbsentSelfIdentity,
   createReadySelfIdentity,
   createSelfIdentityRules,
   identityDocument,
@@ -184,3 +185,67 @@ test("expired identity revokes destructive menu gates even with retained move ta
     }).canPurgeSelectedDocument,
   }).toEqual({ move: false, delete: false, purge: false });
 });
+
+for (const documentKind of ["note", "contact"] as const) {
+  test(`absent self identity admits ${documentKind} move, delete and purge while current`, () => {
+    let current = true;
+    const rulesContext = createSelfIdentityRules(
+      createAbsentSelfIdentity(() => current),
+    );
+    const document = identityDocument({ documentKind });
+    const sourceContainer = selfIdentityNodes.find(
+      ({ id }) => id === document.containerId,
+    );
+    const input = {
+      appData: editableRuntime,
+      canResolveTrashContainer: true,
+      nodes: selfIdentityNodes,
+      rulesContext,
+      selectedDocument: document,
+      selectedDocumentLinkedContainerIds: ["linked-folder"],
+      selectedDocumentLinkTargetOptions: [],
+      selectedDocumentMoveTargetOptions: getDocumentMoveTargetOptions(
+        selfIdentityNodes,
+        document.id,
+        createExplorerTargetLookups(selfIdentityNodes, [document]),
+        rulesContext,
+        new Map(),
+      ),
+      trashContainerId: "trash",
+      trashSystemSlot: "trash-slot",
+    };
+    const gates = () => {
+      const state = getSelectedDocumentMutationState(input);
+      return {
+        pinned: isPinnedSelfContact(rulesContext, document),
+        canMove: canMoveDocumentToContainerByRules(
+          rulesContext,
+          sourceContainer,
+          destination,
+          document,
+        ),
+        move: state.canMoveSelectedDocument,
+        delete: state.canDeleteSelectedDocument,
+        purge: getSelectedDocumentMutationState({
+          ...input,
+          selectedDocument: { ...document, containerId: "trash" },
+        }).canPurgeSelectedDocument,
+      };
+    };
+    expect(gates()).toEqual({
+      pinned: false,
+      canMove: true,
+      move: true,
+      delete: true,
+      purge: true,
+    });
+    current = false;
+    expect(gates()).toEqual({
+      pinned: false,
+      canMove: false,
+      move: false,
+      delete: false,
+      purge: false,
+    });
+  });
+}

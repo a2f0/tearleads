@@ -18,7 +18,7 @@ import {
   hasContactsContainerRuntime,
   resetContactsStore,
 } from "./contactStoreInitialization";
-import { findContactByUserId } from "./contactStoreLookup";
+import { loadPeerContactImportTarget } from "./contactStorePeerImport";
 import { connectContactsStoreToPersistedDocuments } from "./contactStorePersistedDocuments";
 import { ensureSelfContactFromRuntime } from "./contactStoreSelfContact";
 import { removeContactEntry } from "./contactStoreSnapshotMutations";
@@ -118,13 +118,19 @@ async function importUserFromRuntime(
     state,
     "Contacts: failed to import user key.",
     async () => {
-      if (!current()) return null;
-      const containerId = state.runtime.documents.state.containerId;
-      if (!containerId) return null;
-      // Peer imports remain idempotent within their own address book.
-      const importedContactId =
-        findContactByUserId(state.entriesById, userId)?.id ??
-        `contact_v1_${containerId}_${userId}`;
+      const target = await loadPeerContactImportTarget(state, userId, current);
+      if (target.status === "refused" || !current()) return null;
+      const { aliasOf, contactId: importedContactId } = target;
+      // Like self ensure: an unloaded snapshot has no binding yet, but once
+      // loaded the alias must still name the same remote history.
+      const targetCurrent = () => {
+        const bound = state.contactDocumentStoresById
+          .get(importedContactId)
+          ?.store.getSnapshot().documentId;
+        return (
+          current() && (aliasOf === null || bound == null || bound === aliasOf)
+        );
+      };
       const saved = await writeContactPatch(
         state,
         importedContactId,
@@ -133,7 +139,7 @@ async function importUserFromRuntime(
           isSelf: false,
           userId,
         },
-        { guard: current, seedBirth: true },
+        { guard: targetCurrent, seedBirth: target.status === "create" },
       );
       return saved ? importedContactId : null;
     },

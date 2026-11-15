@@ -6,6 +6,7 @@ import { CopyIdentityLinkMenuItem } from "../../../components/identity/CopyIdent
 import {
   matchesSelfContactIdentity,
   type SelfContactIdentityView,
+  selfContactIdentityAdmission,
 } from "../../../stores/contacts/currentSelfContactIdentityState";
 import type { ContactsContextValue } from "../../../stores/contacts/types";
 import { useMiniAppListContextMenu } from "../../shared/list-panel/useMiniAppListContextMenu";
@@ -73,16 +74,19 @@ export function useContactsContextMenu(params: {
     contextMenu?.id.kind === "contact"
       ? entriesById.get(contextMenu.id.contactId)
       : undefined;
+  // `absent` (no signing identity) has no Me to protect from removal.
   const canRemoveContextMenuContact = Boolean(
     canWrite &&
       contextMenu?.id.kind === "contact" &&
       contextMenuEntry !== undefined &&
       contextMenuEntry.canWrite !== false &&
-      selfContactIdentity.status === "ready" &&
-      selfContactIdentity.isCurrent() &&
-      !matchesSelfContactIdentity(
-        selfContactIdentity.identity,
-        contextMenuEntry,
+      selfContactIdentityAdmission(selfContactIdentity) !== null &&
+      !(
+        selfContactIdentity.status === "ready" &&
+        matchesSelfContactIdentity(
+          selfContactIdentity.identity,
+          contextMenuEntry,
+        )
       ),
   );
   const contextMenuContactUserId =
@@ -91,11 +95,11 @@ export function useContactsContextMenu(params: {
       : null;
 
   const removeContextMenuContact = useCallback(async () => {
+    const admission = selfContactIdentityAdmission(selfContactIdentity);
     if (
       contextMenu?.id.kind !== "contact" ||
       !canRemoveContextMenuContact ||
-      selfContactIdentity.status !== "ready" ||
-      !selfContactIdentity.isCurrent()
+      !admission
     ) {
       return;
     }
@@ -105,10 +109,10 @@ export function useContactsContextMenu(params: {
     if (selectedContactId === contactId) {
       setSelectedContactId(null);
     }
-    await selfContactIdentity.runWhenCurrent(() =>
+    await admission.runWhenCurrent(() =>
       removeContact(contactId, {
-        isCurrent: selfContactIdentity.isCurrent,
-        runWhenCurrent: selfContactIdentity.runWhenCurrent,
+        isCurrent: admission.isCurrent,
+        runWhenCurrent: admission.runWhenCurrent,
       }),
     );
   }, [

@@ -14,10 +14,20 @@ export function createSelfContactIdentitySource(
   const runtime = sdk.documents.workflowRuntime(null);
   const fingerprint = runtime.crypto.signingFingerprint ?? "";
   const execSql = runtime.infra.execSql;
-  const enabled = runtime.infra.dbStatus === "ready" && !!fingerprint.trim();
+  // Without signing keys (pre-identity bootstrap database, destroyed keys)
+  // there is no Me to protect. Key arrival changes the authority generation,
+  // so the caller replaces this source rather than reviving it.
+  const availability: SelfContactIdentitySource["availability"] =
+    runtime.infra.dbStatus !== "ready"
+      ? "unavailable"
+      : fingerprint.trim()
+        ? "available"
+        : "absent";
   return {
-    enabled,
-    isCurrent: () => enabled && isDocumentsAuthorityCurrent(sdk, authority),
+    availability,
+    isCurrent: () =>
+      availability !== "unavailable" &&
+      isDocumentsAuthorityCurrent(sdk, authority),
     load: () => loadCurrentSelfContactIdentity(execSql, fingerprint),
     subscribe: (listener) => {
       let active = true;

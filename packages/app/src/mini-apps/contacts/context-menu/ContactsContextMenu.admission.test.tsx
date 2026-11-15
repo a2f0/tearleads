@@ -170,7 +170,7 @@ async function refreshableIdentity() {
   let listener: () => void = () => undefined;
   let onLoad: () => void = () => undefined;
   const source: SelfContactIdentitySource = {
-    enabled: true,
+    availability: "available",
     isCurrent: () => true,
     load: () => {
       onLoad();

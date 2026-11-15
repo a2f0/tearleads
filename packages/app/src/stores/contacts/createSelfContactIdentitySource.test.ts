@@ -27,7 +27,7 @@ test("an SDK identity source cannot revive after database A-B-A", async () => {
       view,
       documentsAuthorityGeneration(sdk),
     );
-    expect(source.enabled).toBe(true);
+    expect(source.availability).toBe("available");
     expect(source.isCurrent()).toBe(true);
     const identity = await source.load();
     expect(identity.localId).toBe(getSelfContactLocalId(FINGERPRINT));
@@ -46,6 +46,45 @@ test("an SDK identity source cannot revive after database A-B-A", async () => {
         documentsAuthorityGeneration(sdk),
       ).isCurrent(),
     ).toBe(true);
+  } finally {
+    sdk.dispose();
+    runtime.close();
+  }
+});
+
+test("a ready database without signing keys is absent until keys arrive", async () => {
+  const runtime = await createSqlRuntimeBase("identity-source-absent");
+  const sdk = new Tearleads({
+    database: { execSql: runtime.infra.execSql, id: "identity-source-absent" },
+    blobStore: runtime.infra.blobStore,
+    identityProvisioning: "manual",
+    logger: { log: () => undefined, logError: () => undefined },
+    online: false,
+  });
+  try {
+    const { view } = sdk.deviceFirst.open();
+    expect(sdk.runtime.input(null).infra.dbStatus).toBe("ready");
+    const absent = createSelfContactIdentitySource(
+      sdk,
+      view,
+      documentsAuthorityGeneration(sdk),
+    );
+    expect(absent.availability).toBe("absent");
+    expect(absent.isCurrent()).toBe(true);
+
+    await sdk.identity.setKeyPairs({
+      encapsulationKeyPair: null,
+      signingFingerprint: FINGERPRINT,
+      signingKeyPair: null,
+    });
+    expect(absent.isCurrent()).toBe(false);
+    const available = createSelfContactIdentitySource(
+      sdk,
+      view,
+      documentsAuthorityGeneration(sdk),
+    );
+    expect(available.availability).toBe("available");
+    expect(available.isCurrent()).toBe(true);
   } finally {
     sdk.dispose();
     runtime.close();

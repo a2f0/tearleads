@@ -44,6 +44,17 @@ export async function createReadySelfIdentity(
   };
 }
 
+/** No signing identity: no document is Me, admission binds authority only. */
+export function createAbsentSelfIdentity(
+  isCurrent: () => boolean = () => true,
+): Extract<SelfContactIdentityView, { status: "absent" }> {
+  return {
+    status: "absent",
+    isCurrent,
+    runWhenCurrent: async (work) => (isCurrent() ? work() : null),
+  };
+}
+
 export function createSelfIdentityRules(
   selfContactIdentity: SelfContactIdentityView,
 ) {

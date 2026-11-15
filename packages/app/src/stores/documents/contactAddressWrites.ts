@@ -85,7 +85,9 @@ function queue<T>(
   const result = (queues.get(store) ?? Promise.resolve())
     .catch(() => undefined)
     .then(() => {
-      writable(store, current);
+      // Admission precedes this invocation's effects; later checks may not.
+      if (!canWrite(store, current))
+        throw new ContactAddressWriteRefusal(SAVE_FAILURE);
       return work();
     });
   queues.set(
