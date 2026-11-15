@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Debug builds call the development API on the host: 10.0.2.2 from the
+         emulator, or the host's LAN address from a device. Apps targeting
+         Android 17 need this runtime permission for local network traffic;
+         release builds reach only public endpoints and do not declare it.
+         https://developer.android.com/privacy-and-security/local-network-permission -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+
+    <application android:networkSecurityConfig="@xml/network_security_config" />
+</manifest>
