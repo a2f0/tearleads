@@ -53,6 +53,9 @@ jobs:
 
       - name: Serve the Turbo remote cache from the Actions cache
         uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
+        with:
+          # A fixed port can already be held by an earlier step's socket.
+          server-port: 0
 
       - name: Install dependencies
         shell: bash
