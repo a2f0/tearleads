@@ -1,4 +1,11 @@
-import { type PropsWithChildren, useCallback, useMemo, useState } from "react";
+import {
+  type PropsWithChildren,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createRequiredContext } from "../createRequiredContext";
 import {
   loadStoredPreference,
@@ -55,6 +62,17 @@ export function SystemTrayProvider<Id extends string>({
     loadStoredPreference(storageKey, parseDisabledAppIds),
   );
 
+  // Persist only what the user changed, after the change commits, so several
+  // calls in one event (turning every app back on) all land.
+  const persistedAppIds = useRef(disabledAppIds);
+  useEffect(() => {
+    if (persistedAppIds.current === disabledAppIds) {
+      return;
+    }
+    persistedAppIds.current = disabledAppIds;
+    saveStoredPreference(storageKey, JSON.stringify([...disabledAppIds]));
+  }, [disabledAppIds, storageKey]);
+
   const isEnabled = useCallback(
     (id: string) => !disabledAppIds.has(id),
     [disabledAppIds],
@@ -62,22 +80,23 @@ export function SystemTrayProvider<Id extends string>({
 
   const setEnabled = useCallback(
     (id: string, enabled: boolean) => {
-      if (
-        !Object.hasOwn(definition.apps, id) ||
-        disabledAppIds.has(id) !== enabled
-      ) {
+      if (!Object.hasOwn(definition.apps, id)) {
         return;
       }
-      const next = new Set(disabledAppIds);
-      if (enabled) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      setDisabledAppIds(next);
-      saveStoredPreference(storageKey, JSON.stringify([...next]));
+      setDisabledAppIds((current) => {
+        if (current.has(id) !== enabled) {
+          return current;
+        }
+        const next = new Set(current);
+        if (enabled) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        return next;
+      });
     },
-    [definition.apps, disabledAppIds, storageKey],
+    [definition.apps],
   );
 
   const value = useMemo<SystemTrayContextValue>(

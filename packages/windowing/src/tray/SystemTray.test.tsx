@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DisplayProperties } from "../display/DisplayProperties";
 import { SystemTray, type SystemTrayMenuItem } from "./SystemTray";
-import { SystemTrayProvider } from "./SystemTrayProvider";
+import { SystemTrayProvider, useSystemTray } from "./SystemTrayProvider";
 import type { SystemTrayDefinition } from "./systemTrayDefinition";
 
 const TRAY_KEY = "test.tray.disabled";
@@ -117,6 +117,40 @@ test("Display Properties switches each tray app off and back on", () => {
   fireEvent.click(volume);
   expect(volume).toHaveProperty("checked", true);
   expect(view.getByRole("button", { name: "Volume" })).toBeDefined();
+  expect(JSON.parse(localStorage.getItem(TRAY_KEY) ?? "null")).toEqual([]);
+});
+
+// A host's Reset Defaults turns every app back on from one click.
+function TurnEveryAppOn() {
+  const { definition, setEnabled } = useSystemTray();
+  return (
+    <button
+      onClick={() => {
+        for (const id of definition.order) {
+          setEnabled(id, true);
+        }
+      }}
+      type="button"
+    >
+      Turn every app on
+    </button>
+  );
+}
+
+test("turning several apps back on in one event keeps every change", () => {
+  localStorage.setItem(TRAY_KEY, JSON.stringify(["clock", "volume"]));
+  const view = render(
+    <>
+      <SystemTray />
+      <TurnEveryAppOn />
+    </>,
+    { wrapper: Providers },
+  );
+  expect(trayControls(view.container)).toEqual([]);
+
+  fireEvent.click(view.getByRole("button", { name: "Turn every app on" }));
+
+  expect(trayControls(view.container)).toEqual(["Volume", "12:00"]);
   expect(JSON.parse(localStorage.getItem(TRAY_KEY) ?? "null")).toEqual([]);
 });
 
