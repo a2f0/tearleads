@@ -98,6 +98,52 @@ test("restoring a past version writes it back as a new step of history", async (
   });
 });
 
+test("a restore is its own step even in the same second as the edits around it", async () => {
+  await withDatabase("restore-boundary", async (execSql) => {
+    // The clock never moves: every commit here carries the same time, so
+    // nothing but the restore's own boundary can keep the steps apart.
+    const state = await openStore(
+      execSql,
+      "fast",
+      sqlDocumentsPersistence,
+      "first",
+    );
+    const first = await openHistory(execSql, "fast");
+    const firstVersion = first.viewAt(first.stops.length - 1);
+    first.close();
+    await setDocumentText(state, noop, "first and second");
+    const edited = await openHistory(execSql, "fast");
+    const stopsBefore = edited.stops.length;
+    edited.close();
+
+    expect(await restoreDocumentStoreContent(state, noop, firstVersion)).toBe(
+      true,
+    );
+    // Restoring forward again, then an ordinary edit, are steps of their own.
+    expect(
+      await restoreDocumentStoreContent(state, noop, {
+        ...firstVersion,
+        text: "first and second",
+      }),
+    ).toBe(true);
+    await setDocumentText(state, noop, "first, second, and third");
+
+    const after = await openHistory(execSql, "fast");
+    try {
+      expect(after.stops.map((stop) => after.viewAt(stop.index).text)).toEqual([
+        ...Array.from({ length: stopsBefore - 1 }, () => "first"),
+        // The edit the first restore replaced is still on the timeline.
+        "first and second",
+        "first",
+        "first and second",
+        "first, second, and third",
+      ]);
+    } finally {
+      after.close();
+    }
+  });
+});
+
 test("restoring a structured document brings back its fields and rows", async () => {
   await withDatabase("restore-contact", async (execSql) => {
     const state = await openStore(execSql, "contact", sqlDocumentsPersistence);

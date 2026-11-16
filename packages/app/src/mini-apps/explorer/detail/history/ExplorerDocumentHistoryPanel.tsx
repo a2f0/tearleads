@@ -147,7 +147,7 @@ function DocumentHistoryBody(params: {
   controls: DocumentHistoryControls;
   documentSummary: DocumentSummary | null;
   documentSummaryError: string | null;
-  readOnly: boolean;
+  isContainerReadOnly: (containerId: string | null) => boolean;
 }) {
   const { controls, documentSummary, documentSummaryError } = params;
   const { state } = controls;
@@ -178,7 +178,9 @@ function DocumentHistoryBody(params: {
     <ReadyDocumentHistory
       controls={controls}
       documentSummary={documentSummary}
-      readOnly={params.readOnly}
+      // The folder the document is in now, not the one the route names: a
+      // stale or bookmarked route must not unlock a document since trashed.
+      readOnly={params.isContainerReadOnly(documentSummary.containerId)}
       state={state}
     />
   );
@@ -190,10 +192,10 @@ function DocumentHistoryBody(params: {
  */
 export function ExplorerDocumentHistoryPanel(params: {
   fallbackDocumentSummary: DocumentSummary | null;
+  /** Whether documents in a container are read-only, as in the Trash. */
+  isContainerReadOnly: (containerId: string | null) => boolean;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   localId: string;
-  /** The document sits somewhere read-only, such as the Trash. */
-  readOnly: boolean;
 }) {
   const { documentSummary, documentSummaryError } = useExplorerDocumentSummary({
     fallbackDocumentSummary: params.fallbackDocumentSummary,
@@ -228,7 +230,7 @@ export function ExplorerDocumentHistoryPanel(params: {
         controls={controls}
         documentSummary={documentSummary}
         documentSummaryError={documentSummaryError}
-        readOnly={params.readOnly}
+        isContainerReadOnly={params.isContainerReadOnly}
       />
     </MiniAppPanel>
   );

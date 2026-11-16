@@ -29,14 +29,19 @@ export function ExplorerDocumentRouteDetail(
     "containerId" | "documentTitle" | "fallbackDocumentSummary" | "localId"
   > & {
     documentSummaries: ReadonlyArray<DocumentSummary>;
-    /** The route's container is read-only, such as the Trash. */
-    readOnly: boolean;
+    /** Whether documents in a container are read-only, as in the Trash. */
+    isContainerReadOnly: (containerId: string | null) => boolean;
     route: ExplorerDocumentViewRoute;
     selectedDocument: DocumentSummary | undefined;
   },
 ) {
-  const { documentSummaries, readOnly, route, selectedDocument, ...infoProps } =
-    params;
+  const {
+    documentSummaries,
+    isContainerReadOnly,
+    route,
+    selectedDocument,
+    ...infoProps
+  } = params;
   const fallbackDocumentSummary = getDocumentInfoRouteFallbackSummary({
     documentSummaries,
     localId: route.localId,
@@ -48,8 +53,8 @@ export function ExplorerDocumentRouteDetail(
       <ExplorerDocumentHistoryPanel
         fallbackDocumentSummary={fallbackDocumentSummary}
         loadDocumentSummary={params.loadDocumentSummary}
+        isContainerReadOnly={isContainerReadOnly}
         localId={route.localId}
-        readOnly={readOnly}
       />
     );
   }

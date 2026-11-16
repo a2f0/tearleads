@@ -41,9 +41,16 @@ the document durably holds that content, including when it already matched, and
   [queue execution](./public-api.md#host-controlled-mutation-admission).
 - Attachments are left as they are. A detached attachment's bytes are not
   retained, so its reference is never restored.
-- Leading rows with unchanged ids are patched cell by cell. From the first row
-  that differs in identity, or needs a cell cleared, the remaining rows are
-  removed and added again under their own ids, in the restored order.
+- It is always its own stop, even in the same second as the edit before it:
+  the restore closes the changes before it and commits under a message of its
+  own, so the change merge interval never folds it into the version it
+  replaced.
+- Rows are restored so that concurrent restores merge safely. A row that still
+  exists is patched cell by cell under its own id, a row the version did not
+  have is removed, and a row the document no longer has comes back as a new
+  row with a new id, at the end. Two devices restoring the same version at
+  once each add their own copy rather than two rows sharing an id. Row order
+  is not restored, because a row cannot be moved.
 - The document kind is not changed.
 
 ## What a replay is

@@ -136,7 +136,7 @@ test("leading rows are patched in place, cell by cell", async () => {
   expect(first.updatedBy).toBe("restorer");
 });
 
-test("rows after the first difference are rebuilt in the restored order", async () => {
+test("a row the document no longer has comes back as a new row at the end", async () => {
   const doc = await contactWithRows([
     { id: "kept", fields: { street: "1 Way" } },
     { id: "extra", fields: { street: "9 Way" } },
@@ -156,17 +156,22 @@ test("rows after the first difference are rebuilt in the restored order", async 
     RESTORER,
   );
 
-  expect(rowsOf(doc)).toEqual([
-    { id: "kept", fields: { street: "1 Way" } },
-    { id: "gone", fields: { street: "2 Way" } },
-    { id: "later", fields: { street: "3 Way" } },
+  const rows = rowsOf(doc);
+  expect(rows.map((row) => row.fields)).toEqual([
+    { street: "1 Way" },
+    { street: "3 Way" },
+    { street: "2 Way" },
   ]);
+  // Surviving rows keep their ids; the returning row gets one of its own.
+  expect(rows.slice(0, 2).map((row) => row.id)).toEqual(["kept", "later"]);
+  expect(["kept", "extra", "gone", "later"]).not.toContain(rows[2]?.id);
 });
 
-test("a row that needs a cell cleared is rebuilt under its own id", async () => {
+test("a cell the restored row did not have is cleared in place", async () => {
   const doc = await contactWithRows([
     { id: "r1", fields: { street: "1 Way", city: "Paris" } },
   ]);
+  const [original] = listDocumentRows(doc);
 
   restoreDocumentContent(
     doc,
@@ -177,7 +182,52 @@ test("a row that needs a cell cleared is rebuilt under its own id", async () => 
     RESTORER,
   );
 
+  const [restored] = listDocumentRows(doc);
   expect(rowsOf(doc)).toEqual([{ id: "r1", fields: { street: "1 Way" } }]);
+  // The same row, edited: not a replacement.
+  expect(restored?.createdAt).toBe(original?.createdAt);
+  expect(restored?.updatedBy).toBe("restorer");
+});
+
+test("two devices restoring the same version never share a row id", async () => {
+  const alice = await contactWithRows([
+    { id: "r1", fields: { street: "1 Way" } },
+  ]);
+  const target = content({
+    rows: [{ id: "r1", fields: { street: "1 Way" } }],
+    structuredFields: { firstName: "Ada" },
+  });
+  // The row is deleted, and that state reaches a second device.
+  restoreDocumentContent(
+    alice,
+    content({ structuredFields: { firstName: "Ada" } }),
+    BEFORE,
+  );
+  alice.commit();
+  const bob = await createDocument(`restore-peer-${crypto.randomUUID()}`);
+  bob.import(alice.export({ mode: "update" }));
+
+  // Both restore the version that had the row, before either syncs.
+  restoreDocumentContent(alice, target, RESTORER);
+  restoreDocumentContent(bob, target, RESTORER);
+  alice.commit();
+  bob.commit();
+  alice.import(bob.export({ mode: "update" }));
+  bob.import(alice.export({ mode: "update" }));
+
+  const ids = rowsOf(alice).map((row) => row.id);
+  expect(
+    rowsOf(bob)
+      .map((row) => row.id)
+      .sort(),
+  ).toEqual([...ids].sort());
+  // Each restore added its own copy; every row can still be addressed.
+  expect(ids).toHaveLength(2);
+  expect(new Set(ids).size).toBe(2);
+  expect(rowsOf(alice).map((row) => row.fields)).toEqual([
+    { street: "1 Way" },
+    { street: "1 Way" },
+  ]);
 });
 
 test("every row is removed when the restored version had none", async () => {

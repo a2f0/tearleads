@@ -1,5 +1,13 @@
 import type { DocumentHistoryView } from "@tearleads/client-sdk";
-import { type FormEvent, useEffect, useId, useReducer, useRef } from "react";
+import {
+  type FormEvent,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+} from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -12,7 +20,10 @@ import {
   IDLE_DOCUMENT_HISTORY_RESTORE,
   transitionDocumentHistoryRestore,
 } from "../../../../stores/document-history/documentHistoryRestoreMachine";
-import { useDocument } from "../../../../stores/documents/DocumentsProvider";
+import {
+  DocumentWriteScopeContext,
+  useDocument,
+} from "../../../../stores/documents/DocumentsProvider";
 import { EXPLORER_LABELS } from "../../labels";
 
 function RestoreConfirmationDialog(params: {
@@ -70,6 +81,9 @@ export function DocumentHistoryRestore(params: {
 }) {
   const { index, isLatest, onRestored, versionTime, view } = params;
   const { canWrite, ready, restoreContent } = useDocument();
+  // Replaced when the database, account, or keys change. A restore confirmed
+  // under one scope must not land under another.
+  const writeScope = useContext(DocumentWriteScopeContext);
   const [state, send] = useReducer(
     transitionDocumentHistoryRestore,
     IDLE_DOCUMENT_HISTORY_RESTORE,
@@ -82,6 +96,13 @@ export function DocumentHistoryRestore(params: {
       mounted.current = false;
     };
   }, []);
+  // What a queued restore is admitted against when it reaches the front of
+  // the write queue. Updated before paint, so a suspended render cannot
+  // revoke the authority of the control still on screen.
+  const admission = useRef({ canWrite, writeScope });
+  useLayoutEffect(() => {
+    admission.current = { canWrite, writeScope };
+  }, [canWrite, writeScope]);
   // `index` is the trigger: a refusal or a pending confirmation belongs to
   // the stop it was raised on.
   const shownIndex = useRef(index);
@@ -99,9 +120,16 @@ export function DocumentHistoryRestore(params: {
     currentRun.current += 1;
     const run = currentRun.current;
     send({ run, type: "confirmed" });
+    const confirmedScope = writeScope;
     restoreContent(view, {
-      // A restore the user has navigated away from must not land.
-      stillCurrent: () => mounted.current && currentRun.current === run,
+      // The write waits behind others. By the time it runs, the user may have
+      // left, the document may have become read-only (moved to the Trash), or
+      // the database, account, or keys may have changed: none may land it.
+      stillCurrent: () =>
+        mounted.current &&
+        currentRun.current === run &&
+        admission.current.canWrite &&
+        admission.current.writeScope === confirmedScope,
     }).then(
       (restored) => {
         if (!mounted.current) return;

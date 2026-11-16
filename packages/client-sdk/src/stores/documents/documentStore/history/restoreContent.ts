@@ -26,6 +26,12 @@ import {
 const RESTORE_FAILURE_MESSAGE = "Documents: content restore failed";
 
 /**
+ * Leads the commit message of every restore. The rest of the message is
+ * random, so two restores in a row are two steps as well.
+ */
+const DOCUMENT_RESTORE_COMMIT_MESSAGE = "restore";
+
+/**
  * Apply and persist one restore. Resolves true when the document durably
  * holds the content: it was written and saved, or it already matched.
  */
@@ -47,12 +53,23 @@ async function persistRestoredContent(
     return false;
   }
 
-  restoreDocumentContent(
+  // A restore is always its own step of history. Loro folds a writer's
+  // commits into one change while they fall within the merge interval, which
+  // would fold a restore into the edit it replaces and take that version off
+  // the timeline. Changes with different messages never share a change, so
+  // close the edits before it and give the restore a message of its own.
+  currentDoc.commit();
+  const changed = restoreDocumentContent(
     currentDoc,
     content,
     resolveRowAttribution(state),
     state.runtime.infra.documentProjectors,
   );
+  if (changed) {
+    currentDoc.commit({
+      message: `${DOCUMENT_RESTORE_COMMIT_MESSAGE} ${crypto.randomUUID()}`,
+    });
+  }
   // Every operation since the last persisted base travels in this update,
   // including edits an earlier failed save left behind.
   const update = pendingDeltaSinceBase(state, currentDoc);

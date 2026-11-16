@@ -53,3 +53,12 @@ offered only when that document can be written, and it writes through
 ([`documentHistoryRestoreMachine`](documentHistoryRestoreMachine.ts)). The
 restore is a new step of history, not a rewind; see
 [restoring a version](../../../../../docs/developer/client-sdk/document-history.md#restoring-a-version).
+
+- **Read-only follows the document, not the route.** Whether History is
+  read-only is decided from the folder the document is in now. A stale or
+  bookmarked route that names another folder cannot unlock a document that has
+  since moved to the Trash.
+- **A queued restore is admitted again when it runs.** The write waits behind
+  others, and by then the user may have left, the document may have become
+  read-only, or the database, account, or keys may have changed. Any of those
+  refuses it.

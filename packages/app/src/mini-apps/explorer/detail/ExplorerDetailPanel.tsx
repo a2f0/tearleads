@@ -362,7 +362,9 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         logError={params.logError}
         nodes={params.nodes}
         openBlobBrowserRoute={params.openBlobBrowserRoute}
-        readOnly={isContainerReadOnly(params, route.containerId)}
+        isContainerReadOnly={(containerId) =>
+          isContainerReadOnly(params, containerId)
+        }
         requestAttributionProfileHydration={
           params.requestAttributionProfileHydration
         }

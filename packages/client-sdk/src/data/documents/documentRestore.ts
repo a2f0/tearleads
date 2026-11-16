@@ -6,10 +6,11 @@ import {
 } from "./documentKinds";
 import {
   addDocumentRow,
+  createDocumentRowId,
   type DocumentRowAttribution,
   listDocumentRows,
   removeDocumentRow,
-  setDocumentRowFields,
+  replaceDocumentRowFields,
 } from "./documentRowList";
 
 /**
@@ -65,24 +66,17 @@ function restoreStructuredFields(
   return true;
 }
 
-/** The cells to write so `current` matches `target`, or null when a cell must be cleared. */
-function rowCellPatch(
-  current: Readonly<Record<string, string>>,
-  target: Readonly<Record<string, string>>,
-): Record<string, string> | null {
-  const patch: Record<string, string> = {};
-  for (const [key, value] of Object.entries(target)) {
-    if (current[key] !== value) patch[key] = value;
-  }
-  // A row write sets cells but cannot clear one: such a row is rebuilt.
-  return Object.keys(current).every((key) => key in target) ? patch : null;
-}
-
 /**
- * Make the document's rows equal `target`, in order. Rows that already lead
- * the list with the same ids are patched cell by cell, keeping every cell
- * that did not change. From the first row that differs in identity, or needs
- * a cell cleared, the rest are removed and added again under their own ids.
+ * Make the document's rows equal `target`. A row that still exists is patched
+ * cell by cell under its own id, a row that is gone from `target` is removed,
+ * and a row the document no longer has is added back as a new row with a new
+ * id, at the end.
+ *
+ * The new id is what keeps a restore safe to merge: two devices restoring the
+ * same version at once each add their own copy, and both copies stay distinct
+ * rows that can be edited or removed. Re-adding under the old id would leave
+ * two rows sharing it, with writes reaching only the first. Row order is not
+ * restored, because a row cannot be moved.
  */
 function restoreRows(
   doc: StructuredDocumentShape,
@@ -90,28 +84,24 @@ function restoreRows(
   attribution: DocumentRowAttribution,
 ): boolean {
   const current = listDocumentRows(doc);
+  const targetById = new Map(target.map((row) => [row.id, row]));
+  const currentIds = new Set(current.map((row) => row.id));
   let changed = false;
-  let kept = 0;
-  for (; kept < target.length; kept += 1) {
-    const row = current[kept];
-    const wanted = target[kept];
-    if (row === undefined || wanted === undefined || row.id !== wanted.id) {
-      break;
+  for (const row of current) {
+    const wanted = targetById.get(row.id);
+    if (wanted === undefined) {
+      changed = removeDocumentRow(doc, row.id) || changed;
+    } else {
+      changed =
+        replaceDocumentRowFields(doc, row.id, wanted.fields, attribution) ||
+        changed;
     }
-    const patch = rowCellPatch(row.fields, wanted.fields);
-    if (patch === null) break;
-    if (Object.keys(patch).length > 0) {
-      setDocumentRowFields(doc, row.id, patch, attribution);
+  }
+  for (const row of target) {
+    if (!currentIds.has(row.id)) {
+      addDocumentRow(doc, createDocumentRowId(), row.fields, attribution);
       changed = true;
     }
-  }
-  for (const row of current.slice(kept)) {
-    removeDocumentRow(doc, row.id);
-    changed = true;
-  }
-  for (const row of target.slice(kept)) {
-    addDocumentRow(doc, row.id, row.fields, attribution);
-    changed = true;
   }
   return changed;
 }
