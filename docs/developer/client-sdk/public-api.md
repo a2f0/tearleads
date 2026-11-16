@@ -356,6 +356,7 @@ adopt, overwrite, or merge the alias. A host reopening a known profile must
 resolve its actual persisted local ID, use the captured workflow runtime, and
 open without creation seeds. Scope, readiness, and access checks still apply.
 See [custom document persistence](../custom-document-persistence.md).
+`documents.openHistory` replays past versions: [document history](./document-history.md).
 
 ### Unsaved document writes
 
