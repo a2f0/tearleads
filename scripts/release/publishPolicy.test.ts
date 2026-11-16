@@ -7,21 +7,34 @@ interface PublishStep {
 }
 
 for (const name of ["client-sdk", "windowing"]) {
-  test(`${name} plans with the pinned tool before its guarded publish`, async () => {
+  test(`${name} waits for CI, then plans with the pinned tool before its guarded publish`, async () => {
     const root = `${import.meta.dir}/../..`;
     const workflow = Bun.YAML.parse(
       await Bun.file(`${root}/.github/workflows/${name}-publish.yml`).text(),
     ) as {
       jobs: {
+        ci: {
+          if: string;
+          permissions: Record<string, string>;
+          steps: PublishStep[];
+        };
         publish: {
           if: string;
+          needs: string;
           environment: string;
           permissions: Record<string, string>;
           steps: PublishStep[];
         };
       };
     };
-    const { publish } = workflow.jobs;
+    const { ci, publish } = workflow.jobs;
+    // Nothing reaches npm before CI passes on the commit being published.
+    expect(publish.needs).toBe("ci");
+    expect(ci.if).toBe("github.ref == 'refs/heads/main'");
+    expect(ci.permissions).toEqual({ actions: "read", contents: "read" });
+    expect(ci.steps.at(-1)?.run).toBe(
+      'sh scripts/release/waitForCi.sh "$GITHUB_SHA"',
+    );
     expect(publish.if).toBe("github.ref == 'refs/heads/main'");
     expect(publish.environment).toBe("npm");
     expect(publish.permissions["id-token"]).toBe("write");

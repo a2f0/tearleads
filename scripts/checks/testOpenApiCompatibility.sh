@@ -23,7 +23,7 @@ FIXTURE_ROOT=$SOURCE_ROOT/scripts/checks/fixtures/openapiCompatibility
 TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/openapi-compatibility.XXXXXX")
 
 # Git hooks export repository-local variables. Clear them before fixture git
-# commands so a pre-push run cannot write to the caller's index or config.
+# commands so a run from a hook cannot write to the caller's index or config.
 for git_local_env in $(git rev-parse --local-env-vars); do
   unset "$git_local_env"
 done

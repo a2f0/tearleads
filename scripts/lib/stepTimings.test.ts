@@ -1,35 +1,17 @@
 import { expect, test } from "bun:test";
-import { chmodSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const repoRoot = join(import.meta.dir, "../..");
 const library = join(repoRoot, "scripts/lib/stepTimings.sh");
-const reader = join(repoRoot, "scripts/git/showPushGateTimings.sh");
 
-function runSh(
-  script: string,
-  environment: Record<string, string> = {},
-): string {
+function runSh(script: string): string {
   const result = Bun.spawnSync({
     cmd: ["sh", "-c", `set -e\n. "${library}"\n${script}`],
     cwd: repoRoot,
-    env: { ...process.env, ...environment },
   });
   expect(result.stderr.toString()).toBe("");
   expect(result.exitCode).toBe(0);
   return result.stdout.toString();
-}
-
-function runReader(...args: readonly string[]): string {
-  const result = Bun.spawnSync({ cmd: [reader, ...args], cwd: repoRoot });
-  expect(result.stderr.toString()).toBe("");
-  expect(result.exitCode).toBe(0);
-  return result.stdout.toString();
-}
-
-function newLogPath(): string {
-  return join(mkdtempSync(join(tmpdir(), "stepTimings-")), "timings.tsv");
 }
 
 interface SummaryRow {
@@ -91,20 +73,6 @@ test("the summary aligns every value on the longest label", () => {
   );
 });
 
-test("a resumed step is timed from its original start", () => {
-  const output = runSh(
-    "step_timings_reset\n" +
-      'step_timings_resume tests "$(($(step_timings_now) - 125))"\n' +
-      "step_timings_end\n" +
-      "step_timings_summary",
-  );
-  // A second can tick between the start and the end.
-  expect(output).toMatch(/\[tests\] done in 2m0[56]s\./);
-  expect(
-    summaryRows(output).find(({ label }) => label === "tests")?.value,
-  ).toMatch(/^2m0[56]s$/);
-});
-
 test("durations render as minutes and zero-padded seconds", () => {
   const output = runSh(`
     step_timings_record quick 7
@@ -121,151 +89,16 @@ test("durations render as minutes and zero-padded seconds", () => {
   expect(values.get("total")).toBe("1m00s");
 });
 
-test("a logged run carries its metadata and one line per step", async () => {
-  const file = newLogPath();
-  runSh(`
+test("an open step stays named until it ends, so a failure can report it", () => {
+  // destroyTier.sh names the step a teardown stopped in from this variable.
+  const output = runSh(`
     step_timings_reset
-    step_timings_run first true >/dev/null
-    step_timings_run second true >/dev/null
-    step_timings_append_log "${file}" status=passed head=abc123 remote=origin
+    step_timings_begin edge "Destroying edge" >/dev/null
+    printf 'open=%s\\n' "$step_timings_open_label"
+    step_timings_end >/dev/null
+    printf 'closed=%s\\n' "$step_timings_open_label"
   `);
 
-  const lines = (await Bun.file(file).text()).trim().split("\n");
-  expect(lines[0]).toStartWith("run\tat=");
-  expect(lines[0]).toContain("\tstatus=passed\thead=abc123\tremote=origin");
-  // Seconds, not a fixed 0: a real clock can tick between two `date` calls.
-  expect(lines[1]).toMatch(/^step\tfirst\t\d+$/);
-  expect(lines[2]).toMatch(/^step\tsecond\t\d+$/);
-  expect(lines).toHaveLength(3);
-});
-
-test("a run that dies mid-step records the step it stopped in", async () => {
-  const file = newLogPath();
-  runSh(`
-    step_timings_reset
-    step_timings_begin tests "Running bun tests" >/dev/null
-    step_timings_append_log "${file}" status=failed head=abc123
-  `);
-
-  expect(await Bun.file(file).text()).toContain("\tunfinished=tests\t");
-});
-
-test("a failing check stops the gate, and is recorded as the last step", async () => {
-  // The real hook, with `bun` stubbed to fail: its first check lints the pushed
-  // branch through `bun`, so the gate dies in its first step.
-  // Everything the recording depends on — errexit, the EXIT trap, the refs
-  // file — is the hook's own wiring, which is only worth asserting against the
-  // hook itself.
-  const stubDirectory = mkdtempSync(join(tmpdir(), "stepTimings-bin-"));
-  await Bun.write(join(stubDirectory, "bun"), "#!/bin/sh\nexit 3\n");
-  chmodSync(join(stubDirectory, "bun"), 0o755);
-  const file = newLogPath();
-  const { PATH = "" } = process.env;
-
-  const result = Bun.spawnSync({
-    cmd: ["sh", join(repoRoot, "scripts/git/hooks/pre-push"), "origin", "url"],
-    cwd: repoRoot,
-    env: {
-      ...process.env,
-      PATH: `${stubDirectory}:${PATH}`,
-      PUSH_GATE_TIMINGS_LOG: file,
-    },
-    stdin: Buffer.from(`refs/heads/x abc123 refs/heads/x def456\n`),
-  });
-
-  // The check's own status reaches git, so a failed gate still refuses the push.
-  expect(result.exitCode).toBe(3);
-  const output = result.stdout.toString();
-  expect(output).toContain(
-    "--- [branch-name] bun run agent-tool branch check --pre-push ---",
-  );
-  expect(output).not.toContain("[shellcheck]");
-  expect(output).not.toContain("All checks passed.");
-
-  const written = await Bun.file(file).text();
-  expect(written).toContain("\tstatus=failed\t");
-  expect(written).toContain("\tunfinished=branch-name\t");
-  expect(written).toContain("\thead=abc123\t");
-  expect(written).not.toContain("step\tbranch-name");
-});
-
-test("the log keeps only the most recent runs", async () => {
-  const file = newLogPath();
-  for (const head of ["one", "two", "three", "four"]) {
-    runSh(
-      `
-      step_timings_reset
-      step_timings_run only true >/dev/null
-      step_timings_append_log "${file}" status=passed head=${head}
-    `,
-      { STEP_TIMINGS_LOG_RUNS: "2" },
-    );
-  }
-
-  const written = await Bun.file(file).text();
-  expect(written).not.toContain("head=one");
-  expect(written).not.toContain("head=two");
-  expect(written).toContain("head=three");
-  expect(written).toContain("head=four");
-});
-
-test("the reader reports the run that pushed a given head", () => {
-  const file = newLogPath();
-  for (const [head, label] of [
-    ["aaa111", "older"],
-    ["bbb222", "newer"],
-  ]) {
-    runSh(`
-      step_timings_reset
-      step_timings_run ${label} true >/dev/null
-      step_timings_append_log "${file}" status=passed branch=feat/x head=${head} remote=origin
-    `);
-  }
-
-  const latest = runReader("--log", file);
-  expect(latest).toContain("Push gate: feat/x at ");
-  expect(latest).toContain("pushed bbb222 to origin");
-  expect(summaryRows(latest).map((row) => row.label)).toEqual([
-    "newer",
-    "total",
-  ]);
-
-  const pinned = runReader("--log", file, "--head", "aaa111");
-  expect(pinned).toContain("pushed aaa111 to origin");
-  expect(summaryRows(pinned).map((row) => row.label)).toEqual([
-    "older",
-    "total",
-  ]);
-});
-
-test("a push carrying several refs is found by any of its heads", () => {
-  const file = newLogPath();
-  runSh(`
-    step_timings_reset
-    step_timings_run only true >/dev/null
-    step_timings_append_log "${file}" status=passed head=aaa111 head=bbb222 remote=origin
-  `);
-
-  expect(runReader("--log", file)).toContain("pushed aaa111, bbb222 to origin");
-  for (const head of ["aaa111", "bbb222"]) {
-    expect(runReader("--log", file, "--head", head)).toContain(
-      "pushed aaa111, bbb222 to origin",
-    );
-  }
-});
-
-test("the reader stays quiet about pushes it has no record of", () => {
-  const file = newLogPath();
-  runSh(`
-    step_timings_reset
-    step_timings_run only true >/dev/null
-    step_timings_append_log "${file}" status=passed head=aaa111
-  `);
-
-  expect(runReader("--log", file, "--head", "deadbee")).toBe(
-    "No push-gate run recorded for deadbee.\n",
-  );
-  expect(runReader("--log", join(file, "missing.tsv"))).toContain(
-    "No push-gate timings recorded yet",
-  );
+  expect(output).toContain("open=edge\n");
+  expect(output).toContain("closed=\n");
 });

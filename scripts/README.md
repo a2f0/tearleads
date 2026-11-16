@@ -16,7 +16,7 @@ below; run them from the repository root, for example
 | [`checks/`](checks/) | Check entry points, static analysis helpers, baselines, and regression fixtures. |
 | [`deploy/`](deploy/) | Tier and website deployments, teardown, and their shared helpers. |
 | [`dev/`](dev/) | Local launchers, shell setup, seed generation, and cache maintenance. |
-| [`git/`](git/) | Hook installation, hook implementations, and push timing reports. |
+| [`git/`](git/) | Hook installation and hook sources; the pre-push hook is agent-tool's push gate. |
 | [`keychain/`](keychain/) | Manual macOS keychain utilities. |
 | [`lib/`](lib/) | Helpers shared across script groups, including timings, build metadata, release environment guards, and the retried CI dependency install. |
 | [`localstack/`](localstack/) | Local S3 setup, shutdown, and reset commands. |
@@ -47,7 +47,7 @@ Read the
 for prerequisites, private timing records, the retained failure lock, and manual
 recovery. Its code and fixture tests live together in
 [`deploy/softReset/`](deploy/softReset/); `bun run test:soft-reset` runs those
-isolated provider fixtures and is also part of `check:fast` and pre-push.
+isolated provider fixtures and is also part of `check:fast`.
 
 For website-only deployments, run
 [`./scripts/deploy/deployStagingWebsite.sh`](deploy/deployStagingWebsite.sh) or

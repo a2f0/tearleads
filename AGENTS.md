@@ -45,8 +45,8 @@ Run the smallest command that matches the handoff risk:
   Focused tests do not replace static or TypeScript gates.
 - `bun run lint:biome:promises`: builds the SDK's public declarations, then
   checks production promises in API, SDK, app, crypto, and diagnostics. In
-  `lint:biome`, `check:fast`, and pre-push; its separate `biome.promises.jsonc`
-  keeps type scanning out of formatting hooks.
+  `lint:biome` and `check:fast`; its separate `biome.promises.jsonc` keeps type
+  scanning out of formatting hooks.
 - `bun run test:biome:promises`: builds SDK declarations and proves the promise
   gate resolves SDK calls through gitignored build output. Runs inside
   `lint:biome:promises`.
@@ -57,7 +57,7 @@ Run the smallest command that matches the handoff risk:
 - `bun run test:architecture`: graph health and runtime dependency regression
   fixtures; included in `check:fast`.
 - `bun run test:static-analysis`: Git snapshot, source-shape baseline, and
-  ShellCheck inventory fixtures; included in `check:fast` and pre-push.
+  ShellCheck inventory fixtures; included in `check:fast`.
 - `bun run lint:doc-links`: Markdown links, fragments, and linked code
   references (`-- --fix`, `-- --external`); see the `validate-docs` skill.
 - `bun run lint:canonical-ordering`: bans `localeCompare` without a locale and
@@ -101,10 +101,9 @@ Use `bun run lint:source-shape -- --staged` before committing, and
 `bun run lint:source-shape -- --range <base>..<head>` before handing off a
 larger branch.
 
-The pre-push hook records every run's per-check timings in the Git directory.
-`scripts/git/showPushGateTimings.sh` prints the last run (`--head <sha>` selects
-the run that pushed a commit), so a slow or failed push can be inspected
-without rerunning the gate.
+The pre-push hook is agent-tool's push gate: trust guards plus the static
+`pushGate` steps in `agent-tool.json`. `bun run agent-tool runs list` shows each
+push's per-step durations without rerunning the gate.
 
 OpenAPI compatibility, protocol-model, and infrastructure checks use the
 mise-pinned tools; without trusted mise configuration, point `OASDIFF_BIN`,
@@ -279,7 +278,7 @@ and in client SDK sync.
 Shared branch, hook, validation, release, review, PR, and version helpers come
 from the exact npm-pinned [`@a2f0/agent-tool`](https://github.com/a2f0/agent-tool)
 dev dependency; run it with `bun run agent-tool`. Branch, commit trust, binary,
-hook, title, required-check, base-freshness, and version policy is in
+hook, push-gate, title, required-check, and version policy is in
 `agent-tool.json`. The shared `cross-agent-review`, `explicit-state-machines`,
 `open-issue`, `open-pr`, `squash-merge`, `ship-pr`, `reset`, and
 `update-dependencies` skills are managed copies in `.agents/skills` and
@@ -297,8 +296,10 @@ Shipping rules on top of the shared skills:
 
 - **Reviewer**: prefer the other agent's CLI (Codex from Claude Code, Claude
   from Codex), then the remaining CLIs, and report any fallback.
-- **Base integration**: merge the pinned base OID; never rebase or force-push.
-  Without a PR, integrate and repair locally so the branch is pushed once.
+- **Base integration**: only on a conflict or a `versions check` failure
+  against the live base, merge the pinned base OID; never rebase or
+  force-push. Without a PR, integrate and repair locally so the branch is
+  pushed once.
 - **Versions**: every changed workspace package ships one patch past its
   version on the merge base. After each base integration or repair and before
   each review, run `bun run agent-tool versions prepare "$BASE_OID"`, which
@@ -313,11 +314,12 @@ Shipping rules on top of the shared skills:
   lints each branch a push creates or updates, and CI's `Lint` job lints every
   pull request's branch. If a session starts on a nonconforming branch, move
   the work to a conforming branch before the first commit.
-- **Push**: the pre-push gate takes over ten minutes, so run it in the
-  background. It checks signatures and rejects `Co-authored-by` trailers on
-  commits not already reachable from the push remote. A rewrite that only removes
-  them needs no re-review if the tree and the merge base with the PR base are
-  unchanged; re-pin the reviewed SHA to the rewritten head.
+- **Push**: the gate runs only static checks; CI runs the tests and is the
+  authority ([before a push](docs/developer/verification.md#before-a-push)).
+  It checks signatures and rejects `Co-authored-by` trailers on commits not
+  already on the push remote. A rewrite that only removes them needs no
+  re-review if the tree and the merge base with the PR base are unchanged;
+  re-pin the reviewed SHA to the rewritten head.
 - **Branches**: create from the current base with
   `bun run agent-tool branch create <name> --base main --remote origin`. Push
   with `branch push <reviewed-sha> --remote origin` through
@@ -325,12 +327,11 @@ Shipping rules on top of the shared skills:
 - **Merge**: run
   `node_modules/.bin/agent-tool pr merge '' "$REVIEWED_SHA" "$BASE_REF"`
   directly, because `bun run` drops empty arguments. It requires the core
-  checks in the [merge gate policy](docs/developer/ci-merge-gate.md) and a
-  strict, non-bypassable `protect-main` ruleset. Never use `gh pr merge`.
+  checks in the [merge gate policy](docs/developer/ci-merge-gate.md) on the
+  reviewed head, not an up-to-date branch. Never use `gh pr merge`.
 - **Reset**: after returning to `main`, run `sh scripts/git/install-hooks.sh`
   so merged hook changes take effect. It installs only the tracked files
   declared in `agent-tool.json`; inspect existing hooks before the one-time
   `--adopt` migration described in the
   [static-analysis guide](docs/developer/static-analysis.md#ci-and-the-push-gate).
-- **Report** the push gate cost with
-  `scripts/git/showPushGateTimings.sh --head "$REVIEWED_SHA"` after the merge.
+- **Report** the push gate cost from its run in `bun run agent-tool runs list`.
