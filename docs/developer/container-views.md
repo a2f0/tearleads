@@ -3,9 +3,9 @@
 Explorer can display a container through one of its linked documents. Select
 the container, open **Get Info → General**, and choose its **Primary document**
 from the standard dropdown. Choose **None** to clear the preference. These
-settings appear only in Get Info; the folder view keeps **Contact view** and
-**Contents**, which returns to the list of subcontainers, uploads and row
-actions.
+settings appear only in Get Info; the folder view keeps the view toggle
+(**Contact view** or **Notes view**) and **Contents**, which returns to the
+list of subcontainers, uploads and row actions.
 
 ## Identity and persistence
 
@@ -34,17 +34,21 @@ scan every pending draft or persist a device-local fallback.
 `loadContainerDocumentSummary({ containerId, documentId })` resolves the
 canonical reference independently of the current list page. It requires a
 hydrated stored document, accepts direct or secondary membership, and excludes
-hidden tombstone holds. Missing, unlinked, deleted, unhydrated and unsupported
-targets display the normal listing without clearing the preference. A later
+hidden tombstone holds. Missing, unlinked, deleted and unhydrated targets
+display the normal listing without clearing the preference. A later
 projection revision can make a downloaded target available again.
 
-Contact is the only registered container renderer. It reuses
-`ContactDocumentApp`, including its avatar and fields, so changes to the
-shared contact renderer also appear here. The container's existing notes
-follow it as read-only `NoteDocumentApp` previews, five per page with previous
-and next navigation. **Open** routes to the existing note view for editing
-when permitted. Note filtering occurs before SQL counting and pagination;
-previews never create an unbounded set of document stores.
+Every resolved primary renders through a view in
+[container-views](../../packages/app/src/document-types/container-views/).
+Contact is the only specialized view: `contact/ContactContainerView` reuses
+`ContactDocumentApp`, including its avatar and fields, so changes to the shared
+contact renderer also appear here. Every other kind, including unknown ones,
+falls back to `default/DefaultContainerView`. Both render the container's
+existing notes through the shared `shared/ContainerNotes` partial as read-only
+`NoteDocumentApp` previews, five per page with previous and next navigation.
+**Open** routes to the existing note view for editing when permitted. Note
+filtering occurs before SQL counting and pagination; previews never create an
+unbounded set of document stores.
 
 Container selection loads twenty candidates per page, with the current primary
 resolved separately so its label survives paging. If sync reduces the candidate
@@ -59,17 +63,18 @@ checks; Trash also forces them read-only.
 
 ## Adding a renderer
 
-1. Put a reusable renderer under
-   [document-types](../../packages/app/src/document-types/), not in a mini-app.
+1. Put the view in its own folder under `container-views`, composing the
+   document's existing renderer with partials from `container-views/shared`.
    Reuse existing document providers instead of copying data.
 2. Register the stored kind in `containerViewsByKind` in
-   `document-types/registry.ts`. Its optional `ContainerView` receives explicit
-   local, canonical and selected-container ids plus the read-only flag. The
-   ordinary editor fallback does not opt a type into container rendering.
-3. Keep selection in `ContainerPrimaryDocumentField` in Get Info, and rendering
-   and fallback in `ContainerDocumentView`. The contact-first layout appends
-   the shared `ContainerNotes` section; adapt that composition explicitly if a
-   future type needs different sections.
+   `document-types/registry.ts`. Its optional `ContainerView` receives
+   `ContainerViewProps`: explicit local, canonical and selected-container ids,
+   the read-only flag, and the queries, revision and open callback that shared
+   sections need. The ordinary editor fallback does not opt a type into a
+   specialized view; unregistered kinds get the default notes view.
+3. Keep selection in `ContainerPrimaryDocumentField` in Get Info, and view
+   resolution, header, toggle and unavailable fallback in
+   `ContainerDocumentView`.
 4. Add registry and mounted-view tests for the new kind, including fallback,
    identity, scope changes and Contents access.
 
@@ -85,8 +90,8 @@ save failures still reach the logger.
 
 The [browser regression](../../packages/app-web/e2e/container-views.spec.ts)
 restores a synthetic registered-document backup through the shipping UI, then
-exercises General-tab dropdown selection, avatar/fields, note previews,
-Contents, reload, change and clear at desktop and phone sizes. It is not a
-remote registration or live-sync test. Console diagnostics retain connection
-refusals from the absent local development API; JavaScript errors, CSP
-violations and unrelated console errors fail the regression.
+exercises General-tab dropdown selection, avatar/fields, note previews, the
+default notes view, Contents, reload, change and clear at desktop and phone
+sizes. It is not a remote registration or live-sync test. Console diagnostics
+retain connection refusals from the absent local development API; JavaScript
+errors, CSP violations and unrelated console errors fail the regression.
