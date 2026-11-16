@@ -15,9 +15,10 @@ import type { LoroDoc } from "loro-crdt";
 export const DOCUMENT_CHANGE_MERGE_INTERVAL_SECONDS = 1;
 
 /**
- * Make every change this document authors carry the Unix time, in seconds, of
- * its commit. History is the only durable record of when an edit happened:
- * uploads coalesce local writes, and local tail rows fold into checkpoints.
+ * Make every change this document authors carry the Unix time of its commit,
+ * rounded to the nearest second. History is the only durable record of when
+ * an edit happened: uploads coalesce local writes, and local tail rows fold
+ * into checkpoints.
  *
  * The setting belongs to the document instance, not to its exported bytes, so
  * it must be applied to every document that can author. A document without it

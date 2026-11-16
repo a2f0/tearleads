@@ -6,6 +6,7 @@ import {
   MiniAppInput,
   MiniAppModalBackdrop,
   MiniAppModalForm,
+  MiniAppModalHighlight,
   MiniAppModalPanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
@@ -65,9 +66,14 @@ function ExplorerModalBody(params: {
   if (modalState.mode === "share-peer") {
     return (
       <MiniAppStatus>
-        {peerUserId
-          ? `Share this container with peer user ${peerUserId}?`
-          : "No peer user is available."}
+        {peerUserId ? (
+          <>
+            Share this container with peer user{" "}
+            <MiniAppModalHighlight>{peerUserId}</MiniAppModalHighlight>?
+          </>
+        ) : (
+          "No peer user is available."
+        )}
       </MiniAppStatus>
     );
   }

@@ -50,7 +50,10 @@ test("a store-authored document records when each edit was committed", async () 
     const restoredTimes = changeTimestamps(reopened.doc);
     expect(restoredTimes.length).toBeGreaterThan(0);
     expect(restoredTimes[0]).toBeGreaterThanOrEqual(before);
-    expect(restoredTimes.at(-1)).toBeLessThanOrEqual(nowSeconds());
+    // Loro rounds to the nearest second, so a stamp can lead the clock by one.
+    expect(restoredTimes.at(-1)).toBeLessThanOrEqual(
+      Math.ceil(realNow() / 1000),
+    );
 
     // A restored document stamps the current time. Loro would otherwise reuse
     // the newest time it restored, back-dating every later edit to it.

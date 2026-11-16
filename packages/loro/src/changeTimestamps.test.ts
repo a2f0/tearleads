@@ -32,6 +32,11 @@ function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
 
+/** Loro rounds to the nearest second, so a stamp can lead the clock by one. */
+function latestStampNow(): number {
+  return Math.ceil(Date.now() / 1000);
+}
+
 function append(doc: LoroDoc, value: string, timestamp?: number): void {
   const text = doc.getText("text");
   text.insert(text.length, value);
@@ -43,7 +48,7 @@ test("a created document stamps each change with its commit time", async () => {
   const doc = await createDocument("stamp-author");
   const before = nowSeconds();
   append(doc, "hello");
-  const after = nowSeconds();
+  const after = latestStampNow();
 
   const [change] = changeTimes(doc, peerId);
   expect(change?.timestamp).toBeGreaterThanOrEqual(before);

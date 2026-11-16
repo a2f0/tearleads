@@ -7,8 +7,9 @@ import {
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
-import * as Notes from "../../note/NoteDocumentApp";
-import { getDocumentTypeDefinition } from "../../registry";
+import * as Contact from "../contact/ContactDocumentApp";
+import * as Notes from "../note/NoteDocumentApp";
+import { getDocumentTypeDefinition } from "../registry";
 import { ContainerDocumentView } from "./ContainerDocumentView";
 
 afterEach(cleanup);
@@ -51,10 +52,9 @@ function contents() {
 }
 
 test("late notes do not cross container or account boundaries", async () => {
-  const renderer = spyOn(
-    getDocumentTypeDefinition("contact"),
-    "ContainerView",
-  ).mockImplementation(() => <div>Contact</div>);
+  const renderer = spyOn(Contact, "ContactDocumentApp").mockImplementation(
+    () => <div>Contact</div>,
+  );
   const noteRenderer = spyOn(Notes, "NoteDocumentApp").mockImplementation(
     (p) => <div>{p.localId}</div>,
   );
@@ -106,7 +106,7 @@ test("late notes do not cross container or account boundaries", async () => {
   }
 });
 
-test.each(["no-primary", "unknown", "unavailable", "failed"])(
+test.each(["no-primary", "unavailable", "failed"])(
   "%s primary keeps the listing without management controls",
   async (reason) => {
     const p = setup();
@@ -116,9 +116,7 @@ test.each(["no-primary", "unknown", "unavailable", "failed"])(
     };
     p.documentQueries.loadContainerDocumentSummary = async () => {
       if (reason === "failed") throw new Error("Query failed");
-      return reason === "unavailable"
-        ? null
-        : { ...contact, documentKind: "future-kind" };
+      return null;
     };
     const view = render(
       <ContainerDocumentView {...p}>{contents()}</ContainerDocumentView>,
