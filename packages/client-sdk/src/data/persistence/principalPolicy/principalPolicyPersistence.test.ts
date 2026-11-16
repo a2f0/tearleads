@@ -13,7 +13,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { advanceKeyingCheckpointsAtomically } from "../keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
 import {
   ensurePrincipalPolicyTables,
   loadAllPrincipalPolicyBundles,
@@ -274,10 +274,11 @@ test("principal policy persistence rejects a stored-head fork below a newer chec
       "2026-04-08T00:01:00.000Z",
       "org-1",
     );
-    await advanceKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      execSql,
+    ).advanceKeyingCheckpointsAtomically({
       organizationId: "org-1",
       access: [],
-      execSql,
       policies: [
         verifiedPolicyForPersistence(storedVersion2),
         verifiedPolicyForPersistence(checkpointVersion3),
@@ -386,10 +387,11 @@ test.each(["save-v2-before-v3", "save-v3-before-v2"])(
         policy: verified2,
         updatedAt: "2026-04-08T00:02:00Z",
       });
-      await advanceKeyingCheckpointsAtomically({
+      await new KeyingCheckpointRepository(
+        execSql,
+      ).advanceKeyingCheckpointsAtomically({
         organizationId: "org-1",
         access: [],
-        execSql,
         policies: [verified2, verified3],
       });
 

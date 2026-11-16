@@ -12,7 +12,7 @@ import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives
 import { createResponseFromRequest } from "../../../../test/helpers/documentResponseFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { enforceAccessManifestCheckpoints } from "../../../data/keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRemoteDocument } from "./index";
 
@@ -125,8 +125,9 @@ test("document create planning rolls back checkpoints after generation expiry", 
     expect(transactionStarted).toBe(true);
     expect(submitted).toBe(false);
     await expect(
-      loadAccessManifestCheckpoint(
+      new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "container",
         projection.organizationId,
         projection.containerId,
@@ -199,8 +200,9 @@ test("document create rejects a projection below the durable container pin", asy
     ).rejects.toMatchObject({ code: "rollback" });
     expect(submitted).toBe(false);
     await expect(
-      loadAccessManifestCheckpoint(
+      new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "container",
         projection.organizationId,
         projection.containerId,

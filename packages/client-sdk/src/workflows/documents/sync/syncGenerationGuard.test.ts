@@ -13,7 +13,7 @@ import {
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 test("syncRemoteDocument does not retry after its generation expires", async () => {
@@ -117,16 +117,18 @@ test("sync planning rolls back projection checkpoints after generation expiry", 
     expect(transactionStarted).toBe(true);
     expect(submitted).toBe(false);
     await expect(
-      loadAccessManifestCheckpoint(
+      new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "container",
         author.organizationId,
         targetContainer.containerId,
       ),
     ).resolves.toBeNull();
     await expect(
-      loadAccessManifestCheckpoint(
+      new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "document",
         author.organizationId,
         writerProjection.documentId,

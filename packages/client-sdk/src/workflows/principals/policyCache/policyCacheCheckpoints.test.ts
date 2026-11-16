@@ -8,7 +8,7 @@ import {
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/policyCacheFixtures";
 import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
@@ -34,7 +34,10 @@ test("principal policy sync hard-fails rollback after the mutable bundle cache i
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
     await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
+      new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+        "group",
+        "group-1",
+      ),
     ).resolves.toMatchObject({
       version: bundle.currentState.version,
       stateHash: bundle.currentState.stateHash,
@@ -95,7 +98,10 @@ test("principal policy sync cannot pin a head when its full bundle write fails",
       true,
     );
     await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
+      new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),

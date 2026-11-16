@@ -7,7 +7,7 @@ import {
 import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { isProjectionVerificationCancelledError } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
@@ -39,8 +39,9 @@ test("a fresh SDK operation resumes checked pages after an HTTP interruption", a
       result.policy.retainedHistory.map((entry) => entry.state.version),
     ).toEqual([66]);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         fixture.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         history.expectedHead.principalId,
       ),
@@ -271,11 +272,9 @@ test("concurrent recoveries cannot replace another operation's accepted progress
 test("resumes checked progress that has not yet reached the local checkpoint", async () => {
   const fixture = await createRecoveryFixture(history);
   try {
-    await loadPrincipalPolicyCheckpoint(
+    await new KeyingCheckpointRepository(
       fixture.options.execSql,
-      "group",
-      history.expectedHead.principalId,
-    );
+    ).loadPrincipalPolicyCheckpoint("group", history.expectedHead.principalId);
     const checkpoint = history.bundle.previousStates[39]?.state;
     if (!checkpoint) throw new Error("Missing checkpoint fixture");
     await pinPrincipalPolicyCheckpoint(fixture.db, {

@@ -6,11 +6,7 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import { advanceKeyingCheckpointsAtomically } from "./keyingCheckpointAdvancePersistence";
-import {
-  loadAccessManifestCheckpoint,
-  loadPrincipalPolicyCheckpoint,
-} from "./keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "./keyingCheckpointRepository";
 
 function hash(seed: string): string {
   return seed.padEnd(64, "0").slice(0, 64);
@@ -74,23 +70,26 @@ test("atomic advance stores and reloads access and policy pins", async () => {
   try {
     const manifest = manifestDouble({ epoch: 1, hash: "a1", prev: null });
     const policy = policyDouble({ stateHashes: ["p1"] });
-    await advanceKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      execSql,
+    ).advanceKeyingCheckpointsAtomically({
       organizationId: "org-1",
       access: [{ head: manifest, predecessors: [] }],
-      execSql,
       policies: [policy],
     });
 
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         "org-1",
         "container-1",
       ),
     ).resolves.toEqual(manifest.checkpoint);
     await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
+      new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(policy.checkpoint);
   } finally {
     close();
@@ -111,17 +110,21 @@ test("atomic advance rolls back when its generation changes before commit", asyn
   }) as ExecSql;
 
   try {
-    await advanceKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      guardedExecSql,
+    ).advanceKeyingCheckpointsAtomically({
       organizationId: "org-1",
       access: [],
-      execSql: guardedExecSql,
       policies: [policyDouble({ stateHashes: ["stale"] })],
       stillCurrent: () => !transactionStarted,
     });
 
     expect(transactionStarted).toBe(true);
     await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
+      new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -135,10 +138,11 @@ test("concurrent divergent policy pins yield exactly one success", async () => {
     const second = policyDouble({ stateHashes: ["second"] });
     const results = await Promise.allSettled(
       [first, second].map((policy) =>
-        advanceKeyingCheckpointsAtomically({
+        new KeyingCheckpointRepository(
+          execSql,
+        ).advanceKeyingCheckpointsAtomically({
           organizationId: "org-1",
           access: [],
-          execSql,
           policies: [policy],
         }),
       ),
@@ -164,33 +168,37 @@ test("a policy rollback prevents access pins in the same batch", async () => {
   const { close, execSql } = await createTestExecSql("checkpoint-persistence");
   try {
     const policy2 = policyDouble({ stateHashes: ["p1", "p2"] });
-    await advanceKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      execSql,
+    ).advanceKeyingCheckpointsAtomically({
       organizationId: "org-1",
       access: [],
-      execSql,
       policies: [policy2],
     });
     const access = manifestDouble({ epoch: 1, hash: "a1", prev: null });
     const policy1 = policyDouble({ stateHashes: ["p1"] });
 
     await expect(
-      advanceKeyingCheckpointsAtomically({
+      new KeyingCheckpointRepository(
+        execSql,
+      ).advanceKeyingCheckpointsAtomically({
         organizationId: "org-1",
         access: [{ head: access, predecessors: [] }],
-        execSql,
         policies: [policy1],
       }),
     ).rejects.toMatchObject({ code: "rollback" });
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         "org-1",
         "container-1",
       ),
     ).resolves.toBeNull();
     await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
+      new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(policy2.checkpoint);
   } finally {
     close();
@@ -202,23 +210,28 @@ test("an observed predecessor does not reject a batch whose declared policy head
   try {
     const policy1 = policyDouble({ stateHashes: ["p1"] });
     const policy2 = policyDouble({ stateHashes: ["p1", "p2"] });
-    await advanceKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      execSql,
+    ).advanceKeyingCheckpointsAtomically({
       organizationId: "org-1",
       access: [],
-      execSql,
       policies: [policy2],
     });
 
     await expect(
-      advanceKeyingCheckpointsAtomically({
+      new KeyingCheckpointRepository(
+        execSql,
+      ).advanceKeyingCheckpointsAtomically({
         organizationId: "org-1",
         access: [],
-        execSql,
         policies: [policy1, policy2],
       }),
     ).resolves.toBeUndefined();
     await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
+      new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(policy2.checkpoint);
   } finally {
     close();

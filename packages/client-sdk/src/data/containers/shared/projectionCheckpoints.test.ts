@@ -20,7 +20,7 @@ import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedU
 import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 import { verifyContainerWriterProjection } from "../../keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 
 test("hidden future history cannot bypass a persisted projection head", async () => {
   const secondUserId = "user-2";
@@ -123,8 +123,7 @@ test("hidden future history cannot bypass a persisted projection head", async ()
     expect(thrown).toBeInstanceOf(KeyingVerificationError);
     expect((thrown as KeyingVerificationError).code).toBe("rollback");
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         parent.projection.organizationId,
         parent.projection.containerId,
@@ -162,8 +161,7 @@ test("a valid same-epoch projection fork hard-fails before unwrap", async () => 
       }),
     ).rejects.toMatchObject({ code: "equivocation" });
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         first.projection.organizationId,
         first.projection.containerId,

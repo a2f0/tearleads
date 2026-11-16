@@ -1,6 +1,6 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalPolicyBundleForReference } from "../../persistence/principalPolicy/principalPolicyReferencePersistence";
 import {
   type PrincipalPolicyCurrentEvidence,
@@ -91,8 +91,9 @@ export async function filterUncachedPrincipalPolicyReferences(input: {
 }): Promise<ReferencedPrincipalHead[]> {
   const results = await Promise.all(
     input.references.map(async (reference) => {
-      const checkpoint = await loadPrincipalPolicyCheckpoint(
+      const checkpoint = await new KeyingCheckpointRepository(
         input.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         reference.principalType,
         reference.principalId,
       );

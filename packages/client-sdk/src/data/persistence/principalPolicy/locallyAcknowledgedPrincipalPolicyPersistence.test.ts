@@ -11,7 +11,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
 import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
 import {
   persistLocallyAcknowledgedPrincipalPolicyBundle,
   persistLocallyAcknowledgedPrincipalPolicyBundles,
@@ -403,8 +403,7 @@ test("checkpoint write failure rolls back the acknowledged bundle", async () => 
   try {
     const { bundle, policy } = await policyFixture();
     await ensurePrincipalPolicyTables(execSql);
-    await loadPrincipalPolicyCheckpoint(
-      execSql,
+    await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
       policy.principalType,
       policy.principalId,
     );
@@ -423,8 +422,7 @@ test("checkpoint write failure rolls back the acknowledged bundle", async () => 
       }),
     ).rejects.toThrow();
     await expect(
-      loadPrincipalPolicyCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
         policy.principalType,
         policy.principalId,
       ),

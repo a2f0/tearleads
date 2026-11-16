@@ -18,10 +18,8 @@ import {
   readAccessEvent,
   readAccessManifest,
 } from "../../src/data/keyingProjectionVerification/readers";
-import {
-  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
-  locallyAuthoredAccessManifestHead,
-} from "../../src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { locallyAuthoredAccessManifestHead } from "../../src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { buildContainerRecitePlan } from "../../src/workflows/containers/child/recitePlan";
 import {
   createParentProjection,
@@ -137,8 +135,9 @@ export async function createContainerReciteScenario(extraChildren = 0) {
       policies: [],
     });
     await reciteContainer(parent.projection.containerId, plan.request);
-    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    await new KeyingCheckpointRepository(
       execSql,
+    ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
       heads: [locallyAuthoredAccessManifestHead(plan)],
     });
     if (remember) rememberAcknowledgedContainerHead(execSql, plan);

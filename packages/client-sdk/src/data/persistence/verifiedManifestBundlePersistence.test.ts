@@ -18,7 +18,7 @@ import {
   type ExecSql,
   ensureSqlTables,
 } from "../sqlite/sqlSchema";
-import { advanceKeyingCheckpointsAtomically } from "./keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "./keyingCheckpoints/keyingCheckpointRepository";
 import {
   createVerifiedManifestCitations,
   loadVerifiedManifestCitations,
@@ -60,9 +60,10 @@ function remember(
   execSql: ExecSql,
   verifiedBundles: readonly VerifiedManifestBundle[],
 ): Promise<void> {
-  return advanceKeyingCheckpointsAtomically({
-    access: [],
+  return new KeyingCheckpointRepository(
     execSql,
+  ).advanceKeyingCheckpointsAtomically({
+    access: [],
     policies: [],
     verifiedBundles,
   });

@@ -11,7 +11,7 @@ import {
   projectionPolicySource,
   projectionPolicyWarmer,
 } from "../../../../test/helpers/projectionPolicyHistory";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
@@ -87,11 +87,9 @@ for (const historical of [false, true]) {
           attacker.resolveTrustedUserIdentity(userId),
       };
       await verifyProjectionPolicyEvidence(input);
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         execSql,
-        "organization",
-        owner.organizationId,
-      );
+      ).loadPrincipalPolicyCheckpoint("organization", owner.organizationId);
       await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
         "organization",
         owner.organizationId,
@@ -109,11 +107,9 @@ for (const historical of [false, true]) {
         "authority outside its directory binding",
       );
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           execSql,
-          "organization",
-          owner.organizationId,
-        ),
+        ).loadPrincipalPolicyCheckpoint("organization", owner.organizationId),
       ).toMatchObject({ stateHash: previous.currentState.stateHash });
     } finally {
       close();

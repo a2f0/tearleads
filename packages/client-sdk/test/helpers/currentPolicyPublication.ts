@@ -1,5 +1,5 @@
 import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
-import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
@@ -25,8 +25,9 @@ export async function currentPolicyPublicationFixture(
       ...f.options,
       reference: principalPolicyHead(history.directory),
     });
-    await advanceKeyingCheckpointsAtomically({
-      execSql: f.options.execSql,
+    await new KeyingCheckpointRepository(
+      f.options.execSql,
+    ).advanceKeyingCheckpointsAtomically({
       organizationId: history.organizationId,
       access: [],
       policies: [f.input.verifiedCurrentPolicy, directory.policy],

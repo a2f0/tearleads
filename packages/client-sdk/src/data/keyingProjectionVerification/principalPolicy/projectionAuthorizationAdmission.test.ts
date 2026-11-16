@@ -6,10 +6,7 @@ import { createOrganizationHistoryFixture } from "../../../../test/helpers/organ
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
-import {
-  loadAccessManifestCheckpoint,
-  loadPrincipalPolicyCheckpoint,
-} from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
@@ -86,15 +83,17 @@ async function fixture() {
     verifiedManifests: verified,
   });
   const accessPin = () =>
-    loadAccessManifestCheckpoint(
+    new KeyingCheckpointRepository(
       database.execSql,
+    ).loadAccessManifestCheckpoint(
       "container",
       data.organizationId,
       manifest.state.containerId,
     );
   const policyPin = () =>
-    loadPrincipalPolicyCheckpoint(
+    new KeyingCheckpointRepository(
       database.execSql,
+    ).loadPrincipalPolicyCheckpoint(
       "group",
       data.created.currentState.principalId,
     );

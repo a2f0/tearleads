@@ -12,10 +12,7 @@ import {
 } from "../../../../test/helpers/projectionPolicyHistory";
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";
-import {
-  loadAccessManifestCheckpoint,
-  loadPrincipalPolicyCheckpoint,
-} from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { isProjectionVerificationCancelledError } from "../types";
 import { verifyContainerDestinationProjection } from "./containerDestinationVerification";
 
@@ -113,18 +110,17 @@ for (const change of ["none", "caller", "lease", "fork", "newer"] as const) {
         }
       }
       expect(
-        await loadAccessManifestCheckpoint(
+        await new KeyingCheckpointRepository(
           cold.execSql,
+        ).loadAccessManifestCheckpoint(
           "container",
           artifacts.organizationId,
           projection.containerId,
         ),
       ).toBeNull();
-      const pin = await loadPrincipalPolicyCheckpoint(
+      const pin = await new KeyingCheckpointRepository(
         cold.execSql,
-        "organization",
-        artifacts.organizationId,
-      );
+      ).loadPrincipalPolicyCheckpoint("organization", artifacts.organizationId);
       if (change === "fork" || change === "newer")
         expect(pin?.stateHash).toBe("f".repeat(64));
       else expect(pin).toBeNull();

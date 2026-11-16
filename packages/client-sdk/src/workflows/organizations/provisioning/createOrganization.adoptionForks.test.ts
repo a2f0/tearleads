@@ -6,7 +6,7 @@ import {
 } from "../../../../test/helpers/organizationAdoption";
 import { signedPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyFixtures";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { advanceLocallyAcknowledgedAccessManifestHeadsAtomically } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 
 test.each(["container", "document"] as const)(
   "ordinary adoption rejects an equal-epoch %s fork atomically",
@@ -18,8 +18,9 @@ test.each(["container", "document"] as const)(
         (head) => head.checkpoint.objectKind === kind,
       );
       if (!genesis) throw new Error("Missing genesis head");
-      await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+      await new KeyingCheckpointRepository(
         execSql,
+      ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
         heads: [
           {
             ...genesis,

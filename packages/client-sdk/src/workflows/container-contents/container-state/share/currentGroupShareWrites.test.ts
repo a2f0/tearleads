@@ -6,7 +6,7 @@ import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyBundles } from "../../../../data/sqlite/schema/principalPolicySchema";
 import { shareRemoteContainerWithGroup } from "../remote";
 
@@ -80,18 +80,17 @@ test("runtime group share mints a compound grant using Current evidence and reta
     expect(f.fullReads()).toBe(0);
     expect(await f.db.select().from(principalPolicyBundles)).toEqual([]);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         f.group.currentState.principalId,
       ),
     ).toMatchObject({ version: 2 });
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "organization",
-        f.organizationId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("organization", f.organizationId),
     ).toMatchObject({ version: 3 });
   } finally {
     f.close();
@@ -168,8 +167,9 @@ test("Current share rejects a substituted policy receipt without advancing its g
     );
     expect(f.compoundCalls()).toBe(1);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         f.group.currentState.principalId,
       ),
@@ -199,8 +199,9 @@ test("Current share cannot report success or admit a receipt after its caller ex
     ).toBeNull();
     expect(f.compoundCalls()).toBe(1);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         f.group.currentState.principalId,
       ),

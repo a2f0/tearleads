@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeChain";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { verifyDocumentWriterProjection } from "../document/documentProjectionVerification";
 import { runWithSecurityIncidentReporting } from "../error";
 
@@ -64,8 +64,9 @@ test("complete purge history conflicting with a local pin records an incident wi
     expect(incidents).toMatchObject([{ code: "stale_predecessor" }]);
     expect(deletions).toBe(0);
     expect(
-      await loadAccessManifestCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "document",
         fixture.author.organizationId,
         fixture.proof.documentId,

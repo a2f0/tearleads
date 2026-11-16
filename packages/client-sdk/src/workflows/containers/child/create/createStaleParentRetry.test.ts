@@ -7,7 +7,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createRemoteContainer } from "./index";
 
 const STALE_PARENT_FAILURE =
@@ -138,8 +138,7 @@ test("createRemoteContainer hides an unacknowledged committed response", async (
 
     expect(created).toBeNull();
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         parent.projection.organizationId,
         "expired-created-container",

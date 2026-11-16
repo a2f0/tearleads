@@ -10,7 +10,7 @@ import {
 } from "../../../../test/helpers/containerFixtures";
 import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import { scheduleHeldDescendantRecitations } from "./recite";
 import { shareRemoteContainer } from "./share";
@@ -75,8 +75,9 @@ test("a completed share does not await a hanging descendant re-cite", async () =
     expect(overlappingRequests).toBe(0);
     expect(
       (
-        await loadAccessManifestCheckpoint(
+        await new KeyingCheckpointRepository(
           scenario.execSql,
+        ).loadAccessManifestCheckpoint(
           "container",
           scenario.parent.author.organizationId,
           "held-child",

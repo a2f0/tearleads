@@ -8,7 +8,7 @@ import {
 } from "../../../../test/helpers/policyCacheFixtures";
 import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
 import { trustedUserIdentityFromResponse } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
@@ -71,8 +71,9 @@ for (const scenario of [
       } else {
         expect(stored).toBeNull();
         expect(
-          await loadPrincipalPolicyCheckpoint(
+          await new KeyingCheckpointRepository(
             execSql,
+          ).loadPrincipalPolicyCheckpoint(
             supplied.currentState.principalType,
             supplied.currentState.principalId,
           ),
@@ -141,8 +142,11 @@ for (const cached of [false, true]) {
           ?.currentState.stateHash,
       ).toBe(bundle.currentState.stateHash);
       expect(
-        (await loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"))
-          ?.version,
+        (
+          await new KeyingCheckpointRepository(
+            execSql,
+          ).loadPrincipalPolicyCheckpoint("group", "group-1")
+        )?.version,
       ).toBe(2);
     } finally {
       close();
@@ -175,7 +179,9 @@ test("a different same-version group chain is not authenticated by the directory
       (await loadPrincipalPolicyBundle(execSql, "group", "group-1")) === null,
     ).toBe(true);
     expect(
-      await loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
+      await new KeyingCheckpointRepository(
+        execSql,
+      ).loadPrincipalPolicyCheckpoint("group", "group-1"),
     ).toBeNull();
     expect(incidents).toEqual([]);
   } finally {
@@ -218,7 +224,9 @@ test("tampering with the signed organization directory aborts warming and report
       (await loadPrincipalPolicyBundle(execSql, "group", "group-1")) === null,
     ).toBe(true);
     expect(
-      await loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
+      await new KeyingCheckpointRepository(
+        execSql,
+      ).loadPrincipalPolicyCheckpoint("group", "group-1"),
     ).toBeNull();
     expect(incidents).toHaveLength(1);
   } finally {
