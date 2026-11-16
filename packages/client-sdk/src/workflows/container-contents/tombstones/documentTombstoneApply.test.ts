@@ -1,10 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import {
-  holdContainerDocumentTombstones,
-  listContainerDocumentTombstoneHolds,
-} from "../../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
+import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence as documents,
@@ -15,6 +12,14 @@ import {
   saveTestContainer,
   saveTestDocument,
 } from "../documentQueries/documentQueries.testFixtures";
+
+const holds = (execSql: ExecSql) =>
+  new ContainerDocumentTombstoneHoldRepository(execSql);
+const holdsAt = (execSql: ExecSql, instant: string | Date) =>
+  new ContainerDocumentTombstoneHoldRepository(
+    execSql,
+    () => new Date(instant),
+  );
 
 const at = "2026-09-20T00:00:00.000Z";
 const hold = (containerId: string, documentId = "doc") => ({
@@ -55,7 +60,9 @@ test("applying a verified tombstone repoints only to a local row the head links"
       "listed-only",
       "verified-row",
     ]);
-    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    await holdsAt(execSql, at).holdContainerDocumentTombstones([
+      hold("folder"),
+    ]);
 
     await applyContainerDocumentTombstones(execSql, [
       {
@@ -72,7 +79,7 @@ test("applying a verified tombstone repoints only to a local row the head links"
       "verified-row",
     ]);
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
     ).toEqual([]);
   } finally {
     close();
