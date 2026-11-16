@@ -1,5 +1,6 @@
 import {
   type PropsWithChildren,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -10,13 +11,21 @@ import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../providers/logging/LogProvider";
+import { useTearleads } from "../providers/sdk/TearleadsProvider";
 import { useSystemBootstrap } from "../providers/system-bootstrap/SystemBootstrapProvider";
+import { AccountNameContactSeeder } from "./AccountNameContactSeeder";
+import {
+  type AccountNamingState,
+  personalOrganizationName,
+} from "./accountNamingMachine";
 import {
   AUTO_PROVISIONING_IDLE,
+  type AutoProvisioningStatus,
   AutoProvisioningStatusContext,
   type AutoProvisioningStep,
 } from "./autoProvisioningStatus";
 import { autoRegisterFailureMessage } from "./registrationRecoveryError";
+import { type AccountNaming, useAccountNaming } from "./useAccountNaming";
 import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
 
 /**
@@ -35,22 +44,34 @@ import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
  *
  * Auto-generation waits for the local keychain to be unlocked and for the
  * initial persisted-identity restore to settle, so a returning user's stored
- * identity is restored rather than clobbered by a freshly generated one.
+ * identity is restored rather than clobbered by a freshly generated one. With
+ * {@link AppHostFeatureFlags.promptAccountName}, the identity it generates
+ * then waits for the user's name before it registers.
  */
 function useAutoProvisionIdentity(enabled: boolean): {
   generation: AutoProvisioningStep;
+  naming: AccountNaming;
   registration: AutoProvisioningStep;
 } {
+  const naming = useAccountNaming();
+  const generation = useAutoGenerateIdentity(enabled, naming.identityGenerated);
   return {
-    generation: useAutoGenerateIdentity(enabled),
-    registration: useAutoRegisterIdentity(enabled),
+    generation,
+    naming,
+    registration: useAutoRegisterIdentity(enabled, {
+      generation,
+      naming: naming.state,
+    }),
   };
 }
 
 const AUTO_GENERATE_FAILED_MESSAGE =
   "Could not create an identity automatically. Create one in Identity Manager.";
 
-function useAutoGenerateIdentity(enabled: boolean): AutoProvisioningStep {
+function useAutoGenerateIdentity(
+  enabled: boolean,
+  onGenerated: (fingerprint: string) => void,
+): AutoProvisioningStep {
   const { features } = useAppHostConfig().profile;
   const { isLocked } = useLocalKeyringLock();
   const {
@@ -59,6 +80,9 @@ function useAutoGenerateIdentity(enabled: boolean): AutoProvisioningStep {
     localIdentityRestoreSettled,
     signingKeyPair,
   } = useIdentity();
+  const tearleads = useTearleads();
+  const promptAccountName =
+    features.promptAccountName && features.autoRegisterIdentity;
   const generationInFlight = useRef(false);
   const [generation, setGeneration] = useState<AutoProvisioningStep>(
     AUTO_PROVISIONING_IDLE,
@@ -91,6 +115,12 @@ function useAutoGenerateIdentity(enabled: boolean): AutoProvisioningStep {
         () => false,
       )
       .then((created) => {
+        const fingerprint = tearleads.identity.signingFingerprint;
+        // Reported in the same batch as the idle step below, so registration
+        // never sees the new key without its pending name.
+        if (created && promptAccountName && fingerprint) {
+          onGenerated(fingerprint);
+        }
         setGeneration(
           created
             ? AUTO_PROVISIONING_IDLE
@@ -107,13 +137,22 @@ function useAutoGenerateIdentity(enabled: boolean): AutoProvisioningStep {
     identityDestroyed,
     isLocked,
     localIdentityRestoreSettled,
+    onGenerated,
+    promptAccountName,
     signingKeyPair,
+    tearleads,
   ]);
 
   return generation;
 }
 
-function useAutoRegisterIdentity(enabled: boolean): AutoProvisioningStep {
+function useAutoRegisterIdentity(
+  enabled: boolean,
+  pending: {
+    readonly generation: AutoProvisioningStep;
+    readonly naming: AccountNamingState;
+  },
+): AutoProvisioningStep {
   const { features } = useAppHostConfig().profile;
   const { sessionRestoreSettled } = useCryptoSession();
   const { canRegisterCurrentIdentity, registerCurrentIdentity } =
@@ -125,14 +164,25 @@ function useAutoRegisterIdentity(enabled: boolean): AutoProvisioningStep {
   const [registration, setRegistration] = useState<AutoProvisioningStep>(
     AUTO_PROVISIONING_IDLE,
   );
+  const organizationProfileName =
+    pending.naming.status === "named"
+      ? personalOrganizationName(pending.naming.name)
+      : undefined;
   const currentRegistrationRef = useRef({
     canRegisterCurrentIdentity,
+    organizationProfileName,
     registerCurrentIdentity,
   });
   currentRegistrationRef.current = {
     canRegisterCurrentIdentity,
+    organizationProfileName,
     registerCurrentIdentity,
   };
+  // A key the autopilot is still installing may yet need a name, and a name
+  // still owed holds the identity's first registration.
+  const awaitingInput =
+    pending.generation.status === "running" ||
+    pending.naming.status === "awaiting";
 
   useEffect(() => {
     if (
@@ -150,7 +200,8 @@ function useAutoRegisterIdentity(enabled: boolean): AutoProvisioningStep {
       // runtime advancing, prerequisites arriving) to re-arm bootstrap rather
       // than spinning here. The manual Register action remains as a fallback.
       systemBootstrapStatus === "waiting" ||
-      systemBootstrapStatus === "error"
+      systemBootstrapStatus === "error" ||
+      awaitingInput
     ) {
       return;
     }
@@ -178,7 +229,10 @@ function useAutoRegisterIdentity(enabled: boolean): AutoProvisioningStep {
           return null;
         }
 
-        return currentRegistrationRef.current.registerCurrentIdentity();
+        return currentRegistrationRef.current.registerCurrentIdentity({
+          organizationProfileName:
+            currentRegistrationRef.current.organizationProfileName,
+        });
       })
       .then((registered) => {
         // null: bootstrap did not complete and a later change re-arms this
@@ -201,6 +255,7 @@ function useAutoRegisterIdentity(enabled: boolean): AutoProvisioningStep {
         registrationInFlight.current = false;
       });
   }, [
+    awaitingInput,
     canRegisterCurrentIdentity,
     enabled,
     ensureBootstrapped,
@@ -231,14 +286,34 @@ export function IdentityAutopilot({
 }: PropsWithChildren<{
   readonly enabled?: boolean | undefined;
 }>) {
-  const { generation, registration } = useAutoProvisionIdentity(enabled);
-  const status = useMemo(
-    () => ({ enabled, generation, registration }),
-    [enabled, generation, registration],
+  const { generation, naming, registration } =
+    useAutoProvisionIdentity(enabled);
+  const { contactNamed, state: accountNaming, submit } = naming;
+  const status = useMemo<AutoProvisioningStatus>(
+    () => ({
+      accountNaming,
+      enabled,
+      generation,
+      registration,
+      submitAccountName: submit,
+    }),
+    [accountNaming, enabled, generation, registration, submit],
   );
+  const onContactNamed = useCallback(() => {
+    if (accountNaming.status === "named") {
+      contactNamed(accountNaming.fingerprint);
+    }
+  }, [accountNaming, contactNamed]);
 
   return (
     <AutoProvisioningStatusContext.Provider value={status}>
+      {accountNaming.status === "named" && !accountNaming.contactNamed && (
+        <AccountNameContactSeeder
+          fingerprint={accountNaming.fingerprint}
+          name={accountNaming.name}
+          onNamed={onContactNamed}
+        />
+      )}
       {children}
     </AutoProvisioningStatusContext.Provider>
   );

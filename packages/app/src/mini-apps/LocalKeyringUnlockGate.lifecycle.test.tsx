@@ -6,6 +6,7 @@ import {
   createTestHostConfig,
 } from "../../test/helpers/paneTestUtils";
 import { AccountBootstrapLoadingPanel } from "../components/identity/AccountBootstrapLoadingPanel";
+import { ACCOUNT_NAMING_IDLE } from "../identity/accountNamingMachine";
 import {
   AutoProvisioningStatusContext,
   type AutoProvisioningStep,
@@ -63,7 +64,13 @@ test("a provisioning retry preserves already-mounted mini-app content", async ()
   const surface = (registration: AutoProvisioningStep) => (
     <AppRuntimeProvider hostConfig={hostConfig} autoProvisionEnabled={false}>
       <AutoProvisioningStatusContext.Provider
-        value={{ enabled: true, generation: failed, registration }}
+        value={{
+          accountNaming: ACCOUNT_NAMING_IDLE,
+          enabled: true,
+          generation: failed,
+          registration,
+          submitAccountName: () => {},
+        }}
       >
         <LocalKeyringUnlockGate appName="Notes">
           <textarea aria-label="Draft" defaultValue="" />
@@ -93,7 +100,13 @@ test("usable local keys stay accessible during idle, running, and failed registr
   const surface = (registration: AutoProvisioningStep) => (
     <AppRuntimeProvider hostConfig={hostConfig} autoProvisionEnabled={false}>
       <AutoProvisioningStatusContext.Provider
-        value={{ enabled: true, generation: failed, registration }}
+        value={{
+          accountNaming: ACCOUNT_NAMING_IDLE,
+          enabled: true,
+          generation: failed,
+          registration,
+          submitAccountName: () => {},
+        }}
       >
         <LocalKeyringUnlockGate appName="Explorer">
           <p>Local workspace</p>

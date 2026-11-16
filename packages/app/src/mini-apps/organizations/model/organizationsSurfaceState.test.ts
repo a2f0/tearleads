@@ -4,8 +4,9 @@ import { resolveOrganizationsSurfaceState } from "./organizationsSurfaceState";
 
 const PROGRESS = {
   description: "Registering your identity.",
+  phase: "creating-account",
   title: "Creating your account",
-};
+} as const;
 
 describe("resolveOrganizationsSurfaceState", () => {
   test("shows account setup instead of loading or empty", () => {

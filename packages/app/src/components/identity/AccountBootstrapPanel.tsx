@@ -9,6 +9,7 @@ import {
   MiniAppStatePanel,
   MiniAppStatus,
 } from "../mini-app/MiniAppLayout";
+import { AccountBootstrapProgressPanel } from "./AccountBootstrapProgressPanel";
 
 const SIGN_IN_ICON = <SignInIcon size={40} weight="light" />;
 
@@ -96,8 +97,9 @@ function AccountSignInAction({
 
 /**
  * The whole-surface stand-in for a mini-app that needs a signed-in account.
- * While the account is still being restored, created, or signed in it shows
- * that progress; only once nothing is in flight does it ask the user to log in.
+ * While the account is still being restored, named, created, or signed in it
+ * shows that progress; only once nothing is in flight does it ask the user to
+ * log in.
  */
 export function AccountBootstrapPanel({
   signedOutDescription,
@@ -109,13 +111,7 @@ export function AccountBootstrapPanel({
   const copy = useAccountBootstrapProgress();
 
   if (copy) {
-    return (
-      <MiniAppStatePanel
-        busy
-        description={copy.description}
-        title={copy.title}
-      />
-    );
+    return <AccountBootstrapProgressPanel progress={copy} />;
   }
 
   return (

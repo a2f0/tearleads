@@ -9,9 +9,10 @@ afterEach(cleanup);
 
 test("account progress gives way to the mini-app's local loading title", () => {
   const progress = {
-    title: "Signing you in",
     description: "Proving ownership of your identity to the server.",
-  };
+    phase: "signing-in",
+    title: "Signing you in",
+  } as const;
   const view = render(
     <AccountBootstrapProgressContext.Provider value={progress}>
       <AccountBootstrapLoadingPanel title="Loading contacts..." />

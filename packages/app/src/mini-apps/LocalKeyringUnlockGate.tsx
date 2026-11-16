@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { AccountBootstrapProgressContext } from "../components/identity/AccountBootstrapLoadingPanel";
+import { AccountBootstrapProgressPanel } from "../components/identity/AccountBootstrapProgressPanel";
 import {
   MiniAppButton,
   MiniAppField,
@@ -30,12 +31,15 @@ export function resolveMiniAppAccessGateState({
   hasSigningKeyPair,
   isLocked,
   localIdentityRestoreSettled,
+  newIdentityPending = false,
   requireLocalIdentity = true,
 }: {
   accountBootstrapping?: boolean;
   hasSigningKeyPair: boolean;
   isLocked: boolean;
   localIdentityRestoreSettled: boolean;
+  /** The autopilot is still creating a new identity or waits for its name. */
+  newIdentityPending?: boolean;
   requireLocalIdentity?: boolean;
 }): MiniAppAccessGateState {
   if (isLocked) {
@@ -46,12 +50,15 @@ export function resolveMiniAppAccessGateState({
     return "ready";
   }
 
-  // Progress replaces manual setup while keys are being prepared. Once keys
-  // exist, each app owns its loading surface so stalled account provisioning
-  // cannot block local content or unmount an editor during a retry.
+  // Progress replaces manual setup while keys are being prepared, and a new
+  // identity holds every app until it is created and named. Otherwise, once
+  // keys exist, each app owns its loading surface so stalled account
+  // provisioning cannot block local content or unmount an editor during a
+  // retry.
   if (
     !localIdentityRestoreSettled ||
-    (accountBootstrapping && !hasSigningKeyPair)
+    (accountBootstrapping && !hasSigningKeyPair) ||
+    newIdentityPending
   ) {
     return "loading";
   }
@@ -76,6 +83,9 @@ export function LocalKeyringUnlockGate({
     hasSigningKeyPair: signingKeyPair !== null,
     isLocked: lock.isLocked,
     localIdentityRestoreSettled,
+    newIdentityPending:
+      progress?.phase === "creating-identity" ||
+      progress?.phase === "naming-account",
     requireLocalIdentity,
   });
 
@@ -90,13 +100,15 @@ export function LocalKeyringUnlockGate({
   if (gateState === "loading") {
     return (
       <MiniAppRoot>
-        <MiniAppStatePanel
-          busy
-          description={
-            progress?.description ?? "Checking for a saved local key package."
-          }
-          title={progress?.title ?? "Loading local keys"}
-        />
+        {progress ? (
+          <AccountBootstrapProgressPanel progress={progress} />
+        ) : (
+          <MiniAppStatePanel
+            busy
+            description="Checking for a saved local key package."
+            title="Loading local keys"
+          />
+        )}
       </MiniAppRoot>
     );
   }
