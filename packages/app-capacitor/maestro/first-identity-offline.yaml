@@ -8,15 +8,21 @@
 # Run (Android emulator): same command.
 appId: com.tearleads.app
 ---
-# Fresh install with no backend: the app auto-generates the first identity and
-# opens the usable Explorer. Wait for the app's own Menu button first: the iOS
-# home screen also shows a "Contacts" app, so a launch crash would otherwise
-# pass the Contacts wait.
+# Fresh install with no backend: the app auto-generates the first identity,
+# asks what to call the user, and opens the usable Explorer. Wait for the app's
+# own Menu button first: the iOS home screen also shows a "Contacts" app, so a
+# launch crash would otherwise pass the Contacts wait.
 - launchApp:
     clearState: true
 - extendedWaitUntil:
     visible: "Menu"
     timeout: 40000
+- extendedWaitUntil:
+    visible: "What should we call you\\?"
+    timeout: 40000
+- tapOn: "Bob"
+- inputText: "Bob"
+- pressKey: Enter
 - extendedWaitUntil:
     visible: "Contacts"
     timeout: 40000

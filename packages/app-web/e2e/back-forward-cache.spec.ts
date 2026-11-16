@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./appTest";
 
 // Playwright keeps every page out of the back/forward cache: the default
 // headless shell disables it for its delegate, and the launch passes

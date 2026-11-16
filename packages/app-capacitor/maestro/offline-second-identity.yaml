@@ -14,15 +14,22 @@
 appId: com.tearleads.app
 ---
 # Fresh install: the FIRST local identity auto-generates offline (key generation
-# is purely local) and the app becomes usable — the Explorer shows the local
-# Contacts system folder. No backend is required to reach this state. Wait for
-# the app's own Menu button first: the iOS home screen also shows a "Contacts"
-# app, so a launch crash would otherwise pass the Contacts wait.
+# is purely local), asks what to call the user, and the app becomes usable —
+# the Explorer shows the local Contacts system folder. No backend is required
+# to reach this state. Wait for the app's own Menu button first: the iOS home
+# screen also shows a "Contacts" app, so a launch crash would otherwise pass
+# the Contacts wait.
 - launchApp:
     clearState: true
 - extendedWaitUntil:
     visible: "Menu"
     timeout: 40000
+- extendedWaitUntil:
+    visible: "What should we call you\\?"
+    timeout: 40000
+- tapOn: "Bob"
+- inputText: "Bob"
+- pressKey: Enter
 - extendedWaitUntil:
     visible: "Contacts"
     timeout: 40000

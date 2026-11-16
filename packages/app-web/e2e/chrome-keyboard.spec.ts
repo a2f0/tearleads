@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./appTest";
 import { openWindowedDesktop } from "./windowedDesktop";
 
 test("bottom launcher closes with Escape and returns focus to Menu", async ({

@@ -1,4 +1,5 @@
-import { expect, type Locator, test } from "@playwright/test";
+import type { Locator } from "@playwright/test";
+import { expect, test } from "./appTest";
 import { openWindowedDesktop } from "./windowedDesktop";
 
 // The window rounds its corners but does not clip its content, so the body

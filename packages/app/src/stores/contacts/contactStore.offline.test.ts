@@ -58,7 +58,7 @@ for (const reconnect of ["before", "after", "database"] as const) {
       },
       logError: (message, cause) => errors.push({ message, cause }),
     });
-    let edit: Promise<void> | undefined;
+    let edit: Promise<boolean> | undefined;
     try {
       store.updateRuntime(runtime);
       await waitForCondition(
