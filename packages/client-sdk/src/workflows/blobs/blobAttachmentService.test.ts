@@ -3,6 +3,23 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
 import { createBlobAttachmentServiceFixture } from "../../../test/helpers/blobAttachmentServiceFixture";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
+import { BlobAttachmentService } from "./blobAttachmentService";
+
+// A host can call any method of this root-exported class. An upload that
+// trusts a caller-supplied source snapshot must stay off it: a snapshot paired
+// with other bytes would reuse AES-GCM nonces. Adding a method here is a
+// public contract change, like the root export inventory in src/index.test.ts.
+test("the public service offers no upload that trusts a source snapshot", () => {
+  expect(
+    Object.getOwnPropertyNames(BlobAttachmentService.prototype).sort(),
+  ).toEqual([
+    "constructor",
+    "decryptDocumentAttachmentBlob",
+    "detachDocumentAttachment",
+    "hydrateDocumentAttachmentBlobs",
+    "uploadDocumentAttachment",
+  ]);
+});
 
 test("detachDocumentAttachment submits a signed detach event", async () => {
   const { author, resolveProjectionUserKey, writerProjection } =

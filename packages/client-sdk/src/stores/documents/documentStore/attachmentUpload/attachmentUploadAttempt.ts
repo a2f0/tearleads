@@ -3,6 +3,7 @@ import type {
   BlobAttachmentService,
   UploadDocumentAttachmentResult,
 } from "../../../../workflows/blobs";
+import { uploadInspectedDocumentAttachment } from "../../../../workflows/blobs/blobAttachmentService";
 import type { PreparedUploadDocumentAttachmentRequest as AttachmentUploadInput } from "../../../../workflows/blobs/upload";
 import type { DocumentStoreState } from "../state";
 
@@ -125,7 +126,8 @@ async function tryUploadDocumentAttachment(input: {
   reportSecurityIncident: DocumentStoreState["runtime"]["util"]["reportSecurityIncident"];
 }): Promise<UploadDocumentAttachmentResult | null> {
   try {
-    return await input.blobAttachments.uploadPreparedDocumentAttachment(
+    return await uploadInspectedDocumentAttachment(
+      input.blobAttachments,
       input.input,
     );
   } catch (error) {

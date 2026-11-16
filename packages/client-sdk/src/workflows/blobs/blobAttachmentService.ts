@@ -29,6 +29,10 @@ import {
 } from "./upload";
 import { resolveBlobMutationWriterProjection } from "./verification/writerProjection";
 
+let collaboratorsOf: (
+  service: BlobAttachmentService,
+) => BlobAttachmentCollaborators;
+
 /**
  * Client Blob Storage: uploads, detaches, hydrates, and decrypts document
  * attachment blobs. One instance binds the API client, executor, and key
@@ -38,10 +42,15 @@ import { resolveBlobMutationWriterProjection } from "./verification/writerProjec
 export class BlobAttachmentService {
   private readonly blobs: BlobAttachmentCollaborators;
 
+  static {
+    collaboratorsOf = (service) => service.blobs;
+  }
+
   constructor(collaborators: BlobAttachmentCollaborators) {
     this.blobs = collaborators;
   }
 
+  /** Inspects the source itself; any `sourceSnapshot` a caller attaches is dropped. */
   uploadDocumentAttachment(
     request: UploadDocumentAttachmentRequest,
   ): Promise<UploadDocumentAttachmentResult | null> {
@@ -49,13 +58,6 @@ export class BlobAttachmentService {
       ...request,
       sourceSnapshot: undefined,
     });
-  }
-
-  /** @internal Uploads a source that `inspectBlobSource` snapshotted. */
-  uploadPreparedDocumentAttachment(
-    request: PreparedUploadDocumentAttachmentRequest,
-  ): Promise<UploadDocumentAttachmentResult | null> {
-    return uploadPreparedDocumentAttachment(this.blobs, request);
   }
 
   async detachDocumentAttachment({
@@ -156,4 +158,17 @@ export class BlobAttachmentService {
       ),
     });
   }
+}
+
+/**
+ * Uploads a source that `inspectBlobSource` snapshotted, through a service's
+ * collaborators. Document stores only: the snapshot is trusted to describe the
+ * bytes, and pairing it with other bytes could reuse AES-GCM nonces, so this
+ * stays off the class and out of the package root.
+ */
+export function uploadInspectedDocumentAttachment(
+  service: BlobAttachmentService,
+  request: PreparedUploadDocumentAttachmentRequest,
+): Promise<UploadDocumentAttachmentResult | null> {
+  return uploadPreparedDocumentAttachment(collaboratorsOf(service), request);
 }
