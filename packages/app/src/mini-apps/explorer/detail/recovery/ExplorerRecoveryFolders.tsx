@@ -9,6 +9,7 @@ import {
   MiniAppButton,
   MiniAppModalBackdrop,
   MiniAppModalForm,
+  MiniAppModalHighlight,
   MiniAppModalPanel,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
@@ -211,8 +212,9 @@ export function ExplorerRecoveryFolders(params: RecoveryFoldersProps) {
               <h2 id={titleId}>Discard local folder copy?</h2>
               <MiniAppStatus>
                 This permanently removes saved metadata and queued edits for{" "}
-                <strong>{confirm.name}</strong>, and cancels pending links to
-                this folder. Documents and remote data are kept.
+                <MiniAppModalHighlight>{confirm.name}</MiniAppModalHighlight>,
+                and cancels pending links to this folder. Documents and remote
+                data are kept.
               </MiniAppStatus>
               <MiniAppActions>
                 <MiniAppButton disabled={busy} onClick={() => setConfirm(null)}>
