@@ -123,9 +123,22 @@ export function ExplorerDocumentInfoContributorsSection(
     documentInfo: DocumentInfo | null;
   },
 ) {
-  const remoteInfo = params.documentInfo?.remoteInfo;
-  if (!remoteInfo) {
+  if (!params.documentInfo) {
     return null;
+  }
+  const remoteInfo = params.documentInfo.remoteInfo;
+  // Every Attribution section reads remote info, so without it this one speaks
+  // for the tab: a status line, as Remote Security shows, not a blank panel.
+  if (!remoteInfo) {
+    return (
+      <MiniAppInfoSection
+        heading={EXPLORER_LABELS.documentInfoContributorsHeading}
+      >
+        <MiniAppStatus>
+          {EXPLORER_LABELS.documentInfoNoRemoteAttribution}
+        </MiniAppStatus>
+      </MiniAppInfoSection>
+    );
   }
   if (remoteInfo.attributionStatus === "unavailable") {
     return (

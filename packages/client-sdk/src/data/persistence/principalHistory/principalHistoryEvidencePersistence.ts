@@ -5,7 +5,6 @@ import {
   type PrincipalHistoryIndexNode,
   type PrincipalPolicyHistoryReferenceProof,
   principalHistoryIndexLeaf,
-  type ReferencedPrincipalHead,
   resolvePrincipalHistoryIndexProof,
   type VerifiedPrincipalPolicyHistory,
 } from "@tearleads/crypto";
@@ -16,20 +15,17 @@ import {
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import {
   principalHistoryEntries,
-  principalHistoryEvidenceTables,
   principalHistoryNodes,
 } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import {
   sqliteInsertBatchSize,
   sqliteRowsPerStatement,
 } from "../../sqlite/sqliteBindBudget";
-import {
-  type ClientSQLiteDatabase,
-  type ClientSQLiteTransactionScope,
-  getClientSQLitePersistenceRuntime,
+import type {
+  ClientSQLiteDatabase,
+  ClientSQLiteTransactionScope,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { excludedValue } from "../../sqlite/sqliteUpsert";
-import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { writePrincipalHistoryNodes } from "./principalHistoryNodeRetention";
 import type { PrincipalHistoryRootEdges } from "./principalHistoryRootOwnership";
 
@@ -266,14 +262,14 @@ function parsePrincipalHistoryEntry(
  * version and entries in one set read; the first version that fails, in
  * order, throws the error loading it alone would.
  */
-export async function loadPrincipalHistoryReferences(input: {
-  readonly execSql: ExecSql;
-  readonly scopeId: string;
-  readonly history: VerifiedPrincipalPolicyHistory;
-  readonly versions: readonly number[];
-}): Promise<PrincipalPolicyHistoryReferenceProof[]> {
-  await ensureSqlTables(input.execSql, principalHistoryEvidenceTables);
-  const { db } = getClientSQLitePersistenceRuntime(input.execSql);
+export async function readPrincipalHistoryReferences(
+  db: ClientSQLiteDatabase,
+  input: {
+    readonly scopeId: string;
+    readonly history: VerifiedPrincipalPolicyHistory;
+    readonly versions: readonly number[];
+  },
+): Promise<PrincipalPolicyHistoryReferenceProof[]> {
   const resolved = await resolvePrincipalHistoryProofs(db, input);
   const entries = await loadPrincipalHistoryEntryJson(
     db,
@@ -300,22 +296,4 @@ export async function loadPrincipalHistoryReferences(input: {
       proof: result.value.proof,
     };
   });
-}
-
-/** Returns untrusted material. The caller must verify it against the issued root. */
-export async function loadPrincipalHistoryReference(input: {
-  readonly execSql: ExecSql;
-  readonly scopeId: string;
-  readonly history: VerifiedPrincipalPolicyHistory;
-  readonly version: number;
-  readonly expectedReference?: ReferencedPrincipalHead | undefined;
-}): Promise<PrincipalPolicyHistoryReferenceProof> {
-  const [loaded] = await loadPrincipalHistoryReferences({
-    ...input,
-    versions: [input.version],
-  });
-  if (!loaded) throw new Error("Principal history reference was not loaded");
-  return input.expectedReference
-    ? { ...loaded, reference: input.expectedReference }
-    : loaded;
 }

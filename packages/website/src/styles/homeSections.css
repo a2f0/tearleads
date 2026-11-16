@@ -278,10 +278,6 @@
   line-height: 1.05;
 }
 
-.home-closing-line {
-  display: block;
-}
-
 .home-closing-text {
   max-width: 34rem;
   margin-top: var(--site-space-4);
