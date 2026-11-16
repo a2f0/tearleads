@@ -3,10 +3,7 @@ import { sign } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { principalMutationJournalFixture } from "../../../../test/helpers/principalMutationJournalFixture";
-import {
-  claimPrincipalMutationJournal,
-  loadPrincipalMutationJournal,
-} from "../../../data/persistence/principalMutationJournalPersistence";
+import { PrincipalMutationJournalRepository } from "../../../data/persistence/principalMutationJournalPersistence";
 import { sealPrincipalMutation } from "../../../data/principals/principalMutationJournal";
 import {
   principalMutationJournalRecordId,
@@ -80,7 +77,9 @@ async function fixture(format: UnreadableFormat = false) {
     );
   } else row.signature = "corrupt";
   try {
-    await claimPrincipalMutationJournal({ ...input, row });
+    await new PrincipalMutationJournalRepository(
+      input.execSql,
+    ).claimPrincipalMutationJournal({ ...input, row });
     return {
       input,
       row,
@@ -126,7 +125,9 @@ test.each([false, "future", "inlinePolicies"] as const)(
       ).rejects.toThrow();
       expect(submissions).toBe(0);
       expect(
-        await loadPrincipalMutationJournal(f.input.execSql, f.row.scopeId),
+        await new PrincipalMutationJournalRepository(
+          f.input.execSql,
+        ).loadPrincipalMutationJournal(f.row.scopeId),
       ).not.toBeNull();
       expect(
         await discardUnreadableJournaledPrincipalMutation({
@@ -136,7 +137,9 @@ test.each([false, "future", "inlinePolicies"] as const)(
         }),
       ).toBe(true);
       expect(
-        await loadPrincipalMutationJournal(f.input.execSql, f.row.scopeId),
+        await new PrincipalMutationJournalRepository(
+          f.input.execSql,
+        ).loadPrincipalMutationJournal(f.row.scopeId),
       ).toBeNull();
       expect(
         await f.input.execSql(
@@ -180,7 +183,9 @@ test.each(["changed", "expired", "unacknowledged", "readable"] as const)(
         discardUnreadableJournaledPrincipalMutation(input),
       ).rejects.toThrow();
       expect(
-        await loadPrincipalMutationJournal(f.input.execSql, f.row.scopeId),
+        await new PrincipalMutationJournalRepository(
+          f.input.execSql,
+        ).loadPrincipalMutationJournal(f.row.scopeId),
       ).not.toBeNull();
     } finally {
       f.close();

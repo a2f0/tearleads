@@ -21,7 +21,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
-import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
@@ -351,10 +351,10 @@ async function shareRemoteContainerWithGroupOnce(
   // parent fallback, so caching the rotated policy any earlier destroys the
   // only local path to the KEK that must be re-wrapped.
   if (input.stillCurrent?.() !== false) {
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       input.execSql,
+    ).savePrincipalPolicyBundle(
       verifiedPrincipalPolicy.bundle,
-      new Date().toISOString(),
       input.author.organizationId,
       { stillCurrent: input.stillCurrent },
     );

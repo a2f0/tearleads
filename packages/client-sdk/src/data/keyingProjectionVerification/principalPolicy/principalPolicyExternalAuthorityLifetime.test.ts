@@ -6,7 +6,7 @@ import { principalIdentityPinFixture } from "../../../../test/helpers/principalI
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { buildInitialOrganizationPolicyRequest } from "../../../workflows/registration/organizationProvisioning";
-import { savePrincipalPolicyBundle } from "../../persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { ProjectionVerificationCancelledError } from "../types";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
@@ -59,12 +59,9 @@ async function externallyAuthorizedVerification(cancelOnHit: number) {
     fixture.subjectBundle,
     organization,
   ])
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       database.execSql,
-      bundle,
-      "2026-09-12T00:00:00.000Z",
-      organizationId,
-    );
+    ).savePrincipalPolicyBundle(bundle, organizationId);
   return {
     verify: () =>
       collectReferencedPrincipalPolicies({

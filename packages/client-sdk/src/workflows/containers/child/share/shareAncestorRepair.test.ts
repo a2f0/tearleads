@@ -6,10 +6,9 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancestorRotationRecovery";
 import { createContainerServer } from "../../../../../test/helpers/containerMutationServer";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
 import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKek/containerKekCurrency";
-import { rekeyRemoteContainer } from "../rekey/rekeyRemote";
-import { shareRemoteContainer } from "./index";
 
 // #2340 finding 1. With nothing shared beneath it, a chain may sit lazily stale
 // after an ancestor rotation: nobody's writes depend on it. The first grant
@@ -33,11 +32,15 @@ test("sharing below a lazily stale chain repairs it first", async () => {
       fixture.grandchild.projection,
     ]);
     expect(
-      await rekeyRemoteContainer({
-        ...owner,
-        apiClient: server.apiClient,
-        containerId: rootId,
+      await createContainerMutationServiceFixture({
+        api: server.apiClient,
+        encapsulationSecretKey: owner.targetSecretKey,
+        execSql: owner.execSql,
         reportSecurityIncident: async () => {},
+      }).rekeyRemoteContainer({
+        author: owner.author,
+        containerId: rootId,
+        resolveProjectionUserKey: owner.resolveProjectionUserKey,
       }),
     ).not.toBeNull();
     const stale = server.project("grandchild");
@@ -46,12 +49,10 @@ test("sharing below a lazily stale chain repairs it first", async () => {
 
     const recipientKem = generateKemSeedAndKeyPair();
     const recipientSigning = generateSigningSeedAndKeyPair();
-    const shared = await shareRemoteContainer({
-      ...owner,
-      accessLevel: "write",
-      apiClient: server.apiClient,
-      containerId: "grandchild",
-      recipientUserId: "leaf-writer",
+    const shared = await createContainerMutationServiceFixture({
+      api: server.apiClient,
+      encapsulationSecretKey: owner.targetSecretKey,
+      execSql: owner.execSql,
       reportSecurityIncident: async () => {},
       resolveTrustedUserIdentity: async (userId) =>
         createTestTrustedUserIdentity({
@@ -60,6 +61,12 @@ test("sharing below a lazily stale chain repairs it first", async () => {
           signingPublicKey: recipientSigning.signingPublicKey,
           signingKeyFingerprint: "leaf-writer-signing-key",
         }),
+    }).shareRemoteContainer({
+      accessLevel: "write",
+      author: owner.author,
+      containerId: "grandchild",
+      recipientUserId: "leaf-writer",
+      resolveProjectionUserKey: owner.resolveProjectionUserKey,
     });
     expect(shared).not.toBeNull();
     // The path was re-keyed parent-first, the container included, and only

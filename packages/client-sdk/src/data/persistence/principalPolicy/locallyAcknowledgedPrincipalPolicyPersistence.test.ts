@@ -12,15 +12,7 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
 import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
 import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
-import {
-  persistLocallyAcknowledgedPrincipalPolicyBundle,
-  persistLocallyAcknowledgedPrincipalPolicyBundles,
-} from "./locallyAcknowledgedPrincipalPolicyPersistence";
-import {
-  ensurePrincipalPolicyTables,
-  loadPrincipalPolicyBundle,
-  savePrincipalPolicyBundle,
-} from "./principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 
 async function policyFixture(principalId = crypto.randomUUID()) {
   const signer = generateSigningSeedAndKeyPair();
@@ -137,12 +129,13 @@ test("same-head timestamp and envelope-order differences are a no-op", async () 
   try {
     const { bundle, policy } = await policyFixture();
     const firstUpdatedAt = "2026-07-14T00:00:00.000Z";
-    await persistLocallyAcknowledgedPrincipalPolicyBundle({
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+      () => new Date(firstUpdatedAt),
+    ).persistLocallyAcknowledgedPrincipalPolicyBundle({
       organizationId: "org-1",
       bundle,
-      execSql,
       policy,
-      updatedAt: firstUpdatedAt,
     });
     const equivalent: PrincipalPolicyBundleResponse = {
       ...bundle,
@@ -159,16 +152,12 @@ test("same-head timestamp and envelope-order differences are a no-op", async () 
         envelopes: [...bundle.currentMemberEnvelopes.envelopes].reverse(),
       },
     };
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      equivalent,
-      "2026-07-14T00:02:00.000Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(equivalent, "org-1");
 
     await expect(
-      loadPrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
         policy.principalType,
         policy.principalId,
       ),
@@ -191,18 +180,16 @@ test("same-head history timestamps are not security conflicts", async () => {
   try {
     const { bundle } = await policyFixture();
     const successor = successorBundle(bundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      successor,
-      "2026-07-14T00:00:00.000Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(successor, "org-1");
     const previous = successor.previousStates[0];
     if (!previous) {
       throw new Error("Expected policy history");
     }
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
+    ).savePrincipalPolicyBundle(
       {
         ...successor,
         currentState: {
@@ -223,12 +210,10 @@ test("same-head history timestamps are not security conflicts", async () => {
           },
         ],
       },
-      "2026-07-14T00:02:00.000Z",
       "org-1",
     );
     await expect(
-      loadPrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
         successor.currentState.principalType,
         successor.currentState.principalId,
       ),
@@ -246,19 +231,17 @@ test.each(["envelopes", "payload", "projection"] as const)(
     );
     try {
       const { bundle, policy } = await policyFixture();
-      await persistLocallyAcknowledgedPrincipalPolicyBundle({
+      await new PrincipalPolicyBundleRepository(
+        execSql,
+      ).persistLocallyAcknowledgedPrincipalPolicyBundle({
         organizationId: "org-1",
         bundle,
-        execSql,
         policy,
-        updatedAt: "2026-07-14T00:00:00.000Z",
       });
 
       await expect(
-        savePrincipalPolicyBundle(
-          execSql,
+        new PrincipalPolicyBundleRepository(execSql).savePrincipalPolicyBundle(
           securityVariant(bundle, kind),
-          "2026-07-14T00:01:00.000Z",
           "org-1",
         ),
       ).rejects.toMatchObject({
@@ -266,8 +249,7 @@ test.each(["envelopes", "payload", "projection"] as const)(
         name: "KeyingVerificationError",
       });
       await expect(
-        loadPrincipalPolicyBundle(
-          execSql,
+        new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
           policy.principalType,
           policy.principalId,
         ),
@@ -284,32 +266,26 @@ test("same-head conflicts cannot replace an archived acknowledged bundle", async
   );
   try {
     const { bundle, policy } = await policyFixture();
-    await persistLocallyAcknowledgedPrincipalPolicyBundle({
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).persistLocallyAcknowledgedPrincipalPolicyBundle({
       organizationId: "org-1",
       bundle,
-      execSql,
       policy,
-      updatedAt: "2026-07-14T00:00:00.000Z",
     });
     const successor = successorBundle(bundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      successor,
-      "2026-07-14T00:01:00.000Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(successor, "org-1");
 
     await expect(
-      savePrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).savePrincipalPolicyBundle(
         securityVariant(bundle, "envelopes"),
-        "2026-07-14T00:02:00.000Z",
         "org-1",
       ),
     ).rejects.toMatchObject({ code: "equivocation" });
     await expect(
-      loadPrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
         policy.principalType,
         policy.principalId,
       ),
@@ -326,20 +302,21 @@ test("concurrent identical policy acknowledgements both succeed", async () => {
   try {
     const { bundle, policy } = await policyFixture();
     const results = await Promise.allSettled(
-      ["first", "second"].map((suffix) =>
-        persistLocallyAcknowledgedPrincipalPolicyBundle({
-          organizationId: "org-1",
-          bundle,
-          execSql,
-          policy,
-          updatedAt: `2026-07-14T00:00:00.000Z-${suffix}`,
-        }),
+      ["2026-07-14T00:00:00.000Z", "2026-07-14T00:00:01.000Z"].map(
+        (updatedAt) =>
+          new PrincipalPolicyBundleRepository(
+            execSql,
+            () => new Date(updatedAt),
+          ).persistLocallyAcknowledgedPrincipalPolicyBundle({
+            organizationId: "org-1",
+            bundle,
+            policy,
+          }),
       ),
     );
     expect(results.every((result) => result.status === "fulfilled")).toBeTrue();
     await expect(
-      loadPrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
         policy.principalType,
         policy.principalId,
       ),
@@ -359,12 +336,12 @@ test("concurrent divergent same-head acknowledgements accept exactly one bundle"
     const candidates = [bundle, conflicting];
     const results = await Promise.allSettled(
       candidates.map((candidate) =>
-        persistLocallyAcknowledgedPrincipalPolicyBundle({
+        new PrincipalPolicyBundleRepository(
+          execSql,
+        ).persistLocallyAcknowledgedPrincipalPolicyBundle({
           organizationId: "org-1",
           bundle: candidate,
-          execSql,
           policy,
-          updatedAt: "2026-07-14T00:00:00.000Z",
         }),
       ),
     );
@@ -385,8 +362,7 @@ test("concurrent divergent same-head acknowledgements accept exactly one bundle"
       throw new Error("Expected one acknowledged policy bundle");
     }
     await expect(
-      loadPrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
         policy.principalType,
         policy.principalId,
       ),
@@ -402,7 +378,9 @@ test("checkpoint write failure rolls back the acknowledged bundle", async () => 
   );
   try {
     const { bundle, policy } = await policyFixture();
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
     await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
       policy.principalType,
       policy.principalId,
@@ -414,11 +392,11 @@ test("checkpoint write failure rolls back the acknowledged bundle", async () => 
       BEGIN SELECT RAISE(ABORT, 'injected checkpoint failure'); END`);
 
     await expect(
-      persistLocallyAcknowledgedPrincipalPolicyBundles({
+      new PrincipalPolicyBundleRepository(
+        execSql,
+      ).persistLocallyAcknowledgedPrincipalPolicyBundles({
         organizationId: "org-1",
         entries: [{ bundle, policy }],
-        execSql,
-        updatedAt: "2026-07-14T00:00:00.000Z",
       }),
     ).rejects.toThrow();
     await expect(
@@ -428,8 +406,7 @@ test("checkpoint write failure rolls back the acknowledged bundle", async () => 
       ),
     ).resolves.toBeNull();
     await expect(
-      loadPrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
         policy.principalType,
         policy.principalId,
       ),

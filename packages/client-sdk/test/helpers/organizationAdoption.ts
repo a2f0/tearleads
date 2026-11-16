@@ -7,7 +7,7 @@ import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { readAccessManifest } from "../../src/data/keyingProjectionVerification/readers";
 import { locallyAuthoredAccessManifestHead } from "../../src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
-import { persistLocallyAcknowledgedPrincipalPolicyBundle } from "../../src/data/persistence/principalPolicy/locallyAcknowledgedPrincipalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { createOrganization } from "../../src/workflows/organizations/provisioning/createOrganization";
 import {
@@ -90,11 +90,12 @@ export async function acknowledgePolicy(
   bundle: PrincipalPolicyBundleResponse,
 ) {
   const state = bundle.currentState;
-  await persistLocallyAcknowledgedPrincipalPolicyBundle({
-    bundle,
+  await new PrincipalPolicyBundleRepository(
     execSql,
+    () => new Date(state.createdAt),
+  ).persistLocallyAcknowledgedPrincipalPolicyBundle({
+    bundle,
     organizationId,
-    updatedAt: state.createdAt,
     policy: makeVerifiedPrincipalPolicy({
       ...state,
       state,

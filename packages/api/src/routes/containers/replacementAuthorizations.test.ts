@@ -4,10 +4,6 @@ import {
   accessManifests,
   organizationBilling,
 } from "@tearleads/api-shared/schema";
-import {
-  createRemoteContainer,
-  shareRemoteContainer,
-} from "@tearleads/client-sdk";
 import { eq, isNotNull } from "drizzle-orm";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import {
@@ -64,16 +60,10 @@ test("replacement proofs are disclosed only to current readers of the re-shared 
     request.organizationId,
     member,
   );
-  const sdk = {
-    ...context.common,
-    reportSecurityIncident: async () => undefined,
-    resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
-  };
   try {
-    const folder = await createRemoteContainer({
-      ...sdk,
+    const folder = await context.containers.createRemoteContainer({
+      ...context.mutation,
       parentContainerId: request.rootContainerId,
-      parentSecretKey: tree.owner.kem.secretKey,
     });
     if (!folder) throw new Error("Expected replacement folder");
     // A real API projection records the founder through verified policy
@@ -98,8 +88,8 @@ test("replacement proofs are disclosed only to current readers of the re-shared 
     // Former membership and current organization membership alone reveal no proof.
     expect((await read(member.token)).status).toBe(403);
     expect(
-      await shareRemoteContainer({
-        ...sdk,
+      await context.containers.shareRemoteContainer({
+        ...context.mutation,
         containerId: folder.containerId,
         accessLevel: "read",
         recipientUserId: member.userId,

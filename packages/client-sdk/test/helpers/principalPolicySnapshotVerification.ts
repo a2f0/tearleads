@@ -14,7 +14,7 @@ import type { PrincipalPolicySnapshotResponse } from "@tearleads/validators/resp
 import { ProjectionDependencyUnavailableError } from "../../src/data/keyingProjectionVerification/dependencyUnavailable";
 import type { ProjectionUserKeyResolver } from "../../src/data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalPolicyBundleForReference } from "../../src/data/persistence/principalPolicy/principalPolicyReferencePersistence";
+import { PrincipalPolicyBundleRepository } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { verifyReceivedPolicySnapshot } from "./principalSnapshotVerificationCache";
 
@@ -210,11 +210,9 @@ async function enforceSnapshotCheckpoint(input: {
     });
     return true;
   }
-  const localDescendant = await loadPrincipalPolicyBundleForReference(
+  const localDescendant = await new PrincipalPolicyBundleRepository(
     input.execSql,
-    input.reference,
-    checkpoint,
-  );
+  ).loadPrincipalPolicyBundleForReference(input.reference, checkpoint);
   if (!localDescendant) {
     throw new KeyingVerificationError(
       "rollback",

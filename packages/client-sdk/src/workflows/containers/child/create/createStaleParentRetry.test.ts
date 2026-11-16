@@ -7,8 +7,8 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { createRemoteContainer } from "./index";
 
 const STALE_PARENT_FAILURE =
   "POST /containers: 409 Conflict: parentContainerPathRefs[0] manifest head is stale";
@@ -24,8 +24,8 @@ test("createRemoteContainer replans once after the parent head advances", async 
   );
 
   try {
-    const created = await createRemoteContainer({
-      apiClient: createMockApiClient({
+    const created = await createContainerMutationServiceFixture({
+      api: createMockApiClient({
         createContainer: async () => null,
         createContainerResult: async (request) => {
           requests.push(request);
@@ -60,13 +60,14 @@ test("createRemoteContainer replans once after the parent head advances", async 
         },
         getCurrentPrincipalPolicy: async () => null,
       }),
-      author: parent.author,
       execSql,
-      parentContainerId: parent.projection.containerId,
-      parentSecretKey: parent.secretKey,
+      encapsulationSecretKey: parent.secretKey,
       reportSecurityIncident: async () => undefined,
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
+    }).createRemoteContainer({
+      author: parent.author,
+      parentContainerId: parent.projection.containerId,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     });
 
     expect(created).not.toBeNull();
@@ -115,8 +116,8 @@ test("createRemoteContainer hides an unacknowledged committed response", async (
   let current = true;
 
   try {
-    const created = await createRemoteContainer({
-      apiClient: createMockApiClient({
+    const created = await createContainerMutationServiceFixture({
+      api: createMockApiClient({
         createContainer: async (request) => {
           const response = await createMutationResponseFromRequest(request);
           current = false;
@@ -125,14 +126,15 @@ test("createRemoteContainer hides an unacknowledged committed response", async (
         getContainerWriterProjection: async () => parent.projection,
         getCurrentPrincipalPolicy: async () => null,
       }),
+      execSql,
+      encapsulationSecretKey: parent.secretKey,
+      reportSecurityIncident: async () => undefined,
+      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
+    }).createRemoteContainer({
       author: parent.author,
       containerId: "expired-created-container",
-      execSql,
       parentContainerId: parent.projection.containerId,
-      parentSecretKey: parent.secretKey,
-      reportSecurityIncident: async () => undefined,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
       stillCurrent: () => current,
     });
 
@@ -161,8 +163,8 @@ test("createRemoteContainer does not retry or report after stale-parent refresh 
   let submissions = 0;
 
   try {
-    const created = await createRemoteContainer({
-      apiClient: createMockApiClient({
+    const created = await createContainerMutationServiceFixture({
+      api: createMockApiClient({
         createContainer: async () => null,
         createContainerResult: async () => {
           submissions += 1;
@@ -190,13 +192,14 @@ test("createRemoteContainer does not retry or report after stale-parent refresh 
         },
         getCurrentPrincipalPolicy: async () => null,
       }),
-      author: parent.author,
       execSql,
-      parentContainerId: parent.projection.containerId,
-      parentSecretKey: parent.secretKey,
+      encapsulationSecretKey: parent.secretKey,
       reportSecurityIncident: async () => undefined,
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
+    }).createRemoteContainer({
+      author: parent.author,
+      parentContainerId: parent.projection.containerId,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       stillCurrent: () => current,
     });
 
@@ -220,8 +223,8 @@ test("createRemoteContainer does not retry an unrelated conflict", async () => {
   );
 
   try {
-    const created = await createRemoteContainer({
-      apiClient: createMockApiClient({
+    const created = await createContainerMutationServiceFixture({
+      api: createMockApiClient({
         createContainer: async () => null,
         createContainerResult: async () => {
           submissions += 1;
@@ -244,13 +247,14 @@ test("createRemoteContainer does not retry an unrelated conflict", async () => {
         getContainerWriterProjection: async () => parent.projection,
         getCurrentPrincipalPolicy: async () => null,
       }),
-      author: parent.author,
       execSql,
-      parentContainerId: parent.projection.containerId,
-      parentSecretKey: parent.secretKey,
+      encapsulationSecretKey: parent.secretKey,
       reportSecurityIncident: async () => undefined,
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
+    }).createRemoteContainer({
+      author: parent.author,
+      parentContainerId: parent.projection.containerId,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     });
 
     expect(created).toBeNull();

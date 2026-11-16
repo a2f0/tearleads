@@ -6,15 +6,15 @@ import type {
   DomainScope,
 } from "@tearleads/client-sdk";
 import { useCallback, useId, useMemo, useState } from "react";
-import { MiniAppSelectMenu } from "../../../components/mini-app/controls/MiniAppSelectMenu";
-import type { MiniAppSelectMenuOption } from "../../../components/mini-app/controls/MiniAppSelectMenuState";
+import { MiniAppSelectMenu } from "../../components/mini-app/controls/MiniAppSelectMenu";
+import type { MiniAppSelectMenuOption } from "../../components/mini-app/controls/MiniAppSelectMenuState";
 import {
   MiniAppButton,
   MiniAppFieldGroup,
   MiniAppInfoSection,
   MiniAppStatus,
-} from "../../../components/mini-app/MiniAppLayout";
-import { useContainerViewResource } from "./useContainerViewResource";
+} from "../../components/mini-app/MiniAppLayout";
+import { useContainerViewResource } from "./shared/useContainerViewResource";
 import { usePrimaryDocumentSave } from "./usePrimaryDocumentSave";
 
 interface ContainerPrimaryDocumentFieldProps {
@@ -158,8 +158,9 @@ function ContainerPrimaryDocumentFieldSession({
         />
       </MiniAppFieldGroup>
       <p>
-        Contact views show notes underneath. Other document types keep the
-        contents list. Choose None to show contents without a primary document.
+        Contact views show the contact with notes underneath. Other document
+        types show the container's notes. Choose None to show contents without a
+        primary document.
       </p>
       <p>New offline documents become available here after their first sync.</p>
       {resource.status === "loading" ? (

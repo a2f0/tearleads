@@ -14,11 +14,10 @@ import {
 import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancestorRotationRecovery";
 import { createRecipientIdentityResolver } from "../../../../../test/helpers/containerFixtures";
 import { createContainerServer } from "../../../../../test/helpers/containerMutationServer";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { rekeyRemoteContainer } from "../rekey/rekeyRemote";
-import { revokeRemoteContainer } from "../revoke";
-import { shareRemoteContainer } from "../share";
+import type { ContainerMutationServiceApi } from "../../containerMutationCollaborators";
 
 async function fixture(carry = false) {
   const chain = await createRotatedAncestorFixture();
@@ -40,29 +39,35 @@ async function fixture(carry = false) {
     signingKeyFingerprint: await toFingerprint(signing.signingPublicKey),
   });
   const input = {
-    ...chain.input,
-    execSql: database.execSql,
-    persistVerificationCheckpoints: undefined,
+    author: chain.input.author,
     containerId: rootId,
-    reportSecurityIncident: async () => {},
     resolveProjectionUserKey: (userId: string) =>
       userId === "recipient"
         ? identity(userId)
         : chain.input.resolveProjectionUserKey(userId),
   };
+  const containers = (
+    api: Partial<ContainerMutationServiceApi>,
+    execSql = database.execSql,
+  ) =>
+    createContainerMutationServiceFixture({
+      api,
+      encapsulationSecretKey: chain.input.targetSecretKey,
+      execSql,
+      reportSecurityIncident: async () => {},
+      resolveTrustedUserIdentity: identity,
+    });
   try {
-    const shared = await shareRemoteContainer({
+    const shared = await containers(server.apiClient).shareRemoteContainer({
       ...input,
-      apiClient: server.apiClient,
       accessLevel: "write",
       recipientUserId: "recipient",
-      resolveTrustedUserIdentity: identity,
     });
     if (!shared) throw new Error("Expected committed grant");
     const successor = server.project(rootId);
     if (!successor) throw new Error("Expected successor projection");
     server.submissions.length = 0;
-    return { database, server, chain, input, successor };
+    return { containers, database, server, chain, input, successor };
   } catch (error) {
     database.close();
     throw error;
@@ -72,26 +77,26 @@ async function fixture(carry = false) {
 test.each([false, true])(
   "a cached path behind the revoke pin is refetched; repeated rollback still fails (%j)",
   async (repeatRollback) => {
-    const { database, server, chain, input, successor } = await fixture();
+    const { containers, database, server, chain, input, successor } =
+      await fixture();
     const counts = { projections: 0, evicted: 0 };
     try {
-      const revoke = revokeRemoteContainer({
+      const revoke = containers({
+        ...server.apiClient,
+        getContainerWriterProjection: async () => {
+          counts.projections += 1;
+          return counts.projections === 1 || repeatRollback
+            ? chain.root.projection
+            : successor;
+        },
+        evictContainerWriterProjection: () => {
+          counts.evicted += 1;
+        },
+        revokeContainer: server.apiClient.rekeyContainer,
+        revokeContainerResult: server.apiClient.rekeyContainerResult,
+      }).revokeRemoteContainer({
         ...input,
         revokedSubject: { subjectType: "user", subjectId: "recipient" },
-        apiClient: {
-          ...server.apiClient,
-          getContainerWriterProjection: async () => {
-            counts.projections += 1;
-            return counts.projections === 1 || repeatRollback
-              ? chain.root.projection
-              : successor;
-          },
-          evictContainerWriterProjection: () => {
-            counts.evicted += 1;
-          },
-          revokeContainer: server.apiClient.rekeyContainer,
-          revokeContainerResult: server.apiClient.rekeyContainerResult,
-        },
       });
       if (repeatRollback) {
         await expect(revoke).rejects.toThrow("older than the local checkpoint");
@@ -113,10 +118,21 @@ test.each([false, true])(
 test.each([1, 2])(
   "a revoke whose history misses a newer checkpoint replans once (%i unavailable)",
   async (unavailablePlans) => {
-    const { database, server, input, successor } = await fixture();
+    const { containers, database, server, input, successor } = await fixture();
     const counts = { projections: 0, evicted: 0 };
     try {
-      const revoke = revokeRemoteContainer({
+      const revoke = containers({
+        ...server.apiClient,
+        getContainerWriterProjection: async () => {
+          counts.projections += 1;
+          return successor;
+        },
+        evictContainerWriterProjection: () => {
+          counts.evicted += 1;
+        },
+        revokeContainer: server.apiClient.rekeyContainer,
+        revokeContainerResult: server.apiClient.rekeyContainerResult,
+      }).revokeRemoteContainer({
         ...input,
         revokedSubject: { subjectType: "user", subjectId: "recipient" },
         resolveProjectionUserKey: async (userId: string) => {
@@ -125,18 +141,6 @@ test.each([1, 2])(
               "Public history cannot connect to the newer durable checkpoint",
             );
           return input.resolveProjectionUserKey(userId);
-        },
-        apiClient: {
-          ...server.apiClient,
-          getContainerWriterProjection: async () => {
-            counts.projections += 1;
-            return successor;
-          },
-          evictContainerWriterProjection: () => {
-            counts.evicted += 1;
-          },
-          revokeContainer: server.apiClient.rekeyContainer,
-          revokeContainerResult: server.apiClient.rekeyContainerResult,
         },
       });
       if (unavailablePlans > 1) {
@@ -158,7 +162,7 @@ test.each([1, 2])(
 test.each(["submission", "planning"] as const)(
   "a stale descendant during %s rebuilds and pins the entire revoke batch",
   async (phase) => {
-    const { database, server, input } = await fixture(true);
+    const { containers, database, server, input } = await fixture(true);
     const submitted: ContainerRotationRequest[] = [];
     let evicted = 0;
     let reported = 0;
@@ -183,57 +187,53 @@ test.each(["submission", "planning"] as const)(
         // A verified rotation advances our pin while an older child remains in
         // the API cache, as another projection-verifying workflow can do.
         expect(
-          await rekeyRemoteContainer({
+          await containers(server.apiClient).rekeyRemoteContainer({
             ...input,
-            apiClient: server.apiClient,
             containerId: "child",
           }),
         ).not.toBeNull();
       }
-      const revoked = await revokeRemoteContainer({
+      const revoked = await containers({
+        ...server.apiClient,
+        getContainerWriterProjection: (id) =>
+          cached.getContainerWriterProjection(id),
+        evictContainerWriterProjection: (id) => {
+          evicted += 1;
+          cached.evictContainerWriterProjection(id);
+        },
+        evictWriterProjectionsCiting: (ids: readonly string[]) =>
+          cached.evictWriterProjectionsCiting(ids),
+        revokeContainer: server.apiClient.rekeyContainer,
+        revokeContainerResult: async (id, request) => {
+          submitted.push(request);
+          if (phase === "submission" && submitted.length === 2) {
+            // Another device rotates the descendant after this client cached
+            // it and signed the carry, while the parent is still current.
+            const rotated = await containers(
+              server.apiClient,
+              otherDatabase.execSql,
+            ).rekeyRemoteContainer({ ...input, containerId: "child" });
+            expect(rotated).not.toBeNull();
+          }
+          const carried = request.containerRekeys?.[0];
+          if (
+            carried &&
+            carried.previousManifestRef?.manifestHash !==
+              server.project("child")?.path.at(-1)?.manifestHash
+          )
+            return {
+              ok: false,
+              status: 409,
+              code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
+              report: () => {
+                reported += 1;
+              },
+            };
+          return server.apiClient.rekeyContainerResult(id, request);
+        },
+      }).revokeRemoteContainer({
         ...input,
         revokedSubject: { subjectType: "user", subjectId: "recipient" },
-        apiClient: {
-          ...server.apiClient,
-          getContainerWriterProjection: (id) =>
-            cached.getContainerWriterProjection(id),
-          evictContainerWriterProjection: (id) => {
-            evicted += 1;
-            cached.evictContainerWriterProjection(id);
-          },
-          evictWriterProjectionsCiting: (ids: readonly string[]) =>
-            cached.evictWriterProjectionsCiting(ids),
-          revokeContainer: server.apiClient.rekeyContainer,
-          revokeContainerResult: async (id, request) => {
-            submitted.push(request);
-            if (phase === "submission" && submitted.length === 2) {
-              // Another device rotates the descendant after this client cached
-              // it and signed the carry, while the parent is still current.
-              const rotated = await rekeyRemoteContainer({
-                ...input,
-                execSql: otherDatabase.execSql,
-                apiClient: server.apiClient,
-                containerId: "child",
-              });
-              expect(rotated).not.toBeNull();
-            }
-            const carried = request.containerRekeys?.[0];
-            if (
-              carried &&
-              carried.previousManifestRef?.manifestHash !==
-                server.project("child")?.path.at(-1)?.manifestHash
-            )
-              return {
-                ok: false,
-                status: 409,
-                code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
-                report: () => {
-                  reported += 1;
-                },
-              };
-            return server.apiClient.rekeyContainerResult(id, request);
-          },
-        },
       });
       expect(revoked).not.toBeNull();
       expect(evicted).toBe(1);
@@ -278,41 +278,37 @@ test.each(["submission", "planning"] as const)(
 );
 
 test("an acknowledgement rollback after acceptance never replans the revoke", async () => {
-  const { database, server, input } = await fixture();
+  const { containers, database, server, input } = await fixture();
   let evicted = 0;
   let revokes = 0;
   let advanced = false;
   try {
     await expect(
-      revokeRemoteContainer({
+      containers({
+        ...server.apiClient,
+        evictContainerWriterProjection: () => {
+          evicted += 1;
+        },
+        revokeContainer: server.apiClient.rekeyContainer,
+        revokeContainerResult: async (id, request) => {
+          revokes += 1;
+          const result = await server.apiClient.rekeyContainerResult(
+            id,
+            request,
+          );
+          if (result.ok && !advanced) {
+            advanced = true;
+            // The revoke committed, but another verified rotation advances our
+            // pin before its response reaches acknowledgement.
+            expect(
+              await containers(server.apiClient).rekeyRemoteContainer(input),
+            ).not.toBeNull();
+          }
+          return result;
+        },
+      }).revokeRemoteContainer({
         ...input,
         revokedSubject: { subjectType: "user", subjectId: "recipient" },
-        apiClient: {
-          ...server.apiClient,
-          evictContainerWriterProjection: () => {
-            evicted += 1;
-          },
-          revokeContainer: server.apiClient.rekeyContainer,
-          revokeContainerResult: async (id, request) => {
-            revokes += 1;
-            const result = await server.apiClient.rekeyContainerResult(
-              id,
-              request,
-            );
-            if (result.ok && !advanced) {
-              advanced = true;
-              // The revoke committed, but another verified rotation advances our
-              // pin before its response reaches acknowledgement.
-              expect(
-                await rekeyRemoteContainer({
-                  ...input,
-                  apiClient: server.apiClient,
-                }),
-              ).not.toBeNull();
-            }
-            return result;
-          },
-        },
       }),
     ).rejects.toMatchObject({ code: "rollback" });
     expect(advanced).toBe(true);

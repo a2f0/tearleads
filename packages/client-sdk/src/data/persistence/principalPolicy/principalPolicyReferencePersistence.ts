@@ -17,11 +17,9 @@ import {
   principalPolicyBundleReferences,
   principalPolicyBundles,
 } from "../../sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import type { ExecSql } from "../../sqlite/sqlSchema";
+import type { ClientSQLiteDatabase } from "../../sqlite/sqlitePersistenceRuntime";
 import { assertSameHeadPrincipalPolicyBundle } from "./principalPolicyBundleIntegrity";
 import {
-  ensurePrincipalPolicyTables,
   principalPolicyBundleSelection,
   type SelectedPrincipalPolicyRow,
   wherePrincipalPolicyBundlePrincipal,
@@ -216,7 +214,7 @@ function selectNewestCandidate(
   return selected;
 }
 
-function assertReferenceShape(reference: ReferencedPrincipalHead): void {
+export function assertReferenceShape(reference: ReferencedPrincipalHead): void {
   if (!isReferencedPrincipalStateResponse(reference)) {
     throw new KeyingVerificationError(
       "invalid_shape",
@@ -240,10 +238,9 @@ function assertReferenceShape(reference: ReferencedPrincipalHead): void {
 }
 
 async function loadIndexedHeads(
-  execSql: ExecSql,
+  db: ClientSQLiteDatabase,
   reference: ReferencedPrincipalHead,
 ): Promise<IndexedBundleHead[]> {
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
   return db
     .select({
       bundleStateHash: principalPolicyBundleReferences.bundleStateHash,
@@ -297,7 +294,7 @@ function indexHeadsByHash(
 
 /** The current head and the retained bundles at the referenced or indexed hashes, in one read. */
 async function loadReferencedRows(
-  execSql: ExecSql,
+  db: ClientSQLiteDatabase,
   reference: ReferencedPrincipalHead,
   indexedByHash: ReadonlyMap<string, IndexedBundleHead>,
 ): Promise<{
@@ -307,7 +304,6 @@ async function loadReferencedRows(
   // Remote reset deliberately clears mutable heads while retaining historical
   // key material, so an index target can outlive its bundle row. Such a target
   // is only a selection hint; rows that still exist remain authoritative.
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select(principalPolicyBundleSelection)
     .from(principalPolicyBundles)
@@ -366,18 +362,18 @@ function collectCandidates(
   return candidates;
 }
 
-export async function loadPrincipalPolicyBundleForReference(
-  execSql: ExecSql,
+/**
+ * The newest stored bundle containing the exact reference, read after the
+ * caller checked its shape and ensured the principal policy tables.
+ */
+export async function selectReferencedPrincipalPolicyBundle(
+  db: ClientSQLiteDatabase,
   reference: ReferencedPrincipalHead,
   checkpoint: PrincipalPolicyCheckpoint | null,
 ): Promise<PrincipalPolicyBundleResponse | null> {
-  assertReferenceShape(reference);
-  await ensurePrincipalPolicyTables(execSql);
-  const indexedByHash = indexHeadsByHash(
-    await loadIndexedHeads(execSql, reference),
-  );
+  const indexedByHash = indexHeadsByHash(await loadIndexedHeads(db, reference));
   const { currentRow, retainedRows } = await loadReferencedRows(
-    execSql,
+    db,
     reference,
     indexedByHash,
   );

@@ -1,10 +1,7 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { canonicalKeyingJsonString } from "../../../data/keying/canonicalJson";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import {
-  clearPrincipalMutationJournal,
-  loadPrincipalMutationJournal,
-} from "../../../data/persistence/principalMutationJournalPersistence";
+import { PrincipalMutationJournalRepository } from "../../../data/persistence/principalMutationJournalPersistence";
 import {
   type AuthoredPrincipalMutation,
   openPrincipalMutation,
@@ -43,8 +40,9 @@ type JournalIdentity = Pick<
 
 async function loadAuthenticatedMutation(input: JournalIdentity) {
   assertProjectionVerificationCurrent(input.stillCurrent);
-  const row = await loadPrincipalMutationJournal(
+  const row = await new PrincipalMutationJournalRepository(
     input.execSql,
+  ).loadPrincipalMutationJournal(
     await principalMutationJournalScopeId(input.scope),
   );
   assertProjectionVerificationCurrent(input.stillCurrent);
@@ -86,8 +84,9 @@ export async function discardUnreadableJournaledPrincipalMutation(
     input.execSql,
   ).runJournalOperation(input.scope, async () => {
     assertProjectionVerificationCurrent(input.stillCurrent);
-    const row = await loadPrincipalMutationJournal(
+    const row = await new PrincipalMutationJournalRepository(
       input.execSql,
+    ).loadPrincipalMutationJournal(
       await principalMutationJournalScopeId(input.scope),
     );
     assertProjectionVerificationCurrent(input.stillCurrent);
@@ -111,8 +110,9 @@ export async function discardUnreadableJournaledPrincipalMutation(
       throw new Error(
         "Readable principal mutations require ordinary abandonment",
       );
-    const removed = await clearPrincipalMutationJournal({
-      execSql: input.execSql,
+    const removed = await new PrincipalMutationJournalRepository(
+      input.execSql,
+    ).clearPrincipalMutationJournal({
       row,
       stillCurrent: input.stillCurrent,
     });
@@ -164,8 +164,9 @@ export async function abandonJournaledPrincipalMutation(
       throw new Error(
         "The pending principal mutation changed after inspection",
       );
-    const removed = await clearPrincipalMutationJournal({
-      execSql: input.execSql,
+    const removed = await new PrincipalMutationJournalRepository(
+      input.execSql,
+    ).clearPrincipalMutationJournal({
       row: saved.row,
       stillCurrent: input.stillCurrent,
     });

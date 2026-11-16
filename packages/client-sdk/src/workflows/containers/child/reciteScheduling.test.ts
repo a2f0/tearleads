@@ -8,12 +8,12 @@ import {
   createMutationResponseFromRequest,
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../test/helpers/containerMutationServiceFixture";
 import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import { scheduleHeldDescendantRecitations } from "./recite";
-import { shareRemoteContainer } from "./share";
 
 test("a completed share does not await a hanging descendant re-cite", async () => {
   const scenario = await createContainerReciteScenario();
@@ -23,10 +23,9 @@ test("a completed share does not await a hanging descendant re-cite", async () =
   try {
     const recipientKem = generateKemSeedAndKeyPair();
     const recipientSigning = generateSigningSeedAndKeyPair();
-    const result = await shareRemoteContainer({
+    const result = await createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      accessLevel: "read",
-      apiClient: {
+      api: {
         getContainerWriterProjection: async () => scenario.parent.projection,
         shareContainer: async (_id, request) =>
           createMutationResponseFromRequest(request),
@@ -35,13 +34,7 @@ test("a completed share does not await a hanging descendant re-cite", async () =
           return pending.promise;
         },
       },
-      author: scenario.parent.author,
-      containerId: scenario.parent.projection.containerId,
       execSql: scenario.execSql,
-      recipientUserId: "recipient",
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(
-        scenario.parent,
-      ),
       resolveTrustedUserIdentity: async (userId) =>
         createTestTrustedUserIdentity({
           userId,
@@ -49,7 +42,15 @@ test("a completed share does not await a hanging descendant re-cite", async () =
           signingPublicKey: recipientSigning.signingPublicKey,
           signingKeyFingerprint: "recipient-signing-key",
         }),
-      targetSecretKey: scenario.parent.secretKey,
+      encapsulationSecretKey: scenario.parent.secretKey,
+    }).shareRemoteContainer({
+      accessLevel: "read",
+      author: scenario.parent.author,
+      containerId: scenario.parent.projection.containerId,
+      recipientUserId: "recipient",
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(
+        scenario.parent,
+      ),
       stillCurrent: () => active,
     });
     expect(result).not.toBeNull();

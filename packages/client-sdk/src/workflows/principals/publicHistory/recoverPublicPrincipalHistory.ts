@@ -13,7 +13,7 @@ import {
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
-import { loadHeldPrincipalState } from "../../../data/persistence/principalPolicy/heldPrincipalState";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { publishAuthenticatedSigners } from "../../../data/principals/principalIdentityCommitments";
@@ -83,8 +83,9 @@ async function loadHeldHead(
 ): Promise<PrincipalStateResponse | undefined> {
   const knownCurrentState =
     held.state.status === "eligible"
-      ? ((await loadHeldPrincipalState(input.execSql, input.source.head)) ??
-        undefined)
+      ? ((await new PrincipalPolicyBundleRepository(
+          input.execSql,
+        ).loadHeldPrincipalState(input.source.head)) ?? undefined)
       : undefined;
   held.state = transitionHeldHeadState(held.state, {
     type: knownCurrentState ? "heldLoaded" : "heldMissing",

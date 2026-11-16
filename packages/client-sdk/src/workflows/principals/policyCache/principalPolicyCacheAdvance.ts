@@ -1,5 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../../data/persistence/principalPolicy/verifiedPrincipalPolicyBundlePersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 class PolicyCacheAdvanceRace extends Error {
   constructor(readonly verificationError: KeyingVerificationError) {
@@ -9,10 +10,15 @@ class PolicyCacheAdvanceRace extends Error {
 
 /** Only a fully verified candidate losing the atomic commit race can retry. */
 export async function persistPrincipalPolicyCacheEntries(
-  input: Parameters<typeof persistVerifiedPrincipalPolicyBundlesAtomically>[0],
+  input: Parameters<
+    PrincipalPolicyBundleRepository["persistVerifiedPrincipalPolicyBundlesAtomically"]
+  >[0] & { readonly execSql: ExecSql },
 ): Promise<void> {
+  const { execSql, ...entries } = input;
   try {
-    await persistVerifiedPrincipalPolicyBundlesAtomically(input);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).persistVerifiedPrincipalPolicyBundlesAtomically(entries);
   } catch (error) {
     if (error instanceof KeyingVerificationError && error.code === "rollback")
       throw new PolicyCacheAdvanceRace(error);

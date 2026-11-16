@@ -7,7 +7,7 @@ import {
 } from "../../sqlite/schema/trustedUserIdentityPinSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { createExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import { loadTrustedUserIdentityPins } from "./trustedUserIdentityPinBatch";
+import { TrustedUserIdentityPinRepository } from "./trustedUserIdentityPinRepository";
 
 test("pin batch reads deduplicate, chunk bind variables and isolate trust domains", async () => {
   const database = await createTestExecSql("pin-read-batches");
@@ -52,8 +52,9 @@ test("pin batch reads deduplicate, chunk bind variables and isolate trust domain
         .run();
     });
     statements.length = 0;
-    const read = await loadTrustedUserIdentityPins({
+    const read = await new TrustedUserIdentityPinRepository(
       execSql,
+    ).loadTrustedUserIdentityPins({
       identityTrustDomain: first.identityTrustDomain,
       userIds: [...pins.map((pin) => pin.userId), first.userId, "missing-user"],
     });
@@ -73,8 +74,9 @@ test("pin batch reads deduplicate, chunk bind variables and isolate trust domain
     statements.length = 0;
     expect(
       (
-        await loadTrustedUserIdentityPins({
+        await new TrustedUserIdentityPinRepository(
           execSql,
+        ).loadTrustedUserIdentityPins({
           identityTrustDomain: first.identityTrustDomain,
           userIds: [],
         })
@@ -126,11 +128,9 @@ for (const secondAdapter of [false, true]) {
     try {
       await ensureSqlTables(writer, trustedUserIdentityPinTables);
       // Prewarm schema before holding the write, so BEGIN is the next boundary.
-      await loadTrustedUserIdentityPins({
-        execSql: reader,
-        ...pin,
-        userIds: [pin.userId],
-      });
+      await new TrustedUserIdentityPinRepository(
+        reader,
+      ).loadTrustedUserIdentityPins({ ...pin, userIds: [pin.userId] });
       write = getClientSQLitePersistenceRuntime(writer)
         .transaction(async (tx) => {
           await tx.insert(trustedUserIdentityPins).values(pin).run();
@@ -142,14 +142,12 @@ for (const secondAdapter of [false, true]) {
       await inserted.promise;
       watchBegin = true;
       let answered = false;
-      read = loadTrustedUserIdentityPins({
-        execSql: reader,
-        ...pin,
-        userIds: [pin.userId],
-      }).then((pins) => {
-        answered = true;
-        return pins;
-      });
+      read = new TrustedUserIdentityPinRepository(reader)
+        .loadTrustedUserIdentityPins({ ...pin, userIds: [pin.userId] })
+        .then((pins) => {
+          answered = true;
+          return pins;
+        });
       if (secondAdapter) await attempted.promise;
       // The same adapter queues behind the open mutation; another adapter's
       // BEGIN is refused by SQLite. Neither may return an uncommitted row.

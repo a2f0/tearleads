@@ -1,6 +1,7 @@
 import type { ContainerGrantSubjectType } from "@tearleads/crypto";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
+import { ContainerMutationService } from "../../workflows/containers";
 import { revokeOrganizationContainerGrant } from "../../workflows/organizations";
 import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../workflows/organizations/groupMetadata/currentGroupMetadataAuthority";
 import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadata/groupMetadataRuntime";
@@ -312,11 +313,15 @@ export async function revokeOrganizationGrant(
         }
         return revokeOrganizationContainerGrant({
           stillCurrent: input.stillCurrent,
-          reportSecurityIncident: input.runtime.util.reportSecurityIncident,
-          apiClient: input.runtime.apiClient,
           containerId: input.containerId,
-          encapsulationKeyPair,
-          execSql: input.runtime.infra.execSql,
+          containers: new ContainerMutationService({
+            api: input.runtime.apiClient,
+            encapsulationSecretKey: encapsulationKeyPair.secretKey,
+            execSql: input.runtime.infra.execSql,
+            reportSecurityIncident: input.runtime.util.reportSecurityIncident,
+            resolveTrustedUserIdentity:
+              input.runtime.resolveTrustedUserIdentity,
+          }),
           revokedSubject: {
             subjectId: input.subjectId,
             subjectType: input.subjectType,

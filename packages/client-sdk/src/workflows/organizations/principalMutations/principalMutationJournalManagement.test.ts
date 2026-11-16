@@ -1,10 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { principalMutationJournalFixture } from "../../../../test/helpers/principalMutationJournalFixture";
-import {
-  claimPrincipalMutationJournal,
-  loadPrincipalMutationJournal,
-} from "../../../data/persistence/principalMutationJournalPersistence";
+import { PrincipalMutationJournalRepository } from "../../../data/persistence/principalMutationJournalPersistence";
 import { sealPrincipalMutation } from "../../../data/principals/principalMutationJournal";
 import {
   abandonJournaledPrincipalMutation,
@@ -27,7 +24,9 @@ test.each([403, 409, 503])(
     };
     const row = await sealPrincipalMutation(fixture);
     try {
-      await claimPrincipalMutationJournal({ ...context, row });
+      await new PrincipalMutationJournalRepository(
+        context.execSql,
+      ).claimPrincipalMutationJournal({ ...context, row });
       await expect(
         recoverJournaledPrincipalMutation({
           ...context,
@@ -55,7 +54,9 @@ test.each([403, 409, 503])(
         }),
       ).toBe(true);
       expect(
-        await loadPrincipalMutationJournal(sqlite.execSql, row.scopeId),
+        await new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).loadPrincipalMutationJournal(row.scopeId),
       ).toBeNull();
       // Abandonment neither submits nor writes a current-policy checkpoint.
       expect(
@@ -82,7 +83,9 @@ test.each(["changed", "corrupt", "expired"] as const)(
     };
     const row = await sealPrincipalMutation(fixture);
     try {
-      await claimPrincipalMutationJournal({ ...context, row });
+      await new PrincipalMutationJournalRepository(
+        context.execSql,
+      ).claimPrincipalMutationJournal({ ...context, row });
       const mutation = await readJournaledPrincipalMutation(context);
       if (mutation?.kind !== "compound")
         throw new Error("Missing compound authored work");
@@ -102,7 +105,9 @@ test.each(["changed", "corrupt", "expired"] as const)(
         }),
       ).rejects.toThrow();
       expect(
-        await loadPrincipalMutationJournal(sqlite.execSql, row.scopeId),
+        await new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).loadPrincipalMutationJournal(row.scopeId),
       ).not.toBeNull();
     } finally {
       sqlite.close();

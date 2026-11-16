@@ -6,7 +6,7 @@ import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFix
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { buildInitialOrganizationPolicyRequest } from "../../../workflows/registration/organizationProvisioning";
-import { savePrincipalPolicyBundle } from "../../persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { verifyContainerWriterProjection } from "../container/containerProjectionVerification";
 import { runWithSecurityIncidentReporting } from "../error";
@@ -41,12 +41,9 @@ test("an unavailable organization signer defers external authorization without a
       fixture.subjectBundle,
       organization,
     ]) {
-      await savePrincipalPolicyBundle(
+      await new PrincipalPolicyBundleRepository(
         execSql,
-        bundle,
-        "2026-09-12T00:00:00.000Z",
-        organizationId,
-      );
+      ).savePrincipalPolicyBundle(bundle, organizationId);
     }
     const input = {
       checkpointContext: createProjectionCheckpointContext({ execSql }),
