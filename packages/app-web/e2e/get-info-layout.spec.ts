@@ -271,31 +271,52 @@ test("document info keeps keys beside values on a wide pane", async ({
 });
 
 // A shortened id keeps its full form for the copy alone; a touch screen never
-// shows the tooltip. The value is the tap target, so it must take a 44px tap
-// like any other control there, without the row growing to fit it — the hit
-// area is an overlay, so probe it where the drawn text is not.
-test("document info copies a full id from a touch-sized tap target", async ({
-  context,
-  page,
-}) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openDocumentInfo(page);
+// shows the tooltip. The value's row is its tap target: at least 44px tall,
+// tappable edge to edge, and not one pixel into the next row — where a tap
+// meant for one id must not copy its neighbour. Probed with elementFromPoint,
+// since the target is an overlay and draws nothing, at a phone (stacked) and
+// on a wide pane (side by side, where an id row is shorter than 44px unless it
+// grows).
+for (const width of [390, 1280]) {
+  test(`document info copies a full id from its whole row (${width}px)`, async ({
+    context,
+    page,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.setViewportSize({ width, height: 844 });
+    await openDocumentInfo(page);
 
-  const value = page.getByRole("button", { name: "Copy Local ID" });
-  await expect(value).toBeVisible({ timeout: 30_000 });
-  const reach = await value.evaluate((button) => {
-    const box = button.getBoundingClientRect();
-    const x = box.left + box.width / 2;
-    const middle = box.top + box.height / 2;
-    const hits = (y: number) =>
-      document.elementFromPoint(x, y)?.closest("button") === button;
-    return { below: hits(middle + 20), above: hits(middle - 20) };
+    const value = page.getByRole("button", { name: "Copy Local ID" });
+    await expect(value).toBeVisible({ timeout: 30_000 });
+    const reach = await value.evaluate((button) => {
+      const row = button.closest("dd")?.parentElement;
+      const next = row?.nextElementSibling;
+      if (!row || !next) {
+        return null;
+      }
+      const box = row.getBoundingClientRect();
+      const x = box.left + box.width / 2;
+      const hits = (y: number) =>
+        document.elementFromPoint(x, y)?.closest("button") === button;
+      return {
+        bottom: hits(box.bottom - 1),
+        height: box.height >= 44,
+        nextRow: hits(next.getBoundingClientRect().top + 1),
+        top: hits(box.top + 1),
+      };
+    });
+    expect(reach).toEqual({
+      bottom: true,
+      height: true,
+      nextRow: false,
+      top: true,
+    });
+
+    const full = await value.getAttribute("title");
+    await value.click();
+    expect(full).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      full,
+    );
   });
-  expect(reach).toEqual({ above: true, below: true });
-
-  const full = await value.getAttribute("title");
-  await value.click();
-  expect(full).toMatch(/^[0-9a-f-]{36}$/);
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(full);
-});
+}

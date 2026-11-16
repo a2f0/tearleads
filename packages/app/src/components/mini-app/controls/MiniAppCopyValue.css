@@ -29,23 +29,14 @@
   text-decoration: underline;
 }
 
-/* Touch (routed layout): the value is the tap target, so it needs the 44px hit
-   height every other control has there. A min-height would open a gap between
-   the value and its key in a stacked list and set id rows apart from the rows
-   around them, so the extra height is an invisible overlay instead: the hit
-   area grows while the line keeps its place. */
-:root[data-navigation-mode="routed"] .mini-app-copy-value {
-  position: relative;
-  /* Above the next row's key: a muted key is translucent, and opacity makes it
-     a stacking context that would otherwise paint over the overlay. */
-  z-index: 1;
-}
-
-:root[data-navigation-mode="routed"] .mini-app-copy-value::before {
+/* Touch (routed layout): in a key/value row the whole row is the value's tap
+   target (44px tall at least; see MiniAppKeyValueList.css), so the overlay fills
+   the row. Growing a 44px overlay around the text instead reached into the rows
+   beside it, where a tap meant for one id copied its neighbour. */
+:root[data-navigation-mode="routed"]
+  .mini-app-key-value-row
+  .mini-app-copy-value::before {
   content: "";
   position: absolute;
-  inset-inline: 0;
-  top: 50%;
-  height: var(--control-height);
-  translate: 0 -50%;
+  inset: 0;
 }
