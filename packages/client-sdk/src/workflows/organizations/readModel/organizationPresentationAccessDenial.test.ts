@@ -21,7 +21,7 @@ import {
 } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createRejectingExecSql } from "../../../../test/helpers/rejectingExecSql";
 import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
-import { loadOrganizationDataUsageProjection } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
+import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
@@ -245,11 +245,9 @@ test("read-model denial hides all presentation reads when purge fails", async ()
       ),
     ).resolves.not.toBeNull();
     await expect(
-      loadOrganizationDataUsageProjection(
+      new OrganizationDataUsageRepository(
         execSql,
-        organizationId,
-        requesterUserId,
-      ),
+      ).loadOrganizationDataUsageProjection(organizationId, requesterUserId),
     ).resolves.toEqual(dataUsage);
     expect(errors[0]?.[0]).toBe("Failed to purge denied organization access");
 
