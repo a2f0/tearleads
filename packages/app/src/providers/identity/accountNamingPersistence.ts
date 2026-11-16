@@ -1,3 +1,4 @@
+import type { LocalKeyring } from "@tearleads/client-sdk";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { useMemo } from "react";
 import { getLocalStorage } from "../../utils/storedPreference";
@@ -7,6 +8,8 @@ import {
 } from "../crypto/localCryptoSessionPersistence";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
+import { createHostLocalKeyring } from "../local-keyring/localKeyringLockSupport";
+import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 import {
   decryptLocalIdentityPayload,
   encryptLocalIdentityPayload,
@@ -28,9 +31,17 @@ export type PersistedAccountNaming =
 
 export type AccountNamingPersistence = LocalCryptoSessionPersistence;
 
-// Bumped by every removal, so a seal still encrypting when its identity is
-// removed never writes the record back.
+// Bumped by every removal. A seal carries the count from when it was queued,
+// so one queued or still encrypting when its identity is removed never writes
+// the record back.
 const removals = new Map<string, number>();
+
+/** The removal count a seal queued now must still see when it writes. */
+export function accountNamingRemoval(
+  persistence: AccountNamingPersistence,
+): number {
+  return removals.get(persistence.storageKey) ?? 0;
+}
 
 function accountNamingStorageKey(
   namespace: string,
@@ -122,8 +133,8 @@ export async function savePersistedAccountNaming(
   persistence: AccountNamingPersistence,
   signingFingerprint: string,
   naming: PersistedAccountNaming,
+  removal = accountNamingRemoval(persistence),
 ): Promise<void> {
-  const removal = removals.get(persistence.storageKey) ?? 0;
   // The identity's own record may not have created the keyring session yet.
   const session = await persistence.keyring.getOrCreateSession(
     persistence.scope,
@@ -138,11 +149,49 @@ export async function savePersistedAccountNaming(
         version: 1,
       },
     });
-    if ((removals.get(persistence.storageKey) ?? 0) === removal) {
+    if (accountNamingRemoval(persistence) === removal) {
       persistence.storage.setItem(persistence.storageKey, serializedEnvelope);
     }
   } finally {
     session.dispose();
+  }
+}
+
+/**
+ * Seals a new identity's pending prompt before the identity itself is stored,
+ * so a restart in between still asks for the name.
+ */
+export async function sealPendingAccountNaming(input: {
+  readonly createLocalKeyring: (() => LocalKeyring) | undefined;
+  readonly namespace: string | null;
+  readonly signingFingerprint: string;
+}): Promise<void> {
+  const storage = input.namespace ? getLocalStorage() : null;
+  const keyring = storage
+    ? createHostLocalKeyring({
+        createLocalKeyring: input.createLocalKeyring,
+        storage,
+      })
+    : null;
+  if (!input.namespace || !storage || !keyring) {
+    return;
+  }
+  try {
+    await savePersistedAccountNaming(
+      {
+        keyring,
+        scope: localIdentityScope(input.namespace),
+        storage,
+        storageKey: accountNamingStorageKey(
+          input.namespace,
+          input.signingFingerprint,
+        ),
+      },
+      input.signingFingerprint,
+      { status: "awaiting" },
+    );
+  } finally {
+    keyring.close?.();
   }
 }
 

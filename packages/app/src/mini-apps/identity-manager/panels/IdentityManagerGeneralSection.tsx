@@ -83,7 +83,7 @@ function getIdentitySectionActions({
     canAuthenticate,
     canGenerateKey: !localKeyringLocked,
     canRegisterCurrentIdentity: registration.canRegisterCurrentIdentity,
-    generateKey: identity.generateKey,
+    generateKey: () => void identity.generateKey(),
     handleAuthenticate: identityMutations.authenticate,
     handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
     handleRegisterIdentity: identityMutations.handleRegisterIdentity,

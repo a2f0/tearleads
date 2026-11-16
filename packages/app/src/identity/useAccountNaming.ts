@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import {
   type AccountNamingPersistence,
+  accountNamingRemoval,
   loadPersistedAccountNaming,
   type PersistedAccountNaming,
   removePersistedAccountNaming,
@@ -101,11 +102,18 @@ function useSealedAccountNaming(
     ) {
       return;
     }
+    // Counted now, so a removal of the identity while this waits wins.
+    const removal = accountNamingRemoval(persistence);
     const write =
       sealed === null
         ? async () => removePersistedAccountNaming(persistence)
         : () =>
-            savePersistedAccountNaming(persistence, signingFingerprint, sealed);
+            savePersistedAccountNaming(
+              persistence,
+              signingFingerprint,
+              sealed,
+              removal,
+            );
     writes.current = writes.current.then(write).catch((error: unknown) => {
       logError("Could not save the account name.", error);
     });

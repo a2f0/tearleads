@@ -3,6 +3,7 @@ import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sha
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 import {
   type AccountNamingPersistence,
+  accountNamingRemoval,
   clearPersistedAccountNamingForIdentity,
   loadPersistedAccountNaming,
   savePersistedAccountNaming,
@@ -45,6 +46,21 @@ test("removing an identity drops its sealed name, even a seal still in flight", 
   expect(await loadPersistedAccountNaming(sealed, FINGERPRINT)).toBeNull();
 });
 
+test("a seal queued before its identity was removed does not write once it runs", async () => {
+  const sealed = persistence();
+  const queuedAt = accountNamingRemoval(sealed);
+  clearPersistedAccountNamingForIdentity({
+    namespace: NAMESPACE,
+    signingFingerprint: FINGERPRINT,
+  });
+  await savePersistedAccountNaming(
+    sealed,
+    FINGERPRINT,
+    { name: "Bob", status: "named" },
+    queuedAt,
+  );
+  expect(globalThis.localStorage.getItem(sealed.storageKey)).toBeNull();
+});
 test("a sealed name reads back only for its own identity", async () => {
   const sealed = persistence();
   await savePersistedAccountNaming(sealed, FINGERPRINT, {

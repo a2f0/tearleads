@@ -101,9 +101,12 @@ test(
       promptAccountName: true,
     });
 
-    // First launch: closed before answering.
+    // First launch: closed before answering. The identity is stored only
+    // after its pending prompt, so no restart can find one without the other.
     const first = renderLifecyclePane(hostConfig);
     const firstRegister = spyOn(first.sdk().session, "registerIdentity");
+    await waitForPersistedPaneLocalIdentity(namespace);
+    expect(sealedAccountNaming(namespace)).not.toBeNull();
     await waitForPaneKey(first.view);
     await openIdentityManagerFromPane(first.view);
     await within(first.view.container).findByRole(
@@ -111,8 +114,6 @@ test(
       { name: "What should we call you?" },
       { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
     );
-    await waitForPersistedPaneLocalIdentity(namespace);
-    await waitFor(() => expect(sealedAccountNaming(namespace)).not.toBeNull());
     expect(firstRegister).not.toHaveBeenCalled();
     first.view.unmount();
 

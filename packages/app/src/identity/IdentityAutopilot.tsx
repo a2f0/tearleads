@@ -8,10 +8,10 @@ import {
 } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
+import { sealPendingAccountNaming } from "../providers/identity/accountNamingPersistence";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../providers/logging/LogProvider";
-import { useTearleads } from "../providers/sdk/TearleadsProvider";
 import { useSystemBootstrap } from "../providers/system-bootstrap/SystemBootstrapProvider";
 import { AccountNameContactSeeder } from "./AccountNameContactSeeder";
 import {
@@ -73,20 +73,36 @@ function useAutoGenerateIdentity(
   enabled: boolean,
   onGenerated: (fingerprint: string) => void,
 ): AutoProvisioningStep {
-  const { features } = useAppHostConfig().profile;
-  const { isLocked } = useLocalKeyringLock();
+  const { localIdentityNamespace, profile } = useAppHostConfig();
+  const { features } = profile;
+  const { createLocalKeyring, isLocked } = useLocalKeyringLock();
   const {
     generateKey,
     identityDestroyed,
     localIdentityRestoreSettled,
     signingKeyPair,
   } = useIdentity();
-  const tearleads = useTearleads();
+  const { logError } = useLog();
   const promptAccountName =
     features.promptAccountName && features.autoRegisterIdentity;
   const generationInFlight = useRef(false);
   const [generation, setGeneration] = useState<AutoProvisioningStep>(
     AUTO_PROVISIONING_IDLE,
+  );
+  // Before the new identity is stored: the prompt is owed from here on, and
+  // sealed first, so a restart before it is answered still asks.
+  const beforePersist = useCallback(
+    async (signingFingerprint: string) => {
+      onGenerated(signingFingerprint);
+      await sealPendingAccountNaming({
+        createLocalKeyring,
+        namespace: localIdentityNamespace ?? null,
+        signingFingerprint,
+      }).catch((error: unknown) => {
+        logError("Could not save the pending account name.", error);
+      });
+    },
+    [createLocalKeyring, localIdentityNamespace, logError, onGenerated],
   );
 
   useEffect(() => {
@@ -110,18 +126,12 @@ function useAutoGenerateIdentity(
     // so it is reported rather than left as a permanent "creating" state.
     generationInFlight.current = true;
     setGeneration({ status: "running" });
-    void generateKey()
+    void generateKey(promptAccountName ? { beforePersist } : undefined)
       .then(
         (created) => created,
         () => false,
       )
       .then((created) => {
-        const fingerprint = tearleads.identity.signingFingerprint;
-        // Reported in the same batch as the idle step below, so registration
-        // never sees the new key without its pending name.
-        if (created && promptAccountName && fingerprint) {
-          onGenerated(fingerprint);
-        }
         setGeneration(
           created
             ? AUTO_PROVISIONING_IDLE
@@ -132,16 +142,15 @@ function useAutoGenerateIdentity(
         generationInFlight.current = false;
       });
   }, [
+    beforePersist,
     enabled,
     features.autoGenerateIdentity,
     generateKey,
     identityDestroyed,
     isLocked,
     localIdentityRestoreSettled,
-    onGenerated,
     promptAccountName,
     signingKeyPair,
-    tearleads,
   ]);
 
   return generation;
