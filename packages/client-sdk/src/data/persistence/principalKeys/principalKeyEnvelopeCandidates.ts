@@ -7,18 +7,11 @@ import {
   principalCurrentFingerprintJson,
   principalStateFingerprintJson,
 } from "../../sqlite/principalKeyFingerprintJson";
-import {
-  principalHistoryEvidenceTables,
-  principalHistoryPrefixes,
-} from "../../sqlite/schema/principalHistoryEvidenceSchema";
+import { principalHistoryPrefixes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalKeyEnvelopeArchive } from "../../sqlite/schema/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
-import {
-  principalPolicyBundles,
-  principalPolicyTables,
-} from "../../sqlite/schema/principalPolicySchema";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import { principalPolicyBundles } from "../../sqlite/schema/principalPolicySchema";
+import type { ClientSQLiteDatabase } from "../../sqlite/sqlitePersistenceRuntime";
 
 export interface PrincipalKeyEnvelopeCandidate {
   readonly currentState: {
@@ -30,21 +23,11 @@ export interface PrincipalKeyEnvelopeCandidate {
   readonly currentMemberEnvelopes: CurrentPrincipalMemberEnvelopesResponse;
 }
 
-/**
- * Untrusted encrypted key candidates, never authorization evidence. The actual
- * private key must open the requested recipient wrap; the projection verifier
- * separately checks the signed KEK material identity and all policy authority.
- * Read only envelopes for the requested fingerprints, never signed histories.
- */
-export async function loadPrincipalKeyEnvelopeCandidates(
-  execSql: ExecSql,
+/** Each source's newest envelopes per fingerprint; tables already ensured. */
+export async function selectPrincipalKeyEnvelopeCandidates(
+  db: ClientSQLiteDatabase,
   fingerprints: readonly string[],
 ): Promise<PrincipalKeyEnvelopeCandidate[]> {
-  await ensureSqlTables(execSql, [
-    ...principalPolicyTables,
-    ...principalHistoryEvidenceTables,
-  ]);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const candidates: PrincipalKeyEnvelopeCandidate[] = [];
   for (const fingerprint of new Set(fingerprints)) {
     const encoded: string[] = [];

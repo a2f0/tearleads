@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createSuccessorPrincipalPolicyBundle } from "../../../../test/helpers/policyCacheFixtures";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import { ensurePrincipalPolicyTables } from "./principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 import { indexPrincipalPolicyBundleInTransaction } from "./principalPolicyReferenceIndexPersistence";
 
 function competingHead(
@@ -27,7 +27,9 @@ test("principal policy reference indexing rejects competing bundle heads at one 
   );
   try {
     const { bundle } = await createSuccessorPrincipalPolicyBundle();
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
     const runtime = getClientSQLitePersistenceRuntime(execSql);
     await runtime.transaction(
       (tx) => indexPrincipalPolicyBundleInTransaction(tx, bundle),
@@ -56,7 +58,9 @@ test("principal policy reference indexing rejects a stored bundle-version mismat
   try {
     const { bundle } = await createSuccessorPrincipalPolicyBundle();
     const state = bundle.currentState;
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
     await execSql(
       `INSERT INTO principal_policy_bundle_references
          (principal_type, principal_id, version, state_hash, key_epoch,

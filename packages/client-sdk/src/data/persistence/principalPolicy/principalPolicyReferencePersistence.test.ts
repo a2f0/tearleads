@@ -6,8 +6,7 @@ import {
   referencedPrincipalStateFromBundle,
   referencedPrincipalStateFromPolicyState,
 } from "../../../../test/helpers/policyCacheFixtures";
-import { savePrincipalPolicyBundle } from "./principalPolicyPersistence";
-import { loadPrincipalPolicyBundleForReference } from "./principalPolicyReferencePersistence";
+import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 
 test("exact principal policy lookup loads a current head", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -15,16 +14,14 @@ test("exact principal policy lookup loads a current head", async () => {
   );
   try {
     const { bundle } = await createPrincipalPolicyBundle();
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-1");
 
     await expect(
-      loadPrincipalPolicyBundleForReference(
+      new PrincipalPolicyBundleRepository(
         execSql,
+      ).loadPrincipalPolicyBundleForReference(
         referencedPrincipalStateFromBundle(bundle),
         null,
       ),
@@ -44,16 +41,14 @@ test("exact principal policy lookup uses the newest current chain containing a h
     if (!previousState) {
       throw new Error("Expected a predecessor state");
     }
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-1");
 
     await expect(
-      loadPrincipalPolicyBundleForReference(
+      new PrincipalPolicyBundleRepository(
         execSql,
+      ).loadPrincipalPolicyBundleForReference(
         referencedPrincipalStateFromPolicyState(previousState),
         null,
       ),
@@ -71,18 +66,12 @@ test("exact principal policy lookup loads a retained bundle when current is abse
     const { bundle: retainedBundle } = await createPrincipalPolicyBundle();
     const { bundle: successorBundle } =
       await createSuccessorPrincipalPolicyBundle();
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      retainedBundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
-    await savePrincipalPolicyBundle(
+    ).savePrincipalPolicyBundle(retainedBundle, "org-1");
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      successorBundle,
-      "2026-07-18T00:01:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(successorBundle, "org-1");
     await execSql(
       "DELETE FROM principal_policy_bundles WHERE is_current = 1 AND principal_type = ? AND principal_id = ?",
       [
@@ -92,8 +81,9 @@ test("exact principal policy lookup loads a retained bundle when current is abse
     );
 
     await expect(
-      loadPrincipalPolicyBundleForReference(
+      new PrincipalPolicyBundleRepository(
         execSql,
+      ).loadPrincipalPolicyBundleForReference(
         referencedPrincipalStateFromBundle(retainedBundle),
         null,
       ),
@@ -110,16 +100,14 @@ test("exact principal policy lookup returns null for an honest miss", async () =
   try {
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-1");
 
     await expect(
-      loadPrincipalPolicyBundleForReference(
+      new PrincipalPolicyBundleRepository(
         execSql,
+      ).loadPrincipalPolicyBundleForReference(
         {
           ...reference,
           version: reference.version + 1,
@@ -140,16 +128,14 @@ test("exact principal policy lookup rejects a same-version current conflict", as
   try {
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-1");
 
     await expect(
-      loadPrincipalPolicyBundleForReference(
+      new PrincipalPolicyBundleRepository(
         execSql,
+      ).loadPrincipalPolicyBundleForReference(
         {
           ...reference,
           stateHash: "0".repeat(64),
@@ -172,12 +158,9 @@ test("exact principal policy lookup ignores a corrupt unrelated retained row", a
   try {
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-1");
     await execSql(
       `INSERT INTO principal_policy_bundles
          (principal_type, principal_id, state_hash, is_current,
@@ -200,7 +183,9 @@ test("exact principal policy lookup ignores a corrupt unrelated retained row", a
     );
 
     await expect(
-      loadPrincipalPolicyBundleForReference(execSql, reference, null),
+      new PrincipalPolicyBundleRepository(
+        execSql,
+      ).loadPrincipalPolicyBundleForReference(reference, null),
     ).resolves.toEqual(bundle);
   } finally {
     close();
@@ -214,12 +199,9 @@ test("exact principal policy lookup hard-fails for a corrupt indexed retained ro
   try {
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-1");
     await execSql(
       `UPDATE principal_policy_bundles
        SET is_current = 0, current_state_json = ?
@@ -233,7 +215,9 @@ test("exact principal policy lookup hard-fails for a corrupt indexed retained ro
     );
 
     await expect(
-      loadPrincipalPolicyBundleForReference(execSql, reference, null),
+      new PrincipalPolicyBundleRepository(
+        execSql,
+      ).loadPrincipalPolicyBundleForReference(reference, null),
     ).rejects.toMatchObject({
       code: "invalid_shape",
       name: "KeyingVerificationError",
@@ -252,15 +236,14 @@ test("exact principal policy lookup treats a head behind its checkpoint as a mis
     const { bundle: successorBundle } =
       await createSuccessorPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-1");
 
     await expect(
-      loadPrincipalPolicyBundleForReference(execSql, reference, {
+      new PrincipalPolicyBundleRepository(
+        execSql,
+      ).loadPrincipalPolicyBundleForReference(reference, {
         principalType: reference.principalType,
         principalId: reference.principalId,
         version: successorBundle.currentState.version,
@@ -279,15 +262,14 @@ test("exact principal policy lookup hard-fails on a same-version checkpoint conf
   try {
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-1");
 
     await expect(
-      loadPrincipalPolicyBundleForReference(execSql, reference, {
+      new PrincipalPolicyBundleRepository(
+        execSql,
+      ).loadPrincipalPolicyBundleForReference(reference, {
         principalType: reference.principalType,
         principalId: reference.principalId,
         version: reference.version,
@@ -341,18 +323,12 @@ test("exact principal policy lookup hard-fails on same-version indexed candidate
       ...bundle.currentState,
       stateHash: competingStateHash,
     };
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
-    await savePrincipalPolicyBundle(
+    ).savePrincipalPolicyBundle(bundle, "org-1");
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      newerBundle,
-      "2026-07-18T00:00:30Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(newerBundle, "org-1");
     await execSql(
       `INSERT INTO principal_policy_bundles
          (principal_type, principal_id, state_hash, is_current,
@@ -391,7 +367,9 @@ test("exact principal policy lookup hard-fails on same-version indexed candidate
     );
 
     await expect(
-      loadPrincipalPolicyBundleForReference(execSql, reference, null),
+      new PrincipalPolicyBundleRepository(
+        execSql,
+      ).loadPrincipalPolicyBundleForReference(reference, null),
     ).rejects.toMatchObject({
       code: "equivocation",
       name: "KeyingVerificationError",
@@ -412,12 +390,9 @@ test("exact principal policy lookup rejects conflicting orphaned index metadata"
       throw new Error("Expected a predecessor state");
     }
     const reference = referencedPrincipalStateFromPolicyState(previousState);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-1");
     await execSql(
       `INSERT INTO principal_policy_bundle_references
          (principal_type, principal_id, version, state_hash, key_epoch,
@@ -441,7 +416,9 @@ test("exact principal policy lookup rejects conflicting orphaned index metadata"
     );
 
     await expect(
-      loadPrincipalPolicyBundleForReference(execSql, reference, null),
+      new PrincipalPolicyBundleRepository(
+        execSql,
+      ).loadPrincipalPolicyBundleForReference(reference, null),
     ).rejects.toMatchObject({
       code: "equivocation",
       name: "KeyingVerificationError",

@@ -144,24 +144,29 @@ async function assertContactEditingSurvivesRefresh(page: Page) {
   );
 }
 
-async function assertUnsupportedFallback(page: Page) {
+async function assertDefaultNotesView(page: Page) {
   await openPrimaryDocumentSettings(page);
   await choosePrimaryDocument(page, "Follow-up notes");
+  const view = page.locator(".container-document-view");
+  const notes = page.getByRole("region", { name: "Container notes" });
+  await expect(view.locator("h2")).toHaveText("Follow-up notes");
+  await expect(notes).toContainText("Existing note content 2.");
+  await expect(notes).toContainText("Existing note content 3.");
   await expect(
-    page.getByText(
-      "No specialized view for this document type. Showing contents.",
-    ),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Contact view", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Contents", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Supporting files", exact: true }).last(),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Notes view", exact: true }).click();
+  await expect(notes).toContainText("Existing note content 3.");
   await openPrimaryDocumentSettings(page);
   await choosePrimaryDocument(page, "None");
+  await expect(view).toHaveCount(0);
   await expect(
-    page.getByText(
-      "No specialized view for this document type. Showing contents.",
-    ),
-  ).toHaveCount(0);
+    page.getByRole("button", { name: "Supporting files", exact: true }).last(),
+  ).toBeVisible();
 }
 
 async function observeBrowserErrors(page: Page) {
@@ -208,7 +213,7 @@ for (const viewport of [
   { name: "desktop", width: 1440, height: 1000 },
   { name: "phone", width: 390, height: 844 },
 ]) {
-  test(`contact container views keep real notes and contents accessible on ${viewport.name}`, async ({
+  test(`container views keep real notes and contents accessible on ${viewport.name}`, async ({
     page,
   }, testInfo) => {
     test.setTimeout(90_000); // Restore + multiple real-document navigation/reload steps.
@@ -285,7 +290,7 @@ for (const viewport of [
         .getByRole("button", { name: "Supporting files", exact: true })
         .last(),
     ).toBeVisible();
-    await assertUnsupportedFallback(page);
+    await assertDefaultNotesView(page);
     await assertBrowserDiagnostics(errors, testInfo);
   });
 }

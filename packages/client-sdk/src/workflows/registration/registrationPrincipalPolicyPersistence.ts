@@ -9,7 +9,7 @@ import type {
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { seedLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/principalPolicy/locallyAcknowledgedPrincipalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 async function principalPolicyBundleFromInitialRequest(
@@ -105,15 +105,15 @@ export async function persistRegistrationPrincipalPolicies(input: {
   readonly memberGroup: PrincipalPolicyBundleResponse;
   readonly organization: PrincipalPolicyBundleResponse;
 }): Promise<void> {
-  await seedLocallyAcknowledgedPrincipalPolicyBundles({
+  await new PrincipalPolicyBundleRepository(
+    input.execSql,
+  ).seedLocallyAcknowledgedPrincipalPolicyBundles({
     entries: [input.adminGroup, input.memberGroup, input.organization].map(
       (bundle) => ({
         bundle,
         policy: verifiedPrincipalPolicyFromBundle(bundle),
       }),
     ),
-    execSql: input.execSql,
     organizationId: input.organization.currentState.principalId,
-    updatedAt: new Date().toISOString(),
   });
 }

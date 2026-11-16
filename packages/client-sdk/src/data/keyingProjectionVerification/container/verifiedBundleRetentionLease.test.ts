@@ -11,7 +11,7 @@ import {
 } from "../../../../test/helpers/projectionPolicyHistory";
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";
-import { savePrincipalPolicyBundle } from "../../persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { accessManifestCheckpoints } from "../../sqlite/schema/keyingCheckpointSchema";
 import { verifiedAccessManifestBundles } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
@@ -63,12 +63,9 @@ for (const [entry, verify] of verifiers) {
       const recover = warmer.resolveProjectionHistory;
       // Policy collection reads the current group policies this device holds.
       for (const bundle of groups)
-        await savePrincipalPolicyBundle(
+        await new PrincipalPolicyBundleRepository(
           cold.execSql,
-          bundle,
-          bundle.currentState.createdAt,
-          artifacts.organizationId,
-        );
+        ).savePrincipalPolicyBundle(bundle, artifacts.organizationId);
       if (!recover) throw new Error("Missing recovery capability");
       // The lease, not the caller's generation, expires while the verified
       // bundles are written inside the checkpoint transaction: every earlier

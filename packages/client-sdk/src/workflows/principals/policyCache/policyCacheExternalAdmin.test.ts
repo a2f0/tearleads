@@ -13,7 +13,7 @@ import {
   principalPolicyBundleFromInitialPolicy,
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/policyCacheFixtures";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("principal policy sync authorizes empty group bundles from verified organization admins", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -127,13 +127,22 @@ test("principal policy sync authorizes empty group bundles from verified organiz
 
     expect(logs).toEqual([]);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", groupId),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        groupId,
+      ),
     ).resolves.toEqual(groupPolicy);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "organization", organizationId),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "organization",
+        organizationId,
+      ),
     ).resolves.toEqual(organizationPolicy);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", adminGroupId),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        adminGroupId,
+      ),
     ).resolves.toEqual(adminPolicy);
   } finally {
     close();

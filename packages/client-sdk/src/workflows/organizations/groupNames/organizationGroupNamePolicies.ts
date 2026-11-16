@@ -1,7 +1,7 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
@@ -29,11 +29,9 @@ export async function loadGroupNameDirectoryAuthority(input: Input) {
       reference.principalId,
     );
     const bundle =
-      (await loadPrincipalPolicyBundleForReference(
+      (await new PrincipalPolicyBundleRepository(
         input.execSql,
-        reference,
-        checkpoint,
-      )) ??
+      ).loadPrincipalPolicyBundleForReference(reference, checkpoint)) ??
       (await input.apiClient.getCurrentPrincipalPolicy(
         reference.principalType,
         reference.principalId,

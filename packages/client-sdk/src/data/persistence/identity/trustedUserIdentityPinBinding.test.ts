@@ -1,17 +1,13 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createPin } from "../../../test/helpers/trustedUserIdentityPin";
+import { createPin } from "../../../../test/helpers/trustedUserIdentityPin";
 import {
   trustedUserIdentityPins,
   trustedUserIdentityPinTables,
-} from "../sqlite/schema/trustedUserIdentityPinSchema";
-import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
-import { createExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
-import { loadTrustedUserIdForSigningKey } from "./identity/trustedUserIdentitySigningKeyBinding";
-import {
-  compareOrInsertTrustedUserIdentityPin,
-  loadTrustedUserIdentityPin,
-} from "./trustedUserIdentityPinPersistence";
+} from "../../sqlite/schema/trustedUserIdentityPinSchema";
+import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import { createExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import { TrustedUserIdentityPinRepository } from "./trustedUserIdentityPinRepository";
 
 test("a retained signing fingerprint cannot bind another user in the same trust domain", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -20,28 +16,37 @@ test("a retained signing fingerprint cannot bind another user in the same trust 
   const first = createPin();
   const alias = createPin({ userId: "server-alias" });
   try {
-    await compareOrInsertTrustedUserIdentityPin({ execSql, pin: first });
+    await new TrustedUserIdentityPinRepository(
+      execSql,
+    ).compareOrInsertTrustedUserIdentityPin({ pin: first });
     await expect(
-      compareOrInsertTrustedUserIdentityPin({ execSql, pin: alias }),
+      new TrustedUserIdentityPinRepository(
+        execSql,
+      ).compareOrInsertTrustedUserIdentityPin({ pin: alias }),
     ).rejects.toMatchObject({
       code: "trusted_user_identity_pin_mismatch",
       differingFields: ["userId"],
       existing: { userId: first.userId },
       candidate: { userId: alias.userId },
     });
-    expect(await loadTrustedUserIdentityPin({ execSql, ...alias })).toBeNull();
-    expect(await loadTrustedUserIdentityPin({ execSql, ...first })).toEqual(
-      first,
-    );
+    expect(
+      await new TrustedUserIdentityPinRepository(
+        execSql,
+      ).loadTrustedUserIdentityPin({ ...alias }),
+    ).toBeNull();
+    expect(
+      await new TrustedUserIdentityPinRepository(
+        execSql,
+      ).loadTrustedUserIdentityPin({ ...first }),
+    ).toEqual(first);
     const otherDomain = {
       ...alias,
       identityTrustDomain: "https://another.example.test",
     };
     expect(
-      await compareOrInsertTrustedUserIdentityPin({
+      await new TrustedUserIdentityPinRepository(
         execSql,
-        pin: otherDomain,
-      }),
+      ).compareOrInsertTrustedUserIdentityPin({ pin: otherDomain }),
     ).toEqual(otherDomain);
   } finally {
     close();
@@ -67,7 +72,9 @@ test("different adapters racing fingerprint aliases leave exactly one durable id
   try {
     const settled = await Promise.allSettled(
       candidates.map((pin) =>
-        compareOrInsertTrustedUserIdentityPin({ execSql: adapter(), pin }),
+        new TrustedUserIdentityPinRepository(
+          adapter(),
+        ).compareOrInsertTrustedUserIdentityPin({ pin }),
       ),
     );
     expect(
@@ -82,7 +89,11 @@ test("different adapters racing fingerprint aliases leave exactly one durable id
       }),
     ]);
     const stored = await Promise.all(
-      candidates.map((pin) => loadTrustedUserIdentityPin({ execSql, ...pin })),
+      candidates.map((pin) =>
+        new TrustedUserIdentityPinRepository(
+          execSql,
+        ).loadTrustedUserIdentityPin({ ...pin }),
+      ),
     );
     expect(stored.filter(Boolean)).toHaveLength(1);
   } finally {
@@ -97,16 +108,20 @@ test("the bound user for a signing key is scoped to its trust domain", async () 
   const pin = createPin();
   try {
     expect(
-      await loadTrustedUserIdForSigningKey({
+      await new TrustedUserIdentityPinRepository(
         execSql,
+      ).loadTrustedUserIdForSigningKey({
         identityTrustDomain: pin.identityTrustDomain,
         signingKeyFingerprint: pin.signingKeyFingerprint,
       }),
     ).toBeNull();
-    await compareOrInsertTrustedUserIdentityPin({ execSql, pin });
+    await new TrustedUserIdentityPinRepository(
+      execSql,
+    ).compareOrInsertTrustedUserIdentityPin({ pin });
     expect(
-      await loadTrustedUserIdForSigningKey({
+      await new TrustedUserIdentityPinRepository(
         execSql,
+      ).loadTrustedUserIdForSigningKey({
         identityTrustDomain: pin.identityTrustDomain,
         signingKeyFingerprint: pin.signingKeyFingerprint,
       }),
@@ -114,8 +129,9 @@ test("the bound user for a signing key is scoped to its trust domain", async () 
     // Registration consults this before contacting the server, so a binding
     // in another trust domain must not make it decline.
     expect(
-      await loadTrustedUserIdForSigningKey({
+      await new TrustedUserIdentityPinRepository(
         execSql,
+      ).loadTrustedUserIdForSigningKey({
         identityTrustDomain: "https://another.example.test",
         signingKeyFingerprint: pin.signingKeyFingerprint,
       }),
@@ -134,7 +150,9 @@ test("the unique index refuses a second user on one signing key by itself", asyn
   const first = createPin();
   const alias = createPin({ userId: "server-alias" });
   try {
-    await compareOrInsertTrustedUserIdentityPin({ execSql, pin: first });
+    await new TrustedUserIdentityPinRepository(
+      execSql,
+    ).compareOrInsertTrustedUserIdentityPin({ pin: first });
     await expect(
       execSql(
         `INSERT INTO trusted_user_identity_pins (
@@ -158,7 +176,11 @@ test("the unique index refuses a second user on one signing key by itself", asyn
         ],
       ),
     ).rejects.toThrow(/UNIQUE/);
-    expect(await loadTrustedUserIdentityPin({ execSql, ...alias })).toBeNull();
+    expect(
+      await new TrustedUserIdentityPinRepository(
+        execSql,
+      ).loadTrustedUserIdentityPin({ ...alias }),
+    ).toBeNull();
   } finally {
     close();
   }
@@ -177,10 +199,9 @@ test("a repeat verification of a pinned identity reads once without the write lo
   });
   const verify = async (pin: ReturnType<typeof createPin>) => {
     statements.length = 0;
-    const result = await compareOrInsertTrustedUserIdentityPin({
-      execSql: traced,
-      pin,
-    }).catch((error: unknown) => error);
+    const result = await new TrustedUserIdentityPinRepository(traced)
+      .compareOrInsertTrustedUserIdentityPin({ pin })
+      .catch((error: unknown) => error);
     return { result, statements: [...statements] };
   };
   try {
@@ -283,12 +304,11 @@ test.each([false, true])(
           })
         : execSql;
       let answered = false;
-      const repeat = compareOrInsertTrustedUserIdentityPin({
-        execSql: reader,
-        pin: createPin(),
-      }).finally(() => {
-        answered = true;
-      });
+      const repeat = new TrustedUserIdentityPinRepository(reader)
+        .compareOrInsertTrustedUserIdentityPin({ pin: createPin() })
+        .finally(() => {
+          answered = true;
+        });
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(answered).toBe(false);
       release();

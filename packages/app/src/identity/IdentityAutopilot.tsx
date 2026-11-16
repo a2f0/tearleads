@@ -15,10 +15,7 @@ import { useLog } from "../providers/logging/LogProvider";
 import { useTearleads } from "../providers/sdk/TearleadsProvider";
 import { useSystemBootstrap } from "../providers/system-bootstrap/SystemBootstrapProvider";
 import { AccountNameContactSeeder } from "./AccountNameContactSeeder";
-import {
-  type AccountNamingState,
-  personalOrganizationName,
-} from "./accountNamingMachine";
+import type { AccountNamingState } from "./accountNamingMachine";
 import {
   AUTO_PROVISIONING_IDLE,
   type AutoProvisioningStatus,
@@ -170,22 +167,20 @@ interface PendingRegistration {
 }
 
 /**
- * Whether registration must wait for the user, and the org name it carries. A
+ * Whether registration must wait for the user, and the name it carries. A
  * key the autopilot is still installing may yet need a name, a name given
  * before a restart may still be on its way back, a name still owed holds the
  * identity's first registration, and a name given holds it until stored.
  */
 function pendingRegistration(pending: PendingRegistration) {
   return {
+    accountName:
+      pending.naming.status === "named" ? pending.naming.name : undefined,
     awaitingInput:
       pending.generation.status === "running" ||
       !pending.namingSettled ||
       pending.naming.status === "awaiting" ||
       (pending.naming.status === "named" && !pending.naming.sealed),
-    organizationProfileName:
-      pending.naming.status === "named"
-        ? personalOrganizationName(pending.naming.name)
-        : undefined,
   };
 }
 
@@ -247,16 +242,15 @@ function useAutoRegisterIdentity(
   const { signingFingerprint } = useIdentity();
   const { rearm, registration, settle, start } =
     useRegistrationRuns(signingFingerprint);
-  const { awaitingInput, organizationProfileName } =
-    pendingRegistration(pending);
+  const { accountName, awaitingInput } = pendingRegistration(pending);
   const currentRegistrationRef = useRef({
+    accountName,
     canRegisterCurrentIdentity,
-    organizationProfileName,
     registerCurrentIdentity,
   });
   currentRegistrationRef.current = {
+    accountName,
     canRegisterCurrentIdentity,
-    organizationProfileName,
     registerCurrentIdentity,
   };
 
@@ -304,8 +298,7 @@ function useAutoRegisterIdentity(
         }
 
         return currentRegistrationRef.current.registerCurrentIdentity({
-          organizationProfileName:
-            currentRegistrationRef.current.organizationProfileName,
+          accountName: currentRegistrationRef.current.accountName,
         });
       })
       .then(

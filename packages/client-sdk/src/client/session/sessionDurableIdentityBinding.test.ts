@@ -6,7 +6,7 @@ import {
   noIdentityChange,
   setGeneratedIdentity,
 } from "../../../test/helpers/clientTestSupport";
-import { loadTrustedUserIdentityPin } from "../../data/persistence/trustedUserIdentityPinPersistence";
+import { TrustedUserIdentityPinRepository } from "../../data/persistence/identity/trustedUserIdentityPinRepository";
 import { createTrustedUserIdentityService } from "../../data/trustedUserIdentity/service";
 import { createIdentity } from "../identity";
 import { Database } from "../runtime/database";
@@ -73,8 +73,9 @@ test("a fresh session refuses login rebinding a durably pinned signing fingerpri
       expect.objectContaining({ code: "equivocation" }),
     ]);
     expect(
-      await loadTrustedUserIdentityPin({
+      await new TrustedUserIdentityPinRepository(
         execSql,
+      ).loadTrustedUserIdentityPin({
         identityTrustDomain,
         userId: "22222222-2222-4222-8222-222222222222",
       }),

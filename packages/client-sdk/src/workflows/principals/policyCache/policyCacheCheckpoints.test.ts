@@ -9,10 +9,7 @@ import {
 } from "../../../../test/helpers/policyCacheFixtures";
 import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import {
-  ensurePrincipalPolicyTables,
-  loadPrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("principal policy sync hard-fails rollback after the mutable bundle cache is cleared", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -59,7 +56,10 @@ test("principal policy sync hard-fails rollback after the mutable bundle cache i
       name: "KeyingVerificationError",
     });
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -76,7 +76,9 @@ test("principal policy sync cannot pin a head when its full bundle write fails",
       organizationId: "org-1",
       group: bundle,
     });
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
     await execSql(`CREATE TRIGGER reject_principal_policy_bundle
       BEFORE INSERT ON principal_policy_bundles
       BEGIN
@@ -104,7 +106,10 @@ test("principal policy sync cannot pin a head when its full bundle write fails",
       ),
     ).resolves.toBeNull();
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();

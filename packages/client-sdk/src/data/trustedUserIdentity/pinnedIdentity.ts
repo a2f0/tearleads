@@ -1,8 +1,6 @@
 import { base64ToBytes } from "@tearleads/encoding";
-import {
-  loadTrustedUserIdentityPin,
-  type TrustedUserIdentityPinProvenance,
-} from "../persistence/trustedUserIdentityPinPersistence";
+import type { TrustedUserIdentityPinProvenance } from "../persistence/identity/trustedUserIdentityPinModel";
+import { TrustedUserIdentityPinRepository } from "../persistence/identity/trustedUserIdentityPinRepository";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { brandTrustedUserIdentity, type TrustedUserIdentity } from "./types";
 import {
@@ -24,7 +22,9 @@ export async function loadPin(input: {
   readonly provenance: TrustedUserIdentityPinProvenance;
 } | null> {
   assertTrustedUserIdentityUserId(input.userId);
-  const pin = await loadTrustedUserIdentityPin(input);
+  const pin = await new TrustedUserIdentityPinRepository(
+    input.execSql,
+  ).loadTrustedUserIdentityPin(input);
   if (!pin) return null;
   const keys = await validateUserIdentityKeys({
     candidate: {
