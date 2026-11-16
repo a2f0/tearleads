@@ -13,7 +13,8 @@ export type ExplorerRoute =
   | { view: "new-structured-document"; containerId: string }
   | { view: "container-info"; containerId: string }
   | { view: "document-selection"; containerId: string; localId: string }
-  | { view: "document-info"; containerId: string; localId: string };
+  | { view: "document-info"; containerId: string; localId: string }
+  | { view: "document-history"; containerId: string; localId: string };
 
 export const DEFAULT_EXPLORER_ROUTE: ExplorerRoute = { view: "selection" };
 
@@ -70,6 +71,12 @@ function parseExplorerContainerRoute(
   }
 
   if (third === "documents" && fourth) {
+    if (fifth === "history") {
+      return {
+        route: { containerId, localId: fourth, view: "document-history" },
+      };
+    }
+
     return fifth === "info"
       ? {
           route: {
@@ -169,6 +176,14 @@ export function formatExplorerRouteSegments(
       return ["containers", route.containerId, "new"];
     case "document-selection":
       return ["containers", route.containerId, "documents", route.localId];
+    case "document-history":
+      return [
+        "containers",
+        route.containerId,
+        "documents",
+        route.localId,
+        "history",
+      ];
     default:
       return [
         "containers",
@@ -204,7 +219,9 @@ export function isExplorerRouteAvailable(
 
   if (isExplorerOrphanedDocumentsId(route.containerId)) {
     return (
-      route.view === "document-selection" || route.view === "document-info"
+      route.view === "document-selection" ||
+      route.view === "document-info" ||
+      route.view === "document-history"
     );
   }
 

@@ -37,9 +37,11 @@ import type { ExplorerAttributionUserLabelResolver } from "./attributionDisplay"
 import { ExplorerContainerDetail } from "./container/ExplorerContainerDetail";
 import { ExplorerContainerInfoPanel } from "./container/ExplorerContainerInfoPanel";
 import { ExplorerDocumentDetail } from "./document/ExplorerDocumentDetail";
-import { ExplorerDocumentInfoPanel } from "./document/ExplorerDocumentInfoPanel";
 import { ExplorerNewStructuredDocumentPanel } from "./document/ExplorerNewStructuredDocumentPanel";
-import { getDocumentInfoRouteFallbackSummary } from "./documentInfoRouteSummary";
+import {
+  ExplorerDocumentRouteDetail,
+  isExplorerDocumentViewRoute,
+} from "./ExplorerDocumentRouteDetail";
 import { ExplorerSectionsPanel } from "./ExplorerSectionsPanel";
 
 function ExplorerEmptyDetail(params: {
@@ -345,33 +347,26 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
     );
   }
 
-  if (route.view === "document-info") {
-    const fallbackDocumentSummary = getDocumentInfoRouteFallbackSummary({
-      documentSummaries: params.documentSummaries,
-      localId: route.localId,
-      selectedDocument,
-    });
-
+  if (isExplorerDocumentViewRoute(route)) {
     return (
-      <ExplorerDocumentInfoPanel
+      <ExplorerDocumentRouteDetail
         activateLinkedContainer={params.activateLinkedContainer}
         attributionUserLabelResolver={params.attributionUserLabelResolver}
         canActivateLinkedContainer={params.canActivateLinkedContainer}
         canMutateDocumentLinks={params.canMutateDocumentLinks}
-        containerId={route.containerId}
-        documentTitle={fallbackDocumentSummary?.title}
-        fallbackDocumentSummary={fallbackDocumentSummary}
+        documentSummaries={params.documentSummaries}
         linkedContainerIdsByDocumentId={params.linkedContainerIdsByDocumentId}
         loadDocumentAttributionRanges={params.loadDocumentAttributionRanges}
         loadDocumentInfo={params.loadDocumentInfo}
         loadDocumentSummary={params.loadDocumentSummary}
-        localId={route.localId}
         logError={params.logError}
         nodes={params.nodes}
         openBlobBrowserRoute={params.openBlobBrowserRoute}
         requestAttributionProfileHydration={
           params.requestAttributionProfileHydration
         }
+        route={route}
+        selectedDocument={selectedDocument}
         setSelectedId={params.setSelectedId}
         showDocumentEditRanges={params.showDocumentEditRanges}
         showLinkedDocumentActivationControls={

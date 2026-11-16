@@ -2,6 +2,7 @@ import {
   DEFAULT_DOCUMENT_ID,
   DEFAULT_DOCUMENT_KIND,
   type DocumentContextValue,
+  type DocumentHistoryView,
   type DocumentStore,
   type DocumentsRuntime,
   getOrCreateDocumentStore,
@@ -22,6 +23,10 @@ import {
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
+import {
+  DocumentHistoryViewContext,
+  useHistoricalDocumentStore,
+} from "../document-history/historicalDocumentView";
 
 export { DEFAULT_DOCUMENT_ID };
 
@@ -76,6 +81,7 @@ export function DocumentsProvider({
   readOnly = false,
 }: DocumentsProviderProps) {
   const tearleads = useTearleads();
+  const historyView = useContext(DocumentHistoryViewContext);
   const runtime = useRuntimeScopedMemo<DocumentsRuntime>(
     () =>
       containerId === undefined
@@ -139,7 +145,41 @@ export function DocumentsProvider({
     <DocumentContext.Provider value={store}>
       <DocumentWriteScopeContext.Provider value={writeScope}>
         <DocumentReadOnlyContext.Provider value={readOnly}>
-          {children}
+          {historyView === null ? (
+            children
+          ) : (
+            <PastDocumentVersion view={historyView}>
+              {children}
+            </PastDocumentVersion>
+          )}
+        </DocumentReadOnlyContext.Provider>
+      </DocumentWriteScopeContext.Provider>
+    </DocumentContext.Provider>
+  );
+}
+
+// Serves the children a past version of the live document above them. The
+// version is read-only and has no write scope, whatever the live document
+// allows.
+function PastDocumentVersion({
+  children,
+  view,
+}: PropsWithChildren<{ view: DocumentHistoryView }>) {
+  const store = useContext(DocumentContext);
+  if (!store) {
+    throw new Error("A past version requires its live document store.");
+  }
+  const live = useTearleadsExternalStoreSnapshot(store);
+  const historicalStore = useHistoricalDocumentStore(live, view);
+
+  return (
+    <DocumentContext.Provider value={historicalStore}>
+      <DocumentWriteScopeContext.Provider value={null}>
+        <DocumentReadOnlyContext.Provider value={true}>
+          {/* The version belongs to this document only, not ones nested in it. */}
+          <DocumentHistoryViewContext.Provider value={null}>
+            {children}
+          </DocumentHistoryViewContext.Provider>
         </DocumentReadOnlyContext.Provider>
       </DocumentWriteScopeContext.Provider>
     </DocumentContext.Provider>
