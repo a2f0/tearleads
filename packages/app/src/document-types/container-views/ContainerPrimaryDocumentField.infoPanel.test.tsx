@@ -12,7 +12,7 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import { ExplorerContainerInfoPanel } from "../../../mini-apps/explorer/detail/container/ExplorerContainerInfoPanel";
+import { ExplorerContainerInfoPanel } from "../../mini-apps/explorer/detail/container/ExplorerContainerInfoPanel";
 import { ContainerPrimaryDocumentField } from "./ContainerPrimaryDocumentField";
 
 afterEach(cleanup);

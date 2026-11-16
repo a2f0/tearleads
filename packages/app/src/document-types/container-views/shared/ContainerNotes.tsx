@@ -1,24 +1,25 @@
-import type { ContainerDocumentQueries } from "@tearleads/client-sdk";
+import "./ContainerNotes.css";
 import { useCallback, useState } from "react";
 import {
   MiniAppButton,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { NoteDocumentApp } from "../../note/NoteDocumentApp";
+import type { ContainerViewProps } from "./containerViewTypes";
 import { useContainerViewResource } from "./useContainerViewResource";
 
 const PAGE_SIZE = 5;
+
+/** The container's notes as read-only previews; shared by every container view. */
 export function ContainerNotes({
   containerId,
   documentQueries,
   revision,
   onOpenDocument,
-}: {
-  containerId: string;
-  documentQueries: ContainerDocumentQueries;
-  revision: number;
-  onOpenDocument: (localId: string, containerId: string) => void;
-}) {
+}: Pick<
+  ContainerViewProps,
+  "containerId" | "documentQueries" | "onOpenDocument" | "revision"
+>) {
   const [offset, setOffset] = useState(0);
   const load = useCallback(() => {
     void revision;
