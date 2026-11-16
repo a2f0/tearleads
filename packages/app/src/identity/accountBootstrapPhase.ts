@@ -7,6 +7,7 @@ import type { AutoProvisioningStep } from "./autoProvisioningStatus";
  * - `signed-in`: authenticated.
  * - `restoring-session`: a stored identity or session is still loading.
  * - `creating-identity`: the autopilot is deriving a new identity key pair.
+ * - `naming-account`: a new identity's registration waits for the user's name.
  * - `creating-account`: the autopilot is registering a new identity.
  * - `signing-in`: the autopilot is logging a restored identity back in.
  * - `signed-out`: nothing is in flight; the user has to act.
@@ -15,11 +16,14 @@ export type AccountBootstrapPhase =
   | "signed-in"
   | "restoring-session"
   | "creating-identity"
+  | "naming-account"
   | "creating-account"
   | "signing-in"
   | "signed-out";
 
 export interface AccountBootstrapInput {
+  /** The autopilot holds this identity's registration for the user's name. */
+  readonly awaitingAccountName: boolean;
   readonly autoGenerateIdentity: boolean;
   readonly autoProvisioningEnabled: boolean;
   readonly autoRegisterIdentity: boolean;
@@ -62,6 +66,11 @@ export function resolveAccountBootstrapPhase(
   if (input.identityTransitionInFlight || !input.localIdentityRestoreSettled) {
     return "restoring-session";
   }
+  // The key lands before the autopilot's generation settles and learns whether
+  // the new identity needs a name, so the identity is still being created.
+  if (input.autoProvisioningEnabled && input.generation === "running") {
+    return "creating-identity";
+  }
   if (!input.hasSigningKey) {
     return input.autoProvisioningEnabled &&
       input.autoGenerateIdentity &&
@@ -87,9 +96,15 @@ function registrationPhase(
   if (autoRegistering && input.registration === "running") {
     return input.identityRestored ? "signing-in" : "creating-account";
   }
+  if (!autoRegistering || input.userId !== null) {
+    return "signed-out";
+  }
+  // Registration holds until the name is given, whatever an earlier run (say,
+  // for another identity before a switch back) or bootstrap reported.
+  if (input.awaitingAccountName) {
+    return "naming-account";
+  }
   if (
-    !autoRegistering ||
-    input.userId !== null ||
     input.registration === "failed" ||
     input.systemBootstrapStatus === "error"
   ) {
@@ -98,31 +113,47 @@ function registrationPhase(
   return input.identityRestored ? "signing-in" : "creating-account";
 }
 
+type AccountBootstrapProgressPhase = Exclude<
+  AccountBootstrapPhase,
+  "signed-in" | "signed-out"
+>;
+
 export interface AccountBootstrapCopy {
-  readonly title: string;
   readonly description: string;
+  readonly phase: AccountBootstrapProgressPhase;
+  readonly title: string;
 }
 
-const ACCOUNT_BOOTSTRAP_COPY: Record<
-  Exclude<AccountBootstrapPhase, "signed-in" | "signed-out">,
-  AccountBootstrapCopy
-> = {
+const ACCOUNT_BOOTSTRAP_COPY: {
+  readonly [Phase in AccountBootstrapProgressPhase]: AccountBootstrapCopy & {
+    readonly phase: Phase;
+  };
+} = {
   "creating-account": {
     description:
       "Registering your identity and setting up your personal organization.",
+    phase: "creating-account",
     title: "Creating your account",
   },
   "creating-identity": {
     description:
       "Generating the keys that identify you. This happens once per device.",
+    phase: "creating-identity",
     title: "Creating your identity",
+  },
+  "naming-account": {
+    description: "Your name labels your personal organization and contact.",
+    phase: "naming-account",
+    title: "What should we call you?",
   },
   "restoring-session": {
     description: "Loading your identity and session from this device.",
+    phase: "restoring-session",
     title: "Restoring your session",
   },
   "signing-in": {
     description: "Proving ownership of your identity to the server.",
+    phase: "signing-in",
     title: "Signing you in",
   },
 };

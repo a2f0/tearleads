@@ -21,7 +21,11 @@ import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
-import { useGenerateKey } from "./localIdentityGeneration";
+import { clearPersistedAccountNamingForIdentity } from "./accountNamingPersistence";
+import {
+  type GenerateKeyOptions,
+  useGenerateKey,
+} from "./localIdentityGeneration";
 import {
   useLocalIdentityPersistence,
   useLocalIdentityRestore,
@@ -41,7 +45,7 @@ export interface IdentityContextValue {
   createIdentity: () => Promise<boolean>;
   encapsulationKeyPair: EncapsulationKeyPair | null;
   destroyKey: (signingFingerprint: string) => Promise<boolean>;
-  generateKey: () => Promise<boolean>;
+  generateKey: (options?: GenerateKeyOptions) => Promise<boolean>;
   /**
    * Whether the user has explicitly destroyed the identity this session. The
    * autopilot stops auto-generating once this is set, so "Destroy Key Pair"
@@ -163,11 +167,16 @@ function useIdentityProviderActions(input: IdentityProviderActionsInput) {
     generationInFlight,
     localPersistence,
     onIdentitiesChanged,
-    onIdentityRemoved: (signingFingerprint) =>
+    onIdentityRemoved: (signingFingerprint) => {
       clearPersistedCryptoSessionForIdentity({
         namespace: localIdentityNamespace,
         signingFingerprint,
-      }),
+      });
+      clearPersistedAccountNamingForIdentity({
+        namespace: localIdentityNamespace,
+        signingFingerprint,
+      });
+    },
     tearleads,
   });
 

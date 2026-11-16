@@ -1,10 +1,10 @@
-import { expect, test } from "@playwright/test";
 import {
   openWindowedApp,
   preferWindowedScreenshotLayout,
   visiblePane,
   waitForBooted,
 } from "../screenshots/appShell";
+import { expect, test } from "./appTest";
 
 test("screenshot bootstrap leaves the explicitly opened app first", async ({
   page,

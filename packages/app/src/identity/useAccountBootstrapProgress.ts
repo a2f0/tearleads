@@ -27,6 +27,7 @@ function useAccountBootstrapPhase(): AccountBootstrapPhase {
   const autoProvisioning = useAutoProvisioningStatus();
 
   return resolveAccountBootstrapPhase({
+    awaitingAccountName: autoProvisioning.accountNaming.status === "awaiting",
     autoGenerateIdentity: features.autoGenerateIdentity,
     autoProvisioningEnabled: autoProvisioning.enabled,
     autoRegisterIdentity: features.autoRegisterIdentity,

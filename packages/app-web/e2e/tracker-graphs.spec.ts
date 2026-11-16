@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./appTest";
 
 for (const kind of ["Weight", "Blood Pressure"] as const) {
   test(`${kind} graph fits phone and tablet widths and plots dated readings`, async ({
