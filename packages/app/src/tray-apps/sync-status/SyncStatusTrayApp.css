@@ -1,4 +1,4 @@
-/* Footer-tray sync indicator. The status itself is painted by the shared
+/* Sync Status tray app. The status itself is painted by the shared
    `SyncGlyph` (which owns the hues); this is only the button around it. */
 .sync-status-indicator {
   display: inline-flex;

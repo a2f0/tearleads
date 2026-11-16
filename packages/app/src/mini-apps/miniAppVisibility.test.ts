@@ -22,7 +22,7 @@ test("filtering hides root from the launcher and routed nav alike", () => {
     filterVisibleMiniAppItems(ROUTED_MINI_APP_NAV_ITEMS, { isRoot: false }),
   );
   expect(hiddenMenu).not.toContain("root");
-  expect(hiddenNav).toEqual(hiddenMenu);
+  expect(hiddenNav).toEqual([...hiddenMenu, "display-properties"]);
 
   const shownMenu = appIds(
     filterVisibleMiniAppItems(MINI_APP_MENU_ITEMS, { isRoot: true }),

@@ -1,20 +1,18 @@
 import { type RenderResult, render } from "@testing-library/react";
-import { DeveloperModeProvider } from "../../src/providers/developer-mode/DeveloperModeProvider";
 import {
   DualPaneProvider,
   PaneSideProvider,
 } from "../../src/shell/pane/dual-pane";
 import { PaneProvider } from "../../src/shell/pane/runtime/PaneProvider";
 import { Pane } from "../../src/shell/pane/shell/Pane";
+import { AppLayoutTestProviders } from "./appLayoutTestProviders";
 import { createTestHostConfig } from "./paneTestUtils";
 
 export function renderRoutedPane(): RenderResult {
   window.history.replaceState(null, "", "/");
 
-  // Mirrors production composition: Layout mounts the developer-mode provider
-  // above every Pane.
   return render(
-    <DeveloperModeProvider>
+    <AppLayoutTestProviders>
       <DualPaneProvider>
         <PaneSideProvider side="left">
           <PaneProvider hostConfig={createTestHostConfig()}>
@@ -22,7 +20,7 @@ export function renderRoutedPane(): RenderResult {
           </PaneProvider>
         </PaneSideProvider>
       </DualPaneProvider>
-    </DeveloperModeProvider>,
+    </AppLayoutTestProviders>,
   );
 }
 
