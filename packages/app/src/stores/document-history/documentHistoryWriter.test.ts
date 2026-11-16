@@ -88,3 +88,54 @@ test("a stop spanning two signing identities stays unknown", () => {
     ),
   ).toBeNull();
 });
+
+test("matching ends do not credit a stop whose middle someone else uploaded", () => {
+  // Ada delivered the first and last operations; Eve delivered the middle.
+  expect(
+    resolveDocumentHistoryStopWriter(
+      [
+        segment({ endCounter: 3 }),
+        segment({
+          endCounter: 5,
+          startCounter: 3,
+          writerKeyFingerprint: "fp-eve",
+          writerUserId: "eve",
+        }),
+        segment({ startCounter: 5 }),
+      ],
+      STOP,
+    ),
+  ).toBeNull();
+});
+
+test("matching ends do not credit a stop whose middle a baseline delivered", () => {
+  expect(
+    resolveDocumentHistoryStopWriter(
+      [
+        segment({ endCounter: 3 }),
+        segment({ authorityKind: "baseline", endCounter: 5, startCounter: 3 }),
+        segment({ startCounter: 5 }),
+      ],
+      STOP,
+    ),
+  ).toBeNull();
+});
+
+test("matching ends do not credit a stop with an unattributed middle", () => {
+  // Operations 3 and 4 have no segment at all.
+  expect(
+    resolveDocumentHistoryStopWriter(
+      [segment({ endCounter: 3 }), segment({ startCounter: 5 })],
+      STOP,
+    ),
+  ).toBeNull();
+});
+
+test("segments in any order are read in operation order", () => {
+  expect(
+    resolveDocumentHistoryStopWriter(
+      [segment({ startCounter: 4 }), segment({ endCounter: 4 })],
+      STOP,
+    ),
+  ).toEqual({ writerKeyFingerprint: "fp-ada", writerUserId: "ada" });
+});
