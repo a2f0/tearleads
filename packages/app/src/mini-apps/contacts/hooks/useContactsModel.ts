@@ -49,6 +49,7 @@ function useContactsSelectionState(
 function useSelectInitialSelfContact(input: {
   enabled: boolean;
   entries: ContactEntries;
+  hasRequestedRoute: () => boolean;
   ready: boolean;
   route: ContactsRoute;
   selectedContactId: string | null;
@@ -58,6 +59,7 @@ function useSelectInitialSelfContact(input: {
   const {
     enabled,
     entries,
+    hasRequestedRoute,
     ready,
     route,
     selectedContactId,
@@ -67,12 +69,16 @@ function useSelectInitialSelfContact(input: {
   const selectedInitialSelfRef = useRef(false);
 
   useEffect(() => {
+    // `route` and `selectedContactId` are this render's values. A contact the
+    // user picked after this render is not committed yet, so also stop once
+    // any route has been requested.
     if (
       !enabled ||
       !ready ||
       route !== "selection" ||
       selectedInitialSelfRef.current ||
-      selectedContactId !== null
+      selectedContactId !== null ||
+      hasRequestedRoute()
     ) {
       return;
     }
@@ -86,6 +92,7 @@ function useSelectInitialSelfContact(input: {
   }, [
     enabled,
     entries,
+    hasRequestedRoute,
     ready,
     route,
     selectedContactId,
@@ -129,6 +136,7 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   useSelectInitialSelfContact({
     enabled: !compactRoutedMode,
     entries,
+    hasRequestedRoute: routeState.hasRequestedRoute,
     ready,
     route: routeState.route,
     selectedContactId: selectionState.selectedContactId,

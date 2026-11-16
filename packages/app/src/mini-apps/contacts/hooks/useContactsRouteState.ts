@@ -12,7 +12,7 @@ export function useContactsRouteState(compactRoutedMode: boolean) {
   const [localRoute, setLocalRoute] = useState<ContactsRouteSnapshot>(
     DEFAULT_CONTACTS_ROUTE_SNAPSHOT,
   );
-  const { route: routeSnapshot, setRoute: setRouteSnapshot } =
+  const { route: routeSnapshot, setRoute: setMiniAppRoute } =
     useMiniAppRouteState({
       appId: "contacts",
       formatRouteSegments: formatContactsRouteSegments,
@@ -20,6 +20,19 @@ export function useContactsRouteState(compactRoutedMode: boolean) {
       parseRouteSegments: parseContactsRouteSegments,
       setLocalRoute,
     });
+  // Set when this window asks for a route, before that route commits. An
+  // effect still holding an earlier render's route reads it so it cannot
+  // override a choice made after that render, such as a contact clicked while
+  // the list was settling.
+  const routeRequestedRef = useRef(false);
+  const setRouteSnapshot = useCallback(
+    (...args: Parameters<typeof setMiniAppRoute>) => {
+      routeRequestedRef.current = true;
+      setMiniAppRoute(...args);
+    },
+    [setMiniAppRoute],
+  );
+  const hasRequestedRoute = useCallback(() => routeRequestedRef.current, []);
   const showSelectionRoute = useCallback(
     (options: { replace?: boolean | undefined } = {}) =>
       setRouteSnapshot(
@@ -79,6 +92,7 @@ export function useContactsRouteState(compactRoutedMode: boolean) {
   );
 
   return {
+    hasRequestedRoute,
     identityLinkToken: routeSnapshot.identityLinkToken,
     openImportContactRoute,
     openNewContactRoute,
