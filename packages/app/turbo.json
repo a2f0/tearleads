@@ -4,7 +4,8 @@
   "tasks": {
     "test": {
       "description": "The suite boots the API in-process from its source (test/helpers/msw/), so an API change must miss this cache.",
-      "dependsOn": ["$TURBO_EXTENDS$", "@tearleads/api#runtime-sources"]
+      "dependsOn": ["$TURBO_EXTENDS$", "@tearleads/api#runtime-sources"],
+      "env": ["TEARLEADS_TEST_FAST_SIGNATURES"]
     }
   }
 }

@@ -1,3 +1,6 @@
+// First, so an opt-in ML-DSA stand-in replaces signing before anything loads
+// @tearleads/crypto. A no-op unless TEARLEADS_TEST_FAST_SIGNATURES=1.
+import "@tearleads/crypto/fast-signatures-test-fixtures";
 import { afterAll, afterEach } from "bun:test";
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";

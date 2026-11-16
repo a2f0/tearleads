@@ -13,6 +13,7 @@
     "./container-kek-test-fixtures": "./src/keying/containerKek.testFixtures.ts",
     "./container-wrapping-test-fixtures": "./src/keying/containerWrapping.testFixtures.ts",
     "./document-link-set-manifest-test-fixtures": "./src/keying/documentLinkSetManifest.testFixtures.ts",
+    "./fast-signatures-test-fixtures": "./src/signing/fastSignatures.testFixtures.ts",
     "./write-header-test-fixtures": "./src/keying/writeHeader.testFixtures.ts",
     "./principal-policy-test-fixtures": "./src/keying/principalPolicyTestFixtures.ts"
   },

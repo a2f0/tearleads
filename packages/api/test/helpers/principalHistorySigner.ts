@@ -1,3 +1,6 @@
+// A worker has its own module registry, so it installs the opt-in ML-DSA
+// stand-in itself; otherwise its signatures would not verify in the test.
+import "@tearleads/crypto/fast-signatures-test-fixtures";
 import { parentPort } from "node:worker_threads";
 import {
   signPrincipalState,
