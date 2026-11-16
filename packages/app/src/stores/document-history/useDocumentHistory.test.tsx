@@ -57,7 +57,10 @@ function capture(...ends: Array<[peerId: string, endCounter: number]>) {
 }
 
 function setup(dbStatus: "idle" | "ready" = "ready") {
-  const runtime = { infra: { dbStatus, execSql: {} } };
+  const runtime = {
+    infra: { dbStatus, execSql: {} },
+    state: { domainScope: {} as object },
+  };
   const listeners = new Set<(document: DocumentSummary) => void>();
   const opens: string[] = [];
   // Every open reads its own capture, as the SDK does.
@@ -203,6 +206,31 @@ test("history that arrives before the retry subscribes is still found", async ()
   sdk.serve(() => capture(["1", 3]).history);
 
   await waitFor(() => expect(result.current.state.status).toBe("ready"));
+});
+
+test("a new domain scope reopens the history and listens there", async () => {
+  const sdk = setup();
+  sdk.serve(() => capture(["1", 3]).history);
+  const { rerender, result } = renderHook(() => useDocumentHistory("doc"));
+  await waitFor(() => expect(result.current.state.status).toBe("ready"));
+  const opensBefore = sdk.opens.length;
+  const runBefore = result.current.state.run;
+
+  // Another signing identity: same database handle, same documents service.
+  sdk.runtime.state.domainScope = {};
+  rerender();
+
+  await waitFor(() => {
+    expect(result.current.state.status).toBe("ready");
+    expect(result.current.state.run).toBeGreaterThan(runBefore);
+  });
+  expect(sdk.opens.length).toBeGreaterThan(opensBefore);
+  // Saves announced from now on reach the reopened history.
+  sdk.serve(() => capture(["1", 3], ["1", 5]).history);
+  act(() => sdk.saved("doc"));
+  await waitFor(() =>
+    expect(result.current.state).toMatchObject({ newerAvailable: true }),
+  );
 });
 
 test("reloading opens a new capture and closes the old one", async () => {

@@ -4,7 +4,7 @@ import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   MiniAppHeader,
   MiniAppHeaderCopy,
@@ -13,6 +13,7 @@ import {
 } from "../../../../components/mini-app/MiniAppLayout";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../../document-types/registry";
+import { useTearleads } from "../../../../providers/sdk/TearleadsProvider";
 import { isCurrentDocumentVersion } from "../../../../stores/document-history/documentHistoryMachine";
 import { DocumentHistoryViewContext } from "../../../../stores/document-history/historicalDocumentView";
 import {
@@ -279,12 +280,16 @@ export function ExplorerDocumentHistoryPanel(params: {
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   localId: string;
 }) {
-  const { documentSummary, documentSummaryError, isLoadingDocumentSummary } =
-    useExplorerDocumentSummary({
-      fallbackDocumentSummary: params.fallbackDocumentSummary,
-      loadDocumentSummary: params.loadDocumentSummary,
-      localId: params.localId,
-    });
+  const {
+    documentSummary,
+    documentSummaryError,
+    isLoadingDocumentSummary,
+    retry,
+  } = useExplorerDocumentSummary({
+    fallbackDocumentSummary: params.fallbackDocumentSummary,
+    loadDocumentSummary: params.loadDocumentSummary,
+    localId: params.localId,
+  });
 
   return (
     <MiniAppPanel
@@ -300,6 +305,8 @@ export function ExplorerDocumentHistoryPanel(params: {
           <UnadmittedDocumentStatus
             error={documentSummaryError}
             loading={isLoadingDocumentSummary}
+            localId={params.localId}
+            onDocumentSaved={retry}
           />
         </>
       ) : (
@@ -313,10 +320,27 @@ export function ExplorerDocumentHistoryPanel(params: {
   );
 }
 
+/**
+ * Why there is no history to show yet. A document opened from a cold link
+ * may still be hydrating: its summary is asked for again each time the
+ * document is saved, so History opens as soon as the route admits it.
+ */
 function UnadmittedDocumentStatus(params: {
   error: string | null;
   loading: boolean;
+  localId: string;
+  onDocumentSaved: () => void;
 }) {
+  const { localId, onDocumentSaved } = params;
+  const { documents } = useTearleads();
+  useEffect(
+    () =>
+      documents.subscribe((document) => {
+        if (document.id === localId) onDocumentSaved();
+      }),
+    [documents, localId, onDocumentSaved],
+  );
+
   if (params.error !== null) {
     return (
       <MiniAppStatus tone="error">

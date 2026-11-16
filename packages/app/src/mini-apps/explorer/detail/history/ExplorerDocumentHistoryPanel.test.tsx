@@ -4,8 +4,10 @@ import type {
   DocumentHistoryChange,
   DocumentHistoryView,
   DocumentSummary,
+  Tearleads,
 } from "@tearleads/client-sdk";
-import { cleanup, render } from "@testing-library/react";
+import { act, cleanup, render } from "@testing-library/react";
+import * as Runtime from "../../../../providers/sdk/TearleadsProvider";
 import * as History from "../../../../stores/document-history/useDocumentHistory";
 import * as Documents from "../../../../stores/documents/DocumentsProvider";
 import { ExplorerDocumentHistoryPanel } from "./ExplorerDocumentHistoryPanel";
@@ -45,6 +47,29 @@ const HISTORY: DocumentHistory = {
   versionAt: () => [],
   viewAt: () => VIEW,
 };
+
+/** The SDK's save notifications, with a way to announce one. */
+function documentSaves() {
+  const listeners = new Set<(document: DocumentSummary) => void>();
+  const spy = spyOn(Runtime, "useTearleads").mockReturnValue({
+    documents: {
+      subscribe: (listener: (document: DocumentSummary) => void) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+    },
+  } as unknown as Tearleads);
+  restorers.push(() => spy.mockRestore());
+  return {
+    announce: (localId: string) => {
+      for (const listener of [...listeners]) {
+        listener({ id: localId } as DocumentSummary);
+      }
+    },
+  };
+}
 
 function summary(containerId: string | null): DocumentSummary {
   return {
@@ -124,6 +149,7 @@ test("History is read-only when the document's own folder is, whatever route ope
 });
 
 test("a document the route was refused never has its history opened", async () => {
+  documentSaves();
   const historySpy = spyOn(History, "useDocumentHistory");
   restorers.push(() => historySpy.mockRestore());
   // No summary to fall back on, and the routed loader refuses the document:
@@ -145,6 +171,7 @@ test("a document the route was refused never has its history opened", async () =
 });
 
 test("a document whose summary failed to load never has its history opened", async () => {
+  documentSaves();
   const historySpy = spyOn(History, "useDocumentHistory");
   restorers.push(() => historySpy.mockRestore());
   const view = render(
@@ -160,6 +187,41 @@ test("a document whose summary failed to load never has its history opened", asy
 
   await view.findByText("History could not be loaded: database closed");
   expect(historySpy).not.toHaveBeenCalled();
+});
+
+test("a cold link opens History once the document hydrates", async () => {
+  const saves = documentSaves();
+  const historySpy = spyOn(History, "useDocumentHistory").mockReturnValue({
+    reload: () => undefined,
+    seek: () => undefined,
+    state: { run: 1, status: "loading" },
+    step: () => undefined,
+    togglePlay: () => undefined,
+  });
+  restorers.push(() => historySpy.mockRestore());
+  // The link was opened before the document reached this device: the loader
+  // has no summary for it yet.
+  let hydrated: DocumentSummary | null = null;
+  const view = render(
+    <ExplorerDocumentHistoryPanel
+      fallbackDocumentSummary={null}
+      isContainerReadOnly={() => false}
+      loadDocumentSummary={async () => hydrated}
+      localId="local-1"
+    />,
+  );
+  await view.findByText("This document is not available.");
+  expect(historySpy).not.toHaveBeenCalled();
+
+  // A save of another document changes nothing.
+  hydrated = summary("folder");
+  await act(async () => saves.announce("other"));
+  expect(historySpy).not.toHaveBeenCalled();
+
+  // The document hydrates and is saved: its summary is asked for again.
+  await act(async () => saves.announce("local-1"));
+  expect(historySpy).toHaveBeenCalledWith("local-1");
+  expect(view.queryByText("This document is not available.")).toBeNull();
 });
 
 test("History is writable when the document's folder is", () => {

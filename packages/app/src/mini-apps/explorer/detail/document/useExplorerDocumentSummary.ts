@@ -1,10 +1,16 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
+import {
+  initialDocumentSummaryLoad,
+  transitionDocumentSummaryLoad,
+} from "../../../../stores/explorer/documentSummaryLoadMachine";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 
 /**
  * The summary of a document a route names by local id: the caller's fallback
- * when it already holds that document, otherwise loaded.
+ * when it already holds that document, otherwise loaded. `retry` asks the
+ * loader again, for a document that may have hydrated since it answered with
+ * none.
  */
 export function useExplorerDocumentSummary(params: {
   fallbackDocumentSummary: DocumentSummary | null;
@@ -12,53 +18,48 @@ export function useExplorerDocumentSummary(params: {
   localId: string;
 }) {
   const { fallbackDocumentSummary, loadDocumentSummary, localId } = params;
-  const requestIdRef = useRef(0);
-  const [documentSummary, setDocumentSummary] =
-    useState<DocumentSummary | null>(
-      fallbackDocumentSummary?.id === localId ? fallbackDocumentSummary : null,
-    );
-  const [documentSummaryError, setDocumentSummaryError] = useState<
-    string | null
-  >(null);
-  const [isLoadingDocumentSummary, setIsLoadingDocumentSummary] =
-    useState(false);
+  const known =
+    fallbackDocumentSummary?.id === localId ? fallbackDocumentSummary : null;
+  const [state, send] = useReducer(
+    transitionDocumentSummaryLoad,
+    known,
+    initialDocumentSummaryLoad,
+  );
+  const latestRequest = useRef(0);
 
-  useEffect(() => {
-    const fallback =
-      fallbackDocumentSummary?.id === localId ? fallbackDocumentSummary : null;
-    setDocumentSummary(fallback);
-    setDocumentSummaryError(null);
-    if (fallback) {
-      setIsLoadingDocumentSummary(false);
+  const load = useCallback(() => {
+    if (known !== null) {
+      send({ documentSummary: known, type: "known" });
       return;
     }
+    latestRequest.current += 1;
+    const request = latestRequest.current;
+    send({ request, type: "load-started" });
+    loadDocumentSummary(localId).then(
+      (documentSummary) =>
+        send({ documentSummary, request, type: "load-finished" }),
+      (error: unknown) =>
+        send({
+          message: unknownErrorMessage(error),
+          request,
+          type: "load-failed",
+        }),
+    );
+  }, [known, loadDocumentSummary, localId]);
 
-    let cancelled = false;
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    setIsLoadingDocumentSummary(true);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-    void loadDocumentSummary(localId)
-      .then((summary) => {
-        if (!cancelled && requestIdRef.current === requestId) {
-          setDocumentSummary(summary);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled && requestIdRef.current === requestId) {
-          setDocumentSummaryError(unknownErrorMessage(error));
-        }
-      })
-      .finally(() => {
-        if (!cancelled && requestIdRef.current === requestId) {
-          setIsLoadingDocumentSummary(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [fallbackDocumentSummary, loadDocumentSummary, localId]);
-
-  return { documentSummary, documentSummaryError, isLoadingDocumentSummary };
+  return {
+    // Effects run after the render that changes `localId`: never hand that
+    // render the previous document's summary.
+    documentSummary:
+      state.status === "loaded" && state.documentSummary.id === localId
+        ? state.documentSummary
+        : null,
+    documentSummaryError: state.status === "failed" ? state.message : null,
+    isLoadingDocumentSummary: state.status === "loading",
+    retry: load,
+  };
 }

@@ -3,6 +3,7 @@ import {
   type Dispatch,
   useCallback,
   useEffect,
+  useMemo,
   useReducer,
   useRef,
 } from "react";
@@ -34,8 +35,8 @@ type Send = Dispatch<DocumentHistoryEvent>;
 
 interface HistorySource {
   /**
-   * The ready database the history is read from, or null while there is none.
-   * A different database is a different history.
+   * The ready database and domain scope the history is read from, or null
+   * while there is none. A different one is a different history.
    */
   readonly database: object | null;
   readonly documents: Documents;
@@ -285,16 +286,21 @@ function useRetryWhenHistoryArrives(
  */
 export function useDocumentHistory(localId: string): DocumentHistoryControls {
   const { documents } = useTearleads();
-  const { infra } = useTearleadsRuntime();
+  const { infra, state: runtimeState } = useTearleadsRuntime();
   const [state, send] = useReducer(
     transitionDocumentHistory,
     INITIAL_DOCUMENT_HISTORY,
   );
-  const source: HistorySource = {
-    database: infra.dbStatus === "ready" ? infra.execSql : null,
-    documents,
-    localId,
-  };
+  // One object per database and domain scope: a new signing identity can
+  // keep the same database handle and documents service, yet its saves are
+  // announced under a new scope, so everything below must start over.
+  const { domainScope } = runtimeState;
+  const { dbStatus, execSql } = infra;
+  const database = useMemo(
+    () => (dbStatus === "ready" ? { domainScope, execSql } : null),
+    [dbStatus, domainScope, execSql],
+  );
+  const source: HistorySource = { database, documents, localId };
   const { isCurrentRun, open } = useOpenDocumentHistory(source, send);
   useReplaySelectedStop(state, isCurrentRun, send);
   usePlayback(state.status === "ready" && state.playing, send);
