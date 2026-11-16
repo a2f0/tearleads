@@ -36,6 +36,7 @@ reference.
 | Identity change preparation | `IdentityChangePreparation` | `Blobs` prepares a store and returns a commit that only assigns state | No-op preparation in identity/session tests |
 | Blob attachment I/O | `BlobAttachmentService` (`runtime.blobAttachments`) | One per documents runtime, built by `createDocumentsWorkflowRuntime` | Constructed over a fake API in tests |
 | Keying checkpoint storage | `KeyingCheckpointRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Principal history storage | `PrincipalHistoryRepository(execSql, now)` | Built from the caller's executor at each call | None |
 
 ## Where code goes
 
