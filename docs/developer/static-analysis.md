@@ -6,33 +6,53 @@ baseline validation, shell-script discovery, the
 [audit usage receipt](audit-usage-receipts.md) examples and skill links, and
 the [combined efficiency audit](combined-efficiency-audits.md) links and
 harness-copy parity of the two efficiency-audit skills; they also run in
-`check:fast` and pre-push.
+`check:fast`.
 
 ## CI and the push gate
 
-[CI's](ci-merge-gate.md) `check:fast` and pre-push run the same check list in
+[CI's](ci-merge-gate.md) `Lint` job runs `check:fast`, the check list in
 [`scripts/checks/fastChecks.sh`](../../scripts/checks/fastChecks.sh); add checks
-there. [Pre-push](verification.md#before-a-push) also checks the names of the
-branches a push creates or updates, Terraform, TypeScript, affected tests, and
-the pushed commit ranges. The two TLC model passes and Terraform read no build
-output, so pre-push runs them in a background lane beside the other checks and
-the tests, and replays a model pass from the checkout's Turbo cache when its
-inputs match an earlier pass. CI runs those passes in their own job and `Lint`
-skips them. Each check retains its own push timing row. The branch check reads
-the pushed refs, not the checked-out branch, so `git push origin HEAD:<name>`
-and detached pushes are covered while deletions and tags are skipped. Hooks act
-only in a clone where [`install-hooks.sh`](../../scripts/git/install-hooks.sh)
-ran, so CI's `Lint` job checks every pull request's branch name as well.
-Detached pre-commit checks skip only branch naming; the file, source-shape,
-binary, and staged-content checks still run. Push through a configured named
-remote such as `origin`; URL pushes fail before the full gate.
+there. The two TLC model passes run in CI's `Protocol models (...)` jobs
+instead, and `Lint` skips them.
 
-Both gates need the
-[mise-pinned Java, TLA+, and oasdiff tools](verification.md#pinned-tools),
-plus a fetched `origin/main` (or an explicit
-`OPENAPI_BASE_REF`). The [bounded protocol models](../../formal/README.md) add
-minutes to each push; use the timing log to inspect the cost of individual
-checks.
+The pre-push hook is agent-tool's push gate. The tracked
+[`pre-push`](../../scripts/git/hooks/pre-push) is the exact output of
+`bun run agent-tool push-gate hook`; do not edit it. It runs agent-tool's
+built-in guards first: installed hooks, managed skills and permissions, the
+names of the branches a push creates or updates, commit signatures and
+`Co-authored-by` trailers, and binary files, over exactly the commits the push
+adds. It then runs the steps that the `pushGate` section of
+[`agent-tool.json`](../../agent-tool.json) declares, in order, stopping at the
+first failure: the quick static checks from `check:fast` (Biome formatting and
+lint, Knip, architecture, file names, skill placeholders, package assertions,
+canonical ordering, OpenAPI generation and compatibility, API migration
+history, formal maps, infrastructure parity, Ruby, ShellCheck, Markdown, and
+document links) and a source-shape check of each pushed range
+([`lintPushedSourceShape.ts`](../../scripts/checks/lintPushedSourceShape.ts),
+which reads the push data agent-tool gives each step). A step finishes in
+seconds without building anything; `bun run agent-tool push-gate check` fails
+on a step that reaches a test runner or a dependency install, and on a hook
+that differs from the canonical one. Tests, TypeScript (which needs a fresh SDK
+build), the SDK-backed promise lint, protocol models and projections, browser
+tests, and Terraform run in CI only. Every check the gate runs also runs in
+`check:fast`, which
+[`pushGate.test.ts`](../../scripts/checks/staticAnalysis/pushGate.test.ts)
+asserts. Each push leaves a report with per-step durations in
+`bun run agent-tool runs list`, and the gate warns when it takes longer than
+`pushGate.budgetSeconds`; move a step that grows past it to CI.
+
+The branch guard reads the pushed refs, not the checked-out branch, so
+`git push origin HEAD:<name>` and detached pushes are covered while deletions
+and tags are skipped. Hooks act only in a clone where
+[`install-hooks.sh`](../../scripts/git/install-hooks.sh) ran, so CI's `Lint`
+job checks every pull request's branch name as well. Detached pre-commit checks
+skip only branch naming; the file, source-shape, binary, and staged-content
+checks still run.
+
+The gate's OpenAPI and Ruby steps need the
+[mise-pinned oasdiff and Ruby tools](verification.md#pinned-tools), plus a
+fetched `origin/main` (or an explicit `OPENAPI_BASE_REF`); `check:fast` also
+needs Java and TLA+.
 
 `sh scripts/git/install-hooks.sh` installs the tracked hooks declared in
 [`agent-tool.json`](../../agent-tool.json) through
@@ -45,20 +65,17 @@ missing, edited, or stale copies. The installer honors repository/worktree
 `core.hooksPath`; linked worktrees share the common Git directory by default.
 
 `ship-pr` refreshes hooks through `reset` after a successful merge and
-fast-forward. Pre-push refuses a stale installed copy; update the branch from
-its base before reinstalling. Installing from an older branch can restore a
-hook that predates the guard. Use
-`scripts/git/showPushGateTimings.sh --head <sha>` to inspect each push.
+fast-forward. The push gate refuses a stale installed copy; update the branch
+from its base before reinstalling. Installing from an older branch can restore
+a hook that predates the guard.
 
-Branch names and binary checks use shared agent-tool commands with the policy in
-[`agent-tool.json`](../../agent-tool.json). Commit trust checks require a
-present signature and reject coauthor trailers on commits newly admitted to the
-push remote; commits already reachable from any of that remote's branches are
-excluded. New branches also exclude local `main`, so the check still has a
-baseline when the remote has no tracking refs. Commit messages retain the full
-pinned commitlint rules; the committed message is authoritative for the pre-push
-trailer check after Git's cleanup. Binary and source-shape checks still inspect
-each pushed tree range.
+Branch names, commit trust, and binary checks use agent-tool's shared
+implementation with the policy in [`agent-tool.json`](../../agent-tool.json).
+Commit trust requires a present signature and rejects coauthor trailers on
+commits the push adds: those the new tip reaches that no commit the
+destination already advertises reaches. Commit messages retain the full pinned
+commitlint rules; the committed message is authoritative for the push gate's
+trailer check after Git's cleanup.
 
 OpenAPI compatibility exceptions expire when the comparison base contains the
 new contract. Remove their entries from `openApiCompatibilityErrors.ignore` in
@@ -84,16 +101,17 @@ hook installs are `local`. These labels do not change the effective rules or
 runtime guards. The files are generated: do not edit or reformat them, and rerun
 `agents:sync` after changing the agent-tool pin or
 [`agent-tool.json`](../../agent-tool.json). `bun run agents:check` runs
-`permissions check` after `skills check`, so `check:fast`, CI's `Lint` job, and
-pre-push fail when the rules are missing, edited, or stale.
+`permissions check` after `skills check`, so `check:fast` and CI's `Lint` job
+fail when the rules are missing, edited, or stale, and so does the push gate's
+built-in guard.
 
 Generated Codex rules contain no `prompt` decisions so an authorized `ship-pr`
 request can finish in `never` approval mode with `danger-full-access`. An
 explicit `prompt` rule rejects the command in that mode. In `on-request` mode,
 commands the sandbox permits can also run without a prompt. Consequential
 commands receive no new allow rules; user and managed restrictions still apply.
-User authorization, required CI, base freshness, and the reviewed-commit merge
-checks remain required. The separate repository-owned
+User authorization, required CI, and the reviewed-commit merge checks remain
+required. The separate repository-owned
 [rules file](../../.codex/rules/tearleads.rules) forbids direct `gh pr merge`,
 `npm publish`, and `bun publish`. Merges use the guarded helper required by
 [`AGENTS.md`](../../AGENTS.md#agent-tooling-and-shipping); packages publish
@@ -127,7 +145,7 @@ the harness default.
 
 ## Documentation links
 
-`bun run lint:doc-links` (in `check:fast` and pre-push) reads every tracked
+`bun run lint:doc-links` (in `check:fast` and the push gate) reads every tracked
 Markdown file except the managed skill copies and fails on:
 
 - a relative link or image whose target is not a tracked file or directory
@@ -263,11 +281,12 @@ see [schema migrations](api-persistence.md#schema-migrations).
 
 ## Shell scripts
 
-`bun run lint:scripts` and pre-push use the same `git ls-files` inventory. It
-includes `.sh` files at any depth and shell shebangs, including extensionless
-Git hooks. Filename spaces and newlines are preserved. Invoking from a
-subdirectory still checks the repository root. The inventory reads only a file
-prefix to identify shebangs and skips missing working files and directories.
+`bun run lint:scripts`, in `check:fast` and the push gate, reads a
+`git ls-files` inventory. It includes `.sh` files at any depth and shell
+shebangs, including extensionless Git hooks. Filename spaces and newlines are
+preserved. Invoking from a subdirectory still checks the repository root. The
+inventory reads only a file prefix to identify shebangs and skips missing
+working files and directories.
 Stage new files before running the command.
 
 Explicit exceptions live in

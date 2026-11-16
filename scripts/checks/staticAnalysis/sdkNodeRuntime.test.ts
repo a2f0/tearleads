@@ -129,6 +129,7 @@ test("Node setup consumers share the exact existing build-runtime pin", async ()
   }
   expect(consumers.toSorted()).toEqual([
     "ci.yml:build",
+    "ci.yml:e2e",
     "ci.yml:test",
     "client-sdk-publish.yml:publish",
     "windowing-publish.yml:publish",

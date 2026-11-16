@@ -37,6 +37,7 @@ const successful = () => ({
   models: { result: "success" },
   build: { result: "success" },
   test: { result: "success" },
+  e2e: { result: "success" },
   "postgres-concurrency": { result: "success" },
   windows: { result: "success" },
   native: { result: "skipped" },
@@ -99,6 +100,7 @@ test("requires every applicable check and permits only explicitly irrelevant ski
     "models",
     "build",
     "test",
+    "e2e",
     "postgres-concurrency",
     "windows",
   ]) {
@@ -227,14 +229,27 @@ test("the required gate always evaluates all jobs and platform workflows are cal
     await Bun.file(`${root}/.github/workflows/ci.yml`).text(),
   ) as {
     on: Record<string, unknown>;
-    jobs: Record<string, { if?: string; needs?: string[]; uses?: string }>;
+    jobs: Record<
+      string,
+      {
+        if?: string;
+        needs?: string[];
+        uses?: string;
+        steps?: { run?: string }[];
+      }
+    >;
   };
   expect(ci.on).toHaveProperty("pull_request");
-  const { gate, build, test: suites, windows } = ci.jobs;
+  // Every merge to main runs CI, with no path filter, so a break shows there.
+  expect(ci.on.push).toEqual({ branches: ["main"] });
+  const { gate, build, test: suites, e2e, windows } = ci.jobs;
   expect(gate?.if).toBe("always()");
   expect(gate?.needs?.toSorted()).toEqual(Object.keys(successful()).toSorted());
   expect(build?.if).toBeUndefined();
   expect(suites?.if).toBeUndefined();
+  // The push gate runs no tests, so the browser suite runs only here.
+  expect(e2e?.if).toBeUndefined();
+  expect(e2e?.steps?.map(({ run }) => run)).toContain("bun run test:turbo:e2e");
   expect(windows?.if).toBeUndefined();
   for (const job of ["windows", "native"]) {
     const path = ci.jobs[job]?.uses;
