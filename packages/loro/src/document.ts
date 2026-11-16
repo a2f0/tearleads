@@ -1,5 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { LoroDoc, VersionVector } from "loro-crdt";
+import { recordChangeTimestamps } from "./changeTimestamps";
 import { serializeCanonicalHistory } from "./historyCanonicalization";
 import { getImportBlobMetadata } from "./importMetadata";
 
@@ -85,6 +86,7 @@ export async function derivePeerId(
 export async function createDocument(peerSeed: string | Uint8Array) {
   const doc = new LoroDoc();
   doc.setPeerId(await derivePeerId(peerSeed));
+  recordChangeTimestamps(doc);
   return doc;
 }
 

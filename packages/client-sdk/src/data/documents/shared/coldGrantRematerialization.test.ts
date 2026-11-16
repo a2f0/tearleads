@@ -31,10 +31,7 @@ import { unwrapDocumentSyncResponseContentKeys } from "../../../workflows/docume
 
 import { createProjectionCheckpointContext } from "../../keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../keyingProjectionVerification/principalPolicy/principalPolicyVerification";
-import {
-  ensurePrincipalPolicyTables,
-  savePrincipalPolicyBundle,
-} from "../../persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { decryptDocumentSyncUpdatesByEpoch } from "./crypto";
 
 async function managedGrantFixture(input: {
@@ -107,7 +104,9 @@ for (const grantKind of ["user", "group"] as const) {
     });
 
     await withTestExecSql(`cold-${grantKind}-grant`, async (execSql) => {
-      await ensurePrincipalPolicyTables(execSql);
+      await new PrincipalPolicyBundleRepository(
+        execSql,
+      ).ensurePrincipalPolicyTables();
       let wraps = rotated.successor.wraps;
       if (grantKind !== "user") {
         const managed = await managedGrantFixture({ reader, rotated });
@@ -231,13 +230,12 @@ test("an interrupted client warms a rotated-group policy and recovers in the sam
   const document = await createMultiEpochDocumentFixture({ author, rotated });
 
   await withTestExecSql("cold-stale-group-grant", async (execSql) => {
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      policies.initial,
-      "2026-08-12T12:01:00.000Z",
-      ORGANIZATION_ID,
-    );
+    ).ensurePrincipalPolicyTables();
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).savePrincipalPolicyBundle(policies.initial, ORGANIZATION_ID);
     const directory = await createPolicyDirectoryFixture({
       organizationId: ORGANIZATION_ID,
       group: policies.current,

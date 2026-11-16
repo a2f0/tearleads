@@ -10,10 +10,7 @@ import {
 } from "../../../../test/helpers/policyCacheFixtures";
 import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
-import {
-  loadPrincipalPolicyBundle,
-  savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("referenced policy warming re-verifies an exact local bundle without a policy GET", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -25,12 +22,9 @@ test("referenced policy warming re-verifies an exact local bundle without a poli
       organizationId: "org-1",
       group: bundle,
     });
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-1");
     let policyGetCount = 0;
 
     await cacheReferencedPolicies({
@@ -63,12 +57,9 @@ test("referenced policy warming performs one policy GET for a local head mismatc
       organizationId: "org-1",
       group: bundle,
     });
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      cachedBundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(cachedBundle, "org-1");
     let policyGetCount = 0;
 
     await cacheReferencedPolicies({
@@ -102,12 +93,9 @@ test("referenced policy warming fetches once when the exact local chain is behin
     });
     const cachedBundle = predecessorBundleFromSuccessor(bundle);
     const reference = referencedPrincipalStateFromBundle(cachedBundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      cachedBundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(cachedBundle, "org-1");
     await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
       bundle.currentState.principalType,
       bundle.currentState.principalId,
@@ -144,12 +132,9 @@ test("referenced policy warming leaves stale local state unchanged when the cano
     const { bundle, getUserIdentity } =
       await createSuccessorPrincipalPolicyBundle();
     const cachedBundle = predecessorBundleFromSuccessor(bundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      cachedBundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(cachedBundle, "org-1");
     await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
       bundle.currentState.principalType,
       bundle.currentState.principalId,
@@ -173,7 +158,10 @@ test("referenced policy warming leaves stale local state unchanged when the cano
 
     expect(policyGetCount).toBe(1);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(cachedBundle);
   } finally {
     close();
@@ -202,12 +190,9 @@ test("referenced policy warming hard-fails and leaves stale local state unchange
         ...bundle.currentProjection.slice(1),
       ],
     };
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      cachedBundle,
-      "2026-07-18T00:00:00Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(cachedBundle, "org-1");
     await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
       bundle.currentState.principalType,
       bundle.currentState.principalId,
@@ -236,7 +221,10 @@ test("referenced policy warming hard-fails and leaves stale local state unchange
 
     expect(policyGetCount).toBe(1);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(cachedBundle);
   } finally {
     close();

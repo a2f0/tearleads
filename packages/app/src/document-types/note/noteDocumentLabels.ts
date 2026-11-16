@@ -28,8 +28,9 @@ export const NOTE_DOCUMENT_LABELS = {
   removeAttachment: (name: string) => `Remove attachment ${name}`,
   // Remove-attachment confirmation dialog copy.
   removeAttachmentConfirmTitle: "Remove attachment",
-  removeAttachmentConfirmMessage: (name: string) =>
-    `Remove “${name}”? This can’t be undone.`,
+  // The attachment's name renders highlighted between the lead and the tail.
+  removeAttachmentConfirmMessageLead: "Remove",
+  removeAttachmentConfirmMessageTail: "? This can’t be undone.",
   removeAttachmentConfirmCancel: "Cancel",
   removeAttachmentConfirmConfirm: "Remove",
   // Attachment preview overlay copy.

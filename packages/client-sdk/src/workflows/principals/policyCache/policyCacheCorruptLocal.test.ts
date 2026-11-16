@@ -5,10 +5,7 @@ import {
   createPrincipalPolicyBundle,
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/policyCacheFixtures";
-import {
-  ensurePrincipalPolicyTables,
-  savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("principal policy sync hard-fails without fetching or repairing an invalid exact match", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -17,13 +14,12 @@ test("principal policy sync hard-fails without fetching or repairing an invalid 
 
   try {
     const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-07-17T00:00:00.000Z",
-      "org-1",
-    );
+    ).ensurePrincipalPolicyTables();
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).savePrincipalPolicyBundle(bundle, "org-1");
     await execSql(
       `UPDATE principal_policy_bundles
        SET current_state_json = ?

@@ -5,6 +5,7 @@ import {
   MiniAppButton,
   MiniAppModalBackdrop,
   MiniAppModalForm,
+  MiniAppModalHighlight,
   MiniAppModalPanel,
 } from "../../components/mini-app/MiniAppLayout";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
@@ -43,9 +44,9 @@ export function RemoveAttachmentConfirmationDialog({
             {NOTE_DOCUMENT_LABELS.removeAttachmentConfirmTitle}
           </h2>
           <p id={messageId}>
-            {NOTE_DOCUMENT_LABELS.removeAttachmentConfirmMessage(
-              attachment.name,
-            )}
+            {NOTE_DOCUMENT_LABELS.removeAttachmentConfirmMessageLead}{" "}
+            <MiniAppModalHighlight>{attachment.name}</MiniAppModalHighlight>
+            {NOTE_DOCUMENT_LABELS.removeAttachmentConfirmMessageTail}
           </p>
           <MiniAppActions>
             <MiniAppButton onClick={onCancel} type="button">

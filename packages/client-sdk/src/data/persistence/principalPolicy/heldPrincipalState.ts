@@ -13,12 +13,7 @@ import {
   principalHistoryEntries,
   principalHistoryEntryStateHashJson,
 } from "../../sqlite/schema/principalHistoryEvidenceSchema";
-import {
-  type ClientSQLiteDatabase,
-  getClientSQLitePersistenceRuntime,
-} from "../../sqlite/sqlitePersistenceRuntime";
-import type { ExecSql } from "../../sqlite/sqlSchema";
-import { ensurePrincipalPolicyTables } from "./principalPolicyPersistence";
+import type { ClientSQLiteDatabase } from "../../sqlite/sqlitePersistenceRuntime";
 
 /** Candidate rows per source; equal hashes rarely repeat across scopes. */
 const HELD_STATE_CANDIDATES = 8;
@@ -131,17 +126,10 @@ async function bundleState(
   return null;
 }
 
-/**
- * A signed state this device stored for exactly `head`: history evidence it
- * verified or acknowledged, or a cached policy bundle chain. It is untrusted;
- * the caller verifies it as it would a served copy, and a miss only means the
- * server sends one.
- */
-export async function loadHeldPrincipalState(
-  execSql: ExecSql,
+/** History evidence first, then cached bundle chains; tables already ensured. */
+export async function selectHeldPrincipalState(
+  db: ClientSQLiteDatabase,
   head: ReferencedPrincipalHead,
 ): Promise<PrincipalStateResponse | null> {
-  await ensurePrincipalPolicyTables(execSql);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
   return (await evidenceState(db, head)) ?? bundleState(db, head);
 }

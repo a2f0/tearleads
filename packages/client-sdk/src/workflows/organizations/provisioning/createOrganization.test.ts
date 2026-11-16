@@ -16,7 +16,7 @@ import { execSqlClientFromExecSql } from "../../../../test/helpers/execSqlClient
 import { respondToOrganizationProvisioning } from "../../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   createExecSql,
   runSerializedSqlMutation,
@@ -161,11 +161,9 @@ test("createOrganization provisions a new org for the existing user and persists
     }
 
     // Group policies persisted locally.
-    const adminPolicy = await loadPrincipalPolicyBundle(
+    const adminPolicy = await new PrincipalPolicyBundleRepository(
       execSql,
-      "group",
-      request.initialAdminGroup.groupId,
-    );
+    ).loadPrincipalPolicyBundle("group", request.initialAdminGroup.groupId);
     expect(adminPolicy?.currentProjection).toEqual(
       request.initialAdminGroup.initialGroupPolicy.projection,
     );
@@ -487,8 +485,7 @@ test("createOrganization persists nothing when the identity goes stale in-flight
       ),
     ).resolves.toBe(false);
     await expect(
-      loadPrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
         "organization",
         request.organizationId,
       ),

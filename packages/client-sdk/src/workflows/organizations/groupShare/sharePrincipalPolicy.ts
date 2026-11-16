@@ -13,9 +13,7 @@ import type {
 import type { ContainerShareApi } from "../../../data/containers/shared/types";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
-import { retainVerifiedPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
@@ -82,18 +80,20 @@ async function retainVerifiedSharePolicies(input: {
     for (const entry of externalAdminPolicyPersistenceEntries(
       input.organizationPolicy,
     )) {
-      await retainVerifiedPrincipalPolicyBundle({
+      await new PrincipalPolicyBundleRepository(
+        input.execSql,
+      ).retainVerifiedPrincipalPolicyBundle({
         ...entry,
-        execSql: input.execSql,
         organizationId: input.organizationId,
         stillCurrent: input.stillCurrent,
         updatedAt: retainedAt,
       });
     }
   }
-  await retainVerifiedPrincipalPolicyBundle({
+  await new PrincipalPolicyBundleRepository(
+    input.execSql,
+  ).retainVerifiedPrincipalPolicyBundle({
     bundle: input.bundle,
-    execSql: input.execSql,
     organizationId: input.organizationId,
     policy: input.policy,
     stillCurrent: input.stillCurrent,
@@ -132,13 +132,11 @@ export async function advanceVerifiedSharePolicies(
   });
   if (stillCurrent?.() === false) return;
   for (const bundle of verified.dependencyBundles) {
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      new Date().toISOString(),
-      verified.organizationId,
-      { stillCurrent },
-    );
+    ).savePrincipalPolicyBundle(bundle, verified.organizationId, {
+      stillCurrent,
+    });
     if (stillCurrent?.() === false) return;
   }
 }
@@ -181,8 +179,9 @@ async function loadGroupSharePolicyBundle(input: {
     throw new Error("Container share expected group policy target mismatch");
   }
   const bundleFromCache = input.expectedGroupHead
-    ? await loadPrincipalPolicyBundleForReference(
+    ? await new PrincipalPolicyBundleRepository(
         input.execSql,
+      ).loadPrincipalPolicyBundleForReference(
         input.expectedGroupHead,
         input.localCheckpoint,
       )
