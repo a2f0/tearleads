@@ -222,6 +222,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "initializeStoredDocumentKind",
   "isDatabaseUnavailableError",
   "isDocumentSyncUpdateIsolationError",
+  "isEmptyDocumentHistoryChange",
   "isPinCodeWrappedLocalSecretEnvelope",
   "isProjectionVerificationCancelledError",
   "isSystemContainerNode",
