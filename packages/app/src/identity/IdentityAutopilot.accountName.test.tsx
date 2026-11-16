@@ -90,7 +90,7 @@ test(
 );
 
 test(
-  "the prompt and a name given offline both survive restarts until the account exists",
+  "the prompt and a name given offline both survive restarts until the name is saved",
   async () => {
     useTestApiAppHandlers();
     const namespace = `test-account-name-${crypto.randomUUID()}`;
@@ -140,7 +140,8 @@ test(
     second.view.unmount();
 
     // Back online after another restart: registers under the given name
-    // without asking again, and drops the sealed record.
+    // without asking again, names the account's self contact, and only then
+    // drops the sealed record.
     const third = renderLifecyclePane(hostConfig);
     const register = spyOn(third.sdk().session, "registerIdentity");
     await waitFor(
@@ -157,12 +158,46 @@ test(
         name: "What should we call you?",
       }),
     ).toBeNull();
-    // Removed once the account exists and the self contact carries the name.
+    await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
+    const contactsWindow = await openContacts(third.view);
+    await waitFor(
+      () => {
+        expect(
+          within(contactsWindow).getAllByRole("button", { name: "Bob" }),
+        ).toHaveLength(1);
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
     await waitFor(() => expect(sealedAccountNaming(namespace)).toBeNull(), {
       timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
     });
     await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
     third.view.unmount();
+
+    // The saved nickname is still there after a restart, nothing asks again,
+    // and nothing re-registers.
+    const fourth = renderLifecyclePane(hostConfig);
+    const reRegister = spyOn(fourth.sdk().session, "registerIdentity");
+    await waitFor(
+      () => {
+        expect(getPaneStatusText(fourth.view)).not.toMatch(/userId:\s*none/);
+      },
+      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+    );
+    await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
+    const reloadedContacts = await openContacts(fourth.view);
+    await waitFor(
+      () => {
+        expect(
+          within(reloadedContacts).getAllByRole("button", { name: "Bob" }),
+        ).toHaveLength(1);
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+    expect(sealedAccountNaming(namespace)).toBeNull();
+    expect(reRegister).not.toHaveBeenCalled();
+    await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
+    fourth.view.unmount();
   },
-  PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 4,
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 5,
 );

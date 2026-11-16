@@ -74,11 +74,16 @@ function useRestoredAccountNaming(
   return persistence === null || restoredFingerprint === signingFingerprint;
 }
 
-/** Keeps the sealed record in step with {@link sealedAccountNaming}. */
+/**
+ * Keeps the sealed record in step with {@link sealedAccountNaming}, but only
+ * once it has been read back: until then an `idle` state says nothing about
+ * the record, and a restored session must not remove a name still on its way.
+ */
 function useSealedAccountNaming(
   persistence: AccountNamingPersistence | null,
   signingFingerprint: string | null,
   state: AccountNamingState,
+  settled: boolean,
 ): void {
   const accountExists = useCryptoSession().userId !== null;
   const { logError } = useLog();
@@ -87,7 +92,12 @@ function useSealedAccountNaming(
 
   useEffect(() => {
     const sealed = sealedAccountNaming(state, accountExists);
-    if (!persistence || !signingFingerprint || sealed === undefined) {
+    if (
+      !persistence ||
+      !signingFingerprint ||
+      !settled ||
+      sealed === undefined
+    ) {
       return;
     }
     const write =
@@ -98,7 +108,14 @@ function useSealedAccountNaming(
     writes.current = writes.current.then(write).catch((error: unknown) => {
       logError("Could not save the account name.", error);
     });
-  }, [accountExists, logError, persistence, signingFingerprint, state]);
+  }, [
+    accountExists,
+    logError,
+    persistence,
+    settled,
+    signingFingerprint,
+    state,
+  ]);
 }
 
 /**
@@ -119,7 +136,7 @@ export function useAccountNaming(): AccountNaming {
     dispatch,
   );
   const state = accountNamingFor(machine, signingFingerprint);
-  useSealedAccountNaming(persistence, signingFingerprint, state);
+  useSealedAccountNaming(persistence, signingFingerprint, state, settled);
 
   const identityGenerated = useCallback((fingerprint: string) => {
     dispatch({ fingerprint, type: "identity-generated" });

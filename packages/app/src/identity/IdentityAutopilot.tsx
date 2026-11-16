@@ -341,11 +341,6 @@ export function IdentityAutopilot({
     }),
     [accountNaming, enabled, generation, registration, submit],
   );
-  const onContactNamed = useCallback(() => {
-    if (accountNaming.status === "named") {
-      contactNamed(accountNaming.fingerprint);
-    }
-  }, [accountNaming, contactNamed]);
 
   return (
     <AutoProvisioningStatusContext.Provider value={status}>
@@ -353,7 +348,7 @@ export function IdentityAutopilot({
         <AccountNameContactSeeder
           fingerprint={accountNaming.fingerprint}
           name={accountNaming.name}
-          onNamed={onContactNamed}
+          onNamed={contactNamed}
         />
       )}
       {children}

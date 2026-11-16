@@ -50,7 +50,7 @@ for (const operation of ["add", "update", "remove"] as const) {
       resolveVerified: async () => null,
       logError: (message, cause) => errors.push({ message, cause }),
     });
-    let blocker: Promise<void> | undefined;
+    let blocker: Promise<boolean> | undefined;
     let edit: Promise<string | null> | Promise<void> | undefined;
     try {
       store.updateRuntime(runtime);

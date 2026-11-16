@@ -5,14 +5,15 @@
  *
  * Only an identity the autopilot generated on this device is prompted for. An
  * imported or restored-from-backup identity may already have an account, so
- * it registers (or signs in) under the SDK's default organization name. Until
- * the account exists, `awaiting` and `named` survive a restart through
- * {@link PersistedAccountNaming}.
+ * it registers (or signs in) under the SDK's default organization name.
+ * `awaiting` and `named` survive a restart through
+ * {@link PersistedAccountNaming} until the account exists and the self
+ * contact's nickname is saved.
  *
  * - `idle`: nothing to name.
  * - `awaiting`: registration of `fingerprint` waits for a name.
- * - `named`: the user answered; `contactNamed` records that the self contact
- *   carries the name, so the writer can stop.
+ * - `named`: the user answered; `contactNamed` records that the self contact's
+ *   nickname is saved, so the writer can stop.
  */
 export type AccountNamingState =
   | { readonly status: "idle" }
@@ -24,7 +25,7 @@ export type AccountNamingState =
       readonly status: "named";
     };
 
-/** The part of an identity's naming that outlives the page until it registers. */
+/** The part of an identity's naming that outlives the page. */
 export type PersistedAccountNaming =
   | { readonly status: "awaiting" }
   | { readonly name: string; readonly status: "named" };
@@ -111,9 +112,9 @@ export function accountNamingFor(
 
 /**
  * What the identity's sealed record should become: the naming to seal, or
- * `null` to remove it. The record outlives the account's creation until the
- * self contact durably carries the name, so a restart in between still names
- * the contact. `undefined` leaves the record as it is.
+ * `null` to remove it. A name outlives the account's creation until the self
+ * contact's nickname is saved, so a restart before then, or a save that
+ * failed, still names the contact. `undefined` leaves the record as it is.
  */
 export function sealedAccountNaming(
   state: AccountNamingState,

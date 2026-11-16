@@ -127,7 +127,7 @@ test("a sealed naming fills in a restarted identity, never one this page named",
   ).toBe(named);
 });
 
-test("the sealed name outlives registration until the contact durably carries it", () => {
+test("the sealed name outlives registration until the contact's nickname is saved", () => {
   const named = run([
     generated,
     { fingerprint: "fp-new", name: "Bob", type: "name-submitted" },
