@@ -6,8 +6,12 @@ import {
   createTestHostConfig,
 } from "../../test/helpers/paneTestUtils";
 import { AccountBootstrapLoadingPanel } from "../components/identity/AccountBootstrapLoadingPanel";
-import { ACCOUNT_NAMING_IDLE } from "../identity/accountNamingMachine";
 import {
+  ACCOUNT_NAMING_IDLE,
+  type AccountNamingState,
+} from "../identity/accountNamingMachine";
+import {
+  AUTO_PROVISIONING_IDLE,
   AutoProvisioningStatusContext,
   type AutoProvisioningStep,
   useAutoProvisioningStatus,
@@ -66,6 +70,7 @@ test("a provisioning retry preserves already-mounted mini-app content", async ()
       <AutoProvisioningStatusContext.Provider
         value={{
           accountNaming: ACCOUNT_NAMING_IDLE,
+          accountNamingSettled: true,
           enabled: true,
           generation: failed,
           registration,
@@ -102,6 +107,7 @@ test("usable local keys stay accessible during idle, running, and failed registr
       <AutoProvisioningStatusContext.Provider
         value={{
           accountNaming: ACCOUNT_NAMING_IDLE,
+          accountNamingSettled: true,
           enabled: true,
           generation: failed,
           registration,
@@ -139,5 +145,56 @@ test("usable local keys stay accessible during idle, running, and failed registr
       }),
     ).toBeTruthy();
   }
+  view.unmount();
+});
+
+function GenerateKeyProbe() {
+  const { generateKey } = useIdentity();
+  return (
+    <button onClick={() => void generateKey()} type="button">
+      Probe key
+    </button>
+  );
+}
+
+test("a restored identity's apps wait until its sealed naming is read back", async () => {
+  const hostConfig = createTestHostConfig({ autoProvisionIdentity: true });
+  const surface = (
+    accountNamingSettled: boolean,
+    accountNaming: AccountNamingState,
+  ) => (
+    <AppRuntimeProvider hostConfig={hostConfig} autoProvisionEnabled={false}>
+      <AutoProvisioningStatusContext.Provider
+        value={{
+          accountNaming,
+          accountNamingSettled,
+          enabled: true,
+          generation: AUTO_PROVISIONING_IDLE,
+          registration: AUTO_PROVISIONING_IDLE,
+          submitAccountName: () => {},
+        }}
+      >
+        <BootstrapProbe />
+        <GenerateKeyProbe />
+        <LocalKeyringUnlockGate appName="Notes">
+          <textarea aria-label="Draft" defaultValue="" />
+        </LocalKeyringUnlockGate>
+      </AutoProvisioningStatusContext.Provider>
+    </AppRuntimeProvider>
+  );
+  // The key is in place, but its sealed naming is still being read.
+  const view = render(surface(false, ACCOUNT_NAMING_IDLE));
+  fireEvent.click(await view.findByRole("button", { name: "Probe key" }));
+  await waitFor(() => {
+    expect(view.getByTestId("bootstrap").textContent).toMatch(/:true$/u);
+  });
+  expect(view.queryByRole("textbox", { name: "Draft" })).toBeNull();
+
+  // It owed a name: the prompt takes over, and no app was opened under it.
+  view.rerender(surface(true, { fingerprint: "restored", status: "awaiting" }));
+  expect(
+    await view.findByRole("textbox", { name: "What should we call you?" }),
+  ).toBeTruthy();
+  expect(view.queryByRole("textbox", { name: "Draft" })).toBeNull();
   view.unmount();
 });

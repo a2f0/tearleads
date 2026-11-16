@@ -361,18 +361,30 @@ export function IdentityAutopilot({
 }: PropsWithChildren<{
   readonly enabled?: boolean | undefined;
 }>) {
+  const { features } = useAppHostConfig().profile;
   const { generation, naming, registration } =
     useAutoProvisionIdentity(enabled);
-  const { contactNamed, state: accountNaming, submit } = naming;
+  const { contactNamed, settled, state: accountNaming, submit } = naming;
+  // Only a profile that asks for names has one to wait for.
+  const accountNamingSettled =
+    settled || !(features.promptAccountName && features.autoRegisterIdentity);
   const status = useMemo<AutoProvisioningStatus>(
     () => ({
       accountNaming,
+      accountNamingSettled,
       enabled,
       generation,
       registration,
       submitAccountName: submit,
     }),
-    [accountNaming, enabled, generation, registration, submit],
+    [
+      accountNaming,
+      accountNamingSettled,
+      enabled,
+      generation,
+      registration,
+      submit,
+    ],
   );
 
   return (

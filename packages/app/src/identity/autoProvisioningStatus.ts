@@ -17,6 +17,11 @@ export type AutoProvisioningStep =
 export interface AutoProvisioningStatus {
   /** Naming of the current identity's first registration. */
   readonly accountNaming: AccountNamingState;
+  /**
+   * Whether the current identity's sealed naming has been read back. Until
+   * then a name it still owes may yet hold registration and the apps.
+   */
+  readonly accountNamingSettled: boolean;
   /** Whether this runtime's autopilot may provision (its workspace is active). */
   readonly enabled: boolean;
   readonly generation: AutoProvisioningStep;
@@ -34,6 +39,7 @@ export const AUTO_PROVISIONING_IDLE: AutoProvisioningStep = { status: "idle" };
 export const AutoProvisioningStatusContext =
   createContext<AutoProvisioningStatus>({
     accountNaming: ACCOUNT_NAMING_IDLE,
+    accountNamingSettled: true,
     enabled: false,
     generation: AUTO_PROVISIONING_IDLE,
     registration: AUTO_PROVISIONING_IDLE,

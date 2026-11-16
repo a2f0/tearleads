@@ -19,6 +19,7 @@ import {
   MiniAppToolbar,
 } from "../components/mini-app/MiniAppLayout";
 import { ResetDeviceConfirmationDialog } from "../components/shared/ResetDeviceConfirmationDialog";
+import { useAutoProvisioningStatus } from "../identity/autoProvisioningStatus";
 import { useAccountBootstrapProgress } from "../identity/useAccountBootstrapProgress";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
@@ -76,6 +77,7 @@ export function LocalKeyringUnlockGate({
 }>) {
   const lock = useLocalKeyringLock();
   const progress = useAccountBootstrapProgress();
+  const { accountNamingSettled } = useAutoProvisioningStatus();
   const { generateKey, localIdentityRestoreSettled, signingKeyPair } =
     useIdentity();
   const gateState = resolveMiniAppAccessGateState({
@@ -83,7 +85,10 @@ export function LocalKeyringUnlockGate({
     hasSigningKeyPair: signingKeyPair !== null,
     isLocked: lock.isLocked,
     localIdentityRestoreSettled,
+    // A restored identity's sealed naming may still turn out to owe a name,
+    // which would close an app opened in the meantime.
     newIdentityPending:
+      !accountNamingSettled ||
       progress?.phase === "creating-identity" ||
       progress?.phase === "naming-account",
     requireLocalIdentity,
