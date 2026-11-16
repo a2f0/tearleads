@@ -7,8 +7,8 @@ import {
   MiniAppModalPanel,
 } from "../../components/mini-app/MiniAppLayout";
 import {
-  MiniAppInfoRow,
-  MiniAppKeyValueTable,
+  MiniAppKeyValueList,
+  MiniAppKeyValueRow,
 } from "../../components/mini-app/MiniAppTable";
 import { formatRowByline, formatWriterLabel } from "./rowAttribution";
 import { useModalEscapeAndFocusRestore } from "./useModalEscapeAndFocusRestore";
@@ -33,7 +33,7 @@ function DocumentRowDetailFieldRow(params: {
   const writer = formatWriterLabel(field.writerUserId, currentAuthorId);
   const attribution = writer ? `set by ${writer}` : null;
   return (
-    <MiniAppInfoRow label={field.label}>
+    <MiniAppKeyValueRow label={field.label}>
       {showFieldValues ? (
         <span className="document-row-detail-value">
           {field.value.trim().length > 0 ? field.value : ROW_DETAIL_EMPTY_VALUE}
@@ -48,7 +48,7 @@ function DocumentRowDetailFieldRow(params: {
           {attribution ?? "Unknown"}
         </span>
       )}
-    </MiniAppInfoRow>
+    </MiniAppKeyValueRow>
   );
 }
 
@@ -117,31 +117,31 @@ export function DocumentRowDetailOverlay(params: {
           {title}
         </h2>
         <MiniAppInfoSection heading="Fields">
-          <MiniAppKeyValueTable>
-            <tbody>
-              {fields.map((field) => (
-                <DocumentRowDetailFieldRow
-                  currentAuthorId={currentAuthorId}
-                  field={field}
-                  key={field.label}
-                  showFieldValues={showFieldValues}
-                />
-              ))}
-            </tbody>
-          </MiniAppKeyValueTable>
+          <MiniAppKeyValueList>
+            {fields.map((field) => (
+              <DocumentRowDetailFieldRow
+                currentAuthorId={currentAuthorId}
+                field={field}
+                key={field.label}
+                showFieldValues={showFieldValues}
+              />
+            ))}
+          </MiniAppKeyValueList>
         </MiniAppInfoSection>
         {created || updated ? (
           <MiniAppInfoSection heading="History">
-            <MiniAppKeyValueTable>
-              <tbody>
-                {created ? (
-                  <MiniAppInfoRow label="Created">{created}</MiniAppInfoRow>
-                ) : null}
-                {updated ? (
-                  <MiniAppInfoRow label="Updated">{updated}</MiniAppInfoRow>
-                ) : null}
-              </tbody>
-            </MiniAppKeyValueTable>
+            <MiniAppKeyValueList>
+              {created ? (
+                <MiniAppKeyValueRow label="Created">
+                  {created}
+                </MiniAppKeyValueRow>
+              ) : null}
+              {updated ? (
+                <MiniAppKeyValueRow label="Updated">
+                  {updated}
+                </MiniAppKeyValueRow>
+              ) : null}
+            </MiniAppKeyValueList>
           </MiniAppInfoSection>
         ) : null}
         <MiniAppActions>
