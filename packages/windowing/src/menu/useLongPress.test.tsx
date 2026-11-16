@@ -70,6 +70,50 @@ test("a touch long-press opens the context menu and swallows the synthesized cli
   cleanup();
 });
 
+function WrappedControl({
+  dispatchOnPressedElement,
+  events,
+}: {
+  dispatchOnPressedElement: boolean;
+  events: string[];
+}) {
+  const longPress = useLongPress(true, { dispatchOnPressedElement });
+  return (
+    <ul>
+      <li {...longPress} onContextMenu={() => events.push("wrapper")}>
+        <button onContextMenu={() => events.push("control")} type="button">
+          control
+        </button>
+      </li>
+    </ul>
+  );
+}
+
+test("dispatchOnPressedElement lets the pressed control see the long press before its wrapper", async () => {
+  for (const [dispatchOnPressedElement, expected] of [
+    [false, ["wrapper"]],
+    [true, ["control", "wrapper"]],
+  ] as const) {
+    const events: string[] = [];
+    const view = render(
+      <WrappedControl
+        dispatchOnPressedElement={dispatchOnPressedElement}
+        events={events}
+      />,
+    );
+    fireEvent.pointerDown(view.getByRole("button", { name: "control" }), {
+      pointerType: "touch",
+      clientX: 5,
+      clientY: 5,
+    });
+    await wait(PAST_LONG_PRESS_MS);
+
+    expect(events).toEqual([...expected]);
+    view.unmount();
+    cleanup();
+  }
+});
+
 test("a normal tap (no long hold) clicks without opening a context menu", async () => {
   let clicks = 0;
   let contextMenus = 0;

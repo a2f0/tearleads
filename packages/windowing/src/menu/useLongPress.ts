@@ -18,10 +18,21 @@ interface LongPressHandlers {
   onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
 }
 
+interface LongPressOptions {
+  /**
+   * Dispatch on the element the finger pressed, as a right-click targets the
+   * element under the pointer, rather than on the element holding these
+   * handlers. A control inside a wrapper then sees the event first and can
+   * react (closing its own popover) before it bubbles to the wrapper's menu.
+   */
+  dispatchOnPressedElement?: boolean | undefined;
+}
+
 /**
  * Returns pointer handlers that, when a **touch** pointer is held still for
  * {@link LONG_PRESS_DELAY_MS}, dispatch a native `contextmenu` event on the
- * pressed element at the touch point.
+ * element holding them (or, with `dispatchOnPressedElement`, the element the
+ * finger pressed) at the touch point.
  *
  * Dispatching the real event (rather than calling a handler directly) means the
  * element's existing `onContextMenu` — the same one a right-click triggers —
@@ -38,7 +49,11 @@ interface LongPressHandlers {
  * Pass `enabled: false` (e.g. when no context-menu handler is wired) to make the
  * returned handlers no-ops.
  */
-export function useLongPress(enabled: boolean): LongPressHandlers {
+export function useLongPress(
+  enabled: boolean,
+  options?: LongPressOptions,
+): LongPressHandlers {
+  const dispatchOnPressedElement = options?.dispatchOnPressedElement === true;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const originRef = useRef<{ x: number; y: number } | null>(null);
   const removeClickSuppressorRef = useRef<(() => void) | null>(null);
@@ -97,7 +112,10 @@ export function useLongPress(enabled: boolean): LongPressHandlers {
 
       clearTimer();
       originRef.current = { x: event.clientX, y: event.clientY };
-      const element = event.currentTarget;
+      const element =
+        dispatchOnPressedElement && event.target instanceof Element
+          ? event.target
+          : event.currentTarget;
       const clientX = event.clientX;
       const clientY = event.clientY;
       timerRef.current = setTimeout(() => {
@@ -113,7 +131,7 @@ export function useLongPress(enabled: boolean): LongPressHandlers {
         );
       }, LONG_PRESS_DELAY_MS);
     },
-    [armClickSuppressor, clearTimer, enabled],
+    [armClickSuppressor, clearTimer, dispatchOnPressedElement, enabled],
   );
 
   const onPointerMove = useCallback(

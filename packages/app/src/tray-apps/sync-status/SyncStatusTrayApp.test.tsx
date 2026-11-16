@@ -4,7 +4,7 @@ import {
   type SystemTrayDefinition,
   SystemTrayProvider,
 } from "@tearleads/windowing";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import {
   SyncStatusIndicatorView,
   SyncStatusPopover,
@@ -119,25 +119,45 @@ const SYNC_ONLY_TRAY: SystemTrayDefinition<"sync-status"> = {
   order: ["sync-status"],
 };
 
-test("a right-click or long press on the open popover's trigger shows only the tray's menu", () => {
-  const { baseElement, getByRole } = render(
-    <SystemTrayProvider definition={SYNC_ONLY_TRAY} storageKey="test.sync.tray">
-      <SystemTray />
-    </SystemTrayProvider>,
-  );
-  const trigger = getByRole("button", { name: "All changes synced" });
-  const menuLabels = () =>
-    Array.from(baseElement.querySelectorAll(".menu"), (menu) =>
-      menu.textContent?.trim(),
+// LONG_PRESS_DELAY_MS in windowing's useLongPress is 450ms; wait past it.
+const PAST_LONG_PRESS_MS = 550;
+
+for (const gesture of ["right-click", "long press"] as const) {
+  test(`a ${gesture} on the open popover's trigger shows only the tray's menu`, async () => {
+    const { baseElement, getByRole } = render(
+      <SystemTrayProvider
+        definition={SYNC_ONLY_TRAY}
+        storageKey="test.sync.tray"
+      >
+        <SystemTray />
+      </SystemTrayProvider>,
     );
+    const trigger = getByRole("button", { name: "All changes synced" });
+    const menuLabels = () =>
+      Array.from(baseElement.querySelectorAll(".menu"), (menu) =>
+        menu.textContent?.trim(),
+      );
 
-  fireEvent.click(trigger);
-  expect(menuLabels()).toEqual(["All changes synced"]);
+    fireEvent.click(trigger);
+    expect(menuLabels()).toEqual(["All changes synced"]);
 
-  // A long press dispatches the same contextmenu event a right-click does.
-  fireEvent.contextMenu(trigger, { clientX: 10, clientY: 10 });
-  expect(menuLabels()).toEqual(["Disable Sync Status"]);
-});
+    if (gesture === "right-click") {
+      fireEvent.contextMenu(trigger, { clientX: 10, clientY: 10 });
+    } else {
+      fireEvent.pointerDown(trigger, {
+        clientX: 10,
+        clientY: 10,
+        pointerType: "touch",
+      });
+      await act(async () => {
+        const { promise, resolve } = Promise.withResolvers<void>();
+        setTimeout(resolve, PAST_LONG_PRESS_MS);
+        await promise;
+      });
+    }
+    expect(menuLabels()).toEqual(["Disable Sync Status"]);
+  });
+}
 
 test("popover shows the status detail and no link when nothing is unflushed", () => {
   const { getByText, queryByRole } = render(
