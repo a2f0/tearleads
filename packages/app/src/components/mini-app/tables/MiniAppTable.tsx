@@ -61,10 +61,6 @@ function isMiniAppRowControlTarget(target: EventTarget | null): boolean {
   );
 }
 
-type MiniAppInfoTableRowProps = HTMLAttributes<HTMLTableRowElement> & {
-  interactive?: boolean | undefined;
-};
-
 export const MiniAppTableFrame = forwardRef<
   HTMLDivElement,
   HTMLAttributes<HTMLDivElement>
@@ -167,31 +163,6 @@ export const MiniAppInfoTable = forwardRef<
     >
       {children}
     </table>
-  );
-});
-
-export const MiniAppInfoTableRow = forwardRef<
-  HTMLTableRowElement,
-  MiniAppInfoTableRowProps
->(function MiniAppInfoTableRow(
-  { className, interactive = false, onContextMenu, ...props },
-  ref,
-) {
-  // Same touch long-press → `onContextMenu` synthesis as MiniAppTableRow.
-  const longPress = useLongPress(interactive && Boolean(onContextMenu));
-
-  return (
-    <tr
-      {...props}
-      {...longPress}
-      onContextMenu={onContextMenu}
-      className={classNames(
-        "mini-app-info-table-row",
-        interactive && "mini-app-info-table-row--interactive",
-        className,
-      )}
-      ref={ref}
-    />
   );
 });
 
