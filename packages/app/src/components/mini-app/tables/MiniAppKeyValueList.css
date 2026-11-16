@@ -1,0 +1,91 @@
+/*
+ * Read-only key/value details (MiniAppKeyValueList): a `<dl>` of rows, each
+ * row its own two-column grid.
+ *
+ * Wide: a fixed key column, so sibling lists stacked in one panel (Document
+ * Info's General Details + Contributors, its Local + Remote Security) share one
+ * column geometry instead of each indenting to its own longest key. CSS has no
+ * cross-list `max()`; sharing the geometry means fixing it to one width, read
+ * from `--mini-app-info-label-width`. A surface that knows its keys are short
+ * (the row detail modal, the session detail) narrows the token on an ancestor,
+ * which keeps its sibling lists aligned with each other.
+ *
+ * The width is the token plus the cell padding, so the token stays a legible
+ * character count. Keys wrap at spaces; `break-word` (not `anywhere`) breaks a
+ * key only when it has no break opportunity that fits, so a key that already
+ * fits on one line never picks up a mid-token break.
+ */
+.mini-app-key-value-list {
+  container: mini-app-key-value / inline-size;
+  display: grid;
+  /* Inline-size containment sizes the list as if it had no content, so it must
+     not be shrink-to-fit: a flex or grid parent that does not stretch it would
+     collapse it to zero. */
+  width: 100%;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  /* A control raised over its neighbours inside a row (the copy value's touch
+     overlay) stays raised only within the list, never over the pane chrome. */
+  isolation: isolate;
+}
+
+.mini-app-key-value-row {
+  display: grid;
+  grid-template-columns:
+    calc(var(--mini-app-info-label-width) + 2 * var(--info-table-cell-padding))
+    minmax(0, 1fr);
+  /* A key lines up with its value's first line, not the middle of a tall one. */
+  align-items: first baseline;
+}
+
+.mini-app-key-value-row > dt,
+.mini-app-key-value-row > dd {
+  min-width: 0;
+  margin: 0;
+  padding: var(--info-table-cell-padding);
+}
+
+.mini-app-key-value-row > dt {
+  font-weight: 700;
+  overflow-wrap: break-word;
+}
+
+/* Values wrap at spaces first, and break inside a word only when that word
+   alone is wider than the line (a full id, a URL in an error string). */
+.mini-app-key-value-row > dd {
+  overflow-wrap: anywhere;
+}
+
+.mini-app-key-value-list code {
+  font-size: var(--font-size-xs);
+  word-break: break-all;
+}
+
+/*
+ * Narrow (a phone, or a narrow window): the key becomes a small muted line
+ * above a full-width value. Beside a 20ch key column a phone leaves a value
+ * about 15 characters at 390px and 8 at 320px, so a date took three lines and a
+ * pending-changes summary broke mid-word; a full-width value holds about 36.
+ *
+ * Measured against the list itself rather than the viewport, so a narrow
+ * desktop window stacks the same way. The threshold is in the list's own `ch`:
+ * below 48 of them the default 20ch key column would leave the value under 28.
+ */
+@container mini-app-key-value (width < 48ch) {
+  .mini-app-key-value-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-2xs);
+    padding-block: var(--space-xs);
+  }
+
+  .mini-app-key-value-row > dt {
+    padding-block: 0;
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+    opacity: var(--opacity-muted);
+  }
+
+  .mini-app-key-value-row > dd {
+    padding-block: 0;
+  }
+}
