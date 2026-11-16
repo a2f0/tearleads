@@ -77,7 +77,7 @@ export function LocalKeyringUnlockGate({
 }>) {
   const lock = useLocalKeyringLock();
   const progress = useAccountBootstrapProgress();
-  const { accountNamingSettled } = useAutoProvisioningStatus();
+  const { accountNaming, accountNamingSettled } = useAutoProvisioningStatus();
   const { generateKey, localIdentityRestoreSettled, signingKeyPair } =
     useIdentity();
   const gateState = resolveMiniAppAccessGateState({
@@ -86,9 +86,11 @@ export function LocalKeyringUnlockGate({
     isLocked: lock.isLocked,
     localIdentityRestoreSettled,
     // A restored identity's sealed naming may still turn out to owe a name,
-    // which would close an app opened in the meantime.
+    // and a given name may still fail to store and be asked for again; either
+    // would close an app opened in the meantime.
     newIdentityPending:
       !accountNamingSettled ||
+      (accountNaming.status === "named" && !accountNaming.sealed) ||
       progress?.phase === "creating-identity" ||
       progress?.phase === "naming-account",
     requireLocalIdentity,

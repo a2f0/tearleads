@@ -1,5 +1,10 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  type RenderResult,
+  render,
+  waitFor,
+} from "@testing-library/react";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../test/helpers/msw/server";
 import {
   cleanupPaneTestEnvironment,
@@ -7,6 +12,7 @@ import {
 } from "../../test/helpers/paneTestUtils";
 import { AccountBootstrapLoadingPanel } from "../components/identity/AccountBootstrapLoadingPanel";
 import {
+  ACCOUNT_NAME_SEAL_FAILED_MESSAGE,
   ACCOUNT_NAMING_IDLE,
   type AccountNamingState,
 } from "../identity/accountNamingMachine";
@@ -157,12 +163,12 @@ function GenerateKeyProbe() {
   );
 }
 
-test("a restored identity's apps wait until its sealed naming is read back", async () => {
-  const hostConfig = createTestHostConfig({ autoProvisionIdentity: true });
-  const surface = (
-    accountNamingSettled: boolean,
-    accountNaming: AccountNamingState,
-  ) => (
+function namingSurface(
+  hostConfig: AppHostConfig,
+  accountNamingSettled: boolean,
+  accountNaming: AccountNamingState,
+) {
+  return (
     <AppRuntimeProvider hostConfig={hostConfig} autoProvisionEnabled={false}>
       <AutoProvisioningStatusContext.Provider
         value={{
@@ -182,19 +188,63 @@ test("a restored identity's apps wait until its sealed naming is read back", asy
       </AutoProvisioningStatusContext.Provider>
     </AppRuntimeProvider>
   );
-  // The key is in place, but its sealed naming is still being read.
-  const view = render(surface(false, ACCOUNT_NAMING_IDLE));
+}
+
+/** Installs a key through Identity, outside the autopilot. */
+async function probeKey(view: RenderResult): Promise<void> {
   fireEvent.click(await view.findByRole("button", { name: "Probe key" }));
   await waitFor(() => {
     expect(view.getByTestId("bootstrap").textContent).toMatch(/:true$/u);
   });
+}
+
+test("a restored identity's apps wait until its sealed naming is read back", async () => {
+  const hostConfig = createTestHostConfig({ autoProvisionIdentity: true });
+  // The key is in place, but its sealed naming is still being read.
+  const view = render(namingSurface(hostConfig, false, ACCOUNT_NAMING_IDLE));
+  await probeKey(view);
   expect(view.queryByRole("textbox", { name: "Draft" })).toBeNull();
 
   // It owed a name: the prompt takes over, and no app was opened under it.
-  view.rerender(surface(true, { fingerprint: "restored", status: "awaiting" }));
+  view.rerender(
+    namingSurface(hostConfig, true, {
+      fingerprint: "restored",
+      status: "awaiting",
+    }),
+  );
   expect(
     await view.findByRole("textbox", { name: "What should we call you?" }),
   ).toBeTruthy();
   expect(view.queryByRole("textbox", { name: "Draft" })).toBeNull();
+  view.unmount();
+});
+
+test("an answered name holds the apps until it is stored", async () => {
+  const hostConfig = createTestHostConfig({ autoProvisionIdentity: true });
+  const named = {
+    contactNamed: false,
+    fingerprint: "new",
+    name: "Bob",
+    sealed: false,
+    status: "named",
+  } as const;
+  const view = render(namingSurface(hostConfig, true, named));
+  await probeKey(view);
+  expect(view.queryByRole("textbox", { name: "Draft" })).toBeNull();
+
+  // The save failed: the prompt is back, with nothing opened under it to lose.
+  view.rerender(
+    namingSurface(hostConfig, true, {
+      error: ACCOUNT_NAME_SEAL_FAILED_MESSAGE,
+      fingerprint: "new",
+      status: "awaiting",
+    }),
+  );
+  expect(await view.findByText(ACCOUNT_NAME_SEAL_FAILED_MESSAGE)).toBeTruthy();
+  expect(view.queryByRole("textbox", { name: "Draft" })).toBeNull();
+
+  // Stored this time: the apps open.
+  view.rerender(namingSurface(hostConfig, true, { ...named, sealed: true }));
+  expect(await view.findByRole("textbox", { name: "Draft" })).toBeTruthy();
   view.unmount();
 });
