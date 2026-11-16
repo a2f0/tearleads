@@ -1,0 +1,42 @@
+/* Reads as the value it carries, not as a framed button: the trailing glyph is
+   the only chrome, and hover/focus underline the text like a link. */
+.mini-app-copy-value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.mini-app-copy-value-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mini-app-copy-value svg {
+  flex: 0 0 auto;
+  opacity: var(--opacity-muted);
+}
+
+.mini-app-copy-value:hover .mini-app-copy-value-text,
+.mini-app-copy-value:focus-visible .mini-app-copy-value-text {
+  text-decoration: underline;
+}
+
+/* Touch (routed layout): in a key/value row the whole row is the value's tap
+   target (44px tall at least; see MiniAppKeyValueList.css), so the overlay fills
+   the row. Growing a 44px overlay around the text instead reached into the rows
+   beside it, where a tap meant for one id copied its neighbour. */
+:root[data-navigation-mode="routed"]
+  .mini-app-key-value-row
+  .mini-app-copy-value::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+}

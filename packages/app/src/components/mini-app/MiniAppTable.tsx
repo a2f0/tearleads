@@ -19,13 +19,16 @@ export {
   useMiniAppCompactTableLayout,
   useMiniAppCompactTableRows,
 } from "./tables/MiniAppCompactTable";
+export {
+  MiniAppKeyValueList,
+  MiniAppKeyValueRow,
+} from "./tables/MiniAppKeyValueList";
 export { MiniAppRowActionsButton } from "./tables/MiniAppRowActionsButton";
 export {
   addMiniAppTableHeaderAction,
   MiniAppInfoRow,
   MiniAppInfoTable,
   MiniAppInfoTableRow,
-  MiniAppKeyValueTable,
   MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableActionButton,
