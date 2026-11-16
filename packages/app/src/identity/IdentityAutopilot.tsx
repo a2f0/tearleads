@@ -26,6 +26,13 @@ import {
   type AutoProvisioningStep,
 } from "./autoProvisioningStatus";
 import { autoRegisterFailureMessage } from "./registrationRecoveryError";
+import {
+  INITIAL_REGISTRATION_RUN,
+  type RegistrationRun,
+  type RegistrationRunEvent,
+  registrationStepFor,
+  transitionRegistrationRun,
+} from "./registrationRunMachine";
 import { type AccountNaming, useAccountNaming } from "./useAccountNaming";
 import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
 
@@ -157,28 +164,6 @@ function useAutoGenerateIdentity(
   return generation;
 }
 
-/**
- * A provisioning step that reports only for the identity it ran for, so a
- * switch to another identity never inherits its progress or failure.
- */
-function useIdentityScopedStep(signingFingerprint: string | null) {
-  const [scoped, setScoped] = useState<{
-    readonly fingerprint: string | null;
-    readonly step: AutoProvisioningStep;
-  }>({ fingerprint: null, step: AUTO_PROVISIONING_IDLE });
-  const setStep = useCallback(
-    (fingerprint: string | null, step: AutoProvisioningStep) => {
-      setScoped({ fingerprint, step });
-    },
-    [],
-  );
-  const step =
-    scoped.fingerprint === signingFingerprint
-      ? scoped.step
-      : AUTO_PROVISIONING_IDLE;
-  return [step, setStep] as const;
-}
-
 interface PendingRegistration {
   readonly generation: AutoProvisioningStep;
   readonly naming: AccountNamingState;
@@ -204,43 +189,48 @@ function pendingRegistration(pending: PendingRegistration) {
   };
 }
 
-interface RegistrationRun {
-  readonly fingerprint: string | null;
-  readonly identity: object;
-}
-
 /**
- * One registration at a time, each tagged with the identity it started
- * under. A run whose identity changed underneath it (a switch away, even one
- * switched back) reports nothing and re-arms registration for the identity
- * now current. A run that settles for its own identity reports its result and
- * re-arms nothing, so a failure is not retried in a loop.
+ * Runs {@link transitionRegistrationRun}. The machine is mirrored in a ref so
+ * a start the StrictMode double-invoke (or any re-render) repeats before the
+ * state commits still sees the run already outstanding.
  */
 function useRegistrationRuns(signingFingerprint: string | null) {
   const tearleads = useTearleads();
-  const [registration, setRegistration] =
-    useIdentityScopedStep(signingFingerprint);
-  const held = useRef(false);
-  const [rearmed, setRearmed] = useState(0);
+  const current = useRef(INITIAL_REGISTRATION_RUN);
+  const [state, setState] = useState(INITIAL_REGISTRATION_RUN);
+  const send = useCallback((event: RegistrationRunEvent) => {
+    const next = transitionRegistrationRun(current.current, event);
+    if (next !== current.current) {
+      current.current = next;
+      setState(next);
+    }
+    return next;
+  }, []);
   const start = useCallback(
     (fingerprint: string | null): RegistrationRun | null => {
-      if (held.current) return null;
-      held.current = true;
-      setRegistration(fingerprint, { status: "running" });
-      return { fingerprint, identity: tearleads.identity.snapshot };
+      const run = { fingerprint, identity: tearleads.identity.snapshot };
+      const next = send({ run, type: "started" });
+      return next.status === "running" && next.run === run ? run : null;
     },
-    [setRegistration, tearleads],
+    [send, tearleads],
   );
   const settle = useCallback(
     (run: RegistrationRun, step: AutoProvisioningStep) => {
-      held.current = false;
-      const current = tearleads.identity.snapshot === run.identity;
-      setRegistration(run.fingerprint, current ? step : AUTO_PROVISIONING_IDLE);
-      if (!current) setRearmed((count) => count + 1);
+      send({
+        identity: tearleads.identity.snapshot,
+        run,
+        step,
+        type: "settled",
+      });
     },
-    [setRegistration, tearleads],
+    [send, tearleads],
   );
-  return { rearmed, registration, settle, start };
+  return {
+    rearm: state.rearm,
+    registration: registrationStepFor(state, signingFingerprint),
+    settle,
+    start,
+  };
 }
 
 function useAutoRegisterIdentity(
@@ -255,7 +245,7 @@ function useAutoRegisterIdentity(
     useSystemBootstrap();
   const { logError } = useLog();
   const { signingFingerprint } = useIdentity();
-  const { rearmed, registration, settle, start } =
+  const { rearm, registration, settle, start } =
     useRegistrationRuns(signingFingerprint);
   const { awaitingInput, organizationProfileName } =
     pendingRegistration(pending);
@@ -342,7 +332,7 @@ function useAutoRegisterIdentity(
     ensureBootstrapped,
     features.autoRegisterIdentity,
     logError,
-    rearmed,
+    rearm,
     sessionRestoreSettled,
     settle,
     signingFingerprint,
