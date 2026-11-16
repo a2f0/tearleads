@@ -18,8 +18,8 @@ import {
   listDormantMetadataSweepRequests,
 } from "../../data/persistence/container-contents/dormantMetadataSweep";
 import {
+  DocumentRecordRepository,
   ensureDocumentTables,
-  recordDocumentSyncFailure,
 } from "../../data/persistence/documents/records";
 import { containerTables } from "../../data/sqlite/schema";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -73,8 +73,7 @@ async function recordStrandedDocumentFailure(execSql: ExecSql): Promise<void> {
   await execSql(
     "INSERT INTO documents (app_kind, local_id, updated_at) VALUES ('documents', 'stranded-document', '2026-01-01T00:00:00.000Z')",
   );
-  await recordDocumentSyncFailure(
-    execSql,
+  await new DocumentRecordRepository(execSql).recordDocumentSyncFailure(
     { appKind: "documents", localId: "stranded-document" },
     {
       attemptedAt: "2026-01-01T00:00:00.000Z",

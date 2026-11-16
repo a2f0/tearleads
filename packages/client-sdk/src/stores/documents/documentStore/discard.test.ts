@@ -9,11 +9,7 @@ import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import {
-  hasRecordedTerminalSyncFailures,
-  listDocumentPendingUpdates,
-  recordDocumentSyncFailure,
-} from "../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
 import {
   deletePendingAttachment,
@@ -27,6 +23,7 @@ import { captureDocumentStoreSyncGeneration } from "./sync/syncGeneration";
 
 test("discard re-seeds the discovered-share shell and clears the queue", async () => {
   const { close, execSql } = await createTestExecSql("discard-remote");
+  const records = new DocumentRecordRepository(execSql);
   const localId = "discard-doc";
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
@@ -38,8 +35,7 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
       partialStartVersionVector: "start",
       updateData: "poisoned-bytes",
     });
-    await recordDocumentSyncFailure(
-      execSql,
+    await records.recordDocumentSyncFailure(
       { appKind: DOCUMENTS_APP_KIND, localId },
       {
         attemptedAt: new Date().toISOString(),
@@ -68,12 +64,12 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
     expect(shell?.lastCommitLsn ?? null).toBeNull();
     expect(shell?.pullContinuation).toBeUndefined();
     expect(
-      await listDocumentPendingUpdates(execSql, {
+      await records.listDocumentPendingUpdates({
         appKind: DOCUMENTS_APP_KIND,
         localId,
       }),
     ).toEqual([]);
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(false);
     // Reset for re-initialization so the shell re-pulls.
     expect(state.record).toBeNull();
     expect(state.initialized).toBe(false);
@@ -103,7 +99,7 @@ test("discard refuses a local-only document whose queue is its only copy", async
     const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
     expect(record?.snapshotEndVersion).toBe("synced-end-version");
     expect(
-      await listDocumentPendingUpdates(execSql, {
+      await new DocumentRecordRepository(execSql).listDocumentPendingUpdates({
         appKind: DOCUMENTS_APP_KIND,
         localId,
       }),
@@ -230,7 +226,7 @@ test("discard refuses a document with a queued move intent", async () => {
     const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
     expect(record?.snapshotEndVersion).toBe("synced-end-version");
     expect(
-      await listDocumentPendingUpdates(execSql, {
+      await new DocumentRecordRepository(execSql).listDocumentPendingUpdates({
         appKind: DOCUMENTS_APP_KIND,
         localId,
       }),
@@ -365,7 +361,7 @@ test("stale writers cannot resurrect rows after a discard", async () => {
       staleGeneration,
     );
     expect(
-      await listDocumentPendingUpdates(execSql, {
+      await new DocumentRecordRepository(execSql).listDocumentPendingUpdates({
         appKind: DOCUMENTS_APP_KIND,
         localId,
       }),

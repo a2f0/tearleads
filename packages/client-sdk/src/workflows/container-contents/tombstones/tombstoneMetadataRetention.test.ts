@@ -3,7 +3,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { encodeVersionVector, exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/queuedUpdateRows";
-import { recordDocumentSyncFailure } from "../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import {
@@ -144,11 +144,14 @@ test("access_revoked cascade retains the metadata document dormant", async () =>
   );
   try {
     await seedContainerWithQueuedRename(execSql, "revoked");
-    await recordDocumentSyncFailure(execSql, METADATA_SCOPE, {
-      attemptedAt: T1,
-      message: "Container metadata sync failed",
-      status: 403,
-    });
+    await new DocumentRecordRepository(execSql).recordDocumentSyncFailure(
+      METADATA_SCOPE,
+      {
+        attemptedAt: T1,
+        message: "Container metadata sync failed",
+        status: 403,
+      },
+    );
 
     await defaultContainerContentsPersistence.deleteContainers(
       execSql,

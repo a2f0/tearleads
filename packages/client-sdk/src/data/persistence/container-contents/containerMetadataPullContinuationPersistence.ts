@@ -1,6 +1,6 @@
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
-import { invalidateDocumentSyncPullContinuation } from "../documents/records";
+import { DocumentRecordRepository } from "../documents/records";
 import type { ContainerContentsPersistence } from "./containerContentsPersistenceTypes";
 import { selectContainerMetadataRecord } from "./containerMetadataRows";
 import { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
@@ -16,7 +16,9 @@ export const containerMetadataPullContinuationPersistence: MetadataPullContinuat
       return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
         const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
         const invalidate = async () => {
-          await invalidateDocumentSyncPullContinuation(lockedExecSql, {
+          await new DocumentRecordRepository(
+            lockedExecSql,
+          ).invalidateDocumentSyncPullContinuation({
             accessEpoch: input.accessEpoch,
             accessStateHash: input.accessStateHash,
             appKind: CONTAINER_METADATA_APP_KIND,

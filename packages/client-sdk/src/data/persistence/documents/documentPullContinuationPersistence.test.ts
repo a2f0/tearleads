@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
-import { invalidateDocumentSyncPullContinuation } from "./records";
+import { DocumentRecordRepository } from "./records";
 
 test("document pull progress survives saves and clears explicitly", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -57,6 +57,7 @@ test("cursor invalidation cannot clear progress advanced by another pane", async
   const { close, execSql } = await createTestExecSql(
     "document-pull-continuation-conditional-clear",
   );
+  const records = new DocumentRecordRepository(execSql);
   const rejectedContinuation = {
     commitLsn: "0/2",
     commitLsnMode: "tracked" as const,
@@ -80,7 +81,7 @@ test("cursor invalidation cannot clear progress advanced by another pane", async
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     await sqlDocumentsPersistence.saveDocument(execSql, record);
-    await invalidateDocumentSyncPullContinuation(execSql, {
+    await records.invalidateDocumentSyncPullContinuation({
       accessEpoch: record.accessEpoch,
       accessStateHash: null,
       appKind: "documents",
@@ -106,6 +107,7 @@ test("cursor invalidation leaves a durable page-one recovery marker", async () =
   const { close, execSql } = await createTestExecSql(
     "document-pull-continuation-rejected-recovery",
   );
+  const records = new DocumentRecordRepository(execSql);
   const rejectedContinuation = {
     commitLsn: "0/2",
     commitLsnMode: "tracked" as const,
@@ -124,7 +126,7 @@ test("cursor invalidation leaves a durable page-one recovery marker", async () =
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     await sqlDocumentsPersistence.saveDocument(execSql, record);
-    const invalidated = await invalidateDocumentSyncPullContinuation(execSql, {
+    const invalidated = await records.invalidateDocumentSyncPullContinuation({
       accessEpoch: record.accessEpoch,
       accessStateHash: null,
       appKind: "documents",

@@ -1,17 +1,10 @@
 import { and, eq, isNotNull } from "drizzle-orm";
-import { localIntents, localIntentTables } from "../../../sqlite/schema";
-import {
-  documents,
-  documentTables,
-} from "../../../sqlite/schema/documentRecordSchema";
-import {
-  type ClientSQLiteTransactionScope,
-  getClientSQLitePersistenceRuntime,
-} from "../../../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../../../sqlite/sqlSchema";
+import { localIntents } from "../../../sqlite/schema";
+import { documents } from "../../../sqlite/schema/documentRecordSchema";
+import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { DocumentScope } from "./documentPersistenceTypes";
 
-interface DocumentSyncFailureFields {
+export interface DocumentSyncFailureFields {
   readonly attemptedAt: string;
   readonly message: string;
   readonly status: number | null;
@@ -38,22 +31,20 @@ function scopeWhere(scope: DocumentScope) {
  * failure replaces the old. A scope with no `documents` row has nothing left
  * to explain, so the update is a no-op there.
  */
-export async function recordDocumentSyncFailure(
-  execSql: ExecSql,
+export async function recordDocumentSyncFailureInTransaction(
+  tx: ClientSQLiteTransactionScope,
   scope: DocumentScope,
   failure: DocumentSyncFailureFields,
 ): Promise<void> {
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await db
-      .update(documents)
-      .set({
-        syncFailureAttemptedAt: failure.attemptedAt,
-        syncFailureMessage: failure.message,
-        syncFailureStatus: failure.status,
-      })
-      .where(scopeWhere(scope))
-      .run();
-  });
+  await tx
+    .update(documents)
+    .set({
+      syncFailureAttemptedAt: failure.attemptedAt,
+      syncFailureMessage: failure.message,
+      syncFailureStatus: failure.status,
+    })
+    .where(scopeWhere(scope))
+    .run();
 }
 
 /**
@@ -63,11 +54,9 @@ export async function recordDocumentSyncFailure(
  * access is restored): without it a transient denial during bootstrap would
  * fire recovery work with nothing to recover, racing the startup sync passes.
  */
-export async function hasRecordedTerminalSyncFailures(
-  execSql: ExecSql,
+export async function selectHasRecordedTerminalSyncFailures(
+  db: Pick<ClientSQLiteTransactionScope, "select">,
 ): Promise<boolean> {
-  await ensureSqlTables(execSql, [...documentTables, ...localIntentTables]);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const [failure] = await db
     .select({ localId: documents.localId })
     .from(documents)
@@ -84,7 +73,12 @@ export async function hasRecordedTerminalSyncFailures(
   return intent !== undefined;
 }
 
-/** Clear a scope's recorded failure inside a caller's transaction. */
+/**
+ * Clear a scope's recorded failure inside a caller's transaction. Called when
+ * a later sync pass for the scope succeeds and whenever the scope's local sync
+ * state is torn down, so a stale failure never outlives the condition it
+ * describes.
+ */
 export async function clearDocumentSyncFailureInTransaction(
   tx: ClientSQLiteTransactionScope,
   scope: DocumentScope,
@@ -94,22 +88,4 @@ export async function clearDocumentSyncFailureInTransaction(
     .set(CLEARED_DOCUMENT_SYNC_FAILURE)
     .where(scopeWhere(scope))
     .run();
-}
-
-/**
- * Drop the recorded failure for a scope. Called when a later sync pass for the
- * scope succeeds and whenever the scope's local sync state is torn down, so a
- * stale failure never outlives the condition it describes.
- */
-export async function clearDocumentSyncFailure(
-  execSql: ExecSql,
-  scope: DocumentScope,
-): Promise<void> {
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await db
-      .update(documents)
-      .set(CLEARED_DOCUMENT_SYNC_FAILURE)
-      .where(scopeWhere(scope))
-      .run();
-  });
 }
