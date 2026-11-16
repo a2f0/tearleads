@@ -1,9 +1,14 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import { Menu } from "@tearleads/windowing";
+import {
+  SystemTray,
+  type SystemTrayDefinition,
+  SystemTrayProvider,
+} from "@tearleads/windowing";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import {
   SyncStatusIndicatorView,
   SyncStatusPopover,
+  SyncStatusTrayControl,
 } from "./SyncStatusTrayApp";
 
 afterEach(cleanup);
@@ -94,34 +99,44 @@ test("reflects the expanded state and calls onToggle when clicked", () => {
   expect(onToggle).toHaveBeenCalledTimes(1);
 });
 
-test("an open popover stays open on a click of its trigger but closes on a right-click, so the tray menu replaces it", () => {
-  const onClose = mock(() => {});
-  const { getByRole } = render(
-    <>
-      <SyncStatusIndicatorView
-        expanded={true}
-        onToggle={noop}
-        status="synced"
-        title="All changes synced"
-      />
-      <Menu onClose={onClose} position={{ x: 0, y: 0 }}>
-        <SyncStatusPopover
-          billingBlocked={false}
-          showWriteQueueLink={false}
-          onOpenBilling={noop}
-          onOpenWriteQueue={noop}
-          title="All changes synced"
-        />
-      </Menu>
-    </>,
+function SyncedTrayControl() {
+  return (
+    <SyncStatusTrayControl
+      billingBlocked={false}
+      onOpenBilling={noop}
+      onOpenWriteQueue={noop}
+      showWriteQueueLink={false}
+      status="synced"
+      title="All changes synced"
+    />
+  );
+}
+
+const SYNC_ONLY_TRAY: SystemTrayDefinition<"sync-status"> = {
+  apps: {
+    "sync-status": { component: SyncedTrayControl, title: "Sync Status" },
+  },
+  order: ["sync-status"],
+};
+
+test("a right-click or long press on the open popover's trigger shows only the tray's menu", () => {
+  const { baseElement, getByRole } = render(
+    <SystemTrayProvider definition={SYNC_ONLY_TRAY} storageKey="test.sync.tray">
+      <SystemTray />
+    </SystemTrayProvider>,
   );
   const trigger = getByRole("button", { name: "All changes synced" });
+  const menuLabels = () =>
+    Array.from(baseElement.querySelectorAll(".menu"), (menu) =>
+      menu.textContent?.trim(),
+    );
 
-  fireEvent.mouseDown(trigger, { button: 0 });
-  expect(onClose).not.toHaveBeenCalled();
+  fireEvent.click(trigger);
+  expect(menuLabels()).toEqual(["All changes synced"]);
 
-  fireEvent.mouseDown(trigger, { button: 2 });
-  expect(onClose).toHaveBeenCalledTimes(1);
+  // A long press dispatches the same contextmenu event a right-click does.
+  fireEvent.contextMenu(trigger, { clientX: 10, clientY: 10 });
+  expect(menuLabels()).toEqual(["Disable Sync Status"]);
 });
 
 test("popover shows the status detail and no link when nothing is unflushed", () => {
