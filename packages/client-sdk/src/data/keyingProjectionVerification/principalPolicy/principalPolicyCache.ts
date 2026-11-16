@@ -1,7 +1,7 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalPolicyBundleForReference } from "../../persistence/principalPolicy/principalPolicyReferencePersistence";
+import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   type PrincipalPolicyCurrentEvidence,
   principalPolicyEvidenceEntries,
@@ -113,11 +113,9 @@ export async function filterUncachedPrincipalPolicyReferences(input: {
           return null;
         }
       }
-      const bundle = await loadPrincipalPolicyBundleForReference(
+      const bundle = await new PrincipalPolicyBundleRepository(
         input.execSql,
-        reference,
-        checkpoint,
-      );
+      ).loadPrincipalPolicyBundleForReference(reference, checkpoint);
       return bundle ? null : reference;
     }),
   );

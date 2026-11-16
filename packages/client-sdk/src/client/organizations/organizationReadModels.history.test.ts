@@ -12,7 +12,7 @@ import { createAuthorityRecoveryFixture } from "../../../test/helpers/principalA
 import { projectionHistoryPages } from "../../../test/helpers/projectionPolicyHistory";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
-import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
@@ -52,12 +52,9 @@ test("failed paged verification never falls back to an available full group hist
       requestedCursor: null,
       response,
     });
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       f.options.execSql,
-      group,
-      new Date().toISOString(),
-      organizationId,
-    );
+    ).savePrincipalPolicyBundle(group, organizationId);
     const failure = new KeyingVerificationError(
       "stale_predecessor",
       "Paged verification rejected a disconnected chain",
@@ -156,12 +153,9 @@ test("organization history enriches online and preserves verified local entries 
       requestedCursor: null,
       response,
     });
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       sql.execSql,
-      data.afterAddition,
-      new Date().toISOString(),
-      data.organizationId,
-    );
+    ).savePrincipalPolicyBundle(data.afterAddition, data.organizationId);
     const online = await coordinator.loadOrganizationPolicyHistory();
     expect(online?.entries[0]?.groupChanges?.[0]?.changes).toMatchObject([
       { userId: data.targetUserId, changeType: "added" },

@@ -12,10 +12,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createFixtureUserIdentity } from "../../../test/helpers/trustedUserIdentity";
-import {
-  ensurePrincipalPolicyTables,
-  savePrincipalPolicyBundle,
-} from "../persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   principalHistoryEvidenceTables,
   principalHistoryPrefixes,
@@ -176,13 +173,12 @@ test("principal policy crypto unwraps an object key addressed to a cached group 
       signedAt: "2026-04-08T00:00:00.000Z",
     });
 
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-04-08T00:01:00.000Z",
-      "org-1",
-    );
+    ).ensurePrincipalPolicyTables();
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).savePrincipalPolicyBundle(bundle, "org-1");
 
     const [wrappedObjectEntry] = await wrapDekForRecipients(objectKey, [
       groupKem.publicKey,
@@ -274,13 +270,13 @@ test("paged envelope candidates open only their actual recipient key", async () 
       .update(principalHistoryPrefixes)
       .set({ currentJson: JSON.stringify(bundle) })
       .run();
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
+    ).savePrincipalPolicyBundle(
       {
         ...wrong,
         currentState: bundle.currentState,
       },
-      "2026-04-09T00:00:00.000Z",
       "org",
     );
     await expect(

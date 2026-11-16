@@ -11,10 +11,7 @@ import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
 } from "../../../data/persistence/organizations/organizationReadModelPersistence";
-import {
-  loadPrincipalPolicyBundle,
-  savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { loadLocalOrganizationPolicyHistory } from "../readModel/localReadModelDetails";
 import {
@@ -42,12 +39,9 @@ async function fixture() {
     requestedCursor: null,
     response: snapshot,
   });
-  await savePrincipalPolicyBundle(
+  await new PrincipalPolicyBundleRepository(
     sql.execSql,
-    data.afterAddition,
-    new Date().toISOString(),
-    data.organizationId,
-  );
+  ).savePrincipalPolicyBundle(data.afterAddition, data.organizationId);
   const input = {
     ...common,
     ...fixture.input,
@@ -72,11 +66,9 @@ async function fixture() {
 test("history enrichment is memory-only and leaves persisted policy records unchanged", async () => {
   const { data, input, close } = await fixture();
   try {
-    const before = await loadPrincipalPolicyBundle(
+    const before = await new PrincipalPolicyBundleRepository(
       input.execSql,
-      "organization",
-      input.organizationId,
-    );
+    ).loadPrincipalPolicyBundle("organization", input.organizationId);
     const result = await loadPolicyHistoryDetails({
       ...input,
       apiClient: {
@@ -90,11 +82,9 @@ test("history enrichment is memory-only and leaves persisted policy records unch
       { userId: data.targetUserId, changeType: "added" },
     ]);
     expect(
-      await loadPrincipalPolicyBundle(
+      await new PrincipalPolicyBundleRepository(
         input.execSql,
-        "organization",
-        input.organizationId,
-      ),
+      ).loadPrincipalPolicyBundle("organization", input.organizationId),
     ).toEqual(before);
     expect(
       (await loadLocalOrganizationPolicyHistory(input))?.entries[0]
@@ -268,12 +258,9 @@ test("a newer organization head fetches new evidence instead of reusing cached d
       requestedCursor: "cursor-1",
       response,
     });
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       input.execSql,
-      data.afterDeletion,
-      new Date().toISOString(),
-      input.organizationId,
-    );
+    ).savePrincipalPolicyBundle(data.afterDeletion, input.organizationId);
     const next = await loadPolicyHistoryDetails({
       ...input,
       apiClient,

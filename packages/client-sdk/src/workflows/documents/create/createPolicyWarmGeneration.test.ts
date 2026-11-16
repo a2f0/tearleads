@@ -15,7 +15,7 @@ import {
 } from "../../../../test/helpers/principalPolicyRepair";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
@@ -157,7 +157,10 @@ test("expired document create does not fetch or cache a refreshed group policy",
     expect(projectionEvictions).toBe(0);
     expect(submissions).toBe(1);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", groupId),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        groupId,
+      ),
     ).resolves.toBeNull();
     await expect(
       new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(

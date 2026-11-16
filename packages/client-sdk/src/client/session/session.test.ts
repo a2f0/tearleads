@@ -7,7 +7,7 @@ import {
 } from "../../../test/helpers/clientTestSupport";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
-import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { Database } from "../runtime/database";
 import { createApi, createSessionHarness } from "./session.testFixtures";
 
@@ -114,8 +114,7 @@ describe("session", () => {
         ),
       ).resolves.toBe(false);
       await expect(
-        loadPrincipalPolicyBundle(
-          execSql,
+        new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
           "organization",
           capturedOrganizationId,
         ),

@@ -24,7 +24,7 @@ import {
   createTestTrustedUserIdentity,
 } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import {
@@ -196,7 +196,10 @@ test("group creation and deletion persist authenticated organization directory s
 
     expect(createdGroup.name).toBe("Operators");
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", createdGroup.groupId),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        createdGroup.groupId,
+      ),
     ).resolves.toEqual(createdPolicyBundle);
     if (!createdGroup.currentState) {
       throw new Error("Expected created group policy head");
@@ -213,7 +216,10 @@ test("group creation and deletion persist authenticated organization directory s
       stateHash: createdGroup.currentState.stateHash,
     });
     await expect(
-      loadPrincipalPolicyBundle(execSql, "organization", organizationId),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "organization",
+        organizationId,
+      ),
     ).resolves.toEqual(organizationPolicy);
     await expect(
       new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
@@ -227,7 +233,10 @@ test("group creation and deletion persist authenticated organization directory s
       stateHash: organizationPolicy.currentState.stateHash,
     });
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", adminGroupId),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        adminGroupId,
+      ),
     ).resolves.toEqual(adminPolicy);
     await expect(
       new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
@@ -286,11 +295,9 @@ test("group creation and deletion persist authenticated organization directory s
       signingKeyPair,
     });
     expect(deleted.deleted).toBe(true);
-    const persistedOrganization = await loadPrincipalPolicyBundle(
+    const persistedOrganization = await new PrincipalPolicyBundleRepository(
       execSql,
-      "organization",
-      organizationId,
-    );
+    ).loadPrincipalPolicyBundle("organization", organizationId);
     expect(persistedOrganization).toEqual(organizationPolicy);
     const descriptor = parseOrganizationAuthorityDescriptor(
       persistedOrganization?.currentPayload.ciphertext ?? "",
