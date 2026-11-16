@@ -24,9 +24,6 @@
   width: 100%;
   margin: 0;
   font-size: var(--font-size-sm);
-  /* A control raised over its neighbours inside a row (the copy value's touch
-     overlay) stays raised only within the list, never over the pane chrome. */
-  isolation: isolate;
 }
 
 .mini-app-key-value-row {
@@ -36,6 +33,19 @@
     minmax(0, 1fr);
   /* A key lines up with its value's first line, not the middle of a tall one. */
   align-items: first baseline;
+}
+
+/*
+ * Touch (routed layout): a row holding a copy value (MiniAppCopyValue) is that
+ * value's tap target as a whole, so it is a containing block for the value's
+ * overlay and at least the 44px every touch control gets. A stacked row is
+ * already that tall; side by side, an id row grows to it and centres its line.
+ */
+:root[data-navigation-mode="routed"]
+.mini-app-key-value-row:has(.mini-app-copy-value) {
+  position: relative;
+  min-height: var(--control-height);
+  align-content: center;
 }
 
 .mini-app-key-value-row > dt,

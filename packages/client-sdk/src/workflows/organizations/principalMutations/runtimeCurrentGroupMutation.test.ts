@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { PrincipalHistoryProtectionLease } from "../../../data/principals/principalHistoryProtection";
 import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
 import { prepareAuthoredGroupPolicy } from "../groupPolicy/groupPolicyMutationAcknowledgement";
@@ -82,8 +82,9 @@ test("runtime mutation custody retains exact receipts and expires escaped acknow
           selected.retainedHistory.map(({ state }) => state.version),
         ).toEqual([1, 66, 67]);
         expect(
-          await loadPrincipalPolicyCheckpoint(
+          await new KeyingCheckpointRepository(
             f.options.execSql,
+          ).loadPrincipalPolicyCheckpoint(
             "group",
             group.request.state.principalId,
           ),
@@ -97,18 +98,14 @@ test("runtime mutation custody retains exact receipts and expires escaped acknow
       },
     );
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "group",
-        group.request.state.principalId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("group", group.request.state.principalId),
     ).toMatchObject({ version: 67 });
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "organization",
-        history.organizationId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
     ).toMatchObject({ version: 67 });
     await expect(selectExpired()).rejects.toThrow("generation expired");
     await expect(useExpired()).rejects.toThrow("generation expired");

@@ -21,7 +21,7 @@ import { createResponse } from "../../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
 import { buildMaterializedDocumentCreatePlan } from "../../../../workflows/documents/create";
 import { verifyDocumentWriterProjection } from "../../../keyingProjectionVerification";
-import { loadAccessManifestCheckpoint } from "../../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 
 test("document dependency evidence cannot hide a newer container head", async () => {
   const revokedUserId = "revoked-user";
@@ -128,16 +128,14 @@ test("document dependency evidence cannot hide a newer container head", async ()
       }),
     ).rejects.toMatchObject({ code: "stale_predecessor" });
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         parent.projection.organizationId,
         parent.projection.containerId,
       ),
     ).resolves.toBeNull();
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "document",
         parent.projection.organizationId,
         response.id,

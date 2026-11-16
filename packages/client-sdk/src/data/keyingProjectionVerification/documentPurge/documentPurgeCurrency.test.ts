@@ -3,8 +3,7 @@ import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { createPurgeCurrencyFixture } from "../../../../test/helpers/documentPurgeCurrency";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
 import { sqlDocumentsPersistence } from "../../persistence/documents/documentsPersistence";
-import { loadDocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { runWithSecurityIncidentReporting } from "../error";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
@@ -50,16 +49,18 @@ for (const [label, index] of [
       expect(deletions).toBe(0);
       expect(incidents).toEqual([]);
       expect(
-        await loadAccessManifestCheckpoint(
+        await new KeyingCheckpointRepository(
           execSql,
+        ).loadAccessManifestCheckpoint(
           "container",
           fixture.author.organizationId,
           head.state.containerId,
         ),
       ).toEqual(head.checkpoint);
       expect(
-        await loadAccessManifestCheckpoint(
+        await new KeyingCheckpointRepository(
           execSql,
+        ).loadAccessManifestCheckpoint(
           "document",
           fixture.author.organizationId,
           proof.documentId,
@@ -101,26 +102,27 @@ for (const [label, index] of [
         name: "ProjectionDependencyUnavailableError",
       });
       expect(
-        await loadAccessManifestCheckpoint(
+        await new KeyingCheckpointRepository(
           execSql,
+        ).loadAccessManifestCheckpoint(
           "container",
           verification.expectedOrganizationId,
           head.state.containerId,
         ),
       ).toEqual(head.checkpoint);
       expect(
-        await loadAccessManifestCheckpoint(
+        await new KeyingCheckpointRepository(
           execSql,
+        ).loadAccessManifestCheckpoint(
           "document",
           verification.expectedOrganizationId,
           verification.expectedDocumentId,
         ),
       ).toBeNull();
       expect(
-        await loadDocumentPurgeCheckpoint(
+        await new KeyingCheckpointRepository(
           execSql,
-          verification.expectedDocumentId,
-        ),
+        ).loadDocumentPurgeCheckpoint(verification.expectedDocumentId),
       ).toBeNull();
       expect(
         await sqlDocumentsPersistence.loadDocument(execSql, original.id),

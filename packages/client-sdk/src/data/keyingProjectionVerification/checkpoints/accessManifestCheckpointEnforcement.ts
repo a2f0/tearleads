@@ -4,11 +4,8 @@ import {
   type VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
 import type { DocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
-import {
-  type AccessManifestCheckpointAdvance,
-  advanceKeyingCheckpointsAtomically,
-  validateKeyingCheckpointsAtomically,
-} from "../../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import type { AccessManifestCheckpointAdvance } from "../../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { VerifiedManifestBundle } from "../../persistence/verifiedManifestBundlePersistence";
 import type { PrincipalPolicyCheckpointEvidence } from "../../principals/principalPolicyEvidence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
@@ -76,9 +73,10 @@ export async function validateAccessManifestCheckpoints(input: {
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
 }): Promise<void> {
-  await validateKeyingCheckpointsAtomically({
+  await new KeyingCheckpointRepository(
+    input.execSql,
+  ).validateKeyingCheckpointsAtomically({
     access: accessManifestCheckpointAdvances(input),
-    execSql: input.execSql,
     policies: input.policies,
     authorizationPolicies: input.authorizationPolicies,
     stillCurrent: input.stillCurrent,
@@ -99,10 +97,11 @@ export async function enforceAccessManifestCheckpoints(input: {
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
 }): Promise<void> {
-  await advanceKeyingCheckpointsAtomically({
+  await new KeyingCheckpointRepository(
+    input.execSql,
+  ).advanceKeyingCheckpointsAtomically({
     access: accessManifestCheckpointAdvances(input),
     documentPurgeCheckpoint: input.documentPurgeCheckpoint,
-    execSql: input.execSql,
     organizationId: input.organizationId,
     policies: input.policies,
     authorizationPolicies: input.authorizationPolicies,

@@ -3,7 +3,7 @@ import { signPrincipalState, wrapDekForRecipients } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalKeyEnvelopeCandidates } from "../../../data/persistence/principalKeys/principalKeyEnvelopeCandidates";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../../data/principals/principalPolicyCrypto";
 import {
@@ -69,8 +69,9 @@ test("compound current acknowledgement retains protected artifacts and pins with
       );
       expect(recovered.policy.stateHash).toBe(entry.response.head.stateHash);
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           f.options.execSql,
+        ).loadPrincipalPolicyCheckpoint(
           entry.response.head.principalType,
           entry.response.head.principalId,
         ),
@@ -99,18 +100,17 @@ test("a mismatched organization receipt cannot publish either half of a compound
     ).rejects.toThrow("acknowledgement names another head");
     expect(await f.db.select().from(principalHistoryPrefixes)).toEqual(before);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         history.group.currentState.principalId,
       ),
     ).toMatchObject({ version: 66 });
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "organization",
-        history.organizationId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
     ).toMatchObject({ version: 66 });
   } finally {
     f.close();
@@ -196,11 +196,9 @@ test("a retained prefix-only predecessor authenticates under the exact recovery-
     expect(f.requests).toHaveLength(requests);
     expect(await f.db.select().from(principalHistoryStages)).toEqual(stages);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "organization",
-        history.organizationId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
     ).toMatchObject({ version: 67 });
   } finally {
     f.close();

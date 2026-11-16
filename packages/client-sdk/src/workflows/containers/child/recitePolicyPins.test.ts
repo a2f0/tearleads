@@ -18,11 +18,7 @@ import {
   readAccessEvent,
   readAccessManifest,
 } from "../../../data/keyingProjectionVerification/readers";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
-import {
-  loadAccessManifestCheckpoint,
-  loadPrincipalPolicyCheckpoint,
-} from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { buildMaterializedContainerCreatePlan } from "./create";
 import { childContainerWriterProjectionFromCreatePlan } from "./create/createProjection";
 import { reciteHeldDescendants } from "./recite";
@@ -85,9 +81,10 @@ test.each(["before-pass", "in-flight"] as const)(
         fixture.input.nextPolicy.projection.map((member) => member.userId),
       ).not.toContain(USER_ID);
       const revokeMembership = () =>
-        advanceKeyingCheckpointsAtomically({
-          access: [],
+        new KeyingCheckpointRepository(
           execSql,
+        ).advanceKeyingCheckpointsAtomically({
+          access: [],
           organizationId: ORGANIZATION_ID,
           policies: [fixture.input.nextPolicy],
         });
@@ -136,8 +133,11 @@ test.each(["before-pass", "in-flight"] as const)(
       expect(attempts).toHaveLength(timing === "before-pass" ? 0 : 1);
       expect(incidents).toEqual([]);
       expect(
-        (await loadPrincipalPolicyCheckpoint(execSql, "group", GROUP_ID))
-          ?.stateHash,
+        (
+          await new KeyingCheckpointRepository(
+            execSql,
+          ).loadPrincipalPolicyCheckpoint("group", GROUP_ID)
+        )?.stateHash,
       ).toBe(fixture.input.nextPolicy.stateHash);
       expect(
         heldContainerSnapshot(execSql, ORGANIZATION_ID).policies.find(
@@ -147,12 +147,9 @@ test.each(["before-pass", "in-flight"] as const)(
       for (const id of paths.keys()) {
         expect(
           (
-            await loadAccessManifestCheckpoint(
+            await new KeyingCheckpointRepository(
               execSql,
-              "container",
-              ORGANIZATION_ID,
-              id,
-            )
+            ).loadAccessManifestCheckpoint("container", ORGANIZATION_ID, id)
           )?.epoch,
         ).toBe(1);
       }

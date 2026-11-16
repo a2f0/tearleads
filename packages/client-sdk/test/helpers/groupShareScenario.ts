@@ -1,4 +1,7 @@
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  type PrincipalPolicyCheckpoint,
+} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createContainerWriterProjectionFixture,
@@ -7,7 +10,7 @@ import {
 } from "@tearleads/test-utils";
 import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
-import { loadPrincipalPolicyCheckpoint } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import { shareContainerStateWithGroup } from "../../src/workflows/container-contents/container-state/share";
 import { withDirectGroupGrant } from "../../src/workflows/container-contents/container-state/share/share.testFixtures";
@@ -352,7 +355,7 @@ export async function runGroupShareScenario(
   GroupShareScenarioRecorder & {
     containerId: string;
     currentGroupPolicyStateHash: string;
-    groupCheckpoint: Awaited<ReturnType<typeof loadPrincipalPolicyCheckpoint>>;
+    groupCheckpoint: PrincipalPolicyCheckpoint | null;
     groupId: string;
     shared: Awaited<ReturnType<typeof shareContainerStateWithGroup>>;
   }
@@ -433,11 +436,9 @@ export async function runGroupShareScenario(
       containerId,
       currentGroupPolicyStateHash:
         policies.currentGroupPolicy.currentState.stateHash,
-      groupCheckpoint: await loadPrincipalPolicyCheckpoint(
+      groupCheckpoint: await new KeyingCheckpointRepository(
         execSql,
-        "group",
-        groupId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("group", groupId),
       groupId,
       shared,
     };

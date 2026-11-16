@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
 import { createNewerPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeNewerPolicies";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
-import { loadDocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalHistoryPrefixes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 
@@ -45,8 +44,9 @@ for (const mode of [
     try {
       for (const bundle of f.newer) {
         expect(
-          await loadPrincipalPolicyCheckpoint(
+          await new KeyingCheckpointRepository(
             f.options.execSql,
+          ).loadPrincipalPolicyCheckpoint(
             bundle.currentState.principalType,
             bundle.currentState.principalId,
           ),
@@ -100,10 +100,9 @@ for (const mode of [
           });
         expect(deletions).toBe(0);
         expect(
-          await loadDocumentPurgeCheckpoint(
+          await new KeyingCheckpointRepository(
             f.options.execSql,
-            f.fixture.proof.documentId,
-          ),
+          ).loadDocumentPurgeCheckpoint(f.fixture.proof.documentId),
         ).toBeNull();
       }
       if (mode === "online")
@@ -117,8 +116,9 @@ for (const mode of [
             ? "f".repeat(64)
             : bundle.currentState.stateHash;
         expect(
-          await loadPrincipalPolicyCheckpoint(
+          await new KeyingCheckpointRepository(
             f.options.execSql,
+          ).loadPrincipalPolicyCheckpoint(
             bundle.currentState.principalType,
             bundle.currentState.principalId,
           ),

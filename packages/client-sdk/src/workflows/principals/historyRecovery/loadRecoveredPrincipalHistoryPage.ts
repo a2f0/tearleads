@@ -1,5 +1,6 @@
 import {
   KeyingVerificationError,
+  type PrincipalPolicyCheckpoint,
   type PrincipalPolicyStateChainEntry,
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
@@ -9,7 +10,7 @@ import {
   type PrincipalPolicyStateChainEntryResponse,
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalHistoryReferences } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { principalHistoryEvidenceScopeId } from "../../../data/principals/principalHistoryPrefixProtection";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
@@ -61,8 +62,9 @@ async function readPage(
   const current = () => !options.signal?.aborted && options.stillCurrent();
   assertProjectionVerificationCurrent(current);
   const { scopeId, history } = await restoreReadRoot(options, current);
-  const checkpoint = await loadPrincipalPolicyCheckpoint(
+  const checkpoint = await new KeyingCheckpointRepository(
     options.execSql,
+  ).loadPrincipalPolicyCheckpoint(
     options.expectedHead.principalType,
     options.expectedHead.principalId,
   );
@@ -126,10 +128,11 @@ async function readPage(
 
 async function assertDisplayCheckpointCurrent(
   options: RecoverPrincipalPolicyHistoryOptions,
-  checkpoint: Awaited<ReturnType<typeof loadPrincipalPolicyCheckpoint>>,
+  checkpoint: PrincipalPolicyCheckpoint | null,
 ) {
-  const latest = await loadPrincipalPolicyCheckpoint(
+  const latest = await new KeyingCheckpointRepository(
     options.execSql,
+  ).loadPrincipalPolicyCheckpoint(
     options.expectedHead.principalType,
     options.expectedHead.principalId,
   );

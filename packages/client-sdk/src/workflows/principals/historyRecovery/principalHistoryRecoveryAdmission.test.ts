@@ -6,8 +6,7 @@ import {
 import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { verifiedPrincipalPolicyMeetsCheckpoint } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCheckpointSelection";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;
@@ -20,11 +19,9 @@ async function storeCheckpoint(
   version: number,
 ) {
   // Initialize the persistence tables before inserting the test checkpoint.
-  await loadPrincipalPolicyCheckpoint(
+  await new KeyingCheckpointRepository(
     fixture.options.execSql,
-    "group",
-    history.expectedHead.principalId,
-  );
+  ).loadPrincipalPolicyCheckpoint("group", history.expectedHead.principalId);
   const state = history.bundle.previousStates[version - 1]?.state;
   if (!state) throw new Error("Missing checkpoint fixture");
   const checkpoint = {
@@ -52,16 +49,18 @@ test("a recovered sparse policy advances its retained checkpoint atomically", as
     expect(
       verifiedPrincipalPolicyMeetsCheckpoint(recovered.policy, previous),
     ).toBe(true);
-    await advanceKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      fixture.options.execSql,
+    ).advanceKeyingCheckpointsAtomically({
       access: [],
-      execSql: fixture.options.execSql,
       organizationId: fixture.options.organizationId,
       policies: [recovered.policy],
       stillCurrent: () => true,
     });
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         fixture.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         history.expectedHead.principalId,
       ),
@@ -81,16 +80,18 @@ test("a different durable checkpoint after recovery requires fresh evidence", as
       verifiedPrincipalPolicyMeetsCheckpoint(recovered.policy, newer),
     ).toThrow();
     await expect(
-      advanceKeyingCheckpointsAtomically({
+      new KeyingCheckpointRepository(
+        fixture.options.execSql,
+      ).advanceKeyingCheckpointsAtomically({
         access: [],
-        execSql: fixture.options.execSql,
         organizationId: fixture.options.organizationId,
         policies: [recovered.policy],
       }),
     ).rejects.toMatchObject({ code: "stale_predecessor" });
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         fixture.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         history.expectedHead.principalId,
       ),
@@ -132,9 +133,10 @@ test.each([true, false])(
         ...fixture.options,
         retainedReferences: retainObserved ? [observedHead] : [],
       });
-      const advance = advanceKeyingCheckpointsAtomically({
+      const advance = new KeyingCheckpointRepository(
+        fixture.options.execSql,
+      ).advanceKeyingCheckpointsAtomically({
         access: [],
-        execSql: fixture.options.execSql,
         organizationId: fixture.options.organizationId,
         policies: [observed.policy, recovered.policy],
       });
@@ -144,8 +146,9 @@ test.each([true, false])(
           code: "stale_predecessor",
         });
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           fixture.options.execSql,
+        ).loadPrincipalPolicyCheckpoint(
           "group",
           history.expectedHead.principalId,
         ),
@@ -161,16 +164,18 @@ test("cancelled sparse admission cannot advance its checkpoint", async () => {
   try {
     const previous = await storeCheckpoint(fixture, 16);
     const recovered = await recoverPrincipalPolicyHistory(fixture.options);
-    await advanceKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      fixture.options.execSql,
+    ).advanceKeyingCheckpointsAtomically({
       access: [],
-      execSql: fixture.options.execSql,
       organizationId: fixture.options.organizationId,
       policies: [recovered.policy],
       stillCurrent: () => false,
     });
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         fixture.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         history.expectedHead.principalId,
       ),

@@ -12,7 +12,7 @@ import type {
 } from "@tearleads/validators/response";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import { loadPrincipalPolicyCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
 import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMemberLoad";
 import {
   applyOrganizationReadModelResponse,
@@ -455,7 +455,10 @@ test("purge clears membership rows without deleting verified policy checkpoints"
   );
   try {
     await applySnapshot(execSql);
-    await loadPrincipalPolicyCheckpoint(execSql, "group", "verified-group");
+    await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+      "group",
+      "verified-group",
+    );
     await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
       "group",
       "verified-group",
@@ -480,7 +483,10 @@ test("purge clears membership rows without deleting verified policy checkpoints"
     expect(headRows[0]?.[0]).toBe(0);
     expect(memberRows[0]?.[0]).toBe(0);
     await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "group", "verified-group"),
+      new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+        "group",
+        "verified-group",
+      ),
     ).resolves.toEqual({
       principalType: "group",
       principalId: "verified-group",

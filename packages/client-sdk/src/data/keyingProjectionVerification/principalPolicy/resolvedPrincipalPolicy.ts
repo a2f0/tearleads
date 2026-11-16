@@ -3,7 +3,7 @@ import {
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   observePrincipalPolicy,
   type ProjectionCheckpointContext,
@@ -31,11 +31,9 @@ async function meetsCheckpoints(
   refreshMissing: boolean,
 ): Promise<boolean> {
   for (const policy of [...result.dependencies, result.policy]) {
-    const checkpoint = await loadPrincipalPolicyCheckpoint(
+    const checkpoint = await new KeyingCheckpointRepository(
       context.execSql,
-      policy.principalType,
-      policy.principalId,
-    );
+    ).loadPrincipalPolicyCheckpoint(policy.principalType, policy.principalId);
     if (
       refreshMissing &&
       checkpoint &&

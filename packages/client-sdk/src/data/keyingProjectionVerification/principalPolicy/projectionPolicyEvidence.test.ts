@@ -9,7 +9,7 @@ import {
   projectionPolicySource,
   projectionPolicyWarmer,
 } from "../../../../test/helpers/projectionPolicyHistory";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadOrganizationFounder } from "../../persistence/organizationFounderPersistence";
 import {
   encodeOrganizationAuthorityDescriptor,
@@ -55,8 +55,9 @@ test("deleted group evidence verifies without advancing current-policy checkpoin
       ),
     ).toBe(true);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         data.added.currentState.principalId,
       ),
@@ -179,7 +180,9 @@ for (const fork of [false, true]) {
         ...input,
         warmReferencedPrincipalPolicies: warmer(execSql),
       });
-      await loadPrincipalPolicyCheckpoint(execSql, "group", state.principalId);
+      await new KeyingCheckpointRepository(
+        execSql,
+      ).loadPrincipalPolicyCheckpoint("group", state.principalId);
       const stateHash = fork ? "f".repeat(64) : state.stateHash;
       await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
         "group",
@@ -204,11 +207,9 @@ for (const fork of [false, true]) {
           ),
         ).toBe(true);
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           execSql,
-          "group",
-          state.principalId,
-        ),
+        ).loadPrincipalPolicyCheckpoint("group", state.principalId),
       ).toMatchObject({ version: state.version, stateHash });
     } finally {
       close();

@@ -12,7 +12,7 @@ import {
   createResponseFromRequest,
 } from "../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
@@ -160,8 +160,9 @@ async function expectAdoptionRefused(
   ).rejects.toMatchObject({ code, name: "KeyingVerificationError" });
   expect(primed).toBe(false);
   await expect(
-    loadAccessManifestCheckpoint(
+    new KeyingCheckpointRepository(
       fixture.execSql,
+    ).loadAccessManifestCheckpoint(
       "document",
       fixture.author.organizationId,
       "document-stable",

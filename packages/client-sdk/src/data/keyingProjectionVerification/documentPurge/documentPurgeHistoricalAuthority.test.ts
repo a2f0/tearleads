@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeHistoricalPolicy";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
@@ -28,11 +28,9 @@ test("purge uses authority already verified during paging when the directory bin
     );
     if (!admins) throw new Error("Missing newer Admins source");
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
-        "group",
-        admins.head.principalId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("group", admins.head.principalId),
     ).toMatchObject({ version: 2, stateHash: admins.head.stateHash });
   } finally {
     database.close();
@@ -80,11 +78,9 @@ test("an unsigned directory payload cannot add an unrelated Admins identity to p
         "Public projection history: directory payload differs from its signed hash",
     });
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
-        "group",
-        injectedAdmins.principalId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("group", injectedAdmins.principalId),
     ).toBeNull();
   } finally {
     database.close();

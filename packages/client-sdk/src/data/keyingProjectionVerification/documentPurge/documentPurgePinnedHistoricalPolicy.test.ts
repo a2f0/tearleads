@@ -2,10 +2,8 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeHistoricalPolicy";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
-import {
-  loadAccessManifestCheckpoint,
-  upsertAccessManifestCheckpointInTransaction,
-} from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { upsertAccessManifestCheckpointInTransaction } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { verifyDocumentPurgeProofBaseline } from "./documentPurgeProofVerification";
 
@@ -27,8 +25,9 @@ test("a pinned purge head still verifies policy evidence used only by earlier li
     const pin = baseline.documentCheckpoint;
     expect(pin.epoch).toBe(5);
     expect(
-      await loadAccessManifestCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "document",
         pin.organizationId,
         pin.objectId,

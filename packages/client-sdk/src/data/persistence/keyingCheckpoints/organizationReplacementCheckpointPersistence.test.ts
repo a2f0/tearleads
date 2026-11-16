@@ -8,7 +8,7 @@ import {
 import { accessManifestCheckpoints } from "../../sqlite/schema/keyingCheckpointSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../sqlite/sqlTableSchema";
-import { persistOrganizationReplacementCheckpoints } from "./organizationReplacementCheckpointPersistence";
+import { KeyingCheckpointRepository } from "./keyingCheckpointRepository";
 
 for (const conflict of ["root", "policy", "owner"] as const) {
   test(`replacement ${conflict} conflict rolls back every genesis pin and owner`, async () => {
@@ -51,7 +51,9 @@ for (const conflict of ["root", "policy", "owner"] as const) {
         ]);
       const before = await snapshot();
       await expect(
-        persistOrganizationReplacementCheckpoints({ authorization, execSql }),
+        new KeyingCheckpointRepository(
+          execSql,
+        ).persistOrganizationReplacementCheckpoints({ authorization }),
       ).rejects.toThrow();
       expect(await snapshot()).toEqual(before);
     } finally {
@@ -83,10 +85,9 @@ test("replacement replay preserves later checkpoints and their ownership", async
       updatedAt: "2026-09-28",
     });
     expect(
-      await persistOrganizationReplacementCheckpoints({
-        authorization,
+      await new KeyingCheckpointRepository(
         execSql,
-      }),
+      ).persistOrganizationReplacementCheckpoints({ authorization }),
     ).toBe(true);
     expect(await db.select().from(accessManifestCheckpoints)).toEqual([
       expect.objectContaining({ epoch: 3, manifestHash: "e".repeat(64) }),
@@ -131,9 +132,10 @@ test("an identity change refuses the entire replacement checkpoint transaction",
     await ensureSqlTables(execSql, clientSqlTables);
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     expect(
-      await persistOrganizationReplacementCheckpoints({
-        authorization,
+      await new KeyingCheckpointRepository(
         execSql,
+      ).persistOrganizationReplacementCheckpoints({
+        authorization,
         stillCurrent: () => false,
       }),
     ).toBe(false);

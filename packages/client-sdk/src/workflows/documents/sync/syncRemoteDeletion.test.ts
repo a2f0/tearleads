@@ -17,7 +17,7 @@ import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument 
 import type { DocumentSyncApi } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../../data/keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 
 test("syncRemoteDocument notifies when submit returns coded document 404", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
@@ -173,8 +173,7 @@ test("purge citing a pre-revocation head withholds deletion without an integrity
     expect(proofFetches).toBe(1);
     expect(deletedDocumentIds).toEqual([]);
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         projection.organizationId,
         projection.containerId,

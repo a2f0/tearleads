@@ -10,7 +10,7 @@ import {
   policyReceiptFromBundle,
 } from "../../../test/helpers/principalPolicyFixtures";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
-import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
 import { deleteGroupForOrganization } from "./principalMutations";
 
@@ -132,11 +132,9 @@ test("group deletion uses private bounded custody", async () => {
     ).toBe(false);
     expect(f.requests.every((request) => request.count <= 32)).toBe(true);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "organization",
-        history.organizationId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
     ).toMatchObject({ version: 67 });
   } finally {
     f.close();
@@ -156,11 +154,9 @@ test.each(["corrupt", "expire", "expireCaller"] as const)(
       );
       expect(f.state.writes).toBe(1);
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           f.options.execSql,
-          "organization",
-          history.organizationId,
-        ),
+        ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
       ).toMatchObject({ version: 66 });
     } finally {
       f.close();
@@ -195,11 +191,9 @@ test("current deletion rejects a non-admin and either built-in group before disp
       }),
     ).rejects.toThrow("Organization admin authority is required");
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "organization",
-        history.organizationId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
     ).toBeNull();
     const descriptor = parseOrganizationAuthorityDescriptor(
       history.directory.currentPayload.ciphertext,
@@ -230,11 +224,9 @@ test.each(["wrongGroup", "wrongOrganization"] as const)(
       );
       expect(f.state.writes).toBe(1);
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           f.options.execSql,
-          "organization",
-          history.organizationId,
-        ),
+        ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
       ).toMatchObject({ version: 66 });
     } finally {
       f.close();

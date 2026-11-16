@@ -23,7 +23,7 @@ import {
   createFixtureUserIdentity,
   createTestTrustedUserIdentity,
 } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   loadAllPrincipalPolicyBundles,
   loadPrincipalPolicyBundle,
@@ -226,11 +226,9 @@ test("remove group user bridges committed policy writes before caching the rotat
           previousPolicy.currentState.stateHash,
         );
         expect(cachedDuringBridge?.currentState.keyEpoch).toBe(1);
-        const checkpointDuringBridge = await loadPrincipalPolicyCheckpoint(
+        const checkpointDuringBridge = await new KeyingCheckpointRepository(
           execSql,
-          "group",
-          groupId,
-        );
+        ).loadPrincipalPolicyCheckpoint("group", groupId);
         expect(checkpointDuringBridge).toEqual({
           principalType: "group",
           principalId: groupId,
