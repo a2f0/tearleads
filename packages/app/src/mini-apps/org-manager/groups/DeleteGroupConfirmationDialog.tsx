@@ -5,6 +5,7 @@ import {
   MiniAppButton,
   MiniAppModalBackdrop,
   MiniAppModalForm,
+  MiniAppModalHighlight,
   MiniAppModalPanel,
 } from "../../../components/mini-app/MiniAppLayout";
 import { groupDisplayName, ORG_MANAGER_LABELS } from "../labels";
@@ -46,7 +47,11 @@ export function DeleteGroupConfirmationDialog({
         <MiniAppModalForm onSubmit={handleSubmit}>
           <h2 id={titleId}>{ORG_MANAGER_LABELS.deleteGroupAction}</h2>
           <p id={messageId}>
-            {GROUP_LABELS.deleteConfirmationMessage(groupDisplayName(group))}
+            {GROUP_LABELS.deleteConfirmationMessageLead}{" "}
+            <MiniAppModalHighlight>
+              {groupDisplayName(group)}
+            </MiniAppModalHighlight>
+            {GROUP_LABELS.deleteConfirmationMessageTail}
           </p>
           <MiniAppActions>
             <MiniAppButton autoFocus onClick={onCancel} type="button">
