@@ -2,10 +2,9 @@ import { expect, spyOn, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import {
   BlobAttachmentService,
+  ContainerMutationService,
   cacheReferencedPrincipalPolicies,
-  createRemoteContainer,
   createRemoteDocument,
-  shareRemoteContainer,
   unwrapContainerKekPath,
 } from "@tearleads/client-sdk";
 
@@ -137,20 +136,30 @@ test("SDK decrypts a historical binding after ancestor head changes and document
     execSql,
     reportSecurityIncident: common.reportSecurityIncident,
   });
+  const containers = new ContainerMutationService({
+    api: apiClient,
+    encapsulationSecretKey: owner.kem.secretKey,
+    execSql,
+    reportSecurityIncident: common.reportSecurityIncident,
+    resolveTrustedUserIdentity: common.resolveTrustedUserIdentity,
+  });
+  const mutation = {
+    author: common.author,
+    resolveProjectionUserKey,
+    warmReferencedPrincipalPolicies,
+  };
   try {
-    const child = await createRemoteContainer({
-      ...common,
+    const child = await containers.createRemoteContainer({
+      ...mutation,
       // Keep the cached path first when the second path is linked. Both
       // server paths then reuse ancestor history, but only one has a hint.
       containerId: "00000000-0000-4000-8000-000000000001",
       parentContainerId: root.kekState.containerId,
-      parentSecretKey: owner.kem.secretKey,
     });
-    const other = await createRemoteContainer({
-      ...common,
+    const other = await containers.createRemoteContainer({
+      ...mutation,
       containerId: "00000000-0000-4000-8000-000000000002",
       parentContainerId: root.kekState.containerId,
-      parentSecretKey: owner.kem.secretKey,
     });
     if (!child || !other)
       throw new Error("Expected encrypted child containers");
@@ -159,8 +168,8 @@ test("SDK decrypts a historical binding after ancestor head changes and document
       containerId: child.containerId,
     });
     if (!document?.response) throw new Error("Expected encrypted document");
-    const bindAncestor = await shareRemoteContainer({
-      ...common,
+    const bindAncestor = await containers.shareRemoteContainer({
+      ...mutation,
       containerId: root.kekState.containerId,
       recipientUserId: firstReader.userId,
       accessLevel: "read",
@@ -186,8 +195,8 @@ test("SDK decrypts a historical binding after ancestor head changes and document
     const encryptedBytes = new Uint8Array(
       await new Response(encrypted.encryptedBytes).arrayBuffer(),
     );
-    const currentAncestor = await shareRemoteContainer({
-      ...common,
+    const currentAncestor = await containers.shareRemoteContainer({
+      ...mutation,
       containerId: root.kekState.containerId,
       recipientUserId: secondReader.userId,
       accessLevel: "read",

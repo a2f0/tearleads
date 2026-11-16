@@ -13,9 +13,7 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../../../../data/keyingProjectionVerification";
-import type { SecurityIncidentReporter } from "../../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
-import type { TrustedUserIdentityResolver } from "../../../../data/trustedUserIdentity";
 import { recoverPrincipalPolicyRepair } from "../../../principals/policyRepair";
 import type { PrincipalPolicyRepairBudget } from "../../../principals/policyRepairBudget";
 
@@ -24,24 +22,26 @@ export interface ContainerCreateRepairState {
   policyRepairs: PrincipalPolicyRepairBudget;
 }
 
-export interface RemoteContainerCreateInput {
-  apiClient: ContainerCreateApi;
+export interface RemoteContainerCreateRequest {
   author: ContainerMutationAuthor;
   containerId?: string | undefined;
   containerKey?: Uint8Array | undefined;
   containerKeyEpochId?: string | undefined;
   eventId?: string | undefined;
-  execSql: ExecSql;
   metadataDocumentId?: string | undefined;
   parentContainerId: string;
   parentProjection?: ContainerWriterProjectionResponse | undefined;
-  parentSecretKey: Uint8Array;
-  reportSecurityIncident: SecurityIncidentReporter;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
+}
+
+export interface RemoteContainerCreateInput
+  extends RemoteContainerCreateRequest {
+  apiClient: ContainerCreateApi;
+  execSql: ExecSql;
+  parentSecretKey: Uint8Array;
 }
 
 type ContainerCreateFailureRepair =

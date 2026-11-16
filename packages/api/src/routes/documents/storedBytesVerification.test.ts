@@ -2,9 +2,8 @@ import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import {
   BlobAttachmentService,
-  createRemoteContainer,
+  ContainerMutationService,
   createRemoteDocument,
-  rekeyRemoteContainer,
   syncRemoteDocument,
   unwrapContainerKekPath,
 } from "@tearleads/client-sdk";
@@ -63,14 +62,20 @@ test("a cold device verifies every hash-acknowledged write from its stored bytes
   };
   try {
     // Container mutations: a child create, then its rekey.
-    const child = await createRemoteContainer({
-      ...common,
+    const containers = new ContainerMutationService({
+      api: client,
+      encapsulationSecretKey: common.targetSecretKey,
+      execSql: common.execSql,
+      reportSecurityIncident: common.reportSecurityIncident,
+      resolveTrustedUserIdentity: common.resolveTrustedUserIdentity,
+    });
+    const child = await containers.createRemoteContainer({
+      ...device.mutation,
       parentContainerId: root.kekState.containerId,
-      parentSecretKey: owner.kem.secretKey,
     });
     if (!child) throw new Error("Expected encrypted child");
-    const rekeyed = await rekeyRemoteContainer({
-      ...common,
+    const rekeyed = await containers.rekeyRemoteContainer({
+      ...device.mutation,
       containerId: child.containerId,
     });
     if (!rekeyed) throw new Error("Expected child rekey");

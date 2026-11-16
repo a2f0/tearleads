@@ -5,13 +5,13 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification/container/containerProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
 } from "../../../containers/child/create";
-import { moveRemoteContainer } from "../../../containers/child/move";
 import { containerWriterProjectionFromRotationPlan } from "../../../containers/child/rekey/rekeyProjection";
 import { defaultContainerContentsPersistence as persistence } from "../../containerPersistence";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
@@ -43,21 +43,22 @@ test.each(["before verification", "before insertion"])(
         createChild(),
       ]);
       const resolveUserKey = createParentProjectionUserKeyResolver(parent);
-      const moved = await moveRemoteContainer({
-        apiClient: {
+      const moved = await createContainerMutationServiceFixture({
+        api: {
           getContainerWriterProjection: async (id) =>
             id === original.containerId ? original : destination,
           moveContainer: async (_id, request) =>
             createMutationResponseFromRequest(request, original),
           reciteContainer: async () => null,
         },
+        execSql: moveExecSql,
+        reportSecurityIncident: async () => {},
+        encapsulationSecretKey: parent.secretKey,
+      }).moveRemoteContainer({
         author: parent.author,
         containerId: original.containerId,
         destinationParentContainerId: destination.containerId,
-        execSql: moveExecSql,
-        reportSecurityIncident: async () => {},
         resolveProjectionUserKey: resolveUserKey,
-        targetSecretKey: parent.secretKey,
       });
       if (!moved) throw new Error("Move was not acknowledged");
       const current = await containerWriterProjectionFromRotationPlan({
