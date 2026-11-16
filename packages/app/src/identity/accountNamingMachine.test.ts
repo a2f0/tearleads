@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   ACCOUNT_NAME_SEAL_FAILED_MESSAGE,
+  ACCOUNT_NAME_UNREADABLE_MESSAGE,
   ACCOUNT_NAMING_IDLE,
   type AccountNamingEvent,
   type AccountNamingState,
@@ -188,6 +189,25 @@ test("a given name holds until stored, and one that could not be is asked again"
       fingerprint: "fp-new",
       name: "Alice",
       type: "seal-failed",
+    }),
+  ).toBe(named);
+});
+
+test("a sealed record that cannot be read back asks for the name again", () => {
+  expect(run([{ fingerprint: "fp-new", type: "unreadable" }])).toEqual({
+    error: ACCOUNT_NAME_UNREADABLE_MESSAGE,
+    fingerprint: "fp-new",
+    status: "awaiting",
+  });
+  // A name this page was already given outranks the failed read.
+  const named = run([
+    generated,
+    { fingerprint: "fp-new", name: "Bob", type: "name-submitted" },
+  ]);
+  expect(
+    transitionAccountNaming(named, {
+      fingerprint: "fp-new",
+      type: "unreadable",
     }),
   ).toBe(named);
 });

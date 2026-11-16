@@ -97,7 +97,11 @@ function readPersistedAccountNaming(
     : null;
 }
 
-/** The identity's sealed naming, or null; an unreadable record is dropped. */
+/**
+ * The identity's sealed naming, or null when it has none. A record that is
+ * there but cannot be read as this identity's throws: it was sealed for a
+ * name still owed, so the caller must not take it as no record at all.
+ */
 export async function loadPersistedAccountNaming(
   persistence: AccountNamingPersistence,
   signingFingerprint: string,
@@ -110,18 +114,18 @@ export async function loadPersistedAccountNaming(
   }
   const session = await persistence.keyring.loadSession(persistence.scope);
   if (!session) {
-    return null;
+    throw new Error("The account name's keyring session is unavailable.");
   }
   try {
     const naming = readPersistedAccountNaming(
       await decryptLocalIdentityPayload({
         identityPersistenceKey: session.identityPersistenceKey,
         serializedEnvelope,
-      }).catch(() => null),
+      }),
       signingFingerprint,
     );
     if (!naming) {
-      persistence.storage.removeItem(persistence.storageKey);
+      throw new Error("The sealed account name is unreadable.");
     }
     return naming;
   } finally {

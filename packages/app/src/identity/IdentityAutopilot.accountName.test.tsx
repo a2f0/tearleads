@@ -1,6 +1,10 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { waitFor, within } from "@testing-library/react";
-import { answerAccountNamePrompt } from "../../test/helpers/accountNamePrompt";
+import {
+  answerAccountNamePrompt,
+  sealedAccountNamingRecord as sealedAccountNaming,
+  waitForPaneKey,
+} from "../../test/helpers/accountNamePrompt";
 import { openIdentityManagerFromPane } from "../../test/helpers/identityPaneTestUtils";
 import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
@@ -18,27 +22,8 @@ import {
   waitForPaneRuntimeToSettle,
   waitForPersistedPaneLocalIdentity,
 } from "../../test/helpers/paneTestUtils";
-import { ACCOUNT_NAME_SEAL_FAILED_MESSAGE } from "./accountNamingMachine";
 
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
-
-/** The sealed naming record of the left pane's only identity, if any. */
-function sealedAccountNaming(namespace: string): string | null {
-  const prefix = `tearleads.account-naming:${namespace}.left:`;
-  const key = Array.from({ length: globalThis.localStorage.length }, (_, i) =>
-    globalThis.localStorage.key(i),
-  ).find((candidate) => candidate?.startsWith(prefix));
-  return key ? globalThis.localStorage.getItem(key) : null;
-}
-
-async function waitForPaneKey(view: Parameters<typeof getPaneStatusText>[0]) {
-  await waitFor(
-    () => {
-      expect(getPaneStatusText(view)).toMatch(/publicKey:\s*[0-9a-f]{64}/u);
-    },
-    { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
-  );
-}
 
 test(
   "a generated identity registers only once named, as that person's org and contact",
@@ -202,93 +187,4 @@ test(
     fourth.view.unmount();
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 5,
-);
-
-/**
- * Swaps in a localStorage that refuses naming records while `refusing()`,
- * before the pane takes its storage handles. Returns the restore.
- */
-function refuseNamingRecords(refusing: () => boolean): () => void {
-  const real = globalThis.localStorage;
-  const descriptor = Object.getOwnPropertyDescriptor(
-    globalThis,
-    "localStorage",
-  );
-  const setItem = (key: string, value: string) => {
-    if (refusing() && key.startsWith("tearleads.account-naming:")) {
-      throw new DOMException("Storage is full", "QuotaExceededError");
-    }
-    real.setItem(key, value);
-  };
-  const storage = new Proxy(real, {
-    get: (target, property) => {
-      if (property === "setItem") return setItem;
-      const value: unknown = Reflect.get(target, property);
-      return typeof value === "function" ? value.bind(target) : value;
-    },
-  });
-  Object.defineProperty(globalThis, "localStorage", {
-    configurable: true,
-    value: storage,
-  });
-  return () => {
-    if (descriptor) {
-      Object.defineProperty(globalThis, "localStorage", descriptor);
-    } else {
-      Reflect.deleteProperty(globalThis, "localStorage");
-    }
-  };
-}
-
-test(
-  "a name that could not be stored is asked for again before anything registers",
-  async () => {
-    useTestApiAppHandlers();
-    const namespace = `test-account-name-${crypto.randomUUID()}`;
-    let namingWritable = false;
-    const restoreStorage = refuseNamingRecords(() => !namingWritable);
-    const { sdk, view } = renderLifecyclePane(
-      createTestHostConfig({
-        autoProvisionIdentity: true,
-        createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
-        localIdentityNamespace: namespace,
-        promptAccountName: true,
-      }),
-    );
-    try {
-      await waitForPersistedPaneLocalIdentity(namespace);
-      await waitForPaneKey(view);
-      const register = spyOn(sdk().session, "registerIdentity");
-      const identityManager = await openIdentityManagerFromPane(view);
-      await answerAccountNamePrompt(
-        identityManager,
-        "Bob",
-        PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
-      );
-      await within(view.container).findAllByText(
-        ACCOUNT_NAME_SEAL_FAILED_MESSAGE,
-        {},
-        { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
-      );
-      await waitForPaneRuntimeToSettle(PANE_ASYNC_TEST_TIMEOUT_MS);
-      expect(register).not.toHaveBeenCalled();
-
-      namingWritable = true;
-      await answerAccountNamePrompt(identityManager);
-      await waitFor(
-        () => {
-          expect(getPaneStatusText(view)).not.toMatch(/userId:\s*none/);
-        },
-        { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
-      );
-      expect(register.mock.calls[0]?.[0]).toMatchObject({
-        organizationProfileName: "Bob's Org",
-      });
-      await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
-    } finally {
-      restoreStorage();
-    }
-    view.unmount();
-  },
-  PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 3,
 );

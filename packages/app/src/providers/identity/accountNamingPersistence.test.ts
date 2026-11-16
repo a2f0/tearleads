@@ -90,7 +90,9 @@ test("a sealed name reads back only for its own identity", async () => {
     name: "Bob",
     status: "named",
   });
-  // A record under this key that names another identity is dropped.
-  expect(await loadPersistedAccountNaming(sealed, "fp-other")).toBeNull();
-  expect(globalThis.localStorage.getItem(sealed.storageKey)).toBeNull();
+  // A record under this key that names another identity is no record of
+  // this one's, and is not taken as none either.
+  await expect(loadPersistedAccountNaming(sealed, "fp-other")).rejects.toThrow(
+    "unreadable",
+  );
 });

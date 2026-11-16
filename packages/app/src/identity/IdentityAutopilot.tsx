@@ -90,7 +90,6 @@ function useAutoGenerateIdentity(
     localIdentityRestoreSettled,
     signingKeyPair,
   } = useIdentity();
-  const { logError } = useLog();
   const promptAccountName =
     features.promptAccountName && features.autoRegisterIdentity;
   const generationInFlight = useRef(false);
@@ -98,7 +97,9 @@ function useAutoGenerateIdentity(
     AUTO_PROVISIONING_IDLE,
   );
   // Before the new identity is stored: the prompt is owed from here on, and
-  // sealed first, so a restart before it is answered still asks.
+  // sealed first, so a restart before it is answered still asks. A prompt
+  // that cannot be sealed fails the generation: an identity stored without
+  // it would come back unprompted and register unnamed.
   const beforePersist = useCallback(
     async (signingFingerprint: string) => {
       onGenerated(signingFingerprint);
@@ -106,11 +107,9 @@ function useAutoGenerateIdentity(
         createLocalKeyring,
         namespace: localIdentityNamespace ?? null,
         signingFingerprint,
-      }).catch((error: unknown) => {
-        logError("Could not save the pending account name.", error);
       });
     },
-    [createLocalKeyring, localIdentityNamespace, logError, onGenerated],
+    [createLocalKeyring, localIdentityNamespace, onGenerated],
   );
 
   useEffect(() => {

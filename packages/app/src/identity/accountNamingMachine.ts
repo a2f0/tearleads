@@ -52,12 +52,16 @@ export type AccountNamingEvent =
       readonly fingerprint: string;
       readonly naming: PersistedAccountNaming;
       readonly type: "restored";
-    };
+    }
+  | { readonly fingerprint: string; readonly type: "unreadable" };
 
 export const ACCOUNT_NAMING_IDLE: AccountNamingState = { status: "idle" };
 
 export const ACCOUNT_NAME_SEAL_FAILED_MESSAGE =
   "Could not save your name. Try again.";
+
+export const ACCOUNT_NAME_UNREADABLE_MESSAGE =
+  "Could not read back your name. Enter it again.";
 
 /** Trims the answer and folds inner whitespace; null when nothing is left. */
 export function normalizeAccountName(name: string): string | null {
@@ -68,6 +72,38 @@ export function normalizeAccountName(name: string): string | null {
 /** The personal organization's name for an account named `accountName`. */
 export function personalOrganizationName(accountName: string): string {
   return `${accountName}'s Org`;
+}
+
+/**
+ * The identity's sealed record, read back after a restart. One that could not
+ * be read was sealed for a name still owed, so it is asked for again rather
+ * than registered without. What this page already knows about the identity
+ * outranks a record a slower read brought back.
+ */
+function restore(
+  state: AccountNamingState,
+  event: Extract<AccountNamingEvent, { type: "restored" | "unreadable" }>,
+): AccountNamingState {
+  const { fingerprint } = event;
+  if (state.status !== "idle" && state.fingerprint === fingerprint) {
+    return state;
+  }
+  if (event.type === "unreadable") {
+    return {
+      error: ACCOUNT_NAME_UNREADABLE_MESSAGE,
+      fingerprint,
+      status: "awaiting",
+    };
+  }
+  return event.naming.status === "named"
+    ? {
+        contactNamed: false,
+        fingerprint,
+        name: event.naming.name,
+        sealed: true,
+        status: "named",
+      }
+    : { fingerprint, status: "awaiting" };
 }
 
 /**
@@ -126,20 +162,8 @@ export function transitionAccountNaming(
     case "seal-failed":
       return settleSeal(state, event);
     case "restored":
-      // What this page already knows about the identity outranks a record a
-      // slower read brought back.
-      if (state.status !== "idle" && state.fingerprint === event.fingerprint) {
-        return state;
-      }
-      return event.naming.status === "named"
-        ? {
-            contactNamed: false,
-            fingerprint: event.fingerprint,
-            name: event.naming.name,
-            sealed: true,
-            status: "named",
-          }
-        : { fingerprint: event.fingerprint, status: "awaiting" };
+    case "unreadable":
+      return restore(state, event);
   }
 }
 

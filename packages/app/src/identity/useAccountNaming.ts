@@ -4,7 +4,6 @@ import {
   type AccountNamingPersistence,
   accountNamingRemoval,
   loadPersistedAccountNaming,
-  type PersistedAccountNaming,
   removePersistedAccountNaming,
   savePersistedAccountNaming,
   useAccountNamingPersistence,
@@ -34,15 +33,14 @@ export interface AccountNaming {
   readonly submit: (name: string) => void;
 }
 
-/** Reads the current identity's sealed naming back once per identity. */
+/**
+ * Reads the current identity's sealed naming back once per identity. A read
+ * that fails is not taken as no record: see the machine's `unreadable`.
+ */
 function useRestoredAccountNaming(
   persistence: AccountNamingPersistence | null,
   signingFingerprint: string | null,
-  dispatch: (event: {
-    readonly fingerprint: string;
-    readonly naming: PersistedAccountNaming;
-    readonly type: "restored";
-  }) => void,
+  dispatch: (event: AccountNamingEvent) => void,
 ): boolean {
   const { logError } = useLog();
   const [restoredFingerprint, setRestoredFingerprint] = useState<string | null>(
@@ -66,6 +64,9 @@ function useRestoredAccountNaming(
       })
       .catch((error: unknown) => {
         logError("Could not read back the account name.", error);
+        if (current) {
+          dispatch({ fingerprint: signingFingerprint, type: "unreadable" });
+        }
       })
       .finally(() => {
         if (current) setRestoredFingerprint(signingFingerprint);
