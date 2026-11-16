@@ -12,6 +12,7 @@ import { sealPendingAccountNaming } from "../providers/identity/accountNamingPer
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../providers/logging/LogProvider";
+import { useTearleads } from "../providers/sdk/TearleadsProvider";
 import { useSystemBootstrap } from "../providers/system-bootstrap/SystemBootstrapProvider";
 import { AccountNameContactSeeder } from "./AccountNameContactSeeder";
 import {
@@ -203,27 +204,43 @@ function pendingRegistration(pending: PendingRegistration) {
   };
 }
 
+interface RegistrationRun {
+  readonly fingerprint: string | null;
+  readonly identity: object;
+}
+
 /**
- * Holds the autopilot to one registration at a time. A run that settles after
- * its identity was switched away re-arms registration, so the identity now
- * current, which waited on the latch, still registers; a run that settles for
- * the current identity re-arms nothing, so a failure is not retried in a loop.
+ * One registration at a time, each tagged with the identity it started
+ * under. A run whose identity changed underneath it (a switch away, even one
+ * switched back) reports nothing and re-arms registration for the identity
+ * now current. A run that settles for its own identity reports its result and
+ * re-arms nothing, so a failure is not retried in a loop.
  */
-function useRegistrationLatch(signingFingerprint: string | null) {
+function useRegistrationRuns(signingFingerprint: string | null) {
+  const tearleads = useTearleads();
+  const [registration, setRegistration] =
+    useIdentityScopedStep(signingFingerprint);
   const held = useRef(false);
-  const current = useRef(signingFingerprint);
-  current.current = signingFingerprint;
   const [rearmed, setRearmed] = useState(0);
-  const acquire = useCallback(() => {
-    if (held.current) return false;
-    held.current = true;
-    return true;
-  }, []);
-  const release = useCallback((fingerprint: string | null) => {
-    held.current = false;
-    if (current.current !== fingerprint) setRearmed((count) => count + 1);
-  }, []);
-  return { acquire, rearmed, release };
+  const start = useCallback(
+    (fingerprint: string | null): RegistrationRun | null => {
+      if (held.current) return null;
+      held.current = true;
+      setRegistration(fingerprint, { status: "running" });
+      return { fingerprint, identity: tearleads.identity.snapshot };
+    },
+    [setRegistration, tearleads],
+  );
+  const settle = useCallback(
+    (run: RegistrationRun, step: AutoProvisioningStep) => {
+      held.current = false;
+      const current = tearleads.identity.snapshot === run.identity;
+      setRegistration(run.fingerprint, current ? step : AUTO_PROVISIONING_IDLE);
+      if (!current) setRearmed((count) => count + 1);
+    },
+    [setRegistration, tearleads],
+  );
+  return { rearmed, registration, settle, start };
 }
 
 function useAutoRegisterIdentity(
@@ -238,10 +255,8 @@ function useAutoRegisterIdentity(
     useSystemBootstrap();
   const { logError } = useLog();
   const { signingFingerprint } = useIdentity();
-  const { acquire, rearmed, release } =
-    useRegistrationLatch(signingFingerprint);
-  const [registration, setRegistration] =
-    useIdentityScopedStep(signingFingerprint);
+  const { rearmed, registration, settle, start } =
+    useRegistrationRuns(signingFingerprint);
   const { awaitingInput, organizationProfileName } =
     pendingRegistration(pending);
   const currentRegistrationRef = useRef({
@@ -277,14 +292,13 @@ function useAutoRegisterIdentity(
       return;
     }
     // registerCurrentIdentity registers, then logs in with the returned
-    // challenge. The latch keeps the StrictMode double-invoke (and any
-    // re-render while the request is outstanding) from firing a second
-    // registration; on success canRegisterCurrentIdentity flips false.
-    if (!acquire()) {
+    // challenge. Holding one run at a time keeps the StrictMode double-invoke
+    // (and any re-render while the request is outstanding) from firing a
+    // second registration; on success canRegisterCurrentIdentity flips false.
+    const run = start(signingFingerprint);
+    if (!run) {
       return;
     }
-    const fingerprint = signingFingerprint;
-    setRegistration(fingerprint, { status: "running" });
     void ensureBootstrapped()
       .then((result) => {
         // System bootstrap is a hard precondition: only register once the
@@ -304,27 +318,24 @@ function useAutoRegisterIdentity(
             currentRegistrationRef.current.organizationProfileName,
         });
       })
-      .then((registered) => {
+      .then(
         // null: bootstrap did not complete and a later change re-arms this
         // effect, so the run is not a failure. false: the login refused or the
         // identity changed underneath; signed-out surfaces offer manual login.
-        setRegistration(
-          fingerprint,
+        (registered): AutoProvisioningStep =>
           registered === false
             ? { message: AUTO_SIGN_IN_INCOMPLETE_MESSAGE, status: "failed" }
             : AUTO_PROVISIONING_IDLE,
-        );
-      })
-      .catch((error: unknown) => {
-        // Log and swallow to avoid an unhandled rejection; signed-out surfaces
-        // show the reason beside the manual Login fallback.
-        const message = autoRegisterFailureMessage(error);
-        logError(message, error);
-        setRegistration(fingerprint, { message, status: "failed" });
-      })
-      .finally(() => release(fingerprint));
+        (error: unknown): AutoProvisioningStep => {
+          // Logged and kept, so signed-out surfaces show the reason beside
+          // the manual Login fallback.
+          const message = autoRegisterFailureMessage(error);
+          logError(message, error);
+          return { message, status: "failed" };
+        },
+      )
+      .then((step) => settle(run, step));
   }, [
-    acquire,
     awaitingInput,
     canRegisterCurrentIdentity,
     enabled,
@@ -332,10 +343,10 @@ function useAutoRegisterIdentity(
     features.autoRegisterIdentity,
     logError,
     rearmed,
-    release,
     sessionRestoreSettled,
-    setRegistration,
+    settle,
     signingFingerprint,
+    start,
     systemBootstrapStatus,
   ]);
 
