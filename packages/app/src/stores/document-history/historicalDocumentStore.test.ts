@@ -87,6 +87,26 @@ test("a past attachment resolves bytes only while the live slot still holds them
   expect(snapshot.attachmentStorageKeyBySlotId).toEqual({ kept: "key-kept" });
 });
 
+test("a slot whose held bytes differ from the document never lends them to a past version", () => {
+  // The live document records digest "aa" for the slot, as the past version
+  // does, but the bytes this device holds for it are a different upload.
+  const snapshot = historicalDocumentSnapshot(
+    { ...LIVE, attachmentStatusBySlotId: { kept: "intent-mismatch" } },
+    PAST,
+  );
+
+  expect(snapshot.attachmentStorageKeyBySlotId).toEqual({});
+});
+
+test("a slot still uploading its own bytes lends them to a past version", () => {
+  const snapshot = historicalDocumentSnapshot(
+    { ...LIVE, attachmentStatusBySlotId: { kept: "syncing" } },
+    PAST,
+  );
+
+  expect(snapshot.attachmentStorageKeyBySlotId).toEqual({ kept: "key-kept" });
+});
+
 test("the store notifies subscribers when the version on screen changes", () => {
   const first = historicalDocumentSnapshot(LIVE, PAST);
   const second = historicalDocumentSnapshot(LIVE, { ...PAST, text: "later" });

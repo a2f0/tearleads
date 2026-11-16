@@ -9,7 +9,10 @@ import type {
  * the live document's identity and access, and every write gate closed.
  *
  * A past attachment keeps its bytes only while the live document still holds
- * the same bytes in the same slot; detached bytes are not retained.
+ * the same bytes in the same slot; detached bytes are not retained. The live
+ * document's own reference is not proof of that: a slot marked
+ * `intent-mismatch` holds bytes that differ from what the document records,
+ * so it never lends its bytes to a past version.
  */
 export function historicalDocumentSnapshot(
   live: DocumentSnapshot,
@@ -26,7 +29,8 @@ export function historicalDocumentSnapshot(
     const storageKey = live.attachmentStorageKeyBySlotId[attachment.slotId];
     if (
       storageKey !== undefined &&
-      liveShaBySlot.get(attachment.slotId) === attachment.contentSha256
+      liveShaBySlot.get(attachment.slotId) === attachment.contentSha256 &&
+      live.attachmentStatusBySlotId[attachment.slotId] !== "intent-mismatch"
     ) {
       attachmentStorageKeyBySlotId[attachment.slotId] = storageKey;
     }

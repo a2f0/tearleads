@@ -42,15 +42,31 @@ interface HistorySource {
   readonly localId: string;
 }
 
-/** Whether a later capture holds changes this one does not. */
-function hasNewerStops(current: DocumentHistory, later: DocumentHistory) {
-  const currentLast = current.stops.at(-1);
-  const laterLast = later.stops.at(-1);
-  return (
-    later.stops.length !== current.stops.length ||
-    laterLast?.peerId !== currentLast?.peerId ||
-    laterLast?.endCounter !== currentLast?.endCounter
-  );
+/** The newest operation each writer contributed to a capture. */
+function capturedVersion(history: DocumentHistory): Map<string, number> {
+  const version = new Map<string, number>();
+  for (const stop of history.stops) {
+    version.set(
+      stop.peerId,
+      Math.max(version.get(stop.peerId) ?? 0, stop.endCounter),
+    );
+  }
+  return version;
+}
+
+/**
+ * Whether a later capture holds operations this one does not. Stops alone do
+ * not say: an edit that extends a writer's existing change adds no stop, and
+ * that change need not be the newest one.
+ */
+function hasNewerOperations(current: DocumentHistory, later: DocumentHistory) {
+  const currentVersion = capturedVersion(current);
+  const laterVersion = capturedVersion(later);
+  if (laterVersion.size !== currentVersion.size) return true;
+  for (const [peerId, endCounter] of laterVersion) {
+    if (currentVersion.get(peerId) !== endCounter) return true;
+  }
+  return false;
 }
 
 /**
@@ -197,7 +213,7 @@ function useNewerEditsCheck(
         .openHistory(localId)
         .then((later) => {
           if (later === null) return;
-          const newer = !stopped && hasNewerStops(history, later);
+          const newer = !stopped && hasNewerOperations(history, later);
           later.close();
           if (newer) send({ run, type: "newer-found" });
         })
@@ -222,6 +238,38 @@ function useNewerEditsCheck(
 }
 
 /**
+ * A document with no durable history yet, such as a discovered shell, gains
+ * one when it hydrates. Reopen when it is next saved.
+ */
+function useRetryWhenHistoryArrives(
+  { documents, localId }: HistorySource,
+  unavailable: boolean,
+  open: () => void,
+): void {
+  useEffect(() => {
+    if (!unavailable) return;
+    let stopped = false;
+    const unsubscribe = documents.subscribe((document) => {
+      if (document.id !== localId) return;
+      // Look before reopening: a save that brings no history would only
+      // flash the view back to loading.
+      documents
+        .openHistory(localId)
+        .then((history) => {
+          const arrived = history !== null && history.stops.length > 0;
+          history?.close();
+          if (arrived && !stopped) open();
+        })
+        .catch(() => undefined);
+    });
+    return () => {
+      stopped = true;
+      unsubscribe();
+    };
+  }, [documents, localId, open, unavailable]);
+}
+
+/**
  * Replay one document's history. Opens a capture of its durable history,
  * replays the selected stop outside rendering, plays stops on a timer, and
  * notices when the document gains edits the capture does not hold. The capture
@@ -243,6 +291,7 @@ export function useDocumentHistory(localId: string): DocumentHistoryControls {
   useReplaySelectedStop(state, isCurrentRun, send);
   usePlayback(state.status === "ready" && state.playing, send);
   useNewerEditsCheck(source, state, send);
+  useRetryWhenHistoryArrives(source, state.status === "unavailable", open);
 
   return {
     reload: open,
