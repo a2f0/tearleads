@@ -4,9 +4,9 @@ import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import type { BlobEncryptionPlan } from "../../../data/blobs/attachments/crypto";
 import type {
   BlobAttachmentApi,
+  MultipartBlobUploadOptions,
   MultipartStageResolvedListener,
   MultipartUploadProgressListener,
-  UploadDocumentAttachmentInput,
 } from "../../../data/blobs/attachments/types";
 import {
   BLOB_TRANSFER_CONCURRENCY,
@@ -327,7 +327,7 @@ function assertMultipartPlanLimits(encryption: BlobEncryptionPlan): void {
 type StageMultipartBlobAttachmentInput = {
   readonly apiClient: BlobAttachmentApi;
   readonly encryption: BlobEncryptionPlan;
-  readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
+  readonly multipart: MultipartBlobUploadOptions;
   readonly organizationId: string;
   readonly onMultipartProgress?: MultipartUploadProgressListener | undefined;
   readonly onStageResolved?: MultipartStageResolvedListener | undefined;

@@ -1,10 +1,12 @@
 import { expect, test } from "bun:test";
 import type { AccessEvent } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import { createMultipartBlobStageFixture } from "../../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
+import type { UploadDocumentAttachmentRequest } from "../../../data/blobs/attachments/types";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
-import { uploadDocumentAttachment } from "./index";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 test("uploadDocumentAttachment rejects document writer projections with bad signatures before staging", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
@@ -25,8 +27,8 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
   const { close, execSql } = await createTestExecSql("blob-signature-check");
 
   await expect(
-    uploadDocumentAttachment({
-      apiClient: {
+    createBlobAttachmentServiceFixture({
+      api: {
         ...multipart,
         bindBlobAttachment: async () => {
           bindCalled = true;
@@ -38,16 +40,17 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
           return multipart.initiateMultipartBlobStage(request);
         },
       },
+      encapsulationSecretKey: secretKey,
+      execSql,
+    }).uploadDocumentAttachment({
       author,
       blobId: "550e8400-e29b-41d4-a716-446655440557",
       bytes: new Uint8Array([5, 6, 7]) as BlobBytes,
       documentId: writerProjection.documentId,
-      execSql,
       expectedBindingId: null,
       resolveProjectionUserKey,
       signedAt: "2026-04-27T00:00:00.000Z",
       slotId: "preview",
-      targetSecretKey: secretKey,
     }),
   ).rejects.toMatchObject({ code: "signature_mismatch" });
   close();
@@ -60,8 +63,8 @@ test("uploadDocumentAttachment cannot use local trust to bypass remote checkpoin
     await createMaterializedSyncFixture();
   let stageCalled = false;
   const multipart = createMultipartBlobStageFixture();
-  const input = {
-    apiClient: {
+  const blobs = createBlobAttachmentServiceFixture({
+    api: {
       ...multipart,
       bindBlobAttachment: async () => null,
       getDocumentWriterProjection: async () => writerProjection,
@@ -72,17 +75,21 @@ test("uploadDocumentAttachment cannot use local trust to bypass remote checkpoin
         return multipart.initiateMultipartBlobStage(request);
       },
     },
+    encapsulationSecretKey: secretKey,
+    // No durable checkpoint storage: local trust must not stand in for it.
+    execSql: undefined as unknown as ExecSql,
+  });
+  const input = {
     author,
     bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
     documentId: writerProjection.documentId,
     expectedBindingId: null,
     resolveProjectionUserKey,
     slotId: "checkpoint-bypass",
-    targetSecretKey: secretKey,
     trustedLocalProjection: true,
-  } as unknown as Parameters<typeof uploadDocumentAttachment>[0];
+  } as unknown as UploadDocumentAttachmentRequest;
 
-  await expect(uploadDocumentAttachment(input)).rejects.toMatchObject({
+  await expect(blobs.uploadDocumentAttachment(input)).rejects.toMatchObject({
     code: "missing_dependency",
   });
   expect(stageCalled).toBe(false);

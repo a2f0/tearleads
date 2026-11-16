@@ -1,8 +1,25 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
+import { createBlobAttachmentServiceFixture } from "../../../test/helpers/blobAttachmentServiceFixture";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
-import { detachDocumentAttachment } from "./detach";
+import { BlobAttachmentService } from "./blobAttachmentService";
+
+// A host can call any method of this root-exported class. An upload that
+// trusts a caller-supplied source snapshot must stay off it: a snapshot paired
+// with other bytes would reuse AES-GCM nonces. Adding a method here is a
+// public contract change, like the root export inventory in src/index.test.ts.
+test("the public service offers no upload that trusts a source snapshot", () => {
+  expect(
+    Object.getOwnPropertyNames(BlobAttachmentService.prototype).sort(),
+  ).toEqual([
+    "constructor",
+    "decryptDocumentAttachmentBlob",
+    "detachDocumentAttachment",
+    "hydrateDocumentAttachmentBlobs",
+    "uploadDocumentAttachment",
+  ]);
+});
 
 test("detachDocumentAttachment submits a signed detach event", async () => {
   const { author, resolveProjectionUserKey, writerProjection } =
@@ -13,8 +30,8 @@ test("detachDocumentAttachment submits a signed detach event", async () => {
   const submittedRequests: BlobAttachmentDetachRequest[] = [];
   const { close, execSql } = await createTestExecSql("attachment-detach");
 
-  const detached = await detachDocumentAttachment({
-    apiClient: {
+  const detached = await createBlobAttachmentServiceFixture({
+    api: {
       detachBlobAttachment: async (
         requestBlobId,
         requestBindingId,
@@ -30,12 +47,13 @@ test("detachDocumentAttachment submits a signed detach event", async () => {
       },
       getDocumentWriterProjection: async () => writerProjection,
     },
+    execSql,
+  }).detachDocumentAttachment({
     author,
     bindingId,
     blobId,
     documentId: writerProjection.documentId,
     eventId: "550e8400-e29b-41d4-a716-446655440658",
-    execSql,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,

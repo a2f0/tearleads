@@ -1,5 +1,5 @@
 import { blobAttachmentSummaryFromStagedBind } from "@tearleads/validators/response";
-import type { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../../workflows/blobs/upload";
+import type { UploadDocumentAttachmentResult } from "../../../../workflows/blobs";
 import type { PendingAttachmentRecord } from "../../../../workflows/documents";
 import {
   deletePendingAttachment,
@@ -49,7 +49,7 @@ export async function settleUploadedAttachment(input: {
   pendingAttachment: PendingAttachmentRecord;
   remoteDocumentId: string;
   state: DocumentStoreState;
-  uploaded: NonNullable<Awaited<ReturnType<typeof uploadDocumentAttachment>>>;
+  uploaded: UploadDocumentAttachmentResult;
   uploadLane: AttachmentUploadLaneReporter;
   /** `state.writerProjectionGeneration` when the upload started. */
   writerProjectionGeneration: number;

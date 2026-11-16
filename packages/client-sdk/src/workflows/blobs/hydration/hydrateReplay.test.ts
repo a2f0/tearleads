@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { BlobAttachmentSummary } from "@tearleads/validators/response";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobBytesResponse,
   createSingleAttachmentHydrationApi,
@@ -12,9 +13,6 @@ import {
 } from "../../../../test/helpers/blobUploadFixtures";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { attachmentContentSha256 } from "../../../data/documents/attachmentContentIdentity";
-import { uploadDocumentAttachment } from "../upload";
-import { decryptDocumentAttachmentBlob } from "./decrypt";
-import { hydrateDocumentAttachmentBlobs } from "./hydrate";
 
 type UploadedFixture = Awaited<
   ReturnType<typeof createUploadedAttachmentFixture>
@@ -28,8 +26,8 @@ async function uploadNewerBinding(fixture: UploadedFixture) {
     "newer attachment payload",
   ) as BlobBytes;
   const multipart = createMultipartBlobStageFixture();
-  const newer = await uploadDocumentAttachment({
-    apiClient: {
+  const newer = await createBlobAttachmentServiceFixture({
+    api: {
       ...multipart,
       bindBlobAttachment: async (_id, request) =>
         createBlobAttachmentBindResponse({
@@ -39,18 +37,19 @@ async function uploadNewerBinding(fixture: UploadedFixture) {
         }),
       getDocumentWriterProjection: async () => fixture.writerProjection,
     },
+    encapsulationSecretKey: fixture.secretKey,
+    execSql: fixture.execSql,
+  }).uploadDocumentAttachment({
     author: fixture.author,
     bindingId,
     blobId,
     bytes,
     contentKey: crypto.getRandomValues(new Uint8Array(32)),
     documentId: fixture.writerProjection.documentId,
-    execSql: fixture.execSql,
     expectedBindingId: fixture.bindingId,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
     signedAt: "2026-04-27T00:01:00.000Z",
     slotId: fixture.attachment.slotId,
-    targetSecretKey: fixture.secretKey,
   });
   const encryptedBytes = multipart.getAssembledBytes();
   if (!newer || !encryptedBytes) throw new Error("Expected newer upload");
@@ -87,36 +86,39 @@ test("hydration does not replace newer local bytes with a valid older binding", 
   const fixture = await createUploadedAttachmentFixture();
   const newer = await uploadNewerBinding(fixture);
   expect(newer.binding.previousBindingId).toBe(fixture.bindingId);
-  const decrypted = await decryptDocumentAttachmentBlob({
+  const decrypted = await createBlobAttachmentServiceFixture({
+    api: {},
+    encapsulationSecretKey: fixture.secretKey,
+    execSql: fixture.execSql,
+  }).decryptDocumentAttachmentBlob({
     binding: newer.binding,
     encryptedBytes: newer.encryptedBytes,
     expectedDocumentId: fixture.writerProjection.documentId,
     expectedSlotId: fixture.attachment.slotId,
-    execSql: fixture.execSql,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-    targetSecretKey: fixture.secretKey,
     writerProjection: fixture.writerProjection,
   });
   expect(decrypted).toEqual(newer.bytes);
-  const stale = await hydrateDocumentAttachmentBlobs({
-    apiClient: createSingleAttachmentHydrationApi(fixture, async () =>
+  const stale = await createBlobAttachmentServiceFixture({
+    api: createSingleAttachmentHydrationApi(fixture, async () =>
       createBlobBytesResponse({
         blobId: fixture.blobId,
         encryptedBytes: fixture.stagedBlob.encryptedBytes,
         sha256: fixture.stagedBlob.sha256,
       }),
     ),
+    encapsulationSecretKey: fixture.secretKey,
+    execSql: fixture.execSql,
+  }).hydrateDocumentAttachmentBlobs({
     attachments: [
       { ...fixture.attachment, contentSha256: newer.contentSha256 },
     ],
     documentId: fixture.writerProjection.documentId,
-    execSql: fixture.execSql,
     localBlobIdBySlotId: { [fixture.attachment.slotId]: newer.binding.blobId },
     localStorageKeyBySlotId: {
       [fixture.attachment.slotId]: `blob-${newer.binding.blobId}`,
     },
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-    targetSecretKey: fixture.secretKey,
   });
   expect(stale).toEqual([]);
 });
@@ -129,17 +131,18 @@ test("hydration shows a served binding whose digest the document has not recorde
   const served = await uploadNewerBinding(fixture);
   const incidents: unknown[] = [];
   const logs: string[] = [];
-  const hydrated = await hydrateDocumentAttachmentBlobs({
-    apiClient: createServedBindingApi(fixture, served),
-    attachments: [fixture.attachment],
-    documentId: fixture.writerProjection.documentId,
+  const hydrated = await createBlobAttachmentServiceFixture({
+    api: createServedBindingApi(fixture, served),
+    encapsulationSecretKey: fixture.secretKey,
     execSql: fixture.execSql,
     log: (message) => logs.push(message),
     reportSecurityIncident: async (error) => {
       incidents.push(error);
     },
+  }).hydrateDocumentAttachmentBlobs({
+    attachments: [fixture.attachment],
+    documentId: fixture.writerProjection.documentId,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-    targetSecretKey: fixture.secretKey,
   });
   expect(hydrated).toHaveLength(1);
   expect(hydrated?.[0]).toMatchObject({
@@ -162,21 +165,23 @@ test("hydration keeps a held copy matching the intent and downloads a rejected b
   const served = await uploadNewerBinding(fixture);
   let blobReads = 0;
   const rejectedServedBindings = new Set<string>();
-  const heldCopy = {
-    apiClient: createServedBindingApi(fixture, served, () => {
+  const blobs = createBlobAttachmentServiceFixture({
+    api: createServedBindingApi(fixture, served, () => {
       blobReads += 1;
     }),
-    documentId: fixture.writerProjection.documentId,
+    encapsulationSecretKey: fixture.secretKey,
     execSql: fixture.execSql,
+  });
+  const heldCopy = {
+    documentId: fixture.writerProjection.documentId,
     localBlobIdBySlotId: { [fixture.attachment.slotId]: fixture.blobId },
     localStorageKeyBySlotId: {
       [fixture.attachment.slotId]: `blob-${fixture.blobId}`,
     },
     rejectedServedBindings,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-    targetSecretKey: fixture.secretKey,
   };
-  const first = await hydrateDocumentAttachmentBlobs({
+  const first = await blobs.hydrateDocumentAttachmentBlobs({
     ...heldCopy,
     attachments: [fixture.attachment],
   });
@@ -184,7 +189,7 @@ test("hydration keeps a held copy matching the intent and downloads a rejected b
   expect(blobReads).toBe(1);
   expect(rejectedServedBindings.size).toBe(1);
 
-  const repeat = await hydrateDocumentAttachmentBlobs({
+  const repeat = await blobs.hydrateDocumentAttachmentBlobs({
     ...heldCopy,
     attachments: [fixture.attachment],
   });
@@ -193,7 +198,7 @@ test("hydration keeps a held copy matching the intent and downloads a rejected b
 
   // The content update carrying the served digest arrives: the same binding
   // is downloaded again and now replaces the held copy unflagged.
-  const recorded = await hydrateDocumentAttachmentBlobs({
+  const recorded = await blobs.hydrateDocumentAttachmentBlobs({
     ...heldCopy,
     attachments: [
       { ...fixture.attachment, contentSha256: served.contentSha256 },
@@ -212,18 +217,20 @@ test("a rejected binding hydrates once the held copy is gone", async () => {
   const served = await uploadNewerBinding(fixture);
   let blobReads = 0;
   const rejectedServedBindings = new Set<string>();
-  const input = {
-    apiClient: createServedBindingApi(fixture, served, () => {
+  const blobs = createBlobAttachmentServiceFixture({
+    api: createServedBindingApi(fixture, served, () => {
       blobReads += 1;
     }),
+    encapsulationSecretKey: fixture.secretKey,
+    execSql: fixture.execSql,
+  });
+  const input = {
     attachments: [fixture.attachment],
     documentId: fixture.writerProjection.documentId,
-    execSql: fixture.execSql,
     rejectedServedBindings,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-    targetSecretKey: fixture.secretKey,
   };
-  const rejected = await hydrateDocumentAttachmentBlobs({
+  const rejected = await blobs.hydrateDocumentAttachmentBlobs({
     ...input,
     localBlobIdBySlotId: { [fixture.attachment.slotId]: fixture.blobId },
     localStorageKeyBySlotId: {
@@ -236,7 +243,7 @@ test("a rejected binding hydrates once the held copy is gone", async () => {
 
   // The held copy is removed (e.g. blob storage reclaimed): the slot is empty,
   // so the same served binding is downloaded again and shown flagged.
-  const rehydrated = await hydrateDocumentAttachmentBlobs({
+  const rehydrated = await blobs.hydrateDocumentAttachmentBlobs({
     ...input,
     localBlobIdBySlotId: {},
     localStorageKeyBySlotId: {},

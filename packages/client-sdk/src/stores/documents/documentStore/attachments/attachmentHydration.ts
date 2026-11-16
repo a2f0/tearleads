@@ -1,7 +1,6 @@
 /** Hydrate only bytes matching the current document's authenticated attachment intent. */
 
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
-import { hydrateDocumentAttachmentBlobs } from "../../../../workflows/blobs";
 import type { DocumentRecord } from "../../../../workflows/documents";
 import {
   createRuntimePrincipalPolicyWarmer,
@@ -64,29 +63,25 @@ export async function hydrateAttachmentBlobs(
 
   const expectedStorageKeys = { ...state.attachmentStorageKeyBySlotId };
   let bindingsChecked = false;
-  const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
-    apiClient: runtime.apiClient,
-    onBindingsChecked: () => {
-      bindingsChecked = true;
-    },
-    attachments,
-    documentId: currentRecord.documentId,
-    execSql: runtime.infra.execSql,
-    localBlobIdBySlotId: state.attachmentBlobIdBySlotId,
-    localStorageKeyBySlotId: state.attachmentStorageKeyBySlotId,
-    log: runtime.util.log,
-    rejectedServedBindings: state.rejectedServedAttachmentBindings,
-    reportSecurityIncident: runtime.util.reportSecurityIncident,
-    resolveProjectionUserKey:
-      expectedGeneration?.resolveProjectionUserKey ??
-      state.resolveProjectionUserKey,
-    targetSecretKey: encapsulationKeyPair.secretKey,
-    stillCurrent: generationIsCurrent,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      runtime,
-      { operation: policyOperation },
-    ),
-  });
+  const hydratedBlobs =
+    await runtime.blobAttachments.hydrateDocumentAttachmentBlobs({
+      onBindingsChecked: () => {
+        bindingsChecked = true;
+      },
+      attachments,
+      documentId: currentRecord.documentId,
+      localBlobIdBySlotId: state.attachmentBlobIdBySlotId,
+      localStorageKeyBySlotId: state.attachmentStorageKeyBySlotId,
+      rejectedServedBindings: state.rejectedServedAttachmentBindings,
+      resolveProjectionUserKey:
+        expectedGeneration?.resolveProjectionUserKey ??
+        state.resolveProjectionUserKey,
+      stillCurrent: generationIsCurrent,
+      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+        runtime,
+        { operation: policyOperation },
+      ),
+    });
   if (!generationIsCurrent()) return;
   if (!hydratedBlobs) {
     return;

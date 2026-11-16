@@ -79,6 +79,7 @@ test("root entrypoint exposes public facade symbols", () => {
 // change the public surface, update this list in the same PR.
 const EXPECTED_ROOT_VALUE_EXPORTS = [
   "ApiRequestMetrics",
+  "BlobAttachmentService",
   "Blobs",
   "ContainerAuthorAccessError",
   "ContainerKekRepairInaccessibleError",
@@ -190,7 +191,6 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "createUnavailablePurchases",
   "createWebViewLocalKeyring",
   "decodeLocalKeyringSqliteKey",
-  "decryptDocumentAttachmentBlob",
   "defaultContainerContentsPersistence",
   "defaultDocumentProjectorRegistry",
   "defaultDocumentsPersistence",
@@ -218,7 +218,6 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "getUntitledDocumentTitle",
   "hasDomainSyncCoordinatorPendingWork",
   "hasPendingLocalDocumentWrites",
-  "hydrateDocumentAttachmentBlobs",
   "initializeDocumentLinksSchema",
   "initializeStoredDocumentKind",
   "isDatabaseUnavailableError",
@@ -309,7 +308,6 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "updateContainerContentsStoreRuntime",
   "updateOrganizationProfile",
   "updateOrganizationRosterEntry",
-  "uploadDocumentAttachment",
   "validateDocumentSyncUpdateImports",
   "waitForDomainSyncCoordinatorToSettle",
   "wrapEncryptedBlobStore",

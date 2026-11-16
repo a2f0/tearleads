@@ -10,13 +10,13 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import { createMultipartBlobStageFixture } from "../../../../test/helpers/blobUploadFixtures";
 import { SIGNED_AT } from "../../../../test/helpers/containerFixtures";
 import {
   createDocumentAfterRevoke,
   createRevokedRotationFixture,
 } from "../../../../test/helpers/revokedKekRotation";
-import { uploadDocumentAttachment } from "../../../workflows/blobs/upload";
 import type { BlobBytes } from "../../blobs/blobContracts";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 import { unwrapDocumentContentKeyTarget } from "../../documents/shared/projection/projectionContentKeys";
@@ -183,8 +183,8 @@ test("blobs uploaded after a revoking KEK rotation wrap only the rotated KEK", a
     const multipart = createMultipartBlobStageFixture({
       stageId: "stage-blob-after-revoke",
     });
-    const uploadedBlob = await uploadDocumentAttachment({
-      apiClient: {
+    const uploadedBlob = await createBlobAttachmentServiceFixture({
+      api: {
         ...multipart,
         bindBlobAttachment: async (_blobId, request) => {
           const targets = request.contentKeyBundle.targets;
@@ -231,18 +231,19 @@ test("blobs uploaded after a revoking KEK rotation wrap only the rotated KEK", a
             ? documentWriterProjection
             : null,
       },
+      encapsulationSecretKey: parent.secretKey,
+      execSql,
+    }).uploadDocumentAttachment({
       author: parent.author,
       bindingId,
       blobId,
       bytes: new Uint8Array([1, 2, 3, 4]) as BlobBytes,
       contentKey: blobContentKey,
       documentId: createdDocument.plan.documentId,
-      execSql,
       expectedBindingId: null,
       resolveProjectionUserKey,
       signedAt: SIGNED_AT,
       slotId,
-      targetSecretKey: parent.secretKey,
     });
     if (!uploadedBlob) {
       throw new Error("Expected blob attachment upload");

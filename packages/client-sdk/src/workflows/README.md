@@ -291,12 +291,12 @@ network detection and any manual online/offline override belong to the SDK
 
 ## Blobs, Keys, and Identity
 
-The `blobs` facade also exports encrypted local blob store helpers, including
-`createLazyEncryptedBlobStore` for hosts that load encryption keys from an async
-keyring provider. `BlobByteSource` is the replayable range-read contract used by
-large attachment writes and multipart uploads; blob stores implement
-`openByteSource` and `writeByteSource` so those paths stay bounded by the 5 MiB
-chunk size instead of materializing the whole object.
+The `blobs` facade exports `BlobAttachmentService`, which document stores reach
+as `runtime.blobAttachments`, and encrypted local blob store helpers such as
+`createLazyEncryptedBlobStore` for async keyring providers. `BlobByteSource` is
+the replayable range-read contract for large attachment writes and multipart
+uploads; stores implement `openByteSource` and `writeByteSource` so those paths
+stay bounded by the 5 MiB chunk size instead of materializing the whole object.
 
 Local keyring variants, including WebView and PIN-code wrapping helpers, are
 client-facade exports rather than workflow facades. Keep platform keychain

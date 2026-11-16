@@ -1,5 +1,4 @@
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
-import { detachDocumentAttachment } from "../../../../workflows/blobs/detach";
 import {
   type DocumentRecord,
   resolveDocumentCreateAuthor,
@@ -202,13 +201,13 @@ async function syncDetachedAttachmentBinding(input: {
       : null;
   const writerProjectionGeneration = state.writerProjectionGeneration;
   let remoteSyncBlocked = false;
+  // Read with the currency check above, so its executor is this generation's.
+  const { blobAttachments } = state.runtime;
   const baseDetachInput = {
-    apiClient: state.runtime.apiClient,
     author,
     bindingId: binding.bindingId,
     blobId: binding.blobId,
     documentId: input.remoteDocumentId,
-    execSql: generation.execSql,
     isRemoteSyncBlocked: (organizationId: string) => {
       remoteSyncBlocked =
         state.runtime.util.isRemoteSyncBlocked?.(organizationId) ?? false;
@@ -222,14 +221,14 @@ async function syncDetachedAttachmentBinding(input: {
       { operation: input.policyOperation },
     ),
   };
-  let detached = await detachDocumentAttachment({
+  let detached = await blobAttachments.detachDocumentAttachment({
     ...baseDetachInput,
     writerProjection: writerProjection ?? undefined,
   });
   if (!contextIsCurrent()) return false;
   if (!detached && writerProjection && !remoteSyncBlocked) {
     state.writerProjection = null;
-    detached = await detachDocumentAttachment(baseDetachInput);
+    detached = await blobAttachments.detachDocumentAttachment(baseDetachInput);
     if (!contextIsCurrent()) return false;
   }
   if (!detached) {

@@ -4,13 +4,13 @@ import type {
   BlobAttachmentBindRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
-import { uploadDocumentAttachment } from "./index";
 
 // Only its presence on the wire matters here; the API validates the content.
 const documentSync = {
@@ -33,8 +33,8 @@ async function uploadWithCarriedSync(input: {
   const binds: BlobAttachmentBindRequest[] = [];
   const { close, execSql } = await createTestExecSql(`carried-${blobId}`);
   try {
-    const uploaded = await uploadDocumentAttachment({
-      apiClient: {
+    const uploaded = await createBlobAttachmentServiceFixture({
+      api: {
         ...multipartApi,
         bindBlobAttachment: async (requestBlobId, request) => {
           binds.push(request);
@@ -53,16 +53,17 @@ async function uploadWithCarriedSync(input: {
             ? { ...input.failFirstBindWith, message: "refused" }
             : null,
       },
+      encapsulationSecretKey: secretKey,
+      execSql,
+    }).uploadDocumentAttachment({
       author,
       blobId,
       bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
       documentId: writerProjection.documentId,
       documentSync,
-      execSql,
       expectedBindingId: null,
       resolveProjectionUserKey,
       slotId: "preview",
-      targetSecretKey: secretKey,
     });
     return { binds, uploaded };
   } finally {

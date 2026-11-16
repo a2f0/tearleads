@@ -335,27 +335,34 @@ export type {
   TearleadsOptions,
 } from "./TearleadsOptions";
 export type {
+  BlobAttachmentCollaborators,
+  BlobAttachmentServiceApi,
   BlobByteSource,
   BlobByteSourceInput,
   BlobBytes,
   BlobStore,
+  DecryptDocumentAttachmentBlobRequest,
+  DetachDocumentAttachmentRequest,
+  DetachDocumentAttachmentResult,
   EncryptedBlobStoreCipher,
   EncryptedBlobStoreKey,
   EncryptedBlobStoreOptions,
+  HydrateDocumentAttachmentBlobsRequest,
+  HydratedDocumentAttachmentBlob,
+  UploadDocumentAttachmentRequest,
+  UploadDocumentAttachmentResult,
   WrapEncryptedBlobStoreOptions,
 } from "./workflows/blobs";
 export {
+  BlobAttachmentService,
   blobByteSourceInputLength,
   createBlobByteSource,
   createBlobStore,
   createEncryptedBlobStore,
   createLazyEncryptedBlobStore,
   createMemoryBlobStore,
-  decryptDocumentAttachmentBlob,
-  hydrateDocumentAttachmentBlobs,
   purgeOpfsBlobStore,
   readBlobByteSource,
-  uploadDocumentAttachment,
   wrapEncryptedBlobStore,
 } from "./workflows/blobs";
 export type {
