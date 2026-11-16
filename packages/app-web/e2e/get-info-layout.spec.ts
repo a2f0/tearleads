@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { expect, test } from "./appTest";
 
 /*
  * Explorer Get Info on a phone. The key/value lists (MiniAppKeyValueList) set
