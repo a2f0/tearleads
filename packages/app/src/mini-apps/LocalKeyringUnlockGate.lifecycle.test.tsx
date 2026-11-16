@@ -11,6 +11,7 @@ import {
   createTestHostConfig,
 } from "../../test/helpers/paneTestUtils";
 import { AccountBootstrapLoadingPanel } from "../components/identity/AccountBootstrapLoadingPanel";
+import type { AppHostConfig } from "../host/AppHostConfig";
 import {
   ACCOUNT_NAME_SEAL_FAILED_MESSAGE,
   ACCOUNT_NAMING_IDLE,
