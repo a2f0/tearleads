@@ -4,7 +4,8 @@ import type { ContactEntry } from "../document-types/contact/contactDocumentMode
  * One page's attempt to name the account's self contact.
  *
  * - `ready`: nothing written yet; a nickname the contact already has is kept.
- * - `writing`: a save is in flight.
+ * - `writing`: a save is in flight, tagged with `attempt`; only its own
+ *   settle ends it.
  * - `failed`: the last save was not acknowledged. A nickname now showing is
  *   the unsaved edit, so the writer retries once the contact changes from
  *   `contact`, the entry the failed save left behind.
@@ -12,13 +13,14 @@ import type { ContactEntry } from "../document-types/contact/contactDocumentMode
  */
 export type SelfContactNicknameState =
   | { readonly status: "ready" }
-  | { readonly status: "writing" }
+  | { readonly attempt: object; readonly status: "writing" }
   | { readonly contact: ContactEntry | null; readonly status: "failed" }
   | { readonly status: "saved" };
 
 export type SelfContactNicknameEvent =
-  | { readonly type: "write-started" }
+  | { readonly attempt: object; readonly type: "write-started" }
   | {
+      readonly attempt: object;
       readonly contact: ContactEntry | null;
       readonly saved: boolean;
       readonly type: "write-settled";
@@ -35,10 +37,10 @@ export function transitionSelfContactNickname(
   switch (event.type) {
     case "write-started":
       return state.status === "ready" || state.status === "failed"
-        ? { status: "writing" }
+        ? { attempt: event.attempt, status: "writing" }
         : state;
     case "write-settled":
-      if (state.status !== "writing") {
+      if (state.status !== "writing" || state.attempt !== event.attempt) {
         return state;
       }
       return event.saved

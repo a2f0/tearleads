@@ -28,13 +28,16 @@ test("a nickname the contact already has is kept without a write", () => {
 });
 
 test("a failed save is no proof, and retries only once the contact changes", () => {
+  const attempt = {};
   const writing = transitionSelfContactNickname(SELF_CONTACT_NICKNAME_READY, {
+    attempt,
     type: "write-started",
   });
   expect(selfContactNicknameStep(writing, contact(null))).toBe("wait");
   // The failed save left its edit in memory: "Bob" shows on that same entry.
   const leftBehind = contact("Bob");
   const failed = transitionSelfContactNickname(writing, {
+    attempt,
     contact: leftBehind,
     saved: false,
     type: "write-settled",
@@ -44,19 +47,37 @@ test("a failed save is no proof, and retries only once the contact changes", () 
 });
 
 test("an acknowledged save names the contact whatever the entry shows yet", () => {
+  const attempt = {};
   const saved = transitionSelfContactNickname(
     transitionSelfContactNickname(SELF_CONTACT_NICKNAME_READY, {
+      attempt,
       type: "write-started",
     }),
-    { contact: null, saved: true, type: "write-settled" },
+    { attempt, contact: null, saved: true, type: "write-settled" },
   );
   expect(selfContactNicknameStep(saved, contact(null))).toBe("named");
   // A settle with no write in flight changes nothing.
   expect(
     transitionSelfContactNickname(saved, {
+      attempt,
       contact: null,
       saved: false,
       type: "write-settled",
     }),
   ).toBe(saved);
+});
+
+test("only the save in flight settles it", () => {
+  const writing = transitionSelfContactNickname(SELF_CONTACT_NICKNAME_READY, {
+    attempt: {},
+    type: "write-started",
+  });
+  expect(
+    transitionSelfContactNickname(writing, {
+      attempt: {},
+      contact: null,
+      saved: false,
+      type: "write-settled",
+    }),
+  ).toBe(writing);
 });

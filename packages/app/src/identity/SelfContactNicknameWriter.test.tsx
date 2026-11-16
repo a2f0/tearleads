@@ -1,5 +1,6 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import type { ContactEntry } from "../document-types/contact/contactDocumentModel";
 import { LogProvider } from "../providers/logging/LogProvider";
 import { ContactsContext } from "../stores/contacts/ContactsProvider";
@@ -28,7 +29,11 @@ function selfEntry(nickname: string | null): ContactEntry {
  * A contacts store whose `updateContact` puts the edit in memory, as the real
  * store does whether or not the save lands, and resolves with `saves.shift()`.
  */
-function renderWriter(nickname: string | null, saves: boolean[]) {
+function renderWriter(
+  nickname: string | null,
+  saves: boolean[],
+  { strict = false } = {},
+) {
   let snapshot = { entries: [selfEntry(nickname)], ready: true };
   const listeners = new Set<() => void>();
   const updateContact = mock(
@@ -59,7 +64,7 @@ function renderWriter(nickname: string | null, saves: boolean[]) {
     };
     for (const listener of listeners) listener();
   };
-  render(
+  const tree = (
     <LogProvider>
       <ContactsContext.Provider value={{ canWrite: true, store }}>
         <SelfContactNicknameWriter
@@ -68,8 +73,9 @@ function renderWriter(nickname: string | null, saves: boolean[]) {
           onNamed={onNamed}
         />
       </ContactsContext.Provider>
-    </LogProvider>,
+    </LogProvider>
   );
+  render(strict ? <StrictMode>{tree}</StrictMode> : tree);
   return { onNamed, touchContact, updateContact };
 }
 
@@ -95,4 +101,22 @@ test("a nickname the contact already has is kept", async () => {
   const { onNamed, updateContact } = renderWriter("Robert", []);
   await waitFor(() => expect(onNamed).toHaveBeenCalledWith(FINGERPRINT));
   expect(updateContact).not.toHaveBeenCalled();
+});
+
+test("a StrictMode replay at mount does not start a second save", async () => {
+  const { onNamed, touchContact, updateContact } = renderWriter(
+    null,
+    [false, true],
+    { strict: true },
+  );
+  await waitFor(() => expect(updateContact).toHaveBeenCalledTimes(1));
+  await act(async () => {
+    await updateContact.mock.results[0]?.value;
+  });
+  expect(updateContact).toHaveBeenCalledTimes(1);
+
+  // The one save failed; the retry it leads to is acknowledged and counted.
+  touchContact();
+  await waitFor(() => expect(onNamed).toHaveBeenCalledWith(FINGERPRINT));
+  expect(updateContact).toHaveBeenCalledTimes(2);
 });
