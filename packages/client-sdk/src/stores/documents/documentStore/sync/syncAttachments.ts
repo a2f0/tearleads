@@ -1,8 +1,9 @@
 import type {
+  BlobAttachmentService,
   BlobByteSource,
   BlobSourceSnapshot,
 } from "../../../../workflows/blobs";
-import type { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../../workflows/blobs/upload";
+import type { PreparedUploadDocumentAttachmentRequest } from "../../../../workflows/blobs/upload";
 import {
   clearDocumentSyncFailure,
   DOCUMENTS_APP_KIND,
@@ -284,16 +285,15 @@ async function recoverCommittedAttachment(
 }
 
 function createAttachmentBaseUploadInput(input: {
-  author: Parameters<typeof uploadDocumentAttachment>[0]["author"];
+  author: PreparedUploadDocumentAttachmentRequest["author"];
   pendingUpload: PendingAttachmentUploadInput;
   resume: AttachmentUploadResume;
   source: BlobByteSource;
   sourceSnapshot: BlobSourceSnapshot;
   uploadLane: AttachmentUploadLaneReporter;
-}): Parameters<typeof uploadDocumentAttachment>[0] {
+}): PreparedUploadDocumentAttachmentRequest {
   const { pendingAttachment, state } = input.pendingUpload;
   return {
-    apiClient: state.runtime.apiClient,
     author: input.author,
     blobId: input.resume.blobId,
     bytes: input.source,
@@ -301,7 +301,6 @@ function createAttachmentBaseUploadInput(input: {
     contentKeyEpoch: input.resume.contentKeyEpoch,
     documentId: input.pendingUpload.remoteDocumentId,
     documentSync: input.pendingUpload.carriedFirstUpdate?.request,
-    execSql: state.runtime.infra.execSql,
     expectedBindingId:
       input.pendingUpload.activeBindingBySlotId.get(pendingAttachment.slotId)
         ?.bindingId ?? null,
@@ -319,7 +318,6 @@ function createAttachmentBaseUploadInput(input: {
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: pendingAttachment.slotId,
     sourceSnapshot: input.sourceSnapshot,
-    targetSecretKey: input.pendingUpload.encapsulationKeyPair.secretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       state.runtime,
       { operation: input.pendingUpload.policyOperation },
@@ -328,7 +326,9 @@ function createAttachmentBaseUploadInput(input: {
 }
 
 async function uploadPendingAttachmentBytes(input: {
-  baseUploadInput: Parameters<typeof uploadDocumentAttachment>[0];
+  baseUploadInput: PreparedUploadDocumentAttachmentRequest;
+  /** Read from the runtime the base input was built from. */
+  blobAttachments: BlobAttachmentService;
   pendingUpload: PendingAttachmentUploadInput;
   uploadLane: AttachmentUploadLaneReporter;
 }): Promise<PendingAttachmentUploadOutcome> {
@@ -349,6 +349,7 @@ async function uploadPendingAttachmentBytes(input: {
       upload: () =>
         uploadAttachmentWithWriterProjectionRetry({
           baseUploadInput: input.baseUploadInput,
+          blobAttachments: input.blobAttachments,
           state,
           writerProjection,
         }),
@@ -458,6 +459,7 @@ async function syncPendingAttachmentUpload(
   });
   return uploadPendingAttachmentBytes({
     baseUploadInput,
+    blobAttachments: state.runtime.blobAttachments,
     pendingUpload: input,
     uploadLane,
   });

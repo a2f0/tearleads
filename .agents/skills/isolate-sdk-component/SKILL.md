@@ -88,7 +88,14 @@ dependency must be published too.
 
 1. Give the service one entry point that takes its ports and resolves its
    singleton, so callers stop threading the same collaborators through every
-   call.
+   call. Follow the Services conventions in the seams doc: one class per
+   subsystem in `workflows/<name>`, constructed where its collaborators are
+   fixed (composition root, runtime factory, or a
+   `getOrCreate<Name>Service(domainScope)` singleton); the constructor takes
+   what is constant for that lifetime (API slices, executor, key material,
+   reporter, logger, clock) and methods take what varies per call. Keep every
+   value the old bag read at call start read at call start, and keep pure
+   verifiers, encoders, and normalizers as functions.
 2. Add rules to `scripts/architecture/dependencyCruiserClientSdkRules.ts`:
    index-only entry, no runtime imports of upper layers, type-only imports
    allowed. When the component's index is a public workflow facade, list its

@@ -127,7 +127,7 @@ export const blobStorageSurface = [
   `${sdk}/workflows/blobs/index.ts`,
   `${sdk}/workflows/blobs/upload/index.ts`,
   `${sdk}/data/blobs/blobContracts.ts`,
-  `${sdk}/workflows/blobs/detach.ts`,
+  `${sdk}/workflows/blobs/blobAttachmentService.ts`,
   `${sdk}/workflows/blobs/verification/attachmentDecryptor.ts`,
   `${sdk}/workflows/blobs/verification/attachmentKeyAuthenticator.ts`,
   `${sdk}/workflows/blobs/verification/retainedAttachmentVerification.ts`,

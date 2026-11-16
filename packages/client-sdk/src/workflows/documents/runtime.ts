@@ -9,6 +9,7 @@ import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "../../data/trustedUserIdentity";
+import { BlobAttachmentService } from "../blobs/blobAttachmentService";
 import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
@@ -62,6 +63,8 @@ export interface DocumentsWorkflowRuntimeInput
 export interface DocumentsWorkflowRuntime
   extends DocumentsWorkflowRuntimeGroups {
   readonly apiClient: ApiClient;
+  /** Bound to this snapshot's API client, executor, and key material. */
+  readonly blobAttachments: BlobAttachmentService;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
@@ -78,6 +81,14 @@ export function createDocumentsWorkflowRuntime(
 
   return inheritPrincipalHistoryProtection(input, {
     apiClient: input.apiClient,
+    blobAttachments: new BlobAttachmentService({
+      api: input.apiClient,
+      encapsulationSecretKey:
+        input.crypto.encapsulationKeyPair?.secretKey ?? null,
+      execSql: input.infra.execSql,
+      log: input.util.log,
+      reportSecurityIncident: input.util.reportSecurityIncident,
+    }),
     auth: input.auth,
     crypto: input.crypto,
     infra,

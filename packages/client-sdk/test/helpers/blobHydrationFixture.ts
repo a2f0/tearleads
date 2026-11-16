@@ -8,7 +8,7 @@ import {
 import type { BlobBytes } from "../../src/data/blobs/blobContracts";
 import { attachmentContentSha256 } from "../../src/data/documents/attachmentContentIdentity";
 import type { DocumentAttachment } from "../../src/data/documents/documentContent";
-import { uploadDocumentAttachment } from "../../src/workflows/blobs/upload";
+import { createBlobAttachmentServiceFixture } from "./blobAttachmentServiceFixture";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
@@ -78,8 +78,8 @@ export async function createUploadedAttachmentFixture(input?: {
   const { getAssembledBytes, ...multipartApi } =
     createMultipartBlobStageFixture();
 
-  const uploaded = await uploadDocumentAttachment({
-    apiClient: {
+  const uploaded = await createBlobAttachmentServiceFixture({
+    api: {
       ...multipartApi,
       bindBlobAttachment: async (_blobId, request) => {
         return createBlobAttachmentBindResponse({
@@ -90,18 +90,19 @@ export async function createUploadedAttachmentFixture(input?: {
       },
       getDocumentWriterProjection: async () => writerProjection,
     },
+    encapsulationSecretKey: secretKey,
+    execSql,
+  }).uploadDocumentAttachment({
     author,
     bindingId,
     blobId,
     bytes,
     contentKey,
     documentId: writerProjection.documentId,
-    execSql,
     expectedBindingId: null,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,
-    targetSecretKey: secretKey,
   });
   const encryptedBytes = getAssembledBytes();
   if (!uploaded || !encryptedBytes) {

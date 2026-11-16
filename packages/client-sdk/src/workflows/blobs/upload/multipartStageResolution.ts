@@ -5,7 +5,7 @@ import type {
 import type { BlobEncryptionPlan } from "../../../data/blobs/attachments/crypto";
 import type {
   BlobAttachmentApi,
-  UploadDocumentAttachmentInput,
+  MultipartBlobUploadOptions,
 } from "../../../data/blobs/attachments/types";
 import {
   type MultipartFirstParts,
@@ -30,7 +30,7 @@ interface ResolveMultipartStageInput {
   readonly apiClient: BlobAttachmentApi;
   readonly concurrency: number;
   readonly encryption: BlobEncryptionPlan;
-  readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
+  readonly multipart: MultipartBlobUploadOptions;
   readonly organizationId: string;
   readonly onStageUnavailable?:
     | ((stageId: string) => Promise<void>)

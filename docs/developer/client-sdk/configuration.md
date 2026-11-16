@@ -128,6 +128,37 @@ It returns `false` unless a pass completes. Abort on unmount; cancellation
 releases only waiter-owned work. See the
 [on-demand lifecycle](../custom-document-persistence.md#on-demand-document-lifecycle).
 
+### Blob attachment service
+
+`BlobAttachmentService` replaces the free `uploadDocumentAttachment`,
+`hydrateDocumentAttachmentBlobs`, and `decryptDocumentAttachmentBlob` exports.
+Construct it with the collaborators those functions used to take on every call,
+then call the methods of the same names with what varies per call:
+
+```ts
+const blobs = new BlobAttachmentService({
+  api: apiClient,
+  execSql,
+  encapsulationSecretKey, // null until the identity has one
+  log,
+  reportSecurityIncident,
+});
+await blobs.uploadDocumentAttachment({
+  author,
+  bytes,
+  documentId,
+  expectedBindingId: null,
+  resolveProjectionUserKey,
+  slotId,
+});
+```
+
+The methods that unwrap a blob content key (upload, hydrate, and decrypt) throw
+when the service has no encapsulation secret key. Requests no longer accept
+`apiClient`, `execSql`, `targetSecretKey`, `log`, or `reportSecurityIncident`,
+and hydration no longer accepts the unused `logPrefix`. Every served page,
+binding, and ciphertext is verified as before.
+
 ### Sync and container recitation
 
 Loop `syncRemoteDocument(...)`; resume with `readPullContinuation(...)` and

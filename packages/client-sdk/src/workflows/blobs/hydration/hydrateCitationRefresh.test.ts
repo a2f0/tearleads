@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobBytesResponse,
   createFixtureBinding,
@@ -8,7 +9,6 @@ import {
 import { refreshedCitation } from "../../../../test/helpers/refreshedCitation";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
 import { createAttachmentDecryptor } from "../verification/attachmentDecryptor";
-import { hydrateDocumentAttachmentBlobs } from "./hydrate";
 
 for (const inScope of [false, true]) {
   for (const freshEvidence of [false, true]) {
@@ -30,8 +30,8 @@ for (const inScope of [false, true]) {
         let evictions = 0;
         let downloads = 0;
         const incidents: unknown[] = [];
-        const hydration = hydrateDocumentAttachmentBlobs({
-          apiClient: {
+        const hydration = createBlobAttachmentServiceFixture({
+          api: {
             evictDocumentWriterProjection: () => {
               evictions += 1;
             },
@@ -47,14 +47,15 @@ for (const inScope of [false, true]) {
             },
             listDocumentAttachments: async () => [binding],
           },
+          encapsulationSecretKey: fixture.secretKey,
+          execSql: fixture.execSql,
           reportSecurityIncident: async (error) => {
             incidents.push(error);
           },
+        }).hydrateDocumentAttachmentBlobs({
           attachments: [fixture.attachment],
           documentId: fixture.writerProjection.documentId,
-          execSql: fixture.execSql,
           resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-          targetSecretKey: fixture.secretKey,
         });
         if (inScope && freshEvidence) {
           expect(await hydration).toHaveLength(1);

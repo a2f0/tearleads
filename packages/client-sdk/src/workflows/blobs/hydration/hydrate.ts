@@ -1,13 +1,14 @@
-import type {
-  BlobBytesResponse,
-  RequestResultOptions,
-} from "@tearleads/api-client";
+import type { BlobBytesResponse } from "@tearleads/api-client";
 import { bytesToHex } from "@tearleads/crypto";
 import type {
   BlobAttachmentSummary,
   DocumentWriterProjectionResponse,
-  ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
+import {
+  type BlobAttachmentCollaborators,
+  requireEncapsulationSecretKey,
+} from "../../../data/blobs/attachments/collaborators";
+import type { DocumentAttachmentHydrationApi } from "../../../data/blobs/attachments/types";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { runBlobTransfer } from "../../../data/blobs/transferPool";
 import type { DocumentAttachment } from "../../../data/documents";
@@ -23,21 +24,7 @@ import { createAttachmentDecryptor } from "../verification/attachmentDecryptor";
 import { collectHydrationResults } from "./hydrationResults";
 import { readAttachmentTransfer } from "./readAttachmentTransfer";
 
-interface DocumentAttachmentHydrationApi {
-  evictDocumentWriterProjection?(documentId: string): void;
-  getBlobBytes(
-    blobId: string,
-    options?: RequestResultOptions,
-  ): Promise<BlobBytesResponse | null>;
-  getDocumentWriterProjection(
-    documentId: string,
-  ): Promise<DocumentWriterProjectionResponse | null>;
-  listDocumentAttachments(
-    documentId: string,
-  ): Promise<ListDocumentAttachmentsResponse | null>;
-}
-
-interface HydratedDocumentAttachmentBlob {
+export interface HydratedDocumentAttachmentBlob {
   attachment: DocumentAttachment;
   binding: BlobAttachmentSummary;
   bytes: BlobBytes;
@@ -55,16 +42,16 @@ interface HydratedDocumentAttachmentBlob {
   storageKey: string;
 }
 
-interface DocumentAttachmentHydrationContext {
-  apiClient: DocumentAttachmentHydrationApi;
+/** One hydration pass; the service supplies the API, executor, and key. */
+export interface HydrateDocumentAttachmentBlobsRequest {
+  attachments: ReadonlyArray<DocumentAttachment>;
   documentId: string;
-  execSql: ExecSql;
   localBlobIdBySlotId?:
     | Readonly<Record<string, string | null | undefined>>
     | undefined;
   localStorageKeyBySlotId?: Readonly<Record<string, string | undefined>>;
-  log?: ((message: string) => void) | undefined;
-  logPrefix?: string | undefined;
+  /** No binding target remains unchecked or unavailable in this pass. */
+  onBindingsChecked?: (() => void) | undefined;
   /**
    * Served bindings already downloaded and refused for a held copy, keyed per
    * (slot, binding, intent). Populated here; a later pass skips the download
@@ -72,10 +59,20 @@ interface DocumentAttachmentHydrationContext {
    */
   rejectedServedBindings?: Set<string> | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
-  reportSecurityIncident?: SecurityIncidentReporter | undefined;
-  targetSecretKey: Uint8Array;
   stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
+}
+
+interface DocumentAttachmentHydrationContext
+  extends Omit<
+    HydrateDocumentAttachmentBlobsRequest,
+    "attachments" | "onBindingsChecked"
+  > {
+  apiClient: DocumentAttachmentHydrationApi;
+  execSql: ExecSql;
+  log?: ((message: string) => void) | undefined;
+  reportSecurityIncident?: SecurityIncidentReporter | undefined;
+  targetSecretKey: Uint8Array;
 }
 
 function servedBindingRejectionKey(
@@ -153,7 +150,6 @@ async function loadDocumentAttachmentBlob(
   },
 ): Promise<LoadedDocumentAttachmentBlobBytes | null> {
   const { apiClient, binding, log } = input;
-  const logPrefix = input.logPrefix ?? "Documents";
   if (input.stillCurrent?.() === false) return null;
   input.signal.throwIfAborted();
   const blob = await apiClient.getBlobBytes(binding.blobId, {
@@ -172,7 +168,7 @@ async function loadDocumentAttachmentBlob(
     );
   } catch (error) {
     log?.(
-      `${logPrefix}: blob ${binding.blobId} failed to stream during hydration: ${errorMessage(
+      `Documents: blob ${binding.blobId} failed to stream during hydration: ${errorMessage(
         error,
       )}`,
     );
@@ -181,14 +177,14 @@ async function loadDocumentAttachmentBlob(
 
   if (encryptedBytes.byteLength !== blob.byteLength) {
     log?.(
-      `${logPrefix}: blob ${binding.blobId} byte length mismatch during hydration.`,
+      `Documents: blob ${binding.blobId} byte length mismatch during hydration.`,
     );
     return null;
   }
 
   if (!(await hasExpectedBlobSha256(blob, encryptedBytes))) {
     log?.(
-      `${logPrefix}: blob ${binding.blobId} sha256 mismatch during hydration.`,
+      `Documents: blob ${binding.blobId} sha256 mismatch during hydration.`,
     );
     return null;
   }
@@ -275,20 +271,19 @@ async function decryptLoadedDocumentAttachmentBlob(
   const { attachment, binding } = input.loaded;
   const contentSha256 = await attachmentContentSha256(bytes);
   const intentMismatch = contentSha256 !== attachment.contentSha256;
-  const logPrefix = input.logPrefix ?? "Documents";
   if (intentMismatch && input.localStorageKeyBySlotId?.[attachment.slotId]) {
     // Never replace a held copy with bytes the document does not record.
     input.rejectedServedBindings?.add(
       servedBindingRejectionKey(attachment, binding),
     );
     input.log?.(
-      `${logPrefix}: served attachment bytes differ from the current document content; keeping the held copy.`,
+      "Documents: served attachment bytes differ from the current document content; keeping the held copy.",
     );
     return null;
   }
   if (intentMismatch) {
     input.log?.(
-      `${logPrefix}: served attachment bytes differ from the current document content; showing them flagged.`,
+      "Documents: served attachment bytes differ from the current document content; showing them flagged.",
     );
   }
   return {
@@ -302,12 +297,20 @@ async function decryptLoadedDocumentAttachmentBlob(
 }
 
 export async function hydrateDocumentAttachmentBlobs(
-  input: DocumentAttachmentHydrationContext & {
-    attachments: ReadonlyArray<DocumentAttachment>;
-    /** No binding target remains unchecked or unavailable in this pass. */
-    onBindingsChecked?: () => void;
-  },
+  blobs: BlobAttachmentCollaborators,
+  request: HydrateDocumentAttachmentBlobsRequest,
 ): Promise<HydratedDocumentAttachmentBlob[] | null> {
+  const input = {
+    ...request,
+    apiClient: blobs.api,
+    execSql: blobs.execSql,
+    log: blobs.log,
+    reportSecurityIncident: blobs.reportSecurityIncident,
+    targetSecretKey: requireEncapsulationSecretKey(
+      blobs,
+      "Document attachment hydration",
+    ),
+  };
   const attachmentBindings = await input.apiClient.listDocumentAttachments(
     input.documentId,
   );
@@ -352,9 +355,8 @@ export async function hydrateDocumentAttachmentBlobs(
     input.documentId,
   );
   if (!writerProjection) {
-    const logPrefix = input.logPrefix ?? "Documents";
     input.log?.(
-      `${logPrefix}: cannot hydrate attachments for document ${input.documentId} without a writer projection.`,
+      `Documents: cannot hydrate attachments for document ${input.documentId} without a writer projection.`,
     );
     return [];
   }

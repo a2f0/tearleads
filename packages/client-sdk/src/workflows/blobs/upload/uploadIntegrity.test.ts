@@ -5,16 +5,20 @@ import type {
   BlobAttachmentBindResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { parseBlobEncryptedBytes } from "../../../data/blobs/attachments/readers";
+import type {
+  BlobAttachmentApi,
+  UploadDocumentAttachmentRequest,
+} from "../../../data/blobs/attachments/types";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
-import { uploadDocumentAttachment } from "./index";
 
-type UploadApi = Parameters<typeof uploadDocumentAttachment>[0]["apiClient"];
+type UploadApi = BlobAttachmentApi;
 
 function createUploadApi(input: {
   readonly mapBindResponse?:
@@ -100,11 +104,14 @@ for (const { label, message, tamper } of bindAcknowledgementTampers) {
 
     try {
       await expect(
-        uploadDocumentAttachment({
-          apiClient: createUploadApi({
+        createBlobAttachmentServiceFixture({
+          api: createUploadApi({
             mapBindResponse: tamper,
             writerProjection,
           }).apiClient,
+          encapsulationSecretKey: secretKey,
+          execSql,
+        }).uploadDocumentAttachment({
           author,
           bindingId: "550e8400-e29b-41d4-a716-446655440552",
           blobId: "550e8400-e29b-41d4-a716-446655440551",
@@ -112,12 +119,10 @@ for (const { label, message, tamper } of bindAcknowledgementTampers) {
             "tampered response bytes",
           ) as BlobBytes,
           documentId: writerProjection.documentId,
-          execSql,
           expectedBindingId: null,
           resolveProjectionUserKey,
           signedAt: "2026-04-27T00:00:01.000Z",
           slotId: "tampered-response-slot",
-          targetSecretKey: secretKey,
         }),
       ).rejects.toThrow(message);
     } finally {
@@ -145,22 +150,26 @@ test("uploadDocumentAttachment binds a reused nonce seed to the plaintext", asyn
       blobId,
       contentKey,
       documentId: writerProjection.documentId,
-      execSql,
       expectedBindingId: null,
       nonceSeed,
       resolveProjectionUserKey,
       slotId,
-      targetSecretKey: secretKey,
     };
-    const first = await uploadDocumentAttachment({
+    const first = await createBlobAttachmentServiceFixture({
+      api: firstApi.apiClient,
+      encapsulationSecretKey: secretKey,
+      execSql,
+    }).uploadDocumentAttachment({
       ...commonInput,
-      apiClient: firstApi.apiClient,
       bytes: new TextEncoder().encode("first blob payload") as BlobBytes,
       signedAt: "2026-04-27T00:00:01.000Z",
     });
-    const second = await uploadDocumentAttachment({
+    const second = await createBlobAttachmentServiceFixture({
+      api: secondApi.apiClient,
+      encapsulationSecretKey: secretKey,
+      execSql,
+    }).uploadDocumentAttachment({
       ...commonInput,
-      apiClient: secondApi.apiClient,
       bytes: new TextEncoder().encode("other blob payload") as BlobBytes,
       // JavaScript callers can attach extra fields. The public workflow must
       // ignore a forged precomputed snapshot and inspect its source itself.
@@ -171,7 +180,7 @@ test("uploadDocumentAttachment binds a reused nonce seed to the plaintext", asyn
         sha256: "0".repeat(64),
       },
       signedAt: "2026-04-27T00:00:02.000Z",
-    } as unknown as Parameters<typeof uploadDocumentAttachment>[0]);
+    } as unknown as UploadDocumentAttachmentRequest);
     if (!first || !second) {
       throw new Error("Expected uploaded blob fixtures.");
     }

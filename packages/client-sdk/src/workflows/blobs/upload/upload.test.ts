@@ -7,6 +7,7 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
@@ -26,7 +27,6 @@ import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { readContainerState } from "../../../data/containers/shared/projection";
 import { ensurePrincipalPolicyTables } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../../documents/create";
-import { uploadDocumentAttachment } from "./index";
 
 const MIN_MULTIPART_CHUNK_SIZE = 5 * 1024 * 1024;
 
@@ -48,8 +48,8 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
   const { getAssembledBytes, ...multipartApi } = multipart;
   const { close, execSql } = await createTestExecSql("blob-key-wrap-suite");
 
-  const uploaded = await uploadDocumentAttachment({
-    apiClient: {
+  const uploaded = await createBlobAttachmentServiceFixture({
+    api: {
       ...multipartApi,
       bindBlobAttachment: async (requestBlobId, request, options) => {
         requestedOrganizationId =
@@ -64,17 +64,18 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
       },
       getDocumentWriterProjection: async () => writerProjection,
     },
+    encapsulationSecretKey: secretKey,
+    execSql,
+  }).uploadDocumentAttachment({
     author,
     bindingId,
     blobId,
     bytes: new Uint8Array([1, 2, 3, 4]) as BlobBytes,
     documentId: writerProjection.documentId,
-    execSql,
     expectedBindingId: null,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,
-    targetSecretKey: secretKey,
   });
   close();
 
@@ -113,8 +114,8 @@ test("uploadDocumentAttachment stages binary v2 with multipart uploads", async (
   const firstPartNumbers: number[] = [];
   const { close, execSql } = await createTestExecSql("multipart-blob-upload");
 
-  const uploaded = await uploadDocumentAttachment({
-    apiClient: {
+  const uploaded = await createBlobAttachmentServiceFixture({
+    api: {
       getDocumentWriterProjection: async () => writerProjection,
       getMultipartBlobStage: multipart.getMultipartBlobStage,
       initiateMultipartBlobStage: async (request) => {
@@ -139,18 +140,19 @@ test("uploadDocumentAttachment stages binary v2 with multipart uploads", async (
         return response;
       },
     },
+    encapsulationSecretKey: secretKey,
+    execSql,
+  }).uploadDocumentAttachment({
     author,
     bindingId,
     blobId,
     bytes: new Uint8Array(MIN_MULTIPART_CHUNK_SIZE + 128) as BlobBytes,
     documentId: writerProjection.documentId,
-    execSql,
     expectedBindingId: null,
     multipart: { partSize: MIN_MULTIPART_CHUNK_SIZE },
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,
-    targetSecretKey: secretKey,
   });
   close();
 
@@ -247,23 +249,24 @@ test("uploadDocumentAttachment refuses missing managed-policy evidence before st
   try {
     await ensurePrincipalPolicyTables(execSql);
     await expect(
-      uploadDocumentAttachment({
-        apiClient: {
+      createBlobAttachmentServiceFixture({
+        api: {
           ...createMultipartBlobStageFixture(),
           bindBlobAttachment: async () => {
             throw new Error("Unexpected bind");
           },
           getDocumentWriterProjection: async () => managedWriterProjection,
         },
+        encapsulationSecretKey: secretKey,
+        execSql,
+      }).uploadDocumentAttachment({
         author,
         blobId: "550e8400-e29b-41d4-a716-446655440567",
         bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
         documentId: writerProjection.documentId,
-        execSql,
         expectedBindingId: null,
         resolveProjectionUserKey,
         slotId: "preview",
-        targetSecretKey: secretKey,
         warmReferencedPrincipalPolicies: async (request) => {
           requests.push(request);
           throw new Error("Attachment upload policy warmer reached");
@@ -323,8 +326,8 @@ test("uploadDocumentAttachment rejects substituted KEK material before staging",
   const { close, execSql } = await createTestExecSql("substituted-blob-kek");
 
   await expect(
-    uploadDocumentAttachment({
-      apiClient: {
+    createBlobAttachmentServiceFixture({
+      api: {
         ...multipart,
         bindBlobAttachment: async () => {
           bindCalled = true;
@@ -336,16 +339,17 @@ test("uploadDocumentAttachment rejects substituted KEK material before staging",
           return multipart.initiateMultipartBlobStage(request);
         },
       },
+      encapsulationSecretKey: parent.secretKey,
+      execSql,
+    }).uploadDocumentAttachment({
       author: parent.author,
       blobId: "550e8400-e29b-41d4-a716-446655440113",
       bytes: new Uint8Array([8, 9, 10]) as BlobBytes,
       documentId: writerProjection.documentId,
-      execSql,
       expectedBindingId: null,
       resolveProjectionUserKey,
       signedAt: "2026-04-27T00:00:00.000Z",
       slotId: "preview",
-      targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow("KEK material does not match committed epoch id");
   close();

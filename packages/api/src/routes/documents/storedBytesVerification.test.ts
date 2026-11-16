@@ -1,13 +1,12 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import {
+  BlobAttachmentService,
   createRemoteContainer,
   createRemoteDocument,
-  decryptDocumentAttachmentBlob,
   rekeyRemoteContainer,
   syncRemoteDocument,
   unwrapContainerKekPath,
-  uploadDocumentAttachment,
 } from "@tearleads/client-sdk";
 import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
@@ -136,7 +135,12 @@ test("a cold device verifies every hash-acknowledged write from its stored bytes
     // Attachment bind.
     client.clearWriterProjectionCaches();
     const plaintext = new Uint8Array([2, 7, 1, 8, 2, 8]);
-    const uploaded = await uploadDocumentAttachment({
+    const uploaded = await new BlobAttachmentService({
+      api: client,
+      encapsulationSecretKey: common.targetSecretKey,
+      execSql: common.execSql,
+      reportSecurityIncident: common.reportSecurityIncident,
+    }).uploadDocumentAttachment({
       ...common,
       bytes: plaintext,
       contentKey: crypto.getRandomValues(new Uint8Array(32)),
@@ -193,7 +197,12 @@ test("a cold device verifies every hash-acknowledged write from its stored bytes
     const encrypted = await fresh.getBlobBytes(uploaded.blobId);
     if (!encrypted) throw new Error("Expected stored encrypted blob bytes");
     expect(
-      await decryptDocumentAttachmentBlob({
+      await new BlobAttachmentService({
+        api: fresh,
+        encapsulationSecretKey: owner.kem.secretKey,
+        execSql: coldCommon.execSql,
+        reportSecurityIncident: coldCommon.reportSecurityIncident,
+      }).decryptDocumentAttachmentBlob({
         ...coldCommon,
         binding,
         encryptedBytes: new Uint8Array(
@@ -201,7 +210,6 @@ test("a cold device verifies every hash-acknowledged write from its stored bytes
         ),
         expectedDocumentId: created.documentId,
         expectedSlotId: SLOT_ID,
-        targetSecretKey: owner.kem.secretKey,
         writerProjection: servedDocument,
       }),
     ).toEqual(plaintext);

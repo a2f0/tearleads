@@ -9,6 +9,7 @@ import type {
   BlobAttachmentSummary,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { createBlobAttachmentServiceFixture } from "../../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
@@ -25,7 +26,6 @@ import {
   createStoredDocumentWriterProjection,
 } from "../../../../../test/helpers/onlineDocumentStoreFixtures";
 import { waitFor } from "../../../../../test/helpers/waitFor";
-import { decryptDocumentAttachmentBlob } from "../../../../workflows/blobs";
 import { defaultDocumentsPersistence } from "../../../../workflows/documents";
 import { createDocumentStore } from "../index";
 
@@ -192,14 +192,17 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     expect(syncCalls.some((call) => call.outgoingUpdateCount === 1)).toBe(true);
     expect(store.getSnapshot().attachments).toHaveLength(1);
 
-    const decryptedBytes = await decryptDocumentAttachmentBlob({
+    const blobAttachments = createBlobAttachmentServiceFixture({
+      api: {},
+      encapsulationSecretKey: fixture.secretKey,
+      execSql,
+    });
+    const decryptedBytes = await blobAttachments.decryptDocumentAttachmentBlob({
       binding: attachment,
       encryptedBytes: blob.encryptedBytes,
       expectedDocumentId: projection.documentId,
       expectedSlotId: attachment.slotId,
-      execSql,
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-      targetSecretKey: fixture.secretKey,
       writerProjection: projection,
     });
     expect(new TextDecoder().decode(decryptedBytes)).toBe(
@@ -207,14 +210,12 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     );
 
     await expect(
-      decryptDocumentAttachmentBlob({
+      blobAttachments.decryptDocumentAttachmentBlob({
         binding: { ...attachment, bindingId: "wrong-binding-id" },
         encryptedBytes: blob.encryptedBytes,
         expectedDocumentId: projection.documentId,
         expectedSlotId: attachment.slotId,
-        execSql,
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-        targetSecretKey: fixture.secretKey,
         writerProjection: projection,
       }),
     ).rejects.toThrow(
@@ -224,14 +225,12 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     const invalidMagic = blob.encryptedBytes.slice();
     invalidMagic[0] = (invalidMagic[0] ?? 0) ^ 0xff;
     await expect(
-      decryptDocumentAttachmentBlob({
+      blobAttachments.decryptDocumentAttachmentBlob({
         binding: attachment,
         encryptedBytes: invalidMagic,
         expectedDocumentId: projection.documentId,
         expectedSlotId: attachment.slotId,
-        execSql,
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-        targetSecretKey: fixture.secretKey,
         writerProjection: projection,
       }),
     ).rejects.toThrow("Blob encrypted bytes magic is invalid");
@@ -242,7 +241,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       throw new Error("Expected uploaded blob content-key target.");
     }
     await expect(
-      decryptDocumentAttachmentBlob({
+      blobAttachments.decryptDocumentAttachmentBlob({
         binding: {
           ...attachment,
           contentKeyBundle: {
@@ -259,9 +258,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
         encryptedBytes: blob.encryptedBytes,
         expectedDocumentId: projection.documentId,
         expectedSlotId: attachment.slotId,
-        execSql,
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-        targetSecretKey: fixture.secretKey,
         writerProjection: projection,
       }),
     ).rejects.toThrow("target hash is not canonical");
