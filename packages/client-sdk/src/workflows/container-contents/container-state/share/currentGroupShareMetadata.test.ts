@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/currentShareMetadata";
-import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { resolveCurrentGroupKeyEpoch } from "./groupShareEpoch";
 
 for (const correctName of [true, false]) {
@@ -17,8 +17,9 @@ for (const correctName of [true, false]) {
       else {
         await expect(epoch).rejects.toMatchObject({ code: "object_mismatch" });
         expect(
-          await loadPrincipalPolicyCheckpoint(
+          await new KeyingCheckpointRepository(
             f.options.execSql,
+          ).loadPrincipalPolicyCheckpoint(
             "group",
             f.group.currentState.principalId,
           ),

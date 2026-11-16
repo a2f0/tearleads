@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import {
-  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
-  type LocallyAcknowledgedAccessManifestHead,
-} from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import type { LocallyAcknowledgedAccessManifestHead } from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
@@ -87,13 +85,15 @@ test.each(cases)(
       "registration-head-guard",
     );
     try {
-      await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+      await new KeyingCheckpointRepository(
         execSql,
+      ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
         heads: [genesis],
       });
       for (const epoch of [2, 3]) {
-        await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+        await new KeyingCheckpointRepository(
           execSql,
+        ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
           heads: [
             {
               checkpoint: {

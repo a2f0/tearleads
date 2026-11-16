@@ -16,10 +16,7 @@ import type { CreateOrganizationResponse } from "@tearleads/validators/response"
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
-import {
-  loadAccessManifestCheckpoint,
-  loadPrincipalPolicyCheckpoint,
-} from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicy/principalPolicyPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createOrganization } from "../organizations/provisioning/createOrganization";
@@ -140,8 +137,9 @@ async function expectStoredAccessHeads(
 ): Promise<void> {
   for (const head of expected) {
     expect(
-      await loadAccessManifestCheckpoint(
+      await new KeyingCheckpointRepository(
         execSql,
+      ).loadAccessManifestCheckpoint(
         head.objectKind,
         head.organizationId,
         head.objectId,
@@ -174,8 +172,7 @@ async function expectStoredOrganizationPolicy(
     }),
   );
   expect(
-    await loadPrincipalPolicyCheckpoint(
-      execSql,
+    await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
       "organization",
       request.organizationId,
     ),
@@ -246,8 +243,9 @@ test("an incomplete provisioning acknowledgement persists no bootstrap state", a
     );
     const capturedRequest = requireCapturedRequest(request);
     expect(
-      await loadAccessManifestCheckpoint(
+      await new KeyingCheckpointRepository(
         execSql,
+      ).loadAccessManifestCheckpoint(
         "container",
         capturedRequest.organizationId,
         capturedRequest.rootContainerId,

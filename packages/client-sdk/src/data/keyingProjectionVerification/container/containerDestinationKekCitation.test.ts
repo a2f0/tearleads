@@ -14,7 +14,7 @@ import {
 } from "@tearleads/validators/response";
 import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { advanceKeyingCheckpointsAtomically } from "../../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadVerifiedManifestCitations } from "../../persistence/verifiedManifestBundlePersistence";
 import { containerTables } from "../../sqlite/schema";
 import { containers } from "../../sqlite/schema/containerSchema";
@@ -117,9 +117,10 @@ test("levels a destination check served become citable; a forged held level is r
       ...servedLevel,
       keyTargetHash: "f".repeat(64),
     };
-    await advanceKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      database.execSql,
+    ).advanceKeyingCheckpointsAtomically({
       access: [],
-      execSql: database.execSql,
       policies: [],
       verifiedBundles: [
         { kekLevel: forged, organizationId: projection.organizationId },

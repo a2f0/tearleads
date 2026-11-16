@@ -7,7 +7,7 @@ import {
   assertHeldContainerBinding,
   type HeldContainerBinding,
 } from "../../../../data/persistence/container-contents/containerBinding";
-import { persistOrganizationReplacementCheckpoints } from "../../../../data/persistence/keyingCheckpoints/organizationReplacementCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadOrganizationFounder } from "../../../../data/persistence/organizationFounderPersistence";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 import type { DestinationRole } from "./destinationRoleCache";
@@ -75,9 +75,10 @@ async function acceptsSharedReplacement(
     );
   // The founder also commits the reserved groups' genesis. Pin those even
   // when the readable folder's projection does not cite both groups yet.
-  await persistOrganizationReplacementCheckpoints({
+  await new KeyingCheckpointRepository(
+    runtime.infra.execSql,
+  ).persistOrganizationReplacementCheckpoints({
     authorization: last,
-    execSql: runtime.infra.execSql,
     stillCurrent: input.stillCurrent,
   });
   return true;

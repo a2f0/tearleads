@@ -1,37 +1,14 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { eq, inArray } from "drizzle-orm";
-import {
-  documentPurgeCheckpoints,
-  keyingCheckpointTables,
-} from "../../sqlite/schema/keyingCheckpointSchema";
+import { documentPurgeCheckpoints } from "../../sqlite/schema/keyingCheckpointSchema";
 import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
 export interface DocumentPurgeCheckpoint {
   readonly documentId: string;
   readonly documentManifestHash: string;
   readonly organizationId: string;
   readonly purgeEventHash: string;
-}
-
-export async function loadDocumentPurgeCheckpoint(
-  execSql: ExecSql,
-  documentId: string,
-): Promise<DocumentPurgeCheckpoint | null> {
-  await ensureSqlTables(execSql, keyingCheckpointTables);
-  const [row] = await getClientSQLitePersistenceRuntime(execSql)
-    .db.select({
-      documentId: documentPurgeCheckpoints.documentId,
-      documentManifestHash: documentPurgeCheckpoints.documentManifestHash,
-      organizationId: documentPurgeCheckpoints.organizationId,
-      purgeEventHash: documentPurgeCheckpoints.purgeEventHash,
-    })
-    .from(documentPurgeCheckpoints)
-    .where(eq(documentPurgeCheckpoints.documentId, documentId))
-    .limit(1);
-  return row ?? null;
 }
 
 /** Whether the document was permanently purged, read in the caller's transaction. */

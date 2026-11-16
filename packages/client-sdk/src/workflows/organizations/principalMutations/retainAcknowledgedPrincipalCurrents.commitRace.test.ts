@@ -2,8 +2,7 @@ import { expect, test } from "bun:test";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { recoverScopedPrincipalPolicyHistory } from "../../principals/historyRecovery/recoverScopedPrincipalPolicyHistory";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
@@ -26,8 +25,9 @@ test("a reader winning after reconciliation retries local retention without repl
             ...f.options,
             reference: principalPolicyHead(latest),
           });
-          await advanceKeyingCheckpointsAtomically({
-            execSql: f.options.execSql,
+          await new KeyingCheckpointRepository(
+            f.options.execSql,
+          ).advanceKeyingCheckpointsAtomically({
             organizationId: history.organizationId,
             access: [],
             policies: [...recovered.dependencies, recovered.policy],
@@ -51,11 +51,9 @@ test("a reader winning after reconciliation retries local retention without repl
     expect(policies.map((policy) => policy.version)).toEqual([67, 67]);
     expect(f.requests.length).toBe(readerRequests);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "organization",
-        history.organizationId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
     ).toMatchObject({ version: 68, stateHash: latest.currentState.stateHash });
   } finally {
     f.close();

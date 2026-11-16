@@ -12,7 +12,7 @@ import {
 } from "../../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import type { ReferencedPrincipalPolicyWarmer } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../../data/principals/principalPolicyCoordinator";
 import {
   createPrincipalPolicyOperation,
@@ -27,8 +27,9 @@ beforeAll(async () => {
 
 async function fixture() {
   const source = await createAuthorityRecoveryFixture(history);
-  await loadPrincipalPolicyCheckpoint(
+  await new KeyingCheckpointRepository(
     source.options.execSql,
+  ).loadPrincipalPolicyCheckpoint(
     "group",
     history.group.currentState.principalId,
   );

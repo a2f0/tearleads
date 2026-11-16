@@ -5,7 +5,7 @@ import {
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnforcement";
 
@@ -88,10 +88,18 @@ test("first sight pins only explicitly declared heads", async () => {
     });
 
     await expect(
-      loadAccessManifestCheckpoint(execSql, "container", ORG, OBJECT),
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
+        "container",
+        ORG,
+        OBJECT,
+      ),
     ).resolves.toMatchObject({ epoch: 1, manifestHash: hex("a1") });
     await expect(
-      loadAccessManifestCheckpoint(execSql, "container", ORG, "former-parent"),
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
+        "container",
+        ORG,
+        "former-parent",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -110,7 +118,11 @@ test("hidden future history cannot satisfy a rolled-back declared head", async (
       "rollback",
     );
     await expect(
-      loadAccessManifestCheckpoint(execSql, "container", ORG, OBJECT),
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
+        "container",
+        ORG,
+        OBJECT,
+      ),
     ).resolves.toMatchObject({ epoch: 2, manifestHash: hex("h2") });
   } finally {
     close();
@@ -127,7 +139,11 @@ test("future history is rejected on first sight instead of becoming the pin", as
       "stale_predecessor",
     );
     await expect(
-      loadAccessManifestCheckpoint(execSql, "container", ORG, OBJECT),
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
+        "container",
+        ORG,
+        OBJECT,
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -149,7 +165,11 @@ test("gap extension requires a contiguous predecessor chain", async () => {
       heads: [epoch4],
     });
     await expect(
-      loadAccessManifestCheckpoint(execSql, "container", ORG, OBJECT),
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
+        "container",
+        ORG,
+        OBJECT,
+      ),
     ).resolves.toMatchObject({ epoch: 4, manifestHash: hex("h4") });
   } finally {
     close();
@@ -247,7 +267,11 @@ test("a failing batch leaves every candidate unchanged", async () => {
       "rollback",
     );
     await expect(
-      loadAccessManifestCheckpoint(execSql, "container", ORG, "container-a"),
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
+        "container",
+        ORG,
+        "container-a",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();

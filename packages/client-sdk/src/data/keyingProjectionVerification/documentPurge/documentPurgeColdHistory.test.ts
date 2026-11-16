@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeChain";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   verifyDocumentPurgeProof,
   verifyDocumentPurgeProofBaseline,
@@ -24,8 +24,9 @@ test("a fresh device verifies purge history from signed genesis without pinning 
       fixture.proof.documentManifest.manifestHash,
     );
     expect(
-      await loadAccessManifestCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "document",
         fixture.author.organizationId,
         fixture.proof.documentId,
@@ -52,8 +53,9 @@ test("a fresh device verifies purge history from signed genesis without pinning 
     expect(requestedFloors).toEqual([undefined]);
     expect(deletions).toBe(1);
     expect(
-      await loadAccessManifestCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "document",
         fixture.author.organizationId,
         fixture.proof.documentId,
@@ -94,8 +96,9 @@ test("a fresh device refuses a purge chain with a forged genesis signature", asy
       }),
     ).rejects.toThrow("signature verification failed");
     expect(
-      await loadAccessManifestCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "document",
         fixture.author.organizationId,
         proof.documentId,

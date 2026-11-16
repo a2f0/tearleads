@@ -10,7 +10,7 @@ import {
   type ProjectionCheckpointContext,
 } from "../../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createRuntimePrincipalPolicyWarmer } from "../runtimePolicyWarmer";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
@@ -21,8 +21,9 @@ beforeAll(async () => {
 async function fixture() {
   const source = await createAuthorityRecoveryFixture(history);
   source.controls.conditional = true;
-  await loadPrincipalPolicyCheckpoint(
+  await new KeyingCheckpointRepository(
     source.options.execSql,
+  ).loadPrincipalPolicyCheckpoint(
     "group",
     history.group.currentState.principalId,
   );

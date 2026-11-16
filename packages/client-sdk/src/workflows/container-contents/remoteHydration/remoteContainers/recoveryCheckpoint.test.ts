@@ -6,7 +6,7 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
 import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification/container/containerProjectionVerification";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
@@ -65,8 +65,9 @@ test.each(["before verification", "before insertion"])(
         plan: moved.plan,
         previousProjection: original,
       });
-      const pinned = await loadAccessManifestCheckpoint(
+      const pinned = await new KeyingCheckpointRepository(
         moveExecSql,
+      ).loadAccessManifestCheckpoint(
         "container",
         original.organizationId,
         original.containerId,
@@ -168,8 +169,9 @@ test.each(["before verification", "before insertion"])(
         await persistence.loadContainerHydrationTombstones(execSql),
       ).toEqual([]);
       expect(
-        await loadAccessManifestCheckpoint(
+        await new KeyingCheckpointRepository(
           execSql,
+        ).loadAccessManifestCheckpoint(
           "container",
           original.organizationId,
           original.containerId,

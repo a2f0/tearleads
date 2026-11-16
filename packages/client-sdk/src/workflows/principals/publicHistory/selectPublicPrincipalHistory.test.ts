@@ -3,7 +3,7 @@ import { principalPolicyMatchesReference } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
 import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalHistoryEntries } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { PrincipalHistoryEvidenceUnavailableError } from "../historyRecovery/principalHistoryRecoveryReferences";
 import { recoverPublicPrincipalHistory } from "./recoverPublicPrincipalHistory";
@@ -78,8 +78,9 @@ test("public selections prove more than one citation batch without advancing pin
       ).toBe(true);
     }
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         history.bundle.currentState.principalId,
       ),
@@ -147,8 +148,9 @@ test("public selections authenticate a damaged citation before comparing its cal
       selectPublicPrincipalHistory(f.selection),
     ).rejects.toBeInstanceOf(PrincipalHistoryEvidenceUnavailableError);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         history.bundle.currentState.principalId,
       ),

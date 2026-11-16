@@ -3,7 +3,7 @@ import {
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { createSelectedCurrentGroupMetadataContainerVerifier } from "../groupMetadata/currentGroupMetadataAuthority";
@@ -105,9 +105,10 @@ export function createRuntimeCurrentSharePrincipalPolicy(
         });
         assertProjectionVerificationCurrent(stillCurrent);
         const checkpointPolicies = [...group.dependencies, group.policy];
-        await advanceKeyingCheckpointsAtomically({
+        await new KeyingCheckpointRepository(
+          runtime.infra.execSql,
+        ).advanceKeyingCheckpointsAtomically({
           access: [],
-          execSql: runtime.infra.execSql,
           organizationId: input.organizationId,
           policies: checkpointPolicies,
           stillCurrent,

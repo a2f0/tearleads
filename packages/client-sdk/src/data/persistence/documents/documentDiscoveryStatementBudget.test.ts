@@ -4,7 +4,7 @@ import { countingExecSql } from "../../../../test/helpers/statementCounting";
 import type { DiscoveredDocumentInput } from "../../documents/documentSummary";
 import { deriveStableDocumentId } from "../../documents/shared/stableDocumentId";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import { advanceKeyingCheckpointsAtomically } from "../keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
 import {
   sqlDocumentsPersistence,
   upsertDiscoveredDocuments,
@@ -167,7 +167,9 @@ test("a purged input fails the whole batch before anything commits", async () =>
   const sqlite = await createTestExecSql("document-discovery-set-purge");
   try {
     await sqlDocumentsPersistence.ensureSchema(sqlite.execSql);
-    await advanceKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      sqlite.execSql,
+    ).advanceKeyingCheckpointsAtomically({
       access: [],
       documentPurgeCheckpoint: {
         documentId: "remote-1",
@@ -175,7 +177,6 @@ test("a purged input fails the whole batch before anything commits", async () =>
         organizationId: "organization",
         purgeEventHash: "purge-event-hash",
       },
-      execSql: sqlite.execSql,
       policies: [],
     });
     await expect(

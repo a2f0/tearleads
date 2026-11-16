@@ -18,8 +18,7 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
-import { loadDocumentPurgeCheckpoint } from "../keyingCheckpoints/documentPurgeCheckpointPersistence";
-import { loadAccessManifestCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
 import { heldTombstoneRetryDelayMs } from "./containerDocumentTombstoneHoldsPersistence";
 import {
   type DiscoveredDocumentCandidate,
@@ -287,7 +286,11 @@ class SqlDocumentDiscoveryEvidenceStore
     documentId: string,
     manifestHash: string | null | undefined,
   ) => {
-    if (await loadDocumentPurgeCheckpoint(this.execSql, documentId))
+    if (
+      await new KeyingCheckpointRepository(
+        this.execSql,
+      ).loadDocumentPurgeCheckpoint(documentId)
+    )
       return {
         organizationId: null,
         accessEpoch: Number.MAX_SAFE_INTEGER,
@@ -310,12 +313,9 @@ class SqlDocumentDiscoveryEvidenceStore
     // signed checkpoint without updating documents.accessEpoch or this cache.
     // Old-organization pins survive recovery; only the cached signed head's
     // organization can authorize reuse. Missing pins require full verification.
-    const checkpoint = await loadAccessManifestCheckpoint(
+    const checkpoint = await new KeyingCheckpointRepository(
       this.execSql,
-      "document",
-      row.organizationId,
-      documentId,
-    );
+    ).loadAccessManifestCheckpoint("document", row.organizationId, documentId);
     if (
       checkpoint?.manifestHash !== row.manifestHash ||
       checkpoint.epoch !== row.accessEpoch

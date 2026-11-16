@@ -3,7 +3,7 @@ import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../../test/helpers/principalAuthorityRecovery";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
@@ -102,11 +102,9 @@ test("an unconfirmed pending write prevents mutation context discovery", async (
     ).rejects.toThrow("outcome unknown");
     expect(f.requests).toHaveLength(0);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "group",
-        f.input.groupId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("group", f.input.groupId),
     ).toBeNull();
   } finally {
     f.close();

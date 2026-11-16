@@ -9,7 +9,7 @@ import {
 } from "../../../../test/helpers/principalReciteFixtures";
 import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { buildMaterializedContainerCreatePlan } from "../child/create";
 import { childContainerWriterProjectionFromCreatePlan } from "../child/create/createProjection";
 import {
@@ -77,9 +77,10 @@ test.each([false, true])(
       });
       // The real group-policy commit pins its acknowledged policy before this
       // container acknowledgement schedules optional descendant work.
-      await advanceKeyingCheckpointsAtomically({
+      await new KeyingCheckpointRepository(
+        fixture.database.execSql,
+      ).advanceKeyingCheckpointsAtomically({
         access: [],
-        execSql: fixture.database.execSql,
         organizationId: ORGANIZATION_ID,
         policies: [fixture.input.nextPolicy],
       });

@@ -1,6 +1,6 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
 import {
   parseOrganizationAuthorityDescriptor,
@@ -22,8 +22,9 @@ type Input = Pick<
 /** Cached directory policies are reusable only at the exact projected head. */
 export async function loadGroupNameDirectoryAuthority(input: Input) {
   const load = async (reference: ReferencedPrincipalHead) => {
-    const checkpoint = await loadPrincipalPolicyCheckpoint(
+    const checkpoint = await new KeyingCheckpointRepository(
       input.execSql,
+    ).loadPrincipalPolicyCheckpoint(
       reference.principalType,
       reference.principalId,
     );

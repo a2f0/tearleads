@@ -1,11 +1,8 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { loadAccessManifestCheckpoint } from "./keyingCheckpointPersistence";
-import {
-  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
-  type LocallyAcknowledgedAccessManifestHead,
-} from "./locallyAcknowledgedCheckpointPersistence";
+import { KeyingCheckpointRepository } from "./keyingCheckpointRepository";
+import type { LocallyAcknowledgedAccessManifestHead } from "./locallyAcknowledgedCheckpointPersistence";
 
 const manifestHash = (digit: string): string => digit.repeat(64);
 
@@ -43,22 +40,24 @@ test("locally acknowledged heads advance only through a direct chain", async () 
   });
 
   try {
-    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    await new KeyingCheckpointRepository(
       execSql,
+    ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
       heads: [epoch1],
     });
-    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    await new KeyingCheckpointRepository(
       execSql,
+    ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
       heads: [epoch1],
     });
-    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    await new KeyingCheckpointRepository(
       execSql,
+    ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
       heads: [epoch2],
     });
 
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         "organization-1",
         "container-1",
@@ -105,8 +104,9 @@ test.each([
   });
 
   try {
-    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    await new KeyingCheckpointRepository(
       execSql,
+    ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
       heads: [
         head({
           epoch: 1,
@@ -115,15 +115,17 @@ test.each([
         }),
       ],
     });
-    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    await new KeyingCheckpointRepository(
       execSql,
+    ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
       heads: [epoch2],
     });
 
     let thrown: unknown;
     try {
-      await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+      await new KeyingCheckpointRepository(
         execSql,
+      ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
         heads: [rejected],
       });
     } catch (error) {
@@ -132,8 +134,7 @@ test.each([
     expect(thrown).toBeInstanceOf(KeyingVerificationError);
     expect((thrown as KeyingVerificationError).code).toBe(code);
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         "organization-1",
         "container-1",
@@ -150,8 +151,9 @@ test("locally acknowledged batches roll back every head on conflict", async () =
   );
 
   try {
-    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    await new KeyingCheckpointRepository(
       execSql,
+    ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
       heads: [
         head({
           epoch: 1,
@@ -162,8 +164,9 @@ test("locally acknowledged batches roll back every head on conflict", async () =
       ],
     });
     await expect(
-      advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+      new KeyingCheckpointRepository(
         execSql,
+      ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
         heads: [
           head({
             epoch: 1,
@@ -181,8 +184,7 @@ test("locally acknowledged batches roll back every head on conflict", async () =
       }),
     ).rejects.toMatchObject({ code: "equivocation" });
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         "organization-1",
         "new",

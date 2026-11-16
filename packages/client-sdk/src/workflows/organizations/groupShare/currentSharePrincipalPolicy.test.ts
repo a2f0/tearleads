@@ -3,7 +3,7 @@ import { readTestGroupName } from "../../../../test/helpers/groupMetadata";
 import { createLocalAuthorityRecoveryFixture } from "../../../../test/helpers/principalAuthorityLocal";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { PrincipalHistoryProtectionLease } from "../../../data/principals/principalHistoryProtection";
 import {
   principalPolicyBundles,
@@ -156,11 +156,9 @@ test("pending mutation failure prevents current share discovery and use", async 
     expect(used).toBe(false);
     expect(f.requests).toHaveLength(0);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "group",
-        f.input.groupId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("group", f.input.groupId),
     ).toBeNull();
   } finally {
     f.close();

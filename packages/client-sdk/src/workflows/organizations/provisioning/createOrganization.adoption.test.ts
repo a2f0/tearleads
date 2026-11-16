@@ -7,11 +7,7 @@ import {
 } from "../../../../test/helpers/organizationAdoption";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
-import {
-  loadAccessManifestCheckpoint,
-  loadPrincipalPolicyCheckpoint,
-} from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { advanceLocallyAcknowledgedAccessManifestHeadsAtomically } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 
 // Every head family is exercised together: root, reserved and app-owned
@@ -24,8 +20,9 @@ test.each([true, false])(
     try {
       const genesis = await adoptionAccessHeads(request);
       expect(genesis).toHaveLength(10);
-      await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+      await new KeyingCheckpointRepository(
         execSql,
+      ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
         heads: genesis,
       });
       const advanced = genesis.map((head, index) => ({
@@ -36,8 +33,9 @@ test.each([true, false])(
         },
         previousManifestHash: head.checkpoint.manifestHash,
       }));
-      await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+      await new KeyingCheckpointRepository(
         execSql,
+      ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
         heads: advanced,
       });
       const store = createDocumentDiscoveryEvidenceStore(execSql);
@@ -69,8 +67,9 @@ test.each([true, false])(
       expect(await fixture.retry()).toEqual(fixture.response);
       for (const { checkpoint } of advanced) {
         expect(
-          await loadAccessManifestCheckpoint(
+          await new KeyingCheckpointRepository(
             execSql,
+          ).loadAccessManifestCheckpoint(
             checkpoint.objectKind,
             checkpoint.organizationId,
             checkpoint.objectId,
@@ -109,12 +108,14 @@ test("adoption skips an advanced root but still finishes missing siblings", asyn
         head.checkpoint.objectId === request.rootContainerId,
     );
     if (!root) throw new Error("Missing root head");
-    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    await new KeyingCheckpointRepository(
       execSql,
+    ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
       heads: [root],
     });
-    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    await new KeyingCheckpointRepository(
       execSql,
+    ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
       heads: [
         {
           checkpoint: {
@@ -166,20 +167,16 @@ test.each(["admin", "member", "organization"] as const)(
       );
       await acknowledgePolicy(execSql, request.organizationId, advanced);
       const state = advanced.currentState;
-      const before = await loadPrincipalPolicyCheckpoint(
+      const before = await new KeyingCheckpointRepository(
         execSql,
-        state.principalType,
-        state.principalId,
-      );
+      ).loadPrincipalPolicyCheckpoint(state.principalType, state.principalId);
       expect(before?.version).toBe(2);
       expect(await fixture.retry()).toEqual(fixture.response);
       expect(fixture.requests).toEqual([request, request]);
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           execSql,
-          state.principalType,
-          state.principalId,
-        ),
+        ).loadPrincipalPolicyCheckpoint(state.principalType, state.principalId),
       ).toEqual(before);
       expect(
         await loadPrincipalPolicyBundle(

@@ -8,7 +8,7 @@ import { containers } from "../../sqlite/schema/containerSchema";
 import { verifiedAccessManifestBundles } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import { advanceKeyingCheckpointsAtomically } from "../keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
 import {
   loadVerifiedManifestCitations,
   type VerifiedManifestBundle,
@@ -77,9 +77,10 @@ function remember(
   execSql: ExecSql,
   verifiedBundles: readonly VerifiedManifestBundle[],
 ): Promise<void> {
-  return advanceKeyingCheckpointsAtomically({
-    access: [],
+  return new KeyingCheckpointRepository(
     execSql,
+  ).advanceKeyingCheckpointsAtomically({
+    access: [],
     policies: [],
     verifiedBundles,
   });

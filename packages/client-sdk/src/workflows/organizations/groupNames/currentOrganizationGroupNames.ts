@@ -1,6 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { saveOrganizationGroupDisplayNames } from "../../../data/persistence/organizations/organizationGroupNamePersistence";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
@@ -55,9 +55,10 @@ export async function hydrateCurrentOrganizationGroupNames(
   assertProjectionVerificationCurrent(stillCurrent);
   // Match the authority admission performed by the full-bundle path. Group
   // name reads alone do not move group checkpoints.
-  await advanceKeyingCheckpointsAtomically({
+  await new KeyingCheckpointRepository(
+    input.execSql,
+  ).advanceKeyingCheckpointsAtomically({
     access: [],
-    execSql: input.execSql,
     organizationId: input.organizationId,
     policies: [authority.directory.policy, authority.admins.policy],
     stillCurrent,

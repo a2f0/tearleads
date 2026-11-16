@@ -12,7 +12,7 @@ import {
 } from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { resolveReferencedPrincipalPolicy } from "../../data/keyingProjectionVerification/principalPolicy/resolvedPrincipalPolicy";
 import type { PrincipalPolicyResolveRequest } from "../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createRuntimePrincipalPolicyResolver } from "./runtimePolicyRecovery";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
@@ -115,8 +115,9 @@ test.each(["target", "dependency"] as const)(
       expect(f.resolutionCount()).toBeLessThanOrEqual(2);
       expect(f.context.policies).toEqual([]);
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           f.options.execSql,
+        ).loadPrincipalPolicyCheckpoint(
           "group",
           f.advanced.currentState.principalId,
         ),
