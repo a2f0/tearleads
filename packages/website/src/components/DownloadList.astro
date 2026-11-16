@@ -9,6 +9,7 @@ import {
   iosDownloadUrl,
   isStaging,
 } from "../config";
+import type { DownloadPlatform } from "../downloadPlatform";
 import { resolveLinuxDownloads } from "../linuxDownloads";
 import { resolveMacosDownloads } from "../macosDownloads";
 import { resolveWindowsDownloads } from "../windowsDownloads";
@@ -27,6 +28,9 @@ import SectionHeader from "./SectionHeader.astro";
  * The iOS row links the App Store in production and TestFlight on staging;
  * the Android row links each tier's Google Play internal testing opt-in. See
  * iosDownloadUrl and androidDownloadUrl in src/config.ts.
+ *
+ * Rows are built in this order; on load, src/downloadPlatform.ts moves the
+ * row tagged with the visitor's operating system to the top.
  */
 const [macos, linux, windows] = await Promise.all([
   resolveMacosDownloads(isStaging),
@@ -41,6 +45,8 @@ interface DownloadLink {
 }
 
 interface DownloadRow {
+  /** `data-download-platform`; the web row is never promoted. */
+  readonly id: DownloadPlatform | "web";
   readonly platform: string;
   readonly details: readonly string[];
   readonly links: readonly DownloadLink[];
@@ -56,6 +62,7 @@ interface DownloadRow {
 
 const rows: readonly DownloadRow[] = [
   {
+    id: "macos",
     platform: "macOS",
     details: ["Apple silicon", ".dmg", "Signed and notarized"],
     links: [
@@ -73,6 +80,7 @@ const rows: readonly DownloadRow[] = [
     },
   },
   {
+    id: "linux",
     platform: "Linux",
     details: ["x64 (Intel, AMD)", ".tar.gz", "Tested on Ubuntu 24.04"],
     links: [
@@ -93,6 +101,7 @@ const rows: readonly DownloadRow[] = [
   ...(windows
     ? [
         {
+          id: "windows" as const,
           platform: "Windows",
           details: ["x64 (Intel, AMD)", ".zip", "Unsigned installer"],
           links: [
@@ -115,6 +124,7 @@ const rows: readonly DownloadRow[] = [
       ]
     : []),
   {
+    id: "ios",
     platform: "iOS",
     details: ["iPhone and iPad", isStaging ? "TestFlight" : "App Store"],
     links: [],
@@ -126,6 +136,7 @@ const rows: readonly DownloadRow[] = [
     },
   },
   {
+    id: "android",
     platform: "Android",
     details: ["Phone and tablet", "Google Play internal testing"],
     links: [],
@@ -137,6 +148,7 @@ const rows: readonly DownloadRow[] = [
     },
   },
   {
+    id: "web",
     platform: "Web",
     details: [new URL(appUrl).host],
     links: [],
@@ -156,7 +168,7 @@ const rows: readonly DownloadRow[] = [
     {rows.map((row) => {
       const Icon = row.action.icon;
       return (
-        <li class="site-download">
+        <li class="site-download" data-download-platform={row.id}>
           <div class="site-download-platform">
             <h3>{row.platform}</h3>
             <ul class="site-download-detail home-dot-list" role="list">
@@ -191,3 +203,9 @@ const rows: readonly DownloadRow[] = [
       href="/downloads/linux/">Linux install guide</a> shows the command.
   </p>
 </section>
+
+<script>
+  import { promoteVisitorDownload } from "../downloadPlatform";
+
+  promoteVisitorDownload(document, navigator);
+</script>
