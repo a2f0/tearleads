@@ -9,3 +9,13 @@ JavaScript glue in the resulting bundle or standalone executable. Use it for
 browser builds and `Bun.build({ compile: ... })` builds so deployment does not
 require files from `node_modules`. Runtime consumers import the regular
 `@tearleads/loro` entrypoints.
+
+## Change timestamps
+
+`createDocument` is the only way to make a document that authors. It turns on
+Loro timestamp recording, so every change carries the Unix time, in seconds, of
+its commit, and a writer's consecutive commits share a change only within
+`DOCUMENT_CHANGE_MERGE_INTERVAL_SECONDS` of its timestamp. The setting belongs
+to the document instance rather than its exported bytes: a bare `new LoroDoc()`
+that edits would stamp the newest time it has imported instead of the current
+one. Read-only scratch documents may be bare; `fork()` keeps the setting.
