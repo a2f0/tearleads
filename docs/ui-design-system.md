@@ -223,6 +223,10 @@ The de-facto component library is [`packages/app/src/components`](../packages/ap
   ([`components/mini-app/layout/`](../packages/app/src/components/mini-app/layout/)),
   modal/sheet via
   [`components/mini-app/overlays/MiniAppModal.tsx`](../packages/app/src/components/mini-app/overlays/MiniAppModal.tsx).
+  Set a runtime value in modal copy (the phrase a confirmation asks the user
+  to type, or the name of what the action changes) in `MiniAppModalHighlight`,
+  not `<strong>`: `:root` sets `font-synthesis: none`, so weight alone renders
+  as regular text wherever the monospace face ships no bold, as on Android.
 - **Checkboxes**: use `MiniAppCheckbox`
   ([`components/mini-app/controls/MiniAppCheckbox.tsx`](../packages/app/src/components/mini-app/controls/MiniAppCheckbox.tsx))
   with a clickable label. It owns the bordered square, checked fill and
