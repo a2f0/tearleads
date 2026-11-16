@@ -1,7 +1,25 @@
 import { afterEach, expect, test } from "bun:test";
+import type { ContainerInfo } from "@tearleads/client-sdk";
 import { GroupShareNameMismatchError } from "@tearleads/client-sdk";
-import { act, cleanup, renderHook } from "@testing-library/react";
-import type { FormEvent } from "react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  within,
+} from "@testing-library/react";
+import { createElement, type FormEvent } from "react";
+import {
+  getFoldedSecondaryTexts,
+  mockPhoneRoutedLayout,
+} from "../../../../../test/helpers/compactTableFold";
+import {
+  EXPLORER_LABELS,
+  getExplorerContainerInfoInheritedGrantSource,
+} from "../../labels";
+import type { MiniAppWindowPosition } from "../../types";
+import { ExplorerContainerInfoPrincipalGrantsSection } from "./ExplorerContainerInfoSharingSections";
 import { useExplorerContainerInfoGroupShare } from "./ExplorerContainerInfoState";
 import type { ReloadExplorerContainerInfo } from "./explorerContainerInfoStateHelpers";
 
@@ -304,5 +322,99 @@ test("useExplorerContainerInfoGroupShare drops a share whose scope changed durin
     expect(submittingStates).toEqual([true, false]);
   } finally {
     globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+  }
+});
+
+function createGrantRemoteInfo(): NonNullable<ContainerInfo["remoteInfo"]> {
+  return {
+    grantRows: [
+      {
+        accessLevel: "write",
+        inherited: true,
+        sourceContainerId: "container-parent",
+        subjectId: "group-1",
+        subjectType: "group",
+      },
+    ],
+    grants: [],
+    groups: [
+      {
+        createdAt: "2026-05-18T00:00:00.000Z",
+        currentState: {
+          keyEpoch: 1,
+          keyFingerprint: "group-1-key-fingerprint",
+          memberCount: 1,
+          stateHash: "group-1-state",
+          version: 1,
+        },
+        groupId: "group-1",
+        isBuiltin: false,
+        name: "Writers",
+        nameUnreadable: false,
+        organizationId: "org-1",
+      },
+    ],
+    syncCursors: [],
+  };
+}
+
+// On a phone the grant table folds Type · Permission · Source into one muted
+// line under the principal; the row must still open Org Manager and the kebab.
+test("folded grant rows keep type, permission, and source, and still open Org Manager", () => {
+  const restoreLayout = mockPhoneRoutedLayout();
+  const opened: Array<{
+    containerId: string;
+    position?: MiniAppWindowPosition;
+  }> = [];
+  try {
+    const view = render(
+      createElement(ExplorerContainerInfoPrincipalGrantsSection, {
+        containerNamesById: new Map([["container-parent", "Projects"]]),
+        onOpenGrant: (grant, position) => {
+          opened.push({
+            containerId: grant.containerId,
+            ...(position ? { position } : {}),
+          });
+        },
+        remoteInfo: createGrantRemoteInfo(),
+        resolveUserLabel: undefined,
+      }),
+    );
+    const table = view.getByRole("table", {
+      name: EXPLORER_LABELS.containerInfoPrincipalGrantsHeading,
+    });
+
+    // One summary column plus the kebab column.
+    expect(table.querySelectorAll("thead th")).toHaveLength(2);
+    expect(within(table).getByText("Writers")).toBeTruthy();
+    const details = [
+      EXPLORER_LABELS.containerInfoSubjectTypeGroup,
+      EXPLORER_LABELS.containerInfoPermissionWrite,
+      getExplorerContainerInfoInheritedGrantSource("Projects"),
+    ].join(" · ");
+    expect(getFoldedSecondaryTexts(table)).toEqual([
+      [
+        `${EXPLORER_LABELS.containerInfoTypeColumn} · ${EXPLORER_LABELS.containerInfoPermissionColumn} · ${EXPLORER_LABELS.containerInfoSourceColumn}: ${details}`,
+      ],
+    ]);
+    expect(within(table).getByTitle("container-parent")).toBeTruthy();
+
+    const row = within(table).getByRole("button", { name: /^Writers/ });
+    fireEvent.click(row, { clientX: 40, clientY: 50 });
+    fireEvent.keyDown(row, { key: "Enter" });
+    expect(opened).toEqual([
+      { containerId: "container-parent", position: { x: 56, y: 66 } },
+      { containerId: "container-parent", position: { x: 16, y: 16 } },
+    ]);
+
+    fireEvent.click(
+      view.getByRole("button", {
+        name: `${EXPLORER_LABELS.itemActionsButtonPrefix} Writers`,
+      }),
+    );
+    expect(opened).toHaveLength(2);
+    expect(view.getByRole("button", { name: "Open" })).toBeTruthy();
+  } finally {
+    restoreLayout();
   }
 });

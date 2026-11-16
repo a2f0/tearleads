@@ -14,17 +14,12 @@ import {
   MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../../stores/explorer/documentInfo";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 import type { ExplorerAttributionProfileHydrationRequester } from "../../hooks/explorerAttributionReadModel";
 import { EXPLORER_LABELS } from "../../labels";
-import {
-  type ExplorerAttributionUserLabelResolver,
-  getExplorerAttributionWriterLabel,
-  getExplorerAttributionWriterTitle,
-} from "../attributionDisplay";
-import { compactId } from "../compactId";
+import type { ExplorerAttributionUserLabelResolver } from "../attributionDisplay";
+import { EditRangesTable } from "./ExplorerDocumentInfoEditRangesTable";
 
 const EDIT_RANGES_PAGE_SIZE = 100;
 
@@ -44,60 +39,6 @@ function createEmptyEditRangesState(): EditRangesState {
     items: [],
     nextCursor: null,
   };
-}
-
-function getEditRangeAuthorityLabel(
-  authorityKind: DocumentAttributionRangesPage["items"][number]["authorityKind"],
-): string {
-  return authorityKind === "direct"
-    ? EXPLORER_LABELS.documentInfoEditRangeAuthorityDirect
-    : EXPLORER_LABELS.documentInfoEditRangeAuthorityReasserted;
-}
-
-function EditRangesTable(params: {
-  attributionUserLabelResolver?:
-    | ExplorerAttributionUserLabelResolver
-    | undefined;
-  items: DocumentAttributionRangesPage["items"];
-}) {
-  return (
-    <MiniAppInfoTable>
-      <thead>
-        <tr>
-          <th>{EXPLORER_LABELS.documentInfoEditRangeWriterColumn}</th>
-          <th>{EXPLORER_LABELS.documentInfoEditRangePeerColumn}</th>
-          <th>{EXPLORER_LABELS.documentInfoEditRangeRangeColumn}</th>
-          <th>{EXPLORER_LABELS.documentInfoEditRangeOpsColumn}</th>
-          <th>{EXPLORER_LABELS.documentInfoEditRangeUploadColumn}</th>
-          <th>{EXPLORER_LABELS.documentInfoEditRangeAuthorityColumn}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {params.items.map((item) => (
-          <tr
-            key={`${item.updateId}:${item.peerId}:${item.startCounter}:${item.endCounter}`}
-          >
-            <td
-              title={getExplorerAttributionWriterTitle(
-                item,
-                params.attributionUserLabelResolver,
-              )}
-            >
-              {getExplorerAttributionWriterLabel(
-                item,
-                params.attributionUserLabelResolver,
-              )}
-            </td>
-            <td title={item.peerId}>{compactId(item.peerId)}</td>
-            <td>{`${item.startCounter}–${item.endCounter}`}</td>
-            <td>{String(item.endCounter - item.startCounter)}</td>
-            <td title={item.updateId}>{compactId(item.updateId)}</td>
-            <td>{getEditRangeAuthorityLabel(item.authorityKind)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </MiniAppInfoTable>
-  );
 }
 
 async function requestEditRangesPage(input: {
