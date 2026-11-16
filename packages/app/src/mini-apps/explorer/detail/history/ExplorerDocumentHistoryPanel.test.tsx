@@ -123,6 +123,45 @@ test("History is read-only when the document's own folder is, whatever route ope
   expect(new Set(panel.asked)).toEqual(new Set(["trash"]));
 });
 
+test("a document the route was refused never has its history opened", async () => {
+  const historySpy = spyOn(History, "useDocumentHistory");
+  restorers.push(() => historySpy.mockRestore());
+  // No summary to fall back on, and the routed loader refuses the document:
+  // an orphan the active organization does not own.
+  const view = render(
+    <ExplorerDocumentHistoryPanel
+      fallbackDocumentSummary={null}
+      isContainerReadOnly={() => false}
+      loadDocumentSummary={async () => null}
+      localId="local-1"
+    />,
+  );
+
+  await view.findByText("This document is not available.");
+  // Not while the summary was loading, and not after it was refused: the
+  // history holds the document's content, and its title is content too.
+  expect(historySpy).not.toHaveBeenCalled();
+  expect(view.container.textContent).not.toContain("a past version");
+});
+
+test("a document whose summary failed to load never has its history opened", async () => {
+  const historySpy = spyOn(History, "useDocumentHistory");
+  restorers.push(() => historySpy.mockRestore());
+  const view = render(
+    <ExplorerDocumentHistoryPanel
+      fallbackDocumentSummary={null}
+      isContainerReadOnly={() => false}
+      loadDocumentSummary={async () => {
+        throw new Error("database closed");
+      }}
+      localId="local-1"
+    />,
+  );
+
+  await view.findByText("History could not be loaded: database closed");
+  expect(historySpy).not.toHaveBeenCalled();
+});
+
 test("History is writable when the document's folder is", () => {
   const panel = mountPanel({
     documentSummary: summary("folder"),

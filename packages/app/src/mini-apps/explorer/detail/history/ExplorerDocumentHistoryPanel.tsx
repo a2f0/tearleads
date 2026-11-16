@@ -2,6 +2,7 @@ import {
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
   getStoredDocumentTypeLabel,
+  type StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import {
@@ -12,6 +13,7 @@ import {
 } from "../../../../components/mini-app/MiniAppLayout";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../../document-types/registry";
+import { isCurrentDocumentVersion } from "../../../../stores/document-history/documentHistoryMachine";
 import { DocumentHistoryViewContext } from "../../../../stores/document-history/historicalDocumentView";
 import {
   type DocumentHistoryControls,
@@ -79,7 +81,6 @@ function ReadyDocumentHistory(params: {
   const { controls, documentSummary, readOnly, state } = params;
   const selectedStop = state.history.stops[state.selectedIndex];
   const { shown } = state;
-  const lastIndex = state.history.stops.length - 1;
   const changeTime = formatMiniAppDateTimeSeconds(
     state.history.stops[state.selectedIndex]?.committedAt ?? null,
     { emptyFallback: EXPLORER_LABELS.documentHistoryTimeUnknown },
@@ -116,7 +117,7 @@ function ReadyDocumentHistory(params: {
           settled === null ? null : (
             <DocumentHistoryRestore
               index={settled.index}
-              isLatest={settled.index === lastIndex}
+              isLatest={isCurrentDocumentVersion(state, settled.index)}
               onRestored={controls.reload}
               versionTime={changeTime}
               view={settled.view}
@@ -162,18 +163,15 @@ function DocumentHistoryBody(params: {
     | ExplorerAttributionUserLabelResolver
     | undefined;
   controls: DocumentHistoryControls;
-  documentSummary: DocumentSummary | null;
-  documentSummaryError: string | null;
+  documentSummary: DocumentSummary;
   isContainerReadOnly: (containerId: string | null) => boolean;
 }) {
-  const { controls, documentSummary, documentSummaryError } = params;
+  const { controls, documentSummary } = params;
   const { state } = controls;
-  const failure =
-    documentSummaryError ?? (state.status === "failed" ? state.message : null);
-  if (failure !== null) {
+  if (state.status === "failed") {
     return (
       <MiniAppStatus tone="error">
-        {`${EXPLORER_LABELS.documentHistoryFailed}: ${failure}`}
+        {`${EXPLORER_LABELS.documentHistoryFailed}: ${state.message}`}
       </MiniAppStatus>
     );
   }
@@ -184,7 +182,7 @@ function DocumentHistoryBody(params: {
       </MiniAppStatus>
     );
   }
-  if (state.status !== "ready" || documentSummary === null) {
+  if (state.status !== "ready") {
     return (
       <MiniAppStatus busy>
         {EXPLORER_LABELS.documentHistoryLoading}
@@ -204,6 +202,68 @@ function DocumentHistoryBody(params: {
   );
 }
 
+function DocumentHistoryHeader(params: {
+  documentKind: StoredDocumentKind | null;
+  title: string;
+}) {
+  const typeLabel =
+    params.documentKind === null
+      ? null
+      : getStoredDocumentTypeLabel(
+          params.documentKind,
+          APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+        );
+  return (
+    <MiniAppHeader>
+      <MiniAppHeaderCopy>
+        <strong>{params.title}</strong>
+        <span>
+          {typeLabel === null
+            ? EXPLORER_LABELS.documentHistorySubtitle
+            : `${EXPLORER_LABELS.documentHistorySubtitle} · ${typeLabel}`}
+        </span>
+      </MiniAppHeaderCopy>
+    </MiniAppHeader>
+  );
+}
+
+/**
+ * The history of a document the route was admitted to. Only this component
+ * opens the history, so nothing of a document is read before its summary
+ * has loaded.
+ */
+function AdmittedDocumentHistory(params: {
+  attributionUserLabelResolver:
+    | ExplorerAttributionUserLabelResolver
+    | undefined;
+  documentSummary: DocumentSummary;
+  isContainerReadOnly: (containerId: string | null) => boolean;
+}) {
+  const { documentSummary } = params;
+  const controls = useDocumentHistory(documentSummary.id);
+  const { state } = controls;
+  const shown = state.status === "ready" ? state.shown : null;
+
+  return (
+    <>
+      <DocumentHistoryHeader
+        documentKind={
+          shown?.view.documentKind ??
+          documentSummary.documentKind ??
+          DEFAULT_DOCUMENT_KIND
+        }
+        title={shown?.view.title ?? documentSummary.title}
+      />
+      <DocumentHistoryBody
+        attributionUserLabelResolver={params.attributionUserLabelResolver}
+        controls={controls}
+        documentSummary={documentSummary}
+        isContainerReadOnly={params.isContainerReadOnly}
+      />
+    </>
+  );
+}
+
 /**
  * A document's history: a timeline of every change and the document as it was
  * at the selected one. The live document keeps editing and syncing underneath.
@@ -219,42 +279,56 @@ export function ExplorerDocumentHistoryPanel(params: {
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   localId: string;
 }) {
-  const { documentSummary, documentSummaryError } = useExplorerDocumentSummary({
-    fallbackDocumentSummary: params.fallbackDocumentSummary,
-    loadDocumentSummary: params.loadDocumentSummary,
-    localId: params.localId,
-  });
-  const controls = useDocumentHistory(params.localId);
-  const { state } = controls;
-  const shown = state.status === "ready" ? state.shown : null;
-  const documentKind =
-    shown?.view.documentKind ??
-    documentSummary?.documentKind ??
-    DEFAULT_DOCUMENT_KIND;
+  const { documentSummary, documentSummaryError, isLoadingDocumentSummary } =
+    useExplorerDocumentSummary({
+      fallbackDocumentSummary: params.fallbackDocumentSummary,
+      loadDocumentSummary: params.loadDocumentSummary,
+      localId: params.localId,
+    });
 
   return (
     <MiniAppPanel
       className="explorer-detail explorer-detail--note explorer-detail--document-history"
       key={params.localId}
     >
-      <MiniAppHeader>
-        <MiniAppHeaderCopy>
-          <strong>{shown?.view.title ?? documentSummary?.title ?? ""}</strong>
-          <span>
-            {`${EXPLORER_LABELS.documentHistorySubtitle} · ${getStoredDocumentTypeLabel(
-              documentKind,
-              APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-            )}`}
-          </span>
-        </MiniAppHeaderCopy>
-      </MiniAppHeader>
-      <DocumentHistoryBody
-        attributionUserLabelResolver={params.attributionUserLabelResolver}
-        controls={controls}
-        documentSummary={documentSummary}
-        documentSummaryError={documentSummaryError}
-        isContainerReadOnly={params.isContainerReadOnly}
-      />
+      {documentSummary === null ? (
+        // The route named a document whose summary has not loaded, failed to
+        // load, or was refused (an orphan the active organization does not
+        // own). Its history stays closed: even a title is its content.
+        <>
+          <DocumentHistoryHeader documentKind={null} title="" />
+          <UnadmittedDocumentStatus
+            error={documentSummaryError}
+            loading={isLoadingDocumentSummary}
+          />
+        </>
+      ) : (
+        <AdmittedDocumentHistory
+          attributionUserLabelResolver={params.attributionUserLabelResolver}
+          documentSummary={documentSummary}
+          isContainerReadOnly={params.isContainerReadOnly}
+        />
+      )}
     </MiniAppPanel>
+  );
+}
+
+function UnadmittedDocumentStatus(params: {
+  error: string | null;
+  loading: boolean;
+}) {
+  if (params.error !== null) {
+    return (
+      <MiniAppStatus tone="error">
+        {`${EXPLORER_LABELS.documentHistoryFailed}: ${params.error}`}
+      </MiniAppStatus>
+    );
+  }
+  return params.loading ? (
+    <MiniAppStatus busy>{EXPLORER_LABELS.documentHistoryLoading}</MiniAppStatus>
+  ) : (
+    <MiniAppStatus>
+      {EXPLORER_LABELS.documentHistoryDocumentUnavailable}
+    </MiniAppStatus>
   );
 }
