@@ -9,7 +9,7 @@ import {
   recoverFoundingGroups,
   runtimeDatabase,
 } from "../../../test/helpers/provisionedPrincipalHistoryFixtures";
-import { loadTrustedUserIdForSigningKey } from "../../data/persistence/identity/trustedUserIdentitySigningKeyBinding";
+import { TrustedUserIdentityPinRepository } from "../../data/persistence/identity/trustedUserIdentityPinRepository";
 import { loadPinnedUserIdentity } from "../../data/trustedUserIdentity";
 
 const TRUST_DOMAIN = "https://api.example.test";
@@ -61,8 +61,9 @@ test("an identity and database switch before priming writes nothing durable", as
     );
     // Nothing binds the replacement key, so it can still register or log in.
     expect(
-      await loadTrustedUserIdForSigningKey({
-        execSql: databases.second.execSql,
+      await new TrustedUserIdentityPinRepository(
+        databases.second.execSql,
+      ).loadTrustedUserIdForSigningKey({
         identityTrustDomain: TRUST_DOMAIN,
         signingKeyFingerprint: replacement.signingFingerprint,
       }),
