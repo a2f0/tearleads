@@ -46,11 +46,18 @@ interface OrganizationSigningContext {
   >;
 }
 
-function requireSigningContext(
-  runtime: InternalWorkflowRuntimeInput,
-): OrganizationSigningContext {
+/** The client's fixed trust domain and the mutation's runtime snapshot. */
+interface OrganizationMutationScope {
+  readonly identityTrustDomain: string | null;
+  readonly runtime: InternalWorkflowRuntimeInput;
+}
+
+function requireSigningContext({
+  identityTrustDomain,
+  runtime,
+}: OrganizationMutationScope): OrganizationSigningContext {
   if (
-    !runtime.identityTrustDomain ||
+    !identityTrustDomain ||
     !runtime.auth.organizationId ||
     !runtime.auth.userId ||
     !runtime.crypto.signingFingerprint ||
@@ -60,7 +67,7 @@ function requireSigningContext(
   }
 
   return {
-    identityTrustDomain: runtime.identityTrustDomain,
+    identityTrustDomain,
     organizationId: runtime.auth.organizationId,
     signerUserId: runtime.auth.userId,
     signingFingerprint: runtime.crypto.signingFingerprint,
@@ -78,11 +85,10 @@ function requireEncapsulationKeyPair(
   return runtime.crypto.encapsulationKeyPair;
 }
 
-interface PrincipalMutationRuntime {
+interface PrincipalMutationRuntime extends OrganizationMutationScope {
   readonly stillCurrent: () => boolean;
   readonly containerContents: ContainerContents;
   readonly readModelCoordinator: OrganizationReadModelCoordinator;
-  readonly runtime: InternalWorkflowRuntimeInput;
 }
 
 export async function addUserToOrganizationGroup(
@@ -91,7 +97,7 @@ export async function addUserToOrganizationGroup(
       readonly admission: GroupMemberAdmission;
     },
 ) {
-  const signingContext = requireSigningContext(input.runtime);
+  const signingContext = requireSigningContext(input);
   return runWithSecurityIncidentReporting(
     input.runtime.util.reportSecurityIncident,
     {
@@ -138,12 +144,13 @@ export async function addUserToOrganizationGroup(
   );
 }
 
-export function createGroupForOrganization(input: {
-  readonly name: string;
-  readonly runtime: InternalWorkflowRuntimeInput;
-  readonly stillCurrent: () => boolean;
-}) {
-  const signingContext = requireSigningContext(input.runtime);
+export function createGroupForOrganization(
+  input: OrganizationMutationScope & {
+    readonly name: string;
+    readonly stillCurrent: () => boolean;
+  },
+) {
+  const signingContext = requireSigningContext(input);
   return runWithSecurityIncidentReporting(
     input.runtime.util.reportSecurityIncident,
     {
@@ -190,12 +197,13 @@ export function createGroupForOrganization(input: {
   );
 }
 
-export function deleteGroupForOrganization(input: {
-  readonly groupId: string;
-  readonly runtime: InternalWorkflowRuntimeInput;
-  readonly stillCurrent: () => boolean;
-}) {
-  const signingContext = requireSigningContext(input.runtime);
+export function deleteGroupForOrganization(
+  input: OrganizationMutationScope & {
+    readonly groupId: string;
+    readonly stillCurrent: () => boolean;
+  },
+) {
+  const signingContext = requireSigningContext(input);
   return runWithSecurityIncidentReporting(
     input.runtime.util.reportSecurityIncident,
     {
@@ -229,7 +237,7 @@ export function deleteGroupForOrganization(input: {
 export async function removeUserFromOrganizationGroup(
   input: PrincipalMutationRuntime & RemoveOrganizationGroupUserInput,
 ) {
-  const signingContext = requireSigningContext(input.runtime);
+  const signingContext = requireSigningContext(input);
   return runWithSecurityIncidentReporting(
     input.runtime.util.reportSecurityIncident,
     {
@@ -277,7 +285,7 @@ export async function removeUserFromOrganizationGroup(
 export async function revokeOrganizationGrant(
   input: PrincipalMutationRuntime & OrganizationGrantRef,
 ) {
-  const signingContext = requireSigningContext(input.runtime);
+  const signingContext = requireSigningContext(input);
   const encapsulationKeyPair = requireEncapsulationKeyPair(input.runtime);
   if (input.runtime.infra.dbStatus !== "ready") {
     throw new Error("Organization local database is unavailable");
