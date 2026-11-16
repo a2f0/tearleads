@@ -1,5 +1,6 @@
 import { createTestExecSql } from "@tearleads/test-utils";
 import { asc } from "drizzle-orm";
+import { PrincipalHistoryRepository } from "../../src/data/persistence/principalHistory/principalHistoryRepository";
 import {
   principalHistoryEvidenceTables,
   principalHistoryPrefixes,
@@ -60,8 +61,8 @@ export async function seededCompletedRetention(
     ...f,
     db,
     rows,
+    repository: new PrincipalHistoryRepository(f.execSql),
     input: {
-      execSql: f.execSql,
       stage: {
         id: "current",
         organizationId: "org-1",
