@@ -130,7 +130,8 @@
   inset-inline: 0;
   inset-block-end: 0;
   z-index: 2;
-  max-height: min(70vh, 32rem);
+  /* Tall enough for three rows of tablet tiles; shorter screens scroll. */
+  max-height: min(70vh, 42rem);
   overflow-y: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
   padding-bottom: max(var(--space-sm), var(--safe-area-bottom));

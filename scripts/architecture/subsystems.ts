@@ -341,6 +341,18 @@ export const subsystems: readonly Subsystem[] = [
     ],
   },
   {
+    name: "Tray Apps",
+    package: "app",
+    responsibility:
+      "The system tray's apps and their registry for windowing's SystemTray: the screensaver button, theme switch, layout switch, and sync status, each in its own folder, plus the tray the shells mount with its Display Properties menu item. Tray apps import no mini-app, and mini-apps import no tray app.",
+    seam: "tray-apps/registry; tray-apps/AppSystemTray",
+    paths: [`${app}/tray-apps/`],
+    surface: [
+      `${app}/tray-apps/AppSystemTray.tsx`,
+      `${app}/tray-apps/registry.ts`,
+    ],
+  },
+  {
     name: "Document Types",
     package: "app",
     responsibility:
@@ -360,7 +372,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "App Shell",
     package: "app",
     responsibility:
-      "The app's shells: layout and workspaces, the windowed pane that hosts mini-app windows and its footer taskbar, and the routed shell's chrome. Composes the runtime, navigation, and the mini-apps it renders.",
+      "The app's shells: layout and workspaces, the windowed pane that hosts mini-app windows and its footer taskbar, and the routed shell's chrome. Composes the runtime, navigation, the mini-apps it renders, and the system tray.",
     seam: "shell/layout/Layout; shell/pane/shell/Pane",
     paths: [`${app}/shell/`],
   },
@@ -389,7 +401,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Navigation",
     package: "app",
     responsibility:
-      "App navigation: windowing's launcher navigation for mini-app ids, the mode switch, and touch row sizing.",
+      "App navigation: windowing's launcher navigation for mini-app ids, the identity-link launch bridge, and touch row sizing.",
     seam: "navigation/AppNavigationProvider",
     paths: [`${app}/navigation/`],
   },
@@ -397,7 +409,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Theming",
     package: "app",
     responsibility:
-      "Color themes and desktop wallpapers: the app's theme list for windowing's ThemeProvider (persisted selection, the `<html data-theme>` stamp), the footer toggle, the wallpaper list for windowing's WallpaperProvider, and the Display Properties mini-app that picks both. The per-theme token blocks live in @tearleads/ui's styles.css.",
+      "Color themes and desktop wallpapers: the app's theme list for windowing's ThemeProvider (persisted selection, the `<html data-theme>` stamp), the wallpaper list for windowing's WallpaperProvider, and the Display Properties mini-app that picks both and switches tray apps on and off. The per-theme token blocks live in @tearleads/ui's styles.css.",
     seam: "theme/ThemeProvider; theme/themes; theme/WallpaperProvider; mini-apps/display-properties",
     paths: [`${app}/theme/`, `${app}/mini-apps/display-properties/`],
   },
@@ -413,11 +425,12 @@ export const subsystems: readonly Subsystem[] = [
     name: "App Document & Device State",
     package: "app",
     responsibility:
-      "App-side domain state machines for documents and device-first projection, plus the system-containers store and its org-aware Trash resolver.",
-    seam: "stores/documents; stores/device-first",
+      "App-side domain state machines for documents and device-first projection, the write-queue watcher the Sync Status tray app and System Monitor share, plus the system-containers store and its org-aware Trash resolver.",
+    seam: "stores/documents; stores/device-first; stores/write-queue",
     paths: [
       `${app}/stores/documents/`,
       `${app}/stores/device-first/`,
+      `${app}/stores/write-queue/`,
       `${app}/stores/systemContainers.ts`,
       `${app}/stores/systemContainerTrash.ts`,
     ],

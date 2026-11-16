@@ -1,0 +1,20 @@
+/* The system tray: its apps in a row, as the taskbar's other controls. */
+.system-tray {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.system-tray-app {
+  display: flex;
+  align-items: center;
+}
+
+/* A tray app that renders nothing where it does not apply takes no gap. */
+.system-tray-app:empty {
+  display: none;
+}

@@ -86,4 +86,76 @@ export const appDependencyRules = [
       ],
     },
   },
+  {
+    name: "app-mini-apps-do-not-import-tray-apps",
+    severity: "error",
+    comment:
+      "Mini-apps and tray apps are separate kinds of app: neither imports the other. Lift code both need into a lower layer they share (components/ for UI, stores/ for state machines, providers/, navigation/, or utils/). A mini-app reaches the tray only through the user's switches in Display Properties.",
+    from: {
+      path: `${appSourceRoot}mini-apps/`,
+      pathNot: testFilePattern.source,
+    },
+    to: {
+      path: `${appSourceRoot}tray-apps/`,
+    },
+  },
+  {
+    name: "app-tray-apps-do-not-import-mini-apps",
+    severity: "error",
+    comment:
+      "Mini-apps and tray apps are separate kinds of app: neither imports the other, not even mini-apps/types.ts. Lift code both need into a lower layer they share (components/ for UI, stores/ for state machines, providers/, navigation/, or utils/), and open a mini-app by id through navigation/AppNavigationProvider.",
+    from: {
+      path: `${appSourceRoot}tray-apps/`,
+      pathNot: testFilePattern.source,
+    },
+    to: {
+      path: `${appSourceRoot}mini-apps/`,
+    },
+  },
+  {
+    name: "app-tray-apps-do-not-cross-import",
+    severity: "error",
+    comment:
+      "A tray app must not reach into another tray app's internals. Lift the shared building block into tray-apps/shared/. The `$1` back-reference allows same-app and tray-apps/shared/ imports; shared/ may only import shared/, never a tray app. The platform files at the tray-apps/ root (the registry and AppSystemTray) compose the tray apps.",
+    from: {
+      path: `${appSourceRoot}tray-apps/([^/]+)/`,
+      pathNot: testFilePattern.source,
+    },
+    to: {
+      path: `${appSourceRoot}tray-apps/[^/]+/`,
+      pathNot: [
+        `${appSourceRoot}tray-apps/$1/`,
+        `${appSourceRoot}tray-apps/shared/`,
+      ],
+    },
+  },
+  {
+    name: "app-tray-apps-stay-below-the-shell",
+    severity: "error",
+    comment:
+      "The shells (shell/layout, shell/pane) mount the tray; a tray app does not reach back into them. Take what a tray app needs from a provider, store, or navigation, or from a windowing hook such as useOptionalScreensaver.",
+    from: {
+      path: `${appSourceRoot}tray-apps/`,
+      pathNot: testFilePattern.source,
+    },
+    to: {
+      path: `${appSourceRoot}shell/`,
+    },
+  },
+  {
+    name: "app-only-the-shell-loads-tray-apps",
+    severity: "error",
+    comment:
+      "Only the shells mount the system tray (tray-apps/registry.ts and tray-apps/AppSystemTray.tsx). Layers below them (components, providers, stores, navigation, theme, document types) must not load a tray app; mini-apps are covered by app-mini-apps-do-not-import-tray-apps.",
+    from: {
+      path: appSourceRoot,
+      pathNot: [
+        testFilePattern.source,
+        `${appSourceRoot}(?:mini-apps|shell|tray-apps)/`,
+      ],
+    },
+    to: {
+      path: `${appSourceRoot}tray-apps/`,
+    },
+  },
 ] satisfies NonNullable<IConfiguration["forbidden"]>;
