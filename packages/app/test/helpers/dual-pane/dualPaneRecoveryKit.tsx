@@ -158,10 +158,20 @@ interface PaneExplorerDocumentIdentity {
   localId: string;
 }
 
+function getInfoRowValue(pane: HTMLElement, label: string): Element | null {
+  return within(pane).getByText(label, { selector: "dt" }).nextElementSibling;
+}
+
+/**
+ * The full value behind a Get Info row: the row's own tooltip, or that of the
+ * copy control showing a shortened id.
+ */
 function getInfoRowTitle(pane: HTMLElement, label: string): string | null {
-  const rowHeader = within(pane).getByRole("rowheader", { name: label });
+  const value = getInfoRowValue(pane, label);
   return (
-    rowHeader.closest("tr")?.querySelector("td")?.getAttribute("title") ?? null
+    value?.getAttribute("title") ??
+    value?.querySelector("button")?.getAttribute("title") ??
+    null
   );
 }
 
@@ -236,10 +246,7 @@ async function openPaneExplorerDocumentInfo(
       const containerId = getInfoRowTitle(pane, "Container");
       expect(localId?.length).toBeGreaterThan(0);
       expect(containerId).toMatch(/^[0-9a-f-]{36}$/u);
-      const typeRow = within(pane).getByRole("rowheader", { name: "Type" });
-      expect(typeRow.closest("tr")?.querySelector("td")?.textContent).toBe(
-        "contact",
-      );
+      expect(getInfoRowValue(pane, "Type")?.textContent).toBe("contact");
       if (documentId !== null) {
         expect(documentId).toMatch(/^[0-9a-f-]{36}$/u);
       }

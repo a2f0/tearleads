@@ -69,7 +69,7 @@ export const MiniAppButton = forwardRef<HTMLButtonElement, MiniAppButtonProps>(
   },
 );
 
-const CLIPBOARD_COPIED_TITLE = "Copied to clipboard";
+export const CLIPBOARD_COPIED_TITLE = "Copied to clipboard";
 const CLIPBOARD_COPIED_STATUS_TEXT = "Successfully copied to clipboard";
 const CLIPBOARD_COPY_FAILED_STATUS_TEXT = "Unable to copy to clipboard";
 const CLIPBOARD_COPIED_STATE_DURATION_MS = 1200;

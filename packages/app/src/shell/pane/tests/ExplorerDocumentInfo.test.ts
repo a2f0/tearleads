@@ -16,23 +16,23 @@ for (const remap of [false, true]) {
     let pending: ReturnType<typeof setTimeout> | undefined;
 
     const showRows = (panel: HTMLElement) => {
-      const table = document.createElement("table");
+      const list = document.createElement("dl");
       for (const [label, value] of [
         ["Document ID", documentId],
         ["Local ID", "self-contact"],
         ["Container", containerId],
         ["Type", "contact"],
       ]) {
-        const row = table.insertRow();
-        const heading = document.createElement("th");
-        heading.scope = "row";
-        heading.textContent = label ?? "";
-        row.append(heading);
-        const cell = row.insertCell();
-        cell.title = value ?? "";
-        cell.textContent = value ?? "";
+        const row = document.createElement("div");
+        const term = document.createElement("dt");
+        term.textContent = label ?? "";
+        const definition = document.createElement("dd");
+        definition.title = value ?? "";
+        definition.textContent = value ?? "";
+        row.append(term, definition);
+        list.append(row);
       }
-      panel.append(table);
+      panel.append(list);
     };
     const showFolder = (name: string) => {
       const table = document.createElement("table");

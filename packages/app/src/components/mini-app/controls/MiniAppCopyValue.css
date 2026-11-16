@@ -1,0 +1,51 @@
+/* Reads as the value it carries, not as a framed button: the trailing glyph is
+   the only chrome, and hover/focus underline the text like a link. */
+.mini-app-copy-value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.mini-app-copy-value-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mini-app-copy-value svg {
+  flex: 0 0 auto;
+  opacity: var(--opacity-muted);
+}
+
+.mini-app-copy-value:hover .mini-app-copy-value-text,
+.mini-app-copy-value:focus-visible .mini-app-copy-value-text {
+  text-decoration: underline;
+}
+
+/* Touch (routed layout): the value is the tap target, so it needs the 44px hit
+   height every other control has there. A min-height would open a gap between
+   the value and its key in a stacked list and set id rows apart from the rows
+   around them, so the extra height is an invisible overlay instead: the hit
+   area grows while the line keeps its place. */
+:root[data-navigation-mode="routed"] .mini-app-copy-value {
+  position: relative;
+  /* Above the next row's key: a muted key is translucent, and opacity makes it
+     a stacking context that would otherwise paint over the overlay. */
+  z-index: 1;
+}
+
+:root[data-navigation-mode="routed"] .mini-app-copy-value::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: var(--control-height);
+  translate: 0 -50%;
+}

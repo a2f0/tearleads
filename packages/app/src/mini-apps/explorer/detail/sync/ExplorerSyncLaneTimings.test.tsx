@@ -91,7 +91,7 @@ test("the lane detail Timing tab shows last, average, and max run durations", ()
   );
 
   const rowValue = (label: string) =>
-    view.getByText(label).closest("tr")?.querySelector("td")?.textContent;
+    view.getByText(label).nextElementSibling?.textContent;
   expect(rowValue(EXPLORER_LABELS.syncLanesLastRunDurationRow)).toBe("42 ms");
   expect(rowValue(EXPLORER_LABELS.syncLanesAverageRunDurationRow)).toBe(
     "1.0 s",

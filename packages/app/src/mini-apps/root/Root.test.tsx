@@ -51,7 +51,7 @@ test("the root console lists identities and opens their detail", async () => {
       within(table).getByTitle(memberIdentity.signingKeyFingerprint),
     );
     await waitFor(() => {
-      expect(view.getByRole("table", { name: "Identity" })).toBeTruthy();
+      expect(view.getByRole("group", { name: "Identity" })).toBeTruthy();
     });
     expect(
       view.getByRole("button", { name: "Copy signing key fingerprint" }),
@@ -151,24 +151,24 @@ test("operators browse organizations, inspect invoices, and traverse both direct
       ROOT_TEST_ORGANIZATION.organization.organizationId,
     );
     fireEvent.click(organization);
-    const overview = await view.findByRole("table", { name: "Organization" });
+    const overview = await view.findByRole("group", { name: "Organization" });
     expect(
       within(overview).getByText(ROOT_TEST_ORGANIZATION.overview.adminGroupId),
     ).toBeTruthy();
     expect(within(overview).getByText("3 of 5 licensed")).toBeTruthy();
     expect(within(overview).getByText("Not started")).toBeTruthy();
     fireEvent.click(view.getByRole("tab", { name: "Billing" }));
-    const billing = await view.findByRole("table", {
+    const billing = await view.findByRole("group", {
       name: "Organization billing",
     });
     expect(within(billing).getByText("cus_test")).toBeTruthy();
     expect(within(billing).getByText("Purge started")).toBeTruthy();
-    expect(view.getByRole("table", { name: "Stripe billing" })).toBeTruthy();
+    expect(view.getByRole("group", { name: "Stripe billing" })).toBeTruthy();
     fireEvent.click(view.getByRole("tab", { name: "History" }));
     const history = view.getByText(/INVOICE_PAID/);
     fireEvent.click(history);
     expect(
-      view.getByRole("table", { name: "Billing event event-test" }),
+      view.getByRole("group", { name: "Billing event event-test" }),
     ).toBeTruthy();
     expect(view.getByText(/60[.,]00/)).toBeTruthy();
     fireEvent.click(view.getByRole("tab", { name: "Identities" }));
@@ -184,7 +184,7 @@ test("operators browse organizations, inspect invoices, and traverse both direct
         name: `Open identity ${fingerprint}`,
       }),
     );
-    await view.findByRole("table", { name: "Identity" });
+    await view.findByRole("group", { name: "Identity" });
     fireEvent.click(view.getByRole("button", { name: "Back" }));
     expect(
       view
@@ -195,13 +195,13 @@ test("operators browse organizations, inspect invoices, and traverse both direct
       name: "Organization identities",
     });
     fireEvent.click(await within(refreshedRoster).findByTitle(fingerprint));
-    await view.findByRole("table", { name: "Identity" });
+    await view.findByRole("group", { name: "Identity" });
     fireEvent.click(
       await view.findByText(
         `${ROOT_TEST_ORGANIZATION.organization.organizationId} (default)`,
       ),
     );
-    await view.findByRole("table", { name: "Organization" });
+    await view.findByRole("group", { name: "Organization" });
   } finally {
     restore();
   }
@@ -267,7 +267,7 @@ test("reports show usage by org, paginate, search, and open the shared usage tab
     expect(
       view.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected"),
     ).toBe("true");
-    await view.findByRole("table", { name: "Organization" });
+    await view.findByRole("group", { name: "Organization" });
     fireEvent.click(view.getByRole("button", { name: "Back" }));
     await view.findByRole("table", { name: "Data usage by organization" });
   } finally {
@@ -323,7 +323,7 @@ for (const origin of ["Reports", "Organizations"] as const) {
           name: `Open identity ${fingerprint}`,
         }),
       );
-      await view.findByRole("table", { name: "Identity" });
+      await view.findByRole("group", { name: "Identity" });
       fireEvent.click(view.getByRole("button", { name: "Back" }));
       expect(
         view
@@ -376,7 +376,7 @@ test("the audit trail pages events, filters to a subject, and links to targets",
         }) as HTMLInputElement
       ).value;
     fireEvent.click(within(table).getByTitle(member.userId));
-    await view.findByRole("table", { name: "Identity" });
+    await view.findByRole("group", { name: "Identity" });
     fireEvent.click(view.getByRole("button", { name: "Back" }));
     const returned = await view.findByRole("table", { name: "Audit events" });
     expect(filterValue()).toBe(member.userId);
@@ -387,13 +387,13 @@ test("the audit trail pages events, filters to a subject, and links to targets",
     fireEvent.click(
       await within(orgs).findByTitle(member.defaultOrganizationId),
     );
-    await view.findByRole("table", { name: "Organization" });
+    await view.findByRole("group", { name: "Organization" });
     fireEvent.click(view.getByRole("button", { name: "Back" }));
     const again = await view.findByRole("table", { name: "Audit events" });
     expect(filterValue()).toBe(member.userId);
 
     fireEvent.click(within(again).getByTitle(member.userId));
-    await view.findByRole("table", { name: "Identity" });
+    await view.findByRole("group", { name: "Identity" });
     fireEvent.click(view.getByRole("button", { name: "Audit activity" }));
     const filtered = await view.findByRole("table", { name: "Audit events" });
     await within(filtered).findByText("Viewed identity");

@@ -4,8 +4,8 @@ import type {
 } from "@tearleads/client-sdk";
 import { MiniAppInfoSection } from "../../../../components/mini-app/MiniAppLayout";
 import {
-  MiniAppInfoRow,
-  MiniAppKeyValueTable,
+  MiniAppKeyValueList,
+  MiniAppKeyValueRow,
 } from "../../../../components/mini-app/MiniAppTable";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
@@ -135,59 +135,57 @@ function ExplorerWriteQueueEntryGeneralSection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.writeQueueEntryGeneralHeading}>
-      <MiniAppKeyValueTable>
-        <tbody>
-          <MiniAppInfoRow label={EXPLORER_LABELS.writeQueueEntryNameRow}>
-            {getWriteQueueItemName(item)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow label={EXPLORER_LABELS.writeQueueEntryTypeRow}>
-            {getEntryTypeLabel(item)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow label={EXPLORER_LABELS.writeQueueEntryStatusRow}>
-            <span
-              className={`explorer-write-queue-status explorer-write-queue-status--${item.status}`}
-            >
-              {getStatusLabel(item.status)}
-            </span>
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.writeQueueEntryOrganizationRow}
-            title={item.organizationId}
+      <MiniAppKeyValueList>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.writeQueueEntryNameRow}>
+          {getWriteQueueItemName(item)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.writeQueueEntryTypeRow}>
+          {getEntryTypeLabel(item)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.writeQueueEntryStatusRow}>
+          <span
+            className={`explorer-write-queue-status explorer-write-queue-status--${item.status}`}
           >
-            {organizationLabel}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.writeQueueEntryContainerRow}
-            title={item.containerId}
-          >
-            {containerLabel}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.writeQueueEntryLocalIdRow}
-            title={item.localId}
-          >
-            <code>{item.localId}</code>
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.writeQueueEntryRemoteIdRow}
-            title={item.remoteId}
-          >
-            {item.remoteId ? <code>{item.remoteId}</code> : "-"}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.writeQueueEntryCreatedRow}
-            title={item.createdAt}
-          >
-            {formatEntryDateTime(item.createdAt)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.writeQueueEntryUpdatedRow}
-            title={item.updatedAt}
-          >
-            {formatEntryDateTime(item.updatedAt)}
-          </MiniAppInfoRow>
-        </tbody>
-      </MiniAppKeyValueTable>
+            {getStatusLabel(item.status)}
+          </span>
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.writeQueueEntryOrganizationRow}
+          title={item.organizationId}
+        >
+          {organizationLabel}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.writeQueueEntryContainerRow}
+          title={item.containerId}
+        >
+          {containerLabel}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.writeQueueEntryLocalIdRow}
+          title={item.localId}
+        >
+          <code>{item.localId}</code>
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.writeQueueEntryRemoteIdRow}
+          title={item.remoteId}
+        >
+          {item.remoteId ? <code>{item.remoteId}</code> : "-"}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.writeQueueEntryCreatedRow}
+          title={item.createdAt}
+        >
+          {formatEntryDateTime(item.createdAt)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.writeQueueEntryUpdatedRow}
+          title={item.updatedAt}
+        >
+          {formatEntryDateTime(item.updatedAt)}
+        </MiniAppKeyValueRow>
+      </MiniAppKeyValueList>
     </MiniAppInfoSection>
   );
 }
@@ -203,43 +201,41 @@ function ExplorerWriteQueueEntryOperationsSection(params: {
       heading={EXPLORER_LABELS.writeQueueEntryOperationsHeading}
     >
       {item.operations.map((operation) => (
-        <MiniAppKeyValueTable key={operation.kind}>
-          <tbody>
-            <MiniAppInfoRow
-              label={getOperationLabel(
-                operation,
-                item,
-                params.containerNamesById,
-              )}
-            >
-              {getStatusLabel(operation.status)}
-            </MiniAppInfoRow>
-            <MiniAppInfoRow
-              label={EXPLORER_LABELS.writeQueueEntryLastErrorRow}
-              title={operation.lastError}
-            >
-              {operation.lastError ?? EXPLORER_LABELS.writeQueueEntryNoError}
-            </MiniAppInfoRow>
-            <MiniAppInfoRow
-              label={EXPLORER_LABELS.writeQueueEntryLastAttemptRow}
-              title={operation.lastAttemptedAt}
-            >
-              {formatEntryDateTime(operation.lastAttemptedAt)}
-            </MiniAppInfoRow>
-            <MiniAppInfoRow
-              label={EXPLORER_LABELS.writeQueueEntryCreatedRow}
-              title={operation.createdAt}
-            >
-              {formatEntryDateTime(operation.createdAt)}
-            </MiniAppInfoRow>
-            <MiniAppInfoRow
-              label={EXPLORER_LABELS.writeQueueEntryUpdatedRow}
-              title={operation.updatedAt}
-            >
-              {formatEntryDateTime(operation.updatedAt)}
-            </MiniAppInfoRow>
-          </tbody>
-        </MiniAppKeyValueTable>
+        <MiniAppKeyValueList key={operation.kind}>
+          <MiniAppKeyValueRow
+            label={getOperationLabel(
+              operation,
+              item,
+              params.containerNamesById,
+            )}
+          >
+            {getStatusLabel(operation.status)}
+          </MiniAppKeyValueRow>
+          <MiniAppKeyValueRow
+            label={EXPLORER_LABELS.writeQueueEntryLastErrorRow}
+            title={operation.lastError}
+          >
+            {operation.lastError ?? EXPLORER_LABELS.writeQueueEntryNoError}
+          </MiniAppKeyValueRow>
+          <MiniAppKeyValueRow
+            label={EXPLORER_LABELS.writeQueueEntryLastAttemptRow}
+            title={operation.lastAttemptedAt}
+          >
+            {formatEntryDateTime(operation.lastAttemptedAt)}
+          </MiniAppKeyValueRow>
+          <MiniAppKeyValueRow
+            label={EXPLORER_LABELS.writeQueueEntryCreatedRow}
+            title={operation.createdAt}
+          >
+            {formatEntryDateTime(operation.createdAt)}
+          </MiniAppKeyValueRow>
+          <MiniAppKeyValueRow
+            label={EXPLORER_LABELS.writeQueueEntryUpdatedRow}
+            title={operation.updatedAt}
+          >
+            {formatEntryDateTime(operation.updatedAt)}
+          </MiniAppKeyValueRow>
+        </MiniAppKeyValueList>
       ))}
     </MiniAppInfoSection>
   );
