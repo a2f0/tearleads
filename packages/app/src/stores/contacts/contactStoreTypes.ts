@@ -92,7 +92,11 @@ export interface ContactsStore {
     upload: DocumentAttachmentUpload,
   ) => Promise<void>;
   subscribe: (listener: () => void) => () => void;
-  updateContact: (contactId: string, patch: ContactEntryPatch) => Promise<void>;
+  /** Resolves true once the patch is saved; a failed save still resolves. */
+  updateContact: (
+    contactId: string,
+    patch: ContactEntryPatch,
+  ) => Promise<boolean>;
   updateRuntime: (runtime: ContactsRuntime) => void;
 }
 

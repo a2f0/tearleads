@@ -6,7 +6,8 @@ import {
 } from "../../../../test/helpers/principalAuthorityRecovery";
 import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { savePrincipalHistoryStage } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../runtimePolicyRecovery";
 import { createPrincipalCurrentRecoveryBatch } from "./principalCurrentRecoveryBatch";
@@ -165,12 +166,10 @@ test("a lifetime that ends while superseded does not resume", async () => {
 });
 
 /** A real progress-CAS loss: another writer saved this stage first. */
-async function supersededSave(
-  execSql: Parameters<typeof savePrincipalHistoryStage>[0]["execSql"],
-) {
+async function supersededSave(execSql: ExecSql) {
+  const repository = new PrincipalHistoryRepository(execSql);
   const save = (progress: string) =>
-    savePrincipalHistoryStage({
-      execSql,
+    repository.savePrincipalHistoryStage({
       stage: {
         id: "stage-1",
         organizationId: "org-1",

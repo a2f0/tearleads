@@ -25,7 +25,6 @@
       { "name": "Postgres concurrency", "workflow": "CI" },
       { "name": "windows / Windows CEF persistence", "workflow": "CI" }
     ],
-    "requireStrictBaseFreshness": true,
     "checksTimeoutSeconds": 3600
   },
   "versions": {
@@ -100,6 +99,60 @@
         "executable": true
       }
     ]
+  },
+  "pushGate": {
+    "steps": [
+      {
+        "label": "skill-placeholders",
+        "command": ["bun", "run", "lint:skill-placeholders"]
+      },
+      { "label": "file-names", "command": ["bun", "run", "lint:files"] },
+      {
+        "label": "source-shape",
+        "command": ["bun", "scripts/checks/lintPushedSourceShape.ts"]
+      },
+      {
+        "label": "api-migrations",
+        "command": ["bun", "run", "lint:api-migrations"]
+      },
+      {
+        "label": "canonical-ordering",
+        "command": ["bun", "run", "lint:canonical-ordering"]
+      },
+      {
+        "label": "infrastructure-parity",
+        "command": ["bun", "run", "lint:infrastructure-parity"]
+      },
+      { "label": "doc-links", "command": ["bun", "run", "lint:doc-links"] },
+      { "label": "markdown", "command": ["bun", "run", "lint:markdown"] },
+      { "label": "biome", "command": ["bun", "run", "lint:biome:check"] },
+      {
+        "label": "typecheck-tools",
+        "command": ["bun", "run", "typecheck:tools"]
+      },
+      {
+        "label": "package-assertions",
+        "command": ["bun", "run", "lint:package-assertions"]
+      },
+      { "label": "openapi", "command": ["bun", "run", "lint:openapi"] },
+      {
+        "label": "openapi-compatibility",
+        "command": ["bun", "run", "lint:openapi:compatibility"]
+      },
+      { "label": "formal-maps", "command": ["bun", "run", "lint:formal-maps"] },
+      { "label": "ruby", "command": ["bun", "run", "lint:ruby"] },
+      { "label": "shellcheck", "command": ["bun", "run", "lint:scripts"] },
+      { "label": "knip", "command": ["bun", "run", "lint:knip:all"] },
+      {
+        "label": "knip-production",
+        "command": ["bun", "run", "lint:knip:production"]
+      },
+      {
+        "label": "architecture",
+        "command": ["bun", "run", "lint:architecture"]
+      }
+    ],
+    "budgetSeconds": 120
   },
   "screenshots": {
     "targets": {

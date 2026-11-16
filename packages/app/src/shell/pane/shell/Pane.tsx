@@ -18,15 +18,13 @@ import { MINI_APP_LAUNCHER } from "../../../mini-apps/registry";
 import { SystemMonitorPinned } from "../../../mini-apps/system-monitor/SystemMonitorPinned";
 import { SystemMonitorProvider } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
-import { NavigationModeSwitch } from "../../../navigation/NavigationModeSwitch";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
-import { ThemeToggleButton } from "../../../theme/ThemeToggleButton";
+import { AppSystemTray } from "../../../tray-apps/AppSystemTray";
 import { AppRoutedPane } from "../../layout/routed/AppRoutedPane";
 import { TestSystemBanner } from "../../layout/TestSystemBanner";
 import { usePublishIdentityLink, useRegisterUserId } from "../dual-pane";
 import { PaneFooter } from "../footer/PaneFooter";
-import { SyncStatusIndicator } from "../footer/sync-status/SyncStatusIndicator";
 import "./Pane.css";
 import { PaneDesktopIcons } from "./PaneDesktopIcons";
 import { PaneMenu } from "./PaneMenu";
@@ -71,16 +69,7 @@ function PaneInner({
           ))}
         </div>
         <TestSystemBanner />
-        <PaneFooter
-          label={label}
-          tray={
-            <>
-              <ThemeToggleButton />
-              <NavigationModeSwitch mode="windowed" />
-              <SyncStatusIndicator />
-            </>
-          }
-        />
+        <PaneFooter label={label} tray={<AppSystemTray />} />
         {contextMenu && (
           <PaneMenu position={contextMenu} onClose={closeContextMenu} />
         )}

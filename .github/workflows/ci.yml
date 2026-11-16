@@ -63,7 +63,7 @@ jobs:
   gate:
     name: CI gate
     if: always()
-    needs: [changes, lint, models, build, test, postgres-concurrency, windows, native, proofs, terraform]
+    needs: [changes, lint, models, build, test, e2e, postgres-concurrency, windows, native, proofs, terraform]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -338,6 +338,49 @@ jobs:
           else
             bun scripts/testing/runVerifiedTurbo.ts test "--filter=$SUITE_FILTER"
           fi
+
+  # The web app's browser suite. Turbo replays a pass whose inputs match an
+  # earlier run on this branch or main, so only changes that reach app-web or
+  # the API it signs in against run Playwright.
+  e2e:
+    name: Web E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Bun
+        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          version: 2026.11.8
+          install_args: bun
+          cache: true
+
+      # Playwright's CLI runs on Node.
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Key the Turbo cache to this runtime
+        run: echo "CI_TOOLCHAIN=bun-$(bun --version)-node-$(node --version)-${RUNNER_OS}-${RUNNER_ARCH}" >> "$GITHUB_ENV"
+
+      - name: Serve the Turbo remote cache from the Actions cache
+        uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
+        with:
+          server-port: 0
+
+      - name: Install dependencies
+        run: sh scripts/lib/installDependencies.sh
+
+      - name: Install Playwright's Chromium
+        run: bun run --cwd packages/app-web playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: bun run test:turbo:e2e
 
   postgres-concurrency:
     name: Postgres concurrency

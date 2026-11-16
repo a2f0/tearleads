@@ -3,16 +3,14 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { principalHistoryNodes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import {
-  discardPrincipalHistoryStage,
-  savePrincipalHistoryStage,
-} from "./principalHistoryStagePersistence";
+import { PrincipalHistoryRepository } from "./principalHistoryRepository";
 
 test("discarding a missing stage initializes its tables on a fresh database", async () => {
   const f = await createTestExecSql("principal-stage-cold-discard");
   try {
-    await discardPrincipalHistoryStage(
+    await new PrincipalHistoryRepository(
       f.execSql,
+    ).discardPrincipalHistoryStage(
       {
         id: "absent-stage",
         organizationId: "org-1",
@@ -41,8 +39,8 @@ test("a stale discard preserves newer stage progress and its scope hint", async 
       complete: false,
       progress: "initial-progress",
     };
+    const repository = new PrincipalHistoryRepository(f.execSql);
     const input = {
-      execSql: f.execSql,
       stage,
       previousProgress: null,
       evidence: {
@@ -54,9 +52,9 @@ test("a stale discard preserves newer stage progress and its scope hint", async 
       },
       stillCurrent: () => true,
     };
-    await savePrincipalHistoryStage(input);
+    await repository.savePrincipalHistoryStage(input);
     const newer = { ...stage, afterVersion: 2, progress: "newer-progress" };
-    await savePrincipalHistoryStage({
+    await repository.savePrincipalHistoryStage({
       ...input,
       stage: newer,
       evidence: { ...input.evidence, indexRootHash: "newer-index-root" },
@@ -67,9 +65,9 @@ test("a stale discard preserves newer stage progress and its scope hint", async 
     expect(saved).toMatchObject([
       { ...newer, scopeId: "scope-1", rootHash: "newer-index-root" },
     ]);
-    await discardPrincipalHistoryStage(f.execSql, stage, () => true);
+    await repository.discardPrincipalHistoryStage(stage, () => true);
     expect(await db.select().from(principalHistoryStages)).toEqual(saved);
-    await discardPrincipalHistoryStage(f.execSql, newer, () => true);
+    await repository.discardPrincipalHistoryStage(newer, () => true);
     expect(await db.select().from(principalHistoryStages)).toEqual([]);
     // Both roots lost their stage's edge: the replaced one on save, the last on discard.
     expect(

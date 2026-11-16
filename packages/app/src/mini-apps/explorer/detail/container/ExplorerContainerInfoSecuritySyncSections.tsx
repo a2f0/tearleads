@@ -1,6 +1,7 @@
 import type { ContainerInfo } from "@tearleads/client-sdk";
 import { type ReactNode, useMemo } from "react";
 import {
+  MiniAppCopyValue,
   MiniAppInfoHeading,
   MiniAppInfoSection,
   MiniAppStatus,
@@ -9,7 +10,8 @@ import {
   MiniAppCompactTableCell,
   type MiniAppCompactTableField,
   MiniAppCompactTableHeader,
-  MiniAppInfoTable,
+  MiniAppKeyValueList,
+  MiniAppKeyValueRow,
   MiniAppTable,
   MiniAppTableCell,
   type MiniAppTableColumn,
@@ -30,6 +32,7 @@ import {
   getExplorerContainerInfoRecipientSummaryLabel,
 } from "../../labels";
 import { compactId } from "../compactId";
+import { ExplorerInfoIdRow } from "../ExplorerInfoIdRow";
 
 type ContainerRemoteInfo = NonNullable<ContainerInfo["remoteInfo"]>;
 type SecurityPathEntry = NonNullable<
@@ -202,54 +205,44 @@ function SecurityPathRow(params: {
   );
 }
 
-function SecuritySummaryTable(params: {
+function SecuritySummaryList(params: {
   security: NonNullable<ContainerRemoteInfo["security"]>;
 }) {
   const { security } = params;
   return (
-    <MiniAppInfoTable>
-      <tbody>
-        <tr>
-          <th>{EXPLORER_LABELS.containerInfoSecurityManifestHashRow}</th>
-          <td title={security.currentManifestHash}>
-            {compactId(security.currentManifestHash)}
-          </td>
-        </tr>
-        <tr>
-          <th>{EXPLORER_LABELS.containerInfoSecurityKeyEpochRow}</th>
-          <td title={security.currentContainerKeyEpochId}>
-            {security.currentContainerKeyEpoch} /{" "}
-            {compactId(security.currentContainerKeyEpochId)}
-          </td>
-        </tr>
-        <tr>
-          <th>{EXPLORER_LABELS.containerInfoSecurityParentKeyEpochRow}</th>
-          <td title={security.currentParentContainerKeyEpochId ?? undefined}>
-            {security.currentParentContainerKeyEpochId
-              ? compactId(security.currentParentContainerKeyEpochId)
-              : "-"}
-          </td>
-        </tr>
-        <tr>
-          <th>{EXPLORER_LABELS.containerInfoManifestHistoryRow}</th>
-          <td>
-            {getExplorerContainerInfoManifestHistoryLabel(
-              security.currentManifestHistoryCount,
-            )}
-          </td>
-        </tr>
-        <tr>
-          <th>{EXPLORER_LABELS.containerInfoPathRow}</th>
-          <td>
-            {getExplorerContainerInfoPathSummaryLabel({
-              pathLength: security.pathLength,
-              referencedPrincipalCount:
-                security.currentReferencedPrincipalCount,
-            })}
-          </td>
-        </tr>
-      </tbody>
-    </MiniAppInfoTable>
+    <MiniAppKeyValueList>
+      <ExplorerInfoIdRow
+        label={EXPLORER_LABELS.containerInfoSecurityManifestHashRow}
+        value={security.currentManifestHash}
+      />
+      <MiniAppKeyValueRow
+        label={EXPLORER_LABELS.containerInfoSecurityKeyEpochRow}
+      >
+        {security.currentContainerKeyEpoch} /{" "}
+        <MiniAppCopyValue
+          display={compactId(security.currentContainerKeyEpochId)}
+          label={EXPLORER_LABELS.containerInfoSecurityKeyEpochRow}
+          value={security.currentContainerKeyEpochId}
+        />
+      </MiniAppKeyValueRow>
+      <ExplorerInfoIdRow
+        label={EXPLORER_LABELS.containerInfoSecurityParentKeyEpochRow}
+        value={security.currentParentContainerKeyEpochId}
+      />
+      <MiniAppKeyValueRow
+        label={EXPLORER_LABELS.containerInfoManifestHistoryRow}
+      >
+        {getExplorerContainerInfoManifestHistoryLabel(
+          security.currentManifestHistoryCount,
+        )}
+      </MiniAppKeyValueRow>
+      <MiniAppKeyValueRow label={EXPLORER_LABELS.containerInfoPathRow}>
+        {getExplorerContainerInfoPathSummaryLabel({
+          pathLength: security.pathLength,
+          referencedPrincipalCount: security.currentReferencedPrincipalCount,
+        })}
+      </MiniAppKeyValueRow>
+    </MiniAppKeyValueList>
   );
 }
 
@@ -265,7 +258,7 @@ export function ExplorerContainerInfoSecuritySection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.containerInfoSecurityHeading}>
-      <SecuritySummaryTable security={security} />
+      <SecuritySummaryList security={security} />
       <MiniAppInfoHeading>
         {EXPLORER_LABELS.containerInfoPathHeading}
       </MiniAppInfoHeading>

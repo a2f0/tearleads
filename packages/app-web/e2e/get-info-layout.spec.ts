@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { expect, test } from "./appTest";
 
 /*
  * Explorer Get Info on a phone. The key/value lists (MiniAppKeyValueList) set
@@ -320,3 +321,36 @@ for (const width of [390, 1280]) {
     );
   });
 }
+
+// Container General's "Container view" section ends in two help paragraphs. As
+// flex items their own margins do not collapse, so they sat a double space
+// apart; they should be spaced by the section's gap like everything else in it.
+test("container info help paragraphs keep the section's spacing", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openContainerInfo(page);
+
+  // The innermost match: any enclosing section also contains the text.
+  const section = page
+    .getByRole("tabpanel")
+    .locator("section", { hasText: "Container view" })
+    .last();
+  await expect(section.locator("p").nth(1)).toBeVisible({ timeout: 30_000 });
+  const spacing = await section.evaluate((element) => {
+    const [first, second] = Array.from(element.querySelectorAll(":scope > p"));
+    if (!first || !second) {
+      return null;
+    }
+    return {
+      between: Math.round(
+        second.getBoundingClientRect().top -
+          first.getBoundingClientRect().bottom,
+      ),
+      gap: Math.round(Number.parseFloat(getComputedStyle(element).rowGap)),
+    };
+  });
+
+  expect(spacing).not.toBeNull();
+  expect(spacing?.between).toBe(spacing?.gap);
+});

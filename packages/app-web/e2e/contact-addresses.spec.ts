@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { expect, test } from "./appTest";
 import { measureAttached } from "./domMeasure";
 
 test.use({ viewport: { width: 390, height: 844 } });

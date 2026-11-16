@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./appTest";
 
 /*
  * Routed-tier geometry at the tablet/iPad width, where the shell keeps its
