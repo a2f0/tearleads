@@ -14,6 +14,7 @@ import {
   type MiniAppTableColumn,
   MiniAppTableFrame,
   MiniAppTableRow,
+  MiniAppTableText,
   miniAppRowActionsColumn,
   useMiniAppCompactTableFrame,
 } from "../../../../components/mini-app/MiniAppTable";
@@ -262,12 +263,16 @@ function GrantRow(params: {
         />
       ) : (
         <>
-          <MiniAppTableCell title={grant.subjectId}>
-            {principal}
+          <MiniAppTableCell>
+            <MiniAppTableText title={grant.subjectId}>
+              {principal}
+            </MiniAppTableText>
           </MiniAppTableCell>
           {secondary.map((field) => (
-            <MiniAppTableCell key={field.id} title={field.title}>
-              {field.text}
+            <MiniAppTableCell key={field.id}>
+              <MiniAppTableText title={field.title}>
+                {field.text}
+              </MiniAppTableText>
             </MiniAppTableCell>
           ))}
         </>

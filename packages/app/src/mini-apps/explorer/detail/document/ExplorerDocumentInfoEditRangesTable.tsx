@@ -9,6 +9,7 @@ import {
   type MiniAppTableColumn,
   MiniAppTableFrame,
   MiniAppTableRow,
+  MiniAppTableText,
   useMiniAppCompactTableFrame,
 } from "../../../../components/mini-app/MiniAppTable";
 import { getMiniAppVirtualFrameStyle } from "../../../../components/mini-app/virtual/MiniAppVirtual";
@@ -116,12 +117,16 @@ function EditRangeRow(params: {
         <MiniAppCompactTableCell primary={[writer]} secondary={secondary} />
       ) : (
         <>
-          <MiniAppTableCell title={writer.title}>
-            {writer.text}
+          <MiniAppTableCell>
+            <MiniAppTableText title={writer.title}>
+              {writer.text}
+            </MiniAppTableText>
           </MiniAppTableCell>
           {secondary.map((field) => (
-            <MiniAppTableCell key={field.id} title={field.title}>
-              {field.text}
+            <MiniAppTableCell key={field.id}>
+              <MiniAppTableText title={field.title}>
+                {field.text}
+              </MiniAppTableText>
             </MiniAppTableCell>
           ))}
         </>
