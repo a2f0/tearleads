@@ -51,6 +51,7 @@ export function ExplorerDocumentRouteDetail(
   if (route.view === "document-history") {
     return (
       <ExplorerDocumentHistoryPanel
+        attributionUserLabelResolver={params.attributionUserLabelResolver}
         fallbackDocumentSummary={fallbackDocumentSummary}
         loadDocumentSummary={params.loadDocumentSummary}
         isContainerReadOnly={isContainerReadOnly}

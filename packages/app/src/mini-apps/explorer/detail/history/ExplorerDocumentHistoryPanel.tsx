@@ -22,8 +22,10 @@ import {
 import { DocumentsProvider } from "../../../../stores/documents/DocumentsProvider";
 import { formatMiniAppDateTimeSeconds } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
+import type { ExplorerAttributionUserLabelResolver } from "../attributionDisplay";
 import { useExplorerDocumentSummary } from "../document/useExplorerDocumentSummary";
 import { DocumentHistoryRestore } from "./DocumentHistoryRestore";
+import { DocumentHistoryStopWriter } from "./DocumentHistoryStopWriter";
 import { DocumentHistoryTimeline } from "./DocumentHistoryTimeline";
 import { describeDocumentHistoryChange } from "./describeDocumentHistoryChange";
 
@@ -68,12 +70,16 @@ function DocumentAtStop(params: {
 }
 
 function ReadyDocumentHistory(params: {
+  attributionUserLabelResolver:
+    | ExplorerAttributionUserLabelResolver
+    | undefined;
   controls: DocumentHistoryControls;
   documentSummary: DocumentSummary;
   readOnly: boolean;
   state: ReadyHistory;
 }) {
   const { controls, documentSummary, readOnly, state } = params;
+  const selectedStop = state.history.stops[state.selectedIndex];
   const { shown } = state;
   const changeTime = formatMiniAppDateTimeSeconds(
     state.history.stops[state.selectedIndex]?.committedAt ?? null,
@@ -128,6 +134,14 @@ function ReadyDocumentHistory(params: {
         playing={state.playing}
         selectedIndex={state.selectedIndex}
         stopCount={state.history.stops.length}
+        writer={
+          selectedStop === undefined ? null : (
+            <DocumentHistoryStopWriter
+              resolveUserLabel={params.attributionUserLabelResolver}
+              stop={selectedStop}
+            />
+          )
+        }
       />
       {shown === null ? (
         <MiniAppStatus busy>
@@ -145,6 +159,9 @@ function ReadyDocumentHistory(params: {
 }
 
 function DocumentHistoryBody(params: {
+  attributionUserLabelResolver:
+    | ExplorerAttributionUserLabelResolver
+    | undefined;
   controls: DocumentHistoryControls;
   documentSummary: DocumentSummary;
   isContainerReadOnly: (containerId: string | null) => boolean;
@@ -174,6 +191,7 @@ function DocumentHistoryBody(params: {
   }
   return (
     <ReadyDocumentHistory
+      attributionUserLabelResolver={params.attributionUserLabelResolver}
       controls={controls}
       documentSummary={documentSummary}
       // The folder the document is in now, not the one the route names: a
@@ -215,6 +233,9 @@ function DocumentHistoryHeader(params: {
  * has loaded.
  */
 function AdmittedDocumentHistory(params: {
+  attributionUserLabelResolver:
+    | ExplorerAttributionUserLabelResolver
+    | undefined;
   documentSummary: DocumentSummary;
   isContainerReadOnly: (containerId: string | null) => boolean;
 }) {
@@ -234,6 +255,7 @@ function AdmittedDocumentHistory(params: {
         title={shown?.view.title ?? documentSummary.title}
       />
       <DocumentHistoryBody
+        attributionUserLabelResolver={params.attributionUserLabelResolver}
         controls={controls}
         documentSummary={documentSummary}
         isContainerReadOnly={params.isContainerReadOnly}
@@ -247,6 +269,10 @@ function AdmittedDocumentHistory(params: {
  * at the selected one. The live document keeps editing and syncing underneath.
  */
 export function ExplorerDocumentHistoryPanel(params: {
+  /** Names the uploader of a change; without it only a key id is shown. */
+  attributionUserLabelResolver?:
+    | ExplorerAttributionUserLabelResolver
+    | undefined;
   fallbackDocumentSummary: DocumentSummary | null;
   /** Whether documents in a container are read-only, as in the Trash. */
   isContainerReadOnly: (containerId: string | null) => boolean;
@@ -278,6 +304,7 @@ export function ExplorerDocumentHistoryPanel(params: {
         </>
       ) : (
         <AdmittedDocumentHistory
+          attributionUserLabelResolver={params.attributionUserLabelResolver}
           documentSummary={documentSummary}
           isContainerReadOnly={params.isContainerReadOnly}
         />
