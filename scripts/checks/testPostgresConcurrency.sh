@@ -17,6 +17,11 @@ cd "$REPO_ROOT"
 API_DATABASE=postgres
 export API_DATABASE
 
+# The workerd tests run the API inside workerd, where the opt-in ML-DSA stand-in
+# cannot reach, so its real signatures would reject the test process's. This
+# lane always signs for real.
+unset TEARLEADS_TEST_FAST_SIGNATURES
+
 # Never write into a development database by default: when no explicit target
 # is configured, aim at a dedicated local database and create it when
 # possible. A full URL is required — bun test sets NODE_ENV=test, where the

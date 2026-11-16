@@ -189,6 +189,35 @@ do not depend on Turbo's task cache.
 Fetch `origin/main`, or set `OPENAPI_BASE_REF` to check OpenAPI against another
 base commit.
 
+## Fast local signatures
+
+`TEARLEADS_TEST_FAST_SIGNATURES=1` swaps ML-DSA-87 for a test-only stand-in in
+the client SDK, API, and app suites, which roughly halves the SDK suite; see
+[test optimization](test-optimization.md#techniques-that-work) for the
+measurements. Set it on the command for local iteration:
+
+```sh
+TEARLEADS_TEST_FAST_SIGNATURES=1 bun run check:package @tearleads/client-sdk
+```
+
+- Each suite's preload imports
+  [`fastSignatures.testFixtures.ts`](../../packages/crypto/src/signing/fastSignatures.testFixtures.ts)
+  first; unset, it changes nothing. The API helpers that sign in a worker
+  thread or a child Bun process import it themselves. ML-KEM stays real.
+- [`packages/crypto`](../../packages/crypto/) and
+  [`packages/bob-and-alice`](../../packages/bob-and-alice/) have no preload and
+  always sign for real. The crypto suite's
+  [control test](../../packages/crypto/src/signing/fastMlDsa87.test.ts) proves
+  neither primitive accepts the other's signatures.
+- The SDK, API, and app Turbo `test` tasks declare the variable in `env`, so a
+  pass cached with the stand-in is never replayed for a real-signature run.
+- `bun run test:postgres-concurrency` unsets the variable: its workerd tests
+  run the API inside workerd, which the stand-in cannot reach, so workerd's real
+  verifier rejects stand-in signatures.
+- A stand-in pass is for iteration. It does not replace the real-signature run
+  before a push: anyone holding a public key can forge a stand-in signature.
+  The pre-push hook unsets the variable, and CI never sets it.
+
 ## Before a push
 
 The [push gate](static-analysis.md#ci-and-the-push-gate) runs its checks in

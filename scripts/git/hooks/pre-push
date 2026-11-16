@@ -10,6 +10,11 @@ if ! cmp -s "$0" "$REPO_ROOT/scripts/git/hooks/pre-push"; then
   exit 1
 fi
 
+# The gate tests real ML-DSA-87 signatures. A stand-in exported for local
+# iteration (docs/developer/verification.md#fast-local-signatures) must not
+# reach it.
+unset TEARLEADS_TEST_FAST_SIGNATURES
+
 # shellcheck disable=SC1091
 . "$REPO_ROOT/scripts/lib/stepTimings.sh"
 # shellcheck disable=SC1091
