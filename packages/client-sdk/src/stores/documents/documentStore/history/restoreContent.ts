@@ -8,7 +8,7 @@ import { requestDocumentStoreSync } from "../../registry";
 import type { DocumentMutationGuard } from "../../types";
 import { ensureDocumentStoreReady } from "../initialization";
 import { chainQueuedWrite } from "../localWriteQueue";
-import { revalidateDocumentMutationIdentity } from "../mutationIdentityRevalidation";
+import { settleDocumentLocalWrite } from "../mutations";
 import {
   advancePendingBaseVersion,
   pendingDeltaSinceBase,
@@ -16,9 +16,14 @@ import {
 } from "../persistence";
 import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
 import { resolveRowAttribution } from "../rows/rowAttribution";
-import { canWriteDocument, type DocumentStoreState } from "../state";
+import {
+  canWriteDocument,
+  type DocumentStoreState,
+  type SaveDocumentRecordOptions,
+} from "../state";
 import {
   captureDocumentStoreSyncGeneration,
+  type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "../sync/syncGeneration";
 
@@ -75,34 +80,57 @@ async function persistRestoredContent(
   const update = pendingDeltaSinceBase(state, currentDoc);
   const pendingUpdate =
     update.byteLength === 0 ? null : createPendingUpdateFields(update);
+  // The persist keeps whatever text and fields are on screen: an edit queued
+  // behind this restore has already shown its value, and publishing the
+  // restored document over it would regress an editor the user is typing in.
+  // The restored content is published when the local writes drain
+  // (settleDocumentLocalWrite), as it is for every other write.
+  const saveOptions: SaveDocumentRecordOptions = {
+    preserveSnapshotStructuredFields: true,
+    preserveSnapshotText: true,
+  };
   if (!pendingUpdate) {
-    // Already this content: nothing to save, like a row write that matched.
-    await revalidateDocumentMutationIdentity({ currentDoc, generation, state });
-    return true;
+    // Already this content: nothing to save, only the identity to revalidate.
+    return isPersistedAndCurrent(
+      state,
+      generation,
+      await persistDocument(state, currentDoc, {}, saveOptions, generation),
+    );
   }
   const coveredVersion = encodeVersionVector(currentDoc);
   // From here until a persist covers it, the doc holds edits SQLite lacks.
   state.unsavedLocalEdits = true;
-  // Unlike a row write, a restore replaces the text and fields on screen:
-  // the snapshot is re-derived from the document, not preserved.
   const persisted = await persistDocument(
     state,
     currentDoc,
     { snapshotEndVersion: coveredVersion },
-    { pendingUpdate },
+    { ...saveOptions, pendingUpdate },
     generation,
   );
-  if (
-    !persisted ||
-    persisted.pullContinuationSuperseded ||
-    persisted.syncIdentitySuperseded ||
-    !isDocumentStoreSyncGenerationCurrent(state, generation)
-  ) {
+  if (!isPersistedAndCurrent(state, generation, persisted)) {
     return false;
   }
   advancePendingBaseVersion(state, currentDoc);
   requestDocumentStoreSync(state);
   return true;
+}
+
+/**
+ * Whether a persist landed on the document this write started against. A
+ * refused persist, a lost compare-and-set, or a superseded generation means
+ * the store now holds something else.
+ */
+function isPersistedAndCurrent(
+  state: DocumentStoreState,
+  generation: DocumentStoreSyncGeneration,
+  persisted: Awaited<ReturnType<typeof persistDocument>>,
+): boolean {
+  return (
+    persisted !== null &&
+    !persisted.pullContinuationSuperseded &&
+    !persisted.syncIdentitySuperseded &&
+    isDocumentStoreSyncGenerationCurrent(state, generation)
+  );
 }
 
 /**
@@ -131,6 +159,10 @@ export async function restoreDocumentStoreContent(
 
   const writeGeneration = state.localWriteGeneration;
   let restored = false;
+  // Counted as a local write in flight, like a text or field write: while the
+  // count is above zero a sync pass keeps the snapshot on screen, and the
+  // document is published once the count drains.
+  state.pendingLocalWrites += 1;
   await chainQueuedWrite(
     state,
     state.writeChain
@@ -145,6 +177,10 @@ export async function restoreDocumentStoreContent(
       })
       .catch((error: unknown) => {
         reportDocumentStoreWriteFailure(state, RESTORE_FAILURE_MESSAGE, error);
+      })
+      // Always settle, so the count cannot stick above zero.
+      .finally(() => {
+        settleDocumentLocalWrite(state, writeGeneration);
       }),
   );
   return restored;

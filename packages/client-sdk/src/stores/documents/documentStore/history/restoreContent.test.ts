@@ -9,6 +9,7 @@ import {
 import { setDocumentStructuredFields, setDocumentText } from "../mutations";
 import { listPendingUpdates } from "../persistence";
 import { addRowToDocumentStore } from "../rows";
+import { subscribeToDocumentStore } from "../state";
 import { openHistoryTestStore as openStore } from "./historyDurability.testFixtures";
 import { restoreDocumentStoreContent } from "./restoreContent";
 
@@ -141,6 +142,83 @@ test("a restore is its own step even in the same second as the edits around it",
     } finally {
       after.close();
     }
+  });
+});
+
+test("typing queued behind a restore is never overwritten on screen", async () => {
+  await withDatabase("restore-then-type", async (execSql) => {
+    const state = await openStore(
+      execSql,
+      "typing",
+      sqlDocumentsPersistence,
+      "first",
+    );
+    const first = await openHistory(execSql, "typing");
+    const firstVersion = first.viewAt(first.stops.length - 1);
+    first.close();
+    tick();
+    await setDocumentText(state, noop, "first and second");
+    tick();
+
+    const shown: string[] = [];
+    const unsubscribe = subscribeToDocumentStore(state, () => {
+      shown.push(state.snapshot.text);
+    });
+    let typing: Promise<void> | undefined;
+    let admissions = 0;
+    const restored = await restoreDocumentStoreContent(
+      state,
+      noop,
+      firstVersion,
+      {
+        // The guard is asked once before the restore is queued and again
+        // when it reaches the front of the write queue, about to apply. The
+        // user types at that second moment: the edit shows at once and
+        // queues behind the restore.
+        stillCurrent: () => {
+          admissions += 1;
+          if (admissions === 2) {
+            typing = setDocumentText(state, noop, "typed during the restore");
+          }
+          return true;
+        },
+      },
+    );
+    expect(admissions).toBe(2);
+    await typing;
+    unsubscribe();
+
+    expect(restored).toBe(true);
+    // The editor never fell back to the restored text under the user's hands.
+    const sinceTyping = shown.slice(shown.indexOf("typed during the restore"));
+    expect(sinceTyping.length).toBeGreaterThan(0);
+    expect(new Set(sinceTyping)).toEqual(new Set(["typed during the restore"]));
+    expect(state.snapshot.text).toBe("typed during the restore");
+    expect(state.pendingLocalWrites).toBe(0);
+  });
+});
+
+test("a restore with nothing queued behind it shows the restored content", async () => {
+  await withDatabase("restore-shown", async (execSql) => {
+    const state = await openStore(
+      execSql,
+      "shown",
+      sqlDocumentsPersistence,
+      "first",
+    );
+    const first = await openHistory(execSql, "shown");
+    const firstVersion = first.viewAt(first.stops.length - 1);
+    first.close();
+    tick();
+    await setDocumentText(state, noop, "first and second");
+    tick();
+
+    expect(await restoreDocumentStoreContent(state, noop, firstVersion)).toBe(
+      true,
+    );
+
+    expect(state.snapshot.text).toBe("first");
+    expect(state.pendingLocalWrites).toBe(0);
   });
 });
 
