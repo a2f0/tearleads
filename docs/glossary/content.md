@@ -91,6 +91,8 @@ Related docs:
 An encrypted CRDT update produced by the Loro document layer. The server can see
 causal metadata such as [version-vector spans](#version-vector), but the update
 payload remains encrypted with the [document content key](./keys.md#content-key).
+That payload includes the time each change was committed, as reported by the
+writing device.
 
 Related docs:
 
