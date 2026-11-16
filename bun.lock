@@ -5,7 +5,7 @@
     "": {
       "name": "tearleads",
       "devDependencies": {
-        "@a2f0/agent-tool": "0.1.55",
+        "@a2f0/agent-tool": "0.1.58",
         "@azure/storage-blob": "12.34.0",
         "@biomejs/biome": "2.5.15",
         "@commitlint/cli": "21.2.4",
@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.196",
+      "version": "0.1.201",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -129,7 +129,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.42",
+      "version": "0.0.43",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -189,7 +189,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.48",
+      "version": "0.1.53",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -235,7 +235,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.196",
+      "version": "0.1.197",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -363,9 +363,9 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.68",
+      "version": "0.1.70",
       "dependencies": {
-        "@a2f0/agent-tool": "0.1.55",
+        "@a2f0/agent-tool": "0.1.58",
         "@a2f0/ct-client": "0.1.6",
         "@astrojs/markdown-satteri": "0.4.6",
         "@astrojs/react": "7.1.2",
@@ -389,7 +389,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.40",
+      "version": "0.2.41",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",
@@ -442,7 +442,7 @@
     },
   },
   "packages": {
-    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.55", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-ya0NJUiqKS7D4uHktC40pehw1bqdJcbYM7JJnm4jxkaz/1JCDi5CELdPpI3H7dgF7dGeJvEGVQxLt5m/ZAyEOQ=="],
+    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.58", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-G3HGklvsmhBvYUB0DzTPop7rcMWhwKyuXN8cR0OO+8oRcL6ATwd19mPKcqXgMi0+82p3dZxnTSr8VR27qCclDQ=="],
 
     "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#ccec49f", {}, "a2f0-continuity-ccec49f", "sha512-SwQMufS2JVURyMbhehQMLvNnvuJsqDQihxvsLGnFjeVWwsweJTRy9esLA4dnJziHq2u36qlSG0uzAsQOk0hAbQ=="],
 

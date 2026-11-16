@@ -2,9 +2,10 @@ import { execFile } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { expect, type Page, type TestInfo, test } from "@playwright/test";
+import type { Page, TestInfo } from "@playwright/test";
 import { clearStaleLocalState } from "../screenshots/appShell";
 import { restoreSeedBackup } from "../screenshots/seedRestore";
+import { expect, test } from "./appTest";
 
 let artifactPath: string;
 let folderId: string;

@@ -305,7 +305,7 @@ test("self ensure rechecks its runtime inside the real write chain", async () =>
     resolveVerified: async () => null,
     logError: (message, cause) => errors.push({ message, cause }),
   });
-  let blocker: Promise<void> | undefined;
+  let blocker: Promise<boolean> | undefined;
   let ensuring: Promise<string | null> | undefined;
   try {
     await stale.openDocumentStore({ localId }).setStructuredFields(

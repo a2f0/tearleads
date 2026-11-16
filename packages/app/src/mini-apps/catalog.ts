@@ -48,8 +48,8 @@ interface MiniAppMenuItem {
   appId: MiniAppId;
 }
 
-// Display Properties opens only from the desktop's context menu, so it is
-// left out of the menu order and the routed shell's navigation.
+// The windowed desktop opens Display Properties from its context menu, so it
+// is left out of the menu order.
 export const MINI_APP_ORDER = [
   "explorer",
   "contacts",
@@ -70,8 +70,10 @@ export const MINI_APP_MENU_ITEMS: ReadonlyArray<MiniAppMenuItem> =
     appId,
   }));
 
-// Keep a named routed-navigation seam even though it currently shares the Start
-// menu's app ordering.
+// The routed shell has no desktop menu, so its navigation lists Display
+// Properties last: there its theme and tray-app switches stay reachable even
+// with every tray app turned off.
 export const ROUTED_MINI_APP_NAV_ITEMS: ReadonlyArray<MiniAppMenuItem> = [
   ...MINI_APP_MENU_ITEMS,
+  { appId: "display-properties" },
 ];

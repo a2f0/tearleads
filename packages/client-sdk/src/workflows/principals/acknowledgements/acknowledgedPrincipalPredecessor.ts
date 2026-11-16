@@ -4,10 +4,8 @@ import {
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import {
-  loadPrincipalHistoryPrefix,
-  type PrincipalHistoryPrefix,
-} from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
+import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import {
   principalHistoryEvidenceScopeId,
@@ -102,7 +100,9 @@ export async function captureAcknowledgedPrincipalPredecessor(
     });
     const restored = await restoreAcknowledgedPrincipalPrefix(
       options,
-      await loadPrincipalHistoryPrefix(options.execSql, scopeId),
+      await new PrincipalHistoryRepository(
+        options.execSql,
+      ).loadPrincipalHistoryPrefix(scopeId),
     );
     assertProjectionVerificationCurrent(current);
     if (

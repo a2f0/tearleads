@@ -4,8 +4,8 @@ This page maps two [keying](../docs/keying-design.md) requirements to the
 executable evidence that enforces them: no device is ever bricked by another
 device's cache or write, and the keying verifiers refuse forged, rolled-back, or
 spliced state while accepting its honest twin. Every check below runs in
-`bun run check:fast` and the
-[pre-push gate](../docs/developer/verification.md#before-a-push).
+`bun run check:fast` and in [CI](../docs/developer/ci-merge-gate.md), whose
+`Lint` and `Protocol models (...)` jobs gate every merge.
 
 ## No-bricked-device model
 
@@ -24,7 +24,7 @@ membership.
 | Progress without another device's cache or write | `DeviceEventuallyCurrent` (reads) and `DeviceEventuallyWrites` (the device's own `DeviceWrite`, accepted only at the current heads) with weak fairness only on each device's `HonestSync` and `DeviceWrite`; no fairness on server-side writes |
 | Stale-head and stale-chain currency rules break liveness | `no-brick-stale-head-citation` and `no-brick-stale-chain-citation` in the [negative-control registry](../scripts/protocol/protocolNoBrickNegativeControls.ts) require the temporal violation of `DeviceEventuallyCurrent`; `no-brick-writer-waits-for-fresh-dependent` requires that of `DeviceEventuallyWrites` |
 | Implementation-to-model projection | [Projection runner](../scripts/protocol/checkNoBrickProjection.ts): four scenario tests record six traces, covering container ancestor citations, group membership, historical policy, and principal-policy citations; six deliberately corrupted projections must fail |
-| Registration, checked mapping, and push gate | Both configurations in [protocol-models.txt](./protocol-models.txt); mapping registered in [lintFormalAbstractionMaps.ts](../scripts/protocol/lintFormalAbstractionMaps.ts) |
+| Registration and checked mapping | Both configurations in [protocol-models.txt](./protocol-models.txt); mapping registered in [lintFormalAbstractionMaps.ts](../scripts/protocol/lintFormalAbstractionMaps.ts) |
 
 The [model's configurations](./container-keying/NoBrickedDevice.md#registered-configurations)
 state its bounds and explored state counts. The authority's genuine history is

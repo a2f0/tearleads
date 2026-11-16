@@ -10,10 +10,7 @@ import {
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import {
-  loadPrincipalHistoryReference,
-  loadPrincipalHistoryReferences,
-} from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { PrincipalHistoryEvidenceUnavailableError } from "../historyRecovery/principalHistoryRecoveryReferences";
@@ -35,8 +32,9 @@ async function selectBatch(
   checkpointReference: PrincipalPolicyHistoryReferenceProof | undefined,
 ) {
   assertProjectionVerificationCurrent(input.stillCurrent);
-  const proofs = await loadPrincipalHistoryReferences({
-    execSql: input.execSql,
+  const proofs = await new PrincipalHistoryRepository(
+    input.execSql,
+  ).loadPrincipalHistoryReferences({
     ...input.recovered,
     versions,
   });
@@ -57,8 +55,9 @@ async function loadCheckpointProof(
   let checkpointReference: PrincipalPolicyHistoryReferenceProof | undefined;
   try {
     if (checkpoint)
-      checkpointReference = await loadPrincipalHistoryReference({
-        execSql: input.execSql,
+      checkpointReference = await new PrincipalHistoryRepository(
+        input.execSql,
+      ).loadPrincipalHistoryReference({
         ...input.recovered,
         version: checkpoint.version,
       });

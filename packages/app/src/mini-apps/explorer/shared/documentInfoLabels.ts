@@ -97,6 +97,8 @@ export const EXPLORER_DOCUMENT_INFO_LABELS = {
   documentInfoNoAttachments: "No attachments or blob bindings.",
   documentInfoNoAuthorizingContainers: "No authorizing containers.",
   documentInfoNoContributors: "No edit attribution available.",
+  documentInfoNoRemoteAttribution:
+    "Remote document attribution info is unavailable.",
   documentInfoNoRemoteInfo: "Remote document security info is unavailable.",
   documentInfoPathLabel: "Path",
   documentInfoPathLevelCountOne: "level",
