@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
@@ -8,7 +9,6 @@ import { createPendingUpdateRecord } from "../../../../test/helpers/documentResp
 import { repairedAncestorDocument } from "../../../../test/helpers/repairedAncestorDocument";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { ContainerKekRepairRequiredError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
-import { uploadDocumentAttachment } from "../../blobs/upload";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 import { retrySyncPlan } from "./index";
 
@@ -67,9 +67,8 @@ for (const peerRepaired of [true, false]) {
     let stages = 0;
     const multipart = createMultipartBlobStageFixture();
     try {
-      const upload = uploadDocumentAttachment({
-        ...input,
-        apiClient: {
+      const upload = createBlobAttachmentServiceFixture({
+        api: {
           ...multipart,
           bindBlobAttachment: async (blobId, request) =>
             createBlobAttachmentBindResponse({
@@ -89,6 +88,10 @@ for (const peerRepaired of [true, false]) {
             return multipart.initiateMultipartBlobStage(request);
           },
         },
+        encapsulationSecretKey: input.targetSecretKey,
+        execSql: input.execSql,
+      }).uploadDocumentAttachment({
+        ...input,
         bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
         documentId: projection.documentId,
         expectedBindingId: null,

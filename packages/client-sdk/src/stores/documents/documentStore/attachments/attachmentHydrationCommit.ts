@@ -1,5 +1,5 @@
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
-import type { hydrateDocumentAttachmentBlobs } from "../../../../workflows/blobs";
+import type { HydratedDocumentAttachmentBlob as HydratedBlob } from "../../../../workflows/blobs";
 import {
   type LocalAttachmentRecord,
   runSerializedDocumentBlobMutation,
@@ -10,10 +10,6 @@ import {
   installLocalAttachmentRecords,
   removeLocalAttachmentSlot,
 } from "./attachmentPersistence";
-
-type HydratedBlob = NonNullable<
-  Awaited<ReturnType<typeof hydrateDocumentAttachmentBlobs>>
->[number];
 
 export async function commitHydratedAttachment(input: {
   state: DocumentStoreState;

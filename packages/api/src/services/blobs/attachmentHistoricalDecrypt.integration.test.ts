@@ -1,13 +1,12 @@
 import { expect, spyOn, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import {
+  BlobAttachmentService,
   cacheReferencedPrincipalPolicies,
   createRemoteContainer,
   createRemoteDocument,
-  decryptDocumentAttachmentBlob,
   shareRemoteContainer,
   unwrapContainerKekPath,
-  uploadDocumentAttachment,
 } from "@tearleads/client-sdk";
 
 import {
@@ -132,6 +131,12 @@ test("SDK decrypts a historical binding after ancestor head changes and document
     targetSecretKey: owner.kem.secretKey,
     warmReferencedPrincipalPolicies,
   };
+  const blobs = new BlobAttachmentService({
+    api: apiClient,
+    encapsulationSecretKey: owner.kem.secretKey,
+    execSql,
+    reportSecurityIncident: common.reportSecurityIncident,
+  });
   try {
     const child = await createRemoteContainer({
       ...common,
@@ -167,7 +172,7 @@ test("SDK decrypts a historical binding after ancestor head changes and document
     apiClient.clearWriterProjectionCaches();
     const plaintext = new Uint8Array([3, 1, 4, 1, 5, 9]);
     const blobContentKey = crypto.getRandomValues(new Uint8Array(32));
-    const uploaded = await uploadDocumentAttachment({
+    const uploaded = await blobs.uploadDocumentAttachment({
       ...common,
       bytes: plaintext,
       contentKey: blobContentKey,
@@ -290,14 +295,12 @@ test("SDK decrypts a historical binding after ancestor head changes and document
       ),
     ).toContain(bindAncestor.plan.manifestHash);
     expect(
-      await decryptDocumentAttachmentBlob({
+      await blobs.decryptDocumentAttachmentBlob({
         binding: stagedUploadBinding(uploaded),
         encryptedBytes,
-        execSql,
         expectedDocumentId: document.documentId,
         expectedSlotId: "preview",
         resolveProjectionUserKey,
-        targetSecretKey: owner.kem.secretKey,
         writerProjection: projection,
         warmReferencedPrincipalPolicies,
       }),

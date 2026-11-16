@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
-import { uploadDocumentAttachment } from "./index";
 
 test("uploadDocumentAttachment refetches writer projection after a stale container KEK unwrap", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
@@ -27,8 +27,8 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
   });
   const { close, execSql } = await createTestExecSql("blob-projection-retry");
 
-  const uploaded = await uploadDocumentAttachment({
-    apiClient: {
+  const uploaded = await createBlobAttachmentServiceFixture({
+    api: {
       ...multipart,
       bindBlobAttachment: async (requestBlobId, request) => {
         bindCount += 1;
@@ -55,16 +55,17 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
         return multipart.initiateMultipartBlobStage(request);
       },
     },
+    encapsulationSecretKey: secretKey,
+    execSql,
+  }).uploadDocumentAttachment({
     author,
     bindingId,
     blobId,
     bytes: new Uint8Array([1, 2, 3, 4]) as BlobBytes,
     documentId: writerProjection.documentId,
-    execSql,
     expectedBindingId: null,
     resolveProjectionUserKey,
     slotId,
-    targetSecretKey: secretKey,
   });
   close();
 
@@ -93,8 +94,8 @@ test("uploadDocumentAttachment does not retry identity failures that resemble st
 
   try {
     await expect(
-      uploadDocumentAttachment({
-        apiClient: {
+      createBlobAttachmentServiceFixture({
+        api: {
           ...multipart,
           bindBlobAttachment: async () => null,
           evictDocumentWriterProjection: () => {
@@ -109,16 +110,17 @@ test("uploadDocumentAttachment does not retry identity failures that resemble st
             return multipart.initiateMultipartBlobStage(request);
           },
         },
+        encapsulationSecretKey: secretKey,
+        execSql,
+      }).uploadDocumentAttachment({
         author,
         bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
         documentId: writerProjection.documentId,
-        execSql,
         expectedBindingId: null,
         resolveProjectionUserKey: async () => {
           throw integrityError;
         },
         slotId: "identity-failure",
-        targetSecretKey: secretKey,
       }),
     ).rejects.toBe(integrityError);
     expect(evictions).toBe(0);

@@ -1,4 +1,5 @@
 import type {
+  BlobBytesResponse,
   RequestFailureKind,
   RequestResultOptions,
   UploadMultipartBlobPartBytesRequest,
@@ -22,6 +23,7 @@ import type {
   BlobAttachmentSummary,
   DocumentWriterProjectionResponse,
   InitiateMultipartBlobStageResponse,
+  ListDocumentAttachmentsResponse,
   MultipartBlobStageStatusResponse,
   UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
@@ -91,6 +93,20 @@ export interface BlobAttachmentDetachApi {
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
+}
+
+export interface DocumentAttachmentHydrationApi {
+  evictDocumentWriterProjection?(documentId: string): void;
+  getBlobBytes(
+    blobId: string,
+    options?: RequestResultOptions,
+  ): Promise<BlobBytesResponse | null>;
+  getDocumentWriterProjection(
+    documentId: string,
+  ): Promise<DocumentWriterProjectionResponse | null>;
+  listDocumentAttachments(
+    documentId: string,
+  ): Promise<ListDocumentAttachmentsResponse | null>;
 }
 
 export type { BlobContentKeyTarget };
@@ -169,8 +185,8 @@ export type MultipartStageResolvedListener = (input: {
   readonly stageId: string;
 }) => void | Promise<void>;
 
-export interface UploadDocumentAttachmentInput {
-  apiClient: BlobAttachmentApi;
+/** One upload; the service supplies the API, executor, and secret key. */
+export interface UploadDocumentAttachmentRequest {
   author: DocumentCreateAuthor;
   blobId?: string | undefined;
   bindingId?: string | undefined;
@@ -185,7 +201,6 @@ export interface UploadDocumentAttachmentInput {
    */
   documentSync?: DocumentSyncRequest | undefined;
   eventId?: string | undefined;
-  execSql: ExecSql;
   expectedBindingId: string | null;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   // A persisted nonce seed. The plaintext digest derives the envelope IV from
@@ -198,7 +213,6 @@ export interface UploadDocumentAttachmentInput {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   slotId: string;
-  targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
@@ -225,14 +239,13 @@ export interface UploadDocumentAttachmentResult {
   writerProjection: DocumentWriterProjectionResponse;
 }
 
-export interface DetachDocumentAttachmentInput {
-  apiClient: BlobAttachmentDetachApi;
+/** One detach; the service supplies the API and executor. */
+export interface DetachDocumentAttachmentRequest {
   author: DocumentCreateAuthor;
   bindingId: string;
   blobId: string;
   documentId: string;
   eventId?: string | undefined;
-  execSql: ExecSql;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
@@ -260,3 +273,9 @@ export interface DecryptDocumentAttachmentBlobInput {
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }
+
+/** One decrypt; the service supplies the executor and its secret key. */
+export type DecryptDocumentAttachmentBlobRequest = Omit<
+  DecryptDocumentAttachmentBlobInput,
+  "execSql" | "targetSecretKey"
+>;

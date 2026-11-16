@@ -34,6 +34,7 @@ reference.
 | Acknowledged principal currents | `PrincipalAcknowledgementChecks`, the host for `recordAcknowledgedPrincipalCurrents` | The organization mutation checks bound by `retainAcknowledgedPrincipalCurrents` | None |
 | Domain sync lanes | `getOrCreateDomainSyncCoordinator(domainScope)` | One coordinator per domain scope | None |
 | Identity change preparation | `IdentityChangePreparation` | `Blobs` prepares a store and returns a commit that only assigns state | No-op preparation in identity/session tests |
+| Blob attachment I/O | `BlobAttachmentService` (`runtime.blobAttachments`) | One per documents runtime, built by `createDocumentsWorkflowRuntime` | Constructed over a fake API in tests |
 
 ## Where code goes
 
@@ -220,6 +221,61 @@ export function getOrCreatePrincipalPolicyCoordinator(execSql: ExecSql) {
 When the grouped state is a behavior with its own collaborators, the singleton
 becomes a service: one entry point composing the ports and per-scope state,
 replacing option bags that thread the same collaborators through every call.
+[Services](#services) sets the conventions.
+
+## Services
+
+A subsystem whose functions thread the same collaborators through option bags
+becomes one service class. The tiers run facade
+([`client/<name>`](../../packages/client-sdk/src/client/)) → service
+([`workflows/<name>`](../../packages/client-sdk/src/workflows/)) → repository
+([`data/persistence/<name>`](../../packages/client-sdk/src/data/persistence/))
+→ `Database` ([`data/sqlite`](../../packages/client-sdk/src/data/sqlite/)).
+[`BlobAttachmentService`](../../packages/client-sdk/src/workflows/blobs/blobAttachmentService.ts)
+is the first.
+
+- **Lifetime.** Construct the service where its collaborators are fixed: in the
+  composition root, in a runtime factory, or through a
+  `getOrCreate<Name>Service(domainScope)` scoped singleton. The service lives
+  as long as the snapshot its collaborators come from. `DomainScope` changes
+  with the storage database or signing identity. A documents runtime can
+  change its executor under one scope, so
+  [`createDocumentsWorkflowRuntime`](../../packages/client-sdk/src/workflows/documents/runtime.ts)
+  builds a `BlobAttachmentService` for each runtime it makes.
+- **Constructor and methods.** The constructor takes what is constant for that
+  lifetime: the API client or its slices, the executor, key material, the blob
+  store, the `SecurityIncidentReporter`, loggers, and the clock. Methods take
+  what varies per call: ids, an `AbortSignal`, expected heads, online state,
+  and the projection key resolver and currency checks a caller snapshots per
+  operation.
+- **Snapshot semantics.** A call reads its collaborators once, when it starts,
+  as the bag it replaced did; a value read once at call start must not become
+  a live read. A caller that captured an executor for a sync generation reads
+  the service from the same runtime in the same synchronous step, so a stale
+  generation never runs with a newer executor.
+- **Splitting a large service.** The class is the subsystem's only public
+  entry. Feature modules behind it export functions that take the service's
+  collaborators type and a per-call request. Declare that type beside the
+  subsystem's contracts, as
+  [`collaborators.ts`](../../packages/client-sdk/src/data/blobs/attachments/collaborators.ts)
+  does, not on the class, so the modules never import the class back.
+- **Repositories.** A repository is a class binding an executor, not an
+  interface. Inside a transaction use the locked executor: give the repository
+  a `within(tx)` or take the executor per call, and keep
+  `resolveCanonicalExecSql` keying for any state. A subsystem that owns no
+  tables, like Client Blob Storage, has no repository.
+- **What stays a function.** Pure functions stay functions: verifiers,
+  canonical encoders, hash derivations, and normalizers. So do verification
+  entry points that another caller reaches with its own keys, such as the
+  link-set rewrap's attachment checks. Convert only code that threads
+  collaborators.
+- **Tests.** Tests construct the real service over fakes; there is no
+  interface over the one implementation.
+  [`createBlobAttachmentServiceFixture`](../../packages/client-sdk/test/helpers/blobAttachmentServiceFixture.ts)
+  accepts a fake API with only the calls a test path makes.
+- **Public API.** Replace the bag-taking exports with the class and delete
+  them in the same pull request, migrating every caller, rather than keeping
+  delegating wrappers. List each removed or renamed export in the pull request.
 
 ## Subsystem surfaces
 

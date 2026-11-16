@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
@@ -8,7 +9,6 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/document
 import { parseBlobEncryptedBytes } from "../../../data/blobs/attachments/readers";
 import type { MultipartUploadProgress } from "../../../data/blobs/attachments/types";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
-import { uploadDocumentAttachment } from "./index";
 
 const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024;
 
@@ -27,8 +27,8 @@ test("uploadDocumentAttachment defaults every blob to 5 MiB multipart", async ()
   const progressEvents: MultipartUploadProgress[] = [];
   const { close, execSql } = await createTestExecSql("automatic-multipart");
 
-  const uploaded = await uploadDocumentAttachment({
-    apiClient: {
+  const uploaded = await createBlobAttachmentServiceFixture({
+    api: {
       ...multipartApi,
       bindBlobAttachment: async (requestBlobId, request) =>
         createBlobAttachmentBindResponse({
@@ -47,18 +47,19 @@ test("uploadDocumentAttachment defaults every blob to 5 MiB multipart", async ()
         return response;
       },
     },
+    encapsulationSecretKey: secretKey,
+    execSql,
+  }).uploadDocumentAttachment({
     author,
     bindingId,
     blobId,
     bytes: new Uint8Array(8 * 1024 * 1024) as BlobBytes,
     documentId: writerProjection.documentId,
-    execSql,
     expectedBindingId: null,
     onMultipartProgress: (progress) => progressEvents.push(progress),
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,
-    targetSecretKey: secretKey,
   });
   close();
 

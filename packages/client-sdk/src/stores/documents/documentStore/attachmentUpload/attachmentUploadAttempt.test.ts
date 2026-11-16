@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createBlobAttachmentServiceFixture } from "../../../../../test/helpers/blobAttachmentServiceFixture";
 import { createMultipartBlobStageFixture } from "../../../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/documentFixtures";
 import { initiatedStage } from "../../../../../test/helpers/multipartUpload";
@@ -31,7 +32,15 @@ test("classifies a first upload 402 as a billing pause without a cached projecti
   const multipart = createMultipartBlobStageFixture();
   const result = await uploadAttachmentWithWriterProjectionRetry({
     baseUploadInput: {
-      apiClient: {
+      author,
+      bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
+      documentId: writerProjection.documentId,
+      expectedBindingId: null,
+      resolveProjectionUserKey,
+      slotId: "first-upload-402",
+    },
+    blobAttachments: createBlobAttachmentServiceFixture({
+      api: {
         ...multipart,
         bindBlobAttachment: async () => null,
         getDocumentWriterProjection: async () => writerProjection,
@@ -41,15 +50,9 @@ test("classifies a first upload 402 as a billing pause without a cached projecti
           return null;
         },
       },
-      author,
-      bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
-      documentId: writerProjection.documentId,
+      encapsulationSecretKey: secretKey,
       execSql,
-      expectedBindingId: null,
-      resolveProjectionUserKey,
-      slotId: "first-upload-402",
-      targetSecretKey: secretKey,
-    },
+    }),
     state,
     writerProjection: null,
   });
@@ -85,7 +88,15 @@ test("preserves a billing pause observed before recovery races the postflight ch
 
   const result = await uploadAttachmentWithWriterProjectionRetry({
     baseUploadInput: {
-      apiClient: {
+      author,
+      bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
+      documentId: writerProjection.documentId,
+      expectedBindingId: null,
+      resolveProjectionUserKey,
+      slotId: "preflight-402",
+    },
+    blobAttachments: createBlobAttachmentServiceFixture({
+      api: {
         ...multipart,
         bindBlobAttachment: async () => null,
         getDocumentWriterProjection: async () => writerProjection,
@@ -94,15 +105,9 @@ test("preserves a billing pause observed before recovery races the postflight ch
           return multipart.initiateMultipartBlobStage(request);
         },
       },
-      author,
-      bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
-      documentId: writerProjection.documentId,
+      encapsulationSecretKey: secretKey,
       execSql,
-      expectedBindingId: null,
-      resolveProjectionUserKey,
-      slotId: "preflight-402",
-      targetSecretKey: secretKey,
-    },
+    }),
     state,
     writerProjection: null,
   });
@@ -135,7 +140,15 @@ test("does not retry a concrete upload failure with a fresh projection", async (
   try {
     const result = await uploadAttachmentWithWriterProjectionRetry({
       baseUploadInput: {
-        apiClient: {
+        author,
+        bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
+        documentId: writerProjection.documentId,
+        expectedBindingId: null,
+        resolveProjectionUserKey,
+        slotId: "network-failure",
+      },
+      blobAttachments: createBlobAttachmentServiceFixture({
+        api: {
           ...multipart,
           bindBlobAttachment: async () => null,
           getDocumentWriterProjection: async () => {
@@ -147,15 +160,9 @@ test("does not retry a concrete upload failure with a fresh projection", async (
             throw uploadError;
           },
         },
-        author,
-        bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
-        documentId: writerProjection.documentId,
+        encapsulationSecretKey: secretKey,
         execSql,
-        expectedBindingId: null,
-        resolveProjectionUserKey,
-        slotId: "network-failure",
-        targetSecretKey: secretKey,
-      },
+      }),
       state,
       writerProjection,
     });
@@ -200,7 +207,25 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
   try {
     const result = await uploadAttachmentWithWriterProjectionRetry({
       baseUploadInput: {
-        apiClient: {
+        author,
+        bindingId: "550e8400-e29b-41d4-a716-446655440581",
+        blobId: "550e8400-e29b-41d4-a716-446655440580",
+        bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
+        contentKey: new Uint8Array(32).fill(7),
+        documentId: writerProjection.documentId,
+        eventId: "550e8400-e29b-41d4-a716-446655440582",
+        expectedBindingId: null,
+        nonceSeed: new Uint8Array(12).fill(3),
+        multipart: { partSize: 5 * 1024 * 1024 },
+        onStageResolved: ({ stageId }) => {
+          resolvedStageIds.push(stageId);
+        },
+        resolveProjectionUserKey,
+        signedAt: "2026-04-27T00:00:00.000Z",
+        slotId: "reused-stage",
+      },
+      blobAttachments: createBlobAttachmentServiceFixture({
+        api: {
           bindBlobAttachment: async () => {
             bindRequests += 1;
             return null;
@@ -250,25 +275,9 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
             };
           },
         },
-        author,
-        bindingId: "550e8400-e29b-41d4-a716-446655440581",
-        blobId: "550e8400-e29b-41d4-a716-446655440580",
-        bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
-        contentKey: new Uint8Array(32).fill(7),
-        documentId: writerProjection.documentId,
-        eventId: "550e8400-e29b-41d4-a716-446655440582",
+        encapsulationSecretKey: secretKey,
         execSql,
-        expectedBindingId: null,
-        nonceSeed: new Uint8Array(12).fill(3),
-        multipart: { partSize: 5 * 1024 * 1024 },
-        onStageResolved: ({ stageId }) => {
-          resolvedStageIds.push(stageId);
-        },
-        resolveProjectionUserKey,
-        signedAt: "2026-04-27T00:00:00.000Z",
-        slotId: "reused-stage",
-        targetSecretKey: secretKey,
-      },
+      }),
       state,
       writerProjection,
     });
@@ -321,7 +330,17 @@ test("attachment upload propagates identity failures without a projection retry"
     await expect(
       uploadAttachmentWithWriterProjectionRetry({
         baseUploadInput: {
-          apiClient: {
+          author,
+          bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
+          documentId: writerProjection.documentId,
+          expectedBindingId: null,
+          resolveProjectionUserKey: async () => {
+            throw integrityError;
+          },
+          slotId: "identity-failure",
+        },
+        blobAttachments: createBlobAttachmentServiceFixture({
+          api: {
             ...multipart,
             bindBlobAttachment: async () => null,
             getDocumentWriterProjection: async () => {
@@ -333,17 +352,9 @@ test("attachment upload propagates identity failures without a projection retry"
               return multipart.initiateMultipartBlobStage(request);
             },
           },
-          author,
-          bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
-          documentId: writerProjection.documentId,
+          encapsulationSecretKey: secretKey,
           execSql,
-          expectedBindingId: null,
-          resolveProjectionUserKey: async () => {
-            throw integrityError;
-          },
-          slotId: "identity-failure",
-          targetSecretKey: secretKey,
-        },
+        }),
         state,
         writerProjection,
       }),

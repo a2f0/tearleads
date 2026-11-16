@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
+import { createBlobAttachmentServiceFixture } from "../../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
@@ -102,13 +103,11 @@ test("a consumed stage whose committed binding was removed renews the durable up
     const attempt = (upload: typeof resume) =>
       uploadAttachmentWithWriterProjectionRetry({
         baseUploadInput: {
-          apiClient,
           author: fixture.author,
           blobId: upload.blobId,
           bytes: new Uint8Array([1, 2, 3]),
           contentKey: upload.contentKey,
           documentId: fixture.writerProjection.documentId,
-          execSql,
           expectedBindingId: null,
           multipart: upload.multipart,
           nonceSeed: upload.nonceSeed,
@@ -120,8 +119,12 @@ test("a consumed stage whose committed binding was removed renews the durable up
             ),
           resolveProjectionUserKey: fixture.resolveProjectionUserKey,
           slotId: pending.slotId,
-          targetSecretKey: fixture.secretKey,
         },
+        blobAttachments: createBlobAttachmentServiceFixture({
+          api: apiClient,
+          encapsulationSecretKey: fixture.secretKey,
+          execSql,
+        }),
         state,
         writerProjection: fixture.writerProjection,
       });

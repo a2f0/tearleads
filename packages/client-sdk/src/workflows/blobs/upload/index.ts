@@ -14,6 +14,10 @@ import type {
 } from "@tearleads/validators/request";
 import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
 import type { BlobSourceSnapshot } from "../../../data/blobs/attachments/blobSourceSnapshot";
+import {
+  type BlobAttachmentCollaborators,
+  requireEncapsulationSecretKey,
+} from "../../../data/blobs/attachments/collaborators";
 import { prepareBlobEncryption } from "../../../data/blobs/attachments/crypto";
 import {
   signBlobAttachmentEvent,
@@ -29,7 +33,7 @@ import type {
   BlobAttachmentMaterial,
   MultipartStageResolvedListener,
   MultipartUploadProgressListener,
-  UploadDocumentAttachmentInput,
+  UploadDocumentAttachmentRequest,
   UploadDocumentAttachmentResult,
 } from "../../../data/blobs/attachments/types";
 import {
@@ -66,7 +70,7 @@ async function buildBlobAttachmentMaterial(
     source: BlobByteSource;
     sourceSnapshot?: BlobSourceSnapshot | undefined;
     targetSecretKey: Uint8Array;
-    writerProjection?: UploadDocumentAttachmentInput["writerProjection"];
+    writerProjection?: UploadDocumentAttachmentRequest["writerProjection"];
   } & ProjectionVerificationOptions,
 ): Promise<BlobAttachmentMaterial | null> {
   const resolved = await resolveBlobMutationWriterProjection({
@@ -225,7 +229,7 @@ async function stageAndBindBlobAttachment(input: {
   eventId: string;
   expectedBindingId: string | null;
   material: BlobAttachmentMaterial;
-  multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
+  multipart: NonNullable<UploadDocumentAttachmentRequest["multipart"]>;
   onMultipartProgress?: MultipartUploadProgressListener | undefined;
   onStageResolved?: MultipartStageResolvedListener | undefined;
   onStageUnavailable?: ((stageId: string) => Promise<void>) | undefined;
@@ -322,41 +326,47 @@ async function stageAndBindBlobAttachment(input: {
   };
 }
 
-interface PreparedUploadDocumentAttachmentInput
-  extends UploadDocumentAttachmentInput {
+/** An upload whose source `inspectBlobSource` already snapshotted. */
+export interface PreparedUploadDocumentAttachmentRequest
+  extends UploadDocumentAttachmentRequest {
   readonly sourceSnapshot?: BlobSourceSnapshot | undefined;
   readonly onStageUnavailable?:
     | ((stageId: string) => Promise<void>)
     | undefined;
 }
 
-async function uploadDocumentAttachmentImpl({
-  apiClient,
-  author,
-  blobId = crypto.randomUUID(),
-  bindingId = crypto.randomUUID(),
-  bytes,
-  contentKey = crypto.getRandomValues(new Uint8Array(32)),
-  contentKeyEpoch = 1,
-  documentId,
-  documentSync,
-  eventId = crypto.randomUUID(),
-  execSql,
-  expectedBindingId,
-  isRemoteSyncBlocked,
-  nonceSeed,
-  multipart,
-  onMultipartProgress,
-  onStageResolved,
-  onStageUnavailable,
-  resolveProjectionUserKey,
-  signedAt = new Date().toISOString(),
-  slotId,
-  sourceSnapshot,
-  targetSecretKey,
-  warmReferencedPrincipalPolicies,
-  writerProjection,
-}: PreparedUploadDocumentAttachmentInput): Promise<UploadDocumentAttachmentResult | null> {
+export async function uploadPreparedDocumentAttachment(
+  blobs: BlobAttachmentCollaborators,
+  {
+    author,
+    blobId = crypto.randomUUID(),
+    bindingId = crypto.randomUUID(),
+    bytes,
+    contentKey = crypto.getRandomValues(new Uint8Array(32)),
+    contentKeyEpoch = 1,
+    documentId,
+    documentSync,
+    eventId = crypto.randomUUID(),
+    expectedBindingId,
+    isRemoteSyncBlocked,
+    nonceSeed,
+    multipart,
+    onMultipartProgress,
+    onStageResolved,
+    onStageUnavailable,
+    resolveProjectionUserKey,
+    signedAt = new Date().toISOString(),
+    slotId,
+    sourceSnapshot,
+    warmReferencedPrincipalPolicies,
+    writerProjection,
+  }: PreparedUploadDocumentAttachmentRequest,
+): Promise<UploadDocumentAttachmentResult | null> {
+  const { api: apiClient, execSql } = blobs;
+  const targetSecretKey = requireEncapsulationSecretKey(
+    blobs,
+    "Document attachment upload",
+  );
   if (contentKey.byteLength !== 32) {
     throw new Error("Blob content key must be 32 bytes");
   }
@@ -368,7 +378,7 @@ async function uploadDocumentAttachmentImpl({
   const source = createBlobByteSource(bytes);
 
   const buildMaterial = (
-    freshWriterProjection: UploadDocumentAttachmentInput["writerProjection"],
+    freshWriterProjection: UploadDocumentAttachmentRequest["writerProjection"],
   ) =>
     buildBlobAttachmentMaterial({
       apiClient,
@@ -440,17 +450,4 @@ async function uploadDocumentAttachmentImpl({
     writerProjection: material.writerProjection,
     ...result,
   };
-}
-
-export function uploadDocumentAttachment(
-  input: UploadDocumentAttachmentInput,
-): Promise<UploadDocumentAttachmentResult | null> {
-  return uploadDocumentAttachmentImpl({ ...input, sourceSnapshot: undefined });
-}
-
-/** Internal upload path for a source snapshot produced by `inspectBlobSource`. */
-export function uploadPreparedDocumentAttachment(
-  input: PreparedUploadDocumentAttachmentInput,
-): Promise<UploadDocumentAttachmentResult | null> {
-  return uploadDocumentAttachmentImpl(input);
 }

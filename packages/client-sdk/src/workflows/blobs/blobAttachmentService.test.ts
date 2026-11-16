@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
+import { createBlobAttachmentServiceFixture } from "../../../test/helpers/blobAttachmentServiceFixture";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
-import { detachDocumentAttachment } from "./detach";
 
 test("detachDocumentAttachment submits a signed detach event", async () => {
   const { author, resolveProjectionUserKey, writerProjection } =
@@ -13,8 +13,8 @@ test("detachDocumentAttachment submits a signed detach event", async () => {
   const submittedRequests: BlobAttachmentDetachRequest[] = [];
   const { close, execSql } = await createTestExecSql("attachment-detach");
 
-  const detached = await detachDocumentAttachment({
-    apiClient: {
+  const detached = await createBlobAttachmentServiceFixture({
+    api: {
       detachBlobAttachment: async (
         requestBlobId,
         requestBindingId,
@@ -30,12 +30,13 @@ test("detachDocumentAttachment submits a signed detach event", async () => {
       },
       getDocumentWriterProjection: async () => writerProjection,
     },
+    execSql,
+  }).detachDocumentAttachment({
     author,
     bindingId,
     blobId,
     documentId: writerProjection.documentId,
     eventId: "550e8400-e29b-41d4-a716-446655440658",
-    execSql,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,

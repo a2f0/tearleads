@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobBytesResponse,
   createFixtureBinding,
@@ -7,9 +8,7 @@ import {
 import { createPagedAttachmentFixture } from "../../../../test/helpers/blobProjectionHistory";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
 import { prepareDocumentLinkBlobRewraps } from "../../documents/linkSet/linkSetBlobRewraps";
-import { detachDocumentAttachment } from "../detach";
 import { verifyRetainedAttachment } from "../verification/retainedAttachmentVerification";
-import { hydrateDocumentAttachmentBlobs } from "./hydrate";
 
 for (const operation of ["detach", "hydrate", "retain", "relink"] as const) {
   test(`${operation} recovers compact projection policy history`, async () => {
@@ -42,12 +41,21 @@ for (const operation of ["detach", "hydrate", "retain", "relink"] as const) {
       targetSecretKey: fixture.secretKey,
       warmReferencedPrincipalPolicies: fixture.warmReferencedPrincipalPolicies,
     };
+    const blobs = createBlobAttachmentServiceFixture({
+      api: apiClient,
+      encapsulationSecretKey: fixture.secretKey,
+      execSql: fixture.execSql,
+    });
+    const {
+      execSql: _execSql,
+      targetSecretKey: _key,
+      ...request
+    } = verification;
     try {
       if (operation === "detach") {
         expect(
-          await detachDocumentAttachment({
-            ...verification,
-            apiClient,
+          await blobs.detachDocumentAttachment({
+            ...request,
             author: fixture.author,
             bindingId: fixture.bindingId,
             blobId: fixture.blobId,
@@ -57,9 +65,8 @@ for (const operation of ["detach", "hydrate", "retain", "relink"] as const) {
         ).not.toBeNull();
         expect(detached).toBe(1);
       } else if (operation === "hydrate") {
-        const hydrated = await hydrateDocumentAttachmentBlobs({
-          ...verification,
-          apiClient,
+        const hydrated = await blobs.hydrateDocumentAttachmentBlobs({
+          ...request,
           attachments: [fixture.attachment],
           documentId,
         });
@@ -107,19 +114,20 @@ test("attachment detach cannot submit after its policy recovery lifetime changes
   let submissions = 0;
   try {
     await expect(
-      detachDocumentAttachment({
-        apiClient: createMockApiClient({
+      createBlobAttachmentServiceFixture({
+        api: createMockApiClient({
           getDocumentWriterProjection: async () => fixture.writerProjection,
           detachBlobAttachment: async () => {
             submissions += 1;
             return null;
           },
         }),
+        execSql: fixture.execSql,
+      }).detachDocumentAttachment({
         author: fixture.author,
         bindingId: fixture.bindingId,
         blobId: fixture.blobId,
         documentId: fixture.writerProjection.documentId,
-        execSql: fixture.execSql,
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
         slotId: fixture.attachment.slotId,
         stillCurrent: () => current,

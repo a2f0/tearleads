@@ -1,8 +1,10 @@
 import { reportAndRethrowKeyingVerificationError } from "../../../../data/keyingProjectionVerification/error";
-import { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../../workflows/blobs/upload";
+import type {
+  BlobAttachmentService,
+  UploadDocumentAttachmentResult,
+} from "../../../../workflows/blobs";
+import type { PreparedUploadDocumentAttachmentRequest as AttachmentUploadInput } from "../../../../workflows/blobs/upload";
 import type { DocumentStoreState } from "../state";
-
-type AttachmentUploadInput = Parameters<typeof uploadDocumentAttachment>[0];
 
 function withResumedMultipartStage(
   uploadInput: AttachmentUploadInput,
@@ -21,13 +23,15 @@ function withResumedMultipartStage(
 }
 
 export async function uploadAttachmentWithWriterProjectionRetry(input: {
-  baseUploadInput: Parameters<typeof uploadDocumentAttachment>[0];
+  baseUploadInput: AttachmentUploadInput;
+  /** The service whose executor the base input was built beside. */
+  blobAttachments: BlobAttachmentService;
   state: DocumentStoreState;
   writerProjection: DocumentStoreState["writerProjection"];
 }): Promise<{
   error: unknown;
   remoteSyncBlocked: boolean;
-  uploaded: Awaited<ReturnType<typeof uploadDocumentAttachment>>;
+  uploaded: UploadDocumentAttachmentResult | null;
 }> {
   let remoteSyncBlocked = false;
   let checkedOrganizationId: string | undefined;
@@ -54,6 +58,7 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
   let uploadError: unknown;
   let uploadThrew = false;
   let uploaded = await tryUploadDocumentAttachment({
+    blobAttachments: input.blobAttachments,
     documentId: input.state.record?.documentId ?? input.state.localId,
     input: {
       ...baseUploadInput,
@@ -91,6 +96,7 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
       resolvedMultipartStage,
     );
     uploaded = await tryUploadDocumentAttachment({
+      blobAttachments: input.blobAttachments,
       documentId: input.state.record?.documentId ?? input.state.localId,
       input: retryUploadInput,
       onError: (error) => {
@@ -112,13 +118,16 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
 }
 
 async function tryUploadDocumentAttachment(input: {
+  blobAttachments: BlobAttachmentService;
   documentId: string;
-  input: Parameters<typeof uploadDocumentAttachment>[0];
+  input: AttachmentUploadInput;
   onError: (error: unknown) => void;
   reportSecurityIncident: DocumentStoreState["runtime"]["util"]["reportSecurityIncident"];
-}): ReturnType<typeof uploadDocumentAttachment> {
+}): Promise<UploadDocumentAttachmentResult | null> {
   try {
-    return await uploadDocumentAttachment(input.input);
+    return await input.blobAttachments.uploadPreparedDocumentAttachment(
+      input.input,
+    );
   } catch (error) {
     await reportAndRethrowKeyingVerificationError(
       error,

@@ -12,6 +12,7 @@ import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trust
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
+import { BlobAttachmentService } from "../../../../workflows/blobs/blobAttachmentService";
 import type { DocumentsRuntime } from "../../types";
 import type { createRemoteHistoryFixture } from "../documentStore.testFixtures";
 
@@ -119,9 +120,20 @@ export function createRotationRecoveryRuntime(input: {
         : defaultResponse;
     },
   }) as unknown as DocumentsRuntime["apiClient"];
+  const util = {
+    log: () => undefined,
+    reportSecurityIncident: async () => undefined,
+  };
 
   return {
     apiClient,
+    blobAttachments: new BlobAttachmentService({
+      api: apiClient,
+      encapsulationSecretKey: secretKey,
+      execSql: input.execSql,
+      log: util.log,
+      reportSecurityIncident: util.reportSecurityIncident,
+    }),
     auth: {
       isAuthenticated: true,
       organizationId: author.organizationId,
@@ -157,9 +169,6 @@ export function createRotationRecoveryRuntime(input: {
       online: input.online ?? true,
       peerScope: "rotation-recovery-restart",
     },
-    util: {
-      log: () => undefined,
-      reportSecurityIncident: async () => undefined,
-    },
+    util,
   };
 }

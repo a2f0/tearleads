@@ -8,6 +8,7 @@ import {
   signWriteHeader,
   toFingerprint,
 } from "@tearleads/crypto";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createFixtureBinding,
   createUploadedAttachmentFixture,
@@ -19,8 +20,6 @@ import {
 } from "../../../../test/helpers/blobUploadFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
-import { uploadDocumentAttachment } from "../upload";
-import { decryptDocumentAttachmentBlob } from "./decrypt";
 
 test("decryptDocumentAttachmentBlob accepts the signed write-time authorization after blob targets advance", async () => {
   const fixture = await createUploadedAttachmentFixture();
@@ -70,24 +69,27 @@ test("decryptDocumentAttachmentBlob accepts the signed write-time authorization 
     },
     writeAuthorization: binding.blobKekTargets,
   };
+  const blobs = createBlobAttachmentServiceFixture({
+    api: {},
+    encapsulationSecretKey: fixture.secretKey,
+    execSql: fixture.execSql,
+  });
   const decryptInput = {
     binding: advancedBinding,
     encryptedBytes: fixture.stagedBlob.encryptedBytes,
     expectedDocumentId: fixture.writerProjection.documentId,
     expectedSlotId: fixture.attachment.slotId,
-    execSql: fixture.execSql,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-    targetSecretKey: fixture.secretKey,
     writerProjection: fixture.writerProjection,
   };
-  const decrypted = await decryptDocumentAttachmentBlob(decryptInput);
+  const decrypted = await blobs.decryptDocumentAttachmentBlob(decryptInput);
 
   expect(Array.from(decrypted)).toEqual(Array.from(fixture.bytes));
   // Deliberately corrupt the runtime envelope without a compatibility adapter.
   const legacyBinding = structuredClone(advancedBinding);
   Reflect.deleteProperty(legacyBinding, "writeAuthorization");
   await expect(
-    decryptDocumentAttachmentBlob({
+    blobs.decryptDocumentAttachmentBlob({
       ...decryptInput,
       binding: legacyBinding,
     }),
@@ -99,8 +101,8 @@ test("decryptDocumentAttachmentBlob accepts a binding created after the blob wri
   const bindingId = "550e8400-e29b-41d4-a716-446655440563";
   const slotId = "preview-rebound";
   const multipart = createMultipartBlobStageFixture();
-  const rebound = await uploadDocumentAttachment({
-    apiClient: {
+  const rebound = await createBlobAttachmentServiceFixture({
+    api: {
       ...multipart,
       bindBlobAttachment: async (_blobId, request) =>
         createBlobAttachmentBindResponse({
@@ -110,18 +112,19 @@ test("decryptDocumentAttachmentBlob accepts a binding created after the blob wri
         }),
       getDocumentWriterProjection: async () => fixture.writerProjection,
     },
+    encapsulationSecretKey: fixture.secretKey,
+    execSql: fixture.execSql,
+  }).uploadDocumentAttachment({
     author: fixture.author,
     bindingId,
     blobId: fixture.blobId,
     bytes: fixture.bytes,
     contentKey: fixture.contentKey,
     documentId: fixture.writerProjection.documentId,
-    execSql: fixture.execSql,
     expectedBindingId: null,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
     signedAt: "2026-04-27T00:01:00.000Z",
     slotId,
-    targetSecretKey: fixture.secretKey,
   });
   if (!rebound) {
     throw new Error("Expected rebound attachment fixture");
@@ -139,14 +142,16 @@ test("decryptDocumentAttachmentBlob accepts a binding created after the blob wri
     writeAuthorization: original.writeAuthorization,
   };
 
-  const decrypted = await decryptDocumentAttachmentBlob({
+  const decrypted = await createBlobAttachmentServiceFixture({
+    api: {},
+    encapsulationSecretKey: fixture.secretKey,
+    execSql: fixture.execSql,
+  }).decryptDocumentAttachmentBlob({
     binding,
     encryptedBytes: fixture.stagedBlob.encryptedBytes,
     expectedDocumentId: fixture.writerProjection.documentId,
     expectedSlotId: slotId,
-    execSql: fixture.execSql,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-    targetSecretKey: fixture.secretKey,
     writerProjection: fixture.writerProjection,
   });
 
@@ -167,14 +172,16 @@ test("decryptDocumentAttachmentBlob rejects bad writer projection signatures", a
   }`;
 
   await expect(
-    decryptDocumentAttachmentBlob({
+    createBlobAttachmentServiceFixture({
+      api: {},
+      encapsulationSecretKey: fixture.secretKey,
+      execSql: fixture.execSql,
+    }).decryptDocumentAttachmentBlob({
       binding: createFixtureBinding(fixture),
       encryptedBytes: fixture.stagedBlob.encryptedBytes,
       expectedDocumentId: fixture.writerProjection.documentId,
       expectedSlotId: fixture.attachment.slotId,
-      execSql: fixture.execSql,
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-      targetSecretKey: fixture.secretKey,
       writerProjection: tamperedProjection,
     }),
   ).rejects.toMatchObject({ code: "signature_mismatch" });
@@ -198,12 +205,15 @@ test("decryptDocumentAttachmentBlob rejects an unauthorized blob writer", async 
   );
 
   await expect(
-    decryptDocumentAttachmentBlob({
+    createBlobAttachmentServiceFixture({
+      api: {},
+      encapsulationSecretKey: fixture.secretKey,
+      execSql: fixture.execSql,
+    }).decryptDocumentAttachmentBlob({
       binding: { ...binding, writeHeader: { ...writeHeader } },
       encryptedBytes: fixture.stagedBlob.encryptedBytes,
       expectedDocumentId: fixture.writerProjection.documentId,
       expectedSlotId: fixture.attachment.slotId,
-      execSql: fixture.execSql,
       resolveProjectionUserKey: async (userId) =>
         userId === writerUserId
           ? createTestTrustedUserIdentity({
@@ -213,7 +223,6 @@ test("decryptDocumentAttachmentBlob rejects an unauthorized blob writer", async 
               userId,
             })
           : fixture.resolveProjectionUserKey(userId),
-      targetSecretKey: fixture.secretKey,
       writerProjection: fixture.writerProjection,
     }),
   ).rejects.toThrow("lacks write access through a committed blob target");

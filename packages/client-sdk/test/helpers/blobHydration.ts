@@ -1,5 +1,5 @@
 import { afterEach } from "bun:test";
-import type { hydrateDocumentAttachmentBlobs } from "../../src/workflows/blobs/hydration/hydrate";
+import type { DocumentAttachmentHydrationApi } from "../../src/data/blobs/attachments/types";
 import {
   createUploadedAttachmentFixture as createFixture,
   createFixtureBinding,
@@ -24,13 +24,10 @@ export async function createUploadedAttachmentFixture() {
   return fixture;
 }
 
-type HydrationApi = Parameters<
-  typeof hydrateDocumentAttachmentBlobs
->[0]["apiClient"];
 export function createSingleAttachmentHydrationApi(
   fixture: Awaited<ReturnType<typeof createFixture>>,
-  getBlobBytes: HydrationApi["getBlobBytes"],
-): HydrationApi {
+  getBlobBytes: DocumentAttachmentHydrationApi["getBlobBytes"],
+): DocumentAttachmentHydrationApi {
   return {
     getBlobBytes,
     getDocumentWriterProjection: async () => fixture.writerProjection,
