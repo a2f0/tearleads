@@ -11,7 +11,16 @@ import { seedExpectations } from "./continuity";
 
 type Scope = Page | Locator;
 
-async function openItemInfo(scope: Scope, title: string): Promise<void> {
+/**
+ * Opens Get Info from the row's actions and waits until it has loaded: the
+ * panel draws its id row before the info arrives, so wait for `loadedKey`, a
+ * row that only has a value once it has.
+ */
+async function openItemInfo(
+  scope: Scope,
+  title: string,
+  loadedKey: string,
+): Promise<void> {
   const actions = scope.getByRole("button", {
     name: `Actions for ${title}`,
     exact: true,
@@ -26,19 +35,23 @@ async function openItemInfo(scope: Scope, title: string): Promise<void> {
     .getByRole("button", { name: "Get Info", exact: true })
     .click();
   const panel = scope.getByRole("tabpanel");
-  await expect(panel.locator("dl dt").first()).toBeVisible({
-    timeout: 20_000,
-  });
-  // The id row renders before the info loads; capture the loaded panel, not
-  // its "Loading..." line and half its rows.
+  const loadedValue = panel
+    .locator("dt")
+    .filter({ hasText: new RegExp(`^${loadedKey}$`, "u") })
+    .locator("xpath=following-sibling::dd[1]");
+  await expect(loadedValue).toBeVisible({ timeout: 20_000 });
+  await expect(loadedValue).not.toHaveText("-", { timeout: 20_000 });
   await expect(panel.getByText("Loading...")).toHaveCount(0, {
     timeout: 20_000,
   });
+  // The menu item was under the pointer, and the panel opens with a copyable
+  // id there; park the pointer on a heading so no value captures hovered.
+  await panel.getByRole("heading").first().hover();
 }
 
 function openInfoTab(title: string, tab: string, table: string) {
   return async (scope: Scope) => {
-    await openItemInfo(scope, title);
+    await openItemInfo(scope, title, "Type");
     await scope.getByRole("tab", { name: tab, exact: true }).click();
     await expect(
       scope.getByRole("table", { name: table }).locator("tbody > tr").first(),
@@ -51,11 +64,11 @@ const creditCard = seedExpectations.creditCard.title;
 export const GET_INFO_SCREENS = [
   {
     name: "container-info",
-    open: (scope: Scope) => openItemInfo(scope, "Contacts"),
+    open: (scope: Scope) => openItemInfo(scope, "Contacts", "Created"),
   },
   {
     name: "document-info",
-    open: (scope: Scope) => openItemInfo(scope, creditCard),
+    open: (scope: Scope) => openItemInfo(scope, creditCard, "Type"),
   },
   {
     name: "document-info-blobs",
