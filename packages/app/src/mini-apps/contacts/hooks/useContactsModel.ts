@@ -1,22 +1,19 @@
 import { useCompactRoutedMode } from "@tearleads/windowing";
-import { type ReactNode, useCallback, useEffect, useRef } from "react";
+import { type ReactNode, useCallback } from "react";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import { useContacts } from "../../../stores/contacts/ContactsProvider";
-import { findCurrentSelfContactLocalId } from "../../../stores/contacts/contactLabels";
-import type { SelfContactIdentityView } from "../../../stores/contacts/currentSelfContactIdentityState";
 import { useCurrentSelfContactIdentity } from "../../../stores/contacts/useCurrentSelfContactIdentity";
 import { useContactsSidebarPanel } from "../ContactsSidebar";
 import {
   type ContactsContextMenuModel,
   useContactsContextMenu,
 } from "../context-menu/ContactsContextMenu";
-import type { ContactsRoute } from "../routes";
-import type { ContactEntries } from "../types";
 import { useContactDrafts } from "./useContactDrafts";
 import { useImportContactMessage } from "./useContactImport";
 import { useContactsRouteState } from "./useContactsRouteState";
+import { useSelectInitialSelfContact } from "./useSelectInitialSelfContact";
 
 function useContactsSelectionState(
   routeState: ReturnType<typeof useContactsRouteState>,
@@ -44,54 +41,6 @@ function useContactsSelectionState(
     setSelectedContactId,
     setSelectedContactRouteAware,
   };
-}
-
-function useSelectInitialSelfContact(input: {
-  enabled: boolean;
-  entries: ContactEntries;
-  ready: boolean;
-  route: ContactsRoute;
-  selectedContactId: string | null;
-  selfContactIdentity: SelfContactIdentityView;
-  setSelectedContactId: (contactId: string) => void;
-}) {
-  const {
-    enabled,
-    entries,
-    ready,
-    route,
-    selectedContactId,
-    selfContactIdentity,
-    setSelectedContactId,
-  } = input;
-  const selectedInitialSelfRef = useRef(false);
-
-  useEffect(() => {
-    if (
-      !enabled ||
-      !ready ||
-      route !== "selection" ||
-      selectedInitialSelfRef.current ||
-      selectedContactId !== null
-    ) {
-      return;
-    }
-
-    const selfId = findCurrentSelfContactLocalId(entries, selfContactIdentity);
-    if (!selfId) {
-      return;
-    }
-    selectedInitialSelfRef.current = true;
-    setSelectedContactId(selfId);
-  }, [
-    enabled,
-    entries,
-    ready,
-    route,
-    selectedContactId,
-    selfContactIdentity,
-    setSelectedContactId,
-  ]);
 }
 
 export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
@@ -129,6 +78,7 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   useSelectInitialSelfContact({
     enabled: !compactRoutedMode,
     entries,
+    hasRequestedRoute: routeState.hasRequestedRoute,
     ready,
     route: routeState.route,
     selectedContactId: selectionState.selectedContactId,
