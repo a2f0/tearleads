@@ -7,17 +7,8 @@ import {
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
 import { isReferencedPrincipalStateResponse } from "@tearleads/validators/response";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
-import {
-  discardPrincipalHistoryPrefix,
-  loadPrincipalHistoryPrefix,
-  type PrincipalHistoryPrefix,
-  savePrincipalHistoryPrefix,
-} from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
-import {
-  discardPrincipalHistoryStage,
-  loadPrincipalHistoryStage,
-} from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
+import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import {
   principalHistoryEvidenceScopeId,
@@ -92,8 +83,9 @@ async function restorePublicPrefix(
       }
     }
     if (!input.offline)
-      await discardPrincipalHistoryPrefix({
-        execSql: input.execSql,
+      await new PrincipalHistoryRepository(
+        input.execSql,
+      ).discardPrincipalHistoryPrefix({
         prefix,
         stillCurrent: current,
       });
@@ -134,7 +126,9 @@ export async function restorePublicPrincipalHistoryProgress(
     input.protection.context,
   );
   const current = () => !input.signal?.aborted && input.stillCurrent();
-  const saved = await loadPrincipalHistoryStage(input.execSql, id);
+  const saved = await new PrincipalHistoryRepository(
+    input.execSql,
+  ).loadPrincipalHistoryStage(id);
   if (saved) {
     const authorityReference = parsePublicHistoryAuthority(
       input,
@@ -165,14 +159,18 @@ export async function restorePublicPrincipalHistoryProgress(
       }
     }
     if (!input.offline)
-      await discardPrincipalHistoryStage(input.execSql, saved, current);
+      await new PrincipalHistoryRepository(
+        input.execSql,
+      ).discardPrincipalHistoryStage(saved, current);
   }
   const prefix = allowReuse
     ? await restorePublicPrefix(
         input,
         scopeId,
         id,
-        await loadPrincipalHistoryPrefix(input.execSql, scopeId),
+        await new PrincipalHistoryRepository(
+          input.execSql,
+        ).loadPrincipalHistoryPrefix(scopeId),
       )
     : null;
   if (prefix) return prefix;
@@ -194,10 +192,9 @@ async function rejectedCompletedPrefix(
   progress: PublicPrincipalHistoryProgress,
   history: VerifiedPrincipalPolicyHistory,
 ): Promise<PrincipalHistoryPrefix | null> {
-  const candidate = await loadPrincipalHistoryPrefix(
+  const candidate = await new PrincipalHistoryRepository(
     input.execSql,
-    progress.scopeId,
-  );
+  ).loadPrincipalHistoryPrefix(progress.scopeId);
   if (!candidate || candidate.version <= history.currentEntry.state.version)
     return null;
   try {
@@ -210,8 +207,9 @@ async function rejectedCompletedPrefix(
     if (!cached?.completedHead) return null;
     const finished = cached.verifier.finish(cached.completedHead);
     if (!finished.ok) throw finished.error;
-    const proof = await loadPrincipalHistoryReference({
-      execSql: input.execSql,
+    const proof = await new PrincipalHistoryRepository(
+      input.execSql,
+    ).loadPrincipalHistoryReference({
       scopeId: progress.scopeId,
       history: finished.value,
       version: input.source.head.version,
@@ -266,17 +264,16 @@ export async function publishPublicPrincipalHistoryPrefix(
       ? null
       : await rejectedCompletedPrefix(input, progress, history));
   const stillCurrent = () => !input.signal?.aborted && input.stillCurrent();
-  await savePrincipalHistoryPrefix({
+  await new PrincipalHistoryRepository(
+    input.execSql,
+  ).savePrincipalHistoryPrefix({
     indexRootHash: history.indexRootHash,
-    execSql: input.execSql,
     prefix: { ...prefix, progress: sealed.value },
     stillCurrent,
     rejectedPrefix: rejected,
   });
   if (progress.saved)
-    await discardPrincipalHistoryStage(
+    await new PrincipalHistoryRepository(
       input.execSql,
-      progress.saved,
-      stillCurrent,
-    );
+    ).discardPrincipalHistoryStage(progress.saved, stillCurrent);
 }

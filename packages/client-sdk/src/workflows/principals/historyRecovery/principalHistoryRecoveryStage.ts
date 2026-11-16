@@ -5,11 +5,8 @@ import {
   type PrincipalPolicyHistoryVerifier,
   restorePrincipalPolicyHistoryVerifier,
 } from "@tearleads/crypto";
-import {
-  discardPrincipalHistoryStage,
-  loadPrincipalHistoryStage,
-  type PrincipalHistoryStage,
-} from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
+import type { PrincipalHistoryStage } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
 import { principalHistoryEvidenceScopeId } from "../../../data/principals/principalHistoryPrefixProtection";
 import {
   parsePrincipalHistoryStageCurrent,
@@ -45,7 +42,9 @@ export async function restorePrincipalHistoryRecoveryStage(
     input.expectedHead,
     input.protection.context,
   );
-  const saved = await loadPrincipalHistoryStage(input.execSql, id);
+  const saved = await new PrincipalHistoryRepository(
+    input.execSql,
+  ).loadPrincipalHistoryStage(id);
   if (saved) {
     const current = parsePrincipalHistoryStageCurrent(saved);
     if (current && saved.organizationId === input.organizationId) {
@@ -72,8 +71,9 @@ export async function restorePrincipalHistoryRecoveryStage(
     }
     // Saved bytes are a disposable hint. Only a locally authenticated restore
     // can skip signed history; missing keys or changed inputs replay genesis.
-    await discardPrincipalHistoryStage(
+    await new PrincipalHistoryRepository(
       input.execSql,
+    ).discardPrincipalHistoryStage(
       saved,
       () => !input.signal?.aborted && input.stillCurrent(),
     );
