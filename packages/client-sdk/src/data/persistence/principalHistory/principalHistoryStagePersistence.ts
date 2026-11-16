@@ -1,12 +1,6 @@
 import { and, eq } from "drizzle-orm";
-import { assertProjectionVerificationCurrent } from "../../keyingProjectionVerification/types";
-import { principalHistoryEvidenceTables } from "../../sqlite/schema/principalHistoryEvidenceSchema";
-import {
-  principalHistoryStages,
-  principalHistoryStageTables,
-} from "../../sqlite/schema/principalHistoryStageSchema";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type PrincipalHistoryEvidencePage,
   writePrincipalHistoryEvidencePage,
@@ -28,7 +22,7 @@ export type PrincipalHistoryStage = Omit<
   "scopeId" | "touchedAt" | "rootHash" | "identityBundleFormat"
 >;
 
-const principalHistoryStageColumns = {
+export const principalHistoryStageColumns = {
   id: principalHistoryStages.id,
   organizationId: principalHistoryStages.organizationId,
   currentJson: principalHistoryStages.currentJson,
@@ -52,108 +46,70 @@ export function isPrincipalHistoryStageChangedError(error: unknown): boolean {
   return error instanceof PrincipalHistoryStageChangedError;
 }
 
-export async function loadPrincipalHistoryStage(
-  execSql: ExecSql,
-  id: string,
-): Promise<PrincipalHistoryStage | null> {
-  await ensureSqlTables(execSql, principalHistoryStageTables);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const [row] = await db
-    .select(principalHistoryStageColumns)
-    .from(principalHistoryStages)
-    .where(eq(principalHistoryStages.id, id))
-    .limit(1);
-  return row ?? null;
-}
-
 /** Publish accepted entries and index nodes atomically with authenticated progress. */
-export async function savePrincipalHistoryStage(input: {
-  readonly execSql: ExecSql;
-  readonly stage: PrincipalHistoryStage;
-  readonly evidence: PrincipalHistoryEvidencePage;
-  readonly previousProgress: string | null;
-  readonly stillCurrent: () => boolean;
-}): Promise<void> {
-  const evidence = structuredClone(input.evidence);
-  const stage = { ...input.stage, scopeId: evidence.scopeId };
-  await ensureSqlTables(input.execSql, [
-    ...principalHistoryStageTables,
-    ...principalHistoryEvidenceTables,
-  ]);
-  const runtime = getClientSQLitePersistenceRuntime(input.execSql);
-  const saved = await runtime.guardedTransaction(
-    async (tx) => {
-      const [previous] = await tx
-        .select({
-          progress: principalHistoryStages.progress,
-          ...principalHistoryStageRootOwnerColumns,
-        })
-        .from(principalHistoryStages)
-        .where(eq(principalHistoryStages.id, stage.id))
-        .limit(1);
-      if ((previous?.progress ?? null) !== input.previousProgress)
-        throw new PrincipalHistoryStageChangedError();
-      // The node write replays the root's edges after the page's own, as
-      // separate statements after it would.
-      const root = {
-        scopeId: evidence.scopeId,
-        organizationId: stage.organizationId,
-        rootHash: evidence.indexRootHash,
-      };
-      const retention = principalHistoryRootRetention(previous, root);
-      const rootEdges = foldablePrincipalHistoryRootEdges(retention, evidence);
-      await writePrincipalHistoryEvidencePage(tx, evidence, rootEdges);
-      const row = { ...stage, ...root, touchedAt: Date.now() };
-      await tx
-        .insert(principalHistoryStages)
-        .values(row)
-        .onConflictDoUpdate({ target: principalHistoryStages.id, set: row })
-        .run();
-      await writePrincipalHistoryRootEdges(tx, retention, rootEdges);
-      await reclaimIncompletePrincipalHistoryStages(tx, stage);
-      await reclaimUnpublishedPrincipalHistoryStages(tx, stage);
-      await reclaimPrincipalHistoryNodes(tx, evidence);
-    },
-    input.stillCurrent,
-    { behavior: "immediate" },
-  );
-  assertProjectionVerificationCurrent(() => saved.committed);
+export async function savePrincipalHistoryStageInTransaction(
+  tx: ClientSQLiteTransactionScope,
+  input: {
+    readonly stage: PrincipalHistoryStage & { readonly scopeId: string };
+    readonly evidence: PrincipalHistoryEvidencePage;
+    readonly previousProgress: string | null;
+  },
+  touchedAt: number,
+): Promise<void> {
+  const { stage, evidence } = input;
+  const [previous] = await tx
+    .select({
+      progress: principalHistoryStages.progress,
+      ...principalHistoryStageRootOwnerColumns,
+    })
+    .from(principalHistoryStages)
+    .where(eq(principalHistoryStages.id, stage.id))
+    .limit(1);
+  if ((previous?.progress ?? null) !== input.previousProgress)
+    throw new PrincipalHistoryStageChangedError();
+  // The node write replays the root's edges after the page's own, as
+  // separate statements after it would.
+  const root = {
+    scopeId: evidence.scopeId,
+    organizationId: stage.organizationId,
+    rootHash: evidence.indexRootHash,
+  };
+  const retention = principalHistoryRootRetention(previous, root);
+  const rootEdges = foldablePrincipalHistoryRootEdges(retention, evidence);
+  await writePrincipalHistoryEvidencePage(tx, evidence, rootEdges);
+  const row = { ...stage, ...root, touchedAt };
+  await tx
+    .insert(principalHistoryStages)
+    .values(row)
+    .onConflictDoUpdate({ target: principalHistoryStages.id, set: row })
+    .run();
+  await writePrincipalHistoryRootEdges(tx, retention, rootEdges);
+  await reclaimIncompletePrincipalHistoryStages(tx, stage);
+  await reclaimUnpublishedPrincipalHistoryStages(tx, stage);
+  await reclaimPrincipalHistoryNodes(tx, evidence);
 }
 
-export async function discardPrincipalHistoryStage(
-  execSql: ExecSql,
+export async function discardPrincipalHistoryStageInTransaction(
+  tx: ClientSQLiteTransactionScope,
   stage: PrincipalHistoryStage,
-  stillCurrent: () => boolean,
-) {
-  await ensureSqlTables(execSql, [
-    ...principalHistoryStageTables,
-    ...principalHistoryEvidenceTables,
-  ]);
-  const runtime = getClientSQLitePersistenceRuntime(execSql);
-  const discarded = await runtime.guardedTransaction(
-    async (db) => {
-      const [current] = await db
-        .select({
-          progress: principalHistoryStages.progress,
-          ...principalHistoryStageRootOwnerColumns,
-        })
-        .from(principalHistoryStages)
-        .where(eq(principalHistoryStages.id, stage.id))
-        .limit(1);
-      if (!current || current.progress !== stage.progress) return;
-      await releasePrincipalHistoryRoot(db, current);
-      await db
-        .delete(principalHistoryStages)
-        .where(
-          and(
-            eq(principalHistoryStages.id, stage.id),
-            eq(principalHistoryStages.progress, stage.progress),
-          ),
-        )
-        .run();
-    },
-    stillCurrent,
-    { behavior: "immediate" },
-  );
-  assertProjectionVerificationCurrent(() => discarded.committed);
+): Promise<void> {
+  const [current] = await tx
+    .select({
+      progress: principalHistoryStages.progress,
+      ...principalHistoryStageRootOwnerColumns,
+    })
+    .from(principalHistoryStages)
+    .where(eq(principalHistoryStages.id, stage.id))
+    .limit(1);
+  if (!current || current.progress !== stage.progress) return;
+  await releasePrincipalHistoryRoot(tx, current);
+  await tx
+    .delete(principalHistoryStages)
+    .where(
+      and(
+        eq(principalHistoryStages.id, stage.id),
+        eq(principalHistoryStages.progress, stage.progress),
+      ),
+    )
+    .run();
 }

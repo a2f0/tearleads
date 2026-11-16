@@ -8,8 +8,8 @@ import {
   MiniAppSection,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
-  MiniAppInfoRow,
-  MiniAppKeyValueTable,
+  MiniAppKeyValueList,
+  MiniAppKeyValueRow,
 } from "../../../components/mini-app/MiniAppTable";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import {
@@ -77,52 +77,50 @@ export function SessionDetailSection({
           </MiniAppButton>
         </MiniAppActions>
       </MiniAppHeader>
-      <MiniAppKeyValueTable className="identity-manager-session-detail-table">
-        <tbody>
-          <MiniAppInfoRow label="Status">
-            {getSessionStatusLabel(session)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow label="Last Active" title={session.lastActiveAt}>
-            <SessionDetailValue
-              label="Last Active"
-              value={formatMiniAppDateTime(session.lastActiveAt)}
-            />
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label="Last IP"
-            title={session.lastActiveIp ?? "No recorded IP"}
-          >
-            <SessionDetailValue label="Last IP" value={session.lastActiveIp} />
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
+      <MiniAppKeyValueList className="identity-manager-session-detail-table">
+        <MiniAppKeyValueRow label="Status">
+          {getSessionStatusLabel(session)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label="Last Active" title={session.lastActiveAt}>
+          <SessionDetailValue
+            label="Last Active"
+            value={formatMiniAppDateTime(session.lastActiveAt)}
+          />
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label="Last IP"
+          title={session.lastActiveIp ?? "No recorded IP"}
+        >
+          <SessionDetailValue label="Last IP" value={session.lastActiveIp} />
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label="Full IP List"
+          title={sessionIpAddressesTitle(session.ipAddresses)}
+        >
+          <SessionDetailValue
             label="Full IP List"
-            title={sessionIpAddressesTitle(session.ipAddresses)}
-          >
-            <SessionDetailValue
-              label="Full IP List"
-              value={session.ipAddresses.join(", ")}
-            />
-          </MiniAppInfoRow>
-          <MiniAppInfoRow label="Created" title={session.createdAt}>
-            <SessionDetailValue
-              label="Created"
-              value={formatMiniAppDateTime(session.createdAt)}
-            />
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
+            value={session.ipAddresses.join(", ")}
+          />
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label="Created" title={session.createdAt}>
+          <SessionDetailValue
+            label="Created"
+            value={formatMiniAppDateTime(session.createdAt)}
+          />
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label="Signing Key"
+          title={session.signingKeyFingerprint}
+        >
+          <SessionDetailValue
             label="Signing Key"
-            title={session.signingKeyFingerprint}
-          >
-            <SessionDetailValue
-              label="Signing Key"
-              value={session.signingKeyFingerprint}
-            />
-          </MiniAppInfoRow>
-          <MiniAppInfoRow label="Session ID" title={session.id}>
-            <SessionDetailValue label="Session ID" value={session.id} />
-          </MiniAppInfoRow>
-        </tbody>
-      </MiniAppKeyValueTable>
+            value={session.signingKeyFingerprint}
+          />
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label="Session ID" title={session.id}>
+          <SessionDetailValue label="Session ID" value={session.id} />
+        </MiniAppKeyValueRow>
+      </MiniAppKeyValueList>
     </MiniAppSection>
   );
 }

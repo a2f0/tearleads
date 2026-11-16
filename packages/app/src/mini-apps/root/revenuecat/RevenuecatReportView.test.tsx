@@ -53,7 +53,7 @@ test("the RevenueCat report filters by disposition and opens the buyer", async (
         name: `Open buyer identity ${buyer.userId}`,
       }),
     );
-    await view.findByRole("table", { name: "Identity" });
+    await view.findByRole("group", { name: "Identity" });
     fireEvent.click(view.getByRole("button", { name: "Back" }));
     await view.findByRole("heading", { name: REPORT_HEADING });
   } finally {
@@ -89,7 +89,7 @@ test("a reported delivery opens its organization's billing, with its webhooks", 
         name: `Open buyer identity ${buyer.userId}`,
       })[0] as HTMLElement,
     );
-    await view.findByRole("table", { name: "Identity" });
+    await view.findByRole("group", { name: "Identity" });
     fireEvent.click(view.getByRole("button", { name: "Back" }));
     await view.findByText(/RENEWAL · applied/);
     expect(

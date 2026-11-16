@@ -22,10 +22,10 @@ import {
   ensureSqlTables,
 } from "../../sqlite/sqlSchema";
 import {
-  loadPrincipalHistoryReferences,
   preparePrincipalHistoryEvidencePage,
   writePrincipalHistoryEvidencePage,
 } from "./principalHistoryEvidencePersistence";
+import { PrincipalHistoryRepository } from "./principalHistoryRepository";
 
 let fixture: Awaited<ReturnType<typeof signedRecoveryHistory>>;
 beforeAll(async () => {
@@ -179,11 +179,9 @@ async function storedHistory() {
     },
     async batched(versions: readonly number[]) {
       counted.counter.statements = 0;
-      const proofs = await loadPrincipalHistoryReferences({
-        ...base,
-        execSql: counted.execSql,
-        versions,
-      });
+      const proofs = await new PrincipalHistoryRepository(
+        counted.execSql,
+      ).loadPrincipalHistoryReferences({ ...base, versions });
       return { proofs, statements: counted.counter.statements };
     },
   };

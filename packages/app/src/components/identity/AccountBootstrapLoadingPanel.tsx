@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { AccountBootstrapCopy } from "../../identity/accountBootstrapPhase";
 import { MiniAppStatePanel } from "../mini-app/MiniAppLayout";
+import { AccountBootstrapProgressPanel } from "./AccountBootstrapProgressPanel";
 
 /** The mini-app access gate supplies progress without blocking local content. */
 export const AccountBootstrapProgressContext =
@@ -9,11 +10,9 @@ export const AccountBootstrapProgressContext =
 /** Account progress while a mini-app loads, then its own local loading copy. */
 export function AccountBootstrapLoadingPanel({ title }: { title: string }) {
   const progress = useContext(AccountBootstrapProgressContext);
-  return (
-    <MiniAppStatePanel
-      busy
-      description={progress?.description}
-      title={progress?.title ?? title}
-    />
+  return progress ? (
+    <AccountBootstrapProgressPanel progress={progress} />
+  ) : (
+    <MiniAppStatePanel busy title={title} />
   );
 }

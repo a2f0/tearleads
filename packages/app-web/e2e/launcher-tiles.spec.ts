@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./appTest";
 
 for (const { name, width, height, moveToBottom } of [
   { name: "narrow phone", width: 320, height: 700, moveToBottom: false },

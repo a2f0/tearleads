@@ -14,10 +14,11 @@ export const PRINCIPAL_HISTORY_STAGE_RECLAIM_LIMIT = 16;
 export async function touchPrincipalHistoryStage(
   tx: ClientSQLiteTransactionScope,
   input: { readonly id: string; readonly scopeId: string },
+  touchedAt: number,
 ) {
   await tx
     .update(principalHistoryStages)
-    .set({ scopeId: input.scopeId, touchedAt: Date.now() })
+    .set({ scopeId: input.scopeId, touchedAt })
     .where(eq(principalHistoryStages.id, input.id))
     .run();
 }

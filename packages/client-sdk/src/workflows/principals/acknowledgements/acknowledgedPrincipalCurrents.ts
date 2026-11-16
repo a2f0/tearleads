@@ -10,9 +10,9 @@ import {
   type AcknowledgedPrincipalCurrentPublication,
   type AcknowledgedPrincipalCurrentRetirement,
   PrincipalAcknowledgementChangedError,
-  persistAcknowledgedPrincipalCurrents,
 } from "../../../data/persistence/principalCurrentAcknowledgementPersistence";
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { RecoverPrincipalPolicyHistoryOptions } from "../historyRecovery/principalHistoryRecoveryTypes";
@@ -251,8 +251,9 @@ export async function recordAcknowledgedPrincipalCurrents(
     for (let attempt = 0; ; attempt += 1) {
       const reconciled = await reconcilePublications(entries, publications);
       try {
-        await persistAcknowledgedPrincipalCurrents({
+        await new PrincipalHistoryRepository(
           execSql,
+        ).persistAcknowledgedPrincipalCurrents({
           organizationId,
           entries: reconciled,
           retirements,

@@ -1,30 +1,25 @@
 # shellcheck shell=sh
-# Shared by check:fast (CI) and pre-push. The caller sources stepTimings.sh
-# and starts its timer so each check remains visible in the push timing log.
-
-run_protocol_check() {
-  if [ "${CI_TURBO_PROTOCOL_CACHE:-}" = "1" ]; then
-    bun scripts/checks/runCachedProtocolCheck.ts "$1"
-  else
-    bun run "$1"
-  fi
-}
+# The check list behind check:fast, which CI's Lint job runs. The caller
+# sources stepTimings.sh and starts its timer so each check keeps its own row
+# in the timing summary. The push gate runs a static subset, declared in
+# agent-tool.json's pushGate section.
 
 # The two pure TLC passes read only formal models and repository scripts, never
-# build output, and are the slowest fast checks. The pre-push gate runs them in
-# a background lane and calls defer_model_checks to skip them here.
+# build output, and are the slowest fast checks. CI runs them in a job of their
+# own and calls defer_model_checks to skip them here.
 defer_model_checks() {
   fast_checks_defer_models=1
 }
 
 run_model_check_inline() {
   [ -z "${fast_checks_defer_models:-}" ] || return 0
-  step_timings_run "$1" run_protocol_check "check:$1"
+  step_timings_run "$1" bun run "check:$1"
 }
 
 run_fast_checks() {
   step_timings_run devkit bun run --cwd packages/app-electrobun prepare:devkit
   step_timings_run biome bun run lint:biome
+  step_timings_run typecheck-tools bun run typecheck:tools
   step_timings_run package-assertions bun run lint:package-assertions
   step_timings_run canonical-ordering bun run lint:canonical-ordering
   step_timings_run knip bun run lint:knip:all

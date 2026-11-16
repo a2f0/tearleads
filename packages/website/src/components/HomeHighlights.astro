@@ -1,0 +1,86 @@
+---
+/**
+ * Home: what is encrypted and how sign-up works, as two cards side by side at
+ * 1024px and up. Each card keeps its scope in plain terms: the encryption card
+ * is about content (never a zero-knowledge proof, never hidden metadata, which
+ * /security#device-boundary lists), and the sign-up card still leaves a
+ * recovery phrase to back up.
+ *
+ * Sources: docs/keying-design/ "Design Properties" and "Boundaries";
+ * docs/security-guarantees/ (organization and custom group names are encrypted);
+ * packages/app/src/host/AppHostConfig.ts (the app profile sets
+ * autoGenerateIdentity, autoRegisterIdentity, and promptAccountName);
+ * packages/app/src/identity/IdentityAutopilot.tsx and
+ * packages/api/src/workflows/auth/registration.ts (registration stores the
+ * public keys); packages/crypto identitySeedPhrase.ts (24 words); org-manager
+ * labels.ts (billing email at web checkout).
+ */
+interface Fact {
+  readonly key: string;
+  readonly value: string;
+}
+
+const encryptionFacts: readonly Fact[] = [
+  { key: "Content", value: "Encrypted before it syncs" },
+  { key: "Service stores", value: "Encrypted content and wrapped keys" },
+  { key: "Access", value: "From verified signed records" },
+];
+
+const signUpFacts: readonly Fact[] = [
+  { key: "Sign-up", value: "A name, no email or password" },
+  { key: "Identity", value: "Created on your device" },
+  { key: "Recovery", value: "24-word recovery phrase" },
+];
+---
+
+<div class="home-highlights" id="highlights">
+  <section class="home-highlight" aria-labelledby="encryption-title">
+    <h2 id="encryption-title" class="home-highlight-title">
+      Encrypted before it syncs
+    </h2>
+    <p class="home-highlight-lede">
+      Document and file contents are encrypted on your device before they sync.
+      The service stores ciphertext and wrapped keys, not plaintext content
+      keys. The app derives who can receive keys from signed access records it
+      verifies, not from server-provided lists.
+    </p>
+    <dl class="home-facts">
+      {encryptionFacts.map((fact) => (
+        <div>
+          <dt>{fact.key}</dt>
+          <dd>{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
+    <a class="site-link" href="/security/#device-boundary">
+      What's encrypted, in detail<span aria-hidden="true"> →</span>
+    </a>
+  </section>
+
+  <section class="home-highlight" aria-labelledby="sign-up-title">
+    <h2 id="sign-up-title" class="home-highlight-title">
+      Sign up with just a name
+    </h2>
+    <p class="home-highlight-lede">
+      On first open, Tearleads creates your identity keys on your device and
+      asks what to call you. Once you're online, it registers the public keys
+      with the service. Those keys sign you in, so there's no email or password.
+    </p>
+    <dl class="home-facts">
+      {signUpFacts.map((fact) => (
+        <div>
+          <dt>{fact.key}</dt>
+          <dd>{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
+    <p class="home-highlight-note">
+      Save your 24-word recovery phrase from Identity Manager when you're
+      ready and keep it private: it restores your identity on any device. Web
+      checkout for paid plans asks only for a billing email.
+    </p>
+    <a class="site-link" href="#how-it-works">
+      How it works<span aria-hidden="true"> →</span>
+    </a>
+  </section>
+</div>

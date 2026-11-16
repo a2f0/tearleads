@@ -15,10 +15,10 @@ import {
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { createExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import {
-  loadPrincipalHistoryReference,
   preparePrincipalHistoryEvidencePage,
   writePrincipalHistoryEvidencePage,
 } from "./principalHistoryEvidencePersistence";
+import { PrincipalHistoryRepository } from "./principalHistoryRepository";
 
 let fixture: Awaited<ReturnType<typeof signedRecoveryHistory>>;
 beforeAll(async () => {
@@ -73,8 +73,8 @@ async function evidenceFixture() {
     const cited = entries[15]?.state;
     if (!cited) throw new Error("Missing citation");
     const reference = principalPolicyHead({ ...bundle, currentState: cited });
+    const repository = new PrincipalHistoryRepository(sqlite.execSql);
     const input = {
-      execSql: sqlite.execSql,
       scopeId: page.scopeId,
       history: finished.value,
       version: reference.version,
@@ -83,9 +83,9 @@ async function evidenceFixture() {
     const select = async () =>
       verifyPrincipalPolicyHistoryReferences({
         history: finished.value,
-        references: [await loadPrincipalHistoryReference(input)],
+        references: [await repository.loadPrincipalHistoryReference(input)],
       });
-    return { ...sqlite, runtime, page, input, select };
+    return { ...sqlite, runtime, page, repository, input, select };
   } catch (error) {
     sqlite.close();
     throw error;
@@ -101,7 +101,7 @@ test("persisted index material selects an exact signed historical entry", async 
       selected.value.retainedEntries.map(({ state }) => state.version),
     ).toEqual([16, 66]);
     await expect(
-      loadPrincipalHistoryReference({
+      stored.repository.loadPrincipalHistoryReference({
         ...stored.input,
         scopeId: "another-scope",
       }),
@@ -186,10 +186,9 @@ test("historical selection reads only a logarithmic path and one entry", async (
         return { rows };
       },
     });
-    const proof = await loadPrincipalHistoryReference({
-      ...stored.input,
+    const proof = await new PrincipalHistoryRepository(
       execSql,
-    });
+    ).loadPrincipalHistoryReference(stored.input);
     const selected = await verifyPrincipalPolicyHistoryReferences({
       history: stored.input.history,
       references: [proof],
@@ -219,7 +218,7 @@ test("a discarded transaction cannot publish accepted evidence", async () => {
     );
     expect(result.committed).toBe(false);
     await expect(
-      loadPrincipalHistoryReference({
+      stored.repository.loadPrincipalHistoryReference({
         ...stored.input,
         scopeId: "discarded-scope",
       }),
