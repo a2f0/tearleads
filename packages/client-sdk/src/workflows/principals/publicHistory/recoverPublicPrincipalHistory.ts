@@ -11,8 +11,8 @@ import {
   type PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
@@ -203,8 +203,9 @@ async function recoverAttempt(
   const history = finishPublicProgress(progress);
   let proof: PrincipalPolicyHistoryReferenceProof;
   try {
-    proof = await loadPrincipalHistoryReference({
-      execSql: input.execSql,
+    proof = await new PrincipalHistoryRepository(
+      input.execSql,
+    ).loadPrincipalHistoryReference({
       scopeId: progress.scopeId,
       history,
       version: input.source.head.version,

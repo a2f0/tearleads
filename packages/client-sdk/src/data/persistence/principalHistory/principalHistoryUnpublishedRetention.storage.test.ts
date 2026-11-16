@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { seededCompletedRetention } from "../../../../test/helpers/principalCompletedRetention";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import { createExecSql, type ExecSql } from "../../sqlite/sqlSchema";
-import { savePrincipalHistoryStage } from "./principalHistoryStagePersistence";
+import { PrincipalHistoryRepository } from "./principalHistoryRepository";
 
 test("completed attempts converge in bounded batches while protecting published heads and scope", async () => {
   const f = await seededCompletedRetention(25, 2);
@@ -19,12 +19,12 @@ test("completed attempts converge in bounded batches while protecting published 
         touchedAt: 0,
       })),
     );
-    await savePrincipalHistoryStage(f.input);
+    await f.repository.savePrincipalHistoryStage(f.input);
     const first = await f.snapshot();
     expect(first.stages).toHaveLength(13);
     expect(first.stages).toContainEqual(f.input.stage);
     const stage = { ...f.input.stage, progress: "next-progress" };
-    await savePrincipalHistoryStage({
+    await f.repository.savePrincipalHistoryStage({
       ...f.input,
       stage,
       previousProgress: f.input.stage.progress,
@@ -39,7 +39,7 @@ test("completed attempts converge in bounded batches while protecting published 
     const lost = f.rows[2];
     if (!lost) throw new Error("Missing evicted writer");
     await expect(
-      savePrincipalHistoryStage({
+      f.repository.savePrincipalHistoryStage({
         ...f.input,
         stage: { ...lost, progress: "resumed-progress" },
         previousProgress: lost.progress,
@@ -60,7 +60,7 @@ test.each([false, true])(
       const stage = previous
         ? { ...previous, progress: "resumed" }
         : f.input.stage;
-      await savePrincipalHistoryStage({
+      await f.repository.savePrincipalHistoryStage({
         ...f.input,
         stage,
         previousProgress: previous?.progress ?? null,
@@ -96,9 +96,8 @@ test("cancellation rolls back completed acceptance and reclamation", async () =>
   try {
     const before = await f.snapshot();
     await expect(
-      savePrincipalHistoryStage({
+      new PrincipalHistoryRepository(execSql).savePrincipalHistoryStage({
         ...f.input,
-        execSql,
         stillCurrent: () => current,
       }),
     ).rejects.toMatchObject({ name: "ProjectionVerificationCancelledError" });
@@ -127,7 +126,9 @@ test("completed reclamation uses the scoped recency index without an all-stage s
     },
   });
   try {
-    await savePrincipalHistoryStage({ ...f.input, execSql });
+    await new PrincipalHistoryRepository(execSql).savePrincipalHistoryStage(
+      f.input,
+    );
     if (!selected) throw new Error("Missing completed reclamation selection");
     const plan = await f.execSql(
       `EXPLAIN QUERY PLAN ${selected.sql}`,

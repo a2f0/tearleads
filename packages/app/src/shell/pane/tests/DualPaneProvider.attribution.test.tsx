@@ -85,9 +85,7 @@ async function expectNoteAttribution(
       });
       const section = heading.parentElement;
       invariant(section, "Expected contributors section.");
-      expect(section.querySelectorAll("tbody tr").length).toBe(
-        writerUserIds.length,
-      );
+      expect(section.querySelectorAll("dt").length).toBe(writerUserIds.length);
       for (const writerUserId of writerUserIds) {
         expect(
           section.querySelector(`[title*="${writerUserId}"]`),

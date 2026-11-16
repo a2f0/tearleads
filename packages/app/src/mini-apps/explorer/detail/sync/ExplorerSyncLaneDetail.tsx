@@ -2,7 +2,6 @@ import type {
   DomainSyncSnapshot,
   SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
-import type { ReactNode } from "react";
 import { useEffect, useId, useState } from "react";
 import {
   MiniAppButton,
@@ -12,7 +11,10 @@ import {
   MiniAppTabList,
   MiniAppTabPanel,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { MiniAppKeyValueTable } from "../../../../components/mini-app/MiniAppTable";
+import {
+  MiniAppKeyValueList,
+  MiniAppKeyValueRow,
+} from "../../../../components/mini-app/MiniAppTable";
 import { formatByteLength } from "../../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS, getExplorerSyncLaneCountLabel } from "../../labels";
@@ -48,19 +50,6 @@ function formatSyncLaneProgressParts(progress: SyncLaneProgress): string {
   return `${progress.partsCompleted.toLocaleString()} / ${progress.partsTotal.toLocaleString()}`;
 }
 
-function ExplorerSyncLaneInfoRow(params: {
-  children: ReactNode;
-  label: string;
-  title?: string | null | undefined;
-}) {
-  return (
-    <tr>
-      <th>{params.label}</th>
-      <td title={params.title ?? undefined}>{params.children}</td>
-    </tr>
-  );
-}
-
 function ExplorerSyncLaneGeneralSection(params: {
   lane: SyncLaneSnapshot;
   onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
@@ -70,69 +59,57 @@ function ExplorerSyncLaneGeneralSection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.syncLanesGeneralHeading}>
-      <MiniAppKeyValueTable>
-        <tbody>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesLabelRow}
-            title={lane.label}
+      <MiniAppKeyValueList>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.syncLanesLabelRow}
+          title={lane.label}
+        >
+          {lane.label}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.syncLanesKeyRow}
+          title={lane.key}
+        >
+          <code>{lane.key}</code>
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesPhaseColumn}>
+          {getSyncLanePhaseLabel(lane.phase)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesStatusColumn}>
+          <ExplorerSyncLaneStatusBadge status={lane.status} />
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesRegistrationRow}>
+          {lane.registrationIndex.toLocaleString()}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesCountsColumn}>
+          {getExplorerSyncLaneCountLabel({
+            errorCount: lane.errorCount,
+            requestCount: lane.requestCount,
+            runCount: lane.runCount,
+          })}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesProgressColumn}>
+          <ExplorerSyncLaneProgress lane={lane} />
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesProgressPercentRow}>
+          {formatSyncLaneProgressPercent(lane)}
+        </MiniAppKeyValueRow>
+        {blobStorageKey !== null && params.onOpenBlobDetail ? (
+          <MiniAppKeyValueRow
+            label={EXPLORER_LABELS.syncLanesBlobRow}
+            title={blobStorageKey}
           >
-            {lane.label}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesKeyRow}
-            title={lane.key}
-          >
-            <code>{lane.key}</code>
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow label={EXPLORER_LABELS.syncLanesPhaseColumn}>
-            {getSyncLanePhaseLabel(lane.phase)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesStatusColumn}
-          >
-            <ExplorerSyncLaneStatusBadge status={lane.status} />
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesRegistrationRow}
-          >
-            {lane.registrationIndex.toLocaleString()}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesCountsColumn}
-          >
-            {getExplorerSyncLaneCountLabel({
-              errorCount: lane.errorCount,
-              requestCount: lane.requestCount,
-              runCount: lane.runCount,
-            })}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesProgressColumn}
-          >
-            <ExplorerSyncLaneProgress lane={lane} />
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesProgressPercentRow}
-          >
-            {formatSyncLaneProgressPercent(lane)}
-          </ExplorerSyncLaneInfoRow>
-          {blobStorageKey !== null && params.onOpenBlobDetail ? (
-            <ExplorerSyncLaneInfoRow
-              label={EXPLORER_LABELS.syncLanesBlobRow}
-              title={blobStorageKey}
+            <MiniAppButton
+              variant="ghost"
+              onClick={() => {
+                params.onOpenBlobDetail?.(blobStorageKey);
+              }}
             >
-              <MiniAppButton
-                variant="ghost"
-                onClick={() => {
-                  params.onOpenBlobDetail?.(blobStorageKey);
-                }}
-              >
-                {EXPLORER_LABELS.syncLanesOpenBlobAction}
-              </MiniAppButton>
-            </ExplorerSyncLaneInfoRow>
-          ) : null}
-        </tbody>
-      </MiniAppKeyValueTable>
+              {EXPLORER_LABELS.syncLanesOpenBlobAction}
+            </MiniAppButton>
+          </MiniAppKeyValueRow>
+        ) : null}
+      </MiniAppKeyValueList>
     </MiniAppInfoSection>
   );
 }
@@ -142,77 +119,67 @@ function ExplorerSyncLaneTimingSection(params: { lane: SyncLaneSnapshot }) {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.syncLanesTimingHeading}>
-      <MiniAppKeyValueTable>
-        <tbody>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesRequestedRow}
-          >
-            {formatExplorerSyncLaneBoolean(lane.requested)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow label={EXPLORER_LABELS.syncLanesRunningRow}>
-            {formatExplorerSyncLaneBoolean(lane.running)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesLastActionColumn}
-          >
-            {getSyncLaneLastActionLabel(lane.lastAction)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesLastActionAtRow}
-            title={lane.lastActionAt}
-          >
-            {formatSyncLaneDateTime(lane.lastActionAt)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesLastRequestedRow}
-            title={lane.lastRequestedAt}
-          >
-            {formatSyncLaneDateTime(lane.lastRequestedAt)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesLastStartedRow}
-            title={lane.lastStartedAt}
-          >
-            {formatSyncLaneDateTime(lane.lastStartedAt)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesLastCompletedRow}
-            title={lane.lastCompletedAt}
-          >
-            {formatSyncLaneDateTime(lane.lastCompletedAt)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesLastFailedRow}
-            title={lane.lastFailedAt}
-          >
-            {formatSyncLaneDateTime(lane.lastFailedAt)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesLastRunDurationRow}
-          >
-            {formatSyncLaneRunDuration(lane, (durations) => durations.lastMs)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesAverageRunDurationRow}
-          >
-            {formatSyncLaneRunDuration(
-              lane,
-              (durations) => durations.totalMs / durations.count,
-            )}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesMaxRunDurationRow}
-          >
-            {formatSyncLaneRunDuration(lane, (durations) => durations.maxMs)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesLastErrorRow}
-            title={lane.lastError}
-          >
-            {lane.lastError ?? EXPLORER_LABELS.syncLanesNoError}
-          </ExplorerSyncLaneInfoRow>
-        </tbody>
-      </MiniAppKeyValueTable>
+      <MiniAppKeyValueList>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesRequestedRow}>
+          {formatExplorerSyncLaneBoolean(lane.requested)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesRunningRow}>
+          {formatExplorerSyncLaneBoolean(lane.running)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesLastActionColumn}>
+          {getSyncLaneLastActionLabel(lane.lastAction)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.syncLanesLastActionAtRow}
+          title={lane.lastActionAt}
+        >
+          {formatSyncLaneDateTime(lane.lastActionAt)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.syncLanesLastRequestedRow}
+          title={lane.lastRequestedAt}
+        >
+          {formatSyncLaneDateTime(lane.lastRequestedAt)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.syncLanesLastStartedRow}
+          title={lane.lastStartedAt}
+        >
+          {formatSyncLaneDateTime(lane.lastStartedAt)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.syncLanesLastCompletedRow}
+          title={lane.lastCompletedAt}
+        >
+          {formatSyncLaneDateTime(lane.lastCompletedAt)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.syncLanesLastFailedRow}
+          title={lane.lastFailedAt}
+        >
+          {formatSyncLaneDateTime(lane.lastFailedAt)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesLastRunDurationRow}>
+          {formatSyncLaneRunDuration(lane, (durations) => durations.lastMs)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.syncLanesAverageRunDurationRow}
+        >
+          {formatSyncLaneRunDuration(
+            lane,
+            (durations) => durations.totalMs / durations.count,
+          )}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesMaxRunDurationRow}>
+          {formatSyncLaneRunDuration(lane, (durations) => durations.maxMs)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.syncLanesLastErrorRow}
+          title={lane.lastError}
+        >
+          {lane.lastError ?? EXPLORER_LABELS.syncLanesNoError}
+        </MiniAppKeyValueRow>
+      </MiniAppKeyValueList>
     </MiniAppInfoSection>
   );
 }
@@ -227,16 +194,14 @@ function ExplorerSyncLaneProgressSection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.syncLanesProgressHeading}>
-      <MiniAppKeyValueTable>
-        <tbody>
-          <ExplorerSyncLaneInfoRow label={EXPLORER_LABELS.syncLanesBytesRow}>
-            {formatSyncLaneProgressBytes(progress)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow label={EXPLORER_LABELS.syncLanesPartsRow}>
-            {formatSyncLaneProgressParts(progress)}
-          </ExplorerSyncLaneInfoRow>
-        </tbody>
-      </MiniAppKeyValueTable>
+      <MiniAppKeyValueList>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesBytesRow}>
+          {formatSyncLaneProgressBytes(progress)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesPartsRow}>
+          {formatSyncLaneProgressParts(progress)}
+        </MiniAppKeyValueRow>
+      </MiniAppKeyValueList>
     </MiniAppInfoSection>
   );
 }
@@ -248,26 +213,20 @@ function ExplorerSyncLaneCoordinatorSection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.syncLanesCoordinatorHeading}>
-      <MiniAppKeyValueTable>
-        <tbody>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesPendingWorkRow}
-          >
-            {formatExplorerSyncLaneBoolean(snapshot.hasPendingWork)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesPumpActiveRow}
-          >
-            {formatExplorerSyncLaneBoolean(snapshot.pumpActive)}
-          </ExplorerSyncLaneInfoRow>
-          <ExplorerSyncLaneInfoRow
-            label={EXPLORER_LABELS.syncLanesSnapshotUpdatedRow}
-            title={snapshot.updatedAt}
-          >
-            {formatSyncLaneDateTime(snapshot.updatedAt)}
-          </ExplorerSyncLaneInfoRow>
-        </tbody>
-      </MiniAppKeyValueTable>
+      <MiniAppKeyValueList>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesPendingWorkRow}>
+          {formatExplorerSyncLaneBoolean(snapshot.hasPendingWork)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesPumpActiveRow}>
+          {formatExplorerSyncLaneBoolean(snapshot.pumpActive)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.syncLanesSnapshotUpdatedRow}
+          title={snapshot.updatedAt}
+        >
+          {formatSyncLaneDateTime(snapshot.updatedAt)}
+        </MiniAppKeyValueRow>
+      </MiniAppKeyValueList>
     </MiniAppInfoSection>
   );
 }

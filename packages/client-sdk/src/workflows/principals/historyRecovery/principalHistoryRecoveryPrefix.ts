@@ -7,11 +7,7 @@ import {
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import { isReferencedPrincipalStateResponse } from "@tearleads/validators/response";
-import {
-  discardPrincipalHistoryPrefix,
-  loadPrincipalHistoryPrefix,
-  savePrincipalHistoryPrefix,
-} from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { principalHistoryPrefixProtection } from "../../../data/principals/principalHistoryPrefixProtection";
 import { parsePrincipalHistoryStageCurrent } from "../../../data/principals/principalHistoryStageProtection";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
@@ -25,7 +21,9 @@ export async function loadVerifiedPrincipalHistoryPrefix(
   head: ReferencedPrincipalHead;
   current: PrincipalPolicyPageCurrent;
 } | null> {
-  const saved = await loadPrincipalHistoryPrefix(options.execSql, scopeId);
+  const saved = await new PrincipalHistoryRepository(
+    options.execSql,
+  ).loadPrincipalHistoryPrefix(scopeId);
   if (!saved) return null;
   let head: unknown;
   try {
@@ -52,8 +50,9 @@ export async function loadVerifiedPrincipalHistoryPrefix(
     if (restored.ok && restored.value.finish(head).ok && current)
       return { verifier: restored.value, head, current };
   }
-  await discardPrincipalHistoryPrefix({
-    execSql: options.execSql,
+  await new PrincipalHistoryRepository(
+    options.execSql,
+  ).discardPrincipalHistoryPrefix({
     prefix: saved,
     stillCurrent: () => !options.signal?.aborted && options.stillCurrent(),
   });
@@ -101,9 +100,10 @@ export async function publishReusablePrincipalHistoryPrefix(
   if (!sealed.ok) throw sealed.error;
   const history = verifier.finish(options.expectedHead);
   if (!history.ok) throw history.error;
-  await savePrincipalHistoryPrefix({
+  await new PrincipalHistoryRepository(
+    options.execSql,
+  ).savePrincipalHistoryPrefix({
     indexRootHash: history.value.indexRootHash,
-    execSql: options.execSql,
     prefix: { ...prefix, progress: sealed.value },
     stillCurrent: () => !options.signal?.aborted && options.stillCurrent(),
   });

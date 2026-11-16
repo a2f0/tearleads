@@ -103,14 +103,44 @@
 
 /*
  * Touch (routed shell). Tabs already reach the 44px hit target through
- * `--control-height`; this only opens up the strip so the taller tabs are not
- * crowded against its edges. The gap stays tight on purpose — tabs now carry
- * their own fill and border, so they read as separate without extra space, and
- * tighter packing keeps a row of tabs from wrapping on a narrow phone.
+ * `--control-height`; this opens up the strip so the taller tabs are not
+ * crowded against its edges, and keeps them on one row. The gap stays tight on
+ * purpose — tabs carry their own fill and border, so they read as separate
+ * without extra space.
+ *
+ * One row that scrolls sideways, not a wrapped second row: wrapped, Document
+ * Info's five tabs left "Security" alone on a row of its own at 390px, and the
+ * strip's baseline — the panel's top edge, which the selected tab notches —
+ * only ran under the last row. Tabs keep their natural width (`flex: none`) so
+ * none is squeezed to fit; the strip scrolls instead, without a scrollbar,
+ * which a touch screen does not need and which would sit on the baseline.
+ *
+ * A scrollport clips its content at the padding box, so the baseline can no
+ * longer be the strip's bottom border: the selected tab is pulled 1px onto that
+ * border to notch it, and the clip would cut the notch off. The baseline moves
+ * inside the padding box as an inset shadow, and the tabs sit on it instead of
+ * reaching past it; the selected tab's light bottom border paints over the
+ * shadow, which is the same notch.
  */
 :root[data-navigation-mode="routed"] .mini-app-tabs {
+  flex-wrap: nowrap;
   gap: var(--space-xs);
   padding: var(--space-xs) var(--space-xs) 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  border-bottom: 0;
+  box-shadow: inset 0 calc(-1 * var(--border-width)) 0
+    var(--border-strong-color);
+}
+
+:root[data-navigation-mode="routed"] .mini-app-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+:root[data-navigation-mode="routed"] .mini-app-tabs .mini-app-tab {
+  flex: none;
+  margin-bottom: 0;
 }
 
 /*
