@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { principalMutationJournalFixture } from "../../../../test/helpers/principalMutationJournalFixture";
-import { loadPrincipalMutationJournal } from "../../../data/persistence/principalMutationJournalPersistence";
+import { PrincipalMutationJournalRepository } from "../../../data/persistence/principalMutationJournalPersistence";
 import { principalMutationJournalScopeId } from "../../../data/principals/principalMutationJournal";
 import { readJournaledPrincipalMutation } from "./principalMutationJournalManagement";
 import {
@@ -108,8 +108,9 @@ test("an API-client cancellation before dispatch retires the never-submitted req
     });
     expect(result).toMatchObject({ ok: false, kind: "cancelled" });
     expect(
-      await loadPrincipalMutationJournal(
+      await new PrincipalMutationJournalRepository(
         sqlite.execSql,
+      ).loadPrincipalMutationJournal(
         await principalMutationJournalScopeId(fixture.scope),
       ),
     ).toBeNull();
