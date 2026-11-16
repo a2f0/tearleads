@@ -25,9 +25,15 @@ async function openItemInfo(scope: Scope, title: string): Promise<void> {
     .last()
     .getByRole("button", { name: "Get Info", exact: true })
     .click();
-  await expect(
-    scope.getByRole("tabpanel").locator("dl dt").first(),
-  ).toBeVisible({ timeout: 20_000 });
+  const panel = scope.getByRole("tabpanel");
+  await expect(panel.locator("dl dt").first()).toBeVisible({
+    timeout: 20_000,
+  });
+  // The id row renders before the info loads; capture the loaded panel, not
+  // its "Loading..." line and half its rows.
+  await expect(panel.getByText("Loading...")).toHaveCount(0, {
+    timeout: 20_000,
+  });
 }
 
 function openInfoTab(title: string, tab: string, table: string) {
