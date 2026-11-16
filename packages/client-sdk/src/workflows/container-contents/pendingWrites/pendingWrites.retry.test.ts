@@ -3,7 +3,7 @@ import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import {
   hasRecordedTerminalSyncFailures,
@@ -12,7 +12,11 @@ import {
 } from "../../../data/persistence/documents/records";
 import { documentHistoryUpdates } from "../../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { resetPendingWriteRetryState } from "./index";
+
+const moveIntents = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 const LOCAL_ID = "retry-doc";
 
@@ -123,14 +127,14 @@ test("manual retry un-parks only that document's denied move", async () => {
       ["retry-remote", LOCAL_ID],
       ["other-remote", "other-doc"],
     ] as const) {
-      await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      await moveIntents(execSql).enqueueMoveIntent({
         documentId: doc,
         localId: local,
         replaceLinkedContainers: false,
         sourceContainerId: "from",
         targetContainerId: "to",
       });
-      await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+      await moveIntents(execSql).recordMoveIntentError({
         denied: true,
         documentId: doc,
         message: "denied",
@@ -144,13 +148,11 @@ test("manual retry un-parks only that document's denied move", async () => {
     });
 
     expect(
-      (
-        await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql)
-      ).map((intent) => intent.documentId),
+      (await moveIntents(execSql).listPendingMoveIntents()).map(
+        (intent) => intent.documentId,
+      ),
     ).toEqual(["retry-remote"]);
-    expect(
-      await sqlDocumentMoveIntentPersistence.hasDeniedMoveIntents(execSql),
-    ).toBe(true);
+    expect(await moveIntents(execSql).hasDeniedMoveIntents()).toBe(true);
   } finally {
     close();
   }

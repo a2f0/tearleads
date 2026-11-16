@@ -12,7 +12,7 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../test/helpers/organizationReadModelProjectionFixtures";
-import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   completeDormantMetadataSweepRequest,
   listDormantMetadataSweepRequests,
@@ -36,6 +36,9 @@ import type {
   InternalWorkflowRuntimeInput,
 } from "../runtime/workflowRuntime";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
+
+const moveIntents = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 function createRuntime(
   execSql: ExecSql,
@@ -290,7 +293,7 @@ test("restored access replays that organization's denied moves", async () => {
     };
 
     await ensureDocumentTables(execSql);
-    await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+    await moveIntents(execSql).ensureSchema();
     await ensureSqlTables(execSql, containerTables);
     for (const [container, org] of [
       ["restored-target", organizationReadModelOrganizationId],
@@ -312,14 +315,14 @@ test("restored access replays that organization's denied moves", async () => {
       ["restored-remote", "restored-doc", "restored-target"],
       ["foreign-remote", "foreign-doc", "foreign-target"],
     ] as const) {
-      await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      await moveIntents(execSql).enqueueMoveIntent({
         documentId: doc,
         localId: local,
         replaceLinkedContainers: false,
         sourceContainerId: "from",
         targetContainerId: target,
       });
-      await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+      await moveIntents(execSql).recordMoveIntentError({
         denied: true,
         documentId: doc,
         message: "denied",
@@ -335,12 +338,12 @@ test("restored access replays that organization's denied moves", async () => {
 
     // The restored organization's move replays; the other stays parked.
     expect(
-      (
-        await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql)
-      ).map((intent) => intent.documentId),
+      (await moveIntents(execSql).listPendingMoveIntents()).map(
+        (intent) => intent.documentId,
+      ),
     ).toEqual(["restored-remote"]);
     expect(
-      await sqlDocumentMoveIntentPersistence.hasDeniedMoveIntents(execSql, {
+      await moveIntents(execSql).hasDeniedMoveIntents({
         organizationId: "some-other-organization",
       }),
     ).toBe(true);

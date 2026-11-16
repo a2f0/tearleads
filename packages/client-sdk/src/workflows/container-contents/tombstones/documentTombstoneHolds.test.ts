@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   HELD_TOMBSTONE_RETRY_INTERVAL_MS,
   heldTombstoneRetryDelayMs,
@@ -304,7 +304,7 @@ test("a placement owned by a pending move intent is never held", async () => {
   const { close, execSql } = await createTestExecSql("tombstone-hold-intent");
   try {
     await seedDocumentInFolder(execSql);
-    await intents.enqueueMoveIntent(execSql, {
+    await new DocumentMoveIntentRepository(execSql).enqueueMoveIntent({
       documentId: "doc",
       id: "intent-1",
       localId: "doc-local",
@@ -330,7 +330,7 @@ test("a local move releases the holds on the document it relinks", async () => {
   try {
     await seedDocumentInFolder(execSql);
     await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
-    await intents.enqueueMoveIntent(execSql, {
+    await new DocumentMoveIntentRepository(execSql).enqueueMoveIntent({
       documentId: "doc",
       id: "intent-1",
       localId: "doc-local",

@@ -1,5 +1,5 @@
 import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { runSerializedSqlMutation } from "../../src/data/sqlite/sqlSchema";
@@ -52,15 +52,16 @@ export async function persistQueuedDocumentPlacement(input: {
       ...(input.extraContainerId ? [input.extraContainerId] : []),
     ],
   );
+  const moveIntents = new DocumentMoveIntentRepository(execSql);
   if (input.linkOnly) {
-    await sqlDocumentMoveIntentPersistence.enqueueLinkIntent(execSql, {
+    await moveIntents.enqueueLinkIntent({
       documentId,
       localId: "queued-move-local",
       sourceContainerId: input.rootContainerId,
       targetContainerId: input.targetContainerId,
     });
   } else {
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents.enqueueMoveIntent({
       documentId,
       localId: "queued-move-local",
       replaceLinkedContainers: input.replaceLinkedContainers ?? true,
@@ -69,7 +70,7 @@ export async function persistQueuedDocumentPlacement(input: {
     });
   }
   if (input.extraContainerId) {
-    await sqlDocumentMoveIntentPersistence.enqueueLinkIntent(execSql, {
+    await moveIntents.enqueueLinkIntent({
       documentId,
       localId: "queued-move-local",
       sourceContainerId: input.linkOnly

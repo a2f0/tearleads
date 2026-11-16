@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -16,6 +16,9 @@ import type {
   ContainerContentsRootAdoptionInput,
 } from "../runtime";
 import { recoverStaleSessionRoot } from "./staleRootRecovery";
+
+const moveIntents = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 const ORGANIZATION_ID = "organization-1";
 
@@ -371,13 +374,13 @@ test("durable orphan recovery makes the document primeable on relaunch", async (
       title: "Decrypted title excluded from telemetry",
       updatedAt: "2026-07-23T14:19:12.658Z",
     });
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "pending-document-remote",
       localId: "pending-document",
       sourceContainerId: "deleted-local-root",
       targetContainerId: "destination-root",
     });
-    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+    await moveIntents(execSql).recordMoveIntentError({
       blocked: true,
       documentId: "pending-document-remote",
       message: "stale source",
@@ -385,9 +388,9 @@ test("durable orphan recovery makes the document primeable on relaunch", async (
     // Blocked intents keep replaying (the status is a diagnosis, not a
     // verdict), so the list still surfaces the blocked row.
     expect(
-      (
-        await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql)
-      ).map((intent) => intent.syncStatus),
+      (await moveIntents(execSql).listPendingMoveIntents()).map(
+        (intent) => intent.syncStatus,
+      ),
     ).toEqual(["blocked"]);
     const containersById = new Map<string, ContainerState>([
       ["remote-root", remoteRoot({ id: "remote-root" })],
@@ -444,9 +447,7 @@ test("durable orphan recovery makes the document primeable on relaunch", async (
         ["pending-document"],
       ),
     ).toEqual([{ container_id: "remote-root" }]);
-    expect(
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
-    ).toEqual([
+    expect(await moveIntents(execSql).listPendingMoveIntents()).toEqual([
       expect.objectContaining({
         documentId: "pending-document-remote",
         lastAttemptedAt: null,
