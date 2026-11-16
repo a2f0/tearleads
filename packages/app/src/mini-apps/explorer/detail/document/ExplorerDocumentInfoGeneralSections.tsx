@@ -5,12 +5,13 @@ import {
 } from "@tearleads/client-sdk";
 import type { CSSProperties } from "react";
 import {
+  MiniAppCopyValue,
   MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
 import {
-  MiniAppInfoRow,
-  MiniAppKeyValueTable,
+  MiniAppKeyValueList,
+  MiniAppKeyValueRow,
 } from "../../../../components/mini-app/MiniAppTable";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
@@ -24,6 +25,7 @@ import {
   getExplorerAttributionWriterTitle,
 } from "../attributionDisplay";
 import { compactId } from "../compactId";
+import { ExplorerInfoIdRow } from "../ExplorerInfoIdRow";
 import "./ExplorerDocumentInfoBlame.css";
 
 interface ExplorerAttributionLabelParams {
@@ -58,42 +60,44 @@ export function ExplorerDocumentInfoGeneralSection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.documentInfoGeneralHeading}>
-      <MiniAppKeyValueTable>
-        <tbody>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoIdRow}
-            title={localId}
-          >
-            {compactId(localId)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoDocumentIdRow}
-            title={local?.documentId}
-          >
-            {compactId(local?.documentId)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoTypeRow}>
-            {getDocumentTypeLabel(local?.documentKind ?? null)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoContainerRow}
-            title={local?.containerId}
-          >
-            {containerName ?? compactId(local?.containerId)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoUpdatedRow}
-            title={local?.updatedAt}
-          >
-            {formatMiniAppDateTime(local?.updatedAt ?? null, {
-              emptyFallback: "-",
-            })}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoPendingChangesRow}>
-            {pendingChanges}
-          </MiniAppInfoRow>
-        </tbody>
-      </MiniAppKeyValueTable>
+      <MiniAppKeyValueList>
+        <ExplorerInfoIdRow
+          label={EXPLORER_LABELS.documentInfoIdRow}
+          value={localId}
+        />
+        <ExplorerInfoIdRow
+          label={EXPLORER_LABELS.documentInfoDocumentIdRow}
+          value={local?.documentId}
+        />
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.documentInfoTypeRow}>
+          {getDocumentTypeLabel(local?.documentKind ?? null)}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.documentInfoContainerRow}
+          title={containerName === null ? undefined : local?.containerId}
+        >
+          {containerName ?? (
+            <MiniAppCopyValue
+              display={compactId(local?.containerId)}
+              label={EXPLORER_LABELS.documentInfoContainerRow}
+              value={local?.containerId}
+            />
+          )}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.documentInfoUpdatedRow}
+          title={local?.updatedAt}
+        >
+          {formatMiniAppDateTime(local?.updatedAt ?? null, {
+            emptyFallback: "-",
+          })}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.documentInfoPendingChangesRow}
+        >
+          {pendingChanges}
+        </MiniAppKeyValueRow>
+      </MiniAppKeyValueList>
     </MiniAppInfoSection>
   );
 }
@@ -155,25 +159,23 @@ export function ExplorerDocumentInfoContributorsSection(
           {EXPLORER_LABELS.documentInfoNoContributors}
         </MiniAppStatus>
       ) : (
-        <MiniAppKeyValueTable>
-          <tbody>
-            {contributors.map((contributor) => (
-              <MiniAppInfoRow
-                key={`${contributor.writerUserId}:${contributor.writerKeyFingerprint}`}
-                label={getExplorerAttributionWriterLabel(
-                  contributor,
-                  params.attributionUserLabelResolver,
-                )}
-                title={getExplorerAttributionWriterTitle(
-                  contributor,
-                  params.attributionUserLabelResolver,
-                )}
-              >
-                {formatContributorOps(contributor)}
-              </MiniAppInfoRow>
-            ))}
-          </tbody>
-        </MiniAppKeyValueTable>
+        <MiniAppKeyValueList>
+          {contributors.map((contributor) => (
+            <MiniAppKeyValueRow
+              key={`${contributor.writerUserId}:${contributor.writerKeyFingerprint}`}
+              label={getExplorerAttributionWriterLabel(
+                contributor,
+                params.attributionUserLabelResolver,
+              )}
+              title={getExplorerAttributionWriterTitle(
+                contributor,
+                params.attributionUserLabelResolver,
+              )}
+            >
+              {formatContributorOps(contributor)}
+            </MiniAppKeyValueRow>
+          ))}
+        </MiniAppKeyValueList>
       )}
     </MiniAppInfoSection>
   );
@@ -220,32 +222,30 @@ export function ExplorerDocumentInfoCharacterBlameSection(
     <MiniAppInfoSection
       heading={EXPLORER_LABELS.documentInfoCharacterBlameHeading}
     >
-      <MiniAppKeyValueTable>
-        <tbody>
-          {blame.writers.map((writer) => (
-            <MiniAppInfoRow
-              key={`${writer.writerUserId}:${writer.writerKeyFingerprint}`}
-              label={getExplorerAttributionWriterLabel(
-                writer,
-                params.attributionUserLabelResolver,
-              )}
-              title={getExplorerAttributionWriterTitle(
-                writer,
-                params.attributionUserLabelResolver,
-              )}
-            >
-              {formatBlameCharacters(writer)}
-            </MiniAppInfoRow>
-          ))}
-          {blame.unattributedCharacterCount > 0 ? (
-            <MiniAppInfoRow
-              label={EXPLORER_LABELS.documentInfoCharacterBlameUnattributed}
-            >
-              {formatCharacterCount(blame.unattributedCharacterCount)}
-            </MiniAppInfoRow>
-          ) : null}
-        </tbody>
-      </MiniAppKeyValueTable>
+      <MiniAppKeyValueList>
+        {blame.writers.map((writer) => (
+          <MiniAppKeyValueRow
+            key={`${writer.writerUserId}:${writer.writerKeyFingerprint}`}
+            label={getExplorerAttributionWriterLabel(
+              writer,
+              params.attributionUserLabelResolver,
+            )}
+            title={getExplorerAttributionWriterTitle(
+              writer,
+              params.attributionUserLabelResolver,
+            )}
+          >
+            {formatBlameCharacters(writer)}
+          </MiniAppKeyValueRow>
+        ))}
+        {blame.unattributedCharacterCount > 0 ? (
+          <MiniAppKeyValueRow
+            label={EXPLORER_LABELS.documentInfoCharacterBlameUnattributed}
+          >
+            {formatCharacterCount(blame.unattributedCharacterCount)}
+          </MiniAppKeyValueRow>
+        ) : null}
+      </MiniAppKeyValueList>
     </MiniAppInfoSection>
   );
 }
@@ -428,27 +428,25 @@ export function ExplorerDocumentInfoFieldBlameSection(
   }
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.documentInfoFieldBlameHeading}>
-      <MiniAppKeyValueTable>
-        <tbody>
-          {fieldBlame.map((field) => (
-            <MiniAppInfoRow
-              key={field.fieldKey}
-              label={humanizeFieldKey(field.fieldKey)}
-              title={getExplorerAttributionWriterTitle(
-                field,
-                params.attributionUserLabelResolver,
-              )}
-            >
-              {field.writerKeyFingerprint
-                ? getExplorerAttributionWriterLabel(
-                    field,
-                    params.attributionUserLabelResolver,
-                  )
-                : EXPLORER_LABELS.documentInfoCharacterBlameUnattributed}
-            </MiniAppInfoRow>
-          ))}
-        </tbody>
-      </MiniAppKeyValueTable>
+      <MiniAppKeyValueList>
+        {fieldBlame.map((field) => (
+          <MiniAppKeyValueRow
+            key={field.fieldKey}
+            label={humanizeFieldKey(field.fieldKey)}
+            title={getExplorerAttributionWriterTitle(
+              field,
+              params.attributionUserLabelResolver,
+            )}
+          >
+            {field.writerKeyFingerprint
+              ? getExplorerAttributionWriterLabel(
+                  field,
+                  params.attributionUserLabelResolver,
+                )
+              : EXPLORER_LABELS.documentInfoCharacterBlameUnattributed}
+          </MiniAppKeyValueRow>
+        ))}
+      </MiniAppKeyValueList>
     </MiniAppInfoSection>
   );
 }
