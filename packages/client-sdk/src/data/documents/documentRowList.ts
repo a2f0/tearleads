@@ -214,7 +214,9 @@ export function replaceDocumentRowFields(
 
   let changed = false;
   for (const key of row.keys()) {
-    if (!key.startsWith(ROW_META_PREFIX) && !(key in fields)) {
+    // Own keys only: a cell named `constructor` or `toString` is not "in"
+    // the restored fields merely because every object inherits one.
+    if (!key.startsWith(ROW_META_PREFIX) && !Object.hasOwn(fields, key)) {
       row.delete(key);
       changed = true;
     }

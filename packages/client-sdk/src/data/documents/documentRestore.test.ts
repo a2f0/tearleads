@@ -189,6 +189,25 @@ test("a cell the restored row did not have is cleared in place", async () => {
   expect(restored?.updatedBy).toBe("restorer");
 });
 
+test("a cell named like an inherited property is still cleared", async () => {
+  const doc = await contactWithRows([
+    { id: "r1", fields: { constructor: "x", street: "1 Way", toString: "y" } },
+  ]);
+
+  expect(
+    restoreDocumentContent(
+      doc,
+      content({
+        rows: [{ id: "r1", fields: { street: "1 Way" } }],
+        structuredFields: { firstName: "Ada" },
+      }),
+      RESTORER,
+    ),
+  ).toBe(true);
+
+  expect(rowsOf(doc)).toEqual([{ id: "r1", fields: { street: "1 Way" } }]);
+});
+
 test("two devices restoring the same version never share a row id", async () => {
   const alice = await contactWithRows([
     { id: "r1", fields: { street: "1 Way" } },
