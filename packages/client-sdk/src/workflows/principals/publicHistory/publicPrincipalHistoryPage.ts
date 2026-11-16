@@ -5,7 +5,7 @@ import {
 import type { PrincipalPolicySnapshotPage } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
-import { savePrincipalHistoryStage } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
 import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
 import {
@@ -116,19 +116,20 @@ export async function appendPublicPrincipalHistoryPage(
   );
   if (!sealed.ok) throw sealed.error;
   const saved = { ...row, progress: sealed.value };
-  await savePrincipalHistoryStage({
-    execSql: input.execSql,
-    stage: saved,
-    evidence: await preparePrincipalHistoryEvidencePage({
-      indexRootHash: appended.value.indexRootHash,
-      scopeId: progress.scopeId,
-      organizationId: input.organizationId,
-      entries,
-      nodes: appended.value.indexNodes,
-    }),
-    previousProgress: progress.saved?.progress ?? null,
-    stillCurrent,
-  });
+  await new PrincipalHistoryRepository(input.execSql).savePrincipalHistoryStage(
+    {
+      stage: saved,
+      evidence: await preparePrincipalHistoryEvidencePage({
+        indexRootHash: appended.value.indexRootHash,
+        scopeId: progress.scopeId,
+        organizationId: input.organizationId,
+        entries,
+        nodes: appended.value.indexNodes,
+      }),
+      previousProgress: progress.saved?.progress ?? null,
+      stillCurrent,
+    },
+  );
   assertProjectionVerificationCurrent(stillCurrent);
   return {
     ...progress,

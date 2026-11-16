@@ -26,7 +26,7 @@ test("operators suspend and lift a member account but not a root one", async () 
         await waitFor(() => within(table).getByTitle(fingerprint)),
       );
       await waitFor(() => {
-        expect(view.getByRole("table", { name: "Identity" })).toBeTruthy();
+        expect(view.getByRole("group", { name: "Identity" })).toBeTruthy();
       });
     };
 
@@ -52,7 +52,7 @@ test("operators suspend and lift a member account but not a root one", async () 
       ).toBeTruthy();
     });
     expect(view.queryByRole("dialog")).toBeNull();
-    const summary = view.getByRole("table", { name: "Identity" });
+    const summary = view.getByRole("group", { name: "Identity" });
     expect(
       within(summary).getByText("Suspended").parentElement?.textContent,
     ).not.toContain("No");

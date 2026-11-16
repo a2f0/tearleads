@@ -16,13 +16,15 @@ import {
   ExplorerContainerInfoSharingProgress,
 } from "./ExplorerContainerInfoChrome";
 import { ExplorerContainerInfoLocalSection } from "./ExplorerContainerInfoLocalSection";
-import { ExplorerContainerInfoSecuritySection } from "./ExplorerContainerInfoSecuritySection";
+import {
+  ExplorerContainerInfoSecuritySection,
+  ExplorerContainerInfoSyncCursorsSection,
+} from "./ExplorerContainerInfoSecuritySyncSections";
 import {
   ExplorerContainerInfoNewShareSection,
   ExplorerContainerInfoPeerShareSection,
   ExplorerContainerInfoPrincipalGrantsSection,
 } from "./ExplorerContainerInfoSharingSections";
-import { ExplorerContainerInfoSyncCursorsSection } from "./ExplorerContainerInfoSyncCursorsSection";
 import {
   type ContainerInfoTabId,
   type ExplorerContainerInfoPanelProps,

@@ -32,7 +32,7 @@ test("a store price uses the currency's ISO minor unit, as RevenueCat reports it
       onSelectIdentity={() => undefined}
     />,
   );
-  const facts = view.getByRole("table", {
+  const facts = view.getByRole("group", {
     name: "RevenueCat delivery evt-kwd",
   });
   // KWD has three decimals; Stripe's two-decimal convention would show 49.99.

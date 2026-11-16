@@ -3,6 +3,7 @@ export {
   MiniAppClipboardButton,
 } from "./controls/MiniAppButton";
 export { MiniAppCheckbox } from "./controls/MiniAppCheckbox";
+export { MiniAppCopyValue } from "./controls/MiniAppCopyValue";
 export {
   MiniAppField,
   MiniAppFieldGroup,

@@ -3,6 +3,13 @@
   "extends": ["//"],
   "tasks": {
     "e2e": {
+      "description": "The signed-in specs run the API from its source against an in-memory store (playwright.config.ts), so an API change must miss this cache.",
+      "dependsOn": ["$TURBO_EXTENDS$", "@tearleads/api#runtime-sources"],
+      "passThroughEnv": [
+        "$TURBO_EXTENDS$",
+        "APP_WEB_SIGNED_IN_API_PORT",
+        "APP_WEB_SIGNED_IN_PORT"
+      ],
       "inputs": [
         "$TURBO_EXTENDS$",
         "$TURBO_ROOT$/package.json",

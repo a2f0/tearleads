@@ -226,12 +226,6 @@ test("session rows open details and expose context menu actions", async () => {
 
     fireEvent.click(within(table).getByText("203.0.113.9"));
 
-    const detailTable = view.getByRole("table");
-    expect(detailTable.className).toContain("mini-app-info-table--borderless");
-    expect(detailTable.className).toContain("mini-app-info-table--aligned");
-    expect(detailTable.className).toContain(
-      "identity-manager-session-detail-table",
-    );
     expect(view.getByText("Current Session")).toBeTruthy();
     const getDetailValue = (label: string) => {
       const valueButton = view.getByRole("button", {

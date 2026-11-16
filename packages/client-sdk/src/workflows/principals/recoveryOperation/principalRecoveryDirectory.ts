@@ -10,7 +10,7 @@ import {
   type PrincipalPolicyPageResponse,
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
@@ -89,8 +89,9 @@ async function loadHeldDirectoryHead(
   if (!prefix) return null;
   const history = prefix.verifier.finish(prefix.head);
   if (!history.ok) throw history.error;
-  const genesis = await loadPrincipalHistoryReference({
-    execSql: input.execSql,
+  const genesis = await new PrincipalHistoryRepository(
+    input.execSql,
+  ).loadPrincipalHistoryReference({
     scopeId,
     history: history.value,
     version: 1,
