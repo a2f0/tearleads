@@ -10,10 +10,7 @@ import {
 } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createRejectingExecSql } from "../../../../test/helpers/rejectingExecSql";
 import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
-import {
-  applyOrganizationReadModelResponse,
-  loadOrganizationReadModelProjection,
-} from "../../../data/persistence/organizations/organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import {
   loadLocalOrganizationDataUsage,
   reconcileOrganizationDataUsage,
@@ -38,11 +35,11 @@ test("a failed purge cannot serve the revoked projection after a restart", async
       (sql.includes('delete from "organization_read_model_requesters"') ||
         sql.includes('delete from "organization_data_usage_snapshots"')),
   );
+  const repository = new OrganizationReadModelRepository(execSql);
 
   try {
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: requesterUserId,
-      execSql,
       requestedCursor: null,
       response: organizationReadModelSnapshot(),
     });
@@ -96,11 +93,9 @@ test("a failed purge cannot serve the revoked projection after a restart", async
     // Only the durable markers hide the reads: the revoked rows themselves
     // survived the failed purge.
     await expect(
-      loadOrganizationReadModelProjection(
+      new OrganizationReadModelRepository(
         restarted,
-        organizationId,
-        requesterUserId,
-      ),
+      ).loadOrganizationReadModelProjection(organizationId, requesterUserId),
     ).resolves.not.toBeNull();
     await expect(
       new OrganizationDataUsageRepository(
@@ -165,12 +160,12 @@ test("a denied requester's purge keeps shared rows for another local identity", 
     "organization-presentation-shared-identity-purge-test",
   );
   const execSql = createRejectingExecSql(testDb.execSql, () => false);
+  const repository = new OrganizationReadModelRepository(execSql);
   const otherUserId = "user-2";
 
   try {
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: requesterUserId,
-      execSql,
       requestedCursor: null,
       response: organizationReadModelSnapshot(),
     });
@@ -276,8 +271,7 @@ test("a denied requester's purge keeps shared rows for another local identity", 
       ).resolves.toBeNull();
     }
     await expect(
-      loadOrganizationReadModelProjection(
-        execSql,
+      repository.loadOrganizationReadModelProjection(
         organizationId,
         requesterUserId,
       ),

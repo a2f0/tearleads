@@ -46,6 +46,7 @@ reference.
 | Principal mutation journal | `PrincipalMutationJournalRepository(execSql)` | Built from the caller's executor at each call | None |
 | Principal policy bundle storage | `PrincipalPolicyBundleRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Trusted identity pin storage | `TrustedUserIdentityPinRepository(execSql)` | Built from the caller's executor at each call | None |
+| Organization read models | `OrganizationReadModelRepository(execSql, now)` | Built from the caller's executor at each call | None |
 
 ## Where code goes
 

@@ -11,33 +11,27 @@ import {
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
 import { OrganizationDataUsageRepository } from "./organizationDataUsagePersistence";
 import { subscribeOrganizationReadModelInvalidation } from "./organizationReadModelInvalidation";
-import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMemberLoad";
-import {
-  applyOrganizationReadModelResponse,
-  loadOrganizationReadModelProjection,
-} from "./organizationReadModelPersistence";
+
+import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 test("organization read-model snapshots persist normalized requester-safe projections", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-snapshot-persistence-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
 
   try {
     const response = snapshot("org-1", "opaque-cursor-over-9007199254740991");
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: null,
         response,
       }),
     ).resolves.toBe("applied");
 
-    const userOneProjection = await loadOrganizationReadModelProjection(
-      execSql,
-      "org-1",
-      "user-1",
-    );
+    const userOneProjection =
+      await repository.loadOrganizationReadModelProjection("org-1", "user-1");
     expect(userOneProjection).toEqual({
       cursor: response.nextCursor,
       directory: {
@@ -84,11 +78,8 @@ test("organization read-model snapshots persist normalized requester-safe projec
       updatedAt: expect.any(String),
     });
 
-    const userTwoProjection = await loadOrganizationReadModelProjection(
-      execSql,
-      "org-1",
-      "user-2",
-    );
+    const userTwoProjection =
+      await repository.loadOrganizationReadModelProjection("org-1", "user-2");
     expect(userTwoProjection?.requester).toBeNull();
     expect(userTwoProjection?.directory.users).toEqual([
       expect.objectContaining({ isSelf: false, userId: "user-1" }),
@@ -103,17 +94,16 @@ test("local group members require a requester projection", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-members-requester-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: snapshot("org-1", "cursor-1"),
     });
 
     await expect(
-      loadOrganizationReadModelGroupMembers(
-        execSql,
+      repository.loadOrganizationReadModelGroupMembers(
         "org-1",
         "admins-org-1",
         "user-without-requester",
@@ -128,11 +118,11 @@ test("same-next-cursor responses persist sequential requester metadata", async (
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-sequential-requesters-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
 
   try {
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: snapshot("org-1", "cursor-1"),
     });
@@ -142,27 +132,25 @@ test("same-next-cursor responses persist sequential requester metadata", async (
       organizationId: "org-1",
     });
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: "cursor-1",
         response: firstResponse,
       }),
     ).resolves.toBe("applied");
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-2",
-        execSql,
         requestedCursor: "cursor-1",
         response: { ...firstResponse, currentUser: { isOrgAdmin: false } },
       }),
     ).resolves.toBe("already-applied");
 
     await expect(
-      loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
+      repository.loadOrganizationReadModelProjection("org-1", "user-1"),
     ).resolves.toMatchObject({ requester: { isOrgAdmin: true } });
     await expect(
-      loadOrganizationReadModelProjection(execSql, "org-1", "user-2"),
+      repository.loadOrganizationReadModelProjection("org-1", "user-2"),
     ).resolves.toMatchObject({
       cursor: "cursor-2",
       requester: { isOrgAdmin: false },
@@ -176,11 +164,11 @@ test("concurrent requester responses preserve both requester projections", async
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-concurrent-requesters-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
 
   try {
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: snapshot("org-1", "cursor-1"),
     });
@@ -190,15 +178,13 @@ test("concurrent requester responses preserve both requester projections", async
       organizationId: "org-1",
     });
     const results = await Promise.all([
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: "cursor-1",
         response,
       }),
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-2",
-        execSql,
         requestedCursor: "cursor-1",
         response: { ...response, currentUser: { isOrgAdmin: false } },
       }),
@@ -206,8 +192,8 @@ test("concurrent requester responses preserve both requester projections", async
 
     expect(results.sort()).toEqual(["already-applied", "applied"]);
     const [userOne, userTwo] = await Promise.all([
-      loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
-      loadOrganizationReadModelProjection(execSql, "org-1", "user-2"),
+      repository.loadOrganizationReadModelProjection("org-1", "user-1"),
+      repository.loadOrganizationReadModelProjection("org-1", "user-2"),
     ]);
     expect(userOne?.requester).toEqual({ isOrgAdmin: true });
     expect(userTwo?.requester).toEqual({ isOrgAdmin: false });
@@ -226,11 +212,11 @@ test("directory replacement prunes requester rows for inactive users", async () 
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-requester-prune-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
 
   try {
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: snapshot("org-1", "cursor-1"),
     });
@@ -239,20 +225,18 @@ test("directory replacement prunes requester rows for inactive users", async () 
       nextCursor: "cursor-2",
       organizationId: "org-1",
     });
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: "cursor-1",
       response: sharedDelta,
     });
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-2",
-      execSql,
       requestedCursor: "cursor-1",
       response: { ...sharedDelta, currentUser: { isOrgAdmin: false } },
     });
     await expect(
-      loadOrganizationReadModelProjection(execSql, "org-1", "user-2"),
+      repository.loadOrganizationReadModelProjection("org-1", "user-2"),
     ).resolves.toMatchObject({ requester: { isOrgAdmin: false } });
     const usageRepository = new OrganizationDataUsageRepository(execSql);
     await usageRepository.saveOrganizationDataUsageProjection({
@@ -266,9 +250,8 @@ test("directory replacement prunes requester rows for inactive users", async () 
 
     // The authoritative directory now lists user-2 as disabled: the shared
     // rows survive, but user-2's requester row and usage projection must not.
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: "cursor-2",
       response: delta({
         directory: directory("org-1", {
@@ -282,8 +265,7 @@ test("directory replacement prunes requester rows for inactive users", async () 
       }),
     });
 
-    const userTwo = await loadOrganizationReadModelProjection(
-      execSql,
+    const userTwo = await repository.loadOrganizationReadModelProjection(
       "org-1",
       "user-2",
     );
@@ -292,7 +274,7 @@ test("directory replacement prunes requester rows for inactive users", async () 
       usageRepository.loadOrganizationDataUsageProjection("org-1", "user-2"),
     ).resolves.toBeNull();
     await expect(
-      loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
+      repository.loadOrganizationReadModelProjection("org-1", "user-1"),
     ).resolves.toMatchObject({
       cursor: "cursor-3",
       requester: { isOrgAdmin: true },
@@ -309,6 +291,7 @@ test("a group-member load purge notifies invalidation subscribers", async () => 
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-member-load-invalidation-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   const invalidations: string[] = [];
   const unsubscribe = subscribeOrganizationReadModelInvalidation(
     execSql,
@@ -316,15 +299,13 @@ test("a group-member load purge notifies invalidation subscribers", async () => 
   );
 
   try {
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: snapshot("org-1", "cursor-1"),
     });
     await expect(
-      loadOrganizationReadModelGroupMembers(
-        execSql,
+      repository.loadOrganizationReadModelGroupMembers(
         "org-1",
         "admins-org-1",
         "user-1",
@@ -338,8 +319,7 @@ test("a group-member load purge notifies invalidation subscribers", async () => 
        WHERE organization_id = 'org-1'`,
     );
     await expect(
-      loadOrganizationReadModelGroupMembers(
-        execSql,
+      repository.loadOrganizationReadModelGroupMembers(
         "org-1",
         "admins-org-1",
         "user-1",

@@ -1,4 +1,4 @@
-import { hasOrganizationPresentationDenial } from "../../../data/persistence/organizations/organizationPresentationDenialPersistence";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 export type OrganizationPresentationProjection = "readModel" | "usage";
@@ -227,7 +227,11 @@ export async function runOrganizationPresentationRead<T>(
   // In-memory denial dies with the process. The durable marker keeps a
   // revoked projection unreadable when its purge failed and the app
   // restarted; a successful reconcile clears it.
-  if (await hasOrganizationPresentationDenial(input, projection)) {
+  if (
+    await new OrganizationReadModelRepository(
+      input.execSql,
+    ).hasOrganizationPresentationDenial(input, projection)
+  ) {
     return null;
   }
   const value = await operation();

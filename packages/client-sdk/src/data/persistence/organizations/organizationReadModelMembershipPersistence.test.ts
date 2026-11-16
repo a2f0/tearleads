@@ -11,14 +11,8 @@ import type {
   OrganizationReadModelSnapshotResponse,
 } from "@tearleads/validators/response";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
-import type { ExecSql } from "../../sqlite/sqlSchema";
 import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
-import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMemberLoad";
-import {
-  applyOrganizationReadModelResponse,
-  loadOrganizationReadModelProjection,
-  purgeOrganizationReadModelProjection,
-} from "./organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 const CREATED_AT = "2026-07-17T12:00:00.000Z";
 const ORGANIZATION_ID = "organization-v4";
@@ -202,22 +196,23 @@ function delta(input: {
 }
 
 async function applySnapshot(
-  execSql: ExecSql,
+  repository: OrganizationReadModelRepository,
   response = snapshot(),
 ): Promise<void> {
   await expect(
-    applyOrganizationReadModelResponse({
+    repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response,
     }),
   ).resolves.toBe("applied");
 }
 
-function loadMembers(execSql: ExecSql, groupId: string) {
-  return loadOrganizationReadModelGroupMembers(
-    execSql,
+function loadMembers(
+  repository: OrganizationReadModelRepository,
+  groupId: string,
+) {
+  return repository.loadOrganizationReadModelGroupMembers(
     ORGANIZATION_ID,
     groupId,
     "user-1",
@@ -228,27 +223,27 @@ test("v6 snapshots persist visible, hidden Members, and empty group memberships"
   const { close, execSql } = await createTestExecSql(
     "org-memberships-snapshot-v4",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
-    await applySnapshot(execSql);
+    await applySnapshot(repository);
 
-    await expect(loadMembers(execSql, ADMINS_GROUP_ID)).resolves.toEqual({
+    await expect(loadMembers(repository, ADMINS_GROUP_ID)).resolves.toEqual({
       organizationId: ORGANIZATION_ID,
       groupId: ADMINS_GROUP_ID,
       members: [member("user-1", "admin"), member("user-2")],
     });
-    await expect(loadMembers(execSql, MEMBERS_GROUP_ID)).resolves.toEqual({
+    await expect(loadMembers(repository, MEMBERS_GROUP_ID)).resolves.toEqual({
       organizationId: ORGANIZATION_ID,
       groupId: MEMBERS_GROUP_ID,
       members: [member("user-1")],
     });
-    await expect(loadMembers(execSql, EMPTY_GROUP_ID)).resolves.toEqual({
+    await expect(loadMembers(repository, EMPTY_GROUP_ID)).resolves.toEqual({
       organizationId: ORGANIZATION_ID,
       groupId: EMPTY_GROUP_ID,
       members: [],
     });
 
-    const projection = await loadOrganizationReadModelProjection(
-      execSql,
+    const projection = await repository.loadOrganizationReadModelProjection(
       ORGANIZATION_ID,
       "user-1",
     );
@@ -256,8 +251,7 @@ test("v6 snapshots persist visible, hidden Members, and empty group memberships"
       ADMINS_GROUP_ID,
       EMPTY_GROUP_ID,
     ]);
-    const peerProjection = await loadOrganizationReadModelProjection(
-      execSql,
+    const peerProjection = await repository.loadOrganizationReadModelProjection(
       ORGANIZATION_ID,
       "user-2",
     );
@@ -284,12 +278,12 @@ test("entity membership deltas replace only the supplied group", async () => {
   const { close, execSql } = await createTestExecSql(
     "org-memberships-delta-v4",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
-    await applySnapshot(execSql);
+    await applySnapshot(repository);
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: "cursor-1",
         response: delta({
           groups: groupsLane({
@@ -303,13 +297,13 @@ test("entity membership deltas replace only the supplied group", async () => {
       }),
     ).resolves.toBe("applied");
 
-    expect(await loadMembers(execSql, ADMINS_GROUP_ID)).toMatchObject({
+    expect(await loadMembers(repository, ADMINS_GROUP_ID)).toMatchObject({
       members: [expect.objectContaining({ userId: "user-3" })],
     });
-    expect(await loadMembers(execSql, MEMBERS_GROUP_ID)).toMatchObject({
+    expect(await loadMembers(repository, MEMBERS_GROUP_ID)).toMatchObject({
       members: [expect.objectContaining({ userId: "user-1" })],
     });
-    expect(await loadMembers(execSql, EMPTY_GROUP_ID)).toMatchObject({
+    expect(await loadMembers(repository, EMPTY_GROUP_ID)).toMatchObject({
       members: [],
     });
   } finally {
@@ -321,12 +315,12 @@ test("entity membership deletions remove only the target group", async () => {
   const { close, execSql } = await createTestExecSql(
     "org-memberships-delete-v4",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
-    await applySnapshot(execSql);
+    await applySnapshot(repository);
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: "cursor-1",
         response: delta({
           groups: groupsLane({ includeAdmin: false }),
@@ -335,11 +329,13 @@ test("entity membership deletions remove only the target group", async () => {
       }),
     ).resolves.toBe("applied");
 
-    await expect(loadMembers(execSql, ADMINS_GROUP_ID)).resolves.toBeNull();
-    await expect(loadMembers(execSql, MEMBERS_GROUP_ID)).resolves.toMatchObject(
-      { groupId: MEMBERS_GROUP_ID },
-    );
-    await expect(loadMembers(execSql, EMPTY_GROUP_ID)).resolves.toMatchObject({
+    await expect(loadMembers(repository, ADMINS_GROUP_ID)).resolves.toBeNull();
+    await expect(
+      loadMembers(repository, MEMBERS_GROUP_ID),
+    ).resolves.toMatchObject({ groupId: MEMBERS_GROUP_ID });
+    await expect(
+      loadMembers(repository, EMPTY_GROUP_ID),
+    ).resolves.toMatchObject({
       groupId: EMPTY_GROUP_ID,
       members: [],
     });
@@ -354,8 +350,9 @@ test("invalid memberships roll back every changed lane and the cursor", async ()
     const { close, execSql } = await createTestExecSql(
       `org-memberships-${invalidCase}`,
     );
+    const repository = new OrganizationReadModelRepository(execSql);
     try {
-      await applySnapshot(execSql);
+      await applySnapshot(repository);
       const invalidMembership = membership(
         ADMINS_GROUP_ID,
         invalidCase === "state-hash" ? "wrong-state" : "admins-state-1",
@@ -368,9 +365,8 @@ test("invalid memberships roll back every changed lane and the cursor", async ()
       }
 
       await expect(
-        applyOrganizationReadModelResponse({
+        repository.applyOrganizationReadModelResponse({
           currentUserId: "user-1",
-          execSql,
           requestedCursor: "cursor-1",
           response: delta({
             groups: groupsLane({ adminName: "Must roll back" }),
@@ -380,8 +376,7 @@ test("invalid memberships roll back every changed lane and the cursor", async ()
         }),
       ).rejects.toThrow();
 
-      const projection = await loadOrganizationReadModelProjection(
-        execSql,
+      const projection = await repository.loadOrganizationReadModelProjection(
         ORGANIZATION_ID,
         "user-1",
       );
@@ -391,7 +386,7 @@ test("invalid memberships roll back every changed lane and the cursor", async ()
         requester: { isOrgAdmin: true },
       });
       expect(projection?.groups.groups[0]?.name).toBe("");
-      expect(await loadMembers(execSql, ADMINS_GROUP_ID)).toMatchObject({
+      expect(await loadMembers(repository, ADMINS_GROUP_ID)).toMatchObject({
         members: [expect.anything(), expect.anything()],
       });
     } finally {
@@ -404,6 +399,7 @@ test("large membership snapshots are persisted across insert batches", async () 
   const { close, execSql } = await createTestExecSql(
     "org-memberships-large-v4",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   const groupId = "large-group-v4";
   const members = Array.from({ length: 95 }, (_, index) =>
     member(`member-${index}`),
@@ -430,7 +426,7 @@ test("large membership snapshots are persisted across insert batches", async () 
   };
   try {
     await applySnapshot(
-      execSql,
+      repository,
       snapshot({
         groups: groupLane,
         groupMemberships: membershipsLane([
@@ -440,7 +436,7 @@ test("large membership snapshots are persisted across insert batches", async () 
       }),
     );
 
-    const stored = await loadMembers(execSql, groupId);
+    const stored = await loadMembers(repository, groupId);
     expect(stored?.members).toHaveLength(95);
     expect(stored?.members[0]?.userId).toBe("member-0");
     expect(stored?.members[94]?.userId).toBe("member-94");
@@ -453,8 +449,9 @@ test("purge clears membership rows without deleting verified policy checkpoints"
   const { close, execSql } = await createTestExecSql(
     "org-memberships-purge-v4",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
-    await applySnapshot(execSql);
+    await applySnapshot(repository);
     await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
       "group",
       "verified-group",
@@ -468,7 +465,7 @@ test("purge clears membership rows without deleting verified policy checkpoints"
       ORGANIZATION_ID,
     ]);
 
-    await purgeOrganizationReadModelProjection(execSql, ORGANIZATION_ID);
+    await repository.purgeOrganizationReadModelProjection(ORGANIZATION_ID);
 
     const headRows = await execSql(
       "SELECT COUNT(*) AS count FROM organization_read_model_state",

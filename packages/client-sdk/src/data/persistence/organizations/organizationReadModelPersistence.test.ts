@@ -10,22 +10,18 @@ import {
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
 import { subscribeOrganizationReadModelInvalidation } from "./organizationReadModelInvalidation";
-import {
-  applyOrganizationReadModelResponse,
-  loadOrganizationReadModelProjection,
-  purgeOrganizationReadModelProjection,
-} from "./organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 test("organization read-model deltas replace only supplied lanes and reject stale application", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-delta-persistence-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
 
   try {
     const initial = snapshot("org-1", "cursor-1");
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: initial,
     });
@@ -36,17 +32,15 @@ test("organization read-model deltas replace only supplied lanes and reject stal
       organizationId: "org-1",
     });
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: "cursor-1",
         response: groupsDelta,
       }),
     ).resolves.toBe("applied");
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: "cursor-1",
         response: groupsDelta,
       }),
@@ -57,9 +51,8 @@ test("organization read-model deltas replace only supplied lanes and reject stal
       users: [],
     });
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: "cursor-1",
         response: delta({
           directory: staleDirectory,
@@ -71,8 +64,7 @@ test("organization read-model deltas replace only supplied lanes and reject stal
       }),
     ).resolves.toBe("stale");
 
-    const afterGroups = await loadOrganizationReadModelProjection(
-      execSql,
+    const afterGroups = await repository.loadOrganizationReadModelProjection(
       "org-1",
       "user-1",
     );
@@ -115,9 +107,8 @@ test("organization read-model deltas replace only supplied lanes and reject stal
       users: [directoryUser("user-1", { isSelf: true })],
     });
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: "cursor-2",
         response: delta({
           directory: nextDirectory,
@@ -129,8 +120,7 @@ test("organization read-model deltas replace only supplied lanes and reject stal
       }),
     ).resolves.toBe("applied");
 
-    const afterDirectory = await loadOrganizationReadModelProjection(
-      execSql,
+    const afterDirectory = await repository.loadOrganizationReadModelProjection(
       "org-1",
       "user-1",
     );
@@ -159,6 +149,7 @@ test("organization read-model reset snapshots replace both lanes and purge only 
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-purge-persistence-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
 
   try {
     const initialOrgOne = snapshot("org-1", "cursor-1");
@@ -181,15 +172,13 @@ test("organization read-model reset snapshots replace both lanes and purge only 
       stateHash: "stale-state",
       members: [],
     });
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: initialOrgOne,
     });
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: snapshot("org-2", "cursor-a"),
     });
@@ -201,18 +190,14 @@ test("organization read-model reset snapshots replace both lanes and purge only 
       directoryUser("user-reset"),
     );
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: "cursor-1",
         response: reset,
       }),
     ).resolves.toBe("applied");
-    const resetProjection = await loadOrganizationReadModelProjection(
-      execSql,
-      "org-1",
-      "user-1",
-    );
+    const resetProjection =
+      await repository.loadOrganizationReadModelProjection("org-1", "user-1");
     expect(resetProjection?.directory.users).toEqual([
       expect.objectContaining({ userId: "user-reset" }),
     ]);
@@ -225,12 +210,12 @@ test("organization read-model reset snapshots replace both lanes and purge only 
       ),
     ).toBe(false);
 
-    await purgeOrganizationReadModelProjection(execSql, "org-1");
+    await repository.purgeOrganizationReadModelProjection("org-1");
     await expect(
-      loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
+      repository.loadOrganizationReadModelProjection("org-1", "user-1"),
     ).resolves.toBeNull();
     await expect(
-      loadOrganizationReadModelProjection(execSql, "org-2", "user-1"),
+      repository.loadOrganizationReadModelProjection("org-2", "user-1"),
     ).resolves.toMatchObject({ cursor: "cursor-a", organizationId: "org-2" });
   } finally {
     close();
@@ -241,6 +226,7 @@ test("organization read-model persistence rejects requester flag and duplicate I
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-validation-persistence-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
 
   try {
     const wrongRequester = snapshot("org-1", "cursor-wrong-requester");
@@ -250,9 +236,8 @@ test("organization read-model persistence rejects requester flag and duplicate I
     }
     self.isSelf = false;
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: null,
         response: wrongRequester,
       }),
@@ -265,9 +250,8 @@ test("organization read-model persistence rejects requester flag and duplicate I
     }
     duplicateDirectory.lanes.directory.users.push({ ...duplicateUser });
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: null,
         response: duplicateDirectory,
       }),
@@ -275,9 +259,8 @@ test("organization read-model persistence rejects requester flag and duplicate I
 
     const wrongPolicyScope = snapshot("org-1", "cursor-wrong-policy-scope");
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: null,
         response: {
           ...wrongPolicyScope,
@@ -296,9 +279,8 @@ test("organization read-model persistence rejects requester flag and duplicate I
     }
     duplicateGroups.lanes.groups.groups.push({ ...duplicateGroup });
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: null,
         response: duplicateGroups,
       }),
@@ -312,11 +294,11 @@ test("organization read-model persistence rejects v3 responses at runtime", asyn
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-protocol-version-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
     const initial = snapshot("org-1", "cursor-1");
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: initial,
     });
@@ -329,19 +311,18 @@ test("organization read-model persistence rejects v3 responses at runtime", asyn
       }),
       version: 3,
     } as unknown as Parameters<
-      typeof applyOrganizationReadModelResponse
+      OrganizationReadModelRepository["applyOrganizationReadModelResponse"]
     >[0]["response"];
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: "cursor-1",
         response: versionThree,
       }),
     ).rejects.toThrow("protocol version is unsupported");
 
     await expect(
-      loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
+      repository.loadOrganizationReadModelProjection("org-1", "user-1"),
     ).resolves.toMatchObject({
       cursor: "cursor-1",
       groups: initial.lanes.groups,
@@ -356,11 +337,11 @@ test("organization policy head and cursor roll back together on head failure", a
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-atomic-persistence-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
 
   try {
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: snapshot("org-1", "cursor-1"),
     });
@@ -374,9 +355,8 @@ test("organization policy head and cursor roll back together on head failure", a
       END
     `);
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: "cursor-1",
         response: delta({
           nextCursor: "cursor-2",
@@ -386,8 +366,7 @@ test("organization policy head and cursor roll back together on head failure", a
       }),
     ).rejects.toThrow();
 
-    const projection = await loadOrganizationReadModelProjection(
-      execSql,
+    const projection = await repository.loadOrganizationReadModelProjection(
       "org-1",
       "user-1",
     );
@@ -413,6 +392,7 @@ test("an inexact persisted policy head purges the projection on load", async () 
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-policy-head-binding-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   const invalidations: string[] = [];
   const unsubscribe = subscribeOrganizationReadModelInvalidation(
     execSql,
@@ -420,9 +400,8 @@ test("an inexact persisted policy head purges the projection on load", async () 
   );
 
   try {
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: snapshot("org-1", "cursor-1"),
     });
@@ -437,7 +416,7 @@ test("an inexact persisted policy head purges the projection on load", async () 
     // read and repair pass on the same row, and notifies realtime consumers
     // that their caught-up lease no longer covers stored rows.
     expect(
-      await loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
+      await repository.loadOrganizationReadModelProjection("org-1", "user-1"),
     ).toBeNull();
     expect(invalidations).toEqual(["org-1"]);
     const stateRows = await execSql(
@@ -447,14 +426,12 @@ test("an inexact persisted policy head purges the projection on load", async () 
     );
     expect(stateRows[0]?.[0]).toBe(0);
 
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: snapshot("org-1", "cursor-2"),
     });
-    const reapplied = await loadOrganizationReadModelProjection(
-      execSql,
+    const reapplied = await repository.loadOrganizationReadModelProjection(
       "org-1",
       "user-1",
     );

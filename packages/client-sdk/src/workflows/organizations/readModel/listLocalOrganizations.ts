@@ -5,7 +5,7 @@ import {
   sqlDocumentsPersistence,
 } from "../../../data/persistence/documents/documentsPersistence";
 import { findLocalIdByDocumentId } from "../../../data/persistence/documents/records";
-import { loadOrganizationProfileDocumentIds } from "../../../data/persistence/organizations/organizationProfileDocumentPointers";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { loadPersistedDocumentContent } from "../../documents";
 import {
@@ -235,9 +235,9 @@ export async function listLocalOrganizations(input: {
   // A projected read model is not a precondition for listing organizations, so
   // an unreadable one degrades to the container-derived lookups below.
   const profileDocumentIdsByOrganizationId =
-    await loadOrganizationProfileDocumentIds(input.execSql).catch(
-      () => new Map<string, string>(),
-    );
+    await new OrganizationReadModelRepository(input.execSql)
+      .loadOrganizationProfileDocumentIds()
+      .catch(() => new Map<string, string>());
   const organizations = [...indexLocalOrganizations(containers)].sort(
     compareLocalOrganizations,
   );

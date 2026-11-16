@@ -1,5 +1,4 @@
-import { purgeOrganizationAccessProjection } from "../../../data/persistence/organizations/organizationAccessRevocationPersistence";
-import { recordOrganizationPresentationDenials } from "../../../data/persistence/organizations/organizationPresentationDenialPersistence";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   denyOrganizationPresentationAccess,
@@ -13,9 +12,13 @@ export async function denyPolicyHistoryAccess(input: {
   logError: (message: string | Error, cause?: unknown) => void;
 }): Promise<void> {
   denyOrganizationPresentationAccess(input, ["readModel", "usage"]);
+  const repository = new OrganizationReadModelRepository(input.execSql);
   try {
     await runOrganizationPresentationMutation(input.execSql, () =>
-      recordOrganizationPresentationDenials(input, ["readModel", "usage"]),
+      repository.recordOrganizationPresentationDenials(input, [
+        "readModel",
+        "usage",
+      ]),
     );
   } catch (error) {
     input.logError(
@@ -25,7 +28,7 @@ export async function denyPolicyHistoryAccess(input: {
   }
   try {
     await runOrganizationPresentationMutation(input.execSql, () =>
-      purgeOrganizationAccessProjection(input),
+      repository.purgeOrganizationAccessProjection(input),
     );
   } catch (error) {
     input.logError("Failed to purge denied organization policy history", error);
