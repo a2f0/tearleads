@@ -132,8 +132,8 @@ deleted as soon as the default branch contains the new contract.
 - `packages/api-client`: typed API client and request/response boundary helpers.
 - `packages/client-sdk`: React-free client runtime, local persistence, sync,
   workflow facades, and public SDK exports.
-- `packages/app`: React application shell, providers, stores, mini-apps,
-  document projections, and product UI.
+- `packages/app`: React application shell, providers, stores, mini-apps, tray
+  apps, document projections, and product UI.
 - `packages/app-web`, `packages/app-capacitor`, and `packages/app-electrobun`:
   deployment targets. Do not turn these into reusable libraries.
 - `packages/crypto`, `packages/diagnostics`, `packages/encoding`,
@@ -145,10 +145,11 @@ deleted as soon as the default branch contains the new contract.
 - `packages/ui`: product-neutral shared UI used by the website and app.
 - `packages/windowing`: app-agnostic window state, window chrome, and the
   menu and sidebar primitives it renders with, plus a launcher of mini-apps:
-  its navigation (windowed or routed) and the routed shell. It is published to
-  npm on its own, so it depends on no other workspace package; app behavior
-  reaches a window or the routed shell through slots such as `Window`'s
-  `ContentBoundary` and `RoutedPane`'s chrome props.
+  its navigation (windowed or routed) and the routed shell, and a system tray
+  of apps the user can switch off. It is published to npm on its own, so it
+  depends on no other workspace package; app behavior reaches a window or the
+  routed shell through slots such as `Window`'s `ContentBoundary` and
+  `RoutedPane`'s chrome props.
 - `packages/website`: marketing/docs site. It may share UI, but must not import
   application implementation code.
 - `packages/performance`: SDK/DB probes; no inbound imports or live CI runs.
@@ -161,6 +162,11 @@ deleted as soon as the default branch contains the new contract.
   workflows; workflows own access-plane composition.
 - App presentation goes through stores/providers instead of importing
   persistence, SQLite, blob, contact, sync, or workflow internals directly.
+- App mini-apps (`packages/app/src/mini-apps`) and tray apps
+  (`packages/app/src/tray-apps`) never import each other; code both need lives
+  in a lower layer they share (`components/`, `stores/`, `providers/`,
+  `navigation/`, `utils/`). Only the shell loads tray apps. See the
+  [tray-apps README](packages/app/src/tray-apps/README.md).
 - Client SDK data modules stay below client, store, and workflow facades.
 - Client SDK components meet at named ports wired by the composition root and
   keep per-database or per-scope state in one `getOrCreate*` scoped singleton.

@@ -1,10 +1,10 @@
 import { Menu, type MenuPosition } from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useState } from "react";
-import { SyncGlyph } from "../../../../components/shared/SyncGlyph";
-import { useMiniAppBusActions } from "../../../../mini-apps/bus";
+import { SyncGlyph } from "../../components/shared/SyncGlyph";
+import { useAppNavigationActions } from "../../navigation/AppNavigationProvider";
 import type { SyncStatus } from "./syncStatusModel";
 import { useSyncStatus } from "./useSyncStatus";
-import "./SyncStatusIndicator.css";
+import "./SyncStatusTrayApp.css";
 
 // Jumps to the Explorer's Write Queue view — the panel this indicator shares its
 // source of truth with (`pathSegments: ["writes"]`, see the routes module).
@@ -32,11 +32,13 @@ export function SyncStatusIndicatorView({
   status,
   title,
   expanded,
+  onContextMenu,
   onToggle,
 }: {
   status: SyncStatus;
   title: string;
   expanded: boolean;
+  onContextMenu?: (() => void) | undefined;
   onToggle: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
@@ -46,6 +48,7 @@ export function SyncStatusIndicatorView({
       aria-label={title}
       className="sync-status-indicator"
       onClick={onToggle}
+      onContextMenu={onContextMenu}
       onMouseDown={expanded ? stopTriggerMouseDown : undefined}
       title={title}
       type="button"
@@ -97,16 +100,24 @@ export function SyncStatusPopover({
   );
 }
 
-// A persistent footer-tray indicator (green = synced, red = unflushed data,
-// red warning = writes failing terminally or the queue unreadable, amber
-// warning = billing paused).
-// Clicking it opens a popover with the status detail plus a link into the Org
-// Manager's Billing view when billing has sync paused and, when the write queue
-// is non-empty, a link into the Explorer's Write Queue view. Same source of
-// truth as that panel (see `useSyncStatus`).
-export function SyncStatusIndicator() {
-  const { status, title, pendingWriteCount, queueReadFailed } = useSyncStatus();
-  const { openMiniApp } = useMiniAppBusActions();
+// The trigger and its popover, without the SDK: the popover's open state and
+// its links. A right-click or long press, which opens the tray's context menu,
+// closes the popover first so only one menu shows.
+export function SyncStatusTrayControl({
+  billingBlocked,
+  onOpenBilling,
+  onOpenWriteQueue,
+  showWriteQueueLink,
+  status,
+  title,
+}: {
+  billingBlocked: boolean;
+  onOpenBilling: () => void;
+  onOpenWriteQueue: () => void;
+  showWriteQueueLink: boolean;
+  status: SyncStatus;
+  title: string;
+}) {
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
 
   const toggleMenu = useCallback((event: MouseEvent<HTMLButtonElement>) => {
@@ -118,19 +129,12 @@ export function SyncStatusIndicator() {
     );
   }, []);
   const closeMenu = useCallback(() => setMenuPosition(null), []);
-  const openWriteQueue = useCallback(() => {
-    openMiniApp({ appId: "explorer", pathSegments: ["writes"] });
-    setMenuPosition(null);
-  }, [openMiniApp]);
-  const openBilling = useCallback(() => {
-    openMiniApp({ appId: "org-manager", pathSegments: ["billing"] });
-    setMenuPosition(null);
-  }, [openMiniApp]);
 
   return (
     <>
       <SyncStatusIndicatorView
         expanded={menuPosition !== null}
+        onContextMenu={closeMenu}
         onToggle={toggleMenu}
         status={status}
         title={title}
@@ -138,14 +142,52 @@ export function SyncStatusIndicator() {
       {menuPosition && (
         <Menu onClose={closeMenu} position={menuPosition}>
           <SyncStatusPopover
-            billingBlocked={status === "billing"}
-            showWriteQueueLink={pendingWriteCount > 0 || queueReadFailed}
-            onOpenBilling={openBilling}
-            onOpenWriteQueue={openWriteQueue}
+            billingBlocked={billingBlocked}
+            showWriteQueueLink={showWriteQueueLink}
+            onOpenBilling={() => {
+              onOpenBilling();
+              closeMenu();
+            }}
+            onOpenWriteQueue={() => {
+              onOpenWriteQueue();
+              closeMenu();
+            }}
             title={title}
           />
         </Menu>
       )}
     </>
+  );
+}
+
+// The Sync Status tray app (green = synced, red = unflushed data, red
+// warning = writes failing terminally or the queue unreadable, amber
+// warning = billing paused).
+// Clicking it opens a popover with the status detail plus a link into the Org
+// Manager's Billing view when billing has sync paused and, when the write queue
+// is non-empty, a link into the Explorer's Write Queue view. Same source of
+// truth as that panel (see `useSyncStatus`). It opens those views through app
+// navigation by id, since a tray app imports no mini-app.
+export function SyncStatusTrayApp() {
+  const { status, title, pendingWriteCount, queueReadFailed } = useSyncStatus();
+  const { openMiniApp } = useAppNavigationActions();
+  const openWriteQueue = useCallback(
+    () => openMiniApp({ appId: "explorer", pathSegments: ["writes"] }),
+    [openMiniApp],
+  );
+  const openBilling = useCallback(
+    () => openMiniApp({ appId: "org-manager", pathSegments: ["billing"] }),
+    [openMiniApp],
+  );
+
+  return (
+    <SyncStatusTrayControl
+      billingBlocked={status === "billing"}
+      onOpenBilling={openBilling}
+      onOpenWriteQueue={openWriteQueue}
+      showWriteQueueLink={pendingWriteCount > 0 || queueReadFailed}
+      status={status}
+      title={title}
+    />
   );
 }

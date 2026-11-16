@@ -109,10 +109,50 @@ and set it. `DesktopWallpaper` paints its `wallpaper` prop instead when given
 one, and nothing without a provider.
 
 `DisplayProperties` is the content of a host's Display Properties mini-app: a
-Background section listing the provider's wallpapers as previews, and a Theme
-section listing the theme provider's themes. Each choice applies at once; a
-section whose provider is missing, or a theme list of one, is left out. Both
-Tearleads and a2f0.net open it from their desktop's context menu.
+Background section listing the provider's wallpapers as previews, a Theme
+section listing the theme provider's themes, and a System Tray section with a
+switch per tray app (see [System tray](#system-tray)). Each choice applies at
+once; a section whose provider is missing, a theme list of one, or a tray
+without apps is left out. Both Tearleads and a2f0.net open it from their
+desktop's context menu.
+
+## System tray
+
+A host's tray apps are the small controls in its taskbar's corner, such as
+`ThemeSwitch` or a sync status button. A `SystemTrayDefinition` lists them as
+`{ title, icon?, component }` by id, with their order. `SystemTrayProvider`
+takes the definition and a `storageKey` under which the apps the user turned
+off persist, so every app starts on and one the host adds later appears.
+Render `SystemTray` in the taskbar's corner:
+
+```tsx
+const TRAY: SystemTrayDefinition<"layout" | "theme"> = {
+  apps: {
+    layout: { component: LayoutSwitch, icon: AppWindowIcon, title: "Layout" },
+    theme: { component: ThemeSwitch, icon: ThemeInvertIcon, title: "Theme" },
+  },
+  order: ["layout", "theme"],
+};
+
+<SystemTrayProvider definition={TRAY} storageKey="notes.tray.disabled">
+  <Desktop />
+  <footer className="taskbar">
+    <StartMenu items={START_ITEMS} />
+    <SystemTray menuItems={[openDisplayProperties]} />
+  </footer>
+</SystemTrayProvider>;
+```
+
+`SystemTray` shows the apps left on, in order, and renders nothing without a
+provider. An app may render nothing where it does not apply, and takes no
+room then. Right-clicking an app, pressing the context-menu key on it, or
+holding a finger on it opens its menu: "Disable" with the app's title, then
+the `menuItems` the host passes as `{ id, label, icon?, onSelect }`, such as
+one that opens Display Properties, where every app has a switch to turn it
+back on. `useSystemTray` and `useOptionalSystemTray` read the definition and
+each app's state and turn apps on and off. Define the definition once,
+outside render, and mount one provider above every taskbar that shares the
+choice.
 
 ## Styles
 

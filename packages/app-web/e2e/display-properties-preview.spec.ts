@@ -82,13 +82,13 @@ test("previews fit full tile height without changing desktop tile sizes", async 
   }
 });
 
-test("the initial window fits every wallpaper and theme without scrolling", async ({
+test("the initial window fits every wallpaper, theme, and tray switch without scrolling", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const display = await openDisplayProperties(page);
   await expect(display).toHaveCSS("width", "500px");
-  await expect(display).toHaveCSS("height", "340px");
+  await expect(display).toHaveCSS("height", "470px");
   const scroller = display.locator(".window-body-content-scroll");
   const sizes = await scroller.evaluate((element) => ({
     height: element.clientHeight,
@@ -99,6 +99,7 @@ test("the initial window fits every wallpaper and theme without scrolling", asyn
   expect(sizes.content).toBeLessThanOrEqual(sizes.height);
   await expect(display.locator(".display-properties-wallpaper")).toHaveCount(7);
   await expect(display.locator(".display-properties-theme")).toHaveCount(3);
+  await expect(display.getByRole("switch")).toHaveCount(4);
   for (const card of await display.locator("label").all()) {
     await expect(card).toBeInViewport({ ratio: 1 });
   }

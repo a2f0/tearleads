@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
+import { ThemeSwitch } from "@tearleads/windowing";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { ThemeProvider } from "./ThemeProvider";
-import { ThemeToggleButton } from "./ThemeToggleButton";
 import { APP_THEMES } from "./themes";
 
 const CHOICE_KEY = "tearleads.theme.choice";
@@ -51,7 +51,7 @@ afterEach(() => {
 function renderToggle() {
   return render(
     <ThemeProvider themes={APP_THEMES}>
-      <ThemeToggleButton />
+      <ThemeSwitch />
     </ThemeProvider>,
   );
 }
@@ -179,10 +179,4 @@ test("restores a persisted non-default theme on mount", () => {
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
     "Switch to Dark theme",
   );
-});
-
-test("ThemeToggleButton renders nothing without a ThemeProvider", () => {
-  const view = render(<ThemeToggleButton />);
-
-  expect(view.queryByRole("button")).toBe(null);
 });
