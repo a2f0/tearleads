@@ -28,7 +28,6 @@ export {
   addMiniAppTableHeaderAction,
   MiniAppInfoRow,
   MiniAppInfoTable,
-  MiniAppInfoTableRow,
   MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableActionButton,

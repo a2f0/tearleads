@@ -156,16 +156,6 @@
   word-break: break-all;
 }
 
-.mini-app-info-table-row--interactive {
-  cursor: pointer;
-}
-
-.mini-app-info-table-row--interactive:hover td,
-.mini-app-info-table-row--interactive:focus-visible td {
-  background: var(--emphasis-surface);
-  color: var(--emphasis-text);
-}
-
 /*
  * Read-only key/value details can sit directly on their surrounding surface
  * without boxing every cell. Keep the bordered default for denser or
@@ -174,20 +164,6 @@
 .mini-app-info-table--borderless th,
 .mini-app-info-table--borderless td {
   border: 0;
-}
-
-/*
- * Lists retain a horizontal separator between records without the boxed grid
- * used by dense tables. The header stays visually connected to its first row.
- */
-.mini-app-info-table--row-divided th,
-.mini-app-info-table--row-divided td {
-  border: 0;
-  border-bottom: var(--border-width) solid var(--color-hairline);
-}
-
-.mini-app-info-table--row-divided tbody tr:last-child td {
-  border-bottom: 0;
 }
 
 /*
@@ -213,8 +189,7 @@
  * compact row height is bumped in lockstep with the virtualization pitch
  * (useTouchRowHeight in MiniAppVirtual), so virtual and non-virtual compact
  * tables stay aligned. The in-cell text action fills the row height
- * (line-height centers its single line and keeps the ellipsis), and interactive
- * info-table rows grow too.
+ * (line-height centers its single line and keeps the ellipsis).
  */
 :root[data-navigation-mode="routed"]
   .mini-app-table-frame--compact
@@ -225,10 +200,6 @@
 :root[data-navigation-mode="routed"] .mini-app-table-action {
   min-height: var(--control-height);
   line-height: var(--control-height);
-}
-
-:root[data-navigation-mode="routed"] .mini-app-info-table-row--interactive {
-  height: var(--control-height);
 }
 
 /*
