@@ -14,7 +14,7 @@ import {
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
@@ -409,11 +409,9 @@ test("share policy verification rolls back retained policies after generation ex
       ["group", fixture.targetPolicy.currentState.principalId],
     ] as const) {
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           database.execSql,
-          principalType,
-          principalId,
-        ),
+        ).loadPrincipalPolicyCheckpoint(principalType, principalId),
       ).toBeNull();
     }
   } finally {

@@ -4,7 +4,7 @@ import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancest
 import { createContainerServer } from "../../../../../test/helpers/containerMutationServer";
 import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKek/containerKekCurrency";
 import { unwrapContainerKekPath } from "../../../../data/documents/shared/projection";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { rekeyRemoteContainer } from "./rekeyRemote";
 
 // #2340 finding 1. A rotation commits with the rekeys of every descendant above
@@ -53,8 +53,9 @@ test("a refused rotation is resubmitted carrying the descendants it strands", as
       rotated?.plan.containerKeyEpochId,
     );
     // Both pins advanced, together.
-    const pinned = await loadAccessManifestCheckpoint(
+    const pinned = await new KeyingCheckpointRepository(
       database.execSql,
+    ).loadAccessManifestCheckpoint(
       "container",
       fixture.root.author.organizationId,
       "child",

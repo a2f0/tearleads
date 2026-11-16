@@ -12,8 +12,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { ContainerShareApi } from "../../../data/containers/shared/types";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
 import { retainVerifiedPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence";
@@ -123,9 +122,10 @@ export async function advanceVerifiedSharePolicies(
   >,
   stillCurrent?: (() => boolean) | undefined,
 ): Promise<void> {
-  await advanceKeyingCheckpointsAtomically({
-    access: [],
+  await new KeyingCheckpointRepository(
     execSql,
+  ).advanceKeyingCheckpointsAtomically({
+    access: [],
     organizationId: verified.organizationId,
     policies: verified.checkpointPolicies,
     stillCurrent,
@@ -295,11 +295,9 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
       "Container share expected group head conflicts with the signed organization directory",
     );
   }
-  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+  const localCheckpoint = await new KeyingCheckpointRepository(
     input.execSql,
-    "group",
-    input.groupId,
-  );
+  ).loadPrincipalPolicyCheckpoint("group", input.groupId);
   const bundle = await loadGroupSharePolicyBundle({
     ...input,
     expectedGroupHead: committedGroupHead,

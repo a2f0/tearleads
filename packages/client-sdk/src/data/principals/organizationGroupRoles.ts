@@ -2,7 +2,7 @@ import {
   computePrincipalStateHash,
   computePrincipalStatePayloadCiphertextHash,
 } from "@tearleads/crypto";
-import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalPolicyBundle } from "../persistence/principalPolicy/principalPolicyPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { parseOrganizationAuthorityDescriptor } from "./organizationAuthorityDescriptor";
@@ -12,11 +12,9 @@ export async function loadVerifiedOrganizationGroupRoles(
   execSql: ExecSql,
   organizationId: string,
 ): Promise<ReadonlyMap<string, string>> {
-  const checkpoint = await loadPrincipalPolicyCheckpoint(
+  const checkpoint = await new KeyingCheckpointRepository(
     execSql,
-    "organization",
-    organizationId,
-  );
+  ).loadPrincipalPolicyCheckpoint("organization", organizationId);
   const bundle = await loadPrincipalPolicyBundle(
     execSql,
     "organization",

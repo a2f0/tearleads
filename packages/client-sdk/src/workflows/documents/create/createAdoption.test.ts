@@ -11,7 +11,7 @@ import {
   createResponseFromRequest,
 } from "../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
@@ -99,8 +99,7 @@ test("create conflict adoption rejects another container or organization", async
     );
     expect(primed).toBe(false);
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "document",
         "foreign-organization",
         "document-stable",
@@ -210,8 +209,7 @@ test("create conflict adoption rejects a create signed by another member", async
     });
     expect(primed).toBe(false);
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "document",
         author.organizationId,
         "document-stable",

@@ -18,10 +18,8 @@ import {
   persistedDocumentStateFromAcknowledgement,
 } from "../../../../data/documents/shared/responses";
 import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectionVerification";
-import {
-  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
-  locallyAuthoredAccessManifestHead,
-} from "../../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { locallyAuthoredAccessManifestHead } from "../../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   type buildMaterializedContainerCreatePlan,
@@ -134,8 +132,9 @@ async function acknowledgeContainerWithMetadata(input: {
     plan: input.containerPlan,
     response: input.response.container,
   });
-  await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-    execSql: input.execSql,
+  await new KeyingCheckpointRepository(
+    input.execSql,
+  ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
     heads: [
       containerHead,
       locallyAuthoredAccessManifestHead(input.metadataDocumentPlan),

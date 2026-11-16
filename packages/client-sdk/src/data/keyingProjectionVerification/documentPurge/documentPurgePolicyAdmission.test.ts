@@ -4,7 +4,7 @@ import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFix
 import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
 import { recoverPublicPrincipalHistory } from "../../../workflows/principals/publicHistory/recoverPublicPrincipalHistory";
 import { selectPublicPrincipalHistory } from "../../../workflows/principals/publicHistory/selectPublicPrincipalHistory";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { ensurePrincipalPolicyTables } from "../../persistence/principalPolicy/principalPolicyPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { admitDocumentPurgePolicyCheckpoints } from "./documentPurgePolicyCheckpoints";
@@ -33,8 +33,9 @@ for (const existing of [false, true]) {
       });
       expect(policies[0]?.version).toBe(3);
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           fixture.options.execSql,
+        ).loadPrincipalPolicyCheckpoint(
           reference.principalType,
           reference.principalId,
         ),
@@ -61,8 +62,9 @@ for (const existing of [false, true]) {
         }),
       );
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           fixture.options.execSql,
+        ).loadPrincipalPolicyCheckpoint(
           reference.principalType,
           reference.principalId,
         ),

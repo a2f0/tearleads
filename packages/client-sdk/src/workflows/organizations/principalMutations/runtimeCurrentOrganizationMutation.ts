@@ -1,5 +1,5 @@
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { PrincipalPolicyRecoveryRuntime } from "../../principals/runtimePolicyRecovery";
 import type { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { loadCurrentOrganizationMutationAuthority } from "./currentOrganizationMutationAuthority";
@@ -51,9 +51,10 @@ export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
           stillCurrent,
         });
         const current = () => stillCurrent() && authority.stillCurrent();
-        await advanceKeyingCheckpointsAtomically({
+        await new KeyingCheckpointRepository(
+          runtime.infra.execSql,
+        ).advanceKeyingCheckpointsAtomically({
           access: [],
-          execSql: runtime.infra.execSql,
           organizationId: owned.organizationId,
           policies: [authority.directory.policy, authority.admins.policy],
           stillCurrent: current,

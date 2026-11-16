@@ -7,7 +7,9 @@ import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { reportKeyingVerificationErrorInCauseChain } from "../../../data/keyingProjectionVerification/error";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
-import { loadDocumentPurgeCheckpoint } from "../../../data/persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
+import type { DocumentPurgeCheckpoint } from "../../../data/persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   createRuntimePrincipalPolicyWarmer,
   type PrincipalPolicyOperation,
@@ -45,7 +47,10 @@ export type LocalDocumentAccessEpochLoader = (
 
 export interface DocumentHeadLinkSetLoaderDeps {
   readonly assertDocumentWriterProjectionConsistent: typeof assertDocumentWriterProjectionConsistent;
-  readonly loadDocumentPurgeCheckpoint: typeof loadDocumentPurgeCheckpoint;
+  readonly loadDocumentPurgeCheckpoint: (
+    execSql: ExecSql,
+    documentId: string,
+  ) => Promise<DocumentPurgeCheckpoint | null>;
 }
 
 export const HEAD_LINK_SET_LOAD_CONCURRENCY = 4;
@@ -154,7 +159,10 @@ export function createDocumentHeadLinkSetLoader(
   runtime: ContainerContentsWorkflowRuntime,
   deps: DocumentHeadLinkSetLoaderDeps = {
     assertDocumentWriterProjectionConsistent,
-    loadDocumentPurgeCheckpoint,
+    loadDocumentPurgeCheckpoint: (execSql, documentId) =>
+      new KeyingCheckpointRepository(execSql).loadDocumentPurgeCheckpoint(
+        documentId,
+      ),
   },
   policyOperation?: PrincipalPolicyOperation,
 ): DocumentHeadLinkSetLoader {

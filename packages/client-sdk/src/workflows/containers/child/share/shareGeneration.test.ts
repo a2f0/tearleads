@@ -8,7 +8,7 @@ import {
   createParentProjectionUserKeyResolver,
   createRecipientIdentityResolver,
 } from "../../../../../test/helpers/containerFixtures";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { shareRemoteContainer } from "./index";
 
@@ -60,8 +60,9 @@ test("share planning rolls back checkpoints after its generation expires", async
     expect(transactionStarted).toBe(true);
     expect(shareCallCount).toBe(0);
     await expect(
-      loadAccessManifestCheckpoint(
+      new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "container",
         parent.projection.organizationId,
         parent.projection.containerId,
@@ -121,8 +122,9 @@ test.each([false, true])(
 
       expect(shared).toBeNull();
       await expect(
-        loadAccessManifestCheckpoint(
+        new KeyingCheckpointRepository(
           database.execSql,
+        ).loadAccessManifestCheckpoint(
           "container",
           parent.projection.organizationId,
           parent.projection.containerId,

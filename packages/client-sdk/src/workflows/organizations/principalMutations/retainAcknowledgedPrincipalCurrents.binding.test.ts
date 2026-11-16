@@ -9,7 +9,7 @@ import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
@@ -64,11 +64,9 @@ test("a valid signed directory cannot substitute its payload organization", asyn
       "Acknowledged organization does not bind its group receipt",
     );
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "organization",
-        history.organizationId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
     ).toMatchObject({ version: 66 });
   } finally {
     f.close();
@@ -87,8 +85,9 @@ test("group receipts require their acknowledged directory in the same batch", as
       "Acknowledged groups require their organization directory",
     );
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         history.group.currentState.principalId,
       ),
@@ -138,18 +137,17 @@ test("individually valid receipts cannot publish a group absent from the acknowl
       "Acknowledged organization does not bind its group receipt",
     );
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         history.group.currentState.principalId,
       ),
     ).toMatchObject({ version: 66 });
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "organization",
-        history.organizationId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
     ).toMatchObject({ version: 66 });
   } finally {
     f.close();

@@ -25,7 +25,7 @@ import {
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
 } from "../../../../../test/helpers/containerFixtures";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   buildContainerCreatePlan,
   buildMaterializedContainerCreatePlan,
@@ -350,8 +350,7 @@ test("createRemoteContainer fetches the parent projection and submits the materi
       throw new Error("Expected remote container create result");
     }
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         result.plan.manifest.organizationId,
         result.plan.containerId,
@@ -407,8 +406,7 @@ test("createRemoteContainer rejects a mismatched acknowledgement without pinning
       }),
     ).rejects.toThrow("Container mutation response KEK commitment mismatch");
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         parent.projection.organizationId,
         containerId,

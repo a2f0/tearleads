@@ -14,7 +14,7 @@ import {
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import { shareRemoteContainerWithGroup } from "./shareWithGroup";
@@ -133,7 +133,9 @@ test("a group share does not acknowledge a policy after its generation expires d
     expect(shared).toBeNull();
     expect(submissions).toBe(1);
     expect(
-      await loadPrincipalPolicyCheckpoint(database.execSql, "group", groupId),
+      await new KeyingCheckpointRepository(
+        database.execSql,
+      ).loadPrincipalPolicyCheckpoint("group", groupId),
     ).toMatchObject({
       stateHash: initialGroupPolicy.currentState.stateHash,
       version: initialGroupPolicy.currentState.version,

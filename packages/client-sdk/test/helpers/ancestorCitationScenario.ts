@@ -19,7 +19,7 @@ import type { AccessManifestBundleWireResponse } from "@tearleads/validators/res
 import { createProjectionCheckpointContext } from "../../src/data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { verifyContainerManifestPath } from "../../src/data/keyingProjectionVerification/container/containerPathVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
-import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 // A child manifest pins the parent it was created under, and successors
@@ -260,9 +260,10 @@ export async function checkpointChildAt(
     path: [scenario.root1, head],
   });
   if (!verifiedHead) throw new Error("Expected the child head to verify");
-  await advanceKeyingCheckpointsAtomically({
-    access: [{ head: verifiedHead, predecessors: [] }],
+  await new KeyingCheckpointRepository(
     execSql,
+  ).advanceKeyingCheckpointsAtomically({
+    access: [{ head: verifiedHead, predecessors: [] }],
     policies: [],
   });
 }
@@ -347,9 +348,10 @@ export async function checkpointRootAt(
     path: [head],
   });
   if (!verifiedHead) throw new Error("Expected the root head to verify");
-  await advanceKeyingCheckpointsAtomically({
-    access: [{ head: verifiedHead, predecessors: [] }],
+  await new KeyingCheckpointRepository(
     execSql,
+  ).advanceKeyingCheckpointsAtomically({
+    access: [{ head: verifiedHead, predecessors: [] }],
     policies: [],
   });
 }

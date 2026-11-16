@@ -8,7 +8,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { verifyDocumentWriterProjection } from "../document/documentProjectionVerification";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
@@ -106,8 +106,9 @@ test("an empty purge history cannot replace a pinned document with an unrelated 
     expect(requestedFloors).toEqual([undefined]);
     expect(deletions).toBe(0);
     expect(
-      await loadAccessManifestCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "document",
         owner.author.organizationId,
         proof.documentId,

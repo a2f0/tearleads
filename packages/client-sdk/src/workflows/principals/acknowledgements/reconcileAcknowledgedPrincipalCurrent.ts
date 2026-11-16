@@ -3,7 +3,7 @@ import {
   type PrincipalPolicyCheckpoint,
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type {
   AcknowledgedPrincipalCurrentPublication,
   ReconciledPrincipalCurrentPublication,
@@ -61,8 +61,9 @@ export async function reconcileAcknowledgedPrincipalCurrent(
       context: principalHistoryVerificationContext(input),
     },
   };
-  const checkpoint = await loadPrincipalPolicyCheckpoint(
+  const checkpoint = await new KeyingCheckpointRepository(
     options.execSql,
+  ).loadPrincipalPolicyCheckpoint(
     publication.policy.principalType,
     publication.policy.principalId,
   );

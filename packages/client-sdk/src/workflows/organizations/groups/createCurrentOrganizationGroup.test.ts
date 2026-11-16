@@ -10,7 +10,7 @@ import {
   policyBundleFromInitialRequest,
   policyReceiptFromBundle,
 } from "../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createRuntimeCurrentOrganizationMutation } from "../principalMutations/runtimeCurrentOrganizationMutation";
 import { createCurrentOrganizationGroup } from "./createCurrentOrganizationGroup";
 import { createOrganizationGroup } from "./groupCreation";
@@ -132,18 +132,14 @@ test("bounded group creation verifies every directory name and admits exact gene
     expect(f.state.writes).toBe(1);
     expect(f.requests.every((request) => request.count <= 32)).toBe(true);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "group",
-        result.groupId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("group", result.groupId),
     ).toMatchObject({ version: 1, stateHash: result.currentState?.stateHash });
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
-        "organization",
-        history.organizationId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
     ).toMatchObject({ version: 67 });
   } finally {
     f.close();
@@ -178,11 +174,9 @@ for (const fallback of [false, true]) {
         expect(f.state.writes).toBe(mode === "expire" ? 1 : 0);
         if (f.state.groupId)
           expect(
-            await loadPrincipalPolicyCheckpoint(
+            await new KeyingCheckpointRepository(
               f.options.execSql,
-              "group",
-              f.state.groupId,
-            ),
+            ).loadPrincipalPolicyCheckpoint("group", f.state.groupId),
           ).toBeNull();
       } finally {
         f.close();
@@ -206,18 +200,14 @@ test.each(["corrupt", "expire", "wrongFingerprint"] as const)(
       );
       expect(f.state.writes).toBe(1);
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           f.options.execSql,
-          "group",
-          f.state.groupId,
-        ),
+        ).loadPrincipalPolicyCheckpoint("group", f.state.groupId),
       ).toBeNull();
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           f.options.execSql,
-          "organization",
-          history.organizationId,
-        ),
+        ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
       ).toMatchObject({ version: 66 });
     } finally {
       f.close();

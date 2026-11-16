@@ -17,7 +17,7 @@ import {
   type Signer,
   verifyPath,
 } from "../../../test/helpers/ancestorCitationScenario";
-import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../persistence/keyingCheckpoints/keyingCheckpointRepository";
 
 /**
  * Projects runs of the real container-path verifier onto the NoBrickedDevice
@@ -139,11 +139,9 @@ async function acceptCheckpoints(
       .sort((left, right) => left.state.epoch - right.state.epoch);
     return { head, predecessors };
   });
-  await advanceKeyingCheckpointsAtomically({
-    access,
-    execSql: device.execSql,
-    policies: [],
-  });
+  await new KeyingCheckpointRepository(
+    device.execSql,
+  ).advanceKeyingCheckpointsAtomically({ access, policies: [] });
   for (const head of verifiedPath) {
     device.checkpoints.set(head.state.containerId, head.state.epoch);
   }

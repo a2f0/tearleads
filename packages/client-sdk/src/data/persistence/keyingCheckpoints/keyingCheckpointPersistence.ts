@@ -1,27 +1,20 @@
 import type {
   AccessManifestCheckpoint,
-  AccessObjectKind,
-  ManagedPrincipalKind,
   PrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { principalPolicyCheckpoints } from "../../sqlite/schema";
-import {
-  accessManifestCheckpoints,
-  keyingCheckpointTables,
-} from "../../sqlite/schema/keyingCheckpointSchema";
+import { accessManifestCheckpoints } from "../../sqlite/schema/keyingCheckpointSchema";
 import {
   sqliteInsertBatchSize,
   sqliteRowsPerStatement,
 } from "../../sqlite/sqliteBindBudget";
-import {
-  type ClientSQLiteDatabase,
-  type ClientSQLiteTransactionScope,
-  getClientSQLitePersistenceRuntime,
+import type {
+  ClientSQLiteDatabase,
+  ClientSQLiteTransactionScope,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { excludedValue } from "../../sqlite/sqliteUpsert";
-import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { writePrincipalPolicyCheckpointRowsInTransaction } from "./principalPolicyOrganizationPersistence";
 
 /** Ownership alone is not a pin; a half-written pin is always refused. */
@@ -72,7 +65,7 @@ export function principalPolicyKey(
   return JSON.stringify([identity.principalType, identity.principalId]);
 }
 
-async function loadAccessManifestCheckpointRow(
+export async function loadAccessManifestCheckpointRow(
   handle: CheckpointHandle,
   identity: AccessManifestCheckpointIdentity,
 ): Promise<Pick<AccessManifestCheckpoint, "epoch" | "manifestHash"> | null> {
@@ -93,7 +86,7 @@ async function loadAccessManifestCheckpointRow(
   return rows[0] ?? null;
 }
 
-async function loadPrincipalPolicyCheckpointRow(
+export async function loadPrincipalPolicyCheckpointRow(
   handle: CheckpointHandle,
   identity: PrincipalPolicyCheckpointIdentity,
 ): Promise<Pick<PrincipalPolicyCheckpoint, "version" | "stateHash"> | null> {
@@ -369,44 +362,6 @@ export async function upsertPrincipalPolicyCheckpointsInTransaction(
   );
 }
 
-// Lazily create the checkpoint tables on first access. Every load/save below
-// calls this, so the tables exist on demand; it is intentionally module-private
-// (no caller outside this file needs it, and exporting it tripped knip).
-async function ensureKeyingCheckpointTables(execSql: ExecSql): Promise<void> {
-  await ensureSqlTables(execSql, keyingCheckpointTables);
-}
-
-export async function loadAccessManifestCheckpoint(
-  execSql: ExecSql,
-  objectKind: AccessObjectKind,
-  organizationId: string,
-  objectId: string,
-): Promise<AccessManifestCheckpoint | null> {
-  await ensureKeyingCheckpointTables(execSql);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const row = await loadAccessManifestCheckpointRow(db, {
-    objectKind,
-    organizationId,
-    objectId,
-  });
-
-  return row ? { objectKind, objectId, organizationId, ...row } : null;
-}
-
-export async function loadPrincipalPolicyCheckpoint(
-  execSql: ExecSql,
-  principalType: ManagedPrincipalKind,
-  principalId: string,
-): Promise<PrincipalPolicyCheckpoint | null> {
-  await ensureKeyingCheckpointTables(execSql);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const row = await loadPrincipalPolicyCheckpointRow(db, {
-    principalType,
-    principalId,
-  });
-
-  return row ? { principalType, principalId, ...row } : null;
-}
 /**
  * The shared shape/ownership guard every checkpoint comparison runs before
  * trusting a durable pin: the pin must belong to the compared principal and

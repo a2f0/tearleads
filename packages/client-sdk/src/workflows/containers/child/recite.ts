@@ -8,14 +8,8 @@ import {
 import type { AuthoredContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
 import type { ContainerReciteApi } from "../../../data/containers/shared/reciteApi";
 import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
-import {
-  loadAccessManifestCheckpoint,
-  loadPrincipalPolicyCheckpoint,
-} from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import {
-  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
-  locallyAuthoredAccessManifestHead,
-} from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { locallyAuthoredAccessManifestHead } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import {
   type ExecSql,
@@ -44,8 +38,9 @@ async function pathIsPinned(
   path: readonly HeldContainerHead[],
 ): Promise<boolean> {
   for (const head of path) {
-    const checkpoint = await loadAccessManifestCheckpoint(
+    const checkpoint = await new KeyingCheckpointRepository(
       execSql,
+    ).loadAccessManifestCheckpoint(
       "container",
       head.state.organizationId,
       head.state.containerId,
@@ -96,22 +91,22 @@ async function recitePinnedPath(
   }
   let acknowledged: boolean;
   try {
-    acknowledged =
-      await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-        execSql: input.execSql,
-        heads: [locallyAuthoredAccessManifestHead(plan)],
-        expectedAccessManifestCheckpoints: path.map((head) => ({
-          objectKind: "container",
-          objectId: head.state.containerId,
-          organizationId: head.state.organizationId,
-          epoch: head.state.epoch,
-          manifestHash: head.bundle.manifestHash,
-        })),
-        expectedPrincipalPolicyCheckpoints: usedPolicies.map(
-          (policy) => policy.checkpoint,
-        ),
-        stillCurrent: input.stillCurrent,
-      });
+    acknowledged = await new KeyingCheckpointRepository(
+      input.execSql,
+    ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+      heads: [locallyAuthoredAccessManifestHead(plan)],
+      expectedAccessManifestCheckpoints: path.map((head) => ({
+        objectKind: "container",
+        objectId: head.state.containerId,
+        organizationId: head.state.organizationId,
+        epoch: head.state.epoch,
+        manifestHash: head.bundle.manifestHash,
+      })),
+      expectedPrincipalPolicyCheckpoints: usedPolicies.map(
+        (policy) => policy.checkpoint,
+      ),
+      stillCurrent: input.stillCurrent,
+    });
   } catch (error) {
     if (!(error instanceof KeyingVerificationError)) throw error;
     // Another local operation can advance the durable pin while the request
@@ -129,11 +124,9 @@ async function policiesArePinned(
   policies: ReturnType<typeof referencedRecitationPolicies>,
 ): Promise<boolean> {
   for (const policy of policies) {
-    const checkpoint = await loadPrincipalPolicyCheckpoint(
+    const checkpoint = await new KeyingCheckpointRepository(
       execSql,
-      policy.principalType,
-      policy.principalId,
-    );
+    ).loadPrincipalPolicyCheckpoint(policy.principalType, policy.principalId);
     if (
       checkpoint?.version !== policy.version ||
       checkpoint.stateHash !== policy.stateHash

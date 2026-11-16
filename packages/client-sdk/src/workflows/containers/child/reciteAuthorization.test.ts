@@ -4,7 +4,7 @@ import { createParentProjectionUserKeyResolver } from "../../../../test/helpers/
 import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
 import { rememberAcknowledgedContainerHead } from "../../../data/containers/shared/heldContainerHeads";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { reciteHeldDescendants } from "./recite";
 import { buildMaterializedContainerRevokePlan } from "./revoke";
 
@@ -54,8 +54,9 @@ test("self-revocation never signs or submits descendant recitations for a server
     for (const id of ["held-child", "held-grandchild"]) {
       expect(
         (
-          await loadAccessManifestCheckpoint(
+          await new KeyingCheckpointRepository(
             scenario.execSql,
+          ).loadAccessManifestCheckpoint(
             "container",
             parent.author.organizationId,
             id,
@@ -114,8 +115,9 @@ test("an ancestor revocation in flight cannot acknowledge an echoed descendant p
     expect(incidents).toEqual([]);
     expect(
       (
-        await loadAccessManifestCheckpoint(
+        await new KeyingCheckpointRepository(
           scenario.execSql,
+        ).loadAccessManifestCheckpoint(
           "container",
           parent.author.organizationId,
           parent.projection.containerId,
@@ -125,8 +127,9 @@ test("an ancestor revocation in flight cannot acknowledge an echoed descendant p
     for (const id of ["held-child", "held-grandchild"]) {
       expect(
         (
-          await loadAccessManifestCheckpoint(
+          await new KeyingCheckpointRepository(
             scenario.execSql,
+          ).loadAccessManifestCheckpoint(
             "container",
             parent.author.organizationId,
             id,

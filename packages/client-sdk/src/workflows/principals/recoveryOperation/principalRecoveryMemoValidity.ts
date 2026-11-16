@@ -1,5 +1,5 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../../data/principals/principalPolicyCoordinator";
 import type { RecoveredPrincipalPolicyHistory } from "../historyRecovery/principalHistoryRecoveryTypes";
 import type {
@@ -24,11 +24,9 @@ async function pinCovers(
   input: PrincipalRecoveryContext,
   head: PinnedHead,
 ): Promise<boolean> {
-  const pin = await loadPrincipalPolicyCheckpoint(
+  const pin = await new KeyingCheckpointRepository(
     input.execSql,
-    head.principalType,
-    head.principalId,
-  );
+  ).loadPrincipalPolicyCheckpoint(head.principalType, head.principalId);
   return (
     !pin ||
     pin.version < head.version ||

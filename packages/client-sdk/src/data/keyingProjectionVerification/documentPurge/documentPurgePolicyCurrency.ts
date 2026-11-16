@@ -4,7 +4,7 @@ import {
   type VerifiedPrincipalPolicyCurrent,
   type VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import {
   observeProjectionLifetime,
@@ -37,11 +37,9 @@ export async function recoverDocumentPurgePolicyCurrency(input: {
     // lifetime, not the growing context guard, to avoid a recursive guard graph.
     const stillCurrent = input.stillCurrent;
     assertProjectionVerificationCurrent(projectionLifetimeGuard(input.context));
-    const checkpoint = await loadPrincipalPolicyCheckpoint(
+    const checkpoint = await new KeyingCheckpointRepository(
       input.context.execSql,
-      policy.principalType,
-      policy.principalId,
-    );
+    ).loadPrincipalPolicyCheckpoint(policy.principalType, policy.principalId);
     if (!checkpoint || checkpoint.version <= policy.version) {
       policies.push(policy);
       continue;

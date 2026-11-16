@@ -15,7 +15,7 @@ import {
   manifestBundle,
 } from "../../../../../test/helpers/ancestorCitationScenario";
 import { verifyDocumentWriterProjectionAuthorization } from "../../../keyingProjectionVerification";
-import { loadAccessManifestCheckpoint } from "../../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { documentWriteAuthorizationForHeader } from "./syncResponseAuthorization";
 
 test("historical content writes retain a grant added after the leaf parent pin", async () => {
@@ -122,12 +122,9 @@ test("historical content writes retain a grant added after the leaf parent pin",
     });
     expect(
       (
-        await loadAccessManifestCheckpoint(
+        await new KeyingCheckpointRepository(
           database.execSql,
-          "document",
-          organizationId,
-          documentId,
-        )
+        ).loadAccessManifestCheckpoint("document", organizationId, documentId)
       )?.manifestHash,
     ).toBe(document.manifestHash);
     const authorization = await documentWriteAuthorizationForHeader({

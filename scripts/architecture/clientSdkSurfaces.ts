@@ -228,6 +228,7 @@ export const keyingVerificationSurface = [
   `${sdk}/data/persistence/keyingCheckpoints/documentPurgeCheckpointPersistence.ts`,
   `${sdk}/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence.ts`,
   `${sdk}/data/persistence/keyingCheckpoints/keyingCheckpointPersistence.ts`,
+  `${sdk}/data/persistence/keyingCheckpoints/keyingCheckpointRepository.ts`,
   `${sdk}/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence.ts`,
   `${sdk}/data/persistence/keyingCheckpoints/organizationReplacementCheckpointPersistence.ts`,
   `${sdk}/data/persistence/keyingCheckpoints/principalPolicyOrganizationPersistence.ts`,

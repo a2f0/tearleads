@@ -1,11 +1,12 @@
 import {
   KeyingVerificationError,
+  type PrincipalPolicyCheckpoint,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
   verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalPolicyBundle } from "../../persistence/principalPolicy/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../persistence/principalPolicy/principalPolicyReferencePersistence";
 import {
@@ -94,9 +95,7 @@ async function loadOrganizationPolicyForVerification(
 ): Promise<
   | {
       bundle: PrincipalPolicyBundleResponse;
-      localCheckpoint: Awaited<
-        ReturnType<typeof loadPrincipalPolicyCheckpoint>
-      >;
+      localCheckpoint: PrincipalPolicyCheckpoint | null;
     }
   | undefined
 > {
@@ -109,11 +108,9 @@ async function loadOrganizationPolicyForVerification(
   if (!bundle) {
     return undefined;
   }
-  let localCheckpoint = await loadPrincipalPolicyCheckpoint(
+  let localCheckpoint = await new KeyingCheckpointRepository(
     execSql,
-    "organization",
-    input.organizationId,
-  );
+  ).loadPrincipalPolicyCheckpoint("organization", input.organizationId);
   if (
     !principalPolicyHeadMeetsCheckpoint(bundle.currentState, localCheckpoint) &&
     input.warmReferencedPrincipalPolicies
@@ -127,11 +124,9 @@ async function loadOrganizationPolicyForVerification(
       "organization",
       input.organizationId,
     );
-    localCheckpoint = await loadPrincipalPolicyCheckpoint(
+    localCheckpoint = await new KeyingCheckpointRepository(
       execSql,
-      "organization",
-      input.organizationId,
-    );
+    ).loadPrincipalPolicyCheckpoint("organization", input.organizationId);
     if (!bundle) {
       return undefined;
     }
@@ -184,11 +179,9 @@ async function verifyOrganizationAdminsPolicy(input: {
       "Admins policy does not match the signed organization directory",
     );
   }
-  const adminCheckpoint = await loadPrincipalPolicyCheckpoint(
+  const adminCheckpoint = await new KeyingCheckpointRepository(
     input.execSql,
-    "group",
-    input.adminGroupId,
-  );
+  ).loadPrincipalPolicyCheckpoint("group", input.adminGroupId);
   const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
     bundle: adminBundle,
     label: `Admins policy ${input.adminGroupId}`,
@@ -333,8 +326,9 @@ async function verifyReferencedPrincipalPolicy(input: {
   const cacheKey = referencedPrincipalPolicyKey(input.reference);
   const cachedPolicy = input.principalPolicyCache.get(cacheKey);
   const execSql = input.checkpointContext.execSql;
-  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+  const localCheckpoint = await new KeyingCheckpointRepository(
     execSql,
+  ).loadPrincipalPolicyCheckpoint(
     input.reference.principalType,
     input.reference.principalId,
   );

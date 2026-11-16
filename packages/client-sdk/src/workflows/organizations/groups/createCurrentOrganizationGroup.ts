@@ -1,6 +1,6 @@
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -61,8 +61,9 @@ export async function createCurrentOrganizationGroup(input: {
     );
     // Remember independently verified heads even if uniqueness or dispatch
     // later fails; these are observed policies, never speculative successors.
-    await advanceKeyingCheckpointsAtomically({
-      execSql: input.execSql,
+    await new KeyingCheckpointRepository(
+      input.execSql,
+    ).advanceKeyingCheckpointsAtomically({
       organizationId: input.organizationId,
       access: [],
       policies: [...group.dependencies, group.policy],

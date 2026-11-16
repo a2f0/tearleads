@@ -5,7 +5,7 @@ import {
 } from "../../../../test/helpers/principalHistoryRecovery";
 import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;
@@ -60,11 +60,9 @@ test("new citations and a later local checkpoint reuse a completed prefix", asyn
   try {
     await recoverPrincipalPolicyHistory(fixture.options);
     const checkpoint = earlierBundle(32).currentState;
-    await loadPrincipalPolicyCheckpoint(
+    await new KeyingCheckpointRepository(
       fixture.options.execSql,
-      "group",
-      checkpoint.principalId,
-    );
+    ).loadPrincipalPolicyCheckpoint("group", checkpoint.principalId);
     await pinPrincipalPolicyCheckpoint(fixture.db, {
       principalType: "group",
       principalId: checkpoint.principalId,
