@@ -17,8 +17,11 @@ import {
   type DocumentHistoryControls,
   useDocumentHistory,
 } from "../../../../stores/document-history/useDocumentHistory";
+import { DocumentsProvider } from "../../../../stores/documents/DocumentsProvider";
+import { formatMiniAppDateTimeSeconds } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import { useExplorerDocumentSummary } from "../document/useExplorerDocumentSummary";
+import { DocumentHistoryRestore } from "./DocumentHistoryRestore";
 import { DocumentHistoryTimeline } from "./DocumentHistoryTimeline";
 import { describeDocumentHistoryChange } from "./describeDocumentHistoryChange";
 
@@ -34,13 +37,18 @@ type ReadyHistory = Extract<
  */
 function DocumentAtStop(params: {
   documentSummary: DocumentSummary;
+  /** The selected stop is still replaying; this is the one before it. */
+  replaying: boolean;
   shown: NonNullable<ReadyHistory["shown"]>;
 }) {
-  const { documentSummary, shown } = params;
+  const { documentSummary, replaying, shown } = params;
   const DocumentApp = getDocumentTypeDefinition(shown.view.documentKind).App;
 
   return (
-    <div className="explorer-inline-note">
+    <div
+      aria-busy={replaying}
+      className="explorer-inline-note explorer-document-history-view"
+    >
       <DocumentHistoryViewContext.Provider value={shown.view}>
         <DocumentApp
           localId={documentSummary.id}
@@ -60,27 +68,57 @@ function DocumentAtStop(params: {
 function ReadyDocumentHistory(params: {
   controls: DocumentHistoryControls;
   documentSummary: DocumentSummary;
+  readOnly: boolean;
   state: ReadyHistory;
 }) {
-  const { controls, documentSummary, state } = params;
+  const { controls, documentSummary, readOnly, state } = params;
   const { shown } = state;
+  const lastIndex = state.history.stops.length - 1;
+  const changeTime = formatMiniAppDateTimeSeconds(
+    state.history.stops[state.selectedIndex]?.committedAt ?? null,
+    { emptyFallback: EXPLORER_LABELS.documentHistoryTimeUnknown },
+  );
   // The stop on screen lags the selected one while it replays; its summary
-  // would describe a different change, so show none until it catches up.
+  // and its restore would describe a different change, so offer neither
+  // until it catches up.
+  const settled =
+    shown !== null && shown.index === state.selectedIndex ? shown : null;
   const changeSummary = useMemo(
     () =>
-      shown !== null && shown.index === state.selectedIndex
-        ? describeDocumentHistoryChange(shown.change)
-        : null,
-    [shown, state.selectedIndex],
+      settled === null ? null : describeDocumentHistoryChange(settled.change),
+    [settled],
   );
 
   return (
-    <>
+    // The live document: the restore reads its write access and writes
+    // through it, and the document type below opens this same store.
+    <DocumentsProvider
+      initialDocumentKind={
+        documentSummary.documentKind ?? DEFAULT_DOCUMENT_KIND
+      }
+      localId={documentSummary.id}
+      readOnly={readOnly}
+      {...(documentSummary.containerId === null
+        ? {}
+        : { containerId: documentSummary.containerId })}
+      {...(documentSummary.documentId === null
+        ? {}
+        : { documentId: documentSummary.documentId })}
+    >
       <DocumentHistoryTimeline
-        changeSummary={changeSummary}
-        committedAt={
-          state.history.stops[state.selectedIndex]?.committedAt ?? null
+        actions={
+          settled === null ? null : (
+            <DocumentHistoryRestore
+              index={settled.index}
+              isLatest={settled.index === lastIndex}
+              onRestored={controls.reload}
+              versionTime={changeTime}
+              view={settled.view}
+            />
+          )
         }
+        changeSummary={changeSummary}
+        changeTime={changeTime}
         newerAvailable={state.newerAvailable}
         onReload={controls.reload}
         onSeek={controls.seek}
@@ -95,9 +133,13 @@ function ReadyDocumentHistory(params: {
           {EXPLORER_LABELS.documentHistoryLoading}
         </MiniAppStatus>
       ) : (
-        <DocumentAtStop documentSummary={documentSummary} shown={shown} />
+        <DocumentAtStop
+          documentSummary={documentSummary}
+          replaying={settled === null}
+          shown={shown}
+        />
       )}
-    </>
+    </DocumentsProvider>
   );
 }
 
@@ -105,6 +147,7 @@ function DocumentHistoryBody(params: {
   controls: DocumentHistoryControls;
   documentSummary: DocumentSummary | null;
   documentSummaryError: string | null;
+  readOnly: boolean;
 }) {
   const { controls, documentSummary, documentSummaryError } = params;
   const { state } = controls;
@@ -135,6 +178,7 @@ function DocumentHistoryBody(params: {
     <ReadyDocumentHistory
       controls={controls}
       documentSummary={documentSummary}
+      readOnly={params.readOnly}
       state={state}
     />
   );
@@ -148,6 +192,8 @@ export function ExplorerDocumentHistoryPanel(params: {
   fallbackDocumentSummary: DocumentSummary | null;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   localId: string;
+  /** The document sits somewhere read-only, such as the Trash. */
+  readOnly: boolean;
 }) {
   const { documentSummary, documentSummaryError } = useExplorerDocumentSummary({
     fallbackDocumentSummary: params.fallbackDocumentSummary,
@@ -182,6 +228,7 @@ export function ExplorerDocumentHistoryPanel(params: {
         controls={controls}
         documentSummary={documentSummary}
         documentSummaryError={documentSummaryError}
+        readOnly={params.readOnly}
       />
     </MiniAppPanel>
   );

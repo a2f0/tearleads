@@ -32,6 +32,7 @@ import {
 } from "./attachments";
 import { removeAttachmentFromDocumentStore } from "./attachments/attachmentRemoval";
 import { discardDocumentStoreLocalState } from "./discard";
+import { restoreDocumentStoreContent } from "./history/restoreContent";
 import {
   ensureDocumentStoreInitialized,
   ensureDocumentStoreReady,
@@ -42,11 +43,7 @@ import { registerInternalDocumentRelink } from "./internalRelink";
 import { countQueuedWrite } from "./localWriteQueue";
 import { setDocumentStructuredFields, setDocumentText } from "./mutations";
 import { assertLoadedDocumentStoreCanRotate } from "./rotation/rotationPreflight";
-import {
-  addRowToDocumentStore,
-  removeRowFromDocumentStore,
-  updateRowInDocumentStore,
-} from "./rows";
+import { createRowWrites } from "./rows";
 import {
   createDocumentStoreState,
   type DocumentStoreState,
@@ -341,10 +338,7 @@ function createBackingDocumentStore(
   const liveWrite = <Result>(write: () => Promise<Result>) =>
     withLiveSyncLane(() => countQueuedWrite(state, write()));
   const store: DocumentStore = {
-    addRow: (fields, options) =>
-      liveWrite(() =>
-        addRowToDocumentStore(state, scheduleSync, fields, options),
-      ),
+    ...createRowWrites(state, scheduleSync, liveWrite),
     assertCanRotateContentKey: (proof) =>
       withLiveSyncLane(() =>
         assertLoadedDocumentStoreCanRotate(state, scheduleSync, proof),
@@ -368,10 +362,6 @@ function createBackingDocumentStore(
       liveWrite(() =>
         removeAttachmentFromDocumentStore(state, scheduleSync, slotId),
       ),
-    removeRow: (id, options) =>
-      liveWrite(() =>
-        removeRowFromDocumentStore(state, scheduleSync, id, options),
-      ),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
       liveWrite(() =>
         replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file),
@@ -379,6 +369,10 @@ function createBackingDocumentStore(
     requestRemoteSync: () =>
       withLiveSyncLane(() =>
         requestRemoteDocumentStoreSync(state, scheduleSync),
+      ),
+    restoreContent: (content, options) =>
+      liveWrite(() =>
+        restoreDocumentStoreContent(state, scheduleSync, content, options),
       ),
     requestRemoteSyncAndWait: (signal) =>
       requestRemoteDocumentStoreSyncAndWait(state, scheduleSync, signal),
@@ -395,10 +389,6 @@ function createBackingDocumentStore(
     setText: (value: string) =>
       liveWrite(() => setDocumentText(state, scheduleSync, value)),
     subscribe: (listener) => subscribeToDocumentStore(state, listener),
-    updateRowFields: (id, patch, options) =>
-      liveWrite(() =>
-        updateRowInDocumentStore(state, scheduleSync, id, patch, options),
-      ),
     updateRuntime: (runtime: DocumentsRuntime) =>
       updateDocumentStoreRuntime(state, runtime, scheduleSync),
   };

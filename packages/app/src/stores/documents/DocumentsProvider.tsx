@@ -56,6 +56,7 @@ const documentContextStoreKeys = defineFacadeKeys<DocumentContextStoreFacade>()(
     "replaceAttachment",
     "requestSync",
     "relink",
+    "restoreContent",
     "setStructuredFields",
     "setText",
     "updateRowFields",

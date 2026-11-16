@@ -9,7 +9,6 @@ import {
   MiniAppButton,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { formatMiniAppDateTimeSeconds } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import "./ExplorerDocumentHistory.css";
 
@@ -39,9 +38,12 @@ function TimelineButton(params: {
  * with the selected change's time and what it changed.
  */
 export function DocumentHistoryTimeline(params: {
+  /** Controls for the version on screen, such as restoring it. */
+  actions?: ReactNode;
   /** Phrases describing the change on screen; null while it replays. */
   changeSummary: ReadonlyArray<string> | null;
-  committedAt: number | null;
+  /** When the selected change was made, ready to read. */
+  changeTime: string;
   newerAvailable: boolean;
   onReload: () => void;
   onSeek: (index: number) => void;
@@ -120,14 +122,11 @@ export function DocumentHistoryTimeline(params: {
         <span className="explorer-document-history-position">{position}</span>
       </div>
       <p className="explorer-document-history-caption">
-        <strong>
-          {formatMiniAppDateTimeSeconds(params.committedAt, {
-            emptyFallback: EXPLORER_LABELS.documentHistoryTimeUnknown,
-          })}
-        </strong>
+        <strong>{params.changeTime}</strong>
         {/* Keeps its line while a stop replays, so the document never jumps. */}
         <span>{params.changeSummary?.join(" · ") ?? " "}</span>
       </p>
+      {params.actions}
       {params.newerAvailable ? (
         <div className="explorer-document-history-newer">
           <MiniAppStatus as="span">

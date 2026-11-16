@@ -256,6 +256,7 @@ export type {
   DocumentProjectorInput,
   DocumentProjectorRegistry,
   DocumentProjectorRegistryInput,
+  DocumentRestoreContent,
   DocumentRow,
   DocumentRowSummary,
   DocumentSummary,

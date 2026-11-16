@@ -23,6 +23,13 @@ export const EXPLORER_DOCUMENT_HISTORY_LABELS = {
   documentHistoryPositionLabel: "History position",
   documentHistoryPreviousAction: "Previous change",
   documentHistoryReloadAction: "Load newer edits",
+  documentHistoryRestoreAction: "Restore this version",
+  documentHistoryRestoreCancel: "Cancel",
+  documentHistoryRestoreConfirm: "Restore",
+  documentHistoryRestoreMessage: (versionTime: string) =>
+    `The document's text, fields, and rows go back to how they were at ${versionTime}. Attachments are not changed. Today's version stays in History, so this can be undone.`,
+  documentHistoryRestoreRefused: "This version could not be restored.",
+  documentHistoryRestoreTitle: "Restore this version?",
   documentHistoryRowsAddedOne: "Added a row",
   documentHistoryRowsAddedOther: "Added rows",
   documentHistoryRowsChangedOne: "Edited a row",

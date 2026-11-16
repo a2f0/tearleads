@@ -25,6 +25,27 @@ runtime can call the documents facade's `openDocumentHistory` directly.
 - `versionAt(index)` returns the `DocumentHistoryVersion` that heads the stop.
 - `close()` releases the replay's WASM document. Always call it.
 
+## Restoring a version
+
+`DocumentStore.restoreContent(content, options?)` writes a past version's
+`text`, `structuredFields`, and `rows` back into the live document. Pass a
+`DocumentHistoryView`, or any `DocumentRestoreContent`. It resolves `true` when
+the document durably holds that content, including when it already matched, and
+`false` when the restore was refused or did not persist.
+
+- Nothing is rewound. The restore is one ordinary local write made of new
+  operations, so it syncs, merges with concurrent edits, and appears in the
+  history as its own stop. The version it replaced stays there to go back to.
+- It passes the same admission as any other edit: the document must be ready
+  and writable, and `options.stillCurrent` is checked at
+  [queue execution](./public-api.md#host-controlled-mutation-admission).
+- Attachments are left as they are. A detached attachment's bytes are not
+  retained, so its reference is never restored.
+- Leading rows with unchanged ids are patched cell by cell. From the first row
+  that differs in identity, or needs a cell cleared, the remaining rows are
+  removed and added again under their own ids, in the restored order.
+- The document kind is not changed.
+
 ## What a replay is
 
 The replay is a capture of what was durable when it was opened. It is loaded

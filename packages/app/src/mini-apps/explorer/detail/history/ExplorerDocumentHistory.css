@@ -38,7 +38,8 @@
   color: var(--color-muted-foreground);
 }
 
-.explorer-document-history-newer {
+.explorer-document-history-newer,
+.explorer-document-history-restore {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

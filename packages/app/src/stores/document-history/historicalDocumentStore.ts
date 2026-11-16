@@ -84,6 +84,7 @@ export function createHistoricalDocumentStore(
     requestRemoteSync: () => undefined,
     requestRemoteSyncAndWait: () => Promise.resolve(false),
     requestSync: () => undefined,
+    restoreContent: () => Promise.resolve(false),
     setStructuredFields: () => Promise.resolve(),
     setText: () => Promise.resolve(),
     subscribe: (listener) => {

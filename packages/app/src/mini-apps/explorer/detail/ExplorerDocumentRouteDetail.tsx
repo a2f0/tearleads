@@ -29,11 +29,14 @@ export function ExplorerDocumentRouteDetail(
     "containerId" | "documentTitle" | "fallbackDocumentSummary" | "localId"
   > & {
     documentSummaries: ReadonlyArray<DocumentSummary>;
+    /** The route's container is read-only, such as the Trash. */
+    readOnly: boolean;
     route: ExplorerDocumentViewRoute;
     selectedDocument: DocumentSummary | undefined;
   },
 ) {
-  const { documentSummaries, route, selectedDocument, ...infoProps } = params;
+  const { documentSummaries, readOnly, route, selectedDocument, ...infoProps } =
+    params;
   const fallbackDocumentSummary = getDocumentInfoRouteFallbackSummary({
     documentSummaries,
     localId: route.localId,
@@ -46,6 +49,7 @@ export function ExplorerDocumentRouteDetail(
         fallbackDocumentSummary={fallbackDocumentSummary}
         loadDocumentSummary={params.loadDocumentSummary}
         localId={route.localId}
+        readOnly={readOnly}
       />
     );
   }

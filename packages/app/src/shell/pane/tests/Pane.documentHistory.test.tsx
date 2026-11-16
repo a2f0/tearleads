@@ -40,6 +40,24 @@ function aMinuteLater(): void {
   Date.now = () => realNow() + clockOffset;
 }
 
+/** Step one stop back and wait for that version to be on screen. */
+async function stepBack(window: HTMLElement, slider: HTMLInputElement) {
+  const before = slider.value;
+  fireEvent.click(
+    within(window).getByRole("button", {
+      name: EXPLORER_LABELS.documentHistoryPreviousAction,
+    }),
+  );
+  await waitFor(() => {
+    expect(slider.value).not.toBe(before);
+    expect(
+      window
+        .querySelector(".explorer-document-history-view")
+        ?.getAttribute("aria-busy"),
+    ).toBe("false");
+  });
+}
+
 async function addAddress(window: HTMLElement, label: string, street: string) {
   const scope = within(window);
   fireEvent.click(await scope.findByRole("button", { name: "Add address" }));
@@ -58,7 +76,7 @@ async function addAddress(window: HTMLElement, label: string, street: string) {
 }
 
 test(
-  "Explorer History steps a contact back through its address edits, read-only",
+  "Explorer History steps a contact back through its address edits and restores one",
   async () => {
     useTestApiAppHandlers();
     saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
@@ -133,20 +151,10 @@ test(
     expect(explorer.queryByRole("button", { name: "Edit" })).toBeNull();
     expect(explorer.queryByRole("button", { name: "Add address" })).toBeNull();
 
-    const previous = explorer.getByRole("button", {
-      name: EXPLORER_LABELS.documentHistoryPreviousAction,
-    });
     // Step back until the newest address is gone; the older one remains.
     for (let steps = 0; steps <= lastStop; steps += 1) {
       if (!explorerWindow.textContent?.includes("99 Queen Street")) break;
-      const before = slider.value;
-      fireEvent.click(previous);
-      await waitFor(() => expect(slider.value).not.toBe(before));
-      await waitFor(() =>
-        expect(
-          explorer.queryByText(EXPLORER_LABELS.documentHistoryLoading),
-        ).toBeNull(),
-      );
+      await stepBack(explorerWindow, slider);
     }
     await waitFor(() =>
       expect(explorerWindow.textContent).not.toContain("99 Queen Street"),
@@ -173,14 +181,55 @@ test(
       expect(slider.value).toBe(String(lastStop));
       expect(explorerWindow.textContent).toContain("99 Queen Street");
     });
+    // The newest stop is the document as it is: nothing to restore.
+    expect(
+      explorer.queryByRole("button", {
+        name: EXPLORER_LABELS.documentHistoryRestoreAction,
+      }),
+    ).toBeNull();
 
-    // The live document was never rewound: Contacts still shows both.
+    // Go back to the version with only the first address and restore it.
+    for (let steps = 0; steps <= lastStop; steps += 1) {
+      if (!explorerWindow.textContent?.includes("99 Queen Street")) break;
+      await stepBack(explorerWindow, slider);
+    }
+    expect(explorerWindow.textContent).toContain("12 King Street");
+    aMinuteLater();
+    fireEvent.click(
+      await explorer.findByRole("button", {
+        name: EXPLORER_LABELS.documentHistoryRestoreAction,
+      }),
+    );
+    const dialog = within(
+      await explorer.findByRole("dialog", {
+        name: EXPLORER_LABELS.documentHistoryRestoreTitle,
+      }),
+    );
+    fireEvent.click(
+      dialog.getByRole("button", {
+        name: EXPLORER_LABELS.documentHistoryRestoreConfirm,
+      }),
+    );
+    // The restore is a new step: history reopens on it, one stop longer.
+    await waitFor(() => {
+      const reloaded = explorer.getByRole("slider", {
+        name: EXPLORER_LABELS.documentHistoryPositionLabel,
+      }) as HTMLInputElement;
+      expect(Number(reloaded.max)).toBeGreaterThan(lastStop);
+      expect(reloaded.value).toBe(reloaded.max);
+      expect(explorerWindow.textContent).toContain("12 King Street");
+      expect(explorerWindow.textContent).not.toContain("99 Queen Street");
+    });
+
+    // The live document now holds the restored version.
     const reopened = within(await openContacts(view));
     fireEvent.click(
       await reopened.findByRole("button", { name: "History owner" }),
     );
     await reopened.findByText("12 King Street");
-    expect(reopened.getByText("99 Queen Street")).toBeTruthy();
+    await waitFor(() =>
+      expect(reopened.queryByText("99 Queen Street")).toBeNull(),
+    );
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 );
