@@ -1,5 +1,5 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
-import { waitFor, within } from "@testing-library/react";
+import { fireEvent, waitFor, within } from "@testing-library/react";
 import {
   answerAccountNamePrompt,
   sealedAccountNamingRecord as sealedAccountNaming,
@@ -13,6 +13,7 @@ import {
 import { renderLifecyclePane } from "../../test/helpers/paneLifecycleTestUtils";
 import {
   cleanupPaneTestEnvironment,
+  clickPaneAppMenuItem,
   createSharedMemoryLocalKeyringFactory,
   createTestHostConfig,
   getPaneStatusText,
@@ -26,7 +27,7 @@ import {
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test(
-  "a generated identity registers only once named, as that person's org and contact",
+  "a generated identity registers only once named, as that person's org, contact, and roster entry",
   async () => {
     useTestApiAppHandlers();
     const { sdk, view } = renderLifecyclePane(
@@ -55,6 +56,7 @@ test(
     expect(register).toHaveBeenCalledTimes(1);
     expect(register.mock.calls[0]?.[0]).toMatchObject({
       organizationProfileName: "Bob's Org",
+      rosterProfileNickname: "Bob",
     });
 
     await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
@@ -70,6 +72,27 @@ test(
     expect(
       within(contactsWindow).queryByRole("button", { name: "You" }),
     ).toBeNull();
+
+    // The roster lists the account under its name, not "You".
+    fireEvent.contextMenu(view.getByRole("application"), {
+      clientX: 120,
+      clientY: 120,
+    });
+    clickPaneAppMenuItem(view, "Org Manager");
+    const roster = await view.findByRole(
+      "table",
+      { name: "Roster" },
+      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+    );
+    expect(
+      await within(roster).findByRole(
+        "button",
+        { name: "Actions for Bob" },
+        { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+      ),
+    ).toBeTruthy();
+    expect(within(roster).queryByText("You")).toBeNull();
+    await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
     view.unmount();
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 3,
@@ -139,6 +162,7 @@ test(
     );
     expect(register.mock.calls[0]?.[0]).toMatchObject({
       organizationProfileName: "Bob's Org",
+      rosterProfileNickname: "Bob",
     });
     expect(
       within(third.view.container).queryByRole("textbox", {

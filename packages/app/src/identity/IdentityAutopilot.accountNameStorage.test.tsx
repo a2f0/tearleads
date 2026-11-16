@@ -94,6 +94,7 @@ async function answerAndRegister(
   );
   expect(register.mock.calls[0]?.[0]).toMatchObject({
     organizationProfileName: "Bob's Org",
+    rosterProfileNickname: "Bob",
   });
   await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
 }
