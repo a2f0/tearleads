@@ -2,11 +2,12 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DiscoveredDocumentInput } from "../../../data/documents/documentSummary";
 import {
+  ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
-  sqlContainerSyncWatermarkPersistence,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
+import { containerSyncWatermarkTables } from "../../../data/sqlite/schema/containerSyncWatermarkSchema";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import {
   applyListedContainerDocuments,
   type ContainerDocumentDiscoveryLane,
@@ -19,7 +20,7 @@ const WATERMARK = { id: "doc-1", updatedAt: "2026-01-01T00:00:00.000Z" };
 async function withWatermarks(run: (execSql: ExecSql) => Promise<void>) {
   const { close, execSql } = await createTestExecSql("discovery-pause-guard");
   try {
-    await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
+    await ensureSqlTables(execSql, containerSyncWatermarkTables);
     await run(execSql);
   } finally {
     close();
@@ -27,8 +28,7 @@ async function withWatermarks(run: (execSql: ExecSql) => Promise<void>) {
 }
 
 function loadWatermark(execSql: ExecSql) {
-  return sqlContainerSyncWatermarkPersistence.loadWatermark(
-    execSql,
+  return new ContainerSyncWatermarkRepository(execSql).loadWatermark(
     containerContentsSyncLane(CONTAINER_ID),
   );
 }

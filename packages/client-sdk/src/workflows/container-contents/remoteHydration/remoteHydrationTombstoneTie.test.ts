@@ -7,9 +7,9 @@ import type {
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
-  loadContainerSyncWatermark,
 } from "../containerPersistence";
 import { hydrateRemoteContainers } from "./index";
 import type { RemoteContainerHydrationState } from "./types";
@@ -127,7 +127,9 @@ test("an equal-time deletion beats a same-page live item and fences it", async (
 
     expect(state.containersById.has(containerId)).toBe(false);
     await expect(
-      loadContainerSyncWatermark(execSql, createContainerParentSyncLane(null)),
+      new ContainerSyncWatermarkRepository(execSql).loadWatermark(
+        createContainerParentSyncLane(null),
+      ),
     ).resolves.toEqual(pageWatermark);
     await expect(
       defaultContainerContentsPersistence.commitHydratedContainer(execSql, {

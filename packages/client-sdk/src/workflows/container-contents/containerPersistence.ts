@@ -1,12 +1,9 @@
-import type { SyncWatermark } from "@tearleads/validators/response";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
-  type ContainerSyncLaneCheckRecord,
   type ContainerSyncWatermarkLane,
   containerContentsSyncLane,
   containerParentSyncLane,
-  sqlContainerSyncWatermarkPersistence,
 } from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
@@ -22,7 +19,11 @@ export type {
 } from "../../data/persistence/container-contents/containerContentsPersistence";
 export { sqlContainerContentsPersistence as defaultContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 export type { ContainerRecord } from "../../data/persistence/container-contents/containerPersistence";
-export type { ContainerSyncWatermarkLane } from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
+export {
+  type ContainerSyncWatermarkLane,
+  ContainerSyncWatermarkRepository,
+} from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
+export type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 export async function enqueuePendingContainerUpdate(
   execSql: ExecSql,
@@ -57,61 +58,4 @@ export function createContainerContentsSyncLane(
   containerId: string,
 ): ContainerSyncWatermarkLane {
   return containerContentsSyncLane(containerId);
-}
-
-export async function loadContainerSyncWatermark(
-  execSql: ExecSql,
-  syncLane: ContainerSyncWatermarkLane,
-): Promise<SyncWatermark | null> {
-  return sqlContainerSyncWatermarkPersistence.loadWatermark(execSql, syncLane);
-}
-
-export async function saveContainerSyncWatermark(
-  execSql: ExecSql,
-  syncLane: ContainerSyncWatermarkLane,
-  watermark: SyncWatermark,
-): Promise<void> {
-  await sqlContainerSyncWatermarkPersistence.saveWatermark(
-    execSql,
-    syncLane,
-    watermark,
-  );
-}
-
-export async function loadContainerSyncLaneCheckRecords(
-  execSql: ExecSql,
-  syncLanes: ReadonlyArray<ContainerSyncWatermarkLane>,
-): Promise<Array<ContainerSyncLaneCheckRecord | null>> {
-  return sqlContainerSyncWatermarkPersistence.loadCheckRecords(
-    execSql,
-    syncLanes,
-  );
-}
-
-export async function markContainerSyncLaneChecked(
-  execSql: ExecSql,
-  syncLane: ContainerSyncWatermarkLane,
-): Promise<void> {
-  await sqlContainerSyncWatermarkPersistence.markChecked(execSql, syncLane);
-}
-
-/**
- * Records one lane fetch in a single guarded upsert: the cursor when the page
- * carried one and the freshness marker when the lane is fully drained.
- */
-export async function recordContainerSyncLaneFetchIfCurrent(
-  execSql: ExecSql,
-  syncLane: ContainerSyncWatermarkLane,
-  fetch: {
-    readonly checked: boolean;
-    readonly watermark: SyncWatermark | null;
-  },
-  stillCurrent?: (() => boolean) | undefined,
-): Promise<boolean> {
-  return sqlContainerSyncWatermarkPersistence.recordLaneFetch(
-    execSql,
-    syncLane,
-    fetch,
-    { stillCurrent },
-  );
 }

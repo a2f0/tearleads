@@ -6,8 +6,8 @@ import { createSignedContainerDirectory } from "../../../../test/helpers/signedC
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
-  loadContainerSyncWatermark,
   defaultContainerContentsPersistence as persistence,
 } from "../containerPersistence";
 import { hydrateRemoteContainers } from "./index";
@@ -160,15 +160,14 @@ for (const failure of ["withheld", "tampered", "expired", "runtime"] as const) {
         expect(requestedParents).not.toContain(bad.id);
         // A rejected prefetch leaves no projection, so verification reads again.
         expect(badProofReads).toBe(failure === "expired" ? 2 : 1);
+        const watermarks = new ContainerSyncWatermarkRepository(execSql);
         expect(
-          await loadContainerSyncWatermark(
-            execSql,
+          await watermarks.loadWatermark(
             createContainerParentSyncLane(firstRoot.id),
           ),
         ).toBeNull();
         expect(
-          await loadContainerSyncWatermark(
-            execSql,
+          await watermarks.loadWatermark(
             createContainerParentSyncLane(laterRoot.id),
           ),
         ).toEqual(watermark);

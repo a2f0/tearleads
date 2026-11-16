@@ -1,12 +1,14 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ListContainersResponse } from "@tearleads/validators/response";
-import { sqlContainerSyncWatermarkPersistence } from "../../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
-import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+import { containerSyncWatermarkTables } from "../../../../data/sqlite/schema/containerSyncWatermarkSchema";
 import {
+  type ExecSql,
+  ensureSqlTables,
+} from "../../../../data/sqlite/sqlSchema";
+import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
-  loadContainerSyncLaneCheckRecords,
-  loadContainerSyncWatermark,
 } from "../../containerPersistence";
 import type { RemoteContainerHydrationState } from "../types";
 import { markContainerParentLaneFetched } from "./laneFetchMarkers";
@@ -72,7 +74,7 @@ test("an expired lane cannot commit its response watermark", async () => {
     "container-lane-watermark-generation",
   );
   try {
-    await sqlContainerSyncWatermarkPersistence.ensureSchema(database.execSql);
+    await ensureSqlTables(database.execSql, containerSyncWatermarkTables);
     const guarded = expireAfterBegin(database.execSql);
     const syncLane = createContainerParentSyncLane(null);
 
@@ -92,7 +94,9 @@ test("an expired lane cannot commit its response watermark", async () => {
       }),
     ).resolves.toBe(false);
     await expect(
-      loadContainerSyncWatermark(database.execSql, syncLane),
+      new ContainerSyncWatermarkRepository(database.execSql).loadWatermark(
+        syncLane,
+      ),
     ).resolves.toBeNull();
   } finally {
     database.close();
@@ -102,7 +106,7 @@ test("an expired lane cannot commit its response watermark", async () => {
 test("an expired final page cannot commit its lane check marker", async () => {
   const database = await createTestExecSql("container-lane-check-generation");
   try {
-    await sqlContainerSyncWatermarkPersistence.ensureSchema(database.execSql);
+    await ensureSqlTables(database.execSql, containerSyncWatermarkTables);
     const guarded = expireAfterBegin(database.execSql);
     const state = hydrationState(guarded.execSql);
     const syncLane = createContainerParentSyncLane(null);
@@ -116,7 +120,9 @@ test("an expired final page cannot commit its lane check marker", async () => {
       }),
     ).resolves.toBe(false);
     await expect(
-      loadContainerSyncLaneCheckRecords(database.execSql, [syncLane]),
+      new ContainerSyncWatermarkRepository(database.execSql).loadCheckRecords([
+        syncLane,
+      ]),
     ).resolves.toEqual([null]);
     expect(state.rootLaneHydrated).toBe(false);
   } finally {

@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
+  ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
   containerParentSyncLane,
-  sqlContainerSyncWatermarkPersistence,
+  deleteContainerWatermarksInTransaction,
 } from "./containerSyncWatermarkPersistence";
 
 test("container sync watermarks are persisted independently per lane", async () => {
@@ -11,40 +13,28 @@ test("container sync watermarks are persisted independently per lane", async () 
     "container-sync-watermark-persistence-test",
   );
 
+  const watermarks = new ContainerSyncWatermarkRepository(execSql);
   try {
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
-        execSql,
-        containerParentSyncLane(null),
-      ),
+      watermarks.loadWatermark(containerParentSyncLane(null)),
     ).resolves.toBeNull();
 
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(
-      execSql,
-      containerParentSyncLane(null),
-      {
-        id: "root-container",
-        updatedAt: "2026-05-05T00:00:00.000Z",
-      },
-    );
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(
-      execSql,
+    await watermarks.saveWatermark(containerParentSyncLane(null), {
+      id: "root-container",
+      updatedAt: "2026-05-05T00:00:00.000Z",
+    });
+    await watermarks.saveWatermark(
       containerParentSyncLane("parent-container"),
       {
         id: "child-container",
         updatedAt: "2026-05-05T00:05:00.000Z",
       },
     );
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(
-      execSql,
-      containerParentSyncLane("root"),
-      {
-        id: "child-of-root-named-container",
-        updatedAt: "2026-05-05T00:07:00.000Z",
-      },
-    );
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(
-      execSql,
+    await watermarks.saveWatermark(containerParentSyncLane("root"), {
+      id: "child-of-root-named-container",
+      updatedAt: "2026-05-05T00:07:00.000Z",
+    });
+    await watermarks.saveWatermark(
       containerContentsSyncLane("parent-container"),
       {
         id: "document-1",
@@ -53,17 +43,14 @@ test("container sync watermarks are persisted independently per lane", async () 
     );
 
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
-        execSql,
-        containerParentSyncLane(null),
-      ),
+      watermarks.loadWatermark(containerParentSyncLane(null)),
     ).resolves.toEqual({
       id: "root-container",
       updatedAt: "2026-05-05T00:00:00.000Z",
     });
     await expect(
-      sqlContainerSyncWatermarkPersistence
-        .loadWatermarkRecords(execSql, [containerParentSyncLane(null)])
+      watermarks
+        .loadWatermarkRecords([containerParentSyncLane(null)])
         .then(([record]) => record),
     ).resolves.toMatchObject({
       laneId: "root",
@@ -75,7 +62,7 @@ test("container sync watermarks are persisted independently per lane", async () 
       },
     });
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(execSql, [
+      watermarks.loadWatermarkRecords([
         containerParentSyncLane(null),
         containerParentSyncLane("missing-parent"),
         containerContentsSyncLane("parent-container"),
@@ -100,72 +87,47 @@ test("container sync watermarks are persisted independently per lane", async () 
       }),
     ]);
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
-        execSql,
-        containerParentSyncLane("parent-container"),
-      ),
+      watermarks.loadWatermark(containerParentSyncLane("parent-container")),
     ).resolves.toEqual({
       id: "child-container",
       updatedAt: "2026-05-05T00:05:00.000Z",
     });
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
-        execSql,
-        containerParentSyncLane("root"),
-      ),
+      watermarks.loadWatermark(containerParentSyncLane("root")),
     ).resolves.toEqual({
       id: "child-of-root-named-container",
       updatedAt: "2026-05-05T00:07:00.000Z",
     });
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
-        execSql,
-        containerContentsSyncLane("parent-container"),
-      ),
+      watermarks.loadWatermark(containerContentsSyncLane("parent-container")),
     ).resolves.toEqual({
       id: "document-1",
       updatedAt: "2026-05-05T00:10:00.000Z",
     });
 
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(
-      execSql,
-      containerParentSyncLane(null),
-      {
-        id: "root-container-2",
-        updatedAt: "2026-05-05T00:15:00.000Z",
-      },
-    );
+    await watermarks.saveWatermark(containerParentSyncLane(null), {
+      id: "root-container-2",
+      updatedAt: "2026-05-05T00:15:00.000Z",
+    });
 
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
-        execSql,
-        containerParentSyncLane(null),
-      ),
+      watermarks.loadWatermark(containerParentSyncLane(null)),
     ).resolves.toEqual({
       id: "root-container-2",
       updatedAt: "2026-05-05T00:15:00.000Z",
     });
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(
-        execSql,
-        containerParentSyncLane("parent-container"),
-      ),
+      watermarks.loadWatermark(containerParentSyncLane("parent-container")),
     ).resolves.toEqual({
       id: "child-container",
       updatedAt: "2026-05-05T00:05:00.000Z",
     });
 
-    await sqlContainerSyncWatermarkPersistence.markChecked(
-      execSql,
-      containerParentSyncLane(null),
-    );
-    await sqlContainerSyncWatermarkPersistence.markChecked(
-      execSql,
-      containerContentsSyncLane("parent-container"),
-    );
+    await watermarks.markChecked(containerParentSyncLane(null));
+    await watermarks.markChecked(containerContentsSyncLane("parent-container"));
 
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadCheckRecords(execSql, [
+      watermarks.loadCheckRecords([
         containerParentSyncLane(null),
         containerParentSyncLane("missing-parent"),
         containerContentsSyncLane("parent-container"),
@@ -193,6 +155,7 @@ test("lane reads chunk under SQLite's bind-variable limit", async () => {
     "container-sync-watermark-batch-test",
   );
 
+  const watermarks = new ContainerSyncWatermarkRepository(execSql);
   try {
     // Each lane predicate binds two variables, so this many lanes in one
     // unchunked OR blows SQLite's variable limit before returning a row.
@@ -200,26 +163,19 @@ test("lane reads chunk under SQLite's bind-variable limit", async () => {
       containerContentsSyncLane(`container-${index}`),
     );
     const saved = containerContentsSyncLane("container-16999");
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(execSql, saved, {
+    await watermarks.saveWatermark(saved, {
       id: "tail-lane",
       updatedAt: "2026-05-05T00:00:00.000Z",
     });
-    await sqlContainerSyncWatermarkPersistence.markChecked(execSql, saved);
+    await watermarks.markChecked(saved);
 
-    const watermarks =
-      await sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(
-        execSql,
-        lanes,
-      );
-    expect(watermarks).toHaveLength(lanes.length);
+    const records = await watermarks.loadWatermarkRecords(lanes);
+    expect(records).toHaveLength(lanes.length);
     expect(
-      watermarks.flatMap((record) => (record ? [record.watermark.id] : [])),
+      records.flatMap((record) => (record ? [record.watermark.id] : [])),
     ).toEqual(["tail-lane"]);
 
-    const checks = await sqlContainerSyncWatermarkPersistence.loadCheckRecords(
-      execSql,
-      lanes,
-    );
+    const checks = await watermarks.loadCheckRecords(lanes);
     expect(checks).toHaveLength(lanes.length);
     expect(checks.flatMap((record) => (record ? [record.laneId] : []))).toEqual(
       ["container-16999"],
@@ -233,27 +189,24 @@ test("root listings use one global cursor matching the cross-organization API fe
   const { close, execSql } = await createTestExecSql(
     "container-sync-watermark-global-root-test",
   );
+  const watermarks = new ContainerSyncWatermarkRepository(execSql);
   try {
     const first = containerParentSyncLane(null);
     const second = containerParentSyncLane(null);
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(execSql, first, {
+    await watermarks.saveWatermark(first, {
       id: "first-root",
       updatedAt: "2026-08-27T00:00:00.000Z",
     });
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(execSql, second, {
+    await watermarks.saveWatermark(second, {
       id: "second-root",
       updatedAt: "2026-08-27T00:01:00.000Z",
     });
 
-    await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(execSql, first),
-    ).resolves.toEqual({
+    await expect(watermarks.loadWatermark(first)).resolves.toEqual({
       id: "second-root",
       updatedAt: "2026-08-27T00:01:00.000Z",
     });
-    await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermark(execSql, second),
-    ).resolves.toEqual({
+    await expect(watermarks.loadWatermark(second)).resolves.toEqual({
       id: "second-root",
       updatedAt: "2026-08-27T00:01:00.000Z",
     });
@@ -266,29 +219,24 @@ test("a lane's cursor and freshness marker share one row without clobbering", as
   const { close, execSql } = await createTestExecSql(
     "container-sync-watermark-shared-row-test",
   );
+  const watermarks = new ContainerSyncWatermarkRepository(execSql);
   try {
     const checkedOnly = containerParentSyncLane("checked-only");
     const both = containerParentSyncLane("both");
-    await sqlContainerSyncWatermarkPersistence.markChecked(
-      execSql,
-      checkedOnly,
-    );
+    await watermarks.markChecked(checkedOnly);
     // A drained page that carried a cursor records both halves at once.
-    await sqlContainerSyncWatermarkPersistence.recordLaneFetch(execSql, both, {
+    await watermarks.recordLaneFetch(both, {
       checked: true,
       watermark: { id: "first", updatedAt: "2026-05-05T00:00:00.000Z" },
     });
     // A later partial page advances the cursor and keeps the marker.
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(execSql, both, {
+    await watermarks.saveWatermark(both, {
       id: "second",
       updatedAt: "2026-05-05T00:01:00.000Z",
     });
 
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(execSql, [
-        checkedOnly,
-        both,
-      ]),
+      watermarks.loadWatermarkRecords([checkedOnly, both]),
     ).resolves.toEqual([
       null,
       expect.objectContaining({
@@ -296,23 +244,17 @@ test("a lane's cursor and freshness marker share one row without clobbering", as
       }),
     ]);
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadCheckRecords(execSql, [
-        checkedOnly,
-        both,
-      ]),
+      watermarks.loadCheckRecords([checkedOnly, both]),
     ).resolves.toEqual([
       expect.objectContaining({ laneId: "parent:checked-only" }),
       expect.objectContaining({ laneId: "parent:both" }),
     ]);
 
     // Deleting the container drops the lane's single row.
-    await sqlContainerSyncWatermarkPersistence.deleteWatermarksForContainers(
-      execSql,
-      ["both"],
+    await getClientSQLitePersistenceRuntime(execSql).transaction((tx) =>
+      deleteContainerWatermarksInTransaction(tx, ["both"]),
     );
-    await expect(
-      sqlContainerSyncWatermarkPersistence.loadCheckRecords(execSql, [both]),
-    ).resolves.toEqual([null]);
+    await expect(watermarks.loadCheckRecords([both])).resolves.toEqual([null]);
   } finally {
     close();
   }

@@ -6,8 +6,8 @@ import {
   createWorkflowInputFixture,
 } from "../../../test/helpers/internalRuntimeFixtures";
 import {
+  ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
-  sqlContainerSyncWatermarkPersistence,
 } from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
 import { clientSqlTables, containers } from "../../data/sqlite/schema";
@@ -105,8 +105,7 @@ async function createLanes() {
     cursors: await Promise.all(
       LANES.map(
         (id): Promise<SyncWatermark | null> =>
-          sqlContainerSyncWatermarkPersistence.loadWatermark(
-            native.execSql,
+          new ContainerSyncWatermarkRepository(native.execSql).loadWatermark(
             containerContentsSyncLane(id),
           ),
       ),
