@@ -203,6 +203,29 @@ function pendingRegistration(pending: PendingRegistration) {
   };
 }
 
+/**
+ * Holds the autopilot to one registration at a time. A run that settles after
+ * its identity was switched away re-arms registration, so the identity now
+ * current, which waited on the latch, still registers; a run that settles for
+ * the current identity re-arms nothing, so a failure is not retried in a loop.
+ */
+function useRegistrationLatch(signingFingerprint: string | null) {
+  const held = useRef(false);
+  const current = useRef(signingFingerprint);
+  current.current = signingFingerprint;
+  const [rearmed, setRearmed] = useState(0);
+  const acquire = useCallback(() => {
+    if (held.current) return false;
+    held.current = true;
+    return true;
+  }, []);
+  const release = useCallback((fingerprint: string | null) => {
+    held.current = false;
+    if (current.current !== fingerprint) setRearmed((count) => count + 1);
+  }, []);
+  return { acquire, rearmed, release };
+}
+
 function useAutoRegisterIdentity(
   enabled: boolean,
   pending: PendingRegistration,
@@ -215,7 +238,8 @@ function useAutoRegisterIdentity(
     useSystemBootstrap();
   const { logError } = useLog();
   const { signingFingerprint } = useIdentity();
-  const registrationInFlight = useRef(false);
+  const { acquire, rearmed, release } =
+    useRegistrationLatch(signingFingerprint);
   const [registration, setRegistration] =
     useIdentityScopedStep(signingFingerprint);
   const { awaitingInput, organizationProfileName } =
@@ -252,15 +276,13 @@ function useAutoRegisterIdentity(
     ) {
       return;
     }
-    if (registrationInFlight.current) {
-      return;
-    }
-
     // registerCurrentIdentity registers, then logs in with the returned
-    // challenge. The in-flight latch keeps the StrictMode double-invoke (and any
+    // challenge. The latch keeps the StrictMode double-invoke (and any
     // re-render while the request is outstanding) from firing a second
     // registration; on success canRegisterCurrentIdentity flips false.
-    registrationInFlight.current = true;
+    if (!acquire()) {
+      return;
+    }
     const fingerprint = signingFingerprint;
     setRegistration(fingerprint, { status: "running" });
     void ensureBootstrapped()
@@ -300,16 +322,17 @@ function useAutoRegisterIdentity(
         logError(message, error);
         setRegistration(fingerprint, { message, status: "failed" });
       })
-      .finally(() => {
-        registrationInFlight.current = false;
-      });
+      .finally(() => release(fingerprint));
   }, [
+    acquire,
     awaitingInput,
     canRegisterCurrentIdentity,
     enabled,
     ensureBootstrapped,
     features.autoRegisterIdentity,
     logError,
+    rearmed,
+    release,
     sessionRestoreSettled,
     setRegistration,
     signingFingerprint,
