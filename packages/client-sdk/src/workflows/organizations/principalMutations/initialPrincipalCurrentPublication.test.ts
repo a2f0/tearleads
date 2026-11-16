@@ -2,7 +2,7 @@ import { beforeAll, expect, test } from "bun:test";
 import { initialCurrentPublicationFixture } from "../../../../test/helpers/initialCurrentPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   principalHistoryEntries,
   principalHistoryPrefixes,
@@ -38,8 +38,9 @@ test("genesis and its directory successor publish atomically without a predecess
     expect(recovered.policy.stateHash).toBe(f.initial.currentState.stateHash);
     expect(recovered.current).not.toHaveProperty("previousStates");
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         f.initial.currentState.principalId,
       ),
@@ -88,18 +89,17 @@ test.each([
         before,
       );
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           f.options.execSql,
+        ).loadPrincipalPolicyCheckpoint(
           "group",
           f.initial.currentState.principalId,
         ),
       ).toBeNull();
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           f.options.execSql,
-          "organization",
-          history.organizationId,
-        ),
+        ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
       ).toMatchObject({ version: 66 });
     } finally {
       f.close();
@@ -133,18 +133,14 @@ test.each([1, 2])(
         prefixes,
       );
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           f.options.execSql,
-          "group",
-          prior.principalId,
-        ),
+        ).loadPrincipalPolicyCheckpoint("group", prior.principalId),
       ).toMatchObject({ version, stateHash: prior.stateHash });
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           f.options.execSql,
-          "organization",
-          history.organizationId,
-        ),
+        ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
       ).toMatchObject({ version: 66 });
     } finally {
       f.close();
@@ -169,8 +165,9 @@ test("failure publishing the directory rolls back a newly admitted genesis", asy
       prefixes,
     );
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         f.initial.currentState.principalId,
       ),

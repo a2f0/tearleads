@@ -5,11 +5,8 @@ import {
   heldContainerSnapshot,
   rememberAcknowledgedContainerHead,
 } from "../../../data/containers/shared/heldContainerHeads";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import {
-  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
-  locallyAuthoredAccessManifestHead,
-} from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { locallyAuthoredAccessManifestHead } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { reciteHeldDescendants } from "./recite";
 import {
   assertContainerReciteAcknowledgement,
@@ -98,8 +95,9 @@ function cascadeInput(scenario: Scenario) {
 }
 
 async function checkpoint(scenario: Scenario, id: string) {
-  return loadAccessManifestCheckpoint(
+  return new KeyingCheckpointRepository(
     scenario.execSql,
+  ).loadAccessManifestCheckpoint(
     "container",
     scenario.parent.author.organizationId,
     id,
@@ -245,8 +243,9 @@ test.each(["same-epoch", "newer"] as const)(
             const response = await scenario.reciteContainer(id, request);
             // Simulate a different locally signed head becoming durable while
             // this request is in flight; the response may not replace that pin.
-            await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-              execSql: scenario.execSql,
+            await new KeyingCheckpointRepository(
+              scenario.execSql,
+            ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
               heads: [locallyAuthoredAccessManifestHead(concurrent)],
             });
             if (race === "newer") {
@@ -261,8 +260,9 @@ test.each(["same-epoch", "newer"] as const)(
                 ],
                 policies: snapshot.policies,
               });
-              await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-                execSql: scenario.execSql,
+              await new KeyingCheckpointRepository(
+                scenario.execSql,
+              ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
                 heads: [locallyAuthoredAccessManifestHead(next)],
               });
               concurrentHash = next.manifestHash;

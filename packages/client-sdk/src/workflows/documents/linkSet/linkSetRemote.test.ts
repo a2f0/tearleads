@@ -19,7 +19,7 @@ import {
   acknowledgedDocumentLinkSetMutation,
   persistedDocumentLinkSetMutationStateFromResponse,
 } from "../../../data/documents/shared/responses";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentCreatePlan } from "../create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";
@@ -302,16 +302,18 @@ test("link planning rolls back checkpoints after generation expiry", async () =>
     expect(transactionStarted).toBe(true);
     expect(submitted).toBe(false);
     await expect(
-      loadAccessManifestCheckpoint(
+      new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "document",
         author.organizationId,
         writerProjection.documentId,
       ),
     ).resolves.toBeNull();
     await expect(
-      loadAccessManifestCheckpoint(
+      new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "container",
         author.organizationId,
         siblingProjection.containerId,

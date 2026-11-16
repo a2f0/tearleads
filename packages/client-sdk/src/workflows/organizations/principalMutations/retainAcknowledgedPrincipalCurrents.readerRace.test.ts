@@ -3,8 +3,7 @@ import { currentPolicyPublicationFixture } from "../../../../test/helpers/curren
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { runWithSecurityIncidentReporting } from "../../../data/keyingProjectionVerification/error";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { recoverScopedPrincipalPolicyHistory } from "../../principals/historyRecovery/recoverScopedPrincipalPolicyHistory";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
@@ -45,8 +44,9 @@ test.each([
         });
         expect(recovered.policy.version).toBe(version);
         if (admit)
-          await advanceKeyingCheckpointsAtomically({
-            execSql: f.options.execSql,
+          await new KeyingCheckpointRepository(
+            f.options.execSql,
+          ).advanceKeyingCheckpointsAtomically({
             organizationId: history.organizationId,
             access: [],
             policies: [...recovered.dependencies, recovered.policy],
@@ -74,11 +74,9 @@ test.each([
         )?.version,
       ).toBe(Math.max(version, 67));
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           f.options.execSql,
-          "organization",
-          history.organizationId,
-        ),
+        ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
       ).toMatchObject({
         version: admit ? version : 67,
         stateHash: admit

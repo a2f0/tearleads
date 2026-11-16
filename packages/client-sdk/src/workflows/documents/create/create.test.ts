@@ -23,7 +23,7 @@ import {
 } from "../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { acknowledgedDocumentCreate } from "../../../data/documents/shared/responses";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   createRemoteDocument,
   documentWriterProjectionFromCreateResponse,
@@ -117,8 +117,7 @@ test("createRemoteDocument submits the materialized request and persists the ver
     { documentId: "document-remote", projection: created.writerProjection },
   ]);
   await expect(
-    loadAccessManifestCheckpoint(
-      execSql,
+    new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
       "document",
       created.plan.manifest.organizationId,
       created.plan.documentId,
@@ -202,8 +201,7 @@ for (const { label, message, tamper } of createAcknowledgementTampers) {
         }),
       ).rejects.toThrow(message);
       await expect(
-        loadAccessManifestCheckpoint(
-          execSql,
+        new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
           "document",
           projection.organizationId,
           documentId,

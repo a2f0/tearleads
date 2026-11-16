@@ -23,7 +23,7 @@ import {
   createFixtureUserIdentity,
   createTestTrustedUserIdentity,
 } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
@@ -100,8 +100,7 @@ test("group creation and deletion persist authenticated organization directory s
     {
       createOrganizationGroup: async (nextOrganizationId, request) => {
         await expect(
-          loadPrincipalPolicyCheckpoint(
-            execSql,
+          new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
             "organization",
             organizationId,
           ),
@@ -110,7 +109,10 @@ test("group creation and deletion persist authenticated organization directory s
           stateHash: organizationPolicy.currentState.stateHash,
         });
         await expect(
-          loadPrincipalPolicyCheckpoint(execSql, "group", adminGroupId),
+          new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+            "group",
+            adminGroupId,
+          ),
         ).resolves.toMatchObject({
           version: adminPolicy.currentState.version,
           stateHash: adminPolicy.currentState.stateHash,
@@ -200,7 +202,10 @@ test("group creation and deletion persist authenticated organization directory s
       throw new Error("Expected created group policy head");
     }
     await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "group", createdGroup.groupId),
+      new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+        "group",
+        createdGroup.groupId,
+      ),
     ).resolves.toEqual({
       principalType: "group",
       principalId: createdGroup.groupId,
@@ -211,7 +216,10 @@ test("group creation and deletion persist authenticated organization directory s
       loadPrincipalPolicyBundle(execSql, "organization", organizationId),
     ).resolves.toEqual(organizationPolicy);
     await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "organization", organizationId),
+      new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+        "organization",
+        organizationId,
+      ),
     ).resolves.toEqual({
       principalType: "organization",
       principalId: organizationId,
@@ -222,7 +230,10 @@ test("group creation and deletion persist authenticated organization directory s
       loadPrincipalPolicyBundle(execSql, "group", adminGroupId),
     ).resolves.toEqual(adminPolicy);
     await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "group", adminGroupId),
+      new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+        "group",
+        adminGroupId,
+      ),
     ).resolves.toEqual({
       principalType: "group",
       principalId: adminGroupId,

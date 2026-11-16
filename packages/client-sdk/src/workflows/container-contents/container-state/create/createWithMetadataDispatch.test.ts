@@ -22,11 +22,10 @@ import {
 } from "../../../../../test/helpers/principalPolicyRepair";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
-import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { buildInitialOrganizationPolicyRequest } from "../../../registration/organizationProvisioning";
-
 import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { createRemoteContainer } from "../remote";
 import {
@@ -324,11 +323,9 @@ test("compound create consumes successive policy pages and stops a repeated page
     expect(calls).toBe(3);
     expect(refreshes).toBe(2);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
-        "group",
-        "policy-b",
-      ),
+      ).loadPrincipalPolicyCheckpoint("group", "policy-b"),
     ).toBeNull();
   } finally {
     database.close();

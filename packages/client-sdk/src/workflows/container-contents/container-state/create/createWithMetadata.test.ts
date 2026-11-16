@@ -16,8 +16,7 @@ import { createResponseFromRequest } from "../../../../../test/helpers/documentF
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { unwrapDocumentContentKeyTarget } from "../../../../data/documents/shared/projection";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { advanceLocallyAcknowledgedAccessManifestHeadsAtomically } from "../../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import {
@@ -112,8 +111,9 @@ test("container-with-metadata acknowledgement pins both heads atomically", async
   });
 
   try {
-    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    await new KeyingCheckpointRepository(
       execSql,
+    ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
       heads: [
         {
           checkpoint: {
@@ -137,16 +137,14 @@ test("container-with-metadata acknowledgement pins both heads atomically", async
       }),
     ).rejects.toMatchObject({ code: "equivocation" });
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "container",
         parent.projection.organizationId,
         containerId,
       ),
     ).resolves.toBeNull();
     await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
         "document",
         parent.projection.organizationId,
         containerId,

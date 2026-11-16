@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeHistoricalPolicy";
-import { loadDocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
@@ -52,10 +51,9 @@ test("purge rolls back terminal pins and teardown when its lease expires before 
       await database.execSql("SELECT value FROM purge_teardown_probe"),
     ).toEqual([{ value: 1 }]);
     expect(
-      await loadDocumentPurgeCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
-        fixture.proof.documentId,
-      ),
+      ).loadDocumentPurgeCheckpoint(fixture.proof.documentId),
     ).toBeNull();
     for (const source of [
       fixture.proof.policyEvidence.organization,
@@ -63,8 +61,9 @@ test("purge rolls back terminal pins and teardown when its lease expires before 
     ]) {
       if (!source) continue;
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           database.execSql,
+        ).loadPrincipalPolicyCheckpoint(
           source.head.principalType,
           source.head.principalId,
         ),

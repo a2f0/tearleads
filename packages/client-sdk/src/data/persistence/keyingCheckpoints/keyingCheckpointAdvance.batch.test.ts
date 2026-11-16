@@ -20,7 +20,7 @@ import {
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { createExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import type { VerifiedManifestBundle } from "../verifiedManifestBundlePersistence";
-import { advanceKeyingCheckpointsAtomically } from "./keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "./keyingCheckpointRepository";
 
 function hash(seed: string): string {
   return Buffer.from(seed).toString("hex").padEnd(64, "0").slice(0, 64);
@@ -94,19 +94,21 @@ async function checkpointDatabase() {
       readonly policies: readonly VerifiedPrincipalPolicy[];
       readonly bundles?: readonly VerifiedManifestBundle[];
     }) {
-      await advanceKeyingCheckpointsAtomically({
+      await new KeyingCheckpointRepository(
+        execSql,
+      ).advanceKeyingCheckpointsAtomically({
         organizationId: "org-1",
         access: input.access.map((head) => ({ head, predecessors: [] })),
-        execSql,
         policies: input.policies,
         verifiedBundles: input.bundles,
       });
       // Every table is ensured by the first advance; count a warm one.
       counter.statements = 0;
-      await advanceKeyingCheckpointsAtomically({
+      await new KeyingCheckpointRepository(
+        execSql,
+      ).advanceKeyingCheckpointsAtomically({
         organizationId: "org-1",
         access: input.access.map((head) => ({ head, predecessors: [] })),
-        execSql,
         policies: input.policies,
         verifiedBundles: input.bundles,
       });

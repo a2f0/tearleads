@@ -8,7 +8,7 @@ import {
   enforcePrincipalPolicySnapshotCheckpoints,
   verifyPrincipalPolicySnapshots,
 } from "../../../../test/helpers/principalPolicySnapshotVerification";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { savePrincipalPolicyBundle } from "../../persistence/principalPolicy/principalPolicyPersistence";
 import {
   commitProjectionCheckpoints,
@@ -94,8 +94,7 @@ test("rejects a signed snapshot that conflicts with the durable policy pin", asy
   );
   try {
     const state = fixture.admin.currentState;
-    await loadPrincipalPolicyCheckpoint(
-      execSql,
+    await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
       state.principalType,
       state.principalId,
     );
@@ -139,8 +138,7 @@ test("atomically pins first-seen purge policy snapshots", async () => {
 
     for (const policy of policies) {
       await expect(
-        loadPrincipalPolicyCheckpoint(
-          execSql,
+        new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
           policy.principalType,
           policy.principalId,
         ),
@@ -168,8 +166,7 @@ test("atomic purge policy pinning rejects a checkpoint race", async () => {
     for (const policy of policies) observePrincipalPolicy(context, policy);
     const raced = policies[0];
     if (!raced) throw new Error("Expected a policy snapshot");
-    await loadPrincipalPolicyCheckpoint(
-      execSql,
+    await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
       raced.principalType,
       raced.principalId,
     );
@@ -188,8 +185,7 @@ test("atomic purge policy pinning rejects a checkpoint race", async () => {
     const untouched = policies[1];
     if (!untouched) throw new Error("Expected an atomic policy batch");
     await expect(
-      loadPrincipalPolicyCheckpoint(
-        execSql,
+      new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
         untouched.principalType,
         untouched.principalId,
       ),

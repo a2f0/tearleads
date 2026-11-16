@@ -13,7 +13,7 @@ import {
 import type { PrincipalPolicySnapshotResponse } from "@tearleads/validators/response";
 import { ProjectionDependencyUnavailableError } from "../../src/data/keyingProjectionVerification/dependencyUnavailable";
 import type { ProjectionUserKeyResolver } from "../../src/data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalPolicyBundleForReference } from "../../src/data/persistence/principalPolicy/principalPolicyReferencePersistence";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { verifyReceivedPolicySnapshot } from "./principalSnapshotVerificationCache";
@@ -195,8 +195,9 @@ async function enforceSnapshotCheckpoint(input: {
   readonly policy: VerifiedPrincipalPolicySnapshot;
   readonly reference: ReferencedPrincipalHead;
 }): Promise<boolean> {
-  const checkpoint = await loadPrincipalPolicyCheckpoint(
+  const checkpoint = await new KeyingCheckpointRepository(
     input.execSql,
+  ).loadPrincipalPolicyCheckpoint(
     input.reference.principalType,
     input.reference.principalId,
   );

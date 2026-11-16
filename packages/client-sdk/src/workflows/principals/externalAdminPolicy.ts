@@ -5,7 +5,7 @@ import {
   verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/principalPolicy/verifiedPrincipalPolicyBundlePersistence";
 import {
   type OrganizationAuthorityDescriptor,
@@ -92,11 +92,9 @@ async function verifyOrganizationPolicy(input: {
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<VerifiedPrincipalPolicy | null> {
-  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+  const localCheckpoint = await new KeyingCheckpointRepository(
     input.execSql,
-    "organization",
-    input.organizationId,
-  );
+  ).loadPrincipalPolicyCheckpoint("organization", input.organizationId);
   const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
     bundle: input.bundle,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
@@ -186,11 +184,9 @@ async function loadVerifiedAdminsPolicy(input: {
       "reserved Admins policy does not match the signed organization directory",
     );
   }
-  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+  const localCheckpoint = await new KeyingCheckpointRepository(
     input.execSql,
-    "group",
-    input.adminGroupId,
-  );
+  ).loadPrincipalPolicyCheckpoint("group", input.adminGroupId);
   const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
     bundle,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,

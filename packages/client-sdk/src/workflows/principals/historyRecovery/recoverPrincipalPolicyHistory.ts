@@ -10,7 +10,7 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import {
   discardPrincipalHistoryStage,
@@ -224,8 +224,9 @@ async function finishRecovery(
     currentState: current.value.state,
     localCheckpoint: checkpoint,
   });
-  const latest = await loadPrincipalPolicyCheckpoint(
+  const latest = await new KeyingCheckpointRepository(
     input.execSql,
+  ).loadPrincipalPolicyCheckpoint(
     input.expectedHead.principalType,
     input.expectedHead.principalId,
   );
@@ -357,8 +358,9 @@ async function recover(
   allowEvidenceRebuild = true,
 ): Promise<RecoveredPrincipalPolicyHistory> {
   assertCurrent(input);
-  const checkpoint = await loadPrincipalPolicyCheckpoint(
+  const checkpoint = await new KeyingCheckpointRepository(
     input.execSql,
+  ).loadPrincipalPolicyCheckpoint(
     input.expectedHead.principalType,
     input.expectedHead.principalId,
   );

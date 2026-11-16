@@ -1,11 +1,12 @@
 import {
   KeyingVerificationError,
+  type PrincipalPolicyCheckpoint,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { principalPolicyHeadMeetsCheckpoint } from "../../../data/keyingProjectionVerification";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import {
   type OrganizationAuthorityDescriptor,
@@ -55,7 +56,7 @@ type StoredPolicyBundle = Awaited<ReturnType<typeof loadPrincipalPolicyBundle>>;
 
 function bundleMeetingCheckpoint(
   bundle: StoredPolicyBundle,
-  checkpoint: Awaited<ReturnType<typeof loadPrincipalPolicyCheckpoint>>,
+  checkpoint: PrincipalPolicyCheckpoint | null,
 ): StoredPolicyBundle {
   return bundle &&
     principalPolicyHeadMeetsCheckpoint(bundle.currentState, checkpoint)
@@ -82,11 +83,9 @@ export function createPolicyDirectoryLoader(input: {
   const load = async (
     remote: boolean,
   ): Promise<VerifiedPolicyDirectory | null> => {
-    const checkpoint = await loadPrincipalPolicyCheckpoint(
+    const checkpoint = await new KeyingCheckpointRepository(
       input.execSql,
-      "organization",
-      input.organizationId,
-    );
+    ).loadPrincipalPolicyCheckpoint("organization", input.organizationId);
     let bundle = remote
       ? null
       : await loadPrincipalPolicyBundle(

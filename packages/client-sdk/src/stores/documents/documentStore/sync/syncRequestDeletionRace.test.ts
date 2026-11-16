@@ -12,8 +12,7 @@ import {
   defaultDocumentProjectorRegistry,
 } from "../../../../data/documents/documentKinds";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import { loadDocumentPurgeCheckpoint } from "../../../../data/persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
-import { advanceKeyingCheckpointsAtomically } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import {
   type ClientSQLitePersistenceRuntime,
@@ -178,7 +177,9 @@ test("an interrupted verified purge rolls back its checkpoint and local deletion
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     await sqlDocumentsPersistence.saveDocument(execSql, record);
-    await loadDocumentPurgeCheckpoint(execSql, record.documentId);
+    await new KeyingCheckpointRepository(execSql).loadDocumentPurgeCheckpoint(
+      record.documentId,
+    );
     const runtime = {
       infra: {
         documentProjectors: createDocumentProjectorRegistry([]),
@@ -203,10 +204,11 @@ test("an interrupted verified purge rolls back its checkpoint and local deletion
 
     let interrupt = true;
     const commitPurgeProof = async (transactionExecSql: typeof execSql) => {
-      await advanceKeyingCheckpointsAtomically({
+      await new KeyingCheckpointRepository(
+        transactionExecSql,
+      ).advanceKeyingCheckpointsAtomically({
         access: [],
         documentPurgeCheckpoint: checkpoint,
-        execSql: transactionExecSql,
         policies: [],
       });
       if (interrupt) throw new Error("simulated interruption");
@@ -225,7 +227,9 @@ test("an interrupted verified purge rolls back its checkpoint and local deletion
       await sqlDocumentsPersistence.loadDocument(execSql, record.id),
     ).not.toBeNull();
     expect(
-      await loadDocumentPurgeCheckpoint(execSql, record.documentId),
+      await new KeyingCheckpointRepository(execSql).loadDocumentPurgeCheckpoint(
+        record.documentId,
+      ),
     ).toBeNull();
     expect(state.doc).toBe(document);
 
@@ -241,7 +245,9 @@ test("an interrupted verified purge rolls back its checkpoint and local deletion
       await sqlDocumentsPersistence.loadDocument(execSql, record.id),
     ).toBeNull();
     expect(
-      await loadDocumentPurgeCheckpoint(execSql, record.documentId),
+      await new KeyingCheckpointRepository(execSql).loadDocumentPurgeCheckpoint(
+        record.documentId,
+      ),
     ).toEqual(checkpoint);
     expect(state.doc).toBeNull();
   } finally {

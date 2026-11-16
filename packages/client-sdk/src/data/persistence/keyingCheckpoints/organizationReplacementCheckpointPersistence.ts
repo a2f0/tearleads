@@ -4,10 +4,7 @@ import {
   type PrincipalPolicyCheckpoint,
   type VerifiedOrganizationReplacementAuthorization,
 } from "@tearleads/crypto";
-import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
-import { principalPolicyTables } from "../../sqlite/schema/principalPolicySchema";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { assertContainerNotRetired } from "../principalKeys/principalGrantRetirementPersistence";
 import {
   loadStoredAccessManifestCheckpoint,
@@ -22,12 +19,11 @@ import { recordPrincipalPolicyOrganizationInTransaction } from "./principalPolic
  * device's genesis. Seed first-sight pins before adopting its IDs; retain any
  * later observations rather than rolling them back to the provisioning epoch.
  */
-export async function persistOrganizationReplacementCheckpoints(input: {
-  readonly authorization: VerifiedOrganizationReplacementAuthorization;
-  readonly execSql: ExecSql;
-  readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<boolean> {
-  const authorization = input.authorization;
+export async function seedOrganizationReplacementCheckpointsInTransaction(
+  tx: ClientSQLiteTransactionScope,
+  authorization: VerifiedOrganizationReplacementAuthorization,
+  updatedAt: string,
+): Promise<void> {
   const organizationId = authorization.organizationId;
   const root: AccessManifestCheckpoint = {
     objectKind: "container",
@@ -56,49 +52,33 @@ export async function persistOrganizationReplacementCheckpoints(input: {
       stateHash: authorization.memberGroupStateHash,
     },
   ];
-  await ensureSqlTables(input.execSql, [
-    ...principalPolicyTables,
-    ...keyingCheckpointTables,
-  ]);
-  const runtime = getClientSQLitePersistenceRuntime(input.execSql);
-  const result = await runtime.guardedTransaction(
-    async (tx) => {
-      const updatedAt = new Date().toISOString();
-      await assertContainerNotRetired(tx, root);
-      const storedRoot = await loadStoredAccessManifestCheckpoint(tx, root);
-      if (
-        storedRoot?.epoch === 1 &&
-        storedRoot.manifestHash !== root.manifestHash
-      )
-        throw new KeyingVerificationError(
-          "equivocation",
-          "Replacement root conflicts with its local genesis checkpoint",
-        );
-      if (!storedRoot)
-        await upsertAccessManifestCheckpointInTransaction(tx, root, updatedAt);
-      for (const principal of principals) {
-        await recordPrincipalPolicyOrganizationInTransaction(tx, {
-          principalId: principal.principalId,
-          principalType: principal.principalType,
-          organizationId,
-        });
-        const stored = await loadStoredPrincipalPolicyCheckpoint(tx, principal);
-        if (stored?.version === 1 && stored.stateHash !== principal.stateHash)
-          throw new KeyingVerificationError(
-            "equivocation",
-            "Replacement policy conflicts with its local genesis checkpoint",
-          );
-        if (!stored)
-          await upsertPrincipalPolicyCheckpointInTransaction(
-            tx,
-            principal,
-            updatedAt,
-            organizationId,
-          );
-      }
-    },
-    input.stillCurrent ?? (() => true),
-    { behavior: "immediate" },
-  );
-  return result.committed;
+  await assertContainerNotRetired(tx, root);
+  const storedRoot = await loadStoredAccessManifestCheckpoint(tx, root);
+  if (storedRoot?.epoch === 1 && storedRoot.manifestHash !== root.manifestHash)
+    throw new KeyingVerificationError(
+      "equivocation",
+      "Replacement root conflicts with its local genesis checkpoint",
+    );
+  if (!storedRoot)
+    await upsertAccessManifestCheckpointInTransaction(tx, root, updatedAt);
+  for (const principal of principals) {
+    await recordPrincipalPolicyOrganizationInTransaction(tx, {
+      principalId: principal.principalId,
+      principalType: principal.principalType,
+      organizationId,
+    });
+    const stored = await loadStoredPrincipalPolicyCheckpoint(tx, principal);
+    if (stored?.version === 1 && stored.stateHash !== principal.stateHash)
+      throw new KeyingVerificationError(
+        "equivocation",
+        "Replacement policy conflicts with its local genesis checkpoint",
+      );
+    if (!stored)
+      await upsertPrincipalPolicyCheckpointInTransaction(
+        tx,
+        principal,
+        updatedAt,
+        organizationId,
+      );
+  }
 }

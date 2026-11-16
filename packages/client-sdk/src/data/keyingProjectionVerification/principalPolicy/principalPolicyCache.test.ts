@@ -13,8 +13,7 @@ import {
   referencedPrincipalStateFromPolicyState,
 } from "../../../../test/helpers/policyCacheFixtures";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
-import { advanceKeyingCheckpointsAtomically } from "../../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
@@ -251,8 +250,7 @@ test("filterUncachedPrincipalPolicyReferences accepts an in-memory chain extendi
       ],
     ]);
     await ensurePrincipalPolicyTables(execSql);
-    await loadPrincipalPolicyCheckpoint(
-      execSql,
+    await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
       previousState.principalType,
       previousState.principalId,
     );
@@ -295,8 +293,7 @@ test("filterUncachedPrincipalPolicyReferences rejects an in-memory chain that co
       ],
     ]);
     await ensurePrincipalPolicyTables(execSql);
-    await loadPrincipalPolicyCheckpoint(
-      execSql,
+    await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
       previousState.principalType,
       previousState.principalId,
     );
@@ -339,7 +336,10 @@ test("filterUncachedPrincipalPolicyReferences re-warms a cache behind the durabl
       "2026-04-08T00:00:00.000Z",
       "org-1",
     );
-    await loadPrincipalPolicyCheckpoint(execSql, "group", "group-1");
+    await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+      "group",
+      "group-1",
+    );
     await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
       "group",
       "group-1",
@@ -387,10 +387,11 @@ test("filterUncachedPrincipalPolicyReferences uses retained history ahead of the
       policy: retainedPolicy,
       updatedAt: "2026-04-08T00:01:00.000Z",
     });
-    await advanceKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      execSql,
+    ).advanceKeyingCheckpointsAtomically({
       organizationId: "org-1",
       access: [],
-      execSql,
       policies: [retainedPolicy],
     });
 

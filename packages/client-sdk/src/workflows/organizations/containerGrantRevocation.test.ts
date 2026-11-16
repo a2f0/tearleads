@@ -6,7 +6,7 @@ import {
   createParentProjection,
 } from "../../../test/helpers/containerFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
-import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { revokeOrganizationContainerGrant } from "./containerGrantRevocation";
 
 test("organization revocation cannot acknowledge or cascade after cancellation", async () => {
@@ -73,8 +73,9 @@ test("organization revocation cannot acknowledge or cascade after cancellation",
     ).rejects.toThrow("could not be revoked");
     expect(submitted).toBe(true);
     expect(recites).toBe(0);
-    const checkpoint = await loadAccessManifestCheckpoint(
+    const checkpoint = await new KeyingCheckpointRepository(
       database.execSql,
+    ).loadAccessManifestCheckpoint(
       "container",
       parent.author.organizationId,
       parent.projection.containerId,

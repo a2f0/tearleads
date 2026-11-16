@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeHistoricalPolicy";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { runWithSecurityIncidentReporting } from "../error";
 import {
   verifyDocumentPurgeProof,
@@ -16,11 +16,9 @@ test("an authenticated purge without a connection to a newer policy pin defers w
   if (!source) throw new Error("Missing source");
   const incidents: unknown[] = [];
   try {
-    await loadPrincipalPolicyCheckpoint(
+    await new KeyingCheckpointRepository(
       database.execSql,
-      "group",
-      source.head.principalId,
-    );
+    ).loadPrincipalPolicyCheckpoint("group", source.head.principalId);
     await database.execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
       "group",
       source.head.principalId,
@@ -56,11 +54,9 @@ test("an authenticated purge without a connection to a newer policy pin defers w
     ).rejects.toMatchObject({ name: "ProjectionDependencyUnavailableError" });
     expect(incidents).toEqual([]);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
-        "group",
-        source.head.principalId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("group", source.head.principalId),
     ).toMatchObject({ version: 2, stateHash: "f".repeat(64) });
   } finally {
     database.close();

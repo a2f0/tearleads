@@ -24,8 +24,7 @@ import {
   buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,
 } from "../../../workflows/documents/create";
-import { loadDocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
@@ -145,8 +144,7 @@ test("purge commit atomically pins first-seen policy snapshots", async () => {
 
     for (const policy of fixture.policies) {
       await expect(
-        loadPrincipalPolicyCheckpoint(
-          execSql,
+        new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
           policy.principalType,
           policy.principalId,
         ),
@@ -178,11 +176,9 @@ for (const supersededPath of [false, true]) {
       const verified = await verifyDocumentPurgeProof(verification);
       const raced = fixture.policies[0];
       if (!raced) throw new Error("Expected a purge policy snapshot");
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         execSql,
-        raced.principalType,
-        raced.principalId,
-      );
+      ).loadPrincipalPolicyCheckpoint(raced.principalType, raced.principalId);
       await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
         raced.principalType,
         raced.principalId,
@@ -223,8 +219,7 @@ for (const supersededPath of [false, true]) {
         code: "equivocation",
       });
       await expect(
-        loadDocumentPurgeCheckpoint(
-          execSql,
+        new KeyingCheckpointRepository(execSql).loadDocumentPurgeCheckpoint(
           fixture.writerProjection.documentId,
         ),
       ).resolves.toBeNull();

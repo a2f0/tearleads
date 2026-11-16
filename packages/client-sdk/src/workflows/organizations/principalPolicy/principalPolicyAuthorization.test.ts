@@ -23,7 +23,7 @@ import type {
   AddOrganizationGroupUserInput,
   RemoveOrganizationGroupUserInput,
 } from "../../../client/organizations";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import { addOrganizationGroupUser, removeOrganizationGroupUser } from "./index";
@@ -185,8 +185,9 @@ test("local admin projections cannot authorize a group membership mutation", asy
       beforeCommit: 0,
       organizationPolicy: 1,
     });
+    const checkpoints = new KeyingCheckpointRepository(execSql);
     await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "organization", organizationId),
+      checkpoints.loadPrincipalPolicyCheckpoint("organization", organizationId),
     ).resolves.toEqual({
       principalType: "organization",
       principalId: organizationId,
@@ -194,7 +195,7 @@ test("local admin projections cannot authorize a group membership mutation", asy
       stateHash: organizationPolicy.currentState.stateHash,
     });
     await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "group", adminGroupId),
+      checkpoints.loadPrincipalPolicyCheckpoint("group", adminGroupId),
     ).resolves.toEqual({
       principalType: "group",
       principalId: adminGroupId,

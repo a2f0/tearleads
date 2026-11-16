@@ -1,7 +1,18 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
-import { advanceLocallyAcknowledgedAccessManifestHeadsAtomically as advance } from "./locallyAcknowledgedCheckpointPersistence";
+import type { ExecSql } from "../../sqlite/sqlSchema";
+import { KeyingCheckpointRepository } from "./keyingCheckpointRepository";
+import type { LocallyAcknowledgedAdvance } from "./locallyAcknowledgedCheckpointPersistence";
+
+function advance({
+  execSql,
+  ...input
+}: LocallyAcknowledgedAdvance & { execSql: ExecSql }): Promise<boolean> {
+  return new KeyingCheckpointRepository(
+    execSql,
+  ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically(input);
+}
 
 test("expected policy guard keeps input order before a later malformed pin", async () => {
   const db = await createTestExecSql("acknowledged-policy-error-order");

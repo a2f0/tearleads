@@ -14,7 +14,7 @@ import {
   manifestBundle,
 } from "../../../../../test/helpers/ancestorCitationScenario";
 import { verifyDocumentWriterProjectionAuthorization } from "../../../keyingProjectionVerification";
-import { loadAccessManifestCheckpoint } from "../../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { documentWriteAuthorizationForHeader } from "./syncResponseAuthorization";
 
 test("a new-to-device document head and its historical write retain cited ancestor authority", async () => {
@@ -117,12 +117,9 @@ test("a new-to-device document head and its historical write retain cited ancest
     // delayed honest head from a server-assisted later forgery is #1555 scope.
     expect(
       (
-        await loadAccessManifestCheckpoint(
+        await new KeyingCheckpointRepository(
           database.execSql,
-          "document",
-          organizationId,
-          documentId,
-        )
+        ).loadAccessManifestCheckpoint("document", organizationId, documentId)
       )?.manifestHash,
     ).toBe(document.manifestHash);
     const authorization = await documentWriteAuthorizationForHeader({

@@ -7,7 +7,7 @@ import {
 import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
 import { signedPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyFixtures";
 import { trustedUserIdentityFromResponse } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
@@ -115,7 +115,9 @@ test.each([false, true])(
       expect(directoryReads).toBe(1);
       expect(incidents).toHaveLength(replay ? 1 : 0);
       expect(
-        await loadPrincipalPolicyCheckpoint(execSql, "organization", "org-1"),
+        await new KeyingCheckpointRepository(
+          execSql,
+        ).loadPrincipalPolicyCheckpoint("organization", "org-1"),
       ).toMatchObject({
         version: 2,
         stateHash: current.currentState.stateHash,

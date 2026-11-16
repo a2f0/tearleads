@@ -5,10 +5,8 @@ import type {
 } from "@tearleads/crypto";
 import type { DocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { validateAccessManifestCheckpointEvidence } from "../../persistence/keyingCheckpoints/keyingCheckpointEvidence";
-import {
-  accessManifestObjectKey,
-  loadAccessManifestCheckpoint,
-} from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { accessManifestObjectKey } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   PrincipalAuthorizationCheckpointUnavailableError,
   validatePrincipalAuthorizationCheckpoints,
@@ -44,8 +42,9 @@ async function currentContainerHeads(input: PurgeCheckpointInput) {
     const checkpoint = head.checkpoint;
     const local =
       checkpoint.objectKind === "container"
-        ? await loadAccessManifestCheckpoint(
+        ? await new KeyingCheckpointRepository(
             input.execSql,
+          ).loadAccessManifestCheckpoint(
             "container",
             checkpoint.organizationId,
             checkpoint.objectId,

@@ -3,8 +3,7 @@ import { currentPolicyPublicationFixture } from "../../../../test/helpers/curren
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { runWithSecurityIncidentReporting } from "../../../data/keyingProjectionVerification/error";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { PrincipalHistoryEvidenceUnavailableError } from "../../principals/historyRecovery/principalHistoryRecoveryReferences";
@@ -55,8 +54,9 @@ test.each([false, true])(
         ...reader.options,
         reference: principalPolicyHead(latest),
       });
-      await advanceKeyingCheckpointsAtomically({
-        execSql: f.options.execSql,
+      await new KeyingCheckpointRepository(
+        f.options.execSql,
+      ).advanceKeyingCheckpointsAtomically({
         organizationId: history.organizationId,
         access: [],
         policies: [...evidence.dependencies, evidence.policy],
@@ -100,11 +100,9 @@ test.each([false, true])(
         expect(incidents).toHaveLength(0);
       }
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           f.options.execSql,
-          "organization",
-          history.organizationId,
-        ),
+        ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
       ).toMatchObject({
         version: 68,
         stateHash: latest.currentState.stateHash,
