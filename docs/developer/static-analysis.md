@@ -24,18 +24,19 @@ names of the branches a push creates or updates, commit signatures and
 adds. It then runs the steps that the `pushGate` section of
 [`agent-tool.json`](../../agent-tool.json) declares, in order, stopping at the
 first failure: the quick static checks from `check:fast` (Biome formatting and
-lint, Knip, architecture, file names, skill placeholders, package assertions,
-canonical ordering, OpenAPI generation and compatibility, API migration
-history, formal maps, infrastructure parity, Ruby, ShellCheck, Markdown, and
-document links) and a source-shape check of each pushed range
+lint, the TypeScript check of [`scripts/`](../../scripts/) and root configs
+(`typecheck:tools`), Knip, architecture, file names, skill placeholders,
+package assertions, canonical ordering, OpenAPI generation and compatibility,
+API migration history, formal maps, infrastructure parity, Ruby, ShellCheck,
+Markdown, and document links) and a source-shape check of each pushed range
 ([`lintPushedSourceShape.ts`](../../scripts/checks/lintPushedSourceShape.ts),
 which reads the push data agent-tool gives each step). A step finishes in
 seconds without building anything; `bun run agent-tool push-gate check` fails
 on a step that reaches a test runner or a dependency install, and on a hook
-that differs from the canonical one. Tests, TypeScript (which needs a fresh SDK
-build), the SDK-backed promise lint, protocol models and projections, browser
-tests, and Terraform run in CI only. Every check the gate runs also runs in
-`check:fast`, which
+that differs from the canonical one. Tests, the workspace TypeScript build
+(which needs a fresh SDK build), the SDK-backed promise lint, protocol models
+and projections, browser tests, and Terraform run in CI only. Every check the
+gate runs also runs in `check:fast`, which
 [`pushGate.test.ts`](../../scripts/checks/staticAnalysis/pushGate.test.ts)
 asserts. Each push leaves a report with per-step durations in
 `bun run agent-tool runs list`, and the gate warns when it takes longer than

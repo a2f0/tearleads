@@ -35,6 +35,7 @@ esac
 `;
 
 function waitForCi(runIds: string, watchStatus: number) {
+  const { PATH = "" } = process.env;
   const directory = mkdtempSync(join(tmpdir(), "waitForCi-"));
   fixtures.push(directory);
   const bin = join(directory, "bin");
@@ -44,7 +45,7 @@ function waitForCi(runIds: string, watchStatus: number) {
   chmodSync(join(bin, "gh"), 0o755);
   const result = Bun.spawnSync(["sh", script, commit], {
     env: {
-      PATH: `${bin}:${process.env.PATH ?? ""}`,
+      PATH: `${bin}:${PATH}`,
       GITHUB_REPOSITORY: "owner/repo",
       GH_LOG: log,
       RUN_IDS: runIds,

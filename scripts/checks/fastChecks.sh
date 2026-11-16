@@ -19,6 +19,7 @@ run_model_check_inline() {
 run_fast_checks() {
   step_timings_run devkit bun run --cwd packages/app-electrobun prepare:devkit
   step_timings_run biome bun run lint:biome
+  step_timings_run typecheck-tools bun run typecheck:tools
   step_timings_run package-assertions bun run lint:package-assertions
   step_timings_run canonical-ordering bun run lint:canonical-ordering
   step_timings_run knip bun run lint:knip:all

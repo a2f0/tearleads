@@ -230,7 +230,9 @@ branch. To keep that loop short, check what you changed before pushing:
 
 - `bun tsc --build --pretty false` after any type or signature change, once the
   SDK is built (`build:packages`). It is **not** part of `check:fast` or the
-  push gate; `check:affected`, `check`, and CI's `Build and test` run it.
+  push gate, which type-check only [`scripts/`](../../scripts/) and root
+  configs (`typecheck:tools`); `check:affected`, `check`, and CI's
+  `Build and test` run it.
 - `bun run check:package <workspace>` for the packages you changed, and
   `bun run check:affected` before handing off a larger change.
 - `bun run lint:architecture` after adding or moving an `import`. A cycle is

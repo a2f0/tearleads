@@ -241,7 +241,7 @@ test("the required gate always evaluates all jobs and platform workflows are cal
   };
   expect(ci.on).toHaveProperty("pull_request");
   // Every merge to main runs CI, with no path filter, so a break shows there.
-  expect(ci.on.push).toEqual({ branches: ["main"] });
+  expect(ci.on).toHaveProperty("push", { branches: ["main"] });
   const { gate, build, test: suites, e2e, windows } = ci.jobs;
   expect(gate?.if).toBe("always()");
   expect(gate?.needs?.toSorted()).toEqual(Object.keys(successful()).toSorted());

@@ -127,6 +127,10 @@
       { "label": "markdown", "command": ["bun", "run", "lint:markdown"] },
       { "label": "biome", "command": ["bun", "run", "lint:biome:check"] },
       {
+        "label": "typecheck-tools",
+        "command": ["bun", "run", "typecheck:tools"]
+      },
+      {
         "label": "package-assertions",
         "command": ["bun", "run", "lint:package-assertions"]
       },
