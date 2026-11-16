@@ -45,6 +45,17 @@ and a nested document under the past version sees its own live state.
 - **One step per second.** A writer's edits within a second of each other
   share a step ([change times](../../../../../docs/document-rekey-and-audit-history.md#change-times)).
 
+## Who uploaded a change
+
+The timeline names the signed uploader of the selected change
+([`documentHistoryWriter`](documentHistoryWriter.ts)), resolved from the live
+document's edit-attribution segments by the change's exact operations. A
+change is credited only when its first and last operations were first
+delivered by an ordinary upload from one signing identity. Offline, unsynced,
+ambiguous, and rotation-baseline changes show no name. As everywhere else,
+this is the uploader, not proof of who typed the change, and the time beside it
+is the writing device's own.
+
 ## Restoring
 
 "Restore this version" renders under the live document's provider. It is

@@ -147,6 +147,12 @@ test(
       expect(explorerWindow.textContent).toContain("12 King Street");
       expect(explorerWindow.textContent).toContain("99 Queen Street");
     });
+    // Once the edits have synced, the change names its signed uploader.
+    await explorer.findByText(
+      new RegExp(`^${EXPLORER_LABELS.documentHistoryUploadedBy} `, "u"),
+      undefined,
+      { timeout: 15_000 },
+    );
     // A past version offers no way to edit it.
     expect(explorer.queryByRole("button", { name: "Edit" })).toBeNull();
     expect(explorer.queryByRole("button", { name: "Add address" })).toBeNull();
