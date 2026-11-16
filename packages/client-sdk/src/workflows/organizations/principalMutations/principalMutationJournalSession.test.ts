@@ -2,10 +2,7 @@ import { expect, test } from "bun:test";
 import type { RequestFailure } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { principalMutationJournalFixture } from "../../../../test/helpers/principalMutationJournalFixture";
-import {
-  claimPrincipalMutationJournal,
-  loadPrincipalMutationJournal,
-} from "../../../data/persistence/principalMutationJournalPersistence";
+import { PrincipalMutationJournalRepository } from "../../../data/persistence/principalMutationJournalPersistence";
 import {
   principalMutationJournalScopeId,
   sealPrincipalMutation,
@@ -71,7 +68,9 @@ test.each([
         await expect(pending).rejects.toBeInstanceOf(
           PrincipalMutationOutcomeUnknownError,
         );
-      const row = await loadPrincipalMutationJournal(sqlite.execSql, scopeId);
+      const row = await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).loadPrincipalMutationJournal(scopeId);
       if (retires) expect(row).toBeNull();
       else expect(row).not.toBeNull();
     } finally {
@@ -94,7 +93,9 @@ test("a lost acknowledgement retains the exact body for a fresh recovery context
       submissions += 1;
       // Persistence precedes network dispatch; transport owns a distinct copy.
       expect(
-        await loadPrincipalMutationJournal(sqlite.execSql, scopeId),
+        await new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).loadPrincipalMutationJournal(scopeId),
       ).not.toBeNull();
       expect(mutation).toEqual(authored);
       if (mutation.kind !== "compound")
@@ -113,7 +114,9 @@ test("a lost acknowledgement retains the exact body for a fresh recovery context
     ).rejects.toBeInstanceOf(PrincipalMutationOutcomeUnknownError);
     expect(submissions).toBe(1);
     expect(
-      await loadPrincipalMutationJournal(sqlite.execSql, scopeId),
+      await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).loadPrincipalMutationJournal(scopeId),
     ).not.toBeNull();
     const recovered = await recoverJournaledPrincipalMutation({
       ...context,
@@ -128,7 +131,9 @@ test("a lost acknowledgement retains the exact body for a fresh recovery context
     expect(recovered?.mutation).toEqual(authored);
     expect(submissions).toBe(2);
     expect(
-      await loadPrincipalMutationJournal(sqlite.execSql, scopeId),
+      await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).loadPrincipalMutationJournal(scopeId),
     ).toBeNull();
   } finally {
     sqlite.close();
@@ -142,8 +147,9 @@ test.each([403, 409, 503])(
     const sqlite = await createTestExecSql("journal-refused-recovery");
     const row = await sealPrincipalMutation(fixture);
     try {
-      await claimPrincipalMutationJournal({
-        execSql: sqlite.execSql,
+      await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).claimPrincipalMutationJournal({
         row,
         stillCurrent: () => true,
       });
@@ -161,7 +167,9 @@ test.each([403, 409, 503])(
         }),
       ).rejects.toBeInstanceOf(PrincipalMutationOutcomeUnknownError);
       expect(
-        await loadPrincipalMutationJournal(sqlite.execSql, row.scopeId),
+        await new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).loadPrincipalMutationJournal(row.scopeId),
       ).toEqual(row);
     } finally {
       sqlite.close();
@@ -194,7 +202,9 @@ test.each(["unknown", "refused", "malformed", "expired"] as const)(
       if (outcome === "refused") expect((await pending).ok).toBe(false);
       else await expect(pending).rejects.toThrow();
       expect(
-        await loadPrincipalMutationJournal(sqlite.execSql, scopeId),
+        await new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).loadPrincipalMutationJournal(scopeId),
       ).toEqual(outcome === "refused" ? null : expect.anything());
     } finally {
       sqlite.close();
@@ -208,8 +218,9 @@ test("an unresolved request prevents another submission before HTTP", async () =
   const row = await sealPrincipalMutation(fixture);
   let submissions = 0;
   try {
-    await claimPrincipalMutationJournal({
-      execSql: sqlite.execSql,
+    await new PrincipalMutationJournalRepository(
+      sqlite.execSql,
+    ).claimPrincipalMutationJournal({
       row,
       stillCurrent: () => true,
     });
@@ -226,7 +237,9 @@ test("an unresolved request prevents another submission before HTTP", async () =
     ).rejects.toThrow("Resolve the pending principal mutation");
     expect(submissions).toBe(0);
     expect(
-      await loadPrincipalMutationJournal(sqlite.execSql, row.scopeId),
+      await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).loadPrincipalMutationJournal(row.scopeId),
     ).toEqual(row);
   } finally {
     sqlite.close();
@@ -242,8 +255,9 @@ test.each([false, true])(
     const cause = new Error("transport threw after possible dispatch");
     try {
       if (recovering)
-        await claimPrincipalMutationJournal({
-          execSql: sqlite.execSql,
+        await new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).claimPrincipalMutationJournal({
           row,
           stillCurrent: () => true,
         });
@@ -263,7 +277,9 @@ test.each([false, true])(
       );
       await expect(pending).rejects.toMatchObject({ cause });
       expect(
-        await loadPrincipalMutationJournal(sqlite.execSql, row.scopeId),
+        await new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).loadPrincipalMutationJournal(row.scopeId),
       ).not.toBeNull();
     } finally {
       sqlite.close();

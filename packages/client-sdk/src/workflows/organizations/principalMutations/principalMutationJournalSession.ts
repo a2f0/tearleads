@@ -2,9 +2,7 @@ import type { RequestResult } from "@tearleads/api-client";
 import type { SigningKeyPair } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import {
-  claimPrincipalMutationJournal,
-  clearPrincipalMutationJournal,
-  loadPrincipalMutationJournal,
+  PrincipalMutationJournalRepository,
   type PrincipalMutationJournalRow,
 } from "../../../data/persistence/principalMutationJournalPersistence";
 import {
@@ -83,8 +81,9 @@ async function submitSavedMutation(
     // an earlier disconnected attempt committed. Preserve the original intent.
     throw new PrincipalMutationOutcomeUnknownError();
   }
-  await clearPrincipalMutationJournal({
-    execSql: input.execSql,
+  await new PrincipalMutationJournalRepository(
+    input.execSql,
+  ).clearPrincipalMutationJournal({
     row,
     stillCurrent: input.stillCurrent,
   });
@@ -103,8 +102,9 @@ export async function submitJournaledPrincipalMutation(
   ).runJournalOperation(input.scope, async () => {
     assertProjectionVerificationCurrent(input.stillCurrent);
     const row = await sealPrincipalMutation(input);
-    await claimPrincipalMutationJournal({
-      execSql: input.execSql,
+    await new PrincipalMutationJournalRepository(
+      input.execSql,
+    ).claimPrincipalMutationJournal({
       row,
       stillCurrent: input.stillCurrent,
     });
@@ -123,8 +123,9 @@ export async function recoverJournaledPrincipalMutation(
     input.execSql,
   ).runJournalOperation(input.scope, async () => {
     assertProjectionVerificationCurrent(input.stillCurrent);
-    const row = await loadPrincipalMutationJournal(
+    const row = await new PrincipalMutationJournalRepository(
       input.execSql,
+    ).loadPrincipalMutationJournal(
       await principalMutationJournalScopeId(input.scope),
     );
     assertProjectionVerificationCurrent(input.stillCurrent);

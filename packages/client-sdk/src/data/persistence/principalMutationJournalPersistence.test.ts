@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
-  claimPrincipalMutationJournal,
-  clearPrincipalMutationJournal,
-  loadPrincipalMutationJournal,
   PendingPrincipalMutationError,
+  PrincipalMutationJournalRepository,
   type PrincipalMutationJournalRow,
 } from "./principalMutationJournalPersistence";
 
@@ -19,12 +17,14 @@ function row(request: string): PrincipalMutationJournalRow {
 
 test("concurrent authors leave one exact request and cannot replace it", async () => {
   const sqlite = await createTestExecSql("principal-journal-concurrent");
-  const shared = { execSql: sqlite.execSql, stillCurrent: () => true };
+  const shared = { stillCurrent: () => true };
   try {
     const candidates = [row("first"), row("second")];
     const results = await Promise.allSettled(
       candidates.map((candidate) =>
-        claimPrincipalMutationJournal({ ...shared, row: candidate }),
+        new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).claimPrincipalMutationJournal({ ...shared, row: candidate }),
       ),
     );
     expect(
@@ -37,15 +37,21 @@ test("concurrent authors leave one exact request and cannot replace it", async (
     const winner =
       candidates[results.findIndex((result) => result.status === "fulfilled")];
     if (!winner) throw new Error("Expected one journal winner");
-    expect(await loadPrincipalMutationJournal(sqlite.execSql, "scope")).toEqual(
-      winner,
-    );
+    expect(
+      await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).loadPrincipalMutationJournal("scope"),
+    ).toEqual(winner);
     await expect(
-      claimPrincipalMutationJournal({ ...shared, row: row("third") }),
+      new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).claimPrincipalMutationJournal({ ...shared, row: row("third") }),
     ).rejects.toBeInstanceOf(PendingPrincipalMutationError);
-    expect(await loadPrincipalMutationJournal(sqlite.execSql, "scope")).toEqual(
-      winner,
-    );
+    expect(
+      await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).loadPrincipalMutationJournal("scope"),
+    ).toEqual(winner);
   } finally {
     sqlite.close();
   }
@@ -53,24 +59,38 @@ test("concurrent authors leave one exact request and cannot replace it", async (
 
 test("a stale acknowledgement cannot clear a newer operation", async () => {
   const sqlite = await createTestExecSql("principal-journal-clear");
-  const shared = { execSql: sqlite.execSql, stillCurrent: () => true };
+  const shared = { stillCurrent: () => true };
   try {
     const previous = row("first");
     const current = row("second");
-    await claimPrincipalMutationJournal({ ...shared, row: previous });
-    await clearPrincipalMutationJournal({ ...shared, row: previous });
-    await claimPrincipalMutationJournal({ ...shared, row: current });
+    await new PrincipalMutationJournalRepository(
+      sqlite.execSql,
+    ).claimPrincipalMutationJournal({ ...shared, row: previous });
+    await new PrincipalMutationJournalRepository(
+      sqlite.execSql,
+    ).clearPrincipalMutationJournal({ ...shared, row: previous });
+    await new PrincipalMutationJournalRepository(
+      sqlite.execSql,
+    ).claimPrincipalMutationJournal({ ...shared, row: current });
     expect(
-      await clearPrincipalMutationJournal({ ...shared, row: previous }),
+      await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).clearPrincipalMutationJournal({ ...shared, row: previous }),
     ).toBe(false);
-    expect(await loadPrincipalMutationJournal(sqlite.execSql, "scope")).toEqual(
-      current,
-    );
     expect(
-      await clearPrincipalMutationJournal({ ...shared, row: current }),
+      await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).loadPrincipalMutationJournal("scope"),
+    ).toEqual(current);
+    expect(
+      await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).clearPrincipalMutationJournal({ ...shared, row: current }),
     ).toBe(true);
     expect(
-      await loadPrincipalMutationJournal(sqlite.execSql, "scope"),
+      await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).loadPrincipalMutationJournal("scope"),
     ).toBeNull();
   } finally {
     sqlite.close();
@@ -84,24 +104,23 @@ test.each(["claim", "clear"] as const)(
     const candidate = row("first");
     try {
       if (operation === "clear")
-        await claimPrincipalMutationJournal({
-          execSql: sqlite.execSql,
+        await new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).claimPrincipalMutationJournal({
           row: candidate,
           stillCurrent: () => true,
         });
-      const mutate =
-        operation === "claim"
-          ? claimPrincipalMutationJournal
-          : clearPrincipalMutationJournal;
+      const journal = new PrincipalMutationJournalRepository(sqlite.execSql);
+      const input = { row: candidate, stillCurrent: () => false };
       await expect(
-        mutate({
-          execSql: sqlite.execSql,
-          row: candidate,
-          stillCurrent: () => false,
-        }),
+        operation === "claim"
+          ? journal.claimPrincipalMutationJournal(input)
+          : journal.clearPrincipalMutationJournal(input),
       ).rejects.toThrow();
       expect(
-        await loadPrincipalMutationJournal(sqlite.execSql, "scope"),
+        await new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).loadPrincipalMutationJournal("scope"),
       ).toEqual(operation === "claim" ? null : candidate);
     } finally {
       sqlite.close();

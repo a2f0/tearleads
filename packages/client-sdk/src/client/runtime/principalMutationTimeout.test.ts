@@ -4,7 +4,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { quietLogger } from "../../../test/helpers/clientTestSupport";
 import { principalMutationJournalFixture } from "../../../test/helpers/principalMutationJournalFixture";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
-import { claimPrincipalMutationJournal } from "../../data/persistence/principalMutationJournalPersistence";
+import { PrincipalMutationJournalRepository } from "../../data/persistence/principalMutationJournalPersistence";
 import { sealPrincipalMutation } from "../../data/principals/principalMutationJournal";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { Tearleads } from "../../Tearleads";
@@ -50,8 +50,9 @@ test("a host can recover a slow exact request after increasing its deadline", as
   });
   const clients: Tearleads[] = [];
   try {
-    await claimPrincipalMutationJournal({
-      execSql: sqlite.execSql,
+    await new PrincipalMutationJournalRepository(
+      sqlite.execSql,
+    ).claimPrincipalMutationJournal({
       row: await sealPrincipalMutation({
         ...fixture,
         scope: { ...fixture.scope, identityTrustDomain: server.url.origin },

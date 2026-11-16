@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { principalMutationJournalFixture } from "../../../../test/helpers/principalMutationJournalFixture";
-import { loadPrincipalMutationJournal } from "../../../data/persistence/principalMutationJournalPersistence";
+import { PrincipalMutationJournalRepository } from "../../../data/persistence/principalMutationJournalPersistence";
 import {
   type AuthoredPrincipalMutation,
   principalMutationJournalScopeId,
@@ -62,13 +62,17 @@ test.each([
         "Principal mutation receipt operation or target differs",
       );
       const scopeId = await principalMutationJournalScopeId(fixture.scope);
-      const saved = await loadPrincipalMutationJournal(sqlite.execSql, scopeId);
+      const saved = await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).loadPrincipalMutationJournal(scopeId);
       expect(saved).not.toBeNull();
       await expect(recoverJournaledPrincipalMutation(context)).rejects.toThrow(
         "Principal mutation receipt operation or target differs",
       );
       expect(
-        await loadPrincipalMutationJournal(sqlite.execSql, scopeId),
+        await new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).loadPrincipalMutationJournal(scopeId),
       ).toEqual(saved);
     } finally {
       sqlite.close();

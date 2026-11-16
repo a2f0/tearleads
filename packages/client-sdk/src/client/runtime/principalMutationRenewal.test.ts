@@ -7,7 +7,7 @@ import { quietLogger } from "../../../test/helpers/clientTestSupport";
 import { principalMutationJournalFixture } from "../../../test/helpers/principalMutationJournalFixture";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { loadPrincipalMutationJournal } from "../../data/persistence/principalMutationJournalPersistence";
+import { PrincipalMutationJournalRepository } from "../../data/persistence/principalMutationJournalPersistence";
 import { principalMutationJournalScopeId } from "../../data/principals/principalMutationJournal";
 import { Tearleads } from "../../Tearleads";
 import { createRuntime } from "./workflowRuntime";
@@ -115,8 +115,9 @@ test.each([
         )
         .catch((error: unknown) => error);
       expect(renewals).toBe(1);
-      const row = await loadPrincipalMutationJournal(
+      const row = await new PrincipalMutationJournalRepository(
         sqlite.execSql,
+      ).loadPrincipalMutationJournal(
         await principalMutationJournalScopeId({
           ...fixture.scope,
           identityTrustDomain: origin,
