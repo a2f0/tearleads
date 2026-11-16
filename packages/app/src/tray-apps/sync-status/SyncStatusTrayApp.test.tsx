@@ -1,4 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
+import { Menu } from "@tearleads/windowing";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import {
   SyncStatusIndicatorView,
@@ -91,6 +92,36 @@ test("reflects the expanded state and calls onToggle when clicked", () => {
   expect(button.getAttribute("aria-expanded")).toBe("true");
   fireEvent.click(button);
   expect(onToggle).toHaveBeenCalledTimes(1);
+});
+
+test("an open popover stays open on a click of its trigger but closes on a right-click, so the tray menu replaces it", () => {
+  const onClose = mock(() => {});
+  const { getByRole } = render(
+    <>
+      <SyncStatusIndicatorView
+        expanded={true}
+        onToggle={noop}
+        status="synced"
+        title="All changes synced"
+      />
+      <Menu onClose={onClose} position={{ x: 0, y: 0 }}>
+        <SyncStatusPopover
+          billingBlocked={false}
+          showWriteQueueLink={false}
+          onOpenBilling={noop}
+          onOpenWriteQueue={noop}
+          title="All changes synced"
+        />
+      </Menu>
+    </>,
+  );
+  const trigger = getByRole("button", { name: "All changes synced" });
+
+  fireEvent.mouseDown(trigger, { button: 0 });
+  expect(onClose).not.toHaveBeenCalled();
+
+  fireEvent.mouseDown(trigger, { button: 2 });
+  expect(onClose).toHaveBeenCalledTimes(1);
 });
 
 test("popover shows the status detail and no link when nothing is unflushed", () => {

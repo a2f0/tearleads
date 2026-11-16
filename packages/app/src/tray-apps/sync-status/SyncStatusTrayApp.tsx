@@ -17,13 +17,18 @@ const OPEN_WRITE_QUEUE_LABEL = "View write queue";
 // lapsed org is reached.
 const OPEN_BILLING_LABEL = "Update billing";
 
-// Applied only while this popover is open: keep the trigger's own mousedown from
-// reaching Menu's document-level outside-click handler, so clicking the button
-// closes the popover via onClick instead of closing-then-reopening. While it is
-// closed the mousedown must propagate normally, so clicking the indicator still
-// dismisses any other open menu (the footer menu, the other pane's popover).
+// Applied only while this popover is open: keep the trigger's own primary
+// mousedown from reaching Menu's document-level outside-click handler, so
+// clicking the button closes the popover via onClick instead of
+// closing-then-reopening. Any other button still propagates, so a right-click
+// dismisses the popover before the tray's context menu opens in its place.
+// While it is closed the mousedown must propagate normally, so clicking the
+// indicator still dismisses any other open menu (the footer menu, the other
+// pane's popover).
 function stopTriggerMouseDown(event: MouseEvent<HTMLButtonElement>) {
-  event.stopPropagation();
+  if (event.button === 0) {
+    event.stopPropagation();
+  }
 }
 
 // The clickable trigger — a props-only button so its states render and assert
