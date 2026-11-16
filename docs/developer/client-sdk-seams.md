@@ -37,6 +37,7 @@ reference.
 | Blob attachment I/O | `BlobAttachmentService` (`runtime.blobAttachments`) | One per documents runtime, built by `createDocumentsWorkflowRuntime` | Constructed over a fake API in tests |
 | Keying checkpoint storage | `KeyingCheckpointRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Principal history storage | `PrincipalHistoryRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Trusted identity pin storage | `TrustedUserIdentityPinRepository(execSql)` | Built from the caller's executor at each call | None |
 
 ## Where code goes
 

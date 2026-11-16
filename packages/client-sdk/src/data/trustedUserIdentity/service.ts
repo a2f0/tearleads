@@ -3,13 +3,10 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   TrustedUserIdentityPinCorruptError,
   TrustedUserIdentityPinMismatchError,
-} from "../persistence/identity/trustedUserIdentityPinModel";
-import { loadTrustedUserIdForSigningKey } from "../persistence/identity/trustedUserIdentitySigningKeyBinding";
-import {
-  compareOrInsertTrustedUserIdentityPins,
   type TrustedUserIdentityPinProvenance,
-} from "../persistence/trustedUserIdentityPinPersistence";
-import { TrustedUserIdentityPinContentionError } from "../persistence/trustedUserIdentityPinTransaction";
+} from "../persistence/identity/trustedUserIdentityPinModel";
+import { TrustedUserIdentityPinRepository } from "../persistence/identity/trustedUserIdentityPinRepository";
+import { TrustedUserIdentityPinContentionError } from "../persistence/identity/trustedUserIdentityPinTransaction";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "./admission";
@@ -99,9 +96,10 @@ async function compareWithDurablePins(input: {
 }): Promise<void> {
   const userIds = input.identities.map((identity) => identity.userId);
   try {
-    await compareOrInsertTrustedUserIdentityPins({
+    await new TrustedUserIdentityPinRepository(
+      input.execSql,
+    ).compareOrInsertTrustedUserIdentityPins({
       assertCurrent: input.assertCurrent,
-      execSql: input.execSql,
       pins: input.identities.map((identity) =>
         durablePin(identity, input.provenance, input.firstSeenAt),
       ),
@@ -219,6 +217,20 @@ async function pinIdentity(input: {
     provenance: input.provenance,
   });
   return brandTrustedUserIdentity(input.identity);
+}
+
+/** The user this trust store already binds to a signing key, if any. */
+async function boundUserId(
+  dependencies: TrustedUserIdentityServiceDependencies,
+  signingKeyFingerprint: string,
+): Promise<string | null> {
+  const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
+  return new TrustedUserIdentityPinRepository(
+    execSql,
+  ).loadTrustedUserIdForSigningKey({
+    identityTrustDomain,
+    signingKeyFingerprint,
+  });
 }
 
 /** Compares an independently received link before pinning it as `link`. */
@@ -355,14 +367,8 @@ export function createTrustedUserIdentityService(
       return identity ? createIdentityLink(identity, appUrl) : null;
     },
     verifyLink: (link) => verifyIdentityLink(dependencies, link),
-    async boundUserId(signingKeyFingerprint) {
-      const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
-      return loadTrustedUserIdForSigningKey({
-        execSql,
-        identityTrustDomain,
-        signingKeyFingerprint,
-      });
-    },
+    boundUserId: (signingKeyFingerprint) =>
+      boundUserId(dependencies, signingKeyFingerprint),
     async pinLocal(userId, candidate) {
       assertTrustedUserIdentityUserId(userId);
       const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
