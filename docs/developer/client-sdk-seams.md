@@ -36,6 +36,7 @@ reference.
 | Identity change preparation | `IdentityChangePreparation` | `Blobs` prepares a store and returns a commit that only assigns state | No-op preparation in identity/session tests |
 | Blob attachment I/O | `BlobAttachmentService` (`runtime.blobAttachments`) | One per documents runtime, built by `createDocumentsWorkflowRuntime` | Constructed over a fake API in tests |
 | Keying checkpoint storage | `KeyingCheckpointRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Organization provisioning attempts | `OrganizationProvisioningAttemptRepository(execSql, now)` | Built from the caller's executor at each call | None |
 
 ## Where code goes
 
@@ -260,14 +261,15 @@ is the first.
   subsystem's contracts, as
   [`collaborators.ts`](../../packages/client-sdk/src/data/blobs/attachments/collaborators.ts)
   does, not on the class, so the modules never import the class back.
-- **Repositories.** A repository is a class binding an executor and clock,
-  not an interface.
+- **Repositories.** A repository is a class binding an executor, and a clock
+  when its writes stamp time, not an interface.
   [`KeyingCheckpointRepository`](../../packages/client-sdk/src/data/persistence/keyingCheckpoints/keyingCheckpointRepository.ts)
-  is the first: each method ensures its tables and runs its own immediate
-  transaction, and its transaction bodies stay `*InTransaction(tx, …)` steps
-  that take the locked handle per call, so a caller already inside a
-  transaction composes them instead. Callers build a repository from the
-  executor they hold, at the point they read it. Keep
+  is the first: each method ensures its tables and keeps the transaction shape
+  of the function it replaced (deferred, immediate, or guarded), its methods
+  keep those functions' names, and its transaction bodies stay
+  `*InTransaction(tx, …)` steps that take the locked handle per call, so a
+  caller already inside a transaction composes them instead. Callers build a
+  repository from the executor they hold, at the point they read it. Keep
   `resolveCanonicalExecSql` keying for any state. A subsystem that owns no
   tables, like Client Blob Storage, has no repository.
 - **What stays a function.** Pure functions stay functions: verifiers,
