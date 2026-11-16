@@ -1,29 +1,43 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { useMemo } from "react";
+import { getLocalStorage } from "../../utils/storedPreference";
 import {
   type LocalCryptoSessionPersistence,
   useLocalCryptoSessionPersistence,
-} from "../providers/crypto/localCryptoSessionPersistence";
-import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
+} from "../crypto/localCryptoSessionPersistence";
+import { useAppHostConfig } from "../host/AppHostConfigProvider";
+import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import {
   decryptLocalIdentityPayload,
   encryptLocalIdentityPayload,
-} from "../providers/identity/localIdentityPackageCrypto";
-import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
-import {
-  normalizeAccountName,
-  type PersistedAccountNaming,
-} from "./accountNamingMachine";
+} from "./localIdentityPackageCrypto";
 
-// An identity's naming, sealed like its persisted crypto session: encrypted
-// under the local keyring and stored per identity, so a restart between the
-// prompt and the first registration neither drops the answer nor skips the
-// question. The record goes once the account exists.
+// An identity's account naming, sealed like its persisted crypto session:
+// encrypted under the local keyring and stored per identity, so a restart
+// between the first-launch prompt and a saved name neither drops the answer
+// nor skips the question. Removed once the name is saved, or with the
+// identity.
 
 const ACCOUNT_NAMING_FORMAT = "tearleads.app.account-naming";
 const ACCOUNT_NAMING_STORAGE_PREFIX = "tearleads.account-naming:";
 
+/** The part of an identity's naming that outlives the page. */
+export type PersistedAccountNaming =
+  | { readonly status: "awaiting" }
+  | { readonly name: string; readonly status: "named" };
+
 export type AccountNamingPersistence = LocalCryptoSessionPersistence;
+
+// Bumped by every removal, so a seal still encrypting when its identity is
+// removed never writes the record back.
+const removals = new Map<string, number>();
+
+function accountNamingStorageKey(
+  namespace: string,
+  signingFingerprint: string,
+): string {
+  return `${ACCOUNT_NAMING_STORAGE_PREFIX}${namespace}:${signingFingerprint}`;
+}
 
 /** Null while the keyring is locked or the host keeps no local identities. */
 export function useAccountNamingPersistence(
@@ -43,7 +57,7 @@ export function useAccountNamingPersistence(
       sessionPersistence && namespace && signingFingerprint
         ? {
             ...sessionPersistence,
-            storageKey: `${ACCOUNT_NAMING_STORAGE_PREFIX}${namespace}:${signingFingerprint}`,
+            storageKey: accountNamingStorageKey(namespace, signingFingerprint),
           }
         : null,
     [namespace, sessionPersistence, signingFingerprint],
@@ -67,10 +81,8 @@ function readPersistedAccountNaming(
     return { status };
   }
   const name = Reflect.get(payload, "name");
-  const normalized =
-    typeof name === "string" ? normalizeAccountName(name) : null;
-  return status === "named" && normalized !== null
-    ? { name: normalized, status }
+  return status === "named" && typeof name === "string" && name.trim()
+    ? { name, status }
     : null;
 }
 
@@ -111,24 +123,53 @@ export async function savePersistedAccountNaming(
   signingFingerprint: string,
   naming: PersistedAccountNaming,
 ): Promise<void> {
+  const removal = removals.get(persistence.storageKey) ?? 0;
   // The identity's own record may not have created the keyring session yet.
   const session = await persistence.keyring.getOrCreateSession(
     persistence.scope,
   );
   try {
-    persistence.storage.setItem(
-      persistence.storageKey,
-      await encryptLocalIdentityPayload({
-        identityPersistenceKey: session.identityPersistenceKey,
-        payload: {
-          ...naming,
-          format: ACCOUNT_NAMING_FORMAT,
-          signingFingerprint,
-          version: 1,
-        },
-      }),
-    );
+    const serializedEnvelope = await encryptLocalIdentityPayload({
+      identityPersistenceKey: session.identityPersistenceKey,
+      payload: {
+        ...naming,
+        format: ACCOUNT_NAMING_FORMAT,
+        signingFingerprint,
+        version: 1,
+      },
+    });
+    if ((removals.get(persistence.storageKey) ?? 0) === removal) {
+      persistence.storage.setItem(persistence.storageKey, serializedEnvelope);
+    }
   } finally {
     session.dispose();
+  }
+}
+
+function removeAccountNaming(
+  storage: Pick<Storage, "removeItem">,
+  storageKey: string,
+): void {
+  removals.set(storageKey, (removals.get(storageKey) ?? 0) + 1);
+  storage.removeItem(storageKey);
+}
+
+export function removePersistedAccountNaming(
+  persistence: AccountNamingPersistence,
+): void {
+  removeAccountNaming(persistence.storage, persistence.storageKey);
+}
+
+/** Drops a removed identity's naming, and any seal of it still in flight. */
+export function clearPersistedAccountNamingForIdentity(input: {
+  readonly namespace: string | null;
+  readonly signingFingerprint: string;
+}): void {
+  const storage = input.namespace ? getLocalStorage() : null;
+  if (input.namespace && storage) {
+    removeAccountNaming(
+      storage,
+      accountNamingStorageKey(input.namespace, input.signingFingerprint),
+    );
   }
 }

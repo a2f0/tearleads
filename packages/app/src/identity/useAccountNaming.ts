@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
+import {
+  type AccountNamingPersistence,
+  loadPersistedAccountNaming,
+  type PersistedAccountNaming,
+  removePersistedAccountNaming,
+  savePersistedAccountNaming,
+  useAccountNamingPersistence,
+} from "../providers/identity/accountNamingPersistence";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLog } from "../providers/logging/LogProvider";
 import {
   ACCOUNT_NAMING_IDLE,
   type AccountNamingState,
   accountNamingFor,
-  type PersistedAccountNaming,
   sealedAccountNaming,
   transitionAccountNaming,
 } from "./accountNamingMachine";
-import {
-  type AccountNamingPersistence,
-  loadPersistedAccountNaming,
-  savePersistedAccountNaming,
-  useAccountNamingPersistence,
-} from "./accountNamingPersistence";
 
 export interface AccountNaming {
   /** The naming state of the current identity. */
@@ -102,7 +103,7 @@ function useSealedAccountNaming(
     }
     const write =
       sealed === null
-        ? async () => persistence.storage.removeItem(persistence.storageKey)
+        ? async () => removePersistedAccountNaming(persistence)
         : () =>
             savePersistedAccountNaming(persistence, signingFingerprint, sealed);
     writes.current = writes.current.then(write).catch((error: unknown) => {

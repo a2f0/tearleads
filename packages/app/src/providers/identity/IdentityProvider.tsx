@@ -21,6 +21,7 @@ import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
+import { clearPersistedAccountNamingForIdentity } from "./accountNamingPersistence";
 import { useGenerateKey } from "./localIdentityGeneration";
 import {
   useLocalIdentityPersistence,
@@ -163,11 +164,16 @@ function useIdentityProviderActions(input: IdentityProviderActionsInput) {
     generationInFlight,
     localPersistence,
     onIdentitiesChanged,
-    onIdentityRemoved: (signingFingerprint) =>
+    onIdentityRemoved: (signingFingerprint) => {
       clearPersistedCryptoSessionForIdentity({
         namespace: localIdentityNamespace,
         signingFingerprint,
-      }),
+      });
+      clearPersistedAccountNamingForIdentity({
+        namespace: localIdentityNamespace,
+        signingFingerprint,
+      });
+    },
     tearleads,
   });
 

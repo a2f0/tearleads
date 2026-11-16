@@ -1,3 +1,5 @@
+import type { PersistedAccountNaming } from "../providers/identity/accountNamingPersistence";
+
 /**
  * Naming the identity the boot-time autopilot generated. Its first
  * registration waits for the user to say what to call them; the name titles
@@ -24,11 +26,6 @@ export type AccountNamingState =
       readonly name: string;
       readonly status: "named";
     };
-
-/** The part of an identity's naming that outlives the page. */
-export type PersistedAccountNaming =
-  | { readonly status: "awaiting" }
-  | { readonly name: string; readonly status: "named" };
 
 export type AccountNamingEvent =
   | { readonly fingerprint: string; readonly type: "identity-generated" }
