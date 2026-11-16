@@ -1,6 +1,8 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { useLongPress } from "./useLongPress";
+
+afterEach(cleanup);
 
 function TouchTarget({
   enabled,
@@ -71,47 +73,79 @@ test("a touch long-press opens the context menu and swallows the synthesized cli
 });
 
 function WrappedControl({
-  dispatchOnPressedElement,
+  emulateRightClick,
   events,
+  iconKey = "icon",
 }: {
-  dispatchOnPressedElement: boolean;
+  emulateRightClick: boolean;
   events: string[];
+  iconKey?: string;
 }) {
-  const longPress = useLongPress(true, { dispatchOnPressedElement });
+  const longPress = useLongPress(true, { emulateRightClick });
   return (
     <ul>
       <li {...longPress} onContextMenu={() => events.push("wrapper")}>
         <button onContextMenu={() => events.push("control")} type="button">
-          control
+          <span key={iconKey}>{iconKey}</span>
         </button>
       </li>
     </ul>
   );
 }
 
-test("dispatchOnPressedElement lets the pressed control see the long press before its wrapper", async () => {
-  for (const [dispatchOnPressedElement, expected] of [
+test("emulateRightClick presses outside open menus, then lets the pressed control see the long press first", async () => {
+  for (const [emulateRightClick, expected] of [
     [false, ["wrapper"]],
-    [true, ["control", "wrapper"]],
+    [true, ["mousedown:2", "control", "wrapper"]],
   ] as const) {
     const events: string[] = [];
-    const view = render(
-      <WrappedControl
-        dispatchOnPressedElement={dispatchOnPressedElement}
-        events={events}
-      />,
-    );
-    fireEvent.pointerDown(view.getByRole("button", { name: "control" }), {
-      pointerType: "touch",
-      clientX: 5,
-      clientY: 5,
-    });
-    await wait(PAST_LONG_PRESS_MS);
+    const onMouseDown = (event: MouseEvent) =>
+      events.push(`mousedown:${event.button}`);
+    document.addEventListener("mousedown", onMouseDown);
+    try {
+      const view = render(
+        <WrappedControl
+          emulateRightClick={emulateRightClick}
+          events={events}
+        />,
+      );
+      fireEvent.pointerDown(view.getByText("icon"), {
+        pointerType: "touch",
+        clientX: 5,
+        clientY: 5,
+      });
+      await wait(PAST_LONG_PRESS_MS);
 
-    expect(events).toEqual([...expected]);
-    view.unmount();
-    cleanup();
+      expect(events).toEqual([...expected]);
+    } finally {
+      document.removeEventListener("mousedown", onMouseDown);
+      cleanup();
+    }
   }
+});
+
+test("emulateRightClick delivers to the element now under the finger when the pressed one is replaced mid-hold", async () => {
+  const events: string[] = [];
+  const view = render(<WrappedControl emulateRightClick events={events} />);
+  fireEvent.pointerDown(view.getByText("icon"), {
+    pointerType: "touch",
+    clientX: 5,
+    clientY: 5,
+  });
+  view.rerender(
+    <WrappedControl emulateRightClick events={events} iconKey="redrawn" />,
+  );
+  const elementFromPoint = document.elementFromPoint;
+  document.elementFromPoint = () => view.getByText("redrawn");
+  try {
+    await wait(PAST_LONG_PRESS_MS);
+  } finally {
+    document.elementFromPoint = elementFromPoint;
+  }
+
+  expect(events).toEqual(["control", "wrapper"]);
+  view.unmount();
+  cleanup();
 });
 
 test("a normal tap (no long hold) clicks without opening a context menu", async () => {

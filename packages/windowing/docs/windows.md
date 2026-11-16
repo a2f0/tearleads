@@ -78,9 +78,11 @@ but inert to a click: right-click, the context-menu key, or a touch long press
 opens a menu offering Cancel Refresh. `useLongPress` is the touch half of that
 gesture, exported for any element whose `onContextMenu` opens a menu. It
 dispatches `contextmenu` on the element holding its handlers; pass
-`{ dispatchOnPressedElement: true }` to dispatch on the element the finger
-pressed, as a right-click targets the element under the pointer, so a control
-inside the wrapper sees the gesture first.
+`{ emulateRightClick: true }` to deliver it as a mouse right-click arrives: a
+secondary-button `mousedown`, then `contextmenu`, on the element the finger
+pressed (or, if a re-render replaced it, the one now under the finger). Open
+menus then close as on any press outside them, and a control inside the
+wrapper sees the gesture first. The system tray uses it.
 
 Windows with an `appId` reserve the toolbar and offer route-history Back.
 With `historyBack={false}`, the row appears when actions register, then stays.

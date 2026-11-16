@@ -6,9 +6,10 @@ import {
   render,
   within,
 } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { createPortal } from "react-dom";
 import { DisplayProperties } from "../display/DisplayProperties";
+import { Menu } from "../menu/Menu";
 import { SystemTray, type SystemTrayMenuItem } from "./SystemTray";
 import { SystemTrayProvider, useSystemTray } from "./SystemTrayProvider";
 import type { SystemTrayDefinition } from "./systemTrayDefinition";
@@ -208,6 +209,57 @@ test("a right-click or long press in an app's portaled popover opens no tray men
     clientY: 10,
   });
   expect(view.getByRole("button", { name: "Disable Status" })).toBeDefined();
+});
+
+// A tray app with a real popover: a windowing Menu that closes on an outside
+// press, as the Sync Status popover does.
+function StatusPopoverApp() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(true)} type="button">
+        Status
+      </button>
+      {open && (
+        <Menu onClose={() => setOpen(false)} position={{ x: 0, y: 0 }}>
+          <p>Status detail</p>
+        </Menu>
+      )}
+    </>
+  );
+}
+
+const TWO_APP_TRAY: SystemTrayDefinition<"status" | "volume"> = {
+  apps: {
+    status: { component: StatusPopoverApp, title: "Status" },
+    volume: { component: VolumeApp, title: "Volume" },
+  },
+  order: ["status", "volume"],
+};
+
+test("a long press on one app closes another app's open popover before the tray menu opens", async () => {
+  const view = render(
+    <SystemTrayProvider definition={TWO_APP_TRAY} storageKey={TRAY_KEY}>
+      <SystemTray />
+    </SystemTrayProvider>,
+  );
+  const menuTexts = () =>
+    Array.from(document.querySelectorAll(".menu"), (menu) => menu.textContent);
+
+  fireEvent.click(view.getByRole("button", { name: "Status" }));
+  expect(menuTexts()).toEqual(["Status detail"]);
+
+  fireEvent.pointerDown(view.getByRole("button", { name: "Volume" }), {
+    clientX: 10,
+    clientY: 10,
+    pointerType: "touch",
+  });
+  await act(async () => {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    setTimeout(resolve, 550);
+    await promise;
+  });
+  expect(menuTexts()).toEqual(["Disable Volume"]);
 });
 
 test("renders nothing without a provider, and Display Properties leaves out the section", () => {

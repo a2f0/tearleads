@@ -20,19 +20,66 @@ interface LongPressHandlers {
 
 interface LongPressOptions {
   /**
-   * Dispatch on the element the finger pressed, as a right-click targets the
-   * element under the pointer, rather than on the element holding these
-   * handlers. A control inside a wrapper then sees the event first and can
-   * react (closing its own popover) before it bubbles to the wrapper's menu.
+   * Deliver the gesture as a mouse right-click arrives: a secondary-button
+   * `mousedown`, then `contextmenu`, on the element the finger pressed rather
+   * than the element holding these handlers. Open menus then close as they do
+   * on any press outside them, and a control inside a wrapper sees the event
+   * first, before it bubbles to the wrapper's menu. If the pressed element
+   * left the page during the hold (an icon redrawn for a new state), the
+   * element now under the finger receives both, or else the holder.
    */
-  dispatchOnPressedElement?: boolean | undefined;
+  emulateRightClick?: boolean | undefined;
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+// The element to deliver to: the pressed element, else (when a re-render
+// replaced it) the one now under the finger inside the holder, else the
+// holder; null when even the holder has left the page.
+function resolvePressedElement(
+  pressed: Element | null,
+  holder: HTMLElement,
+  point: Point,
+): Element | null {
+  if (pressed?.isConnected) {
+    return pressed;
+  }
+  const underFinger = pressed
+    ? holder.ownerDocument.elementFromPoint(point.x, point.y)
+    : null;
+  if (underFinger && holder.contains(underFinger)) {
+    return underFinger;
+  }
+  return holder.isConnected ? holder : null;
+}
+
+function deliverLongPress(
+  element: Element,
+  point: Point,
+  emulateRightClick: boolean,
+): void {
+  const init = {
+    bubbles: true,
+    cancelable: true,
+    clientX: point.x,
+    clientY: point.y,
+  };
+  if (emulateRightClick) {
+    element.dispatchEvent(
+      new MouseEvent("mousedown", { ...init, button: 2, buttons: 2 }),
+    );
+  }
+  element.dispatchEvent(new MouseEvent("contextmenu", init));
 }
 
 /**
  * Returns pointer handlers that, when a **touch** pointer is held still for
  * {@link LONG_PRESS_DELAY_MS}, dispatch a native `contextmenu` event on the
- * element holding them (or, with `dispatchOnPressedElement`, the element the
- * finger pressed) at the touch point.
+ * element holding them at the touch point (or, with `emulateRightClick`, a
+ * right-click's `mousedown` and `contextmenu` on the pressed element).
  *
  * Dispatching the real event (rather than calling a handler directly) means the
  * element's existing `onContextMenu` — the same one a right-click triggers —
@@ -53,7 +100,7 @@ export function useLongPress(
   enabled: boolean,
   options?: LongPressOptions,
 ): LongPressHandlers {
-  const dispatchOnPressedElement = options?.dispatchOnPressedElement === true;
+  const emulateRightClick = options?.emulateRightClick === true;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const originRef = useRef<{ x: number; y: number } | null>(null);
   const removeClickSuppressorRef = useRef<(() => void) | null>(null);
@@ -111,27 +158,23 @@ export function useLongPress(
       }
 
       clearTimer();
-      originRef.current = { x: event.clientX, y: event.clientY };
-      const element =
-        dispatchOnPressedElement && event.target instanceof Element
+      const point = { x: event.clientX, y: event.clientY };
+      originRef.current = point;
+      const holder = event.currentTarget;
+      const pressed =
+        emulateRightClick && event.target instanceof Element
           ? event.target
-          : event.currentTarget;
-      const clientX = event.clientX;
-      const clientY = event.clientY;
+          : null;
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
-        armClickSuppressor();
-        element.dispatchEvent(
-          new MouseEvent("contextmenu", {
-            bubbles: true,
-            cancelable: true,
-            clientX,
-            clientY,
-          }),
-        );
+        const element = resolvePressedElement(pressed, holder, point);
+        if (element) {
+          armClickSuppressor();
+          deliverLongPress(element, point, emulateRightClick);
+        }
       }, LONG_PRESS_DELAY_MS);
     },
-    [armClickSuppressor, clearTimer, dispatchOnPressedElement, enabled],
+    [armClickSuppressor, clearTimer, emulateRightClick, enabled],
   );
 
   const onPointerMove = useCallback(

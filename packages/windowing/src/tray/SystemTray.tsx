@@ -44,9 +44,10 @@ export function SystemTray({ menuItems = NO_MENU_ITEMS }: SystemTrayProps) {
   const tray = useOptionalSystemTray();
   const { closeContextMenu, contextMenu, openContextMenu } =
     useContextMenuState();
-  // A long press reaches the pressed control first, as a right-click does, so
-  // the app can close its own popover before the tray's menu opens.
-  const longPress = useLongPress(true, { dispatchOnPressedElement: true });
+  // A long press arrives as a right-click would: other open menus close on
+  // its press, and the pressed control sees it first, so an app can close its
+  // own popover before the tray's menu opens.
+  const longPress = useLongPress(true, { emulateRightClick: true });
   if (!tray) {
     return null;
   }
