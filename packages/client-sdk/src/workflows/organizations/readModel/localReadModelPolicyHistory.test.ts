@@ -10,14 +10,13 @@ import {
   organizationReadModelUserId,
 } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
 import { applyOrganizationReadModelResponse } from "../../../data/persistence/organizations/organizationReadModelPersistence";
-import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildOrganizationPolicyHistory } from "../policyHistory/policyHistoryReadModel";
 import {
   loadLocalOrganizationPolicyHistory,
   loadLocalOrganizationPolicyReference,
 } from "./localReadModelDetails";
 
-const CREATED_AT = "2026-07-17T12:00:00.000Z";
 const ORGANIZATION_ID = organizationPrincipalPolicy.currentState.principalId;
 
 function policySnapshot(
@@ -60,12 +59,9 @@ test("local organization policy history is bound to the projected verified head"
         response: initial,
       }),
     ).resolves.toBe("applied");
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      CREATED_AT,
-      ORGANIZATION_ID,
-    );
+    ).savePrincipalPolicyBundle(bundle, ORGANIZATION_ID);
 
     const common = {
       currentUserId: organizationReadModelUserId,

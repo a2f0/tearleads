@@ -2,10 +2,8 @@ import { type RecipientEntry, unwrapDek } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type { PrincipalMemberEnvelopeResponse } from "@tearleads/validators/response";
 import type { SerializedKeyEnvelope } from "@tearleads/validators/util";
-import {
-  loadPrincipalKeyEnvelopeCandidates,
-  type PrincipalKeyEnvelopeCandidate,
-} from "../persistence/principalKeys/principalKeyEnvelopeCandidates";
+import type { PrincipalKeyEnvelopeCandidate } from "../persistence/principalKeys/principalKeyEnvelopeCandidates";
+import { PrincipalPolicyBundleRepository } from "../persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
 interface PrincipalPolicyResolutionContext {
@@ -48,10 +46,9 @@ async function createPrincipalPolicyResolutionContext(
   execSql: ExecSql,
   fingerprints: readonly string[],
 ): Promise<PrincipalPolicyResolutionContext> {
-  const bundles = await loadPrincipalKeyEnvelopeCandidates(
+  const bundles = await new PrincipalPolicyBundleRepository(
     execSql,
-    fingerprints,
-  );
+  ).loadPrincipalKeyEnvelopeCandidates(fingerprints);
   const bundlesByKeyFingerprint = new Map<
     string,
     PrincipalKeyEnvelopeCandidate[]

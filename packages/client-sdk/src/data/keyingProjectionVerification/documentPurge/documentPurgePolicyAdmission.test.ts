@@ -5,7 +5,7 @@ import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrinc
 import { recoverPublicPrincipalHistory } from "../../../workflows/principals/publicHistory/recoverPublicPrincipalHistory";
 import { selectPublicPrincipalHistory } from "../../../workflows/principals/publicHistory/selectPublicPrincipalHistory";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { ensurePrincipalPolicyTables } from "../../persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { admitDocumentPurgePolicyCheckpoints } from "./documentPurgePolicyCheckpoints";
 
@@ -40,7 +40,9 @@ for (const existing of [false, true]) {
           reference.principalId,
         ),
       ).toBeNull();
-      await ensurePrincipalPolicyTables(fixture.options.execSql);
+      await new PrincipalPolicyBundleRepository(
+        fixture.options.execSql,
+      ).ensurePrincipalPolicyTables();
       const runtime = getClientSQLitePersistenceRuntime(
         fixture.options.execSql,
       );
