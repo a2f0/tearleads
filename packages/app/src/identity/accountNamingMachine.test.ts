@@ -97,3 +97,31 @@ test("switching to another identity leaves nothing to name", () => {
   expect(accountNamingFor(awaiting, "fp-restored")).toBe(ACCOUNT_NAMING_IDLE);
   expect(accountNamingFor(awaiting, null)).toBe(ACCOUNT_NAMING_IDLE);
 });
+
+test("a sealed naming fills in a restarted identity, never one this page named", () => {
+  expect(
+    run([
+      {
+        fingerprint: "fp-new",
+        naming: { name: "Bob", status: "named" },
+        type: "restored",
+      },
+    ]),
+  ).toEqual({
+    contactNamed: false,
+    fingerprint: "fp-new",
+    name: "Bob",
+    status: "named",
+  });
+  const named = run([
+    generated,
+    { fingerprint: "fp-new", name: "Alice", type: "name-submitted" },
+  ]);
+  expect(
+    transitionAccountNaming(named, {
+      fingerprint: "fp-new",
+      naming: { status: "awaiting" },
+      type: "restored",
+    }),
+  ).toBe(named);
+});

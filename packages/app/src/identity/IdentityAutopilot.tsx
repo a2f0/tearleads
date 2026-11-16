@@ -61,6 +61,7 @@ function useAutoProvisionIdentity(enabled: boolean): {
     registration: useAutoRegisterIdentity(enabled, {
       generation,
       naming: naming.state,
+      namingSettled: naming.settled,
     }),
   };
 }
@@ -151,6 +152,7 @@ function useAutoRegisterIdentity(
   pending: {
     readonly generation: AutoProvisioningStep;
     readonly naming: AccountNamingState;
+    readonly namingSettled: boolean;
   },
 ): AutoProvisioningStep {
   const { features } = useAppHostConfig().profile;
@@ -178,10 +180,12 @@ function useAutoRegisterIdentity(
     organizationProfileName,
     registerCurrentIdentity,
   };
-  // A key the autopilot is still installing may yet need a name, and a name
-  // still owed holds the identity's first registration.
+  // A key the autopilot is still installing may yet need a name, a name given
+  // before a restart may still be on its way back, and a name still owed
+  // holds the identity's first registration.
   const awaitingInput =
     pending.generation.status === "running" ||
+    !pending.namingSettled ||
     pending.naming.status === "awaiting";
 
   useEffect(() => {
