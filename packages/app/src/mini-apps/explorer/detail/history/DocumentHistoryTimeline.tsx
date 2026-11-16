@@ -52,6 +52,8 @@ export function DocumentHistoryTimeline(params: {
   playing: boolean;
   selectedIndex: number;
   stopCount: number;
+  /** Who uploaded the selected change, when that is known. */
+  writer?: ReactNode;
 }) {
   const last = params.stopCount - 1;
   const atFirst = params.selectedIndex <= 0;
@@ -123,6 +125,7 @@ export function DocumentHistoryTimeline(params: {
       </div>
       <p className="explorer-document-history-caption">
         <strong>{params.changeTime}</strong>
+        {params.writer}
         {/* Keeps its line while a stop replays, so the document never jumps. */}
         <span>{params.changeSummary?.join(" · ") ?? " "}</span>
       </p>

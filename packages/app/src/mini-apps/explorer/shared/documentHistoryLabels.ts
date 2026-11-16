@@ -42,6 +42,7 @@ export const EXPLORER_DOCUMENT_HISTORY_LABELS = {
   documentHistoryTextReplaced: "Replaced",
   documentHistoryTextReplacedWith: "with",
   documentHistoryTimeUnknown: "Time not recorded",
+  documentHistoryUploadedBy: "Uploaded by",
   documentHistoryUnavailable:
     "This document has no history on this device yet.",
 } as const;
