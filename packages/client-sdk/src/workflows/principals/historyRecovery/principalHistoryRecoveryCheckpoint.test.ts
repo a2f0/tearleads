@@ -5,7 +5,7 @@ import {
 } from "../../../../test/helpers/principalHistoryRecovery";
 import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
@@ -99,8 +99,9 @@ test.each([false, true])(
     const fixture = await createRecoveryFixture(history);
     try {
       if (cached) await recoverPrincipalPolicyHistory(fixture.options);
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         fixture.options.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         history.expectedHead.principalId,
       );
@@ -124,11 +125,9 @@ test.each([false, true])(
         recoverPrincipalPolicyHistory(fixture.options),
       ).rejects.toMatchObject({ code: "stale_predecessor" });
       expect(
-        await loadPrincipalPolicyCheckpoint(
+        await new KeyingCheckpointRepository(
           fixture.options.execSql,
-          "group",
-          state.principalId,
-        ),
+        ).loadPrincipalPolicyCheckpoint("group", state.principalId),
       ).toEqual(checkpoint);
     } finally {
       fixture.close();

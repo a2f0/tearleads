@@ -17,7 +17,7 @@ import {
   type PrincipalPolicyCache,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   loadOrganizationFounder,
   rememberOrganizationFounder,
@@ -34,8 +34,9 @@ beforeAll(async () => {
 async function fixture() {
   const source = await createAuthorityRecoveryFixture(history);
   // Initialize checkpoint tables even when recovery refuses before any local read.
-  await loadPrincipalPolicyCheckpoint(
+  await new KeyingCheckpointRepository(
     source.options.execSql,
+  ).loadPrincipalPolicyCheckpoint(
     "group",
     history.group.currentState.principalId,
   );

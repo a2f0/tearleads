@@ -5,7 +5,7 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
 import { retainVerifiedPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence";
 import {
@@ -63,11 +63,9 @@ async function loadDirectoryGroupBundle(
   input: DirectoryGroupWalkInput,
   head: DirectoryGroupHead,
 ) {
-  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+  const localCheckpoint = await new KeyingCheckpointRepository(
     input.execSql,
-    "group",
-    head.principalId,
-  );
+  ).loadPrincipalPolicyCheckpoint("group", head.principalId);
   const cached = await loadPrincipalPolicyBundleForReference(
     input.execSql,
     head,

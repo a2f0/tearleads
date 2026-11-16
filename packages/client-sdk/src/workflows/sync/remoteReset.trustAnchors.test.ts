@@ -6,11 +6,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { advanceKeyingCheckpointsAtomically } from "../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
-import {
-  loadAccessManifestCheckpoint,
-  loadPrincipalPolicyCheckpoint,
-} from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { clearRemoteSyncState } from "./remoteReset";
 
 const OLD_ORG = "old-organization";
@@ -65,8 +61,9 @@ for (const attack of ["rollback", "equivocation"] as const) {
       const { close, execSql } = await createTestExecSql("reset-access-pins");
       const head = accessEvidence(objectKind, OLD_ORG, 2, ORIGINAL);
       const advance = (candidate: AnyVerifiedAccessManifest) =>
-        advanceKeyingCheckpointsAtomically({
+        new KeyingCheckpointRepository(
           execSql,
+        ).advanceKeyingCheckpointsAtomically({
           policies: [],
           access: [{ head: candidate, predecessors: [] }],
         });
@@ -98,12 +95,9 @@ for (const attack of ["rollback", "equivocation"] as const) {
           ),
         ).rejects.toMatchObject({ code: attack });
         expect(
-          await loadAccessManifestCheckpoint(
+          await new KeyingCheckpointRepository(
             execSql,
-            objectKind,
-            OLD_ORG,
-            "same-object-id",
-          ),
+          ).loadAccessManifestCheckpoint(objectKind, OLD_ORG, "same-object-id"),
         ).toEqual(head.checkpoint);
 
         // A fresh organization has a distinct checkpoint namespace even when
@@ -111,12 +105,9 @@ for (const attack of ["rollback", "equivocation"] as const) {
         const replacement = accessEvidence(objectKind, NEW_ORG, 1, FORK);
         await advance(replacement);
         expect(
-          await loadAccessManifestCheckpoint(
+          await new KeyingCheckpointRepository(
             execSql,
-            objectKind,
-            NEW_ORG,
-            "same-object-id",
-          ),
+          ).loadAccessManifestCheckpoint(objectKind, NEW_ORG, "same-object-id"),
         ).toEqual(replacement.checkpoint);
       } finally {
         close();
@@ -130,8 +121,9 @@ for (const attack of ["rollback", "equivocation"] as const) {
       const { close, execSql } = await createTestExecSql("reset-policy-pins");
       const head = policyEvidence(principalType, 2, ORIGINAL);
       const advance = (candidate: VerifiedPrincipalPolicy) =>
-        advanceKeyingCheckpointsAtomically({
+        new KeyingCheckpointRepository(
           execSql,
+        ).advanceKeyingCheckpointsAtomically({
           organizationId: OLD_ORG,
           policies: [candidate],
           access: [],
@@ -156,11 +148,9 @@ for (const attack of ["rollback", "equivocation"] as const) {
           ),
         ).rejects.toMatchObject({ code: attack });
         expect(
-          await loadPrincipalPolicyCheckpoint(
+          await new KeyingCheckpointRepository(
             execSql,
-            principalType,
-            head.principalId,
-          ),
+          ).loadPrincipalPolicyCheckpoint(principalType, head.principalId),
         ).toEqual(head.checkpoint);
       } finally {
         close();

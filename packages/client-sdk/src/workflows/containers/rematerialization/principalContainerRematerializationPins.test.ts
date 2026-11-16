@@ -4,7 +4,7 @@ import {
   createPrincipalReciteFixture,
   ROOT_CONTAINER_ID,
 } from "../../../../test/helpers/principalReciteFixtures";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { buildMaterializedContainerCreatePlan } from "../child/create";
 import { childContainerWriterProjectionFromCreatePlan } from "../child/create/createProjection";
 import { buildMaterializedContainerRekeyPlan } from "../child/rekey";
@@ -116,12 +116,9 @@ test.each([
       const childHash = child.path.at(-1)?.manifestHash;
       if (!childHash) throw new Error("Expected child manifest");
       const checkpoint = (id: string) =>
-        loadAccessManifestCheckpoint(
+        new KeyingCheckpointRepository(
           fixture.database.execSql,
-          "container",
-          parent.organizationId,
-          id,
-        );
+        ).loadAccessManifestCheckpoint("container", parent.organizationId, id);
       expect(await checkpoint(child.containerId)).toBeNull();
       const pins = () =>
         Promise.all([

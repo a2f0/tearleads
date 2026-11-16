@@ -4,7 +4,7 @@ import {
   type VerifiedAccessManifestCheckpointEvidence,
   verifyAccessManifestLocalCheckpoint,
 } from "@tearleads/crypto";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 
 /**
@@ -26,8 +26,9 @@ async function loadLocalAccessManifestCheckpoint(input: {
   ]);
   const cached = input.localCheckpoints.get(key);
   if (cached !== undefined) return cached;
-  const loaded = await loadAccessManifestCheckpoint(
+  const loaded = await new KeyingCheckpointRepository(
     input.execSql,
+  ).loadAccessManifestCheckpoint(
     input.objectKind,
     input.organizationId,
     input.objectId,

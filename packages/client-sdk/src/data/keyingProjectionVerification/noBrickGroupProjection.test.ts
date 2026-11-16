@@ -10,7 +10,7 @@ import {
   manifestBundle,
 } from "../../../test/helpers/ancestorCitationScenario";
 import { createGroupHistoricalSignerScenario } from "../../../test/helpers/groupHistoricalSignerScenario";
-import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createProjectionCheckpointContext } from "./checkpoints/checkpointContext";
 import { verifyContainerManifestPath } from "./container/containerPathVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "./principalPolicy/principalPolicyCache";
@@ -45,7 +45,9 @@ test("a cold device accepts a child signed by a since-removed group admin", asyn
       verifiedByHash,
     } satisfies Parameters<typeof verifyContainerManifestPath>[0];
     const path = await verifyContainerManifestPath(verificationInput);
-    await advanceKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      execSql,
+    ).advanceKeyingCheckpointsAtomically({
       access: path.map((head) => ({
         head,
         predecessors: [...verifiedByHash.values()]
@@ -56,7 +58,6 @@ test("a cold device accepts a child signed by a since-removed group admin", asyn
           )
           .sort((left, right) => left.state.epoch - right.state.epoch),
       })),
-      execSql,
       policies: [],
     });
     recorder.record({

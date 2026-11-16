@@ -7,10 +7,8 @@ import {
   accessManifestObjectKey,
   loadStoredAccessManifestCheckpoint,
 } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import {
-  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
-  type LocallyAcknowledgedAccessManifestHead,
-} from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import type { LocallyAcknowledgedAccessManifestHead } from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { assertContainerNotRetired } from "../../data/persistence/principalKeys/principalGrantRetirementPersistence";
 import { keyingCheckpointTables } from "../../data/sqlite/schema/keyingCheckpointSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
@@ -70,8 +68,9 @@ export async function seedRegistrationAccessHeads(input: {
           pending.push(head);
         }
       }
-      await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-        execSql: input.execSql,
+      await new KeyingCheckpointRepository(
+        input.execSql,
+      ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
         heads: pending,
       });
     },

@@ -8,7 +8,7 @@ import {
 import { createResponseFromRequest } from "../../../../../test/helpers/documentFixtures";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import {
@@ -107,8 +107,7 @@ for (const signedSlot of [null, SIGNED_SLOT]) {
       }
       // Nothing was acknowledged, so no local record can carry the foreign slot.
       await expect(
-        loadAccessManifestCheckpoint(
-          execSql,
+        new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
           "container",
           parent.projection.organizationId,
           containerId,

@@ -15,7 +15,7 @@ import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancest
 import { createRecipientIdentityResolver } from "../../../../../test/helpers/containerFixtures";
 import { createContainerServer } from "../../../../../test/helpers/containerMutationServer";
 import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { rekeyRemoteContainer } from "../rekey/rekeyRemote";
 import { revokeRemoteContainer } from "../revoke";
 import { shareRemoteContainer } from "../share";
@@ -261,8 +261,9 @@ test.each(["submission", "planning"] as const)(
       expect(child?.containerKeks.at(-1)?.parentContainerKeyEpochId).toBe(
         revoked?.plan.containerKeyEpochId,
       );
-      const pinned = await loadAccessManifestCheckpoint(
+      const pinned = await new KeyingCheckpointRepository(
         database.execSql,
+      ).loadAccessManifestCheckpoint(
         "container",
         input.author.organizationId,
         "child",

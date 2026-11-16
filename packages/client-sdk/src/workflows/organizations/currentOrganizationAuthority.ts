@@ -4,7 +4,7 @@ import {
 } from "@tearleads/crypto";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
-import { validateKeyingCheckpointsAtomically } from "../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { assertCurrentMatchesVerifiedPolicy } from "../../data/persistence/principalPolicy/verifiedPrincipalPolicyCurrent";
 import {
   parseOrganizationAuthorityDescriptor,
@@ -73,9 +73,10 @@ export async function loadCurrentOrganizationAuthority(
     input.stillCurrent() && directory.stillCurrent() && admins.stillCurrent();
   const validate = async (value: ResolvedPrincipalPolicyCurrent) => {
     assertProjectionVerificationCurrent(stillCurrent);
-    await validateKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      input.execSql,
+    ).validateKeyingCheckpointsAtomically({
       access: [],
-      execSql: input.execSql,
       policies: [...value.dependencies, value.policy],
       stillCurrent: () => stillCurrent() && value.stillCurrent(),
     });

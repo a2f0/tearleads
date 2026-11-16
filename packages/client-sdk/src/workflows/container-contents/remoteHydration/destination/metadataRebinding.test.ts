@@ -5,7 +5,7 @@ import {
   installForeignOrganizationBinding,
   installOrganizationBinding,
 } from "../../../../../test/helpers/containerMetadataBinding";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { clientSqlTables } from "../../../../data/sqlite/schema";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../../../data/sqlite/sqlTableSchema";
@@ -24,8 +24,7 @@ function readCheckpoints(
   return Promise.all(
     [fixture.projection.organizationId, "foreign-organization"].map(
       (organizationId) =>
-        loadAccessManifestCheckpoint(
-          execSql,
+        new KeyingCheckpointRepository(execSql).loadAccessManifestCheckpoint(
           "container",
           organizationId,
           fixture.listed.id,

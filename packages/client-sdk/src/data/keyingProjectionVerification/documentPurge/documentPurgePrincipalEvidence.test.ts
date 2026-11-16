@@ -5,7 +5,7 @@ import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { projectionPolicySource } from "../../../../test/helpers/projectionPolicyHistory";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
 test("purge rejects unrelated policy evidence before consulting its checkpoint", async () => {
@@ -21,8 +21,7 @@ test("purge rejects unrelated policy evidence before consulting its checkpoint",
   );
   const unrelatedState = policyFixture.admin.currentState;
   try {
-    await loadPrincipalPolicyCheckpoint(
-      execSql,
+    await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
       unrelatedState.principalType,
       unrelatedState.principalId,
     );

@@ -5,7 +5,7 @@ import {
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { requireOrganizationGroupHead } from "../../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
@@ -41,9 +41,10 @@ export async function loadCurrentGroupPolicyMutationContext(input: {
     currentOrgAdminUserIds,
     input.signerUserId,
   );
-  await advanceKeyingCheckpointsAtomically({
+  await new KeyingCheckpointRepository(
+    input.execSql,
+  ).advanceKeyingCheckpointsAtomically({
     access: [],
-    execSql: input.execSql,
     organizationId: input.organizationId,
     policies: [...group.dependencies, group.policy],
     stillCurrent,

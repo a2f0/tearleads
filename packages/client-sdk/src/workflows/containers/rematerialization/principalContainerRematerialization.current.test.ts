@@ -10,7 +10,7 @@ import {
   createPrincipalReciteFixture,
   ROOT_CONTAINER_ID,
 } from "../../../../test/helpers/principalReciteFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { resolveCurrentGroupMutationReferences } from "../../organizations/principalMutations/currentGroupMutationReferences";
 import { buildPrincipalContainerRematerializationBatch } from "./principalContainerRematerialization";
 
@@ -108,11 +108,9 @@ test("rematerialization selects an older citation without admitting the authored
       "container.rekey",
     ]);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         f.input.execSql,
-        "group",
-        f.input.groupId,
-      ),
+      ).loadPrincipalPolicyCheckpoint("group", f.input.groupId),
     ).toMatchObject({ version: 1 });
   } finally {
     f.database.close();

@@ -13,7 +13,7 @@ import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalGrantRetirements } from "../../data/sqlite/schema/principalGrantRetirementSchema";
 import { createCurrentPrincipalMutation } from "./currentPrincipalMutations";
 
@@ -199,7 +199,9 @@ test("built-in current mutation adds then removes an Admin with only paged reads
       ["organization", history.organizationId, 68],
     ] as const)
       expect(
-        await loadPrincipalPolicyCheckpoint(f.options.execSql, kind, id),
+        await new KeyingCheckpointRepository(
+          f.options.execSql,
+        ).loadPrincipalPolicyCheckpoint(kind, id),
       ).toMatchObject({ version });
   } finally {
     f.close();
@@ -227,7 +229,9 @@ test.each(["corruptReceipt", "expireOnReceipt"] as const)(
         ["organization", history.organizationId, 66],
       ] as const)
         expect(
-          await loadPrincipalPolicyCheckpoint(f.options.execSql, kind, id),
+          await new KeyingCheckpointRepository(
+            f.options.execSql,
+          ).loadPrincipalPolicyCheckpoint(kind, id),
         ).toMatchObject({ version });
       expect(f.state.fullReads).toBe(0);
     } finally {

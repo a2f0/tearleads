@@ -3,8 +3,7 @@ import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import { createClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { SqlArrayRow, SqlRow } from "../../sqlite/sqlSchema";
-import { loadDocumentPurgeCheckpoint } from "../keyingCheckpoints/documentPurgeCheckpointPersistence";
-import { advanceKeyingCheckpointsAtomically } from "../keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
 async function openCoordinatedDocumentConnections() {
@@ -196,7 +195,9 @@ test("discovery cannot recreate a document after its purge checkpoint commits", 
       async (transactionExecSql) => {
         signalPurgeLocked();
         await purgeReleased;
-        await advanceKeyingCheckpointsAtomically({
+        await new KeyingCheckpointRepository(
+          transactionExecSql,
+        ).advanceKeyingCheckpointsAtomically({
           access: [],
           documentPurgeCheckpoint: {
             documentId,
@@ -204,7 +205,6 @@ test("discovery cannot recreate a document after its purge checkpoint commits", 
             organizationId: "organization",
             purgeEventHash: "purge-event-hash",
           },
-          execSql: transactionExecSql,
           policies: [],
         });
       },
@@ -233,7 +233,9 @@ test("discovery cannot recreate a document after its purge checkpoint commits", 
       status: "rejected",
     });
     await expect(
-      loadDocumentPurgeCheckpoint(race.second.execSql, documentId),
+      new KeyingCheckpointRepository(
+        race.second.execSql,
+      ).loadDocumentPurgeCheckpoint(documentId),
     ).resolves.toMatchObject({ documentId });
     await expect(
       sqlDocumentsPersistence.loadDocument(

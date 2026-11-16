@@ -13,10 +13,8 @@ import {
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../../keying/canonicalJson";
-import {
-  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
-  type LocallyAcknowledgedAccessManifestHead,
-} from "../../persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import type { LocallyAcknowledgedAccessManifestHead } from "../../persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 
 export interface AuthoredContainerMutationHead {
@@ -180,8 +178,9 @@ export async function acknowledgeContainerMutation(input: {
   readonly response: ContainerMutationResponse;
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<boolean> {
-  return advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-    execSql: input.execSql,
+  return new KeyingCheckpointRepository(
+    input.execSql,
+  ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
     heads: [
       await locallyAcknowledgedContainerMutationHead({
         plan: input.plan,
@@ -213,8 +212,9 @@ export async function acknowledgeContainerMutationBatch(input: {
       return locallyAcknowledgedContainerMutationHead({ plan, response });
     }),
   );
-  return advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-    execSql: input.execSql,
+  return new KeyingCheckpointRepository(
+    input.execSql,
+  ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
     heads,
     stillCurrent: input.stillCurrent,
   });

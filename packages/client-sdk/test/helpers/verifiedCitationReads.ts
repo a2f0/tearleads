@@ -3,7 +3,7 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { ContainerKekWireLevel } from "@tearleads/validators/response";
-import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { VerifiedManifestBundle } from "../../src/data/persistence/verifiedManifestBundlePersistence";
 import {
   containerTables,
@@ -65,10 +65,11 @@ export function remember(
   execSql: ExecSql,
   verifiedBundles: readonly VerifiedManifestBundle[],
 ) {
-  return advanceKeyingCheckpointsAtomically({
+  return new KeyingCheckpointRepository(
+    execSql,
+  ).advanceKeyingCheckpointsAtomically({
     access: [],
     policies: [],
-    execSql,
     verifiedBundles,
   });
 }

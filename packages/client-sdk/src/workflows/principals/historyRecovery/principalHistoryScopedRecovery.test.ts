@@ -5,7 +5,7 @@ import {
   signedAuthorityRecoveryHistory,
 } from "../../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
 
@@ -41,9 +41,10 @@ test("scoped recovery pages directory, strict Admins and an externally authorize
     expect(await fixture.db.select().from(principalPolicyCheckpoints)).toEqual(
       [],
     );
-    await advanceKeyingCheckpointsAtomically({
+    await new KeyingCheckpointRepository(
+      fixture.options.execSql,
+    ).advanceKeyingCheckpointsAtomically({
       access: [],
-      execSql: fixture.options.execSql,
       organizationId: history.organizationId,
       policies: [...recovered.dependencies, recovered.policy],
       stillCurrent: () => true,

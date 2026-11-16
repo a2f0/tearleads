@@ -4,7 +4,7 @@ import {
   verifyOrganizationReplacementAuthorization,
 } from "@tearleads/crypto";
 import type { CreateOrganizationResponse } from "@tearleads/validators/response";
-import { persistOrganizationReplacementCheckpoints } from "../../../data/persistence/keyingCheckpoints/organizationReplacementCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 /** The API's user/organization echoes are not authority to rehome local data. */
@@ -43,9 +43,10 @@ export async function pinOrganizationReplacementResponse(
     readonly stillCurrent?: (() => boolean) | undefined;
   },
 ): Promise<boolean> {
-  return persistOrganizationReplacementCheckpoints({
+  return new KeyingCheckpointRepository(
+    input.execSql,
+  ).persistOrganizationReplacementCheckpoints({
     authorization: verifyOrganizationReplacementResponse(input),
-    execSql: input.execSql,
     stillCurrent: input.stillCurrent,
   });
 }

@@ -3,7 +3,7 @@ import {
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { assertSelectedPolicyCommitments } from "../../../data/principals/principalIdentityCommitments";
 import { PrincipalHistoryEvidenceUnavailableError } from "../historyRecovery/principalHistoryRecoveryReferences";
 import type {
@@ -28,8 +28,9 @@ export async function selectPublicProjectionPrincipal(
   const { options } = principal;
   const current = () => !options.signal?.aborted && options.stillCurrent();
   assertProjectionVerificationCurrent(current);
-  const checkpoint = await loadPrincipalPolicyCheckpoint(
+  const checkpoint = await new KeyingCheckpointRepository(
     options.execSql,
+  ).loadPrincipalPolicyCheckpoint(
     options.source.head.principalType,
     options.source.head.principalId,
   );

@@ -15,7 +15,7 @@ import {
 } from "../../../../../test/helpers/principalPolicyFixtures";
 import { createRepairWarmer } from "../../../../../test/helpers/principalPolicyRepair";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { recoverPrincipalPolicyRepair } from "../../../principals/policyRepair";
 import { PrincipalPolicyRepairBudget } from "../../../principals/policyRepairBudget";
 import { buildInitialOrganizationPolicyRequest } from "../../../registration/organizationProvisioning";
@@ -44,8 +44,9 @@ test("stale-policy repair refuses expired verification without admitting a pin",
       }),
     ).rejects.toThrow("generation expired");
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         history.created.currentState.principalId,
       ),
@@ -78,8 +79,9 @@ test("stale-policy recovery preserves the paged API receiver and admits no hint 
       ),
     ).toBe(true);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
+      ).loadPrincipalPolicyCheckpoint(
         "group",
         history.created.currentState.principalId,
       ),
@@ -189,11 +191,9 @@ test("container creation consumes a sixteen-bundle page and its remainder, then 
       "none",
     ]);
     expect(
-      await loadPrincipalPolicyCheckpoint(
+      await new KeyingCheckpointRepository(
         database.execSql,
-        "group",
-        "group-16",
-      ),
+      ).loadPrincipalPolicyCheckpoint("group", "group-16"),
     ).toBeNull();
     expect(requests.some((request) => request.principalId === "group-16")).toBe(
       true,

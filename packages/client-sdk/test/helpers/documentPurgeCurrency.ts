@@ -1,6 +1,6 @@
 import { verifyContainerWriterProjection } from "../../src/data/keyingProjectionVerification/container/containerProjectionVerification";
 import { verifyDocumentPurgeProofBaseline } from "../../src/data/keyingProjectionVerification/documentPurge/documentPurgeProofVerification";
-import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { grantBy, verifyPath } from "./ancestorCitationScenario";
 import { createMaterializedSyncFixture } from "./documentFixtures";
@@ -62,9 +62,10 @@ export async function createPurgeCurrencyFixture(
     originalPath,
     head,
     advanceLater: () =>
-      advanceKeyingCheckpointsAtomically({
-        access: [{ head, predecessors: [] }],
+      new KeyingCheckpointRepository(
         execSql,
+      ).advanceKeyingCheckpointsAtomically({
+        access: [{ head, predecessors: [] }],
         policies: [],
       }),
   };

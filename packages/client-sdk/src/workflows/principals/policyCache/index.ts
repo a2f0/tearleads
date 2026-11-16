@@ -9,7 +9,7 @@ import {
   rethrowKeyingVerificationError,
 } from "../../../data/keyingProjectionVerification/error";
 import { dedupeReferencedPrincipalStates } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { ensurePrincipalPolicyTables } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
 import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
@@ -140,8 +140,9 @@ async function cacheReferencedPrincipalPolicy(
   loadDirectory: PolicyDirectoryLoader,
   fresh: boolean,
 ): Promise<VerifiedPrincipalPolicy[]> {
-  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+  const localCheckpoint = await new KeyingCheckpointRepository(
     execSql,
+  ).loadPrincipalPolicyCheckpoint(
     reference.principalType,
     reference.principalId,
   );
@@ -228,8 +229,9 @@ async function cachePrincipalPolicyBundle(input: {
   const reference = principalPolicyReferenceFromBundle(input.bundle);
   // The API supplied this bundle after rejecting a write, but local storage is
   // only updated after normal signature, signer, and checkpoint verification.
-  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+  const localCheckpoint = await new KeyingCheckpointRepository(
     input.execSql,
+  ).loadPrincipalPolicyCheckpoint(
     reference.principalType,
     reference.principalId,
   );

@@ -3,7 +3,7 @@ import { currentPolicyPublicationFixture } from "../../../../test/helpers/curren
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { runWithSecurityIncidentReporting } from "../../../data/keyingProjectionVerification/error";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverScopedPrincipalPolicyHistory } from "../../principals/historyRecovery/recoverScopedPrincipalPolicyHistory";
@@ -25,8 +25,9 @@ test.each([67, 68])(
         ...f.options,
         reference: principalPolicyHead(fork),
       });
-      await advanceKeyingCheckpointsAtomically({
-        execSql: f.options.execSql,
+      await new KeyingCheckpointRepository(
+        f.options.execSql,
+      ).advanceKeyingCheckpointsAtomically({
         organizationId: history.organizationId,
         access: [],
         policies: [...recovered.dependencies, recovered.policy],
