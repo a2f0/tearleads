@@ -11,10 +11,11 @@ import { RegistrationRecoveryError } from "./registrationRecoveryError";
 
 export interface RegisterCurrentIdentityOptions {
   /**
-   * Names the personal org. Defaults to the name the user gave the autopilot,
-   * if any, else the SDK's "Personal Org".
+   * What the user asked to be called: names the personal org `<name>'s Org`
+   * and the account's own roster entry. Defaults to the name the user gave the
+   * autopilot, if any, else the SDK's "Personal Org" and "You".
    */
-  readonly organizationProfileName?: string | undefined;
+  readonly accountName?: string | undefined;
 }
 
 export interface RegisterCurrentIdentityResult {
@@ -24,31 +25,53 @@ export interface RegisterCurrentIdentityResult {
   ) => Promise<boolean>;
 }
 
+interface RegistrationNames {
+  readonly organizationProfileName?: string | undefined;
+  readonly rosterProfileNickname?: string | undefined;
+}
+
+/**
+ * The personal org's and own roster entry's names a registration seeds: a
+ * demo pane's peer label, else what the user asked to be called, else the
+ * SDK's defaults ("Personal Org", "You").
+ */
+function registrationNames(
+  peerLabel: string | null,
+  accountName: string | undefined,
+): RegistrationNames {
+  if (peerLabel) {
+    return {
+      organizationProfileName: `${peerLabel}'s Org`,
+      rosterProfileNickname: `${peerLabel} (You)`,
+    };
+  }
+  return accountName
+    ? {
+        organizationProfileName: personalOrganizationName(accountName),
+        rosterProfileNickname: accountName,
+      }
+    : {};
+}
+
 export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   const { client: dbClient } = useDatabase();
   const { userId, containerId, login, loginWithChallenge } = useCryptoSession();
   const { encapsulationKeyPair, signingKeyPair } = useIdentity();
   const tearleads = useTearleads();
   // Demo-only: name each pane's bootstrapped personal org after its peer label
-  // ("Peer 1's Org"). usePaneSideOptional stays null in the regular app (whose
-  // runtime mounts outside any PaneSideProvider). There a manual Register (say,
-  // after an offline first launch) keeps the name the user already gave; the
-  // autopilot, which provides that name, passes it explicitly.
+  // ("Peer 1's Org") and its own roster entry "Peer 1 (You)", matching the
+  // peer-labeled self contact. usePaneSideOptional stays null in the regular
+  // app (whose runtime mounts outside any PaneSideProvider). There a manual
+  // Register (say, after an offline first launch) keeps the name the user
+  // already gave; the autopilot, which provides that name, passes it
+  // explicitly.
   const { seedPeerIdentities } = useAppHostConfig().profile.features;
   const paneSide = usePaneSideOptional();
+  const peerLabel =
+    seedPeerIdentities && paneSide ? selfPaneLabel(paneSide) : null;
   const { accountNaming } = useAutoProvisioningStatus();
-  const defaultOrganizationName =
-    seedPeerIdentities && paneSide
-      ? `${selfPaneLabel(paneSide)}'s Org`
-      : accountNaming.status === "named"
-        ? personalOrganizationName(accountNaming.name)
-        : undefined;
-  // Demo-only: label this pane's own roster entry "Peer 1 (You)" instead of the
-  // neutral "You" default, matching the peer-labeled self contact.
-  const rosterProfileNickname =
-    seedPeerIdentities && paneSide
-      ? `${selfPaneLabel(paneSide)} (You)`
-      : undefined;
+  const givenName =
+    accountNaming.status === "named" ? accountNaming.name : undefined;
 
   const canRegisterCurrentIdentity =
     signingKeyPair !== null &&
@@ -64,11 +87,9 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
       }
 
       const identitySnapshot = tearleads.identity.snapshot;
-      const response = await tearleads.session.registerIdentity({
-        organizationProfileName:
-          options?.organizationProfileName ?? defaultOrganizationName,
-        rosterProfileNickname,
-      });
+      const response = await tearleads.session.registerIdentity(
+        registrationNames(peerLabel, options?.accountName ?? givenName),
+      );
       if (tearleads.identity.snapshot !== identitySnapshot) {
         return false;
       }
@@ -87,10 +108,10 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
     },
     [
       canRegisterCurrentIdentity,
-      defaultOrganizationName,
+      givenName,
       login,
       loginWithChallenge,
-      rosterProfileNickname,
+      peerLabel,
       tearleads,
     ],
   );
