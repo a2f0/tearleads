@@ -1,7 +1,6 @@
 import type { DocumentInfo } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import {
-  MiniAppButton,
   MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
@@ -240,9 +239,9 @@ function getAttachmentColumns(
 function AttachmentBlobButton(params: { row: AttachmentDisplayRow }) {
   const { blob } = params.row;
   return (
-    <MiniAppButton disabled={blob.disabled} onClick={blob.open} variant="ghost">
-      {blob.label}
-    </MiniAppButton>
+    <MiniAppTableActionButton disabled={blob.disabled} onClick={blob.open}>
+      <MiniAppTableText>{blob.label}</MiniAppTableText>
+    </MiniAppTableActionButton>
   );
 }
 
@@ -300,21 +299,31 @@ function AttachmentRow(params: {
 
   return (
     <MiniAppTableRow>
-      <MiniAppTableCell title={row.kind.title}>
-        {row.kind.text}
+      <MiniAppTableCell>
+        <MiniAppTableText title={row.kind.title}>
+          {row.kind.text}
+        </MiniAppTableText>
       </MiniAppTableCell>
-      <MiniAppTableCell title={row.slot.title}>
-        {row.slot.text}
+      <MiniAppTableCell>
+        <MiniAppTableText title={row.slot.title}>
+          {row.slot.text}
+        </MiniAppTableText>
       </MiniAppTableCell>
       <MiniAppTableCell title={row.blob.title}>
         <AttachmentBlobButton row={row} />
       </MiniAppTableCell>
-      <MiniAppTableCell title={row.name.title}>
-        {row.name.text}
+      <MiniAppTableCell>
+        <MiniAppTableText title={row.name.title}>
+          {row.name.text}
+        </MiniAppTableText>
       </MiniAppTableCell>
-      <MiniAppTableCell>{row.size}</MiniAppTableCell>
-      <MiniAppTableCell title={row.time.title}>
-        {row.time.text}
+      <MiniAppTableCell>
+        <MiniAppTableText>{row.size}</MiniAppTableText>
+      </MiniAppTableCell>
+      <MiniAppTableCell>
+        <MiniAppTableText title={row.time.title}>
+          {row.time.text}
+        </MiniAppTableText>
       </MiniAppTableCell>
     </MiniAppTableRow>
   );

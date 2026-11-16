@@ -17,6 +17,7 @@ import {
   type MiniAppTableColumn,
   MiniAppTableFrame,
   MiniAppTableRow,
+  MiniAppTableText,
   useMiniAppCompactTableFrame,
 } from "../../../../components/mini-app/MiniAppTable";
 import { getMiniAppVirtualFrameStyle } from "../../../../components/mini-app/virtual/MiniAppVirtual";
@@ -175,23 +176,30 @@ function SecurityPathRow(params: {
 
   return (
     <MiniAppTableRow>
-      <MiniAppTableCell title={entry.containerId}>
-        {containerName}
-      </MiniAppTableCell>
-      <MiniAppTableCell title={entry.manifestHash}>
-        <div>{compactId(entry.manifestHash)}</div>
-        <code title={entry.eventHash}>
-          {getExplorerContainerInfoEventLabel(compactId(entry.eventHash))}
-        </code>
-      </MiniAppTableCell>
-      <MiniAppTableCell title={entry.containerKeyEpochId}>
-        <div>{entry.containerKeyEpoch}</div>
-        <code>{compactId(entry.containerKeyEpochId)}</code>
+      <MiniAppTableCell>
+        <MiniAppTableText title={entry.containerId}>
+          {containerName}
+        </MiniAppTableText>
       </MiniAppTableCell>
       <MiniAppTableCell>
-        {getRecipientSummary(entry)}
-        <br />
-        {getGrantSummary(entry)}
+        <MiniAppTableText title={entry.manifestHash}>
+          {compactId(entry.manifestHash)}
+        </MiniAppTableText>
+        <MiniAppTableText title={entry.eventHash}>
+          <code>
+            {getExplorerContainerInfoEventLabel(compactId(entry.eventHash))}
+          </code>
+        </MiniAppTableText>
+      </MiniAppTableCell>
+      <MiniAppTableCell>
+        <MiniAppTableText>{entry.containerKeyEpoch}</MiniAppTableText>
+        <MiniAppTableText title={entry.containerKeyEpochId}>
+          <code>{compactId(entry.containerKeyEpochId)}</code>
+        </MiniAppTableText>
+      </MiniAppTableCell>
+      <MiniAppTableCell>
+        <MiniAppTableText>{getRecipientSummary(entry)}</MiniAppTableText>
+        <MiniAppTableText>{getGrantSummary(entry)}</MiniAppTableText>
       </MiniAppTableCell>
     </MiniAppTableRow>
   );
@@ -329,12 +337,12 @@ function SyncCursorCursorCell(params: { cursor: SyncCursor }) {
 
   return (
     <MiniAppTableCell>
-      <div title={cursor.watermarkUpdatedAt}>
+      <MiniAppTableText title={cursor.watermarkUpdatedAt}>
         {formatMiniAppDateTime(cursor.watermarkUpdatedAt)}
-      </div>
-      <code title={cursor.watermarkId ?? undefined}>
-        {cursor.watermarkId ? compactId(cursor.watermarkId) : ""}
-      </code>
+      </MiniAppTableText>
+      <MiniAppTableText title={cursor.watermarkId ?? undefined}>
+        <code>{cursor.watermarkId ? compactId(cursor.watermarkId) : ""}</code>
+      </MiniAppTableText>
     </MiniAppTableCell>
   );
 }
@@ -356,14 +364,18 @@ function SyncCursorRow(params: { compact: boolean; cursor: SyncCursor }) {
   return (
     <MiniAppTableRow>
       <MiniAppTableCell>
-        <div>{cursor.label}</div>
-        <code title={laneTitle}>
-          {cursor.laneKind}/{cursor.laneId}
-        </code>
+        <MiniAppTableText>{cursor.label}</MiniAppTableText>
+        <MiniAppTableText title={laneTitle}>
+          <code>
+            {cursor.laneKind}/{cursor.laneId}
+          </code>
+        </MiniAppTableText>
       </MiniAppTableCell>
       <SyncCursorCursorCell cursor={cursor} />
-      <MiniAppTableCell title={cursor.savedAt ?? undefined}>
-        {formatMiniAppDateTime(cursor.savedAt, { emptyFallback: "-" })}
+      <MiniAppTableCell>
+        <MiniAppTableText title={cursor.savedAt ?? undefined}>
+          {formatMiniAppDateTime(cursor.savedAt, { emptyFallback: "-" })}
+        </MiniAppTableText>
       </MiniAppTableCell>
     </MiniAppTableRow>
   );

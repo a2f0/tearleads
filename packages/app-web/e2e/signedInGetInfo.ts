@@ -35,7 +35,10 @@ const ATTACHMENT = {
     '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#0d6b32"/></svg>',
   ),
   mimeType: "image/svg+xml",
-  name: "field-sketch.svg",
+  // Long, so any column that shows it has to truncate it. Once uploaded, Get
+  // Info's attachments table shows the MIME type instead: the SDK keeps no
+  // name for a stored attachment, only for a pending one.
+  name: "field-sketch-with-a-deliberately-long-file-name-for-layout.svg",
 };
 
 const EDIT_RANGES_FLAG_KEY = "tearleads.feature-flags:document-edit-ranges";
@@ -194,7 +197,10 @@ export async function openContainerInfoTab(
   await selectInfoTab(page, tab);
 }
 
-/** Opens Get Info for a document in a folder in the root and selects `tab`. */
+/**
+ * Opens Get Info for a document in a folder in the root and selects `tab`. A
+ * wide pane lists the folder in the sidebar tree too, so open the list's.
+ */
 export async function openDocumentInfoTab(
   page: Page,
   folderName: string,
@@ -202,7 +208,10 @@ export async function openDocumentInfoTab(
   tab: string,
 ): Promise<void> {
   await page.goto("/app/explorer");
-  await page.getByRole("button", { name: folderName, exact: true }).click();
+  await page
+    .getByRole("table", { name: "Items in /", exact: true })
+    .getByRole("button", { name: folderName, exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: `Folder actions: ${folderName}` }),
   ).toBeVisible({ timeout: 30_000 });

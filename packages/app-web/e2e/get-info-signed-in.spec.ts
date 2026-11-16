@@ -166,3 +166,52 @@ for (const width of PHONE_WIDTHS) {
     });
   }
 }
+
+// Wide, the same tables keep their columns, each a fixed share of the frame.
+// A value longer than its share must truncate inside its cell: drawn past the
+// cell's edge it runs into the next column's value.
+const WIDE_VIEWPORT = { width: 1280, height: 900 };
+
+interface DrawnWideTable {
+  columns: number;
+  /** How far the table's frame scrolls sideways, in px. */
+  overflow: number;
+  /** Each body cell whose content is wider than the cell. */
+  overflowingCells: string[];
+}
+
+/** Runs in the page, so it is self-contained. */
+function measureWideTable(table: Element): DrawnWideTable {
+  const frame = table.parentElement ?? table;
+  const overflowingCells = Array.from(table.querySelectorAll("tbody td"))
+    .filter((cell) => cell.scrollWidth > cell.clientWidth + 1)
+    .map(
+      (cell) =>
+        `${(cell.textContent ?? "").trim()} (${cell.scrollWidth}px in ${cell.clientWidth}px)`,
+    );
+  return {
+    columns: table.querySelectorAll("thead th").length,
+    overflow: frame.scrollWidth - frame.clientWidth,
+    overflowingCells,
+  };
+}
+
+async function expectUnfolded(table: Locator): Promise<void> {
+  await expect(table).toBeVisible({ timeout: 30_000 });
+  await expect(getInfoTableRows(table).first()).toBeVisible({
+    timeout: 30_000,
+  });
+  const drawn = await table.evaluate(measureWideTable);
+
+  expect(drawn.columns).toBeGreaterThan(2);
+  expect(drawn.overflowingCells).toEqual([]);
+  expect(drawn.overflow).toBeLessThanOrEqual(0);
+}
+
+for (const entry of TABLES) {
+  test(`${entry.name} keep columns that hold their values (${WIDE_VIEWPORT.width}px)`, async () => {
+    await page.setViewportSize(WIDE_VIEWPORT);
+    await entry.open();
+    await expectUnfolded(getInfoTable(page, entry.table));
+  });
+}
