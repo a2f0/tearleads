@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import {
   SyncStatusIndicatorView,
   SyncStatusPopover,
-} from "./SyncStatusIndicator";
+} from "./SyncStatusTrayApp";
 
 afterEach(cleanup);
 

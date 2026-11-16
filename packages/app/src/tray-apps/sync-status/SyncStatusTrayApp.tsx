@@ -1,10 +1,10 @@
 import { Menu, type MenuPosition } from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useState } from "react";
-import { SyncGlyph } from "../../../../components/shared/SyncGlyph";
-import { useMiniAppBusActions } from "../../../../mini-apps/bus";
+import { SyncGlyph } from "../../components/shared/SyncGlyph";
+import { useAppNavigationActions } from "../../navigation/AppNavigationProvider";
 import type { SyncStatus } from "./syncStatusModel";
 import { useSyncStatus } from "./useSyncStatus";
-import "./SyncStatusIndicator.css";
+import "./SyncStatusTrayApp.css";
 
 // Jumps to the Explorer's Write Queue view — the panel this indicator shares its
 // source of truth with (`pathSegments: ["writes"]`, see the routes module).
@@ -97,16 +97,17 @@ export function SyncStatusPopover({
   );
 }
 
-// A persistent footer-tray indicator (green = synced, red = unflushed data,
-// red warning = writes failing terminally or the queue unreadable, amber
+// The Sync Status tray app (green = synced, red = unflushed data, red
+// warning = writes failing terminally or the queue unreadable, amber
 // warning = billing paused).
 // Clicking it opens a popover with the status detail plus a link into the Org
 // Manager's Billing view when billing has sync paused and, when the write queue
 // is non-empty, a link into the Explorer's Write Queue view. Same source of
-// truth as that panel (see `useSyncStatus`).
-export function SyncStatusIndicator() {
+// truth as that panel (see `useSyncStatus`). It opens those views through app
+// navigation by id, since a tray app imports no mini-app.
+export function SyncStatusTrayApp() {
   const { status, title, pendingWriteCount, queueReadFailed } = useSyncStatus();
-  const { openMiniApp } = useMiniAppBusActions();
+  const { openMiniApp } = useAppNavigationActions();
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
 
   const toggleMenu = useCallback((event: MouseEvent<HTMLButtonElement>) => {

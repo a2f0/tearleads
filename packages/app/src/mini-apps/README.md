@@ -43,6 +43,13 @@ Keep SDK-backed data dependencies behind
 [`packages/app/src/stores`](../stores/); keep the bus a pure React/window
 messaging adapter.
 
+Mini-apps and [tray apps](../tray-apps/README.md), the system tray's
+controls, do not import each other in either direction. Code both need lives
+in a lower layer they share, such as `components/` or `stores/`; see the
+tray-apps README for the enforced rules. Display Properties reaches the tray
+only through `@tearleads/windowing`'s system tray provider, which its
+`DisplayProperties` reads to list a switch per tray app.
+
 Org Manager group deletion opens a confirmation naming the selected group from
 both the row menu and the group detail context menu. Cancel leaves the group
 unchanged; only confirmation starts deletion. Built-in groups remain protected.

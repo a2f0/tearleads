@@ -10,7 +10,7 @@ import { PaneMenu } from "../shell/PaneMenu";
 import "./PaneFooter.css";
 import { PaneFooterWindowButton } from "./PaneFooterWindowButton";
 
-// `tray` holds persistent theme, layout, and sync controls in the right-aligned
+// `tray` holds the system tray's apps (see tray-apps/) in the right-aligned
 // cluster alongside the workspace switcher. `label` names the pane there (the
 // demo's "Peer 1"/"Peer 2"), so it never sits under the windows.
 export function PaneFooter({
