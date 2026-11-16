@@ -7,8 +7,8 @@ import {
   subscribeToPersistedDocuments,
 } from "@tearleads/client-sdk";
 import { useEffect, useState } from "react";
-import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
-import { createPendingWriteWatcher } from "./pendingWriteWatcher";
+import { createPendingWriteWatcher } from "../../stores/write-queue/pendingWriteWatcher";
+import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import {
   type PendingWriteQueueSummary,
   summarizePendingWrites,

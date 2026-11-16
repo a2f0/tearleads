@@ -1,6 +1,7 @@
 import { TearleadsFrame } from "@tearleads/ui";
 import {
   NavigationModeOverrideProvider,
+  SystemTrayProvider,
   useNavigationMode,
   useNavigationModeDocumentAttribute,
   useNavigationModeOverride,
@@ -16,6 +17,7 @@ import {
 } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import { ThemeProvider } from "../../theme/ThemeProvider";
 import { WallpaperProvider } from "../../theme/WallpaperProvider";
+import { TRAY_APPS } from "../../tray-apps/registry";
 import { AppScreensaverHost } from "./AppScreensaverHost";
 import { BillingBanner } from "./BillingBanner";
 import "./Layout.css";
@@ -39,6 +41,10 @@ const SHARED_RUNTIME_LOCAL_IDENTITY_NAMESPACE = "tearleads.app";
 
 // Where the lower-right windowed/routed switch persists the user's choice.
 const NAVIGATION_MODE_STORAGE_KEY = "tearleads.navigation.mode";
+
+// Where the tray apps the user turned off persist. Like the theme, which tray
+// apps show is a display preference, so every pane's tray shares it.
+const TRAY_DISABLED_APPS_STORAGE_KEY = "tearleads.tray.disabled";
 
 // The shared policy mounts ONE runtime (identity + SQLite db) above every
 // workspace, so all workspaces are the same user on the same local database and
@@ -160,15 +166,20 @@ export function Layout({ hostConfig }: LayoutProps) {
   return (
     <ThemeProvider themes={hostConfig.profile.themes}>
       <WallpaperProvider>
-        <NavigationModeOverrideProvider
-          storageKey={NAVIGATION_MODE_STORAGE_KEY}
+        <SystemTrayProvider
+          definition={TRAY_APPS}
+          storageKey={TRAY_DISABLED_APPS_STORAGE_KEY}
         >
-          <DeveloperModeProvider>
-            <AppFeatureFlagsProvider>
-              <FeatureFlaggedWorkspaceLayout hostConfig={hostConfig} />
-            </AppFeatureFlagsProvider>
-          </DeveloperModeProvider>
-        </NavigationModeOverrideProvider>
+          <NavigationModeOverrideProvider
+            storageKey={NAVIGATION_MODE_STORAGE_KEY}
+          >
+            <DeveloperModeProvider>
+              <AppFeatureFlagsProvider>
+                <FeatureFlaggedWorkspaceLayout hostConfig={hostConfig} />
+              </AppFeatureFlagsProvider>
+            </DeveloperModeProvider>
+          </NavigationModeOverrideProvider>
+        </SystemTrayProvider>
       </WallpaperProvider>
     </ThemeProvider>
   );
