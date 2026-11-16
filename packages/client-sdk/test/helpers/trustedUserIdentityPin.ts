@@ -1,4 +1,4 @@
-import type { TrustedUserIdentityPin } from "../../src/data/persistence/trustedUserIdentityPinPersistence";
+import type { TrustedUserIdentityPin } from "../../src/data/persistence/identity/trustedUserIdentityPinModel";
 
 export function createPin(
   overrides: Partial<TrustedUserIdentityPin> = {},
