@@ -1,9 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  buildMaterializedContainerRekeyPlan,
-  revokeRemoteContainer,
-  shareRemoteContainer,
-} from "@tearleads/client-sdk";
+import { buildMaterializedContainerRekeyPlan } from "@tearleads/client-sdk";
 import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
@@ -30,19 +26,14 @@ test("self-revoke refuses clearly without stranding a deeper grantee", async () 
     tree.owner,
     writer,
   );
-  const ownerSdk = {
-    ...owner.common,
-    resolveTrustedUserIdentity: owner.resolveTrustedUserIdentity,
-    reportSecurityIncident: async () => undefined,
-  };
   try {
     const container = await tree.createChild(tree.rootId);
     const intermediate = await tree.createChild(container);
     const leaf = await tree.createChild(intermediate);
     await tree.share(leaf, writer.userId);
     expect(
-      await shareRemoteContainer({
-        ...ownerSdk,
+      await owner.containers.shareRemoteContainer({
+        ...owner.mutation,
         containerId: container,
         accessLevel: "admin",
         recipientUserId: revoker.userId,
@@ -58,16 +49,16 @@ test("self-revoke refuses clearly without stranding a deeper grantee", async () 
       return result;
     };
     const revokeInput = {
-      ...actor.common,
-      resolveTrustedUserIdentity: actor.resolveTrustedUserIdentity,
-      reportSecurityIncident: async () => undefined,
+      ...actor.mutation,
       containerId: container,
       revokedSubject: {
         subjectId: revoker.userId,
         subjectType: "user" as const,
       },
     };
-    expect(await revokeRemoteContainer(revokeInput)).toBeNull();
+    expect(
+      await actor.containers.revokeRemoteContainer(revokeInput),
+    ).toBeNull();
     expect(refusals).toHaveLength(1);
     expect(refusals[0]).toMatchObject({
       ok: false,
@@ -137,7 +128,9 @@ test("self-revoke refuses clearly without stranding a deeper grantee", async () 
       refusals.push(result);
       return result;
     };
-    expect(await revokeRemoteContainer(revokeInput)).toBeNull();
+    expect(
+      await actor.containers.revokeRemoteContainer(revokeInput),
+    ).toBeNull();
     expect(refusals).toHaveLength(2);
     expect(refusals[1]).toMatchObject({
       ok: false,
@@ -146,9 +139,9 @@ test("self-revoke refuses clearly without stranding a deeper grantee", async () 
     expect(await tree.keksOf(leaf)).toEqual(before);
 
     // The same revoke succeeds when an authorized member carries the repairs.
-    const completed = await revokeRemoteContainer({
+    const completed = await owner.containers.revokeRemoteContainer({
       ...revokeInput,
-      ...ownerSdk,
+      ...owner.mutation,
     });
     expect(
       completed?.response.containerRekeys?.map((rekey) => rekey.containerId),
@@ -183,18 +176,15 @@ test("self-revoke can carry repairs through a retained descendant grant", async 
     await tree.share(leaf, writer.userId);
     await tree.share(intermediate, revoker.userId);
     expect(
-      await shareRemoteContainer({
-        ...owner.common,
-        resolveTrustedUserIdentity: owner.resolveTrustedUserIdentity,
-        reportSecurityIncident: async () => undefined,
+      await owner.containers.shareRemoteContainer({
+        ...owner.mutation,
         containerId: container,
         accessLevel: "admin",
         recipientUserId: revoker.userId,
       }),
     ).not.toBeNull();
-    const completed = await revokeRemoteContainer({
-      ...actor.common,
-      reportSecurityIncident: async () => undefined,
+    const completed = await actor.containers.revokeRemoteContainer({
+      ...actor.mutation,
       containerId: container,
       revokedSubject: { subjectId: revoker.userId, subjectType: "user" },
     });

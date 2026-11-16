@@ -9,32 +9,38 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../../../../data/keyingProjectionVerification";
-import type { SecurityIncidentReporter } from "../../../../data/shared/securityIncidents";
-import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+import {
+  type ContainerRotationCollaborators,
+  containerRotationBag,
+} from "../../containerMutationCollaborators";
 import {
   submitAcknowledgedContainerMutation,
   submitContainerRotation,
 } from "../mutationSubmit";
 import { buildMaterializedContainerRekeyPlan } from "./index";
 
-export async function rekeyRemoteContainer(input: {
-  reportSecurityIncident: SecurityIncidentReporter;
-  apiClient: ContainerRekeyApi;
+export interface RekeyRemoteContainerRequest {
   author: ContainerMutationAuthor;
   containerId: string;
   eventId?: string | undefined;
-  execSql: ExecSql;
   keyringEntriesOverride?: readonly ContainerKekKeyringEntry[] | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
-  targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<{
+}
+
+export interface RekeyedRemoteContainer {
   containerKey: Uint8Array;
   plan: ContainerRekeyPlan;
   response: ContainerRotationResponse;
-} | null> {
+}
+
+export async function rekeyRemoteContainer(
+  collaborators: ContainerRotationCollaborators<ContainerRekeyApi>,
+  request: RekeyRemoteContainerRequest,
+): Promise<RekeyedRemoteContainer | null> {
+  const input = { ...request, ...containerRotationBag(collaborators) };
   const previousProjection = await input.apiClient.getContainerWriterProjection(
     input.containerId,
   );

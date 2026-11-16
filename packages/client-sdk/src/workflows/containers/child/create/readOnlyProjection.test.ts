@@ -6,16 +6,12 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
 import { createRemoteDocument } from "../../../documents/create";
-import { moveRemoteContainer } from "../move";
-import { rekeyRemoteContainer } from "../rekey/rekeyRemote";
-import { revokeRemoteContainer } from "../revoke";
-import { shareRemoteContainer } from "../share";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
-  createRemoteContainer,
 } from "./index";
 
 async function createReadOnlyFixture(
@@ -89,41 +85,42 @@ test.each(["create", "share", "rekey", "revoke", "move"] as const)(
       revokeContainer: denySubmission,
       moveContainer: denySubmission,
     });
-    const input = {
-      apiClient,
-      author: fixture.reader.author,
-      containerId: fixture.source.containerId,
+    const containers = createContainerMutationServiceFixture({
+      api: apiClient,
+      encapsulationSecretKey: fixture.readerKeys.secretKey,
       execSql: database.execSql,
       reportSecurityIncident: async () => {},
-      resolveProjectionUserKey: fixture.resolve,
       resolveTrustedUserIdentity: fixture.resolve,
-      targetSecretKey: fixture.readerKeys.secretKey,
+    });
+    const input = {
+      author: fixture.reader.author,
+      containerId: fixture.source.containerId,
+      resolveProjectionUserKey: fixture.resolve,
     };
     try {
       const run = () => {
         switch (operation) {
           case "create":
-            return createRemoteContainer({
+            return containers.createRemoteContainer({
               ...input,
               containerId: "unauthorized-child",
               parentContainerId: fixture.source.containerId,
-              parentSecretKey: fixture.readerKeys.secretKey,
             });
           case "share":
-            return shareRemoteContainer({
+            return containers.shareRemoteContainer({
               ...input,
               accessLevel: "admin",
               recipientUserId: "reader",
             });
           case "rekey":
-            return rekeyRemoteContainer(input);
+            return containers.rekeyRemoteContainer(input);
           case "revoke":
-            return revokeRemoteContainer({
+            return containers.revokeRemoteContainer({
               ...input,
               revokedSubject: { subjectType: "user", subjectId: "reader" },
             });
           case "move":
-            return moveRemoteContainer({
+            return containers.moveRemoteContainer({
               ...input,
               destinationParentContainerId: fixture.destination.containerId,
             });

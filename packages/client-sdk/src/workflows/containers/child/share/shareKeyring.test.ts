@@ -9,7 +9,7 @@ import {
   createRecipientIdentityResolver,
   SIGNED_AT,
 } from "../../../../../test/helpers/containerFixtures";
-import { shareRemoteContainer } from "./index";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 
 test("shareRemoteContainer rejects a response that drops the unchanged keyring", async () => {
   const parent = await createParentProjection();
@@ -40,10 +40,9 @@ test("shareRemoteContainer rejects a response that drops the unchanged keyring",
   // A share keeps its epoch, so the response must name that exact keyring.
   // A server that drops it is rewriting immutable state.
   await expect(
-    shareRemoteContainer({
+    createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      accessLevel: "read",
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => projectionWithKeyring,
         shareContainer: async (_containerId, request) => {
@@ -54,18 +53,20 @@ test("shareRemoteContainer rejects a response that drops the unchanged keyring",
           };
         },
       },
-      author,
-      containerId: parent.projection.containerId,
       execSql: database.execSql,
-      recipientUserId: "user-2",
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createRecipientIdentityResolver({
         encapsulationPublicKey: recipientKeyPair.publicKey,
         signingKeyFingerprint: author.signerKeyFingerprint,
         signingPublicKey: parent.signingPublicKey,
       }),
+      encapsulationSecretKey: parent.secretKey,
+    }).shareRemoteContainer({
+      accessLevel: "read",
+      author,
+      containerId: parent.projection.containerId,
+      recipientUserId: "user-2",
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       signedAt: SIGNED_AT,
-      targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow("dropped its unchanged keyring");
   database.close();
@@ -93,10 +94,9 @@ test("shareRemoteContainer rejects a keyring injected into an epoch that had non
   };
 
   await expect(
-    shareRemoteContainer({
+    createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      accessLevel: "read",
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         shareContainer: async (_containerId, request) => {
@@ -111,18 +111,20 @@ test("shareRemoteContainer rejects a keyring injected into an epoch that had non
           };
         },
       },
-      author,
-      containerId: parent.projection.containerId,
       execSql: database.execSql,
-      recipientUserId: "user-2",
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createRecipientIdentityResolver({
         encapsulationPublicKey: recipientKeyPair.publicKey,
         signingKeyFingerprint: author.signerKeyFingerprint,
         signingPublicKey: parent.signingPublicKey,
       }),
+      encapsulationSecretKey: parent.secretKey,
+    }).shareRemoteContainer({
+      accessLevel: "read",
+      author,
+      containerId: parent.projection.containerId,
+      recipientUserId: "user-2",
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       signedAt: SIGNED_AT,
-      targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow("added a keyring to an unchanged epoch");
   database.close();

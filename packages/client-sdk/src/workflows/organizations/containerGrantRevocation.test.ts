@@ -5,8 +5,10 @@ import {
   createMutationResponseFromRequest,
   createParentProjection,
 } from "../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../test/helpers/containerMutationServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { revokeOrganizationContainerGrant } from "./containerGrantRevocation";
 
 test("organization revocation cannot acknowledge or cascade after cancellation", async () => {
@@ -24,43 +26,46 @@ test("organization revocation cannot acknowledge or cascade after cancellation",
   let active = true;
   let submitted = false;
   let recites = 0;
+  const resolveTrustedUserIdentity: TrustedUserIdentityResolver = async (
+    userId,
+  ) =>
+    createTestTrustedUserIdentity({
+      userId,
+      encapsulationPublicKey:
+        userId === revokedUserId
+          ? recipient.publicKey
+          : parent.encapsulationPublicKey,
+      signingKeyFingerprint: parent.author.signerKeyFingerprint,
+      signingPublicKey: parent.signingPublicKey,
+    });
   try {
     await expect(
       revokeOrganizationContainerGrant({
-        apiClient: {
-          getContainerWriterProjection: async () => parent.projection,
-          revokeContainer: async (_id, request) => {
-            submitted = true;
-            const response = await createMutationResponseFromRequest(
-              request,
-              parent.projection,
-            );
-            active = false;
-            return response;
-          },
-          reciteContainer: async () => {
-            recites += 1;
-            return null;
-          },
-        },
         containerId: parent.projection.containerId,
-        encapsulationKeyPair: {
-          publicKey: parent.encapsulationPublicKey,
-          secretKey: parent.secretKey,
-        },
-        execSql: database.execSql,
+        containers: createContainerMutationServiceFixture({
+          api: {
+            getContainerWriterProjection: async () => parent.projection,
+            revokeContainer: async (_id, request) => {
+              submitted = true;
+              const response = await createMutationResponseFromRequest(
+                request,
+                parent.projection,
+              );
+              active = false;
+              return response;
+            },
+            reciteContainer: async () => {
+              recites += 1;
+              return null;
+            },
+          },
+          encapsulationSecretKey: parent.secretKey,
+          execSql: database.execSql,
+          reportSecurityIncident: async () => {},
+          resolveTrustedUserIdentity,
+        }),
         organizationId: parent.author.organizationId,
-        reportSecurityIncident: async () => {},
-        resolveTrustedUserIdentity: async (userId) =>
-          createTestTrustedUserIdentity({
-            userId,
-            encapsulationPublicKey:
-              userId === revokedUserId
-                ? recipient.publicKey
-                : parent.encapsulationPublicKey,
-            signingKeyFingerprint: parent.author.signerKeyFingerprint,
-            signingPublicKey: parent.signingPublicKey,
-          }),
+        resolveTrustedUserIdentity,
         revokedSubject: { subjectType: "user", subjectId: revokedUserId },
         signerUserId: parent.author.signerUserId,
         signingFingerprint: parent.author.signerKeyFingerprint,

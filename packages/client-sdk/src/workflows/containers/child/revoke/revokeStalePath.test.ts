@@ -13,7 +13,7 @@ import {
   createParentProjectionUserKeyResolver,
   createRecipientIdentityResolver,
 } from "../../../../../test/helpers/containerFixtures";
-import { revokeRemoteContainer } from "../revoke";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 
 type Refusal = { readonly status: number; readonly code?: string };
 const STALE: Refusal = {
@@ -45,9 +45,9 @@ async function revokeAgainst(
   const counts = { evicted: 0, projections: 0, reported: 0 };
   let current = true;
   try {
-    const revoked = await revokeRemoteContainer({
+    const revoked = await createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      apiClient: {
+      api: {
         evictContainerWriterProjection: () => {
           counts.evicted += 1;
         },
@@ -80,16 +80,17 @@ async function revokeAgainst(
           };
         },
       },
+      execSql: database.execSql,
+      encapsulationSecretKey: parent.secretKey,
+    }).revokeRemoteContainer({
       author: parent.author,
       containerId: parent.projection.containerId,
-      execSql: database.execSql,
       revokedSubject: { subjectType: "user", subjectId: "recipient" },
       resolveProjectionUserKey: (userId) =>
         userId === "recipient"
           ? resolveRecipient(userId)
           : createParentProjectionUserKeyResolver(parent)(userId),
       stillCurrent: () => current,
-      targetSecretKey: parent.secretKey,
     });
     return { revoked, submitted, counts };
   } finally {
