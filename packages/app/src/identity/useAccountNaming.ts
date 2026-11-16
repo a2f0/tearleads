@@ -10,9 +10,11 @@ import {
   useAccountNamingPersistence,
 } from "../providers/identity/accountNamingPersistence";
 import { useIdentity } from "../providers/identity/IdentityProvider";
+import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../providers/logging/LogProvider";
 import {
   ACCOUNT_NAMING_IDLE,
+  type AccountNamingEvent,
   type AccountNamingState,
   accountNamingFor,
   sealedAccountNaming,
@@ -80,26 +82,34 @@ function useRestoredAccountNaming(
  * Keeps the sealed record in step with {@link sealedAccountNaming}, but only
  * once it has been read back: until then an `idle` state says nothing about
  * the record, and a restored session must not remove a name still on its way.
+ * Whether a name was stored goes back to the machine, which holds
+ * registration until it is.
  */
 function useSealedAccountNaming(
   persistence: AccountNamingPersistence | null,
   signingFingerprint: string | null,
   state: AccountNamingState,
   settled: boolean,
+  dispatch: (event: AccountNamingEvent) => void,
 ): void {
   const accountExists = useCryptoSession().userId !== null;
+  const { isLocked } = useLocalKeyringLock();
   const { logError } = useLog();
   // One write at a time, so a slow earlier seal never lands over a later one.
   const writes = useRef(Promise.resolve());
 
   useEffect(() => {
     const sealed = sealedAccountNaming(state, accountExists);
-    if (
-      !persistence ||
-      !signingFingerprint ||
-      !settled ||
-      sealed === undefined
-    ) {
+    if (!signingFingerprint || !settled || sealed === undefined) {
+      return;
+    }
+    const named =
+      sealed?.status === "named"
+        ? { fingerprint: signingFingerprint, name: sealed.name }
+        : null;
+    if (!persistence) {
+      // An unlocked host that stores nothing has no restart to lose it to.
+      if (named && !isLocked) dispatch({ ...named, type: "name-sealed" });
       return;
     }
     // Counted now, so a removal of the identity while this waits wins.
@@ -114,11 +124,19 @@ function useSealedAccountNaming(
               sealed,
               removal,
             );
-    writes.current = writes.current.then(write).catch((error: unknown) => {
-      logError("Could not save the account name.", error);
-    });
+    writes.current = writes.current.then(write).then(
+      () => {
+        if (named) dispatch({ ...named, type: "name-sealed" });
+      },
+      (error: unknown) => {
+        logError("Could not save the account name.", error);
+        if (named) dispatch({ ...named, type: "seal-failed" });
+      },
+    );
   }, [
     accountExists,
+    dispatch,
+    isLocked,
     logError,
     persistence,
     settled,
@@ -145,7 +163,13 @@ export function useAccountNaming(): AccountNaming {
     dispatch,
   );
   const state = accountNamingFor(machine, signingFingerprint);
-  useSealedAccountNaming(persistence, signingFingerprint, state, settled);
+  useSealedAccountNaming(
+    persistence,
+    signingFingerprint,
+    state,
+    settled,
+    dispatch,
+  );
 
   const identityGenerated = useCallback((fingerprint: string) => {
     dispatch({ fingerprint, type: "identity-generated" });

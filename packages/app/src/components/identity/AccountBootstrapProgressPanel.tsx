@@ -6,11 +6,14 @@ import {
   MiniAppButton,
   MiniAppInput,
   MiniAppStatePanel,
+  MiniAppStatus,
 } from "../mini-app/MiniAppLayout";
 import "./AccountBootstrapProgressPanel.css";
 
 function AccountNamePrompt({ copy }: { copy: AccountBootstrapCopy }) {
-  const { submitAccountName } = useAutoProvisioningStatus();
+  const { accountNaming, submitAccountName } = useAutoProvisioningStatus();
+  const error =
+    accountNaming.status === "awaiting" ? accountNaming.error : undefined;
   const [name, setName] = useState("");
   const canSubmit = normalizeAccountName(name) !== null;
 
@@ -35,6 +38,11 @@ function AccountNamePrompt({ copy }: { copy: AccountBootstrapCopy }) {
           Continue
         </MiniAppButton>
       </form>
+      {error ? (
+        <MiniAppStatus role="alert" tone="error">
+          {error}
+        </MiniAppStatus>
+      ) : null}
     </MiniAppStatePanel>
   );
 }

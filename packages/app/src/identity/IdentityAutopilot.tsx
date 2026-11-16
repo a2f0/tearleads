@@ -173,15 +173,16 @@ interface PendingRegistration {
 /**
  * Whether registration must wait for the user, and the org name it carries. A
  * key the autopilot is still installing may yet need a name, a name given
- * before a restart may still be on its way back, and a name still owed holds
- * the identity's first registration.
+ * before a restart may still be on its way back, a name still owed holds the
+ * identity's first registration, and a name given holds it until stored.
  */
 function pendingRegistration(pending: PendingRegistration) {
   return {
     awaitingInput:
       pending.generation.status === "running" ||
       !pending.namingSettled ||
-      pending.naming.status === "awaiting",
+      pending.naming.status === "awaiting" ||
+      (pending.naming.status === "named" && !pending.naming.sealed),
     organizationProfileName:
       pending.naming.status === "named"
         ? personalOrganizationName(pending.naming.name)

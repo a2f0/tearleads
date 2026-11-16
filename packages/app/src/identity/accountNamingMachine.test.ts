@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  ACCOUNT_NAME_SEAL_FAILED_MESSAGE,
   ACCOUNT_NAMING_IDLE,
   type AccountNamingEvent,
   type AccountNamingState,
@@ -31,6 +32,7 @@ test("a generated identity waits for a name, then carries the trimmed answer", (
     contactNamed: false,
     fingerprint: "fp-new",
     name: "Bob Smith",
+    sealed: false,
     status: "named",
   });
 });
@@ -112,6 +114,7 @@ test("a sealed naming fills in a restarted identity, never one this page named",
     contactNamed: false,
     fingerprint: "fp-new",
     name: "Bob",
+    sealed: true,
     status: "named",
   });
   const named = run([
@@ -152,4 +155,39 @@ test("a pending prompt is sealed until an account exists", () => {
   expect(sealedAccountNaming(run([generated]), true)).toBeNull();
   expect(sealedAccountNaming(ACCOUNT_NAMING_IDLE, false)).toBeUndefined();
   expect(sealedAccountNaming(ACCOUNT_NAMING_IDLE, true)).toBeNull();
+});
+
+test("a given name holds until stored, and one that could not be is asked again", () => {
+  const named = run([
+    generated,
+    { fingerprint: "fp-new", name: "Bob", type: "name-submitted" },
+  ]);
+  const sealed = transitionAccountNaming(named, {
+    fingerprint: "fp-new",
+    name: "Bob",
+    type: "name-sealed",
+  });
+  expect(sealed).toMatchObject({ sealed: true, status: "named" });
+  // Stored once: nothing left to write until the account exists.
+  expect(sealedAccountNaming(sealed, false)).toBeUndefined();
+
+  expect(
+    transitionAccountNaming(named, {
+      fingerprint: "fp-new",
+      name: "Bob",
+      type: "seal-failed",
+    }),
+  ).toEqual({
+    error: ACCOUNT_NAME_SEAL_FAILED_MESSAGE,
+    fingerprint: "fp-new",
+    status: "awaiting",
+  });
+  // Another identity's or an earlier name's outcome changes nothing.
+  expect(
+    transitionAccountNaming(named, {
+      fingerprint: "fp-new",
+      name: "Alice",
+      type: "seal-failed",
+    }),
+  ).toBe(named);
 });
