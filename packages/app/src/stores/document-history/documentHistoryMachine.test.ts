@@ -8,6 +8,7 @@ import {
   type DocumentHistoryEvent,
   type DocumentHistoryState,
   INITIAL_DOCUMENT_HISTORY,
+  isCurrentDocumentVersion,
   type ShownDocumentHistoryStop,
   transitionDocumentHistory,
 } from "./documentHistoryMachine";
@@ -237,6 +238,18 @@ test("newer edits are flagged once, for the current run", () => {
   expect(flagged).toMatchObject({ newerAvailable: true });
   expect(run(flagged, { run: 1, type: "newer-found" })).toBe(flagged);
   expect(run(state, { run: 2, type: "newer-found" })).toBe(state);
+});
+
+test("only the newest stop of an up-to-date capture is the current version", () => {
+  const state = ready(3);
+
+  expect(isCurrentDocumentVersion(state, 2)).toBe(true);
+  expect(isCurrentDocumentVersion(state, 1)).toBe(false);
+  // Newer edits exist: the capture's last stop is now a past version, and
+  // it can be restored like any other.
+  const overtaken = run(state, { run: 1, type: "newer-found" });
+  if (overtaken.status !== "ready") throw new Error("expected ready history");
+  expect(isCurrentDocumentVersion(overtaken, 2)).toBe(false);
 });
 
 test("a failed replay fails the history for the current run only", () => {

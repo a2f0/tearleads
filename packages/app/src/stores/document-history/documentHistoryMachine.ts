@@ -78,6 +78,18 @@ function lastIndex(state: ReadyState): number {
   return state.history.stops.length - 1;
 }
 
+/**
+ * Whether a stop is the document as it is now, so there is nothing to
+ * restore: the newest stop of a capture that no later edit has overtaken.
+ * Once newer edits exist, the capture's last stop is a past version too.
+ */
+export function isCurrentDocumentVersion(
+  state: ReadyState,
+  index: number,
+): boolean {
+  return index === lastIndex(state) && !state.newerAvailable;
+}
+
 function clampIndex(state: ReadyState, index: number): number {
   if (!Number.isFinite(index)) return state.selectedIndex;
   return Math.min(lastIndex(state), Math.max(0, Math.round(index)));

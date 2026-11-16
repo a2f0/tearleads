@@ -9,6 +9,7 @@ export const EXPLORER_DOCUMENT_HISTORY_LABELS = {
   documentHistoryBackAction: "Back to Document",
   documentHistoryCharacterOne: "character",
   documentHistoryCharacterOther: "characters",
+  documentHistoryDocumentUnavailable: "This document is not available.",
   documentHistoryFailed: "History could not be loaded",
   documentHistoryFieldsChanged: "Changed",
   documentHistoryFirstAction: "First version",
