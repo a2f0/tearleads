@@ -45,9 +45,8 @@ Run the smallest command that matches the handoff risk:
   Focused tests do not replace static or TypeScript gates.
 - `bun run lint:biome:promises`: builds the SDK's public declarations, then
   checks production promises in API, SDK, app, crypto, and diagnostics. In
-  `lint:biome` and `check:fast`, not the push gate, which runs
-  `lint:biome:check`; its separate `biome.promises.jsonc` keeps type scanning
-  out of formatting hooks.
+  `lint:biome` and `check:fast`; its separate `biome.promises.jsonc` keeps type
+  scanning out of formatting hooks.
 - `bun run test:biome:promises`: builds SDK declarations and proves the promise
   gate resolves SDK calls through gitignored build output. Runs inside
   `lint:biome:promises`.
@@ -102,10 +101,9 @@ Use `bun run lint:source-shape -- --staged` before committing, and
 `bun run lint:source-shape -- --range <base>..<head>` before handing off a
 larger branch.
 
-The pre-push hook is agent-tool's push gate: its trust guards, then the static
-steps in `agent-tool.json`'s `pushGate` section, with no tests or builds. Each
-push leaves a report with per-step durations in `bun run agent-tool runs list`,
-so a slow or failed push can be inspected without rerunning the gate.
+The pre-push hook is agent-tool's push gate: trust guards plus the static
+`pushGate` steps in `agent-tool.json`. `bun run agent-tool runs list` shows each
+push's per-step durations without rerunning the gate.
 
 OpenAPI compatibility, protocol-model, and infrastructure checks use the
 mise-pinned tools; without trusted mise configuration, point `OASDIFF_BIN`,
@@ -298,10 +296,10 @@ Shipping rules on top of the shared skills:
 
 - **Reviewer**: prefer the other agent's CLI (Codex from Claude Code, Claude
   from Codex), then the remaining CLIs, and report any fallback.
-- **Base integration**: a base that moved during CI needs no integration
-  unless GitHub reports a conflict or `versions check` fails against the live
-  base. Then merge the pinned base OID; never rebase or force-push. Without a
-  PR, integrate and repair locally so the branch is pushed once.
+- **Base integration**: only on a conflict or a `versions check` failure
+  against the live base, merge the pinned base OID; never rebase or
+  force-push. Without a PR, integrate and repair locally so the branch is
+  pushed once.
 - **Versions**: every changed workspace package ships one patch past its
   version on the merge base. After each base integration or repair and before
   each review, run `bun run agent-tool versions prepare "$BASE_OID"`, which
@@ -316,12 +314,9 @@ Shipping rules on top of the shared skills:
   lints each branch a push creates or updates, and CI's `Lint` job lints every
   pull request's branch. If a session starts on a nonconforming branch, move
   the work to a conforming branch before the first commit.
-- **Push**: the push gate runs only static checks, within its
-  `pushGate.budgetSeconds`; CI runs TypeScript, every test suite, the model
-  checks, and Terraform, and is the authority. Before pushing, run the tests
-  that target the changed code (`check:package`); when a CI job fails, read it
-  with `bun run agent-tool pr logs`, then push a reviewed fix commit. The gate
-  checks signatures and rejects `Co-authored-by` trailers on commits not
+- **Push**: the gate runs only static checks; CI runs the tests and is the
+  authority ([before a push](docs/developer/verification.md#before-a-push)).
+  It checks signatures and rejects `Co-authored-by` trailers on commits not
   already on the push remote. A rewrite that only removes them needs no
   re-review if the tree and the merge base with the PR base are unchanged;
   re-pin the reviewed SHA to the rewritten head.
