@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 import {
@@ -7,6 +7,7 @@ import {
   clearPersistedAccountNamingForIdentity,
   loadPersistedAccountNaming,
   savePersistedAccountNaming,
+  sealPendingAccountNaming,
 } from "./accountNamingPersistence";
 
 const NAMESPACE = "account-naming-test";
@@ -24,6 +25,24 @@ function persistence(): AccountNamingPersistence {
     storageKey: `tearleads.account-naming:${NAMESPACE}:${FINGERPRINT}`,
   };
 }
+
+test("sealing a new identity's prompt leaves the host's shared keyring open", async () => {
+  const shared = createSharedMemoryLocalKeyringFactory()();
+  const close = mock(() => {});
+  const keyring = { ...shared, close };
+  await sealPendingAccountNaming({
+    createLocalKeyring: () => keyring,
+    namespace: NAMESPACE,
+    signingFingerprint: FINGERPRINT,
+  });
+  expect(close).not.toHaveBeenCalled();
+  expect(
+    await loadPersistedAccountNaming(
+      { ...persistence(), keyring },
+      FINGERPRINT,
+    ),
+  ).toEqual({ status: "awaiting" });
+});
 
 test("removing an identity drops its sealed name, even a seal still in flight", async () => {
   const sealed = persistence();
