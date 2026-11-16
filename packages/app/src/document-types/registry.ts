@@ -15,6 +15,8 @@ import { BloodPressureDocumentApp } from "./blood-pressure/BloodPressureApp";
 import { BLOOD_PRESSURE_DOCUMENT_KIND } from "./blood-pressure/bloodPressureDocumentDefinition";
 import { ContactDocumentApp } from "./contact/ContactDocumentApp";
 import { CONTACT_DOCUMENT_KIND } from "./contact/contactDocumentDefinition";
+import { ContactContainerView } from "./container-views/contact/ContactContainerView";
+import type { ContainerViewProps } from "./container-views/shared/containerViewTypes";
 import { CreditCardDocumentApp } from "./credit-card/CreditCardApp";
 import { CREDIT_CARD_DOCUMENT_KIND } from "./credit-card/creditCardDocumentDefinition";
 import { DefaultLoroDocumentApp } from "./default-loro/DefaultLoroDocumentApp";
@@ -48,8 +50,8 @@ import { WEIGHT_DOCUMENT_KIND } from "./weight/weightDocumentDefinition";
 
 interface DocumentTypeDefinition {
   App: ComponentType<DocumentTypeAppProps>;
-  /** Optional primary renderer; container views never use the editor fallback. */
-  ContainerView?: ComponentType<DocumentTypeAppProps> | undefined;
+  /** Optional specialized container view; other kinds get the default notes view. */
+  ContainerView?: ComponentType<ContainerViewProps> | undefined;
   createIcon: Icon;
   createLabel: string;
   kind: StoredDocumentKind;
@@ -80,8 +82,8 @@ const documentTypeAppsByKind = new Map<
 
 const containerViewsByKind = new Map<
   StoredDocumentKind,
-  ComponentType<DocumentTypeAppProps>
->([[CONTACT_DOCUMENT_KIND, ContactDocumentApp]]);
+  ComponentType<ContainerViewProps>
+>([[CONTACT_DOCUMENT_KIND, ContactContainerView]]);
 
 export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
   APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS.map((definition) => {
