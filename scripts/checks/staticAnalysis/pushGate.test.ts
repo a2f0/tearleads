@@ -39,6 +39,9 @@ test("the tracked pre-push hook is agent-tool's push gate, with only static step
   const check = pushGateCheck();
   expect(check.errors).toEqual([]);
   expect(check.ok).toBe(true);
+  // push-gate check reads only tracked files: `installed` means agent-tool.json's
+  // hooks.files installs the hook as an executable pre-push, not that
+  // .git/hooks holds a copy, so a fresh CI checkout passes too.
   expect(check.hook).toEqual({
     path: "scripts/git/hooks/pre-push",
     tracked: true,
