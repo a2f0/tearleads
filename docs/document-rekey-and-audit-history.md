@@ -264,6 +264,31 @@ tampered baseline cannot redirect a reader to partial state.
 Signatures are per device, matching how CRDT authorship behaves: several
 devices of one user author concurrently and each signs with its own key.
 
+### Change Times
+
+Every change in the encrypted Loro state records when it was committed. Each
+authoring document is created with Loro timestamp recording on
+([`changeTimestamps.ts`](../packages/loro/src/changeTimestamps.ts)), so a
+change carries the writer's Unix time in seconds, and a writer's consecutive
+commits share one change only while they fall within
+`DOCUMENT_CHANGE_MERGE_INTERVAL_SECONDS` of its timestamp. These times are:
+
+- inside the ciphertext, so the server learns nothing it could not already
+  infer from upload times
+- part of the operation log, so they survive upload merging, rotation
+  baselines, and local checkpoint compaction, and the
+  [exact-history comparison](./raw-document-history-recovery.md#client-contract)
+  covers them
+- self-reported by the writing device, and never earlier than the newest time
+  the document already holds, so one device whose clock runs ahead moves every
+  later change forward with it
+
+A signed write header's `signedAt` and the update's server `createdAt` are the
+independent upper bounds on when a change was made. A rotation baseline carries
+the times its writer asserts, under the same
+[coverage limitation](#declared-coverage-is-trusted-not-verified) as its
+content.
+
 ### What Signed Headers Do Not Detect
 
 Signed headers authenticate each record. They do not prove that the server

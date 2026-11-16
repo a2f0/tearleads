@@ -235,7 +235,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.197",
+      "version": "0.1.198",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -285,7 +285,7 @@
     },
     "packages/loro": {
       "name": "@tearleads/loro",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "dependencies": {
         "@tearleads/encoding": "workspace:*",
         "drizzle-orm": "0.45.4",
