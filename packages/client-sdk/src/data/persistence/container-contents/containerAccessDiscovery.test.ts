@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createDocumentDiscoveryEvidenceStore } from "../documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../documents/documentDiscoveryEvidencePersistence";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 import {
   containerContentsSyncLane,
@@ -59,7 +59,7 @@ for (const [from, to, commit] of [
           watermark: cursor,
         });
       }
-      const evidence = createDocumentDiscoveryEvidenceStore(execSql);
+      const evidence = new DocumentDiscoveryEvidenceRepository(execSql);
       const generation = await evidence.begin();
       const candidate = {
         accessEpoch: 1,

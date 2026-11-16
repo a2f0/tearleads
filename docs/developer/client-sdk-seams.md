@@ -37,6 +37,7 @@ reference.
 | Blob attachment I/O | `BlobAttachmentService` (`runtime.blobAttachments`) | One per documents runtime, built by `createDocumentsWorkflowRuntime` | Constructed over a fake API in tests |
 | Keying checkpoint storage | `KeyingCheckpointRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Container document tombstone holds | `ContainerDocumentTombstoneHoldRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Document discovery evidence | `DocumentDiscoveryEvidenceRepository(execSql, now)` | One per discovery pass, built by `discoverContainerDocumentLanesForRuntime` | None |
 
 ## Where code goes
 
