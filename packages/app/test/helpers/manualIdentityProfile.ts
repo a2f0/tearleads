@@ -25,15 +25,24 @@ export function withManualIdentity(profile: AppHostProfile): AppHostProfile {
 /**
  * Resolves the host profile for a test host config: the given profile (or the
  * default `app` profile), with the identity autopilot disabled unless the test
- * opts in via `autoProvisionIdentity`. Centralizes the manual-vs-auto choice so
- * the test host-config builders stay small.
+ * opts in via `autoProvisionIdentity`. An autopilot identity registers without
+ * the first-launch "What should we call you?" prompt unless the test also opts
+ * in via `promptAccountName`, so provisioning tests need not answer it.
+ * Centralizes these choices so the test host-config builders stay small.
  */
 export function resolveTestHostProfile(options: {
   readonly autoProvisionIdentity?: boolean | undefined;
   readonly profile?: AppHostProfile | undefined;
+  readonly promptAccountName?: boolean | undefined;
 }): AppHostProfile {
   const baseProfile = options.profile ?? APP_HOST_PROFILES.app;
-  return options.autoProvisionIdentity
+  if (!options.autoProvisionIdentity) {
+    return withManualIdentity(baseProfile);
+  }
+  return options.promptAccountName
     ? baseProfile
-    : withManualIdentity(baseProfile);
+    : {
+        ...baseProfile,
+        features: { ...baseProfile.features, promptAccountName: false },
+      };
 }

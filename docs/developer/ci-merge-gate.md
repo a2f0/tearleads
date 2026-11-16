@@ -2,13 +2,15 @@
 
 The `protect-main` GitHub ruleset must require `CI gate`, `Lint`,
 `Build and test`, `Postgres concurrency`, and
-`windows / Windows CEF persistence` from the GitHub Actions app,
-with strict base freshness and no bypass actors. The ruleset is repository
-configuration; editing a workflow alone does not make a check required.
+`windows / Windows CEF persistence` from the GitHub Actions app, with no
+bypass actors. It does not require a branch to be up to date before merging.
+The ruleset is repository configuration; editing a workflow alone does not
+make a check required.
 
 `CI gate` runs on every pull request and main-branch push. On every PR it
-requires lint, workspace builds, TypeScript, package tests, the web build,
-Postgres concurrency, and Windows CEF persistence to pass. It also waits for
+requires lint, the protocol models, workspace builds, TypeScript, package
+tests, the web build, the web E2E suite, Postgres concurrency, and Windows CEF
+persistence to pass. It also waits for
 native purchase bridge compiles, Lean proofs, and Terraform checks when their
 paths change.
 The platform workflows are reusable and keep their standalone manual dispatch
@@ -43,11 +45,15 @@ pass, with `CI_TURBO_PROTOCOL_CACHE=1`; `Lint` skips them
 registry, checker scripts, tool pins, and Java runtime identity. The wrapper
 validates the installed Java version and jar digest before every lookup,
 including cache hits. Implementation projections, conformance tests, and other
-static checks still run in `Lint`.
-The [pre-push](./static-analysis.md#ci-and-the-push-gate) gate also replays
-cached passes, from its own checkout's Turbo cache. Local
+static checks still run in `Lint`. Local
 [`check:fast`](./verification.md#before-a-push) and the direct model commands
 still execute TLC.
+
+`Web E2E` runs the app-web Playwright suite in Chromium through
+`bun run test:turbo:e2e`. Its Turbo task depends on the app-web workspace
+builds and the API's runtime sources, so a pass replays from the cache until a
+change reaches either. The [push gate](./static-analysis.md#ci-and-the-push-gate)
+runs no tests, so CI is the only place this suite runs automatically.
 
 Website-only source changes leave application unit-test and platform-verification
 hashes unchanged. Version bumps also invalidate client bundle and browser-test
@@ -89,11 +95,19 @@ independently requires them to succeed in the CI workflow on the exact head it
 will merge, and rejects any other reported failed or pending check. Missing
 checks and API errors stop the merge. This also protects standalone helper
 calls, where waiting only for the checks a ruleset requires would be
-insufficient. With `merge.requireStrictBaseFreshness`, the helper also refuses
-to merge unless the base's effective rules include an active strict status rule
-that the authenticated actor cannot bypass. Update
+insufficient. It does not require the branch to contain the base's newest
+commit: a base that moved during CI needs integration only when GitHub reports
+a conflict or `versions check` fails against the live base. Two PRs that pass
+separately can break `main` together, so CI also runs on every `main` push and
+the `ship-pr` skill starts from `agent-tool repo base-health`. Update
 [`agent-tool.json`](../../agent-tool.json) together with the ruleset when a
 required check name changes.
+
+The npm publish workflows for the client SDK and windowing packages start
+from the same `main` push as CI. Their `Wait for CI` job waits for CI's run
+on that commit
+([`waitForCi.sh`](../../scripts/release/waitForCi.sh)), and the publish job
+needs it, so a commit that fails CI never reaches npm.
 
 `agent-tool pr checks --wait` waits up to `merge.checksTimeoutSeconds`, set to
 3600. Uncached, the app and API `Test (...)` jobs each take about 20 minutes

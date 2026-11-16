@@ -2,10 +2,7 @@ import { expect, test } from "bun:test";
 import { restorePrincipalPolicyHistoryVerifier } from "@tearleads/crypto";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import {
-  loadPrincipalHistoryPrefix,
-  savePrincipalHistoryPrefix,
-} from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import {
   principalHistoryEvidenceScopeId,
   principalHistoryPrefixProtection,
@@ -39,10 +36,9 @@ test("an identical completed recovery cannot invalidate a pending acknowledgemen
                   head: options.expectedHead,
                   protection,
                 });
-                const saved = await loadPrincipalHistoryPrefix(
+                const saved = await new PrincipalHistoryRepository(
                   f.options.execSql,
-                  scopeId,
-                );
+                ).loadPrincipalHistoryPrefix(scopeId);
                 if (!saved) throw new Error("Missing predecessor prefix");
                 const seal = await principalHistoryPrefixProtection(
                   protection,
@@ -62,8 +58,9 @@ test("an identical completed recovery cannot invalidate a pending acknowledgemen
                 const progress = await restored.value.exportProgress(seal);
                 if (!progress.ok) throw progress.error;
                 expect(progress.value).not.toBe(saved.progress);
-                await savePrincipalHistoryPrefix({
-                  execSql: f.options.execSql,
+                await new PrincipalHistoryRepository(
+                  f.options.execSql,
+                ).savePrincipalHistoryPrefix({
                   prefix: { ...saved, progress: progress.value },
                   indexRootHash: verified.value.indexRootHash,
                   stillCurrent: () => f.lifetime.current,

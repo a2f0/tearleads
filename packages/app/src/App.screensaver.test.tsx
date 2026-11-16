@@ -6,6 +6,7 @@ import {
   type RenderResult,
   render,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { createTestAppHostConfig } from "../test/helpers/appTestHostConfig";
 import { App } from "./App";
@@ -34,12 +35,20 @@ function wake() {
   fireEvent.keyUp(window, { key: "Escape" });
 }
 
-test("bare desktop and Start menu launch lasers without replacing existing windows", async () => {
+// The desktop menu is portaled to the body; scope to it so its item does not
+// collide with the tray's Start Screensaver button.
+function clickMenuItem(view: RenderResult, name: string) {
+  const menu = view.baseElement.querySelector<HTMLElement>(".menu");
+  if (!menu) throw new Error("Expected an open menu");
+  fireEvent.click(within(menu).getByRole("button", { name }));
+}
+
+test("bare desktop, Start menu, and tray launch lasers without replacing existing windows", async () => {
   const view = await renderApp(createTestAppHostConfig());
   const desktop = view.getByRole("application");
   const explorer = view.getByRole("region", { name: "Explorer" });
   fireEvent.contextMenu(desktop, { clientX: 100, clientY: 100 });
-  fireEvent.click(view.getByRole("button", { name: "Start Screensaver" }));
+  clickMenuItem(view, "Start Screensaver");
   expect(view.getByRole("dialog")).toBeTruthy();
   expect(explorer.isConnected).toBe(true);
   wake();
@@ -48,7 +57,15 @@ test("bare desktop and Start menu launch lasers without replacing existing windo
   expect(view.getByRole("region", { name: "Explorer" })).toBe(explorer);
 
   fireEvent.click(view.getByRole("button", { name: "Menu" }));
-  fireEvent.click(view.getByRole("button", { name: "Start Screensaver" }));
+  clickMenuItem(view, "Start Screensaver");
+  expect(view.getByRole("dialog")).toBeTruthy();
+  wake();
+  await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+
+  const tray = view.getByRole("list", { name: "System tray" });
+  fireEvent.click(
+    within(tray).getByRole("button", { name: "Start Screensaver" }),
+  );
   expect(view.getByRole("dialog")).toBeTruthy();
   wake();
   await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
@@ -61,7 +78,7 @@ test("one screensaver survives navigation changes across the workspace tree", as
   const desktop = view.container.querySelector(".pane:not(.pane-hidden)");
   if (!desktop) throw new Error("Expected visible desktop");
   fireEvent.contextMenu(desktop, { clientX: 100, clientY: 100 });
-  fireEvent.click(view.getByRole("button", { name: "Start Screensaver" }));
+  clickMenuItem(view, "Start Screensaver");
   const dialog = view.getByRole("dialog");
   await act(async () => {
     view.rerender(

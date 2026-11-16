@@ -1,6 +1,6 @@
 {
   "name": "tearleads",
-  "version": "0.1.21",
+  "version": "0.1.26",
   "private": true,
   "license": "UNLICENSED",
   "packageManager": "bun@1.4.3",
@@ -57,7 +57,8 @@
     "lint:api-migrations": "bun scripts/checks/lintApiMigrations.ts",
     "lint:architecture": "bun scripts/architecture/lintArchitecture.ts",
     "lint:binary-files": "agent-tool checks binaries",
-    "lint:biome": "biome check --error-on-warnings && bun run lint:biome:promises",
+    "lint:biome": "bun run lint:biome:check && bun run lint:biome:promises",
+    "lint:biome:check": "biome check --error-on-warnings",
     "lint:biome:promises": "bun run test:biome:promises && biome lint --config-path biome.promises.jsonc --only=lint/nursery/noFloatingPromises --error-on-warnings packages",
     "lint:branch-name": "agent-tool branch check",
     "lint:canonical-ordering": "bun scripts/checks/lintCanonicalOrdering.ts",
@@ -106,7 +107,7 @@
     "test:step-timings": "cd scripts/lib && bun test stepTimings.test.ts",
     "test:soft-reset": "bun test ./scripts/deploy/softReset/",
     "test:install-dependencies": "cd scripts/lib && bun test installDependencies.test.ts",
-    "test:npm-publish": "cd scripts/release && bun test releasePlan.test.ts publishPolicy.test.ts publishNpmPackage.test.ts",
+    "test:npm-publish": "cd scripts/release && bun test releasePlan.test.ts publishPolicy.test.ts publishNpmPackage.test.ts waitForCi.test.ts",
     "test:biome:promises": "bun scripts/testing/testBiomePromises.ts",
     "test:turbo": "bun run test:turbo:bun && bun run test:turbo:e2e",
     "test:turbo:affected": "bun run test:turbo:bun:affected && bun run test:turbo:e2e:affected",
@@ -117,6 +118,7 @@
     "knip": "bun run lint:knip:all",
     "perf:provision": "bun run --cwd packages/performance provision",
     "test:knip:production": "bun scripts/testing/testKnipProduction.ts",
+    "typecheck:tools": "tsc --build tsconfig.tools.json --pretty false",
     "perf:database": "bun run --cwd packages/performance database",
     "tearleads": "bun run --cwd packages/cli start"
   },
@@ -150,7 +152,7 @@
     "*.md": "bun --bun x markdownlint-cli2 --fix"
   },
   "devDependencies": {
-    "@a2f0/agent-tool": "0.1.55",
+    "@a2f0/agent-tool": "0.1.58",
     "@azure/storage-blob": "12.34.0",
     "@biomejs/biome": "2.5.15",
     "@commitlint/cli": "21.2.4",

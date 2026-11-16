@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from "react";
-import { useOrganizationBilling } from "../../../../providers/billing/BillingProvider";
+import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import {
   useTearleads,
   useTearleadsRuntime,
-} from "../../../../providers/sdk/TearleadsProvider";
+} from "../../providers/sdk/TearleadsProvider";
 import {
   describeSyncStatus,
   resolveSyncStatus,
@@ -22,7 +22,7 @@ interface SyncStatusResult {
 }
 
 /**
- * The footer sync indicator's data source. It reads the same durable write queue
+ * The Sync Status tray app's data source. It reads the same durable write queue
  * the Explorer "Write Queue" panel does — `containerContents.documentQueries()
  * .listPendingWrites()` (see `usePendingWriteCount`) — treating a non-empty queue
  * as unflushed local data, and takes billing from the shared

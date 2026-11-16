@@ -3,7 +3,7 @@ import type {
   PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
 
-// The states the footer sync indicator can be in. `billing` outranks
+// The states the Sync Status tray app can be in. `billing` outranks
 // everything else: when the org cannot sync because billing lapsed, that is the
 // reason nothing flushes, so it is the more useful thing to surface than the
 // resulting red "pending" dot. `error` outranks `pending`: a queue item whose

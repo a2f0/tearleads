@@ -122,7 +122,7 @@ test.each(["pending", "blocked", "error"] as const)(
   "self write rechecks %s placement after selection while queued",
   async (status) => {
     const f = await createQueuedPlacementFixture(status);
-    let blockerWrite: Promise<void> | undefined;
+    let blockerWrite: Promise<boolean> | undefined;
     let ensuring: Promise<string | null> | undefined;
     try {
       f.store.updateRuntime(f.runtime);

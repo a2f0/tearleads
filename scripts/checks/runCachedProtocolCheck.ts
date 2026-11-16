@@ -11,7 +11,7 @@ if (
   throw new Error("Expected a cacheable protocol check");
 
 // Validate the installed Java and jar even on a hit. Direct check commands
-// and local pre-push still execute TLC; only CI opts into this wrapper.
+// and local check:fast still execute TLC; only CI's models job uses this wrapper.
 const tools = resolveTlcTools(process.cwd());
 tlcParallelism();
 const java = spawnSync(tools.javaBin, ["-version"], { encoding: "utf8" });

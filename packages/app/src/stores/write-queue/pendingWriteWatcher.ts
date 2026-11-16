@@ -9,7 +9,7 @@ interface PendingWriteWatcherDeps {
   readonly subscribe: (onChange: () => void) => () => void;
   /**
    * Report a freshly read queue; not called on a failed read. Callers project
-   * it as they need (a count for the footer indicator, the items themselves for
+   * it as they need (a count for the Sync Status tray app, the items themselves for
    * the System Monitor report), so the watcher stays a generic read machine.
    */
   readonly onSnapshot: (items: ReadonlyArray<PendingWriteQueueItem>) => void;
@@ -28,7 +28,8 @@ interface PendingWriteWatcher {
 }
 
 /**
- * The footer indicator's queue-reading state machine, factored out of React and
+ * The write queue's read state machine, shared by the Sync Status tray app and
+ * the System Monitor report, factored out of React and
  * off the SDK so its race handling is unit-testable. It reads once immediately,
  * then re-reads on any subscribed change — throttled so a burst collapses into a
  * single scan, serialized so reads never overlap (a change mid-read queues
