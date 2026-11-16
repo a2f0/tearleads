@@ -1,3 +1,6 @@
+// The child half of this module does not run the test preload, so it installs
+// the opt-in ML-DSA stand-in itself; otherwise the API would reject its writes.
+import "@tearleads/crypto/fast-signatures-test-fixtures";
 import { Database } from "bun:sqlite";
 import { fileURLToPath } from "node:url";
 import { ApiClient } from "@tearleads/api-client";

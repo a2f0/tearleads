@@ -10,6 +10,7 @@
     },
     "test": {
       "dependsOn": ["$TURBO_EXTENDS$", "build"],
+      "env": ["TEARLEADS_TEST_FAST_SIGNATURES"],
       "inputs": [
         "$TURBO_EXTENDS$",
         "$TURBO_ROOT$/.github/workflows/ci.yml",

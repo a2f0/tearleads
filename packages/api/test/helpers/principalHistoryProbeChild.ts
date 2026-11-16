@@ -1,3 +1,6 @@
+// A child process does not run the test preload, so it installs the opt-in
+// ML-DSA stand-in itself to match the parent that signed its history.
+import "@tearleads/crypto/fast-signatures-test-fixtures";
 import { createSession } from "../../src/middleware/session";
 import { closeApiTestAdapters } from "../cleanup";
 import { startPrincipalHistoryHttpProbe } from "./principalHistoryHttpProbe";

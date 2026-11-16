@@ -96,6 +96,35 @@ Some of that cost is deliberate:
   [`test/slow/principalHistoryAvailability.test.ts`](../../packages/api/test/slow/principalHistoryAvailability.test.ts).
   Both paths call `signPrincipalState`, and signing does not populate
   verification caches.
+- **Swap ML-DSA-87 for a stand-in while iterating.** Instrumented runs spent
+  48% of the client SDK suite's CPU, 60% of the API suite's, and 17% of the
+  app suite's in ML-DSA-87; signing alone took 258 of the SDK's 619 s. With
+  `TEARLEADS_TEST_FAST_SIGNATURES=1`, the SDK, API, and app preloads first
+  import
+  [`fastSignatures.testFixtures.ts`](../../packages/crypto/src/signing/fastSignatures.testFixtures.ts),
+  which `mock.module`s `ml_dsa87` with the SHAKE256 stand-in in
+  [`fastMlDsa87.testFixtures.ts`](../../packages/crypto/src/signing/fastMlDsa87.testFixtures.ts):
+  ML-DSA-87's key and signature lengths, keys derived from the seed, a random
+  salt in every signature so two signatures of one message differ, and a
+  check that rejects any change to the message, signature, or key. ML-KEM
+  stays real. Measured locally one suite at a time, with each package's test
+  flags (API on PGlite):
+
+  | Suite | Real wall | Real CPU | Stand-in wall | Stand-in CPU | Tests |
+  | --- | --- | --- | --- | --- | --- |
+  | Client SDK | 308 s | 622 s | 159 s | 320 s | 4,628 |
+  | API | 580 s | 1,149 s | 181 s | 415 s | 3,311 |
+  | App | 395 s | 716 s | 315 s | 569 s | 3,847 |
+
+  `mock.module` persists across files in a `--no-isolate` worker and survives
+  `mock.restore()`. It does not reach a worker thread or child process, so the
+  API's `principalHistorySigner.ts`, `principalHistoryProbeChild.ts`, and
+  `principalMutationJournalProcess.ts` import the module themselves. With the
+  stand-in on, removing the signature check behind a rejection test in
+  `workflows/principals`, `workflows/organizations`, or
+  `data/keyingProjectionVerification` still fails that test. A stand-in run
+  is for iteration only; see
+  [fast local signatures](verification.md#fast-local-signatures).
 - **Wrap timer-backed retries and async UI actions in `act`.** Explorer's
   menu-retry waits run inside `act`, and the recovery-key actions use async
   `act` callbacks; awaiting a synchronous callback restores the act environment
