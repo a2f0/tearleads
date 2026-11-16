@@ -2,6 +2,8 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   useCallback,
+  useEffect,
+  useRef,
 } from "react";
 import { classNames } from "../../shared/classNames";
 import { MiniAppButton } from "../controls/MiniAppButton";
@@ -83,10 +85,30 @@ export function MiniAppTabList<TabId extends string>({
     [activeTab, idPrefix, onSelect, tabs],
   );
 
+  // On the routed layout a strip wider than its pane scrolls sideways (see
+  // MiniAppTabs.css), so a tab can be selected while half of it is out of
+  // view. Scroll the strip — only the strip, never the page — to show it.
+  const stripRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const strip = stripRef.current;
+    const tab = strip?.querySelector('[aria-selected="true"]');
+    if (!strip || !tab) {
+      return;
+    }
+    const stripBox = strip.getBoundingClientRect();
+    const tabBox = tab.getBoundingClientRect();
+    if (tabBox.left < stripBox.left) {
+      strip.scrollLeft -= stripBox.left - tabBox.left;
+    } else if (tabBox.right > stripBox.right) {
+      strip.scrollLeft += tabBox.right - stripBox.right;
+    }
+  }, [activeTab]);
+
   return (
     <div
       aria-label={label}
       className={classNames("mini-app-tabs", className)}
+      ref={stripRef}
       role="tablist"
     >
       {tabs.map((tab) => {
