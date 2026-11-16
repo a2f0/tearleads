@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createExecSql, type ExecSql } from "../../sqlite/sqlSchema";
-import { savePrincipalHistoryPrefix } from "./principalHistoryPrefixPersistence";
+import { PrincipalHistoryRepository } from "./principalHistoryRepository";
 
 test("stage reclamation selects its bounded batch through the scope index", async () => {
   const f = await createTestExecSql("principal-stage-retention-plan");
@@ -20,9 +20,8 @@ test("stage reclamation selects its bounded batch through the scope index", asyn
     },
   });
   try {
-    await savePrincipalHistoryPrefix({
+    await new PrincipalHistoryRepository(execSql).savePrincipalHistoryPrefix({
       indexRootHash: "opaque-index-root",
-      execSql,
       stillCurrent: () => true,
       prefix: {
         scopeId: "indexed-scope",
