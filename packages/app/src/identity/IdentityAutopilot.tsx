@@ -147,13 +147,56 @@ function useAutoGenerateIdentity(
   return generation;
 }
 
+/**
+ * A provisioning step that reports only for the identity it ran for, so a
+ * switch to another identity never inherits its progress or failure.
+ */
+function useIdentityScopedStep(signingFingerprint: string | null) {
+  const [scoped, setScoped] = useState<{
+    readonly fingerprint: string | null;
+    readonly step: AutoProvisioningStep;
+  }>({ fingerprint: null, step: AUTO_PROVISIONING_IDLE });
+  const setStep = useCallback(
+    (fingerprint: string | null, step: AutoProvisioningStep) => {
+      setScoped({ fingerprint, step });
+    },
+    [],
+  );
+  const step =
+    scoped.fingerprint === signingFingerprint
+      ? scoped.step
+      : AUTO_PROVISIONING_IDLE;
+  return [step, setStep] as const;
+}
+
+interface PendingRegistration {
+  readonly generation: AutoProvisioningStep;
+  readonly naming: AccountNamingState;
+  readonly namingSettled: boolean;
+}
+
+/**
+ * Whether registration must wait for the user, and the org name it carries. A
+ * key the autopilot is still installing may yet need a name, a name given
+ * before a restart may still be on its way back, and a name still owed holds
+ * the identity's first registration.
+ */
+function pendingRegistration(pending: PendingRegistration) {
+  return {
+    awaitingInput:
+      pending.generation.status === "running" ||
+      !pending.namingSettled ||
+      pending.naming.status === "awaiting",
+    organizationProfileName:
+      pending.naming.status === "named"
+        ? personalOrganizationName(pending.naming.name)
+        : undefined,
+  };
+}
+
 function useAutoRegisterIdentity(
   enabled: boolean,
-  pending: {
-    readonly generation: AutoProvisioningStep;
-    readonly naming: AccountNamingState;
-    readonly namingSettled: boolean;
-  },
+  pending: PendingRegistration,
 ): AutoProvisioningStep {
   const { features } = useAppHostConfig().profile;
   const { sessionRestoreSettled } = useCryptoSession();
@@ -162,14 +205,12 @@ function useAutoRegisterIdentity(
   const { ensureBootstrapped, status: systemBootstrapStatus } =
     useSystemBootstrap();
   const { logError } = useLog();
+  const { signingFingerprint } = useIdentity();
   const registrationInFlight = useRef(false);
-  const [registration, setRegistration] = useState<AutoProvisioningStep>(
-    AUTO_PROVISIONING_IDLE,
-  );
-  const organizationProfileName =
-    pending.naming.status === "named"
-      ? personalOrganizationName(pending.naming.name)
-      : undefined;
+  const [registration, setRegistration] =
+    useIdentityScopedStep(signingFingerprint);
+  const { awaitingInput, organizationProfileName } =
+    pendingRegistration(pending);
   const currentRegistrationRef = useRef({
     canRegisterCurrentIdentity,
     organizationProfileName,
@@ -180,13 +221,6 @@ function useAutoRegisterIdentity(
     organizationProfileName,
     registerCurrentIdentity,
   };
-  // A key the autopilot is still installing may yet need a name, a name given
-  // before a restart may still be on its way back, and a name still owed
-  // holds the identity's first registration.
-  const awaitingInput =
-    pending.generation.status === "running" ||
-    !pending.namingSettled ||
-    pending.naming.status === "awaiting";
 
   useEffect(() => {
     if (
@@ -218,7 +252,8 @@ function useAutoRegisterIdentity(
     // re-render while the request is outstanding) from firing a second
     // registration; on success canRegisterCurrentIdentity flips false.
     registrationInFlight.current = true;
-    setRegistration({ status: "running" });
+    const fingerprint = signingFingerprint;
+    setRegistration(fingerprint, { status: "running" });
     void ensureBootstrapped()
       .then((result) => {
         // System bootstrap is a hard precondition: only register once the
@@ -243,6 +278,7 @@ function useAutoRegisterIdentity(
         // effect, so the run is not a failure. false: the login refused or the
         // identity changed underneath; signed-out surfaces offer manual login.
         setRegistration(
+          fingerprint,
           registered === false
             ? { message: AUTO_SIGN_IN_INCOMPLETE_MESSAGE, status: "failed" }
             : AUTO_PROVISIONING_IDLE,
@@ -253,7 +289,7 @@ function useAutoRegisterIdentity(
         // show the reason beside the manual Login fallback.
         const message = autoRegisterFailureMessage(error);
         logError(message, error);
-        setRegistration({ message, status: "failed" });
+        setRegistration(fingerprint, { message, status: "failed" });
       })
       .finally(() => {
         registrationInFlight.current = false;
@@ -266,6 +302,8 @@ function useAutoRegisterIdentity(
     features.autoRegisterIdentity,
     logError,
     sessionRestoreSettled,
+    setRegistration,
+    signingFingerprint,
     systemBootstrapStatus,
   ]);
 

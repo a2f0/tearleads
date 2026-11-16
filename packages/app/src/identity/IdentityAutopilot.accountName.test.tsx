@@ -157,7 +157,10 @@ test(
         name: "What should we call you?",
       }),
     ).toBeNull();
-    await waitFor(() => expect(sealedAccountNaming(namespace)).toBeNull());
+    // Removed once the account exists and the self contact carries the name.
+    await waitFor(() => expect(sealedAccountNaming(namespace)).toBeNull(), {
+      timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
+    });
     await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
     third.view.unmount();
   },

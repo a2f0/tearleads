@@ -4,6 +4,7 @@ import {
   type AccountNamingEvent,
   type AccountNamingState,
   accountNamingFor,
+  sealedAccountNaming,
   transitionAccountNaming,
 } from "./accountNamingMachine";
 
@@ -124,4 +125,31 @@ test("a sealed naming fills in a restarted identity, never one this page named",
       type: "restored",
     }),
   ).toBe(named);
+});
+
+test("the sealed name outlives registration until the contact durably carries it", () => {
+  const named = run([
+    generated,
+    { fingerprint: "fp-new", name: "Bob", type: "name-submitted" },
+  ]);
+  expect(sealedAccountNaming(named, false)).toEqual({
+    name: "Bob",
+    status: "named",
+  });
+  // Registered, but a restart now must still name the contact: keep it.
+  expect(sealedAccountNaming(named, true)).toBeUndefined();
+  const contactNamed = transitionAccountNaming(named, {
+    fingerprint: "fp-new",
+    type: "contact-named",
+  });
+  expect(sealedAccountNaming(contactNamed, true)).toBeNull();
+});
+
+test("a pending prompt is sealed until an account exists", () => {
+  expect(sealedAccountNaming(run([generated]), false)).toEqual({
+    status: "awaiting",
+  });
+  expect(sealedAccountNaming(run([generated]), true)).toBeNull();
+  expect(sealedAccountNaming(ACCOUNT_NAMING_IDLE, false)).toBeUndefined();
+  expect(sealedAccountNaming(ACCOUNT_NAMING_IDLE, true)).toBeNull();
 });

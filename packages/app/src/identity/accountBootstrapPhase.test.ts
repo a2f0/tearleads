@@ -76,6 +76,22 @@ describe("resolveAccountBootstrapPhase", () => {
     ).toBe("signed-out");
   });
 
+  test("a name still owed keeps the prompt after an earlier run failed", () => {
+    // Switching back to an unnamed identity after another identity's
+    // registration failed: registration waits on the name, so the prompt must
+    // show rather than a sign-in fallback that cannot proceed.
+    expect(phaseOf({ awaitingAccountName: true, registration: "failed" })).toBe(
+      "naming-account",
+    );
+    expect(
+      phaseOf({
+        awaitingAccountName: true,
+        registration: "idle",
+        systemBootstrapStatus: "error",
+      }),
+    ).toBe("naming-account");
+  });
+
   test("a key that lands before the autopilot's generation settles is still being created", () => {
     // Until generation settles the autopilot cannot say whether it needs a
     // name, so apps must not open on the new key in the meantime.

@@ -96,16 +96,19 @@ function registrationPhase(
   if (autoRegistering && input.registration === "running") {
     return input.identityRestored ? "signing-in" : "creating-account";
   }
+  if (!autoRegistering || input.userId !== null) {
+    return "signed-out";
+  }
+  // Registration holds until the name is given, whatever an earlier run (say,
+  // for another identity before a switch back) or bootstrap reported.
+  if (input.awaitingAccountName) {
+    return "naming-account";
+  }
   if (
-    !autoRegistering ||
-    input.userId !== null ||
     input.registration === "failed" ||
     input.systemBootstrapStatus === "error"
   ) {
     return "signed-out";
-  }
-  if (input.awaitingAccountName) {
-    return "naming-account";
   }
   return input.identityRestored ? "signing-in" : "creating-account";
 }

@@ -108,3 +108,26 @@ export function accountNamingFor(
     ? state
     : ACCOUNT_NAMING_IDLE;
 }
+
+/**
+ * What the identity's sealed record should become: the naming to seal, or
+ * `null` to remove it. The record outlives the account's creation until the
+ * self contact durably carries the name, so a restart in between still names
+ * the contact. `undefined` leaves the record as it is.
+ */
+export function sealedAccountNaming(
+  state: AccountNamingState,
+  accountExists: boolean,
+): PersistedAccountNaming | null | undefined {
+  switch (state.status) {
+    case "named":
+      if (!accountExists) {
+        return { name: state.name, status: "named" };
+      }
+      return state.contactNamed ? null : undefined;
+    case "awaiting":
+      return accountExists ? null : { status: "awaiting" };
+    case "idle":
+      return accountExists ? null : undefined;
+  }
+}

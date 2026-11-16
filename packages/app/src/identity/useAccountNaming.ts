@@ -7,6 +7,7 @@ import {
   type AccountNamingState,
   accountNamingFor,
   type PersistedAccountNaming,
+  sealedAccountNaming,
   transitionAccountNaming,
 } from "./accountNamingMachine";
 import {
@@ -73,42 +74,31 @@ function useRestoredAccountNaming(
   return persistence === null || restoredFingerprint === signingFingerprint;
 }
 
-/** Seals the naming until the account exists, then removes it. */
+/** Keeps the sealed record in step with {@link sealedAccountNaming}. */
 function useSealedAccountNaming(
   persistence: AccountNamingPersistence | null,
   signingFingerprint: string | null,
   state: AccountNamingState,
 ): void {
-  const { userId } = useCryptoSession();
+  const accountExists = useCryptoSession().userId !== null;
   const { logError } = useLog();
   // One write at a time, so a slow earlier seal never lands over a later one.
   const writes = useRef(Promise.resolve());
-  const name = state.status === "named" ? state.name : null;
 
   useEffect(() => {
-    if (!persistence || !signingFingerprint) {
+    const sealed = sealedAccountNaming(state, accountExists);
+    if (!persistence || !signingFingerprint || sealed === undefined) {
       return;
     }
     const write =
-      userId !== null
+      sealed === null
         ? async () => persistence.storage.removeItem(persistence.storageKey)
-        : state.status === "idle"
-          ? null
-          : () =>
-              savePersistedAccountNaming(
-                persistence,
-                signingFingerprint,
-                name === null
-                  ? { status: "awaiting" }
-                  : { name, status: "named" },
-              );
-    if (!write) {
-      return;
-    }
+        : () =>
+            savePersistedAccountNaming(persistence, signingFingerprint, sealed);
     writes.current = writes.current.then(write).catch((error: unknown) => {
       logError("Could not save the account name.", error);
     });
-  }, [logError, name, persistence, signingFingerprint, state.status, userId]);
+  }, [accountExists, logError, persistence, signingFingerprint, state]);
 }
 
 /**

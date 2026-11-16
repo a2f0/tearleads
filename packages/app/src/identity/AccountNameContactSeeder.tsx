@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ContactEntry } from "../document-types/contact/contactDocumentModel";
 import { useLog } from "../providers/logging/LogProvider";
 import {
   ContactsProvider,
@@ -9,7 +10,10 @@ import { isCurrentSelfContactLocalId } from "../stores/contacts/selfContact";
 interface AccountNameContactSeederProps {
   readonly fingerprint: string;
   readonly name: string;
-  /** The self contact has a nickname: this one, or one it already carried. */
+  /**
+   * The self contact durably carries a nickname: this one once its write
+   * settled, or one it already had.
+   */
   readonly onNamed: () => void;
 }
 
@@ -20,10 +24,12 @@ function SelfContactNicknameWriter({
 }: AccountNameContactSeederProps): null {
   const { canWrite, entries, ready, updateContact } = useContacts();
   const { logError } = useLog();
-  const writing = useRef(false);
+  // State rather than a ref, so the settled write re-runs the check below.
+  const [writing, setWriting] = useState(false);
+  const attempted = useRef<ContactEntry | null>(null);
 
   useEffect(() => {
-    if (!ready || !canWrite || writing.current) {
+    if (!ready || !canWrite || writing) {
       return;
     }
     const self = entries.find((entry) =>
@@ -32,20 +38,25 @@ function SelfContactNicknameWriter({
     if (!self) {
       return;
     }
+    // With no write in flight a nickname is durable: loaded from storage, or
+    // saved by a write that has settled (updateContact resolves once saved).
     if ((self.nickname ?? "").trim().length > 0) {
       onNamed();
       return;
     }
-
-    // The latch keeps a re-render while the write is outstanding from issuing
-    // it twice; the landed nickname then reports through the branch above.
-    writing.current = true;
+    // A write that settled without landing retries only once the contact
+    // itself changes, never in a loop against the same entry.
+    if (attempted.current === self) {
+      return;
+    }
+    attempted.current = self;
+    setWriting(true);
     void updateContact(self.id, { nickname: name })
       .catch((error: unknown) => {
         logError("Could not name your own contact.", error);
       })
       .finally(() => {
-        writing.current = false;
+        setWriting(false);
       });
   }, [
     canWrite,
@@ -56,6 +67,7 @@ function SelfContactNicknameWriter({
     onNamed,
     ready,
     updateContact,
+    writing,
   ]);
 
   return null;
