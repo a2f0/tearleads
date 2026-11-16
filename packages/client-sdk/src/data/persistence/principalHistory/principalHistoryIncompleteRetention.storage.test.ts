@@ -10,7 +10,7 @@ import {
   type ExecSql,
   ensureSqlTables,
 } from "../../sqlite/sqlSchema";
-import { savePrincipalHistoryStage } from "./principalHistoryStagePersistence";
+import { PrincipalHistoryRepository } from "./principalHistoryRepository";
 
 async function seededProgress(count: number) {
   const f = await createTestExecSql("principal-incomplete-retention");
@@ -40,8 +40,8 @@ async function seededProgress(count: number) {
   return {
     ...f,
     db,
+    repository: new PrincipalHistoryRepository(f.execSql),
     input: {
-      execSql: f.execSql,
       stage,
       previousProgress: null,
       evidence: {
@@ -83,7 +83,7 @@ test("partial reclamation is bounded, scoped and preserves the current writer de
         touchedAt: 0,
       })),
     );
-    await savePrincipalHistoryStage(f.input);
+    await f.repository.savePrincipalHistoryStage(f.input);
     const first = await f.snapshot();
     expect(first.stages).toHaveLength(13);
     expect(first.stages).toContainEqual(f.input.stage);
@@ -92,7 +92,7 @@ test("partial reclamation is bounded, scoped and preserves the current writer de
       afterVersion: 2,
       progress: "next-progress",
     };
-    await savePrincipalHistoryStage({
+    await f.repository.savePrincipalHistoryStage({
       ...f.input,
       stage: next,
       previousProgress: f.input.stage.progress,
@@ -108,14 +108,14 @@ test("partial reclamation is bounded, scoped and preserves the current writer de
       progress: "resumed-progress",
     };
     await expect(
-      savePrincipalHistoryStage({
+      f.repository.savePrincipalHistoryStage({
         ...f.input,
         stage: lost,
         previousProgress: "progress-0",
       }),
     ).rejects.toMatchObject({ code: "principal_history_stage_changed" });
     expect(await f.snapshot()).toEqual(second);
-    await savePrincipalHistoryStage({ ...f.input, stage: lost });
+    await f.repository.savePrincipalHistoryStage({ ...f.input, stage: lost });
     expect((await f.snapshot()).stages).toContainEqual(lost);
   } finally {
     f.close();
@@ -126,7 +126,7 @@ test("a completed writer retains eight incomplete stages", async () => {
   const f = await seededProgress(9);
   try {
     const stage = { ...f.input.stage, complete: true };
-    await savePrincipalHistoryStage({ ...f.input, stage });
+    await f.repository.savePrincipalHistoryStage({ ...f.input, stage });
     const saved = await f.snapshot();
     expect(saved.stages).toContainEqual(stage);
     expect(saved.stages.filter((row) => !row.complete)).toHaveLength(8);
@@ -156,9 +156,8 @@ test("cancellation rolls back the accepted page and its incomplete-stage reclama
   try {
     const before = await f.snapshot();
     await expect(
-      savePrincipalHistoryStage({
+      new PrincipalHistoryRepository(execSql).savePrincipalHistoryStage({
         ...f.input,
-        execSql,
         stillCurrent: () => current,
       }),
     ).rejects.toMatchObject({
@@ -189,7 +188,9 @@ test("partial cleanup uses the recency index without sorting all staged rows", a
     },
   });
   try {
-    await savePrincipalHistoryStage({ ...f.input, execSql });
+    await new PrincipalHistoryRepository(execSql).savePrincipalHistoryStage(
+      f.input,
+    );
     if (!selection) throw new Error("Missing production reclamation query");
     const plan = await f.execSql(
       `EXPLAIN QUERY PLAN ${selection.sql}`,

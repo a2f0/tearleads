@@ -3,9 +3,9 @@
 App-agnostic window management for React: window state (open, focus order,
 minimize/maximize, a per-window route and Back stack), window chrome (title
 bar, menu bar, toolbar, sidebar, status bar, resize handles), the menu and
-sidebar primitives that chrome renders with, a taskbar's start menu and theme
-switch, and a launcher that runs a set of mini-apps in windows or in the routed
-(iPad / phone) shell.
+sidebar primitives that chrome renders with, a taskbar's start menu, theme
+switch, and system tray of apps the user can turn off, and a launcher that
+runs a set of mini-apps in windows or in the routed (iPad / phone) shell.
 
 The package knows nothing about the applications that run inside its windows.
 It depends only on React, react-dom, and Phosphor icons, which draw the
@@ -68,6 +68,7 @@ desktop surface must be a positioned container.
 - [Themes, wallpapers, and styles](./docs/appearance.md)
   - [Themes](./docs/appearance.md#themes)
   - [Wallpapers and Display Properties](./docs/appearance.md#wallpapers-and-display-properties)
+  - [System tray](./docs/appearance.md#system-tray)
   - [Styles](./docs/appearance.md#styles)
 - [Pluggable screensavers, lasers, and PIN unlock](./docs/screensavers.md)
 - [Publishing](./docs/publishing.md)

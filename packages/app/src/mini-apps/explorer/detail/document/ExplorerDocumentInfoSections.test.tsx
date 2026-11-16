@@ -1,6 +1,19 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { createElement } from "react";
+import {
+  getFoldedSecondaryTexts,
+  mockPhoneRoutedLayout,
+} from "../../../../../test/helpers/compactTableFold";
+import { formatByteLength } from "../../../../utils/formatByteLength";
+import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
+import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerDocumentInfoAttachmentsSection } from "./ExplorerDocumentInfoAttachmentsSection";
 import { ExplorerDocumentInfoGeneralSection } from "./ExplorerDocumentInfoGeneralSections";
 import {
@@ -174,6 +187,58 @@ test("document info attachment rows match duplicate bindings one-to-one", () => 
   expect(view.container.querySelectorAll("tbody tr")).toHaveLength(3);
   expect(view.getAllByText("local + remote")).toHaveLength(2);
   expect(view.getByText(/^remote$/)).toBeTruthy();
+});
+
+test("folded attachment rows keep state, size, and time, and the name opens the blob", () => {
+  const restoreLayout = mockPhoneRoutedLayout();
+  const opened: Array<{ blobId?: string | null | undefined }> = [];
+  const updatedAt = "2026-06-20T10:00:00.000Z";
+  try {
+    const view = render(
+      createElement(ExplorerDocumentInfoAttachmentsSection, {
+        documentInfo: createDocumentInfo({
+          attachments: [
+            {
+              attachmentKind: "local",
+              blobId: "blob-local",
+              byteLength: 12,
+              createdAt: null,
+              localId: "local-document-1",
+              mimeType: "image/png",
+              name: "photo.png",
+              slotId: "slot-1",
+              storageKey: "storage-1",
+              updatedAt,
+            },
+          ],
+          remoteInfo: null,
+        }),
+        openBlobBrowserRoute: (input) => {
+          opened.push({ blobId: input?.blobId });
+        },
+      }),
+    );
+    const table = view.getByRole("table", {
+      name: EXPLORER_LABELS.documentInfoAttachmentsHeading,
+    });
+
+    expect(table.querySelectorAll("thead th")).toHaveLength(1);
+    const details = [
+      "local",
+      formatByteLength(12),
+      formatMiniAppDateTime(updatedAt),
+    ].join(" · ");
+    expect(getFoldedSecondaryTexts(table)).toEqual([
+      [
+        `${EXPLORER_LABELS.documentInfoAttachmentKindColumn} · ${EXPLORER_LABELS.documentInfoAttachmentSizeColumn} · ${EXPLORER_LABELS.documentInfoAttachmentTimeColumn}: ${details}`,
+      ],
+    ]);
+
+    fireEvent.click(within(table).getByRole("button", { name: "photo.png" }));
+    expect(opened).toEqual([{ blobId: "blob-local" }]);
+  } finally {
+    restoreLayout();
+  }
 });
 
 // A shortened id keeps its full form only for the copy: a touch screen never

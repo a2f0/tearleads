@@ -185,13 +185,7 @@ test("container info tabs split general, sharing, security, and sync details", a
 
   fireEvent.click(view.getByRole("tab", { name: "Sharing" }));
   expect(view.getByText("Principal Grants")).toBeTruthy();
-  expect(
-    view
-      .getByText("Principal Grants")
-      .closest("section")
-      ?.querySelector("table")
-      ?.classList.contains("mini-app-info-table--row-divided"),
-  ).toBe(true);
+  expect(view.getByRole("table", { name: "Principal Grants" })).toBeTruthy();
   expect(view.getByText("New Share")).toBeTruthy();
   expect(
     view

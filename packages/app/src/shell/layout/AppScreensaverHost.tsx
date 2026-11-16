@@ -3,15 +3,14 @@ import {
   LaserScreensaver,
   MenuItem,
   ScreensaverProvider,
-  useScreensaver,
+  useOptionalScreensaver,
 } from "@tearleads/windowing";
-import { createContext, type PropsWithChildren, useContext } from "react";
+import type { PropsWithChildren } from "react";
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 
-const AppScreensaverContext = createContext(false);
-
 // One host inside the shared runtime, above all workspace/window state. The
-// isolated demo deliberately has no host: its peers have independent PINs.
+// isolated demo deliberately has no host: its peers have independent PINs, so
+// the desktop menu item and the Screensaver Button tray app hide there.
 export function AppScreensaverHost({ children }: PropsWithChildren) {
   const { pinCodeEnabled, verifyPinCode } = useLocalKeyringLock();
 
@@ -20,40 +19,26 @@ export function AppScreensaverHost({ children }: PropsWithChildren) {
       screensaver={LaserScreensaver}
       verifyPin={pinCodeEnabled ? verifyPinCode : undefined}
     >
-      <AppScreensaverContext.Provider value={true}>
-        {children}
-      </AppScreensaverContext.Provider>
+      {children}
     </ScreensaverProvider>
   );
 }
 
-function StartScreensaver({ onClose }: { onClose?: (() => void) | undefined }) {
-  const { start } = useScreensaver();
-  const launch = () => {
-    onClose?.();
-    start();
-  };
+/** The desktop menu's Start Screensaver item; nothing without a host. */
+export function AppScreensaverMenuItem({ onClose }: { onClose: () => void }) {
+  const screensaver = useOptionalScreensaver();
+  if (!screensaver) {
+    return null;
+  }
 
-  return onClose ? (
-    <MenuItem icon={MonitorIcon} label="Start Screensaver" onClick={launch} />
-  ) : (
-    <button
-      aria-label="Start Screensaver"
-      className="tearleads-action-button"
-      onClick={launch}
-      title="Start Screensaver"
-      type="button"
-    >
-      <MonitorIcon aria-hidden="true" />
-    </button>
+  return (
+    <MenuItem
+      icon={MonitorIcon}
+      label="Start Screensaver"
+      onClick={() => {
+        onClose();
+        screensaver.start();
+      }}
+    />
   );
-}
-
-export function AppScreensaverAction({
-  onClose,
-}: {
-  onClose?: (() => void) | undefined;
-}) {
-  const available = useContext(AppScreensaverContext);
-  return available ? <StartScreensaver onClose={onClose} /> : null;
 }

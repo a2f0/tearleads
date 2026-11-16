@@ -2,6 +2,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { seedExpectations } from "./continuity";
 
 import { openDocumentDetail, openDocumentImage } from "./documentImages";
+import { GET_INFO_SCREENS } from "./getInfoScreens";
 import { HOUSEHOLD_SCREENS } from "./householdScreens";
 import { assertImagesDecoded } from "./imageReadiness";
 
@@ -51,6 +52,7 @@ interface DetailScreen {
 
 export const DETAIL_SCREENS: readonly DetailScreen[] = [
   ...HOUSEHOLD_SCREENS,
+  ...GET_INFO_SCREENS,
   {
     name: "note-detail",
     route: "/app/notes",

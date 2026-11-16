@@ -5,7 +5,7 @@ import {
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalHistoryReferences } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 
@@ -40,8 +40,9 @@ async function selectReferences(input: {
     versions.push(version);
   }
   assertProjectionVerificationCurrent(current);
-  const loaded = await loadPrincipalHistoryReferences({
-    execSql: options.execSql,
+  const loaded = await new PrincipalHistoryRepository(
+    options.execSql,
+  ).loadPrincipalHistoryReferences({
     scopeId,
     history,
     versions: input.checkpoint

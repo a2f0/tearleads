@@ -8,6 +8,7 @@ import {
 // A fresh device mid-registration: the autopilot is armed, a key pair exists,
 // restores have settled, and no account has signed in yet.
 const REGISTERING: AccountBootstrapInput = {
+  awaitingAccountName: false,
   autoGenerateIdentity: true,
   autoProvisioningEnabled: true,
   autoRegisterIdentity: true,
@@ -51,6 +52,52 @@ describe("resolveAccountBootstrapPhase", () => {
 
   test("a restored identity without a session is signing in", () => {
     expect(phaseOf({ identityRestored: true })).toBe("signing-in");
+  });
+
+  test("a new identity waiting for its name is naming the account", () => {
+    expect(phaseOf({ awaitingAccountName: true, registration: "idle" })).toBe(
+      "naming-account",
+    );
+    // Bootstrap still settling does not hide the prompt.
+    expect(
+      phaseOf({
+        awaitingAccountName: true,
+        registration: "idle",
+        systemBootstrapStatus: "waiting",
+      }),
+    ).toBe("naming-account");
+    // Without the autopilot nothing registers, so nothing waits for a name.
+    expect(
+      phaseOf({
+        autoProvisioningEnabled: false,
+        awaitingAccountName: true,
+        registration: "idle",
+      }),
+    ).toBe("signed-out");
+  });
+
+  test("a name still owed keeps the prompt after an earlier run failed", () => {
+    // Switching back to an unnamed identity after another identity's
+    // registration failed: registration waits on the name, so the prompt must
+    // show rather than a sign-in fallback that cannot proceed.
+    expect(phaseOf({ awaitingAccountName: true, registration: "failed" })).toBe(
+      "naming-account",
+    );
+    expect(
+      phaseOf({
+        awaitingAccountName: true,
+        registration: "idle",
+        systemBootstrapStatus: "error",
+      }),
+    ).toBe("naming-account");
+  });
+
+  test("a key that lands before the autopilot's generation settles is still being created", () => {
+    // Until generation settles the autopilot cannot say whether it needs a
+    // name, so apps must not open on the new key in the meantime.
+    expect(phaseOf({ generation: "running", registration: "idle" })).toBe(
+      "creating-identity",
+    );
   });
 
   test("stored identity or session loads report restoring", () => {
@@ -116,4 +163,8 @@ test("progress copy exists only for bootstrapping phases", () => {
   expect(accountBootstrapCopy("creating-account")?.title).toBe(
     "Creating your account",
   );
+  expect(accountBootstrapCopy("naming-account")).toMatchObject({
+    phase: "naming-account",
+    title: "What should we call you?",
+  });
 });

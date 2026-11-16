@@ -11,10 +11,22 @@ tags:
 - launchApp:
     clearState: false
 - extendedWaitUntil:
-    visible: "Contacts"
-    timeout: 40000
-- extendedWaitUntil:
     visible: "Menu"
+    timeout: 40000
+# A fresh dedicated simulator's first identity asks what to call the reviewer
+# before any app opens; a persisted identity goes straight to the Explorer.
+- extendedWaitUntil:
+    visible: "Contacts|What should we call you\\?"
+    timeout: 40000
+- runFlow:
+    when:
+      visible: "What should we call you\\?"
+    commands:
+      - tapOn: "Bob"
+      - inputText: "App Review"
+      - pressKey: Enter
+- extendedWaitUntil:
+    visible: "Contacts"
     timeout: 40000
 
 # A fresh dedicated simulator has a local identity but no API account. Register

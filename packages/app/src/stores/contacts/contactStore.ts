@@ -74,13 +74,18 @@ async function updateContactFromRuntime(
   state: ContactsStoreState,
   contactId: string,
   patch: ContactEntryPatch,
-): Promise<void> {
+): Promise<boolean> {
   const current = captureContactsScope(state);
-  if (!(await contactsRuntimeWritable(state, contactId)) || !current()) return;
+  if (!(await contactsRuntimeWritable(state, contactId)) || !current()) {
+    return false;
+  }
 
-  await queueContactWrite(state, "Contacts: failed to update contact.", () =>
-    writeContactPatch(state, contactId, patch, { guard: current }),
+  const saved = await queueContactWrite(
+    state,
+    "Contacts: failed to update contact.",
+    () => writeContactPatch(state, contactId, patch, { guard: current }),
   );
+  return saved === true;
 }
 
 async function importUserFromRuntime(

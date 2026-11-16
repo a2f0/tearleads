@@ -6,7 +6,7 @@ import {
 } from "../../sqlite/schema/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../sqlite/sqlSchema";
-import { savePrincipalHistoryPrefix } from "./principalHistoryPrefixPersistence";
+import { PrincipalHistoryRepository } from "./principalHistoryRepository";
 import { PRINCIPAL_HISTORY_STAGE_RECLAIM_LIMIT } from "./principalHistoryStageRetention";
 
 test("completed-stage cleanup is bounded and preserves incomplete, newer and foreign progress", async () => {
@@ -38,9 +38,9 @@ test("completed-stage cleanup is bounded and preserves incomplete, newer and for
         touchedAt: 1,
       })),
     );
+    const repository = new PrincipalHistoryRepository(f.execSql);
     const input = {
       indexRootHash: "opaque-index-root",
-      execSql: f.execSql,
       stillCurrent: () => true,
       prefix: {
         scopeId: "scope-1",
@@ -51,9 +51,9 @@ test("completed-stage cleanup is bounded and preserves incomplete, newer and for
         progress: "opaque-prefix",
       },
     };
-    await savePrincipalHistoryPrefix(input);
+    await repository.savePrincipalHistoryPrefix(input);
     expect(await db.select().from(principalHistoryStages)).toHaveLength(7);
-    await savePrincipalHistoryPrefix(input);
+    await repository.savePrincipalHistoryPrefix(input);
     expect(
       (await db.select().from(principalHistoryStages))
         .map((row) => row.id)

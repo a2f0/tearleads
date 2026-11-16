@@ -12,10 +12,7 @@ import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
-import {
-  discardPrincipalHistoryStage,
-  savePrincipalHistoryStage,
-} from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
 import {
@@ -162,19 +159,20 @@ async function acceptPage(
   );
   if (!protectedProgress.ok) throw protectedProgress.error;
   const saved = { ...next, progress: protectedProgress.value };
-  await savePrincipalHistoryStage({
-    execSql: input.execSql,
-    stage: saved,
-    evidence: await preparePrincipalHistoryEvidencePage({
-      indexRootHash: appended.indexRootHash,
-      scopeId: stage.scopeId,
-      organizationId: input.organizationId,
-      entries,
-      nodes: appended.indexNodes,
-    }),
-    previousProgress: stage.saved?.progress ?? null,
-    stillCurrent: () => recoveryIsCurrent(input),
-  });
+  await new PrincipalHistoryRepository(input.execSql).savePrincipalHistoryStage(
+    {
+      stage: saved,
+      evidence: await preparePrincipalHistoryEvidencePage({
+        indexRootHash: appended.indexRootHash,
+        scopeId: stage.scopeId,
+        organizationId: input.organizationId,
+        entries,
+        nodes: appended.indexNodes,
+      }),
+      previousProgress: stage.saved?.progress ?? null,
+      stillCurrent: () => recoveryIsCurrent(input),
+    },
+  );
   stage.current = current;
   stage.saved = saved;
   stage.complete = complete;
@@ -313,7 +311,9 @@ async function readRecoveryPages(
       // A rejected transport pin cannot justify skipping history on retry.
       // Discard only this operation's progress, then let a new call replay it.
       if (result.kind === "shape" && stage.saved)
-        await discardPrincipalHistoryStage(input.execSql, stage.saved, () =>
+        await new PrincipalHistoryRepository(
+          input.execSql,
+        ).discardPrincipalHistoryStage(stage.saved, () =>
           recoveryIsCurrent(input),
         );
       throw new PrincipalPolicyHistoryReadError(result);
@@ -400,7 +400,9 @@ async function recover(
       error instanceof PrincipalHistoryEvidenceUnavailableError;
     if (!lostEvidence && !isDisposableStoredArtifactError(error)) throw error;
     if (stage.saved)
-      await discardPrincipalHistoryStage(input.execSql, stage.saved, () =>
+      await new PrincipalHistoryRepository(
+        input.execSql,
+      ).discardPrincipalHistoryStage(stage.saved, () =>
         recoveryIsCurrent(input),
       );
     if (canRebuildEvidence(input, allowEvidenceRebuild, lostEvidence, stage))
