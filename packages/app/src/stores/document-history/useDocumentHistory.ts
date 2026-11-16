@@ -6,7 +6,10 @@ import {
   useReducer,
   useRef,
 } from "react";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import {
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import {
   type DocumentHistoryEvent,
@@ -30,6 +33,11 @@ export interface DocumentHistoryControls {
 type Send = Dispatch<DocumentHistoryEvent>;
 
 interface HistorySource {
+  /**
+   * The ready database the history is read from, or null while there is none.
+   * A different database is a different history.
+   */
+  readonly database: object | null;
   readonly documents: Documents;
   readonly localId: string;
 }
@@ -52,7 +60,7 @@ function hasNewerStops(current: DocumentHistory, later: DocumentHistory) {
  * was closed before React re-renders.
  */
 function useOpenDocumentHistory(
-  { documents, localId }: HistorySource,
+  { database, documents, localId }: HistorySource,
   send: Send,
 ): {
   readonly isCurrentRun: (run: number) => boolean;
@@ -72,6 +80,9 @@ function useOpenDocumentHistory(
       opened?.close();
     };
     send({ run, type: "open-started" });
+    // Until the database is ready there is nothing to read; opening now would
+    // report a document with history as having none. Stay loading instead.
+    if (database === null) return;
     documents.openHistory(localId).then(
       (history) => {
         if (closed) {
@@ -90,7 +101,7 @@ function useOpenDocumentHistory(
         send({ message: unknownErrorMessage(error), run, type: "open-failed" });
       },
     );
-  }, [documents, localId, send]);
+  }, [database, documents, localId, send]);
 
   useEffect(() => {
     open();
@@ -218,11 +229,16 @@ function useNewerEditsCheck(
  */
 export function useDocumentHistory(localId: string): DocumentHistoryControls {
   const { documents } = useTearleads();
+  const { infra } = useTearleadsRuntime();
   const [state, send] = useReducer(
     transitionDocumentHistory,
     INITIAL_DOCUMENT_HISTORY,
   );
-  const source: HistorySource = { documents, localId };
+  const source: HistorySource = {
+    database: infra.dbStatus === "ready" ? infra.execSql : null,
+    documents,
+    localId,
+  };
   const { isCurrentRun, open } = useOpenDocumentHistory(source, send);
   useReplaySelectedStop(state, isCurrentRun, send);
   usePlayback(state.status === "ready" && state.playing, send);
