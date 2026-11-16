@@ -85,6 +85,12 @@ instructions for [macOS](../app-electrobun/README.md#macos-releases),
 [Linux from Docker](../app-electrobun/README.md#linux-releases-from-docker), and
 [Windows](../app-electrobun/README.md#windows-releases-from-github-actions).
 
+The download list is built in a fixed order. On load,
+[`src/downloadPlatform.ts`](src/downloadPlatform.ts) moves the row for the
+visitor's operating system (from Chromium's platform client hint, else the user
+agent; an iPad sending a Mac user agent counts as iOS) to the top. Without
+scripting, or on a platform without a row, the built order stays.
+
 ## Technical documents
 
 `/docs/` publishes the repository documents listed in
