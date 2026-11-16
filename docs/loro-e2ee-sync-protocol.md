@@ -257,7 +257,7 @@ in a metadata map and typed scalar fields in first-class Loro maps, so
 independent field edits are normal CRDT map operations. Local SQLite projection
 columns such as `document_kind` and `title` are summary caches derived from
 decrypted Loro state; JSON-looking note text must remain note text and must not
-drive document kind selection.
+drive document kind selection. Each change also [records its commit time](./document-rekey-and-audit-history.md#change-times).
 
 The server never needs plaintext CRDT state. The visible metadata of an update
 is its `id`, `documentId`, `authorFingerprint`, `createdAt`, `accessEpoch`,

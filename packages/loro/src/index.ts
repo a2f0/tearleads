@@ -1,4 +1,5 @@
 export { LoroList, LoroMap } from "loro-crdt";
+export { DOCUMENT_CHANGE_MERGE_INTERVAL_SECONDS } from "./changeTimestamps";
 export {
   createDocument,
   decodeVersionVector,
