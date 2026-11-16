@@ -10,7 +10,7 @@ import {
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { loadPrincipalHistoryReferences } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { principalHistoryEvidenceScopeId } from "../../../data/principals/principalHistoryPrefixProtection";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { loadVerifiedPrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";
@@ -82,12 +82,16 @@ async function readPage(
   )
     pageVersions.push(version);
   assertProjectionVerificationCurrent(current);
-  const loaded = await loadPageReferences({
-    execSql: options.execSql,
-    scopeId,
-    history,
-    versions: checkpoint ? [...pageVersions, checkpoint.version] : pageVersions,
-  });
+  const loaded = await loadPageReferences(
+    new PrincipalHistoryRepository(options.execSql),
+    {
+      scopeId,
+      history,
+      versions: checkpoint
+        ? [...pageVersions, checkpoint.version]
+        : pageVersions,
+    },
+  );
   assertProjectionVerificationCurrent(current);
   const references = loaded.slice(0, pageVersions.length);
   const checkpointReference = checkpoint
@@ -143,10 +147,13 @@ async function assertDisplayCheckpointCurrent(
 }
 
 async function loadPageReferences(
-  input: Parameters<typeof loadPrincipalHistoryReferences>[0],
+  repository: PrincipalHistoryRepository,
+  input: Parameters<
+    PrincipalHistoryRepository["loadPrincipalHistoryReferences"]
+  >[0],
 ) {
   try {
-    return await loadPrincipalHistoryReferences(input);
+    return await repository.loadPrincipalHistoryReferences(input);
   } catch (error) {
     if (error instanceof KeyingVerificationError)
       throw new PrincipalHistoryEvidenceUnavailableError(error);

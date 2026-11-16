@@ -8,7 +8,7 @@ import type {
   AcknowledgedPrincipalCurrentPublication,
   ReconciledPrincipalCurrentPublication,
 } from "../../../data/persistence/principalCurrentAcknowledgementPersistence";
-import { loadPrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import {
   PrincipalHistoryEvidenceUnavailableError,
@@ -66,10 +66,9 @@ export async function reconcileAcknowledgedPrincipalCurrent(
     publication.policy.principalType,
     publication.policy.principalId,
   );
-  const saved = await loadPrincipalHistoryPrefix(
+  const saved = await new PrincipalHistoryRepository(
     options.execSql,
-    publication.prefix.scopeId,
-  );
+  ).loadPrincipalHistoryPrefix(publication.prefix.scopeId);
   const observedPrefixProgress = saved?.progress ?? null;
   if (observedPrefixProgress === publication.previousPrefixProgress)
     return reconcileReceiptOnly(
