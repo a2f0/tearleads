@@ -1,4 +1,5 @@
 export const GROUP_LABELS = {
-  deleteConfirmationMessage: (groupName: string) =>
-    `Delete "${groupName}"? This cannot be undone.`,
+  // The group's name renders highlighted between the lead and the tail.
+  deleteConfirmationMessageLead: "Delete",
+  deleteConfirmationMessageTail: "? This cannot be undone.",
 } as const;
