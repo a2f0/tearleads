@@ -4,8 +4,9 @@ import { createServer } from "node:http";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import packageJson from "../package.json" with { type: "json" };
+import { expect, test } from "./appTest";
 import { cjkPdf, uploadAndOpenPdf } from "./pdfFixtures";
 import {
   observeProductionSentry,

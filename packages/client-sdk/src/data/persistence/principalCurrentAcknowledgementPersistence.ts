@@ -5,16 +5,9 @@ import {
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { assertProjectionVerificationCurrent } from "../keyingProjectionVerification/types";
-import { keyingCheckpointTables } from "../sqlite/schema/keyingCheckpointSchema";
 import { principalHistoryPrefixes } from "../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../sqlite/schema/principalHistoryStageSchema";
-import { principalPolicyTables } from "../sqlite/schema/principalPolicySchema";
-import {
-  type ClientSQLiteTransactionScope,
-  getClientSQLitePersistenceRuntime,
-} from "../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import type { ClientSQLiteTransactionScope } from "../sqlite/sqlitePersistenceRuntime";
 import {
   loadStoredPrincipalPolicyCheckpoint,
   principalPolicyKey,
@@ -76,7 +69,7 @@ export interface AcknowledgedPrincipalCurrentRetirement {
   readonly containerIds: readonly string[];
 }
 
-function assertPublicationScope(
+export function assertPublicationScope(
   entries: readonly AcknowledgedPrincipalCurrentPublication[],
   organizationId: string,
 ) {
@@ -154,13 +147,15 @@ async function validatePublication(
 async function archiveAcknowledgedStageKeys(
   tx: ClientSQLiteTransactionScope,
   entry: AcknowledgedPrincipalCurrentPublication,
+  now: () => Date,
 ) {
   for (const stage of [entry.predecessorStage, entry.stage]) {
     if (!stage) continue;
-    await touchPrincipalHistoryStage(tx, {
-      id: stage.id,
-      scopeId: entry.prefix.scopeId,
-    });
+    await touchPrincipalHistoryStage(
+      tx,
+      { id: stage.id, scopeId: entry.prefix.scopeId },
+      now().getTime(),
+    );
     await archivePrincipalHistoryKeyEnvelopes(tx, {
       ...stage,
       version: stage.afterVersion + 1,
@@ -183,6 +178,7 @@ async function loadStageRootOwner(
 async function retainPredecessorStage(
   tx: ClientSQLiteTransactionScope,
   entry: AcknowledgedPrincipalCurrentPublication,
+  now: () => Date,
 ) {
   // Preserve a prefix-only predecessor without replacing an existing completion.
   if (!entry.predecessorStage || !entry.predecessorIndexRootHash) return;
@@ -192,7 +188,11 @@ async function retainPredecessorStage(
     rootHash: entry.predecessorIndexRootHash,
   };
   const previous = await loadStageRootOwner(tx, entry.predecessorStage.id);
-  const row = { ...entry.predecessorStage, ...root, touchedAt: Date.now() };
+  const row = {
+    ...entry.predecessorStage,
+    ...root,
+    touchedAt: now().getTime(),
+  };
   const written = await tx
     .insert(principalHistoryStages)
     .values(row)
@@ -215,6 +215,7 @@ async function retainPredecessorStage(
 async function saveAcknowledgedStage(
   tx: ClientSQLiteTransactionScope,
   entry: AcknowledgedPrincipalCurrentPublication,
+  now: () => Date,
 ) {
   const root = {
     scopeId: entry.prefix.scopeId,
@@ -222,7 +223,7 @@ async function saveAcknowledgedStage(
     rootHash: entry.evidence.indexRootHash,
   };
   const previous = await loadStageRootOwner(tx, entry.stage.id);
-  const row = { ...entry.stage, ...root, touchedAt: Date.now() };
+  const row = { ...entry.stage, ...root, touchedAt: now().getTime() };
   await tx
     .insert(principalHistoryStages)
     .values(row)
@@ -288,11 +289,12 @@ async function storeAcknowledgedPublication(
   tx: ClientSQLiteTransactionScope,
   entry: ReconciledPrincipalCurrentPublication,
   organizationId: string,
+  now: () => Date,
 ) {
   await writePrincipalHistoryEvidencePage(tx, entry.evidence);
-  await retainPredecessorStage(tx, entry);
-  await saveAcknowledgedStage(tx, entry);
-  await archiveAcknowledgedStageKeys(tx, entry);
+  await retainPredecessorStage(tx, entry, now);
+  await saveAcknowledgedStage(tx, entry, now);
+  await archiveAcknowledgedStageKeys(tx, entry, now);
   if (!entry.preservePrefix) await saveAcknowledgedPrefix(tx, entry);
   await reclaimCompletedPrincipalHistoryStages(tx, entry.retainedPrefix);
   await reclaimPrincipalHistoryNodes(tx, entry.retainedPrefix);
@@ -303,44 +305,39 @@ async function storeAcknowledgedPublication(
     await upsertPrincipalPolicyCheckpointInTransaction(
       tx,
       entry.policy.checkpoint,
-      new Date().toISOString(),
+      now().toISOString(),
       organizationId,
     );
 }
 
-/** Store current artifacts and resumable progress in the same transaction as their pins. */
-export async function persistAcknowledgedPrincipalCurrents(input: {
-  readonly execSql: ExecSql;
+export interface AcknowledgedPrincipalCurrents {
   readonly organizationId: string;
   readonly entries: readonly ReconciledPrincipalCurrentPublication[];
   readonly retirements?:
     | readonly AcknowledgedPrincipalCurrentRetirement[]
     | undefined;
   readonly stillCurrent: () => boolean;
-}): Promise<void> {
-  const entries = structuredClone(input.entries);
-  const retirements = structuredClone(input.retirements ?? []);
-  const organizationId = input.organizationId;
-  const stillCurrent = input.stillCurrent;
-  assertPublicationScope(entries, organizationId);
-  assertProjectionVerificationCurrent(stillCurrent);
-  await ensureSqlTables(input.execSql, [
-    ...principalPolicyTables,
-    ...keyingCheckpointTables,
-  ]);
-  const runtime = getClientSQLitePersistenceRuntime(input.execSql);
-  const stored = await runtime.guardedTransaction(
-    async (tx) => {
-      for (const entry of entries) await validatePublication(tx, entry);
-      for (const retirement of retirements) {
-        await storeRetirement(tx, entries, retirement, organizationId);
-      }
-      for (const entry of entries) {
-        await storeAcknowledgedPublication(tx, entry, organizationId);
-      }
-    },
-    stillCurrent,
-    { behavior: "immediate" },
-  );
-  assertProjectionVerificationCurrent(() => stored.committed);
+}
+
+/**
+ * Validates owned, scope-checked publications against their observed pins and
+ * stores them. `now` is read where each row's timestamp is written.
+ */
+export async function persistAcknowledgedPrincipalCurrentsInTransaction(
+  tx: ClientSQLiteTransactionScope,
+  input: {
+    readonly organizationId: string;
+    readonly entries: readonly ReconciledPrincipalCurrentPublication[];
+    readonly retirements: readonly AcknowledgedPrincipalCurrentRetirement[];
+  },
+  now: () => Date,
+): Promise<void> {
+  const { entries, organizationId } = input;
+  for (const entry of entries) await validatePublication(tx, entry);
+  for (const retirement of input.retirements) {
+    await storeRetirement(tx, entries, retirement, organizationId);
+  }
+  for (const entry of entries) {
+    await storeAcknowledgedPublication(tx, entry, organizationId, now);
+  }
 }

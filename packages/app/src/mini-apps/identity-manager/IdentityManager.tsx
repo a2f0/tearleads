@@ -1,11 +1,11 @@
 import { useCompactRoutedMode } from "@tearleads/windowing";
 import { useEffect, useState } from "react";
+import { AccountBootstrapProgressPanel } from "../../components/identity/AccountBootstrapProgressPanel";
 import {
   MiniAppButton,
   MiniAppRoot,
   MiniAppSection,
   MiniAppSectionHeading,
-  MiniAppStatePanel,
   MiniAppStatus,
   MiniAppToolbar,
 } from "../../components/mini-app/MiniAppLayout";
@@ -47,13 +47,7 @@ function ActiveSessionsSection({
   const progress = useAccountBootstrapProgress();
 
   if (!canManageSessions && progress) {
-    return (
-      <MiniAppStatePanel
-        busy
-        description={progress.description}
-        title={progress.title}
-      />
-    );
+    return <AccountBootstrapProgressPanel progress={progress} />;
   }
 
   if (!canManageSessions) {

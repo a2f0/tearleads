@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./appTest";
 
 test("a second device scans the displayed recovery QR into its restore form", async ({
   browser,

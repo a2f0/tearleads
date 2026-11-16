@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
+import { AccountBootstrapProgressPanel } from "../../../components/identity/AccountBootstrapProgressPanel";
 import { CopyMyIdentityLinkButton } from "../../../components/identity/CopyMyIdentityLinkButton";
 import {
   MiniAppClipboardButton,
   MiniAppSection,
   MiniAppSectionHeading,
-  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useAccountBootstrapProgress } from "../../../identity/useAccountBootstrapProgress";
@@ -83,7 +83,7 @@ function getIdentitySectionActions({
     canAuthenticate,
     canGenerateKey: !localKeyringLocked,
     canRegisterCurrentIdentity: registration.canRegisterCurrentIdentity,
-    generateKey: identity.generateKey,
+    generateKey: () => void identity.generateKey(),
     handleAuthenticate: identityMutations.authenticate,
     handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
     handleRegisterIdentity: identityMutations.handleRegisterIdentity,
@@ -104,17 +104,11 @@ export function IdentityManagerGeneralSection({
   const { isDeveloperMode } = useDeveloperMode();
   const progress = useAccountBootstrapProgress();
 
-  // While the account is still being restored, created, or signed in, every
-  // control here is either disabled or about to change; one centered panel
-  // says so instead of spinner lines threaded between them.
+  // While the account is still being restored, named, created, or signed in,
+  // every control here is either disabled or about to change; one centered
+  // panel says so instead of spinner lines threaded between them.
   if (progress) {
-    return (
-      <MiniAppStatePanel
-        busy
-        description={progress.description}
-        title={progress.title}
-      />
-    );
+    return <AccountBootstrapProgressPanel progress={progress} />;
   }
 
   return (

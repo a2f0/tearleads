@@ -6,7 +6,10 @@ import {
   MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
+import {
+  MiniAppKeyValueList,
+  MiniAppKeyValueRow,
+} from "../../../../components/mini-app/MiniAppTable";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import {
@@ -16,6 +19,7 @@ import {
   toSelectableContainerIconSlug,
   toStoredContainerIcon,
 } from "../../shared/explorerContainerIcons";
+import { ExplorerInfoIdRow } from "../ExplorerInfoIdRow";
 
 const CONTAINER_ICON_OPTION_LABELS: Record<
   SelectableContainerIconSlug,
@@ -129,34 +133,32 @@ function ExplorerContainerInfoLocalDetails(params: {
   const { containerId, containerInfo } = params;
 
   return (
-    <MiniAppInfoTable className="mini-app-info-table--borderless mini-app-info-table--pinned">
-      <tbody>
-        <tr>
-          <th>{EXPLORER_LABELS.containerInfoIdRow}</th>
-          <td title={containerId}>{containerId}</td>
-        </tr>
-        {containerInfo ? (
-          <>
-            <tr>
-              <th>{EXPLORER_LABELS.containerInfoCreatedRow}</th>
-              <td title={containerInfo.local.createdAt ?? undefined}>
-                {formatMiniAppDateTime(containerInfo.local.createdAt, {
-                  emptyFallback: "-",
-                })}
-              </td>
-            </tr>
-            <tr>
-              <th>{EXPLORER_LABELS.containerInfoUpdatedRow}</th>
-              <td title={containerInfo.local.updatedAt ?? undefined}>
-                {formatMiniAppDateTime(containerInfo.local.updatedAt, {
-                  emptyFallback: "-",
-                })}
-              </td>
-            </tr>
-          </>
-        ) : null}
-      </tbody>
-    </MiniAppInfoTable>
+    <MiniAppKeyValueList>
+      <ExplorerInfoIdRow
+        label={EXPLORER_LABELS.containerInfoIdRow}
+        value={containerId}
+      />
+      {containerInfo ? (
+        <>
+          <MiniAppKeyValueRow
+            label={EXPLORER_LABELS.containerInfoCreatedRow}
+            title={containerInfo.local.createdAt}
+          >
+            {formatMiniAppDateTime(containerInfo.local.createdAt, {
+              emptyFallback: "-",
+            })}
+          </MiniAppKeyValueRow>
+          <MiniAppKeyValueRow
+            label={EXPLORER_LABELS.containerInfoUpdatedRow}
+            title={containerInfo.local.updatedAt}
+          >
+            {formatMiniAppDateTime(containerInfo.local.updatedAt, {
+              emptyFallback: "-",
+            })}
+          </MiniAppKeyValueRow>
+        </>
+      ) : null}
+    </MiniAppKeyValueList>
   );
 }
 

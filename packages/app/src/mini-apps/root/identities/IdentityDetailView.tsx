@@ -13,8 +13,8 @@ import {
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
-  MiniAppInfoRow,
-  MiniAppKeyValueTable,
+  MiniAppKeyValueList,
+  MiniAppKeyValueRow,
   MiniAppTable,
   MiniAppTableActionButton,
   MiniAppTableCell,
@@ -61,42 +61,40 @@ function CopyableValue({ label, value }: { label: string; value: string }) {
 
 function IdentitySummary({ identity }: { identity: RootIdentity }) {
   return (
-    <MiniAppKeyValueTable aria-label="Identity">
-      <tbody>
-        <MiniAppInfoRow label="User ID">
-          <CopyableValue label="user ID" value={identity.userId} />
-        </MiniAppInfoRow>
-        <MiniAppInfoRow label="Signing Key">
-          <CopyableValue
-            label="signing key fingerprint"
-            value={identity.signingKeyFingerprint}
-          />
-        </MiniAppInfoRow>
-        <MiniAppInfoRow label="Default Organization">
-          <CopyableValue
-            label="default organization ID"
-            value={identity.defaultOrganizationId}
-          />
-        </MiniAppInfoRow>
-        <MiniAppInfoRow label="Registered">
-          {formatRootTimestamp(identity.createdAt)}
-        </MiniAppInfoRow>
-        <MiniAppInfoRow label="Last Active">
-          {formatRootTimestamp(identity.lastActiveAt)}
-        </MiniAppInfoRow>
-        <MiniAppInfoRow label="Registration IP">
-          {identity.registrationSourceIpAddress ?? "Unknown"}
-        </MiniAppInfoRow>
-        <MiniAppInfoRow label="Root">
-          {identity.isRoot ? "Yes" : "No"}
-        </MiniAppInfoRow>
-        <MiniAppInfoRow label="Suspended">
-          {identity.suspendedAt
-            ? formatRootTimestamp(identity.suspendedAt)
-            : "No"}
-        </MiniAppInfoRow>
-      </tbody>
-    </MiniAppKeyValueTable>
+    <MiniAppKeyValueList aria-label="Identity">
+      <MiniAppKeyValueRow label="User ID">
+        <CopyableValue label="user ID" value={identity.userId} />
+      </MiniAppKeyValueRow>
+      <MiniAppKeyValueRow label="Signing Key">
+        <CopyableValue
+          label="signing key fingerprint"
+          value={identity.signingKeyFingerprint}
+        />
+      </MiniAppKeyValueRow>
+      <MiniAppKeyValueRow label="Default Organization">
+        <CopyableValue
+          label="default organization ID"
+          value={identity.defaultOrganizationId}
+        />
+      </MiniAppKeyValueRow>
+      <MiniAppKeyValueRow label="Registered">
+        {formatRootTimestamp(identity.createdAt)}
+      </MiniAppKeyValueRow>
+      <MiniAppKeyValueRow label="Last Active">
+        {formatRootTimestamp(identity.lastActiveAt)}
+      </MiniAppKeyValueRow>
+      <MiniAppKeyValueRow label="Registration IP">
+        {identity.registrationSourceIpAddress ?? "Unknown"}
+      </MiniAppKeyValueRow>
+      <MiniAppKeyValueRow label="Root">
+        {identity.isRoot ? "Yes" : "No"}
+      </MiniAppKeyValueRow>
+      <MiniAppKeyValueRow label="Suspended">
+        {identity.suspendedAt
+          ? formatRootTimestamp(identity.suspendedAt)
+          : "No"}
+      </MiniAppKeyValueRow>
+    </MiniAppKeyValueList>
   );
 }
 

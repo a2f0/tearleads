@@ -135,7 +135,8 @@ globally to work around a shell startup error.
 | `check:package @tearleads/api` | Pinned Bun, `bun install --frozen-lockfile`, and the SQLite download tools below. No Electrobun devkit, protocol-model, OpenAPI-compatibility, or Ruby lint gate runs in this focused check. |
 | `check:package @tearleads/client-sdk` | The focused API prerequisites plus Node 24.22.2 from [`.nvmrc`](../../.nvmrc) on `PATH`, for the real V8/native SQLite regression. No desktop or static-gate toolchain is required. |
 | `check:fast` | Installed dependencies and pinned mise tools, including Java/TLA+, oasdiff, ShellCheck and Ruby; run `bundle install` in [`packages/app-capacitor`](../../packages/app-capacitor/) for Ruby lint dependencies. Prepares the Electrobun devkit and SDK declarations. |
-| `check`, `check:affected`, or pre-push | The static-gate prerequisites plus package builds, TypeScript, and the selected test suites; browser E2E also requires the Playwright browsers. |
+| `check` or `check:affected` | The static-gate prerequisites plus package builds, TypeScript, and the selected test suites; browser E2E also requires the Playwright browsers. |
+| The push gate | Installed dependencies, a prepared Electrobun devkit for Knip, and the pinned oasdiff and Ruby (with `bundle install` in [`packages/app-capacitor`](../../packages/app-capacitor/)). It builds nothing and runs no tests. |
 
 `build:runtime` downloads the pinned SQLite WASM archive when uncached and
 builds the SDK. Have `curl`, `unzip`, a SHA-256 utility, and network access for
@@ -216,17 +217,24 @@ TEARLEADS_TEST_FAST_SIGNATURES=1 bun run check:package @tearleads/client-sdk
   verifier rejects stand-in signatures.
 - A stand-in pass is for iteration. It does not replace the real-signature run
   before a push: anyone holding a public key can forge a stand-in signature.
-  The pre-push hook unsets the variable, and CI never sets it.
+  CI never sets the variable.
 
 ## Before a push
 
-The [push gate](static-analysis.md#ci-and-the-push-gate) runs its checks in
-order and stops at the first failure, so a late-caught mistake still costs every
-check queued ahead of it. Run two cheap checks by hand rather than discovering
-their failures minutes into a push:
+The [push gate](static-analysis.md#ci-and-the-push-gate) runs only quick static
+checks, and CI is the authority on everything else: TypeScript, the package and
+browser suites, the protocol models, and Terraform. After pushing, wait for CI
+with `bun run agent-tool pr checks --wait`; when a job fails, read it with
+`bun run agent-tool pr logs`, fix it, and push a reviewed commit to the same
+branch. To keep that loop short, check what you changed before pushing:
 
-- `bun tsc --build --pretty false` after any type or signature change. It is
-  **not** part of `check:fast`; pre-push, `check:affected`, and `check` run it.
+- `bun tsc --build --pretty false` after any type or signature change, once the
+  SDK is built (`build:packages`). It is **not** part of `check:fast` or the
+  push gate, which type-check only [`scripts/`](../../scripts/) and root
+  configs (`typecheck:tools`); `check:affected`, `check`, and CI's
+  `Build and test` run it.
+- `bun run check:package <workspace>` for the packages you changed, and
+  `bun run check:affected` before handing off a larger change.
 - `bun run lint:architecture` after adding or moving an `import`. A cycle is
   easy to create by importing a shared symbol back from a module that already
   imports you; extract the symbol into its own module instead.
@@ -235,9 +243,8 @@ their failures minutes into a push:
   including [`scripts/`](../../scripts/), so `bun run lint:biome` reports one
   there too.
 
-Before a push, prefer `bun run check:fast` over a hand-picked subset. It covers
-the static half of the gate in a few minutes; sampling its checks individually
-lets a gate failure surface late in a long push.
+`bun run check:fast` runs the checks and tool fixtures behind CI's `Lint` job,
+including the ones the push gate leaves out, in a few minutes.
 
 ## Package versions
 

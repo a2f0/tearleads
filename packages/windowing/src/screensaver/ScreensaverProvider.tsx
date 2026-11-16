@@ -17,12 +17,17 @@ export interface ScreensaverProviderProps {
   gracePeriodMs?: number;
   verifyPin?: ScreensaverPinVerifier | undefined;
 }
-const { context: ScreensaverContext, useRequired: useScreensaver } =
-  createRequiredContext<ScreensaverControls>(
-    "useScreensaver requires ScreensaverProvider",
-  );
+const {
+  context: ScreensaverContext,
+  useOptional: useOptionalScreensaver,
+  useRequired: useScreensaver,
+} = createRequiredContext<ScreensaverControls>(
+  "useScreensaver requires ScreensaverProvider",
+);
 
-export { useScreensaver };
+// The optional twin lets a control that starts the screensaver hide itself
+// where the host mounted no provider.
+export { useOptionalScreensaver, useScreensaver };
 
 export function ScreensaverProvider({
   children,

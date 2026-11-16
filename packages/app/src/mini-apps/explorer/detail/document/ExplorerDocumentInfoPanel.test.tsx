@@ -37,6 +37,22 @@ test("attribution sections live on their own tab, not the general tab", async ()
   expect(view.queryByText("General Details")).toBeNull();
 });
 
+// A local-only document has no remote info, which every Attribution section
+// reads; the tab says so instead of rendering blank.
+test("attribution tab says remote attribution is unavailable without remote info", async () => {
+  const view = renderDocumentInfoPanel({
+    fallbackDocumentSummary: documentSummary,
+    loadDocumentInfo: async () => ({ ...documentInfo, remoteInfo: null }),
+  });
+
+  await view.findByText("General Details");
+  openAttributionTab(view);
+
+  expect(
+    await view.findByText("Remote document attribution info is unavailable."),
+  ).toBeTruthy();
+});
+
 test("document info hides edit ranges until the feature flag is enabled", async () => {
   const view = renderDocumentInfoPanel({
     fallbackDocumentSummary: documentSummary,

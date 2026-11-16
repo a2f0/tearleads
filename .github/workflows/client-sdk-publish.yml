@@ -14,6 +14,7 @@ on:
     paths:
       - packages/client-sdk/**
       - scripts/release/publishNpmPackage.sh
+      - scripts/release/waitForCi.sh
       - package.json
       - bun.lock
       - .nvmrc
@@ -23,16 +24,39 @@ on:
 
 permissions: {}
 
-# Publish one version at a time, and never cancel a publish in progress.
-concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: false
-
 jobs:
-  publish:
-    name: Publish @tearleads/client-sdk
+  # A merge publishes only after CI passes on the same commit, so a change that
+  # breaks main never reaches npm. CI starts from the same push; this job waits
+  # for that run instead of repeating its suites.
+  ci:
+    name: Wait for CI
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Require CI to pass on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh scripts/release/waitForCi.sh "$GITHUB_SHA"
+
+  publish:
+    name: Publish @tearleads/client-sdk
+    needs: ci
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Publish one version at a time, and never cancel a publish in progress.
+    concurrency:
+      group: ${{ github.workflow }}
+      cancel-in-progress: false
     # Restricted to main in the repository settings, so a workflow edited on
     # another branch cannot obtain a token npm accepts.
     environment: npm

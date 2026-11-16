@@ -1,5 +1,5 @@
 /*
- * Home, part 1: the hero, the two zeros, the capability grid, and the steps.
+ * Home, part 1: the hero, the highlights, the capability grid, and the steps.
  * Part 2 (homeSections.css): the security ledger, plans, downloads, and the
  * closing band.
  */
@@ -40,14 +40,10 @@
 }
 
 .home-hero .site-display {
-  max-width: none;
-  font-size: clamp(2.25rem, 0.75rem + 5.8vw, 5.25rem);
+  max-width: 20ch;
+  font-size: clamp(2.25rem, 0.75rem + 4.4vw, 4.5rem);
   letter-spacing: -0.025em;
-  line-height: 1;
-}
-
-.home-hero-line {
-  display: block;
+  line-height: 1.05;
 }
 
 .home-hero .site-page-header > .site-lede {
@@ -74,16 +70,16 @@
   margin-top: var(--site-space-6);
 }
 
-/* --- The two zeros: two cards --- */
+/* --- Highlights: two cards --- */
 
-.home-zero {
+.home-highlights {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--site-space-5);
   margin-top: var(--site-space-9);
 }
 
-.home-zero-column {
+.home-highlight {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -95,7 +91,7 @@
   box-shadow: var(--site-shadow-sm);
 }
 
-.home-zero-title {
+.home-highlight-title {
   max-width: none;
   font-size: var(--site-text-h1);
   font-weight: 650;
@@ -103,7 +99,7 @@
   line-height: 1.1;
 }
 
-.home-zero-lede {
+.home-highlight-lede {
   max-width: 34rem;
   margin-top: var(--site-space-4);
   color: var(--site-ink-2);
@@ -137,7 +133,7 @@
   font: 600 var(--site-text-mono) / 1.5 var(--site-font-mono);
 }
 
-.home-zero-note {
+.home-highlight-note {
   max-width: 34rem;
   margin-top: var(--site-space-5);
   color: var(--site-ink-2);
@@ -145,24 +141,24 @@
   line-height: 1.55;
 }
 
-.home-zero-column > .site-link {
+.home-highlight > .site-link {
   margin-top: auto;
   padding-top: var(--site-space-3);
 }
 
 @media (min-width: 1024px) {
-  .home-zero {
+  .home-highlights {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--site-space-6);
   }
 }
 
 @media (max-width: 699px) {
-  .home-zero {
+  .home-highlights {
     margin-top: var(--site-space-8);
   }
 
-  .home-zero-column {
+  .home-highlight {
     padding: var(--site-space-6) var(--site-space-5) var(--site-space-4);
     border-radius: var(--site-radius);
   }
