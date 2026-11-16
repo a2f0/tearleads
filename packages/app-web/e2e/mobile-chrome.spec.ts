@@ -306,15 +306,15 @@ test("mobile context menu items meet the touch type and glyph size", async ({
   expect(glyphBox.height).toBeGreaterThanOrEqual(24);
 });
 
-// A key/value info table gives both of its columns a one-character min-content
-// (the shared cell rule breaks inside words), so at phone width the auto layout
-// hands the space to whichever column wants more of it. On the sync lane detail
-// that is the value column — its timestamps are already wide at the touch type
-// ramp and a lane error string is wider still — which crushed the label column
-// to ~4 characters and stacked "Requested" over three lines. Counting client
-// rects over each label's contents is the assertion that catches it: a label
-// that fits reports one rect per line, and nothing about the cell's box or its
-// text says how many lines the browser actually drew.
+// The sync lane detail's key/value lists stack each label above its value on a
+// phone, and the timing tab is where that matters most: its timestamps are wide
+// at the touch type ramp and a lane error string is wider still. Before the
+// labels had a line of their own, an auto table layout handed the width to the
+// values and crushed the labels to ~4 characters, stacking "Requested" over
+// three lines. Counting client rects over each label's contents is the
+// assertion that catches it: a label that fits reports one rect per line, and
+// nothing about the element's box or its text says how many lines the browser
+// actually drew.
 test("mobile sync lane detail keeps its labels on one line", async ({
   page,
 }) => {
@@ -326,7 +326,7 @@ test("mobile sync lane detail keeps its labels on one line", async ({
   await laneRow.locator("button").first().click();
   await page.getByRole("tab", { name: "Timing" }).click();
   await expect(
-    page.locator(".explorer-sync-lane-detail th").first(),
+    page.locator(".explorer-sync-lane-detail dt").first(),
   ).toHaveText("Requested");
 
   // A lane only carries an error once it has actually failed, so stand one in
@@ -334,22 +334,20 @@ test("mobile sync lane detail keeps its labels on one line", async ({
   // changes, not on this write, and layout is up to date within the call.
   const drawn = await page.evaluate(() => {
     const detail = document.querySelector(".explorer-sync-lane-detail");
-    const values = Array.from(detail?.querySelectorAll("td") ?? []);
+    const values = Array.from(detail?.querySelectorAll("dd") ?? []);
     const lastError = values.at(-1);
     if (lastError) {
       lastError.textContent =
         "Sync failed: HTTP 500 from https://api.example.test/v1/containers/0123456789abcdef/updates after 3 retries";
     }
     // Single-line labels must not buy their width with a sideways scroll: the
-    // values wrap anywhere, so the table still has to fit. A table is never its
-    // own scrollport — it just grows to its intrinsic width, leaving its
-    // scrollWidth equal to its clientWidth — so measure the painted table
-    // against the content box of the nearest ancestor that would absorb the
-    // overflow. Deliberately its box and not its scrollWidth: the tab strip
+    // values wrap anywhere, so the list still has to fit. Measure the painted
+    // list against the content box of the nearest ancestor that would absorb
+    // the overflow. Deliberately its box and not its scrollWidth: the tab strip
     // above the panel bleeds past it by design (see the strip tests), which
-    // inflates that number for reasons unrelated to this table.
-    const table = detail?.querySelector("table");
-    let scrollport = table?.parentElement ?? null;
+    // inflates that number for reasons unrelated to this list.
+    const list = detail?.querySelector("dl");
+    let scrollport = list?.parentElement ?? null;
     while (scrollport && getComputedStyle(scrollport).overflowX === "visible") {
       scrollport = scrollport.parentElement;
     }
@@ -368,22 +366,22 @@ test("mobile sync lane detail keeps its labels on one line", async ({
         Number.parseFloat(style.paddingRight);
       return { left, right };
     };
-    const tableBox = table?.getBoundingClientRect();
+    const listBox = list?.getBoundingClientRect();
     const content = scrollport ? contentEdges(scrollport) : null;
 
     return {
-      labels: Array.from(detail?.querySelectorAll("th") ?? []).map((cell) => {
+      labels: Array.from(detail?.querySelectorAll("dt") ?? []).map((cell) => {
         const range = document.createRange();
         range.selectNodeContents(cell);
         return { lines: range.getClientRects().length, text: cell.textContent };
       }),
       overhang:
-        tableBox && content
+        listBox && content
           ? Math.round(
               Math.max(
                 0,
-                tableBox.right - content.right,
-                content.left - tableBox.left,
+                listBox.right - content.right,
+                content.left - listBox.left,
               ),
             )
           : null,
@@ -393,64 +391,4 @@ test("mobile sync lane detail keeps its labels on one line", async ({
   expect(drawn.labels.length).toBeGreaterThan(0);
   expect(drawn.labels.filter((label) => label.lines !== 1)).toEqual([]);
   expect(drawn.overhang).toBe(0);
-});
-
-// Document Info's key/value tables reserve a fixed key column (`--aligned` in
-// MiniAppTable.css) so stacked tables line up and a compacted id key stops
-// wrapping at its hyphen. A phone is the case that matters and the one that
-// silently regresses: the column is only wide enough to hold that id if the
-// declared width survives the fixed-layout algorithm, and it does not survive
-// every plausible way of writing it — a `min()` carrying a percentage makes
-// Chromium treat the column as indefinite and split the table evenly instead,
-// which measures like a deliberate layout while being narrower than asked for.
-// So assert the drawn column against the text it exists to fit, in the cell's
-// own font, rather than against the number in the stylesheet.
-test("document info reserves a key column that fits a compacted id", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/app/explorer");
-
-  await page.getByRole("button", { name: "New Document" }).first().click();
-  await page.getByRole("button", { name: "Blood Pressure" }).click();
-  await page.getByRole("button", { name: "Get Info" }).first().click();
-
-  const key = page.locator(".mini-app-info-table--aligned th").first();
-  await expect(key).toBeVisible({ timeout: 30_000 });
-
-  const measured = await measureAttached("document info key column", () =>
-    key.evaluate((cell) => {
-      // An Explorer detail surface, so the same remount hazard applies: a
-      // detached cell has an empty computed style and a zero-width box.
-      if (!cell.isConnected) {
-        return null;
-      }
-
-      const style = getComputedStyle(cell);
-      const probe = document.createElement("span");
-      probe.style.cssText = "position:fixed;visibility:hidden;white-space:pre;";
-      probe.style.font = style.font;
-      // The widest key these tables carry: `compactId` of a uuid (see
-      // explorer/detail/compactId.ts), which has no break opportunity but its
-      // hyphen and dots.
-      probe.textContent = "1f8b3134-e...6155a6";
-      document.body.appendChild(probe);
-      const compactIdWidth = probe.getBoundingClientRect().width;
-      probe.remove();
-
-      const table = cell.closest("table") as HTMLElement;
-      return {
-        compactIdWidth,
-        contentWidth:
-          cell.getBoundingClientRect().width -
-          Number.parseFloat(style.paddingLeft) -
-          Number.parseFloat(style.paddingRight),
-        tableWidth: table.getBoundingClientRect().width,
-      };
-    }),
-  );
-
-  expect(measured.contentWidth).toBeGreaterThan(measured.compactIdWidth);
-  // Guards the specific silent fallback: an evenly split table is exactly half.
-  expect(measured.contentWidth).not.toBeCloseTo(measured.tableWidth / 2, 0);
 });

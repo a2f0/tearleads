@@ -171,7 +171,7 @@
   --mini-app-info-label-width: 14ch;
 }
 
-.identity-manager-session-detail-table th {
+.identity-manager-session-detail-table dt {
   /* All labels are fixed literals no longer than the 14ch key column. */
   white-space: nowrap;
 }
