@@ -1,5 +1,4 @@
 export {
-  type ContainerDocumentPlacementKey,
   containerDocumentPlacementKey,
   deleteContainerDocumentTombstoneHoldRowsForLinks,
   deleteContainerDocumentTombstoneHoldsForContainers,
