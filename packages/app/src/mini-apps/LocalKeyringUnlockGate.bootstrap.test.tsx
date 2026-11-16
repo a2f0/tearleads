@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { act, render, waitFor } from "@testing-library/react";
+import { answerAccountNamePrompt } from "../../test/helpers/accountNamePrompt";
 import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
@@ -45,7 +46,7 @@ for (const [appId, contentSelector] of [
   ["organizations", ".organizations-list"],
   ["root", ".root-console"],
 ] as const) {
-  test(`${appId} boots directly into provisioning progress without a local-key prompt`, async () => {
+  test(`${appId} boots directly into provisioning progress and the name prompt without a local-key prompt`, async () => {
     browser.happyDOM.setURL(`http://localhost/app/${appId}`);
     window.history.replaceState(null, "", `/app/${appId}`);
     const keyring = createDelayedLoadLocalKeyringFactory(
@@ -60,6 +61,7 @@ for (const [appId, contentSelector] of [
                 autoProvisionIdentity: true,
                 createLocalKeyring: keyring.createLocalKeyring,
                 localIdentityNamespace: `bootstrap-${appId}`,
+                promptAccountName: true,
               })}
             >
               <SessionProbe />
@@ -96,6 +98,9 @@ for (const [appId, contentSelector] of [
         view.container.querySelector(".mini-app-state-panel-spinner"),
       ).not.toBeNull();
       await act(async () => keyring.releaseLoadSession());
+      // A new identity's registration waits for the user's name, and the
+      // prompt holds the app until it is given.
+      await answerAccountNamePrompt(view.container);
       await waitFor(
         () => {
           expect(view.getByTestId("session").textContent).toBe("true");

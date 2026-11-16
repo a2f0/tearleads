@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
 import { version as pdfjsVersion } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { expect, test } from "./appTest";
 import {
   cjkPdf,
   fillablePdf,

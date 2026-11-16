@@ -27,6 +27,8 @@ interface CreateTestHostConfigOptions {
   readonly diagnostics?: AppDiagnostics | undefined;
   readonly localIdentityNamespace?: string | undefined;
   readonly profile?: AppHostConfig["profile"] | undefined;
+  /** With `autoProvisionIdentity`, ask the first-launch name prompt. */
+  readonly promptAccountName?: boolean | undefined;
   readonly reuseDatabaseWorker?: boolean | undefined;
   readonly workerConstructor?: CreateSQLiteRuntimeOptions["workerConstructor"];
 }
