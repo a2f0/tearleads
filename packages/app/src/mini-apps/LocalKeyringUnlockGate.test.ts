@@ -72,3 +72,15 @@ test("provisioning progress covers key generation without blocking usable local 
     ).toBe(hasSigningKeyPair ? "ready" : "loading");
   }
 });
+
+test("a new identity holds every app that needs local keys until it is named", () => {
+  expect(
+    resolveMiniAppAccessGateState({
+      accountBootstrapping: true,
+      hasSigningKeyPair: true,
+      isLocked: false,
+      localIdentityRestoreSettled: true,
+      newIdentityPending: true,
+    }),
+  ).toBe("loading");
+});

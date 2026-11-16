@@ -85,9 +85,9 @@ bun test packages/bob-and-alice/src/bobAndAlice.test.ts
 TypeScript and the affected tests, and `bun run check` runs the full suite. The
 static gates include a Ruby lint, so run `bundle install` from
 [`packages/app-capacitor`](packages/app-capacitor/) first. The pre-push hook runs
-the static gates,
-Terraform checks, TypeScript, and the affected tests, running the TLC model
-passes and Terraform in a background lane beside the rest. The
+the quick static checks declared in [`agent-tool.json`](agent-tool.json)'s
+`pushGate` section; CI runs TypeScript, the tests, the browser suite, the TLC
+model passes, and Terraform. The
 [verification guide](docs/developer/verification.md#prerequisites) lists each
 command's prerequisites.
 

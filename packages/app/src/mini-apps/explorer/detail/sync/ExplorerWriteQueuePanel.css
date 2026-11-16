@@ -64,11 +64,6 @@
   min-width: 0;
 }
 
-.explorer-write-queue-entry-detail td,
-.explorer-write-queue-entry-detail code {
-  overflow-wrap: anywhere;
-}
-
 .explorer-write-queue-entry-reasons {
   display: flex;
   flex-direction: column;

@@ -29,6 +29,13 @@
   gap: var(--space-sm);
 }
 
+/* The section's gap spaces its children; a paragraph's own margins would add a
+   second, larger gap on top (flex items' margins do not collapse), which set
+   two help paragraphs a double space apart. */
+.mini-app-info-section > p {
+  margin: 0;
+}
+
 .mini-app-info-section-heading {
   margin: 0;
   font-size: var(--font-size-sm);

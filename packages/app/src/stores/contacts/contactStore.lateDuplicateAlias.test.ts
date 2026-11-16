@@ -65,7 +65,7 @@ test("a canonical alias admitted while Me ensure is queued keeps both histories"
         ),
       ),
     );
-  let blocker: Promise<void> | undefined;
+  let blocker: Promise<boolean> | undefined;
   let ensuring: Promise<string | null> | undefined;
   try {
     await base

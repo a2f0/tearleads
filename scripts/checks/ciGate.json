@@ -5,6 +5,7 @@
     "models",
     "build",
     "test",
+    "e2e",
     "postgres-concurrency",
     "windows"
   ],

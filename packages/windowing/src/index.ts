@@ -2,10 +2,11 @@ import "./tokens.css";
 
 // The public windowing API: window state, window chrome and its registration
 // hooks, the menu and sidebar primitives the chrome renders with, a taskbar's
-// start menu and theme switch, the icons the chrome draws, a launcher of
-// mini-apps that shows them in windows or in the routed (iPad / phone) shell,
-// and desktop icons that open them, with a storage adapter for their layout,
-// over a wallpaper chosen in Display Properties, plus a host-supplied screensaver.
+// start menu, theme switch, and system tray, the icons the chrome draws, a
+// launcher of mini-apps that shows them in windows or in the routed (iPad /
+// phone) shell, and desktop icons that open them, with a storage adapter for
+// their layout, over a wallpaper chosen in Display Properties, plus a
+// host-supplied screensaver.
 export {
   createRequiredContext,
   type RequiredContext,
@@ -125,6 +126,7 @@ export {
   type ScreensaverControls,
   ScreensaverProvider,
   type ScreensaverProviderProps,
+  useOptionalScreensaver,
   useScreensaver,
 } from "./screensaver/ScreensaverProvider";
 export type { ScreensaverPinVerifier } from "./screensaver/screensaverPinVerifier";
@@ -140,6 +142,16 @@ export type {
   ThemeDefinition,
   ThemeScheme,
 } from "./theme/themes";
+export { SystemTray, type SystemTrayMenuItem } from "./tray/SystemTray";
+export {
+  SystemTrayProvider,
+  useOptionalSystemTray,
+  useSystemTray,
+} from "./tray/SystemTrayProvider";
+export type {
+  SystemTrayDefinition,
+  TrayAppDefinition,
+} from "./tray/systemTrayDefinition";
 export {
   DesktopWallpaper,
   type DesktopWallpaperProps,

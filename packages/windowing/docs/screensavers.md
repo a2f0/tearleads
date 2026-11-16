@@ -35,7 +35,9 @@ session or grace timer. Styles are included by the public import.
 
 `useScreensaver()` returns stable `start()` and `stop()` callbacks and an
 `isActive` boolean (artwork or a PIN gate is visible). It throws outside the
-provider. Repeated starts while active are ignored. Without a PIN, `stop()`
+provider; `useOptionalScreensaver()` returns `null` there instead, for a
+control that hides where the host mounted no screensaver. Repeated starts
+while active are ignored. Without a PIN, `stop()`
 exits immediately and intentionally cancels input isolation, including a
 pending release tail; reserve it for explicit host control or teardown, not an
 effect watching `isActive`. With a PIN, `stop()` requests the PIN gate instead

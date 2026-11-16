@@ -7,7 +7,7 @@ import type { ContactsStore } from "./contactStore";
 afterEach(() => cleanup());
 
 test("contacts context projects only its public store and snapshot surface", () => {
-  const updateContact = mock(async () => undefined);
+  const updateContact = mock(async () => true);
   const addContactAddress = mock(async () => "address");
   const unused = mock(async () => undefined);
   const snapshot = { entries: [], ready: true };

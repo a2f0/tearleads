@@ -37,6 +37,7 @@ reference.
 | Blob attachment I/O | `BlobAttachmentService` (`runtime.blobAttachments`) | One per documents runtime, built by `createDocumentsWorkflowRuntime` | Constructed over a fake API in tests |
 | Remote container mutations | `ContainerMutationService` | One per runtime snapshot, built where a mutation reads it: Container Contents' writer context and the organizations grant revocation | Constructed over a fake API in tests, through `createContainerMutationServiceFixture` |
 | Keying checkpoint storage | `KeyingCheckpointRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Principal history storage | `PrincipalHistoryRepository(execSql, now)` | Built from the caller's executor at each call | None |
 
 ## Where code goes
 

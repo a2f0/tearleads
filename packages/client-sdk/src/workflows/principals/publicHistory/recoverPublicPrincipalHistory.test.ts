@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
 import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
 import { isProjectionVerificationCancelledError } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
+import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import {
   principalHistoryEntries,
   principalHistoryPrefixes,
@@ -45,8 +45,9 @@ test("public recovery extends durable prefixes and selects older heads without r
     });
     expect(f.requests).toEqual([66]);
     expect(recovered.history.retainedEntries).toHaveLength(1);
-    const proof = await loadPrincipalHistoryReference({
-      execSql: f.options.execSql,
+    const proof = await new PrincipalHistoryRepository(
+      f.options.execSql,
+    ).loadPrincipalHistoryReference({
       scopeId: recovered.scopeId,
       history: recovered.history,
       version: 16,
