@@ -4,8 +4,8 @@ import {
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
 import {
-  MiniAppInfoRow,
-  MiniAppKeyValueTable,
+  MiniAppKeyValueList,
+  MiniAppKeyValueRow,
 } from "../../../../components/mini-app/MiniAppTable";
 import {
   EXPLORER_LABELS,
@@ -14,9 +14,9 @@ import {
   getExplorerDocumentInfoManifestHistoryLabel,
   getExplorerDocumentInfoTargetCountsLabel,
 } from "../../labels";
-import { compactId } from "../compactId";
+import { ExplorerInfoIdRow } from "../ExplorerInfoIdRow";
 
-export function ExplorerDocumentInfoLocalSecuritySection(params: {
+function ExplorerDocumentInfoLocalSecuritySection(params: {
   documentInfo: DocumentInfo | null;
 }) {
   const local = params.documentInfo?.local;
@@ -32,34 +32,26 @@ export function ExplorerDocumentInfoLocalSecuritySection(params: {
     <MiniAppInfoSection
       heading={EXPLORER_LABELS.documentInfoLocalSecurityHeading}
     >
-      <MiniAppKeyValueTable>
-        <tbody>
-          <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoAccessEpochRow}>
-            {local?.accessEpoch != null ? String(local.accessEpoch) : "-"}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoAccessStateHashRow}
-            title={local?.accessStateHash}
-          >
-            {compactId(local?.accessStateHash)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoLastCommitRow}
-            title={local?.lastCommitLsn}
-          >
-            {compactId(local?.lastCommitLsn)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoLocalManifestHashRow}
-            title={local?.localDocumentManifestHash}
-          >
-            {compactId(local?.localDocumentManifestHash)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoBundleStateRow}>
-            {bundleState}
-          </MiniAppInfoRow>
-        </tbody>
-      </MiniAppKeyValueTable>
+      <MiniAppKeyValueList>
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.documentInfoAccessEpochRow}>
+          {local?.accessEpoch != null ? String(local.accessEpoch) : "-"}
+        </MiniAppKeyValueRow>
+        <ExplorerInfoIdRow
+          label={EXPLORER_LABELS.documentInfoAccessStateHashRow}
+          value={local?.accessStateHash}
+        />
+        <ExplorerInfoIdRow
+          label={EXPLORER_LABELS.documentInfoLastCommitRow}
+          value={local?.lastCommitLsn}
+        />
+        <ExplorerInfoIdRow
+          label={EXPLORER_LABELS.documentInfoLocalManifestHashRow}
+          value={local?.localDocumentManifestHash}
+        />
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.documentInfoBundleStateRow}>
+          {bundleState}
+        </MiniAppKeyValueRow>
+      </MiniAppKeyValueList>
     </MiniAppInfoSection>
   );
 }
@@ -84,70 +76,60 @@ function ExplorerDocumentInfoRemoteSecuritySection(params: {
     <MiniAppInfoSection
       heading={EXPLORER_LABELS.documentInfoRemoteSecurityHeading}
     >
-      <MiniAppKeyValueTable>
-        <tbody>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoCurrentManifestHashRow}
-            title={remoteInfo.currentManifestHash}
-          >
-            {compactId(remoteInfo.currentManifestHash)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoPreviousManifestHashRow}
-            title={remoteInfo.previousManifestHash}
-          >
-            {compactId(remoteInfo.previousManifestHash)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoAccessEpochRow}>
-            {remoteInfo.manifestEpoch != null
-              ? String(remoteInfo.manifestEpoch)
-              : "-"}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoDocumentManifestHistoryRow}
-          >
-            {getExplorerDocumentInfoManifestHistoryLabel({
-              documentContainerManifestHistoryCount:
-                remoteInfo.documentContainerManifestHistoryCount,
-              documentManifestHistoryCount:
-                remoteInfo.documentManifestHistoryCount,
-            })}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoLinkedContainersRow}
-          >
-            {getExplorerDocumentInfoLinkedContainersLabel({
-              linkedContainerKeyEpochCount:
-                remoteInfo.linkedContainerKeyEpochCount,
-              linkedContainerManifestCount:
-                remoteInfo.linkedContainerManifestCount,
-            })}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoContentKeyEpochRow}
-          >
-            {String(remoteInfo.contentKeyEpoch)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoContentKeyHashRow}
-            title={remoteInfo.contentKeyTargetHash}
-          >
-            {compactId(remoteInfo.contentKeyTargetHash)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow
-            label={EXPLORER_LABELS.documentInfoDocumentKeyHashRow}
-            title={remoteInfo.documentKeyTargetHash}
-          >
-            {compactId(remoteInfo.documentKeyTargetHash)}
-          </MiniAppInfoRow>
-          <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoTargetCountRow}>
-            {getExplorerDocumentInfoTargetCountsLabel({
-              contentKeyTargetCount: remoteInfo.contentKeyTargetCount,
-              documentKekTargetCount: remoteInfo.documentKekTargetCount,
-            })}
-          </MiniAppInfoRow>
-        </tbody>
-      </MiniAppKeyValueTable>
+      <MiniAppKeyValueList>
+        <ExplorerInfoIdRow
+          label={EXPLORER_LABELS.documentInfoCurrentManifestHashRow}
+          value={remoteInfo.currentManifestHash}
+        />
+        <ExplorerInfoIdRow
+          label={EXPLORER_LABELS.documentInfoPreviousManifestHashRow}
+          value={remoteInfo.previousManifestHash}
+        />
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.documentInfoAccessEpochRow}>
+          {remoteInfo.manifestEpoch != null
+            ? String(remoteInfo.manifestEpoch)
+            : "-"}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.documentInfoDocumentManifestHistoryRow}
+        >
+          {getExplorerDocumentInfoManifestHistoryLabel({
+            documentContainerManifestHistoryCount:
+              remoteInfo.documentContainerManifestHistoryCount,
+            documentManifestHistoryCount:
+              remoteInfo.documentManifestHistoryCount,
+          })}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.documentInfoLinkedContainersRow}
+        >
+          {getExplorerDocumentInfoLinkedContainersLabel({
+            linkedContainerKeyEpochCount:
+              remoteInfo.linkedContainerKeyEpochCount,
+            linkedContainerManifestCount:
+              remoteInfo.linkedContainerManifestCount,
+          })}
+        </MiniAppKeyValueRow>
+        <MiniAppKeyValueRow
+          label={EXPLORER_LABELS.documentInfoContentKeyEpochRow}
+        >
+          {String(remoteInfo.contentKeyEpoch)}
+        </MiniAppKeyValueRow>
+        <ExplorerInfoIdRow
+          label={EXPLORER_LABELS.documentInfoContentKeyHashRow}
+          value={remoteInfo.contentKeyTargetHash}
+        />
+        <ExplorerInfoIdRow
+          label={EXPLORER_LABELS.documentInfoDocumentKeyHashRow}
+          value={remoteInfo.documentKeyTargetHash}
+        />
+        <MiniAppKeyValueRow label={EXPLORER_LABELS.documentInfoTargetCountRow}>
+          {getExplorerDocumentInfoTargetCountsLabel({
+            contentKeyTargetCount: remoteInfo.contentKeyTargetCount,
+            documentKekTargetCount: remoteInfo.documentKekTargetCount,
+          })}
+        </MiniAppKeyValueRow>
+      </MiniAppKeyValueList>
     </MiniAppInfoSection>
   );
 }

@@ -178,16 +178,9 @@ test("container info tabs split general, sharing, security, and sync details", a
   await waitFor(() => {
     expect(view.getByText("Local Details")).toBeTruthy();
   });
-  const localDetailsTable = view
-    .getByRole("heading", { name: "Local Details" })
-    .closest("section")
-    ?.querySelector("table");
-  expect(
-    localDetailsTable?.classList.contains("mini-app-info-table--borderless"),
-  ).toBe(true);
-  expect(
-    localDetailsTable?.classList.contains("mini-app-info-table--pinned"),
-  ).toBe(true);
+  expect(view.getByRole("button", { name: "Copy ID" }).textContent).toBe(
+    "container-1",
+  );
   expect(view.queryByText("Principal Grants")).toBeNull();
 
   fireEvent.click(view.getByRole("tab", { name: "Sharing" }));
