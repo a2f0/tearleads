@@ -230,6 +230,9 @@ function useNewerEditsCheck(
     const unsubscribe = documents.subscribe((document) => {
       if (document.id === localId) check();
     });
+    // A save that landed after the capture was read but before this
+    // subscription began sent its notification to nobody: look once now.
+    check();
     return () => {
       stopped = true;
       unsubscribe();
@@ -249,10 +252,9 @@ function useRetryWhenHistoryArrives(
   useEffect(() => {
     if (!unavailable) return;
     let stopped = false;
-    const unsubscribe = documents.subscribe((document) => {
-      if (document.id !== localId) return;
-      // Look before reopening: a save that brings no history would only
-      // flash the view back to loading.
+    // Look before reopening: a save that brings no history would only flash
+    // the view back to loading.
+    const probe = () => {
       documents
         .openHistory(localId)
         .then((history) => {
@@ -261,7 +263,13 @@ function useRetryWhenHistoryArrives(
           if (arrived && !stopped) open();
         })
         .catch(() => undefined);
+    };
+    const unsubscribe = documents.subscribe((document) => {
+      if (document.id === localId) probe();
     });
+    // The history may have arrived between the open that found none and
+    // this subscription: look once now.
+    probe();
     return () => {
       stopped = true;
       unsubscribe();

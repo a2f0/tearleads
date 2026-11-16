@@ -60,11 +60,12 @@ function setup(dbStatus: "idle" | "ready" = "ready") {
   const runtime = { infra: { dbStatus, execSql: {} } };
   const listeners = new Set<(document: DocumentSummary) => void>();
   const opens: string[] = [];
-  let next: DocumentHistory | null = null;
+  // Every open reads its own capture, as the SDK does.
+  let next: () => DocumentHistory | null = () => null;
   const documents = {
     openHistory: async (localId: string) => {
       opens.push(localId);
-      return next;
+      return next();
     },
     subscribe: (listener: (document: DocumentSummary) => void) => {
       listeners.add(listener);
@@ -92,8 +93,9 @@ function setup(dbStatus: "idle" | "ready" = "ready") {
         listener({ id: localId } as DocumentSummary);
       }
     },
-    serve: (history: DocumentHistory | null) => {
-      next = history;
+    /** What the document's durable history holds from now on. */
+    serve: (make: () => DocumentHistory | null) => {
+      next = make;
     },
     subscribers: () => listeners.size,
   };
@@ -101,7 +103,7 @@ function setup(dbStatus: "idle" | "ready" = "ready") {
 
 test("history opens on its newest stop and replays it outside rendering", async () => {
   const sdk = setup();
-  sdk.serve(capture(["1", 3], ["1", 5]).history);
+  sdk.serve(() => capture(["1", 3], ["1", 5]).history);
   const { result } = renderHook(() => useDocumentHistory("doc"));
 
   await waitFor(() => {
@@ -121,7 +123,7 @@ test("history opens on its newest stop and replays it outside rendering", async 
 
 test("history stays loading until the database is ready", async () => {
   const sdk = setup("idle");
-  sdk.serve(capture(["1", 3]).history);
+  sdk.serve(() => capture(["1", 3]).history);
   const { rerender, result } = renderHook(() => useDocumentHistory("doc"));
 
   await act(async () => undefined);
@@ -132,12 +134,13 @@ test("history stays loading until the database is ready", async () => {
   sdk.runtime.infra.dbStatus = "ready";
   rerender();
   await waitFor(() => expect(result.current.state.status).toBe("ready"));
-  expect(sdk.opens).toEqual(["doc"]);
+  // The open, then one look for a save that slipped in behind it.
+  await waitFor(() => expect(sdk.opens).toEqual(["doc", "doc"]));
 });
 
 test("a document that gains history after opening becomes available", async () => {
   const sdk = setup();
-  sdk.serve(null);
+  sdk.serve(() => null);
   const { result } = renderHook(() => useDocumentHistory("doc"));
   await waitFor(() => expect(result.current.state.status).toBe("unavailable"));
 
@@ -146,7 +149,7 @@ test("a document that gains history after opening becomes available", async () =
   await act(async () => undefined);
   expect(result.current.state.status).toBe("unavailable");
   // Another document's save is not this one's.
-  sdk.serve(capture(["1", 3]).history);
+  sdk.serve(() => capture(["1", 3]).history);
   act(() => sdk.saved("other"));
   await act(async () => undefined);
   expect(result.current.state.status).toBe("unavailable");
@@ -157,19 +160,19 @@ test("a document that gains history after opening becomes available", async () =
 
 test("an edit that extends an earlier writer's change is noticed as newer", async () => {
   const sdk = setup();
-  sdk.serve(capture(["1", 3], ["2", 4]).history);
+  sdk.serve(() => capture(["1", 3], ["2", 4]).history);
   const { result } = renderHook(() => useDocumentHistory("doc"));
   await waitFor(() => expect(result.current.state.status).toBe("ready"));
 
   // A save with the same history is not newer.
-  sdk.serve(capture(["1", 3], ["2", 4]).history);
+  sdk.serve(() => capture(["1", 3], ["2", 4]).history);
   act(() => sdk.saved("doc"));
   await act(async () => undefined);
   expect(result.current.state).toMatchObject({ newerAvailable: false });
 
   // Same number of stops and the same newest stop, but writer 1's change,
   // which is not the newest, now reaches further.
-  sdk.serve(capture(["1", 6], ["2", 4]).history);
+  sdk.serve(() => capture(["1", 6], ["2", 4]).history);
   act(() => sdk.saved("doc"));
   await waitFor(() =>
     expect(result.current.state).toMatchObject({ newerAvailable: true }),
@@ -178,22 +181,62 @@ test("an edit that extends an earlier writer's change is noticed as newer", asyn
   expect(sdk.subscribers()).toBe(0);
 });
 
+test("a save between reading the capture and subscribing is still noticed", async () => {
+  const sdk = setup();
+  sdk.serve(() => capture(["1", 3]).history);
+  const { result } = renderHook(() => useDocumentHistory("doc"));
+  // The document is saved again before the hook has subscribed, so no
+  // notification will ever reach it for this edit.
+  sdk.serve(() => capture(["1", 3], ["1", 5]).history);
+
+  await waitFor(() =>
+    expect(result.current.state).toMatchObject({ newerAvailable: true }),
+  );
+});
+
+test("history that arrives before the retry subscribes is still found", async () => {
+  const sdk = setup();
+  sdk.serve(() => null);
+  const { result } = renderHook(() => useDocumentHistory("doc"));
+  // The first read found none; the document hydrates before the hook has
+  // subscribed for the retry.
+  sdk.serve(() => capture(["1", 3]).history);
+
+  await waitFor(() => expect(result.current.state.status).toBe("ready"));
+});
+
 test("reloading opens a new capture and closes the old one", async () => {
   const sdk = setup();
-  const first = capture(["1", 3]);
-  sdk.serve(first.history);
+  const before: Array<ReturnType<typeof capture>> = [];
+  sdk.serve(() => {
+    const made = capture(["1", 3]);
+    before.push(made);
+    return made.history;
+  });
   const { result, unmount } = renderHook(() => useDocumentHistory("doc"));
   await waitFor(() => expect(result.current.state.status).toBe("ready"));
+  const [first] = before;
+  if (!first) throw new Error("expected a capture");
+  expect(result.current.state).toMatchObject({ history: first.history });
 
-  const second = capture(["1", 3], ["1", 5]);
-  sdk.serve(second.history);
-  act(() => result.current.reload());
-  await waitFor(() => {
-    const { state } = result.current;
-    expect(state.status === "ready" && state.history).toBe(second.history);
+  const after: Array<ReturnType<typeof capture>> = [];
+  sdk.serve(() => {
+    const made = capture(["1", 3], ["1", 5]);
+    after.push(made);
+    return made.history;
   });
+  act(() => result.current.reload());
+  await waitFor(() =>
+    expect(result.current.state).toMatchObject({ history: after[0]?.history }),
+  );
   expect(first.closed.count).toBe(1);
 
   unmount();
-  expect(second.closed.count).toBe(1);
+  expect(after[0]?.closed.count).toBe(1);
+  // Every capture read only to compare was closed as soon as it was read.
+  await waitFor(() => {
+    for (const made of [...before, ...after]) {
+      expect(made.closed.count).toBe(1);
+    }
+  });
 });

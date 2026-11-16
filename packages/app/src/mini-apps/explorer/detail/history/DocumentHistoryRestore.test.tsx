@@ -151,6 +151,27 @@ test("nothing is written until the restore is confirmed, and cancelling abandons
   expect(live.calls).toHaveLength(0);
 });
 
+test("the confirmation takes focus, closes on Escape, and gives focus back", async () => {
+  const live = liveDocument();
+  const view = mount(live.store);
+  const trigger = view.getByRole("button", {
+    name: EXPLORER_LABELS.documentHistoryRestoreAction,
+  });
+  trigger.focus();
+  fireEvent.click(trigger);
+
+  const cancel = await view.findByRole("button", {
+    name: EXPLORER_LABELS.documentHistoryRestoreCancel,
+  });
+  // Focus starts on the safe choice, not on Restore.
+  expect(document.activeElement).toBe(cancel);
+
+  fireEvent.keyDown(document, { key: "Escape" });
+  await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+  expect(document.activeElement).toBe(trigger);
+  expect(live.calls).toHaveLength(0);
+});
+
 test("the restore is not offered on the newest stop or a document that cannot be written", () => {
   const newest = mount(liveDocument().store, { isLatest: true });
   expect(newest.queryByRole("button")).toBeNull();

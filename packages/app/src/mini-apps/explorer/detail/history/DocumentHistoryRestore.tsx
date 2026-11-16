@@ -16,6 +16,7 @@ import {
   MiniAppModalPanel,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
+import { useModalEscapeAndFocusRestore } from "../../../../document-types/shared/useModalEscapeAndFocusRestore";
 import {
   IDLE_DOCUMENT_HISTORY_RESTORE,
   transitionDocumentHistoryRestore,
@@ -33,6 +34,10 @@ function RestoreConfirmationDialog(params: {
 }) {
   const titleId = useId();
   const messageId = useId();
+  // Escape cancels, focus starts on Cancel (the safe choice), and returns to
+  // the Restore button when the dialog closes.
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  useModalEscapeAndFocusRestore(params.onCancel, cancelButtonRef);
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     params.onConfirm();
@@ -52,7 +57,11 @@ function RestoreConfirmationDialog(params: {
             {EXPLORER_LABELS.documentHistoryRestoreMessage(params.versionTime)}
           </p>
           <MiniAppActions>
-            <MiniAppButton onClick={params.onCancel} type="button">
+            <MiniAppButton
+              onClick={params.onCancel}
+              ref={cancelButtonRef}
+              type="button"
+            >
               {EXPLORER_LABELS.documentHistoryRestoreCancel}
             </MiniAppButton>
             <MiniAppButton type="submit">
