@@ -1,3 +1,4 @@
+import type { SyntheticEvent } from "react";
 import type { WindowingIcon } from "../icons/windowingIcon";
 import { Menu } from "../menu/Menu";
 import { MenuItem } from "../menu/MenuItem";
@@ -23,6 +24,15 @@ interface SystemTrayProps {
 }
 
 const NO_MENU_ITEMS: ReadonlyArray<SystemTrayMenuItem> = [];
+
+// An app's portaled content, such as its own popover, bubbles to its tray
+// slot through React though it sits elsewhere in the page. Only presses on
+// what the slot actually contains open the tray's menu.
+function isInSlot(event: SyntheticEvent<HTMLElement>): boolean {
+  return (
+    event.target instanceof Node && event.currentTarget.contains(event.target)
+  );
+}
 
 /**
  * The tray apps of the nearest {@link SystemTrayProvider} that the user left
@@ -55,7 +65,16 @@ export function SystemTray({ menuItems = NO_MENU_ITEMS }: SystemTrayProps) {
                 {...longPress}
                 className="system-tray-app"
                 key={id}
-                onContextMenu={(event) => openContextMenu(event, id)}
+                onContextMenu={(event) => {
+                  if (isInSlot(event)) {
+                    openContextMenu(event, id);
+                  }
+                }}
+                onPointerDown={(event) => {
+                  if (isInSlot(event)) {
+                    longPress.onPointerDown(event);
+                  }
+                }}
               >
                 <TrayApp />
               </li>

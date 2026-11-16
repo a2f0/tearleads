@@ -1,6 +1,13 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  within,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { DisplayProperties } from "../display/DisplayProperties";
 import { SystemTray, type SystemTrayMenuItem } from "./SystemTray";
 import { SystemTrayProvider, useSystemTray } from "./SystemTrayProvider";
@@ -158,6 +165,49 @@ test("unreadable storage leaves every app on", () => {
   localStorage.setItem(TRAY_KEY, "{not json");
   const view = render(<SystemTray />, { wrapper: Providers });
   expect(trayControls(view.container)).toEqual(["Volume", "12:00"]);
+});
+
+// A tray app whose popover, like a real one, renders into the body.
+function PopoverApp() {
+  return (
+    <>
+      <button type="button">Status</button>
+      {createPortal(<button type="button">Popover link</button>, document.body)}
+    </>
+  );
+}
+
+const POPOVER_TRAY: SystemTrayDefinition<"status"> = {
+  apps: { status: { component: PopoverApp, title: "Status" } },
+  order: ["status"],
+};
+
+test("a right-click or long press in an app's portaled popover opens no tray menu", async () => {
+  const view = render(
+    <SystemTrayProvider definition={POPOVER_TRAY} storageKey={TRAY_KEY}>
+      <SystemTray />
+    </SystemTrayProvider>,
+  );
+  const link = view.getByRole("button", { name: "Popover link" });
+
+  fireEvent.contextMenu(link, { clientX: 10, clientY: 10 });
+  fireEvent.pointerDown(link, {
+    clientX: 10,
+    clientY: 10,
+    pointerType: "touch",
+  });
+  await act(async () => {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    setTimeout(resolve, 550);
+    await promise;
+  });
+  expect(view.queryByRole("button", { name: "Disable Status" })).toBeNull();
+
+  fireEvent.contextMenu(view.getByRole("button", { name: "Status" }), {
+    clientX: 10,
+    clientY: 10,
+  });
+  expect(view.getByRole("button", { name: "Disable Status" })).toBeDefined();
 });
 
 test("renders nothing without a provider, and Display Properties leaves out the section", () => {
