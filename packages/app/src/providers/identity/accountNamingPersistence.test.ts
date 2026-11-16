@@ -3,7 +3,7 @@ import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sha
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 import {
   type AccountNamingPersistence,
-  accountNamingRemoval,
+  claimAccountNamingWrite,
   clearPersistedAccountNamingForIdentity,
   loadPersistedAccountNaming,
   savePersistedAccountNaming,
@@ -67,19 +67,49 @@ test("removing an identity drops its sealed name, even a seal still in flight", 
 
 test("a seal queued before its identity was removed does not write once it runs", async () => {
   const sealed = persistence();
-  const queuedAt = accountNamingRemoval(sealed);
+  const queued = claimAccountNamingWrite(sealed);
   clearPersistedAccountNamingForIdentity({
     namespace: NAMESPACE,
     signingFingerprint: FINGERPRINT,
   });
-  await savePersistedAccountNaming(
-    sealed,
-    FINGERPRINT,
-    { name: "Bob", status: "named" },
-    queuedAt,
-  );
+  expect(
+    await savePersistedAccountNaming(
+      sealed,
+      FINGERPRINT,
+      { name: "Bob", status: "named" },
+      queued,
+    ),
+  ).toBe(false);
   expect(globalThis.localStorage.getItem(sealed.storageKey)).toBeNull();
 });
+
+test("a seal queued in a runtime since replaced never lands over the replacement's", async () => {
+  // The first runtime queued a seal and unmounted before it ran; its
+  // replacement, a separate handle on the same record, sealed the name since.
+  const replaced = persistence();
+  const stale = claimAccountNamingWrite(replaced);
+  const replacement = persistence();
+  expect(
+    await savePersistedAccountNaming(replacement, FINGERPRINT, {
+      name: "Bob",
+      status: "named",
+    }),
+  ).toBe(true);
+
+  expect(
+    await savePersistedAccountNaming(
+      replaced,
+      FINGERPRINT,
+      { status: "awaiting" },
+      stale,
+    ),
+  ).toBe(false);
+  expect(await loadPersistedAccountNaming(replacement, FINGERPRINT)).toEqual({
+    name: "Bob",
+    status: "named",
+  });
+});
+
 test("a sealed name reads back only for its own identity", async () => {
   const sealed = persistence();
   await savePersistedAccountNaming(sealed, FINGERPRINT, {

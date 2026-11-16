@@ -181,7 +181,9 @@ export function accountNamingFor(
  * What the identity's sealed record should become: the naming to seal, or
  * `null` to remove it. A name outlives the account's creation until the self
  * contact's nickname is saved, so a restart before then, or a save that
- * failed, still names the contact. `undefined` leaves the record as it is.
+ * failed, still names the contact. An owed name is never sealed here: the
+ * prompt was sealed before its identity was stored, so whatever an awaiting
+ * page holds is already on record. `undefined` leaves the record as it is.
  */
 export function sealedAccountNaming(
   state: AccountNamingState,
@@ -194,7 +196,6 @@ export function sealedAccountNaming(
       }
       return state.contactNamed ? null : undefined;
     case "awaiting":
-      return accountExists ? null : { status: "awaiting" };
     case "idle":
       return accountExists ? null : undefined;
   }

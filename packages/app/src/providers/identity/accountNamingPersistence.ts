@@ -31,16 +31,29 @@ export type PersistedAccountNaming =
 
 export type AccountNamingPersistence = LocalCryptoSessionPersistence;
 
-// Bumped by every removal. A seal carries the count from when it was queued,
-// so one queued or still encrypting when its identity is removed never writes
-// the record back.
-const removals = new Map<string, number>();
+// Every write to a record (a seal or a removal) claims the record's next
+// generation when it is queued, and lands only while its claim is the latest.
+// Claims are shared by every runtime on the page, so a seal still queued or
+// encrypting in a runtime that has since unmounted never lands over what a
+// later one wrote, and a removed identity's seal in flight never writes the
+// record back.
+const claims = new Map<string, number>();
 
-/** The removal count a seal queued now must still see when it writes. */
-export function accountNamingRemoval(
+function claimRecord(storageKey: string): number {
+  const claim = (claims.get(storageKey) ?? 0) + 1;
+  claims.set(storageKey, claim);
+  return claim;
+}
+
+function isLatestClaim(storageKey: string, claim: number): boolean {
+  return claims.get(storageKey) === claim;
+}
+
+/** Claims the record for a write queued now; see the claims above. */
+export function claimAccountNamingWrite(
   persistence: AccountNamingPersistence,
 ): number {
-  return removals.get(persistence.storageKey) ?? 0;
+  return claimRecord(persistence.storageKey);
 }
 
 function accountNamingStorageKey(
@@ -133,12 +146,13 @@ export async function loadPersistedAccountNaming(
   }
 }
 
+/** Seals `naming`; false when a later claim on the record superseded it. */
 export async function savePersistedAccountNaming(
   persistence: AccountNamingPersistence,
   signingFingerprint: string,
   naming: PersistedAccountNaming,
-  removal = accountNamingRemoval(persistence),
-): Promise<void> {
+  claim = claimAccountNamingWrite(persistence),
+): Promise<boolean> {
   // The identity's own record may not have created the keyring session yet.
   const session = await persistence.keyring.getOrCreateSession(
     persistence.scope,
@@ -153,9 +167,11 @@ export async function savePersistedAccountNaming(
         version: 1,
       },
     });
-    if (accountNamingRemoval(persistence) === removal) {
-      persistence.storage.setItem(persistence.storageKey, serializedEnvelope);
+    if (!isLatestClaim(persistence.storageKey, claim)) {
+      return false;
     }
+    persistence.storage.setItem(persistence.storageKey, serializedEnvelope);
+    return true;
   } finally {
     session.dispose();
   }
@@ -196,18 +212,16 @@ export async function sealPendingAccountNaming(input: {
   );
 }
 
-function removeAccountNaming(
-  storage: Pick<Storage, "removeItem">,
-  storageKey: string,
-): void {
-  removals.set(storageKey, (removals.get(storageKey) ?? 0) + 1);
-  storage.removeItem(storageKey);
-}
-
+/** Removes the record; false when a later claim on it superseded this. */
 export function removePersistedAccountNaming(
   persistence: AccountNamingPersistence,
-): void {
-  removeAccountNaming(persistence.storage, persistence.storageKey);
+  claim = claimAccountNamingWrite(persistence),
+): boolean {
+  if (!isLatestClaim(persistence.storageKey, claim)) {
+    return false;
+  }
+  persistence.storage.removeItem(persistence.storageKey);
+  return true;
 }
 
 /** Drops a removed identity's naming, and any seal of it still in flight. */
@@ -217,9 +231,11 @@ export function clearPersistedAccountNamingForIdentity(input: {
 }): void {
   const storage = input.namespace ? getLocalStorage() : null;
   if (input.namespace && storage) {
-    removeAccountNaming(
-      storage,
-      accountNamingStorageKey(input.namespace, input.signingFingerprint),
+    const storageKey = accountNamingStorageKey(
+      input.namespace,
+      input.signingFingerprint,
     );
+    claimRecord(storageKey);
+    storage.removeItem(storageKey);
   }
 }

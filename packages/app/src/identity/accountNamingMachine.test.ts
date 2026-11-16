@@ -149,10 +149,9 @@ test("the sealed name outlives registration until the contact's nickname is save
   expect(sealedAccountNaming(contactNamed, true)).toBeNull();
 });
 
-test("a pending prompt is sealed until an account exists", () => {
-  expect(sealedAccountNaming(run([generated]), false)).toEqual({
-    status: "awaiting",
-  });
+test("an owed name is on record already, and dropped once an account exists", () => {
+  // Sealed before its identity was stored; never rewritten from the page.
+  expect(sealedAccountNaming(run([generated]), false)).toBeUndefined();
   expect(sealedAccountNaming(run([generated]), true)).toBeNull();
   expect(sealedAccountNaming(ACCOUNT_NAMING_IDLE, false)).toBeUndefined();
   expect(sealedAccountNaming(ACCOUNT_NAMING_IDLE, true)).toBeNull();

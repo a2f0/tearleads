@@ -2,7 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import {
   type AccountNamingPersistence,
-  accountNamingRemoval,
+  claimAccountNamingWrite,
   loadPersistedAccountNaming,
   removePersistedAccountNaming,
   savePersistedAccountNaming,
@@ -96,7 +96,9 @@ function useSealedAccountNaming(
   const accountExists = useCryptoSession().userId !== null;
   const { isLocked } = useLocalKeyringLock();
   const { logError } = useLog();
-  // One write at a time, so a slow earlier seal never lands over a later one.
+  // One write at a time; each claims the record when queued, so neither a
+  // slower earlier seal nor one from a runtime since replaced lands over a
+  // later write.
   const writes = useRef(Promise.resolve());
 
   useEffect(() => {
@@ -113,21 +115,21 @@ function useSealedAccountNaming(
       if (named && !isLocked) dispatch({ ...named, type: "name-sealed" });
       return;
     }
-    // Counted now, so a removal of the identity while this waits wins.
-    const removal = accountNamingRemoval(persistence);
+    const claim = claimAccountNamingWrite(persistence);
     const write =
       sealed === null
-        ? async () => removePersistedAccountNaming(persistence)
+        ? async () => removePersistedAccountNaming(persistence, claim)
         : () =>
             savePersistedAccountNaming(
               persistence,
               signingFingerprint,
               sealed,
-              removal,
+              claim,
             );
     writes.current = writes.current.then(write).then(
-      () => {
-        if (named) dispatch({ ...named, type: "name-sealed" });
+      (written) => {
+        // A superseded seal leaves the outcome to the write that replaced it.
+        if (named && written) dispatch({ ...named, type: "name-sealed" });
       },
       (error: unknown) => {
         logError("Could not save the account name.", error);
