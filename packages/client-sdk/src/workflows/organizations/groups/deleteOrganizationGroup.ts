@@ -2,7 +2,7 @@ import type { SigningKeyPair } from "@tearleads/crypto";
 import type { DeleteOrganizationGroupRequest } from "@tearleads/validators/request";
 import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/persistence/principalPolicy/locallyAcknowledgedPrincipalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import { loadOrganizationExternalAdminPolicy } from "../../principals/externalAdminPolicy";
@@ -91,11 +91,11 @@ export async function deleteOrganizationGroup(input: {
     request: organizationRequest,
     response: stored.organizationPolicy,
   });
-  await persistLocallyAcknowledgedPrincipalPolicyBundles({
+  await new PrincipalPolicyBundleRepository(
+    input.execSql,
+  ).persistLocallyAcknowledgedPrincipalPolicyBundles({
     entries: [organization],
-    execSql: input.execSql,
     organizationId: input.organizationId,
-    updatedAt: new Date().toISOString(),
     stillCurrent,
   });
   assertProjectionVerificationCurrent(stillCurrent);

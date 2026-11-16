@@ -7,8 +7,7 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalPolicyBundle } from "../../persistence/principalPolicy/principalPolicyPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../../persistence/principalPolicy/principalPolicyReferencePersistence";
+import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
@@ -100,11 +99,9 @@ async function loadOrganizationPolicyForVerification(
   | undefined
 > {
   const execSql = input.checkpointContext.execSql;
-  let bundle = await loadPrincipalPolicyBundle(
+  let bundle = await new PrincipalPolicyBundleRepository(
     execSql,
-    "organization",
-    input.organizationId,
-  );
+  ).loadPrincipalPolicyBundle("organization", input.organizationId);
   if (!bundle) {
     return undefined;
   }
@@ -119,11 +116,9 @@ async function loadOrganizationPolicyForVerification(
       organizationId: input.organizationId,
       references: [principalPolicyReferenceFromBundle(bundle)],
     });
-    bundle = await loadPrincipalPolicyBundle(
+    bundle = await new PrincipalPolicyBundleRepository(
       execSql,
-      "organization",
-      input.organizationId,
-    );
+    ).loadPrincipalPolicyBundle("organization", input.organizationId);
     localCheckpoint = await new KeyingCheckpointRepository(
       execSql,
     ).loadPrincipalPolicyCheckpoint("organization", input.organizationId);
@@ -160,11 +155,9 @@ async function verifyOrganizationAdminsPolicy(input: {
   resolveUserKey: ProjectionUserKeyResolver;
   stillCurrent: (() => boolean) | undefined;
 }): Promise<VerifiedPrincipalPolicy | undefined> {
-  const adminBundle = await loadPrincipalPolicyBundle(
+  const adminBundle = await new PrincipalPolicyBundleRepository(
     input.execSql,
-    "group",
-    input.adminGroupId,
-  );
+  ).loadPrincipalPolicyBundle("group", input.adminGroupId);
   if (!adminBundle) {
     return undefined;
   }
@@ -353,11 +346,9 @@ async function verifyReferencedPrincipalPolicy(input: {
   }
 
   const referenceLabel = principalPolicyReferenceLabel(input.reference);
-  let bundle = await loadPrincipalPolicyBundleForReference(
+  let bundle = await new PrincipalPolicyBundleRepository(
     execSql,
-    input.reference,
-    localCheckpoint,
-  );
+  ).loadPrincipalPolicyBundleForReference(input.reference, localCheckpoint);
   if (!bundle && input.warmReferencedPrincipalPolicies) {
     // The reference is not cached locally — the common case for a member who
     // gained access via another org's group grant and never hydrated that
@@ -366,11 +357,9 @@ async function verifyReferencedPrincipalPolicy(input: {
       organizationId: input.organizationId,
       references: [input.reference],
     });
-    bundle = await loadPrincipalPolicyBundleForReference(
+    bundle = await new PrincipalPolicyBundleRepository(
       execSql,
-      input.reference,
-      localCheckpoint,
-    );
+    ).loadPrincipalPolicyBundleForReference(input.reference, localCheckpoint);
   }
   if (!bundle) {
     throw new PrincipalPolicyNotCachedError(referenceLabel);

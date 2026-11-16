@@ -11,12 +11,7 @@ import {
   referencedPrincipalStateFromPolicyState,
 } from "../../../../test/helpers/policyCacheFixtures";
 import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
-import {
-  ensurePrincipalPolicyTables,
-  loadPrincipalPolicyBundle,
-  loadPrincipalPolicyStateHash,
-  savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("principal policy sync caches a verified referenced principal bundle and skips refetching unchanged state", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -44,10 +39,16 @@ test("principal policy sync caches a verified referenced principal bundle and sk
     });
 
     await expect(
-      loadPrincipalPolicyStateHash(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyStateHash(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBe(bundle.currentState.stateHash);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(bundle);
 
     await cacheReferencedPolicies({
@@ -80,11 +81,13 @@ test("principal policy sync fetches a newer referenced state when an older bundl
       organizationId: "org-1",
       group: bundle,
     });
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
+    ).ensurePrincipalPolicyTables();
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).savePrincipalPolicyBundle(
       predecessorBundleFromSuccessor(bundle),
-      "2026-04-08T00:00:30.000Z",
       "org-1",
     );
     let getCurrentPrincipalPolicyCallCount = 0;
@@ -103,7 +106,10 @@ test("principal policy sync fetches a newer referenced state when an older bundl
 
     expect(getCurrentPrincipalPolicyCallCount).toBe(1);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(bundle);
   } finally {
     close();
@@ -136,7 +142,10 @@ test("principal policy sync verifies successor state from the fetched chain when
 
     expect(logs).toEqual([]);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(bundle);
   } finally {
     close();
@@ -173,7 +182,10 @@ test("principal policy sync caches current state when the reference points at a 
 
     expect(logs).toEqual([]);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(bundle);
   } finally {
     close();
@@ -224,7 +236,10 @@ test("principal policy sync reuses and re-verifies a cached successor for a hist
     // a network-read optimization, not a trusted-object shortcut.
     expect(signerReadCount).toBe(4);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(bundle);
   } finally {
     close();
@@ -254,7 +269,10 @@ test("principal policy sync rejects shrinking successors that reuse the key epoc
       name: "KeyingVerificationError",
     });
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -268,7 +286,9 @@ test("principal policy sync rejects bundles whose projection does not match the 
 
   try {
     const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
     const [firstProjectionMember, ...remainingProjection] =
       bundle.currentProjection;
     if (!firstProjectionMember) {
@@ -298,7 +318,10 @@ test("principal policy sync rejects bundles whose projection does not match the 
       name: "KeyingVerificationError",
     });
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -313,7 +336,9 @@ test("principal policy sync rejects successor bundles signed by non-admins", asy
   try {
     const { bundle, signerKeyResponses } =
       await createUnauthorizedSuccessorPrincipalPolicyBundle();
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
     // The successor cites no external authority, so no Admins evidence could
     // authorize it: withholding the organization policy cannot hide the
     // refusal or its incident.
@@ -332,7 +357,10 @@ test("principal policy sync rejects successor bundles signed by non-admins", asy
       name: "KeyingVerificationError",
     });
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -357,7 +385,9 @@ test("principal policy sync treats missing Admins evidence for a cited authority
         },
         successorKeepsMembers: true,
       });
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
     const incidents: unknown[] = [];
     // The successor's signer is authorized only through the Admins head it
     // cites, and the organization policy carrying that evidence is
@@ -378,7 +408,10 @@ test("principal policy sync treats missing Admins evidence for a cited authority
     ).resolves.toBeUndefined();
     expect(incidents).toEqual([]);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -392,7 +425,9 @@ test("principal policy sync rejects bundles when the signer key does not match",
 
   try {
     const { bundle, getUserIdentity } = await createPrincipalPolicyBundle();
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
 
     await expect(
       cacheReferencedPolicies({
@@ -413,7 +448,10 @@ test("principal policy sync rejects bundles when the signer key does not match",
     });
 
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();

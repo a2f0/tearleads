@@ -11,7 +11,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { createExecSql, type ExecSql } from "../../sqlite/sqlSchema";
-import { ensurePrincipalPolicyTables } from "./principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 import { indexPrincipalPolicyBundleInTransaction } from "./principalPolicyReferenceIndexPersistence";
 
 type ReferenceRow = typeof principalPolicyBundleReferences.$inferInsert;
@@ -134,7 +134,9 @@ function seededRandom(seed: number): () => number {
 
 async function referenceDatabase(key: string) {
   const sqlite = await createTestExecSql(key);
-  await ensurePrincipalPolicyTables(sqlite.execSql);
+  await new PrincipalPolicyBundleRepository(
+    sqlite.execSql,
+  ).ensurePrincipalPolicyTables();
   const runtime = getClientSQLitePersistenceRuntime(sqlite.execSql);
   return {
     ...sqlite,
@@ -260,7 +262,9 @@ function countingExecSql(execSql: ExecSql) {
 test("indexing a 128-version bundle takes a constant number of statements", async () => {
   const sqlite = await createTestExecSql("policy-reference-budget");
   try {
-    await ensurePrincipalPolicyTables(sqlite.execSql);
+    await new PrincipalPolicyBundleRepository(
+      sqlite.execSql,
+    ).ensurePrincipalPolicyTables();
     const bundle = bundleOf(
       Array.from({ length: 128 }, (_, index) => ({
         principalId: "group-1",
