@@ -18,19 +18,18 @@ function readByteCount(value: unknown): number {
 }
 
 /**
- * The fewest bytes each update can add to a sync response, from the stored
- * lengths of every variable-size part of its response entry: the ciphertext
+ * A bound on the bytes each update loads into a sync response page, from the
+ * stored lengths of every variable-size part of its entry: the ciphertext
  * (`byte_length`), author fingerprint, version vectors, plaintext hash, a
  * checkpoint's source version vector, and the compact JSON of its write
  * header and authorization targets. JSON never encodes a value in fewer
- * bytes, so a page prefix whose floors overflow the byte ceiling cannot fit,
- * and nothing past it has to be loaded to find the page. What the floors
- * leave out is fixed-size: keys, ids, epochs, and timestamps. An entry omits
- * its authorization targets when they are the set the client holds; the
- * floor still counts them, because the page loads them, so the floors bound
- * the data a page loads rather than its response. A page whose entries omit
- * their sets can therefore end early by the sum of those sets' bytes, and the
- * next page continues it.
+ * bytes, so a page prefix whose floors overflow the byte ceiling would load
+ * more than the ceiling, and nothing past it has to be loaded to find the
+ * page. What the floors leave out is fixed-size: keys, ids, epochs, and
+ * timestamps. They count an entry's authorization targets even when the
+ * response omits them (the set the client holds), because the page loads
+ * them; such a page can end early by those sets' bytes, and the next page
+ * continues it.
  */
 export async function listDocumentUpdateResponseByteFloors(
   executor: DatabaseSession,
