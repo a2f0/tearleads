@@ -10,7 +10,6 @@ import {
 import {
   AccessEventBundleWireResponseSchema,
   AccessManifestBundleWireResponseSchema,
-  AccessManifestSnapshotBundleWireResponseSchema,
 } from "../util";
 import { writerProjectionManifestBundlesRefinement } from "../writerProjectionRefinements";
 import {
@@ -101,18 +100,18 @@ export type DocumentLinkSetMutationResponse = z.infer<
 
 const documentPurgeProofShape = {
   authorizingContainerPath: nonEmptyArraySchema(
-    AccessManifestSnapshotBundleWireResponseSchema,
+    AccessManifestBundleWireResponseSchema,
   ),
   documentContainerManifestHistory: arraySchema(
-    AccessManifestSnapshotBundleWireResponseSchema,
+    AccessManifestBundleWireResponseSchema,
   ),
   documentId: nonEmptyStringSchema,
-  documentManifest: AccessManifestSnapshotBundleWireResponseSchema,
+  documentManifest: AccessManifestBundleWireResponseSchema,
   documentManifestContainerPaths: arraySchema(
-    arraySchema(AccessManifestSnapshotBundleWireResponseSchema),
+    arraySchema(AccessManifestBundleWireResponseSchema),
   ),
   documentManifestPredecessors: arraySchema(
-    AccessManifestSnapshotBundleWireResponseSchema,
+    AccessManifestBundleWireResponseSchema,
   ),
   purgeEvent: AccessEventBundleWireResponseSchema,
   purgedAt: nonEmptyStringSchema,

@@ -8,6 +8,7 @@ import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
+import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 import { fixtureHash } from "../../../../test/helpers/data/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/workflows/documentPurge";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
@@ -90,6 +91,57 @@ test("a malformed unverified purge citation records one integrity incident", asy
     ).rejects.toMatchObject({
       name: "KeyingVerificationError",
       code: "duplicate_entry",
+    });
+    expect(incidents).toHaveLength(1);
+  } finally {
+    database.close();
+  }
+});
+
+test("a purge proof serving compact projection bundles records one integrity incident", async () => {
+  const fixture = await createMaterializedSyncFixture();
+  const proof = structuredClone(
+    await createDocumentPurgeProof(fixture.author, fixture.writerProjection),
+  );
+  // A purge verifies its head from the full stored state; the compact state
+  // a writer projection serves cannot stand in for it.
+  const compact = toServedAccessManifestBundle;
+  proof.documentManifest = compact(proof.documentManifest);
+  proof.documentManifestPredecessors =
+    proof.documentManifestPredecessors.map(compact);
+  proof.documentContainerManifestHistory =
+    proof.documentContainerManifestHistory.map(compact);
+  proof.documentManifestContainerPaths =
+    proof.documentManifestContainerPaths.map((path) => path.map(compact));
+  const [first, ...rest] = proof.authorizingContainerPath.map(compact);
+  if (!first) throw new Error("Expected an authorizing path");
+  proof.authorizingContainerPath = [first, ...rest];
+  const database = await createTestExecSql("purge-compact-bundles");
+  const incidents: unknown[] = [];
+  try {
+    await expect(
+      runWithSecurityIncidentReporting(
+        async (error) => {
+          incidents.push(error);
+        },
+        {
+          operation: "document.purge",
+          objectKind: "document",
+          objectId: proof.documentId,
+        },
+        () =>
+          verifyDocumentPurgeProof({
+            execSql: database.execSql,
+            openPrincipalPolicyBundleReader,
+            expectedDocumentId: proof.documentId,
+            expectedOrganizationId: fixture.author.organizationId,
+            proof,
+            resolveUserKey: fixture.resolveProjectionUserKey,
+          }),
+      ),
+    ).rejects.toMatchObject({
+      name: "KeyingVerificationError",
+      code: "hash_mismatch",
     });
     expect(incidents).toHaveLength(1);
   } finally {

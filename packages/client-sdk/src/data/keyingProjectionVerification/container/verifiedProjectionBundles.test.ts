@@ -99,19 +99,25 @@ test("a cached hash never stores a later projection's different bytes", async ()
       resolveUserKey: fixture.resolveUserKey,
       verifiedByHash,
     });
-    // Same manifest hash, different served bytes: the shared cache
-    // recognizes the hash, but these bytes were never verified.
-    const tampered = { ...leaf, event: { ...leaf.event, extra: true } };
-    // The cached hash verifies; only the byte comparison keeps it out.
-    expect(
-      await verifyContainerWriterProjection({
+    // Same manifest hash, different signed bytes: the shared cache
+    // recognizes the hash, but these bytes were never verified, so they are
+    // verified afresh and refused.
+    const tampered = {
+      ...leaf,
+      event: {
+        ...leaf.event,
+        event: { ...leaf.event.event, signature: "AAAA" },
+      },
+    };
+    await expect(
+      verifyContainerWriterProjection({
         execSql: second.execSql,
         openPrincipalPolicyBundleReader,
         projection: { ...fixture.projection, path: [tampered] },
         resolveUserKey: fixture.resolveUserKey,
         verifiedByHash,
       }),
-    ).toHaveLength(1);
+    ).rejects.toMatchObject({ code: "signature_mismatch" });
     expect(
       await loadVerifiedManifestCitations(second.execSql, target),
     ).not.toContainEqual(toServedAccessManifestBundle(tampered));
@@ -156,37 +162,32 @@ test("a cache hit still refuses a copy whose state differs", async () => {
   }
 });
 
-test("a cache hit refuses a copy with a different signature", async () => {
+test("a copy verified cold verifies again from a warm cache", async () => {
   const fixture = await createVerificationFixture();
-  const first = await createTestExecSql("verified-bundles-signature-first");
-  const second = await createTestExecSql("verified-bundles-signature-second");
+  const first = await createTestExecSql("verified-bundles-repeat-first");
+  const second = await createTestExecSql("verified-bundles-repeat-second");
   const [leaf] = fixture.projection.path;
   if (!leaf) throw new Error("fixture path missing");
+  // A field the event reader does not keep: fresh verification accepts it,
+  // so citing the same bytes again must too.
+  const served = {
+    ...leaf,
+    event: { ...leaf.event, event: { ...leaf.event.event, note: "kept" } },
+  };
+  const projection = { ...fixture.projection, path: [served] };
   const verifiedByHash = new Map();
   try {
-    await verifyContainerWriterProjection({
-      execSql: first.execSql,
-      openPrincipalPolicyBundleReader,
-      projection: fixture.projection,
-      resolveUserKey: fixture.resolveUserKey,
-      verifiedByHash,
-    });
-    const resigned = {
-      ...leaf,
-      event: {
-        ...leaf.event,
-        event: { ...leaf.event.event, signature: "AAAA" },
-      },
-    };
-    await expect(
-      verifyContainerWriterProjection({
-        execSql: second.execSql,
-        openPrincipalPolicyBundleReader,
-        projection: { ...fixture.projection, path: [resigned] },
-        resolveUserKey: fixture.resolveUserKey,
-        verifiedByHash,
-      }),
-    ).rejects.toMatchObject({ code: "hash_mismatch" });
+    for (const database of [first, second]) {
+      expect(
+        await verifyContainerWriterProjection({
+          execSql: database.execSql,
+          openPrincipalPolicyBundleReader,
+          projection,
+          resolveUserKey: fixture.resolveUserKey,
+          verifiedByHash,
+        }),
+      ).toHaveLength(1);
+    }
   } finally {
     first.close();
     second.close();

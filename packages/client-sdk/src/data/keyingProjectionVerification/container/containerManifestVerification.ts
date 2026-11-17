@@ -9,7 +9,6 @@ import {
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import {
   assertCanonicalEqual,
-  assertVerifiedCopy,
   verifyAccessEventBundle,
 } from "../checkpoints/bundleVerification";
 import type { ProjectionCheckpointContext } from "../checkpoints/checkpointContext";
@@ -17,7 +16,10 @@ import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
 } from "../checkpoints/manifestCheckpointVerification";
-import { recordVerifiedBundleBytes } from "../checkpoints/verifiedBundleBytes";
+import {
+  matchesVerifiedBundleBytes,
+  recordVerifiedBundleBytes,
+} from "../checkpoints/verifiedBundleBytes";
 import { collectReferencedPrincipalPolicies } from "../principalPolicy/principalPolicyVerification";
 import { readAccessManifest } from "../readers";
 import type {
@@ -104,10 +106,11 @@ export async function verifyContainerManifestBundle(input: {
   const parentPath =
     await resolveContainerManifestVerificationParentPath(input);
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
-  if (cached) {
-    // A cache hit vouches for the hash, not for this copy: callers read the
-    // bundle they passed, so it must be the verified one byte for byte.
-    assertVerifiedCopy(input, cached);
+  // A cache hit vouches for the bytes it verified: a copy that differs is
+  // verified afresh, so a warm cache neither vouches for bytes no
+  // verification saw nor refuses a copy a cold one would accept.
+  if (cached && matchesVerifiedBundleBytes(cached, input.bundle)) {
+    assertVerifiedState(input, cached);
     assertContainerParentPathMatches({
       label: input.label,
       parentPath,

@@ -162,19 +162,8 @@ export function createDocumentPurgeRequest(): DocumentPurgeRequest {
   };
 }
 
-const SNAPSHOT_STATE = {
-  version: 1,
-  organizationId: "organization-1",
-  epoch: 1,
-  previousManifestHash: null,
-  eventHash: "event-hash",
-};
-
 export function createDocumentPurgeResponse(): DocumentPurgeResponse {
-  const authorizingContainer = {
-    ...createContainerManifestBundle(),
-    state: { ...SNAPSHOT_STATE, containerId: "container-1" },
-  };
+  const authorizingContainer = createContainerManifestBundle();
   return {
     authorizingContainerPath: [authorizingContainer],
     documentContainerManifestHistory: [],
@@ -187,7 +176,7 @@ export function createDocumentPurgeResponse(): DocumentPurgeResponse {
       },
       manifest: { objectId: "document-1", objectKind: "document" },
       manifestHash: "document-manifest-hash",
-      state: { ...SNAPSHOT_STATE, documentId: "document-1" },
+      state: { documentId: "document-1" },
     },
     documentManifestContainerPaths: [],
     documentManifestPredecessors: [],

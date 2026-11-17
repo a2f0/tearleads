@@ -114,8 +114,6 @@ export {
   SHA256_HEX_LENGTH,
 } from "./protocol";
 export {
-  type AccessManifestSnapshotBundleWireResponse,
-  AccessManifestSnapshotBundleWireResponseSchema,
   completeServedAccessManifestBundle,
   isServedAccessManifestBundleWireResponse,
   type ServedAccessManifestBundleWireResponse,

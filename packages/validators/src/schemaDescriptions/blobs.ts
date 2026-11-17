@@ -31,7 +31,6 @@ import {
 import {
   AccessEventBundleWireResponseSchema,
   AccessManifestBundleWireResponseSchema,
-  AccessManifestSnapshotBundleWireResponseSchema,
   MultipartBlobPartDescriptorSchema,
   MultipartBlobPartUploadSchema,
   MultipartBlobPartUploadSourceSchema,
@@ -54,16 +53,6 @@ describeSchema(
     manifestHash:
       "Hash of the canonical manifest; other responses cite the manifest by this value.",
     state: "Derived structural state the manifest commits to.",
-  },
-);
-
-describeSchema(
-  AccessManifestSnapshotBundleWireResponseSchema,
-  "A signed access manifest with the event that produced it and its full derived state, as a document purge proof serves it for hash-only snapshot verification.",
-  {
-    manifestHash:
-      "Hash of the canonical manifest; other responses cite the manifest by this value.",
-    state: "The complete derived state the manifest commits to.",
   },
 );
 

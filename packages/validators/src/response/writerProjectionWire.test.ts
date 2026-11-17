@@ -5,7 +5,6 @@ import {
   createDocumentWriterProjectionResponse,
   jsonRoundTrip,
 } from "../operation/openApiTestFixtures";
-import { AccessManifestSnapshotBundleWireResponseSchema } from "../util";
 import type { ContainerWriterProjectionResponse } from "./container";
 import type { DocumentWriterProjectionResponse } from "./documentMutation";
 import {
@@ -239,27 +238,4 @@ test("a served state omits what the bundle's signed bytes name", () => {
   const forged = Object(jsonRoundTrip(wire));
   Reflect.set(forged.bundles.root.state, "containerKeyPublicKey", "forged");
   expect(decodeContainerWriterProjection(forged)?.path).toEqual([stored]);
-});
-
-test("a purge proof requires each bundle's full state", () => {
-  const compact = {
-    ...bundle("root"),
-    state: { directGrants: [] },
-  };
-  expect(
-    AccessManifestSnapshotBundleWireResponseSchema.safeParse(compact).success,
-  ).toBe(false);
-  expect(
-    AccessManifestSnapshotBundleWireResponseSchema.safeParse({
-      ...compact,
-      state: {
-        version: 1,
-        organizationId: "organization-1",
-        epoch: 1,
-        previousManifestHash: null,
-        eventHash: "event-hash",
-        directGrants: [],
-      },
-    }).success,
-  ).toBe(true);
 });

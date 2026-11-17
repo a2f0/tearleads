@@ -1,7 +1,6 @@
 import {
   KeyingVerificationError,
   readKeyingCanonicalJson,
-  type VerifiedAccessEvent,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
@@ -39,42 +38,6 @@ export function assertCanonicalEqual(input: {
       `${input.label} mismatch`,
     );
   }
-}
-
-/**
- * A copy of a manifest already verified under its hash: its event, body,
- * manifest and state must be exactly the verified ones, or a warm cache would
- * vouch for bytes no verification saw.
- */
-export function assertVerifiedCopy(
-  input: {
-    readonly bundle: AccessManifestBundleWireResponse;
-    readonly label: string;
-  },
-  verified: {
-    readonly event: VerifiedAccessEvent;
-    readonly manifest: unknown;
-    readonly state: unknown;
-  },
-): void {
-  const { bundle } = input;
-  assertCanonicalEqual({
-    actual: {
-      body: bundle.event.body,
-      event: bundle.event.event,
-      eventHash: bundle.event.eventHash,
-      manifest: bundle.manifest,
-      state: bundle.state,
-    },
-    expected: {
-      body: verified.event.body,
-      event: verified.event.event,
-      eventHash: verified.event.eventHash,
-      manifest: verified.manifest,
-      state: verified.state,
-    },
-    label: `${input.label} cached copy`,
-  });
 }
 
 export function addBundleByHash(

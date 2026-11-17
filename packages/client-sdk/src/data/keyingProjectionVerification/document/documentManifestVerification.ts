@@ -14,7 +14,6 @@ import type {
 import {
   addBundleByHash,
   assertCanonicalEqual,
-  assertVerifiedCopy,
   verifyAccessEventBundle,
 } from "../checkpoints/bundleVerification";
 import type { ProjectionCheckpointContext } from "../checkpoints/checkpointContext";
@@ -22,7 +21,10 @@ import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
 } from "../checkpoints/manifestCheckpointVerification";
-import { recordVerifiedBundleBytes } from "../checkpoints/verifiedBundleBytes";
+import {
+  matchesVerifiedBundleBytes,
+  recordVerifiedBundleBytes,
+} from "../checkpoints/verifiedBundleBytes";
 import { readAccessManifest, readDocumentAccessEventBody } from "../readers";
 import type {
   PrincipalPolicyCache,
@@ -78,9 +80,10 @@ export async function verifyDocumentManifestBundle(input: {
   readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
-  if (cached) {
-    // A cache hit vouches for the hash, not for this copy.
-    assertVerifiedCopy(input, cached);
+  // A cache hit vouches for the bytes it verified; a copy that differs is
+  // verified afresh.
+  if (cached && matchesVerifiedBundleBytes(cached, input.bundle)) {
+    assertVerifiedState(input, cached);
     if (input.enforceLocalCheckpoint) {
       await verifyCachedManifestCheckpoint({
         current: cached,

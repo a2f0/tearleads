@@ -4,7 +4,6 @@ import {
   loosePlainObject,
   nonEmptyStringSchema,
   plainObjectSchema,
-  positiveIntegerSchema,
 } from "../schema";
 import {
   AccessEventBundleWireResponseSchema,
@@ -29,33 +28,6 @@ export const ServedAccessManifestBundleWireResponseSchema = loosePlainObject({
 
 export type ServedAccessManifestBundleWireResponse = z.infer<
   typeof ServedAccessManifestBundleWireResponseSchema
->;
-
-/**
- * A bundle with its full stored state, as a document purge proof serves it:
- * a purge may verify a head as a hash-only snapshot from that state, so the
- * fields a served projection bundle leaves off must be present.
- */
-// Statically a state record like any bundle's; the schema requires the
-// fields a served projection bundle leaves off.
-const snapshotStateSchema: z.ZodType<Record<string, unknown>> =
-  loosePlainObject({
-    version: positiveIntegerSchema,
-    organizationId: nonEmptyStringSchema,
-    epoch: positiveIntegerSchema,
-    previousManifestHash: nonEmptyStringSchema.nullable(),
-    eventHash: nonEmptyStringSchema,
-  });
-
-export const AccessManifestSnapshotBundleWireResponseSchema = loosePlainObject({
-  event: AccessEventBundleWireResponseSchema,
-  manifest: plainObjectSchema,
-  manifestHash: nonEmptyStringSchema,
-  state: snapshotStateSchema,
-});
-
-export type AccessManifestSnapshotBundleWireResponse = z.infer<
-  typeof AccessManifestSnapshotBundleWireResponseSchema
 >;
 
 const MANIFEST_FIELDS = [
