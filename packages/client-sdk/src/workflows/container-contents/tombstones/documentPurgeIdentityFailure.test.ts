@@ -3,6 +3,7 @@ import {
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
 } from "@tearleads/crypto";
+import { createMockApiClient } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../test/helpers/documentFixtures";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
@@ -31,7 +32,7 @@ async function purgeWithFailingProjectionFetch(
     persistence,
     resolveProjectionUserKey: async () => null,
     runtime: {
-      apiClient: {
+      apiClient: createMockApiClient({
         getPrincipalPolicyPages: () => {
           throw new Error("Unexpected principal page read");
         },
@@ -45,7 +46,7 @@ async function purgeWithFailingProjectionFetch(
         purgeDocument: async () => {
           throw new Error("Unexpected purge call");
         },
-      },
+      }),
       auth: {
         isAuthenticated: true,
         organizationId: author.organizationId,

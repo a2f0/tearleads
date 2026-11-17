@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { runQueuedDocumentMoveFixture } from "../../../../test/helpers/queuedDocumentMoveFixture";
 import { sqlContainerContentsPersistence as containers } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+
+const intents = (execSql: ExecSql) => new DocumentMoveIntentRepository(execSql);
 
 for (const additional of [false, true]) {
   test.each(["pending", "blocked", "unavailable"])(
@@ -14,7 +17,7 @@ for (const additional of [false, true]) {
         extraLocalLink: additional,
         unlinkAvailable: true,
         beforeReplay: async (execSql) => {
-          const [observed] = await intents.listPendingMoveIntents(execSql);
+          const [observed] = await intents(execSql).listPendingMoveIntents();
           if (!observed) throw new Error("Missing combined move");
           observedId = observed.id;
           expect(observed.intentType).toBe("document.move");
@@ -38,7 +41,7 @@ for (const additional of [false, true]) {
             ],
             { discoveryOnly: true },
           );
-          const [refreshed] = await intents.listPendingMoveIntents(execSql);
+          const [refreshed] = await intents(execSql).listPendingMoveIntents();
           refreshedId = refreshed?.id;
           if (refreshed) {
             expect(refreshed.additionalLinkContainerIds).toEqual(
@@ -49,7 +52,7 @@ for (const additional of [false, true]) {
             );
             expect(refreshed.replaceLinkedContainers).toBe(true);
           }
-          await intents.recordMoveIntentError(execSql, {
+          await intents(execSql).recordMoveIntentError({
             documentId: observed.documentId,
             expectedIntentId: observed.id,
             message: "An old request reports the additional link unavailable",

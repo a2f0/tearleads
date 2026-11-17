@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import { createRemoteContainer } from "@tearleads/client-sdk";
+import { ContainerMutationService } from "@tearleads/client-sdk";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql, createTestUser } from "@tearleads/test-utils";
 import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/response";
@@ -87,17 +87,18 @@ test("a real stale create recovers signed pages and commits a rebuilt request wi
     return result;
   };
   try {
-    const result = await createRemoteContainer({
-      apiClient,
-      author: documentAuthor(owner, organizationId),
+    const result = await new ContainerMutationService({
+      api: apiClient,
+      encapsulationSecretKey: owner.kem.secretKey,
       execSql: sqlite.execSql,
-      parentContainerId: root.kekState.containerId,
-      parentSecretKey: owner.kem.secretKey,
-      resolveProjectionUserKey: resolveTrustedUserIdentity,
-      resolveTrustedUserIdentity,
       reportSecurityIncident: async (incident) => {
         throw new Error(JSON.stringify(incident));
       },
+      resolveTrustedUserIdentity,
+    }).createRemoteContainer({
+      author: documentAuthor(owner, organizationId),
+      parentContainerId: root.kekState.containerId,
+      resolveProjectionUserKey: resolveTrustedUserIdentity,
       warmReferencedPrincipalPolicies: paged.warmer,
     });
     expect(result).not.toBeNull();

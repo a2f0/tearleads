@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { runQueuedDocumentMoveFixture } from "../../../../test/helpers/queuedDocumentMoveFixture";
 import { sqlContainerContentsPersistence as containers } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+
+const intents = (execSql: ExecSql) => new DocumentMoveIntentRepository(execSql);
 
 test.each(["pending", "blocked", "denied"])(
   "a removal invalidates an in-flight %s link replay's unavailable result",
@@ -13,7 +16,7 @@ test.each(["pending", "blocked", "denied"])(
       absentLocalContainerIds: ["queued-move-trash-container"],
       unlinkAvailable: false,
       beforeReplay: async (execSql) => {
-        const [observed] = await intents.listPendingMoveIntents(execSql);
+        const [observed] = await intents(execSql).listPendingMoveIntents();
         if (!observed) throw new Error("Missing observed intent");
         await execSql(
           "UPDATE local_intents SET sync_status = ? WHERE lane = 'document.placement'",
@@ -31,7 +34,7 @@ test.each(["pending", "blocked", "denied"])(
           { discoveryOnly: true },
         );
         // A second pane finishes its pre-removal request after the cascade.
-        await intents.recordMoveIntentError(execSql, {
+        await intents(execSql).recordMoveIntentError({
           documentId: observed.documentId,
           expectedIntentId: observed.id,
           message: "Old request reports the target unavailable",
@@ -43,7 +46,7 @@ test.each(["pending", "blocked", "denied"])(
         expect(stored).toBeDefined();
         expect(Reflect.get(stored ?? {}, "id")).not.toBe(observed.id);
         expect(Reflect.get(stored ?? {}, "sync_status")).toBe(syncStatus);
-        const [current] = await intents.listPendingMoveIntents(execSql);
+        const [current] = await intents(execSql).listPendingMoveIntents();
         if (syncStatus === "denied") {
           expect(current).toBeUndefined();
         } else {

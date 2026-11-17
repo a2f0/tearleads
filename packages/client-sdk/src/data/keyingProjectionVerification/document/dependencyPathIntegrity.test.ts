@@ -16,11 +16,11 @@ import {
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../test/helpers/containerMutationServiceFixture";
 import { createResponse } from "../../../../test/helpers/documentFixtures";
 import { createLinkSetResponseFromRequest } from "../../../../test/helpers/documentResponseFixtures";
 import { createChildContainerProjection } from "../../../../test/helpers/projectionHierarchy";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { shareRemoteContainer } from "../../../workflows/containers/child/share";
 import { buildMaterializedDocumentCreatePlan } from "../../../workflows/documents/create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../../workflows/documents/linkSet";
 import { verifyDocumentWriterProjection } from "./documentProjectionVerification";
@@ -238,23 +238,24 @@ test("a stale dependency path never replaces the authorizing path for its leaf",
     });
     // The root then advances by granting Mallory write. A grant keeps the
     // root's KEK epoch, so the child's key edge stays valid under both heads.
-    const shared = await shareRemoteContainer({
+    const shared = await createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      accessLevel: "write",
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         shareContainer: async (_containerId, request) =>
           createMutationResponseFromRequest(request),
       },
+      execSql,
+      resolveTrustedUserIdentity: resolveIdentity,
+      encapsulationSecretKey: parent.secretKey,
+    }).shareRemoteContainer({
+      accessLevel: "write",
       author: parent.author,
       containerId: parent.projection.containerId,
-      execSql,
       recipientUserId: "mallory",
       resolveProjectionUserKey: resolveIdentity,
-      resolveTrustedUserIdentity: resolveIdentity,
       signedAt: SIGNED_AT,
-      targetSecretKey: parent.secretKey,
     });
     const childKek = child.projection.containerKeks.at(-1);
     const [rootFirstHead] = parent.projection.path;

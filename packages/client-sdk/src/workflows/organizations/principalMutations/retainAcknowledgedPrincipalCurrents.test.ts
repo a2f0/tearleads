@@ -4,7 +4,7 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalKeyEnvelopeCandidates } from "../../../data/persistence/principalKeys/principalKeyEnvelopeCandidates";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../../data/principals/principalPolicyCrypto";
 import {
   principalHistoryEntries,
@@ -32,10 +32,11 @@ test("compound current acknowledgement retains protected artifacts and pins with
       policies.every((policy) => policy.retainedHistory.length === 2),
     ).toBe(true);
     expect(f.requests).toHaveLength(requests);
-    const historicalKeys = await loadPrincipalKeyEnvelopeCandidates(
+    const historicalKeys = await new PrincipalPolicyBundleRepository(
       f.options.execSql,
-      [history.directory.currentState.keyFingerprint],
-    );
+    ).loadPrincipalKeyEnvelopeCandidates([
+      history.directory.currentState.keyFingerprint,
+    ]);
     expect(
       historicalKeys.some(
         (candidate) =>

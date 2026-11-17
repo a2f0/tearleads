@@ -159,6 +159,39 @@ when the service has no encapsulation secret key. Requests no longer accept
 and hydration no longer accepts the unused `logPrefix`. Every served page,
 binding, and ciphertext is verified as before.
 
+### Container mutation service
+
+`ContainerMutationService` replaces the free `createRemoteContainer`,
+`shareRemoteContainer`, `moveRemoteContainer`, `rekeyRemoteContainer`, and
+`revokeRemoteContainer` exports. Construct it from one runtime snapshot's
+collaborators, then call the methods of the same names with what varies per
+call:
+
+```ts
+const containers = new ContainerMutationService({
+  api: apiClient,
+  encapsulationSecretKey, // the identity's encapsulation secret key
+  execSql,
+  reportSecurityIncident,
+  resolveTrustedUserIdentity,
+});
+await containers.shareRemoteContainer({
+  accessLevel: "write",
+  author,
+  containerId,
+  recipientUserId,
+  resolveProjectionUserKey,
+  warmReferencedPrincipalPolicies,
+});
+```
+
+Requests no longer accept `apiClient`, `execSql`, `targetSecretKey`,
+`parentSecretKey`, `reportSecurityIncident`, or `resolveTrustedUserIdentity`;
+the author, ids, projection key resolver, policy warmer, `stillCurrent`, and
+`onAccepted` stay per call. `revokeOrganizationContainerGrant` takes a
+`containers` service in place of `apiClient`, `execSql`,
+`encapsulationKeyPair`, and `reportSecurityIncident`.
+
 ### Sync and container recitation
 
 Loop `syncRemoteDocument(...)`; resume with `readPullContinuation(...)` and
@@ -181,9 +214,10 @@ and atomic group-policy rematerializations schedule non-blocking
 for already-held verified descendants, retaining up to 256
 [heads](../../glossary/sync.md#head) and sending at most eight re-cites per
 pass, spaced 250 ms apart. No subtree fetch or retry occurs, and keys and grants
-stay unchanged. It is not a descendant-rekey or freshness guarantee. These mutation
-facades require `reportSecurityIncident`; the built-in runtime wires its durable
-incident service. Re-citation stops at
+stay unchanged. It is not a descendant-rekey or freshness guarantee.
+`ContainerMutationService` requires `reportSecurityIncident` among its
+collaborators; the built-in runtime wires its durable incident service.
+Re-citation stops at
 [container epoch 512](../../limits.md#container-keying) to reserve the remaining
 verifier history budget for ordinary mutations. Organization grant revocation
 requires a live `stillCurrent` guard. The client facade binds it, and group

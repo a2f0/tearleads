@@ -6,8 +6,7 @@ import {
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
-import { retainVerifiedPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   type OrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
@@ -66,11 +65,9 @@ async function loadDirectoryGroupBundle(
   const localCheckpoint = await new KeyingCheckpointRepository(
     input.execSql,
   ).loadPrincipalPolicyCheckpoint("group", head.principalId);
-  const cached = await loadPrincipalPolicyBundleForReference(
+  const cached = await new PrincipalPolicyBundleRepository(
     input.execSql,
-    head,
-    localCheckpoint,
-  );
+  ).loadPrincipalPolicyBundleForReference(head, localCheckpoint);
   const bundle =
     cached ??
     (await input.apiClient.getCurrentPrincipalPolicy(
@@ -240,9 +237,10 @@ export async function assertGroupNameUniqueInDirectory(
   ): Promise<VerifiedDirectoryGroup> => {
     const group = await verifyDirectoryGroup(input, head);
     retention = retention.then(() =>
-      retainVerifiedPrincipalPolicyBundle({
+      new PrincipalPolicyBundleRepository(
+        input.execSql,
+      ).retainVerifiedPrincipalPolicyBundle({
         bundle: group.bundle,
-        execSql: input.execSql,
         organizationId: input.organizationId,
         policy: group.policy,
         updatedAt: retainedAt,

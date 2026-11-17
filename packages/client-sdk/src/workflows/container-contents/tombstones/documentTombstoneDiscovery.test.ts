@@ -1,14 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import {
-  HELD_TOMBSTONE_RETRY_INTERVAL_MS,
-  holdContainerDocumentTombstones,
-  listContainerDocumentTombstoneHolds,
-  listKnownContainerDocumentPlacements,
-  listRetryableHeldContainerDocumentTombstones,
-  refuteContainerDocumentTombstoneHolds,
-} from "../../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
+import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
+import { HELD_TOMBSTONE_RETRY_INTERVAL_MS } from "../../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
@@ -27,6 +21,9 @@ import {
   saveTestDocument,
 } from "../documentQueries/documentQueries.testFixtures";
 
+const holds = (execSql: ExecSql) =>
+  new ContainerDocumentTombstoneHoldRepository(execSql);
+
 const at = "2026-09-20T00:00:00.000Z";
 const tombstone: ContainerDocumentTombstone = {
   containerId: "real-folder",
@@ -39,25 +36,23 @@ function createHoldStore(
   execSql: ExecSql,
 ): ContainerDocumentTombstoneHoldStore {
   const clock = { now: Date.parse(at) };
+  const repository = new ContainerDocumentTombstoneHoldRepository(
+    execSql,
+    () => new Date(clock.now),
+  );
   return {
     holdContainerDocumentTombstones: (tombstones) =>
-      holdContainerDocumentTombstones(
-        execSql,
-        tombstones,
-        new Date(clock.now).toISOString(),
-      ),
+      repository.holdContainerDocumentTombstones(tombstones),
     listHeldContainerDocumentTombstones: (containerIds) => {
       clock.now += HELD_TOMBSTONE_RETRY_INTERVAL_MS + 1_000;
-      return listRetryableHeldContainerDocumentTombstones(
-        execSql,
+      return repository.listRetryableHeldContainerDocumentTombstones(
         containerIds,
-        new Date(clock.now),
       );
     },
     listKnownContainerDocumentPlacements: (placements) =>
-      listKnownContainerDocumentPlacements(execSql, placements),
+      repository.listKnownContainerDocumentPlacements(placements),
     refuteContainerDocumentTombstoneHolds: (placements) =>
-      refuteContainerDocumentTombstoneHolds(execSql, placements),
+      repository.refuteContainerDocumentTombstoneHolds(placements),
   };
 }
 
@@ -207,7 +202,7 @@ test("an unverifiable tombstone hides the placement until a verified head settle
     expect(retried).toEqual([[tombstone]]);
     expect(await visibleIn(store, "real-folder")).toEqual(["doc"]);
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["real-folder"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds(["real-folder"]),
     ).toMatchObject([{ containerId: "real-folder", hidden: false }]);
 
     // A later verified head that omits the folder applies the removal. The
@@ -266,7 +261,7 @@ test("discovery retries only the listed container's holds", async () => {
 
     expect(retried).toEqual([[tombstone]]);
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, [
+      await holds(execSql).listContainerDocumentTombstoneHolds([
         "real-folder",
         "other",
       ]),

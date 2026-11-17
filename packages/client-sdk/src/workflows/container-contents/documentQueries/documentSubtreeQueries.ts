@@ -1,9 +1,7 @@
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import {
-  containerDocumentPlacementKey,
-  listContainerDocumentTombstoneHoldsForDocuments,
-} from "../../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
+import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
+import { containerDocumentPlacementKey } from "../../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { compareContainerContentsDocumentSummaries } from "./rows";
@@ -160,7 +158,9 @@ export async function listContainerContentsDocumentsForContainers(
       execSql,
       documentIds,
     ),
-    await listContainerDocumentTombstoneHoldsForDocuments(execSql, documentIds),
+    await new ContainerDocumentTombstoneHoldRepository(
+      execSql,
+    ).listContainerDocumentTombstoneHoldsForDocuments(documentIds),
   );
 
   // An earlier link-id read can race a move. Recheck membership against the

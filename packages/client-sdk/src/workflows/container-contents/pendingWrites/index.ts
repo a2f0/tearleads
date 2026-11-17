@@ -1,6 +1,6 @@
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import {
   clearDocumentSyncFailure,
@@ -50,7 +50,7 @@ export async function listPendingWrites(
 ): Promise<ReadonlyArray<PendingWriteQueueItem>> {
   await defaultContainerContentsPersistence.ensureSchema(execSql);
   await sqlDocumentsPersistence.ensureSchema(execSql);
-  await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+  await new DocumentMoveIntentRepository(execSql).ensureSchema();
 
   const [persisted, deferred] = await Promise.all([
     listPersistedPendingWriteCandidates(execSql),
@@ -94,7 +94,7 @@ export async function resetPendingWriteRetryState(
     // A deliberate retry is the rate-limited signal that conditions changed:
     // a parked permission-denied move (row 7) replays once, like row 11's
     // re-key budget reset.
-    await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(execSql, {
+    await new DocumentMoveIntentRepository(execSql).resetDeniedMoveIntents({
       localId: input.localId,
     });
   }

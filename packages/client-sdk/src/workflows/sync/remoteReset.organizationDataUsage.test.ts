@@ -6,7 +6,7 @@ import {
   dataUsage,
   organizationId,
 } from "../../../test/helpers/organizationReadModelFixtures";
-import { loadOrganizationDataUsageProjection } from "../../data/persistence/organizations/organizationDataUsagePersistence";
+import { OrganizationDataUsageRepository } from "../../data/persistence/organizations/organizationDataUsagePersistence";
 import { clientSqlTables } from "../../data/sqlite/schema";
 import { organizationDataUsageSnapshots } from "../../data/sqlite/schema/organizationDataUsageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
@@ -80,11 +80,9 @@ test("remote reset invalidates an in-flight organization usage response", async 
     resolveRequest({ data: dataUsage, ok: true });
     await expect(reconciliation).resolves.toBeNull();
     await expect(
-      loadOrganizationDataUsageProjection(
+      new OrganizationDataUsageRepository(
         execSql,
-        organizationId,
-        REQUESTER_USER_ID,
-      ),
+      ).loadOrganizationDataUsageProjection(organizationId, REQUESTER_USER_ID),
     ).resolves.toBeNull();
   } finally {
     close();

@@ -14,7 +14,7 @@ import {
 } from "../../sqlite/schema/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import { ensureSqlTables } from "../../sqlite/sqlSchema";
-import { loadPrincipalKeyEnvelopeCandidates } from "../principalKeys/principalKeyEnvelopeCandidates";
+import { PrincipalPolicyBundleRepository } from "../principalPolicy/principalPolicyBundleRepository";
 
 test.each([false, true])(
   "completed stage reclamation preserves recipient keys: rotated=%s",
@@ -82,10 +82,9 @@ test.each([false, true])(
       expect(
         await f.db.select().from(principalKeyEnvelopeArchive),
       ).toHaveLength(rotated ? 2 : 1);
-      const archived = await loadPrincipalKeyEnvelopeCandidates(
+      const archived = await new PrincipalPolicyBundleRepository(
         f.options.execSql,
-        [state.keyFingerprint],
-      );
+      ).loadPrincipalKeyEnvelopeCandidates([state.keyFingerprint]);
       expect(archived).toHaveLength(1);
       const restoredKey = await unwrapDek(
         archived.flatMap((candidate) =>

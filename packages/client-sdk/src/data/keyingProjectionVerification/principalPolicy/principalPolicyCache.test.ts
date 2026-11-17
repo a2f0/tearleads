@@ -14,11 +14,7 @@ import {
 } from "../../../../test/helpers/policyCacheFixtures";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import {
-  ensurePrincipalPolicyTables,
-  savePrincipalPolicyBundle,
-} from "../../persistence/principalPolicy/principalPolicyPersistence";
-import { retainVerifiedPrincipalPolicyBundle } from "../../persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence";
+import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { principalPolicyBundleContainsReference } from "../../principals/principalPolicyStates";
 import {
   filterUncachedPrincipalPolicyReferences,
@@ -90,7 +86,9 @@ function predecessorBundle(
 test("filterUncachedPrincipalPolicyReferences treats a reference with no stored bundle as uncached", async () => {
   const { close, execSql } = await createTestExecSql("principal-policy-cache");
   try {
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
 
@@ -110,13 +108,12 @@ test("filterUncachedPrincipalPolicyReferences treats an exact currentState match
   const { close, execSql } = await createTestExecSql("principal-policy-cache");
   try {
     const { bundle } = await createPrincipalPolicyBundle();
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-04-08T00:00:00.000Z",
-      "org-1",
-    );
+    ).ensurePrincipalPolicyTables();
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).savePrincipalPolicyBundle(bundle, "org-1");
 
     const uncached = await filterUncachedPrincipalPolicyReferences({
       execSql,
@@ -138,13 +135,12 @@ test("filterUncachedPrincipalPolicyReferences treats an exact previousStates mat
     if (!previousState) {
       throw new Error("expected successor bundle to include a previous state");
     }
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-04-08T00:00:00.000Z",
-      "org-1",
-    );
+    ).ensurePrincipalPolicyTables();
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).savePrincipalPolicyBundle(bundle, "org-1");
 
     const uncached = await filterUncachedPrincipalPolicyReferences({
       execSql,
@@ -167,13 +163,12 @@ test("filterUncachedPrincipalPolicyReferences re-warms when the stored bundle la
     const { bundle: olderBundle } = await createPrincipalPolicyBundle();
     const { bundle: newerBundle } =
       await createSuccessorPrincipalPolicyBundle();
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      olderBundle,
-      "2026-04-08T00:00:00.000Z",
-      "org-1",
-    );
+    ).ensurePrincipalPolicyTables();
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).savePrincipalPolicyBundle(olderBundle, "org-1");
     const reference = referencedPrincipalStateFromBundle(newerBundle);
 
     const uncached = await filterUncachedPrincipalPolicyReferences({
@@ -191,7 +186,9 @@ test("filterUncachedPrincipalPolicyReferences re-warms when the stored bundle la
 test("filterUncachedPrincipalPolicyReferences treats an in-memory cache hit as cached without touching storage", async () => {
   const { close, execSql } = await createTestExecSql("principal-policy-cache");
   try {
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
     const verifiedPolicy = verifiedPolicyForBundle(bundle);
@@ -249,7 +246,9 @@ test("filterUncachedPrincipalPolicyReferences accepts an in-memory chain extendi
         verifiedPolicyForBundle(bundle),
       ],
     ]);
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
     await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
       previousState.principalType,
       previousState.principalId,
@@ -292,7 +291,9 @@ test("filterUncachedPrincipalPolicyReferences rejects an in-memory chain that co
         verifiedPolicyForBundle(bundle),
       ],
     ]);
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
     await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
       previousState.principalType,
       previousState.principalId,
@@ -330,12 +331,9 @@ test("filterUncachedPrincipalPolicyReferences re-warms a cache behind the durabl
     const { bundle: newerBundle } =
       await createSuccessorPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(olderBundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      olderBundle,
-      "2026-04-08T00:00:00.000Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(olderBundle, "org-1");
     await new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
       "group",
       "group-1",
@@ -374,16 +372,14 @@ test("filterUncachedPrincipalPolicyReferences uses retained history ahead of the
       throw new Error("expected retained bundle predecessor");
     }
     const retainedPolicy = verifiedPolicyForBundle(retainedBundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      currentBundle,
-      "2026-04-08T00:00:00.000Z",
-      "org-1",
-    );
-    await retainVerifiedPrincipalPolicyBundle({
+    ).savePrincipalPolicyBundle(currentBundle, "org-1");
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).retainVerifiedPrincipalPolicyBundle({
       organizationId: "org-1",
       bundle: retainedBundle,
-      execSql,
       policy: retainedPolicy,
       updatedAt: "2026-04-08T00:01:00.000Z",
     });

@@ -8,11 +8,7 @@ import {
 } from "../../sqlite/schema/organizationDataUsageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../sqlite/sqlTableSchema";
-import {
-  loadOrganizationDataUsageProjection,
-  purgeOrganizationDataUsageProjection,
-  saveOrganizationDataUsageProjection,
-} from "./organizationDataUsagePersistence";
+import { OrganizationDataUsageRepository } from "./organizationDataUsagePersistence";
 
 const ORGANIZATION_ID = "organization-usage-1";
 const REQUESTER_1 = "requester-1";
@@ -66,83 +62,52 @@ test("usage projections round-trip, replace, and remain requester scoped", async
   const { close, execSql } = await createTestExecSql(
     "organization-data-usage-round-trip",
   );
+  const repo = new OrganizationDataUsageRepository(execSql);
   try {
     const first = usage();
     const secondRequester = usage(ORGANIZATION_ID, 25);
-    await saveOrganizationDataUsageProjection({
-      execSql,
+    await repo.saveOrganizationDataUsageProjection({
       requesterUserId: REQUESTER_1,
       response: first,
     });
-    await saveOrganizationDataUsageProjection({
-      execSql,
+    await repo.saveOrganizationDataUsageProjection({
       requesterUserId: REQUESTER_2,
       response: secondRequester,
     });
 
     await expect(
-      loadOrganizationDataUsageProjection(
-        execSql,
-        ORGANIZATION_ID,
-        REQUESTER_1,
-      ),
+      repo.loadOrganizationDataUsageProjection(ORGANIZATION_ID, REQUESTER_1),
     ).resolves.toEqual(first);
     await expect(
-      loadOrganizationDataUsageProjection(
-        execSql,
-        ORGANIZATION_ID,
-        REQUESTER_2,
-      ),
+      repo.loadOrganizationDataUsageProjection(ORGANIZATION_ID, REQUESTER_2),
     ).resolves.toEqual(secondRequester);
 
     const replacement = usage(ORGANIZATION_ID, 75);
-    await saveOrganizationDataUsageProjection({
-      execSql,
+    await repo.saveOrganizationDataUsageProjection({
       requesterUserId: REQUESTER_1,
       response: replacement,
     });
     await expect(
-      loadOrganizationDataUsageProjection(
-        execSql,
-        ORGANIZATION_ID,
-        REQUESTER_1,
-      ),
+      repo.loadOrganizationDataUsageProjection(ORGANIZATION_ID, REQUESTER_1),
     ).resolves.toEqual(replacement);
     await expect(
-      loadOrganizationDataUsageProjection(
-        execSql,
-        ORGANIZATION_ID,
-        REQUESTER_2,
-      ),
+      repo.loadOrganizationDataUsageProjection(ORGANIZATION_ID, REQUESTER_2),
     ).resolves.toEqual(secondRequester);
 
-    await purgeOrganizationDataUsageProjection(
-      execSql,
+    await repo.purgeOrganizationDataUsageProjection(
       ORGANIZATION_ID,
       REQUESTER_1,
     );
     await expect(
-      loadOrganizationDataUsageProjection(
-        execSql,
-        ORGANIZATION_ID,
-        REQUESTER_1,
-      ),
+      repo.loadOrganizationDataUsageProjection(ORGANIZATION_ID, REQUESTER_1),
     ).resolves.toBeNull();
     await expect(
-      loadOrganizationDataUsageProjection(
-        execSql,
-        ORGANIZATION_ID,
-        REQUESTER_2,
-      ),
+      repo.loadOrganizationDataUsageProjection(ORGANIZATION_ID, REQUESTER_2),
     ).resolves.toEqual(secondRequester);
 
-    await purgeOrganizationDataUsageProjection(execSql, ORGANIZATION_ID);
+    await repo.purgeOrganizationDataUsageProjection(ORGANIZATION_ID);
     await expect(
-      loadOrganizationDataUsageProjection(
-        execSql,
-        ORGANIZATION_ID,
-        REQUESTER_2,
-      ),
+      repo.loadOrganizationDataUsageProjection(ORGANIZATION_ID, REQUESTER_2),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -153,23 +118,21 @@ test("invalid usage responses never replace a valid projection", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-data-usage-invalid-save",
   );
+  const repo = new OrganizationDataUsageRepository(execSql);
   const valid = usage();
   try {
-    await saveOrganizationDataUsageProjection({
-      execSql,
+    await repo.saveOrganizationDataUsageProjection({
       requesterUserId: REQUESTER_1,
       response: valid,
     });
     await expect(
-      saveOrganizationDataUsageProjection({
-        execSql,
+      repo.saveOrganizationDataUsageProjection({
         requesterUserId: REQUESTER_1,
         response: { ...valid, totalByteLength: valid.totalByteLength + 1 },
       }),
     ).rejects.toThrow("Organization data usage response is invalid");
     await expect(
-      saveOrganizationDataUsageProjection({
-        execSql,
+      repo.saveOrganizationDataUsageProjection({
         requesterUserId: REQUESTER_1,
         response: {
           ...valid,
@@ -184,11 +147,7 @@ test("invalid usage responses never replace a valid projection", async () => {
       }),
     ).rejects.toThrow("Organization data usage response is invalid");
     await expect(
-      loadOrganizationDataUsageProjection(
-        execSql,
-        ORGANIZATION_ID,
-        REQUESTER_1,
-      ),
+      repo.loadOrganizationDataUsageProjection(ORGANIZATION_ID, REQUESTER_1),
     ).resolves.toEqual(valid);
   } finally {
     close();
@@ -199,11 +158,11 @@ test("invalid stored usage is purged without affecting another requester", async
   const { close, execSql } = await createTestExecSql(
     "organization-data-usage-corrupt-load",
   );
+  const repo = new OrganizationDataUsageRepository(execSql);
   try {
     await Promise.all(
       [REQUESTER_1, REQUESTER_2].map((requesterUserId) =>
-        saveOrganizationDataUsageProjection({
-          execSql,
+        repo.saveOrganizationDataUsageProjection({
           requesterUserId,
           response: usage(),
         }),
@@ -222,18 +181,10 @@ test("invalid stored usage is purged without affecting another requester", async
       );
 
     await expect(
-      loadOrganizationDataUsageProjection(
-        execSql,
-        ORGANIZATION_ID,
-        REQUESTER_1,
-      ),
+      repo.loadOrganizationDataUsageProjection(ORGANIZATION_ID, REQUESTER_1),
     ).resolves.toBeNull();
     await expect(
-      loadOrganizationDataUsageProjection(
-        execSql,
-        ORGANIZATION_ID,
-        REQUESTER_2,
-      ),
+      repo.loadOrganizationDataUsageProjection(ORGANIZATION_ID, REQUESTER_2),
     ).resolves.toEqual(usage());
     expect(
       await db
@@ -254,8 +205,7 @@ test("invalid stored usage is purged without affecting another requester", async
       JSON.stringify([...withoutUser, { ...withoutUser[0], extra: 1 }]),
       "not json",
     ]) {
-      await saveOrganizationDataUsageProjection({
-        execSql,
+      await repo.saveOrganizationDataUsageProjection({
         requesterUserId: REQUESTER_1,
         response: usage(),
       });
@@ -264,11 +214,7 @@ test("invalid stored usage is purged without affecting another requester", async
         .set({ categoryBreakdownJson })
         .where(requesterOne);
       await expect(
-        loadOrganizationDataUsageProjection(
-          execSql,
-          ORGANIZATION_ID,
-          REQUESTER_1,
-        ),
+        repo.loadOrganizationDataUsageProjection(ORGANIZATION_ID, REQUESTER_1),
       ).resolves.toBeNull();
       expect(
         await db

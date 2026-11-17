@@ -26,6 +26,7 @@ import {
   createResponse,
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { contentKeyTargetReference } from "../../../data/blobs/attachments/readers";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
@@ -37,7 +38,6 @@ import {
   createLinkSetAttachmentReuse,
   reuseCommittedBlobRewraps,
 } from "./linkSetBlobRewraps";
-import { relinkRemoteDocument } from "./linkSetRemote";
 
 const target = (containerId: string) => ({
   containerId,
@@ -179,8 +179,8 @@ async function runReusedLeg(
   const failures: DocumentLinkSetMutationFailure[] = [];
   let listings = 0;
   let submissions = 0;
-  const result = await relinkRemoteDocument({
-    apiClient: createMockApiClient({
+  const result = await createRemoteDocumentServiceFixture({
+    api: createMockApiClient({
       listDocumentAttachments: async () => {
         listings += 1;
         return [];
@@ -206,15 +206,16 @@ async function runReusedLeg(
             };
       },
     }),
+    encapsulationSecretKey: leg.keyPair.secretKey,
+    execSql,
+  }).relinkRemoteDocument({
     attachmentReuse: reuse,
     author: leg.author,
     documentId: leg.writerProjection.documentId,
-    execSql,
     onFailure: (failure) => failures.push(failure),
     operation: "link",
     resolveProjectionUserKey: leg.resolveProjectionUserKey,
     targetContainerId: leg.sibling.containerId,
-    targetSecretKey: leg.keyPair.secretKey,
   });
   close();
   return { failures, listings, result, reuse, submissions };
@@ -299,8 +300,8 @@ test("an unlink leg re-cites the link leg's attachment wrap, usable with only th
   const reuse = createLinkSetAttachmentReuse();
   const primed: DocumentWriterProjectionResponse[] = [];
   let listings = 0;
-  const linked = await relinkRemoteDocument({
-    apiClient: createMockApiClient({
+  const linked = await createRemoteDocumentServiceFixture({
+    api: createMockApiClient({
       getContainerWriterProjection: async () => destination,
       getDocumentWriterProjection: async () => fixture.writerProjection,
       listDocumentAttachments: async () => {
@@ -319,14 +320,15 @@ test("an unlink leg re-cites the link leg's attachment wrap, usable with only th
         primed.push(projection);
       },
     }),
+    encapsulationSecretKey: fixture.secretKey,
+    execSql: fixture.execSql,
+  }).relinkRemoteDocument({
     attachmentReuse: reuse,
     author: fixture.author,
     documentId: fixture.writerProjection.documentId,
-    execSql: fixture.execSql,
     operation: "link",
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
     targetContainerId: destination.containerId,
-    targetSecretKey: fixture.secretKey,
   });
   if (!linked || !primed[0] || !reuse.committed)
     throw new Error("Expected a committed link leg");

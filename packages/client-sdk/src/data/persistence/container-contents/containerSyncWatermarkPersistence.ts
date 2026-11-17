@@ -264,27 +264,32 @@ async function selectCheckRows(
   );
 }
 
-export const sqlContainerSyncWatermarkPersistence = {
-  async ensureSchema(execSql: ExecSql): Promise<void> {
-    await ensureSqlTables(execSql, containerSyncWatermarkTables);
-  },
+/**
+ * Per-lane container sync cursors and freshness markers, bound to one
+ * executor and clock. Each method ensures its table and runs its own
+ * mutation; a caller already inside a transaction composes
+ * `deleteContainerWatermarksInTransaction` with the locked handle instead.
+ */
+export class ContainerSyncWatermarkRepository {
+  private readonly execSql: ExecSql;
+  private readonly now: () => Date;
+
+  constructor(execSql: ExecSql, now: () => Date = () => new Date()) {
+    this.execSql = execSql;
+    this.now = now;
+  }
 
   async loadWatermark(
-    execSql: ExecSql,
     lane: ContainerSyncWatermarkLane,
   ): Promise<SyncWatermark | null> {
-    const [record] =
-      await sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(execSql, [
-        lane,
-      ]);
+    const [record] = await this.loadWatermarkRecords([lane]);
     return record?.watermark ?? null;
-  },
+  }
 
   async loadWatermarkRecords(
-    execSql: ExecSql,
     lanes: ReadonlyArray<ContainerSyncWatermarkLane>,
   ): Promise<Array<ContainerSyncWatermarkRecord | null>> {
-    const rows = await selectWatermarkRows(execSql, lanes);
+    const rows = await selectWatermarkRows(this.execSql, lanes);
     const recordsByKey = new Map<string, ContainerSyncWatermarkRecord>();
 
     for (const row of rows) {
@@ -296,13 +301,12 @@ export const sqlContainerSyncWatermarkPersistence = {
       const laneKey = containerSyncWatermarkLaneKey(lane);
       return recordsByKey.get(laneKeyString(laneKey)) ?? null;
     });
-  },
+  }
 
   async loadCheckRecords(
-    execSql: ExecSql,
     lanes: ReadonlyArray<ContainerSyncWatermarkLane>,
   ): Promise<Array<ContainerSyncLaneCheckRecord | null>> {
-    const rows = await selectCheckRows(execSql, lanes);
+    const rows = await selectCheckRows(this.execSql, lanes);
     const recordsByKey = new Map<string, ContainerSyncLaneCheckRecord>();
 
     for (const row of rows) {
@@ -313,41 +317,32 @@ export const sqlContainerSyncWatermarkPersistence = {
       const laneKey = containerSyncWatermarkLaneKey(lane);
       return recordsByKey.get(laneKeyString(laneKey)) ?? null;
     });
-  },
+  }
 
   markChecked(
-    execSql: ExecSql,
     lane: ContainerSyncWatermarkLane,
     options?: ContainerSyncMarkerMutationOptions,
   ): Promise<boolean> {
-    return sqlContainerSyncWatermarkPersistence.recordLaneFetch(
-      execSql,
+    return this.recordLaneFetch(
       lane,
       { checked: true, watermark: null },
       options,
     );
-  },
+  }
 
   saveWatermark(
-    execSql: ExecSql,
     lane: ContainerSyncWatermarkLane,
     watermark: SyncWatermark,
     options?: ContainerSyncMarkerMutationOptions,
   ): Promise<boolean> {
-    return sqlContainerSyncWatermarkPersistence.recordLaneFetch(
-      execSql,
-      lane,
-      { checked: false, watermark },
-      options,
-    );
-  },
+    return this.recordLaneFetch(lane, { checked: false, watermark }, options);
+  }
 
   /**
    * Upserts one lane row in a single statement: the cursor when `watermark`
    * is set and the freshness marker when `checked`; the other half is kept.
    */
   async recordLaneFetch(
-    execSql: ExecSql,
     lane: ContainerSyncWatermarkLane,
     fetch: {
       readonly checked: boolean;
@@ -356,8 +351,8 @@ export const sqlContainerSyncWatermarkPersistence = {
     options?: ContainerSyncMarkerMutationOptions,
   ): Promise<boolean> {
     if (!fetch.checked && !fetch.watermark) return true;
-    await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
-    const now = new Date().toISOString();
+    await ensureSqlTables(this.execSql, containerSyncWatermarkTables);
+    const now = this.now().toISOString();
     const changed = {
       ...(fetch.watermark
         ? {
@@ -383,27 +378,12 @@ export const sqlContainerSyncWatermarkPersistence = {
         })
         .run();
     };
-    const runtime = getClientSQLitePersistenceRuntime(execSql);
+    const runtime = getClientSQLitePersistenceRuntime(this.execSql);
     if (!options?.stillCurrent) {
       await runtime.runMutation(record);
       return true;
     }
     return (await runtime.guardedTransaction(record, options.stillCurrent))
       .committed;
-  },
-
-  async deleteWatermarksForContainers(
-    execSql: ExecSql,
-    containerIds: ReadonlyArray<string>,
-  ): Promise<void> {
-    const uniqueContainerIds = Array.from(new Set(containerIds));
-    if (uniqueContainerIds.length === 0) {
-      return;
-    }
-
-    await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await deleteContainerWatermarksInTransaction(db, uniqueContainerIds);
-    });
-  },
-};
+  }
+}

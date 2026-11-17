@@ -7,7 +7,7 @@ import {
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
-import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
+import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { cachePrincipalPolicyBundles } from "./policyCache";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 
@@ -28,11 +28,9 @@ test("offline runtime verification requires protected evidence even with a held 
     });
     const reference = principalPolicyHead(history.created);
     expect(
-      await loadPrincipalPolicyBundleForReference(
+      await new PrincipalPolicyBundleRepository(
         f.options.execSql,
-        reference,
-        null,
-      ),
+      ).loadPrincipalPolicyBundleForReference(reference, null),
     ).not.toBeNull();
     let fullReads = 0;
     const warmer = createRuntimePrincipalPolicyWarmer({

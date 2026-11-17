@@ -7,6 +7,7 @@ import { asContainerMutationFixture } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { createChildContainerProjection } from "../../../../../test/helpers/projectionHierarchy";
 import {
   CHILD_ID,
@@ -15,9 +16,7 @@ import {
   relocatedChildHistory,
   servingForgedKeyring,
 } from "../../../../../test/helpers/relocatedLineage";
-import { moveRemoteContainer } from "../move";
-import { rekeyRemoteContainer } from "../rekey/rekeyRemote";
-import { revokeRemoteContainer } from "../revoke";
+import type { ContainerMutationServiceApi } from "../../containerMutationCollaborators";
 
 // Each rotation re-seals the served keyring. Served over relocated history,
 // a forged epoch-1 entry passes the KEK's own history check; only the
@@ -43,11 +42,15 @@ async function rotationScenario(
     common: {
       author: scenario.parent.author,
       containerId: CHILD_ID,
-      execSql: scenario.database.execSql,
-      reportSecurityIncident: async () => {},
       resolveProjectionUserKey: scenario.resolveProjectionUserKey,
-      targetSecretKey: scenario.parent.secretKey,
     },
+    containers: (api: Partial<ContainerMutationServiceApi>) =>
+      createContainerMutationServiceFixture({
+        api,
+        encapsulationSecretKey: scenario.parent.secretKey,
+        execSql: scenario.database.execSql,
+        reportSecurityIncident: async () => {},
+      }),
     projection,
     respond,
     scenario,
@@ -56,32 +59,28 @@ async function rotationScenario(
 }
 
 test("a rekey refuses to re-seal a forged keyring over relocated history", async () => {
-  const { common, projection, respond, submitted } =
+  const { common, containers, projection, respond, submitted } =
     await rotationScenario(servingForgedKeyring);
   await expect(
-    rekeyRemoteContainer({
-      ...common,
-      apiClient: {
-        reciteContainer: async () => null,
-        getContainerWriterProjection: async () => projection,
-        rekeyContainer: async (_containerId, request) => respond(request),
-      },
-    }),
+    containers({
+      reciteContainer: async () => null,
+      getContainerWriterProjection: async () => projection,
+      rekeyContainer: async (_containerId, request) => respond(request),
+    }).rekeyRemoteContainer(common),
   ).rejects.toThrow(REFUSAL);
   expect(submitted).toEqual([]);
 });
 
 test("a revoke refuses to re-seal a forged keyring over relocated history", async () => {
-  const { common, projection, respond, submitted } =
+  const { common, containers, projection, respond, submitted } =
     await rotationScenario(servingForgedKeyring);
   await expect(
-    revokeRemoteContainer({
+    containers({
+      reciteContainer: async () => null,
+      getContainerWriterProjection: async () => projection,
+      revokeContainer: async (_containerId, request) => respond(request),
+    }).revokeRemoteContainer({
       ...common,
-      apiClient: {
-        reciteContainer: async () => null,
-        getContainerWriterProjection: async () => projection,
-        revokeContainer: async (_containerId, request) => respond(request),
-      },
       // The seal precedes the subject check, so any subject reaches it.
       revokedSubject: { subjectId: "user-absent", subjectType: "user" },
     }),
@@ -92,7 +91,7 @@ test("a revoke refuses to re-seal a forged keyring over relocated history", asyn
 async function moveOverRelocatedHistory(
   setup: Awaited<ReturnType<typeof rotationScenario>>,
 ) {
-  const { common, projection, respond, scenario } = setup;
+  const { common, containers, projection, respond, scenario } = setup;
   const destination = await createChildContainerProjection({
     containerId: "lineage-destination",
     parent: scenario.parent,
@@ -102,14 +101,13 @@ async function moveOverRelocatedHistory(
     [CHILD_ID, projection],
     [destination.projection.containerId, destination.projection],
   ]);
-  return moveRemoteContainer({
+  return containers({
+    reciteContainer: async () => null,
+    getContainerWriterProjection: async (containerId) =>
+      projections.get(containerId) ?? null,
+    moveContainer: async (_containerId, request) => respond(request),
+  }).moveRemoteContainer({
     ...common,
-    apiClient: {
-      reciteContainer: async () => null,
-      getContainerWriterProjection: async (containerId) =>
-        projections.get(containerId) ?? null,
-      moveContainer: async (_containerId, request) => respond(request),
-    },
     destinationParentContainerId: destination.projection.containerId,
   });
 }
@@ -125,16 +123,13 @@ const servingHonestKeyring = async (scenario: RelocatedChildHistory) =>
   scenario.projection;
 
 test("an honest rekey over relocated history still re-seals", async () => {
-  const { common, projection, respond, submitted } =
+  const { common, containers, projection, respond, submitted } =
     await rotationScenario(servingHonestKeyring);
-  const rekeyed = await rekeyRemoteContainer({
-    ...common,
-    apiClient: {
-      reciteContainer: async () => null,
-      getContainerWriterProjection: async () => projection,
-      rekeyContainer: async (_containerId, request) => respond(request),
-    },
-  });
+  const rekeyed = await containers({
+    reciteContainer: async () => null,
+    getContainerWriterProjection: async () => projection,
+    rekeyContainer: async (_containerId, request) => respond(request),
+  }).rekeyRemoteContainer(common);
   expect(rekeyed).not.toBeNull();
   expect(submitted).toHaveLength(1);
 });
@@ -146,15 +141,14 @@ test("an honest move over relocated history still re-seals", async () => {
 });
 
 test("an honest revoke over relocated history still re-seals", async () => {
-  const { common, projection, respond, scenario, submitted } =
+  const { common, containers, projection, respond, scenario, submitted } =
     await rotationScenario(servingHonestKeyring, { shareWithGrantee: true });
-  const revoked = await revokeRemoteContainer({
+  const revoked = await containers({
+    reciteContainer: async () => null,
+    getContainerWriterProjection: async () => projection,
+    revokeContainer: async (_containerId, request) => respond(request),
+  }).revokeRemoteContainer({
     ...common,
-    apiClient: {
-      reciteContainer: async () => null,
-      getContainerWriterProjection: async () => projection,
-      revokeContainer: async (_containerId, request) => respond(request),
-    },
     revokedSubject: { subjectId: GRANTEE_ID, subjectType: "user" },
   });
   const keyring = asContainerMutationFixture(revoked?.response).containerKek

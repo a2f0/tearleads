@@ -25,7 +25,7 @@ import {
 import { parseBlobEncryptedBytes } from "../../../data/blobs/attachments/readers";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { readContainerState } from "../../../data/containers/shared/projection";
-import { ensurePrincipalPolicyTables } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildMaterializedDocumentCreatePlan } from "../../documents/create";
 
 const MIN_MULTIPART_CHUNK_SIZE = 5 * 1024 * 1024;
@@ -247,7 +247,9 @@ test("uploadDocumentAttachment refuses missing managed-policy evidence before st
     "attachment-upload-policy-warmer",
   );
   try {
-    await ensurePrincipalPolicyTables(execSql);
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).ensurePrincipalPolicyTables();
     await expect(
       createBlobAttachmentServiceFixture({
         api: {

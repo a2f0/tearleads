@@ -1,4 +1,4 @@
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { requestDormantMetadataRestorationSweeps } from "../../../data/persistence/container-contents/dormantMetadataSweep";
 import { hasRecordedTerminalSyncFailures } from "../../../data/persistence/documents/records";
 import type { DomainScope } from "../../../data/shared/domainScope";
@@ -19,6 +19,7 @@ export async function recoverOrganizationAccess(input: {
 }): Promise<void> {
   const { domainScope, execSql, organizationId, stillCurrent, userId } = input;
   if (!stillCurrent()) return;
+  const moveIntents = new DocumentMoveIntentRepository(execSql);
   // The evidence gate: re-arm only when some queued write actually
   // recorded a terminal failure. A transient denial during bootstrap
   // (e.g. a read-model 403 before grants propagate) also flips the
@@ -27,16 +28,12 @@ export async function recoverOrganizationAccess(input: {
   // so it must not re-arm either.
   if (
     ((await hasRecordedTerminalSyncFailures(execSql)) ||
-      (await sqlDocumentMoveIntentPersistence.hasDeniedMoveIntents(execSql, {
-        organizationId,
-      }))) &&
+      (await moveIntents.hasDeniedMoveIntents({ organizationId }))) &&
     stillCurrent()
   ) {
     // Parked permission-denied moves (row 7) only replay once flipped
     // back to pending; restore them before re-arming the lanes.
-    await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(execSql, {
-      organizationId,
-    });
+    await moveIntents.resetDeniedMoveIntents({ organizationId });
     if (stillCurrent()) requestAllDomainSyncLanes(domainScope);
   }
   // Keep dormant cleanup independent from the write-lane evidence gate,

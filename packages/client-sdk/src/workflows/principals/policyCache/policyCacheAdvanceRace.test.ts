@@ -8,10 +8,7 @@ import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDir
 import { signedPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyFixtures";
 import { trustedUserIdentityFromResponse } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import {
-  loadPrincipalPolicyBundle,
-  savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   cachePrincipalPolicyBundles,
   cacheReferencedPrincipalPolicies,
@@ -59,12 +56,9 @@ test.each([false, true])(
             : await group.getUserIdentity(id);
         return response ? trustedUserIdentityFromResponse(response) : null;
       };
-      await savePrincipalPolicyBundle(
+      await new PrincipalPolicyBundleRepository(
         execSql,
-        previous,
-        new Date().toISOString(),
-        "org-1",
-      );
+      ).savePrincipalPolicyBundle(previous, "org-1");
       let advanced = false;
       let groupReads = 0;
       let directoryReads = 0;
@@ -122,11 +116,9 @@ test.each([false, true])(
         version: 2,
         stateHash: current.currentState.stateHash,
       });
-      const stored = await loadPrincipalPolicyBundle(
+      const stored = await new PrincipalPolicyBundleRepository(
         execSql,
-        "group",
-        "group-1",
-      );
+      ).loadPrincipalPolicyBundle("group", "group-1");
       if (replay) expect(stored).toBeNull();
       else
         expect(stored?.currentState.stateHash).toBe(

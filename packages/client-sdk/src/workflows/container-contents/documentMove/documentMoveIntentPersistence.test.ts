@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { defaultDocumentsPersistence } from "../../documents";
 
 // A queued move for a deleted document can never replay; the row must go with
@@ -28,9 +28,10 @@ test.each(["move", "link"] as const)(
         text: "",
         title: "Document",
       });
-      await sqlDocumentMoveIntentPersistence[
+      const moveIntents = new DocumentMoveIntentRepository(execSql);
+      await moveIntents[
         kind === "link" ? "enqueueLinkIntent" : "enqueueMoveIntent"
-      ](execSql, {
+      ]({
         documentId: "document",
         localId: "local-document",
         sourceContainerId: "source",
@@ -42,9 +43,7 @@ test.each(["move", "link"] as const)(
         "local-document",
       );
 
-      expect(
-        await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
-      ).toEqual([]);
+      expect(await moveIntents.listPendingMoveIntents()).toEqual([]);
       expect(
         await execSql("SELECT * FROM document_intent_link_targets"),
       ).toEqual([]);

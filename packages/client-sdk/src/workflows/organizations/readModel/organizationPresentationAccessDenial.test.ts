@@ -21,12 +21,12 @@ import {
 } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createRejectingExecSql } from "../../../../test/helpers/rejectingExecSql";
 import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
-import { loadOrganizationDataUsageProjection } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
+import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
 } from "../../../data/persistence/organizations/organizationReadModelPersistence";
-import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   loadLocalOrganizationDataUsage,
@@ -54,7 +54,6 @@ const organizationId = organizationReadModelOrganizationId;
 const requesterUserId = organizationReadModelUserId;
 const groupId = `group-${organizationId}`;
 const targetUserId = "user-2";
-const persistedAt = "2026-07-18T12:00:00.000Z";
 
 function groupPolicyBundle(): PrincipalPolicyBundleResponse {
   return {
@@ -129,16 +128,12 @@ async function savePresentationState(execSql: ExecSql): Promise<void> {
     requestedCursor: null,
     response: presentationSnapshot(),
   });
-  await savePrincipalPolicyBundle(
-    execSql,
+  await new PrincipalPolicyBundleRepository(execSql).savePrincipalPolicyBundle(
     groupPolicyBundle(),
-    persistedAt,
     organizationId,
   );
-  await savePrincipalPolicyBundle(
-    execSql,
+  await new PrincipalPolicyBundleRepository(execSql).savePrincipalPolicyBundle(
     organizationPrincipalPolicy,
-    persistedAt,
     organizationId,
   );
   await reconcileOrganizationDataUsage({
@@ -245,11 +240,9 @@ test("read-model denial hides all presentation reads when purge fails", async ()
       ),
     ).resolves.not.toBeNull();
     await expect(
-      loadOrganizationDataUsageProjection(
+      new OrganizationDataUsageRepository(
         execSql,
-        organizationId,
-        requesterUserId,
-      ),
+      ).loadOrganizationDataUsageProjection(organizationId, requesterUserId),
     ).resolves.toEqual(dataUsage);
     expect(errors[0]?.[0]).toBe("Failed to purge denied organization access");
 

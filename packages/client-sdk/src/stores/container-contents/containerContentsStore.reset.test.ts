@@ -4,9 +4,9 @@ import { QUEUED_UPDATES_SQL } from "../../../test/helpers/queuedUpdateRows";
 import { createDomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
-  markContainerSyncLaneChecked,
 } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
 import {
@@ -273,8 +273,7 @@ test("initialization observes login while the local load is pending", async () =
   );
   try {
     await defaultContainerContentsPersistence.ensureSchema(execSql);
-    await markContainerSyncLaneChecked(
-      execSql,
+    await new ContainerSyncWatermarkRepository(execSql).markChecked(
       createContainerParentSyncLane(null),
     );
     let resolveLoad: (value: []) => void = () => {};

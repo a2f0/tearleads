@@ -15,7 +15,7 @@ import {
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
@@ -157,12 +157,9 @@ test("expected group-head verification reuses an exact local bundle without a po
   );
   try {
     const fixture = await createDirectoryFixture();
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      fixture.targetPolicy,
-      "2026-07-18T00:00:00Z",
-      fixture.organizationId,
-    );
+    ).savePrincipalPolicyBundle(fixture.targetPolicy, fixture.organizationId);
     let policyGetCount = 0;
 
     const verified = await loadVerifiedGroupSharePrincipalPolicy({
@@ -251,12 +248,9 @@ test("expected group-head verification fetches once when the local head is wrong
   );
   try {
     const fixture = await createDirectoryFixture({ successor: true });
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      fixture.predecessor,
-      "2026-07-18T00:00:00Z",
-      fixture.organizationId,
-    );
+    ).savePrincipalPolicyBundle(fixture.predecessor, fixture.organizationId);
     let policyGetCount = 0;
 
     const verified = await loadVerifiedGroupSharePrincipalPolicy({
@@ -287,12 +281,9 @@ test("signed organization directory permits an exact cached group bundle", async
   );
   try {
     const fixture = await createDirectoryFixture();
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      fixture.targetPolicy,
-      "2026-07-18T00:00:00Z",
-      fixture.organizationId,
-    );
+    ).savePrincipalPolicyBundle(fixture.targetPolicy, fixture.organizationId);
     let policyGetCount = 0;
 
     await loadVerifiedGroupSharePrincipalPolicy({

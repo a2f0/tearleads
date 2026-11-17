@@ -9,10 +9,7 @@ import {
   locallyUnnamedGroups,
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
-import {
-  loadOrganizationDataUsageProjection,
-  saveOrganizationDataUsageProjection,
-} from "./organizationDataUsagePersistence";
+import { OrganizationDataUsageRepository } from "./organizationDataUsagePersistence";
 import { subscribeOrganizationReadModelInvalidation } from "./organizationReadModelInvalidation";
 import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMemberLoad";
 import {
@@ -257,13 +254,12 @@ test("directory replacement prunes requester rows for inactive users", async () 
     await expect(
       loadOrganizationReadModelProjection(execSql, "org-1", "user-2"),
     ).resolves.toMatchObject({ requester: { isOrgAdmin: false } });
-    await saveOrganizationDataUsageProjection({
-      execSql,
+    const usageRepository = new OrganizationDataUsageRepository(execSql);
+    await usageRepository.saveOrganizationDataUsageProjection({
       requesterUserId: "user-1",
       response: { ...dataUsage, organizationId: "org-1" },
     });
-    await saveOrganizationDataUsageProjection({
-      execSql,
+    await usageRepository.saveOrganizationDataUsageProjection({
       requesterUserId: "user-2",
       response: { ...dataUsage, organizationId: "org-1" },
     });
@@ -293,7 +289,7 @@ test("directory replacement prunes requester rows for inactive users", async () 
     );
     expect(userTwo?.requester).toBeNull();
     await expect(
-      loadOrganizationDataUsageProjection(execSql, "org-1", "user-2"),
+      usageRepository.loadOrganizationDataUsageProjection("org-1", "user-2"),
     ).resolves.toBeNull();
     await expect(
       loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
@@ -302,7 +298,7 @@ test("directory replacement prunes requester rows for inactive users", async () 
       requester: { isOrgAdmin: true },
     });
     await expect(
-      loadOrganizationDataUsageProjection(execSql, "org-1", "user-1"),
+      usageRepository.loadOrganizationDataUsageProjection("org-1", "user-1"),
     ).resolves.toMatchObject({ organizationId: "org-1" });
   } finally {
     close();

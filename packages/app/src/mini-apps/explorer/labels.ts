@@ -2,6 +2,7 @@ import { formatByteLength } from "../../utils/formatByteLength";
 import { EXPLORER_LABELS as CATALOG_LABELS } from "./labelCatalog";
 import { EXPLORER_BLOB_BROWSER_LABELS } from "./shared/blobBrowserLabels";
 import { EXPLORER_CONTAINER_INFO_LABELS } from "./shared/containerInfoLabels";
+import { EXPLORER_DOCUMENT_HISTORY_LABELS } from "./shared/documentHistoryLabels";
 import { EXPLORER_DOCUMENT_INFO_LABELS } from "./shared/documentInfoLabels";
 import { EXPLORER_DOWNLOAD_LABELS } from "./shared/downloadLabels";
 import { EXPLORER_SYNC_LABELS } from "./shared/syncLabels";
@@ -13,6 +14,7 @@ export const EXPLORER_LABELS = {
   ...CATALOG_LABELS,
   ...EXPLORER_BLOB_BROWSER_LABELS,
   ...EXPLORER_CONTAINER_INFO_LABELS,
+  ...EXPLORER_DOCUMENT_HISTORY_LABELS,
   ...EXPLORER_DOCUMENT_INFO_LABELS,
   ...EXPLORER_SYNC_LABELS,
   ...EXPLORER_UPLOAD_LABELS,

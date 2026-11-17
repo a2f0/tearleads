@@ -1,8 +1,6 @@
 import type { ListContainersResponse } from "@tearleads/validators/response";
-import {
-  type ContainerSyncWatermarkLane,
-  recordContainerSyncLaneFetchIfCurrent,
-} from "../../containerPersistence";
+import { ContainerSyncWatermarkRepository } from "../../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
+import type { ContainerSyncWatermarkLane } from "../../containerPersistence";
 import type { RemoteContainerHydrationState } from "../types";
 
 export async function markContainerParentLaneFetched(input: {
@@ -19,11 +17,12 @@ export async function markContainerParentLaneFetched(input: {
   // A check marker suppresses startup polling, so record it only after the
   // server confirms this parent lane is fully drained. The cursor and marker
   // share one row and land in one guarded statement.
-  const recorded = await recordContainerSyncLaneFetchIfCurrent(
+  const recorded = await new ContainerSyncWatermarkRepository(
     state.runtime.infra.execSql,
+  ).recordLaneFetch(
     syncLane,
     { checked: !response.hasMore, watermark: response.nextWatermark },
-    input.isCurrent,
+    { stillCurrent: input.isCurrent },
   );
   if (!recorded || input.isCurrent?.() === false) {
     return false;

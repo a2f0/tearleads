@@ -2,23 +2,26 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { containerTables } from "../../sqlite/schema";
 import { documentProjectionTables } from "../../sqlite/schema/documentProjectionSchema";
-import { ensureSqlTables } from "../../sqlite/sqlSchema";
-import { sqlDocumentMoveIntentPersistence as persistence } from "./documentMoveIntentPersistence";
+import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import { DocumentMoveIntentRepository } from "./documentMoveIntentPersistence";
+
+const persistence = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 // Row 7's parked lifecycle: denied intents leave the routine replay set,
 // count as access-restored evidence, and flip back to pending on reset.
 test("denied document move intents park and reset", async () => {
   const { close, execSql } = await createTestExecSql("document-move-denied");
   try {
-    await persistence.ensureSchema(execSql);
-    await persistence.enqueueMoveIntent(execSql, {
+    await persistence(execSql).ensureSchema();
+    await persistence(execSql).enqueueMoveIntent({
       documentId: "remote-a",
       localId: "doc-a",
       replaceLinkedContainers: false,
       sourceContainerId: "from",
       targetContainerId: "to",
     });
-    await persistence.enqueueMoveIntent(execSql, {
+    await persistence(execSql).enqueueMoveIntent({
       documentId: "remote-b",
       localId: "doc-b",
       replaceLinkedContainers: false,
@@ -26,7 +29,7 @@ test("denied document move intents park and reset", async () => {
       targetContainerId: "to",
     });
 
-    await persistence.recordMoveIntentError(execSql, {
+    await persistence(execSql).recordMoveIntentError({
       denied: true,
       documentId: "remote-a",
       message: "Remote document move was rejected or unavailable: (403)",
@@ -34,37 +37,37 @@ test("denied document move intents park and reset", async () => {
 
     // Parked: out of the routine replay list, but recorded as evidence.
     expect(
-      (await persistence.listPendingMoveIntents(execSql)).map(
+      (await persistence(execSql).listPendingMoveIntents()).map(
         (intent) => intent.documentId,
       ),
     ).toEqual(["remote-b"]);
-    expect(await persistence.hasDeniedMoveIntents(execSql)).toBe(true);
+    expect(await persistence(execSql).hasDeniedMoveIntents()).toBe(true);
 
     // A scoped reset (manual retry) touches only that document's intent.
-    await persistence.resetDeniedMoveIntents(execSql, { localId: "doc-b" });
-    expect(await persistence.hasDeniedMoveIntents(execSql)).toBe(true);
-    await persistence.resetDeniedMoveIntents(execSql, { localId: "doc-a" });
-    expect(await persistence.hasDeniedMoveIntents(execSql)).toBe(false);
+    await persistence(execSql).resetDeniedMoveIntents({ localId: "doc-b" });
+    expect(await persistence(execSql).hasDeniedMoveIntents()).toBe(true);
+    await persistence(execSql).resetDeniedMoveIntents({ localId: "doc-a" });
+    expect(await persistence(execSql).hasDeniedMoveIntents()).toBe(false);
     expect(
-      (await persistence.listPendingMoveIntents(execSql))
+      (await persistence(execSql).listPendingMoveIntents())
         .map((intent) => intent.documentId)
         .sort(),
     ).toEqual(["remote-a", "remote-b"]);
 
     // The global reset (access restored) covers every parked intent.
-    await persistence.recordMoveIntentError(execSql, {
+    await persistence(execSql).recordMoveIntentError({
       denied: true,
       documentId: "remote-a",
       message: "denied again",
     });
-    await persistence.recordMoveIntentError(execSql, {
+    await persistence(execSql).recordMoveIntentError({
       denied: true,
       documentId: "remote-b",
       message: "denied again",
     });
-    expect(await persistence.listPendingMoveIntents(execSql)).toEqual([]);
-    await persistence.resetDeniedMoveIntents(execSql);
-    expect(await persistence.listPendingMoveIntents(execSql)).toHaveLength(2);
+    expect(await persistence(execSql).listPendingMoveIntents()).toEqual([]);
+    await persistence(execSql).resetDeniedMoveIntents();
+    expect(await persistence(execSql).listPendingMoveIntents()).toHaveLength(2);
   } finally {
     await close();
   }
@@ -75,22 +78,22 @@ test("denied document move intents park and reset", async () => {
 test("a stale denial cannot park a re-enqueued move", async () => {
   const { close, execSql } = await createTestExecSql("document-move-stale");
   try {
-    await persistence.ensureSchema(execSql);
-    await persistence.enqueueMoveIntent(execSql, {
+    await persistence(execSql).ensureSchema();
+    await persistence(execSql).enqueueMoveIntent({
       documentId: "remote-a",
       localId: "doc-a",
       replaceLinkedContainers: false,
       sourceContainerId: "from",
       targetContainerId: "to",
     });
-    const [before] = await persistence.listPendingMoveIntents(execSql);
+    const [before] = await persistence(execSql).listPendingMoveIntents();
     if (!before) {
       throw new Error("expected enqueued intent");
     }
 
     // The user re-enqueues (new revision) while the old pass is in flight.
     await new Promise((resolve) => setTimeout(resolve, 2));
-    await persistence.enqueueMoveIntent(execSql, {
+    await persistence(execSql).enqueueMoveIntent({
       documentId: "remote-a",
       localId: "doc-a",
       replaceLinkedContainers: false,
@@ -98,19 +101,19 @@ test("a stale denial cannot park a re-enqueued move", async () => {
       targetContainerId: "elsewhere",
     });
 
-    await persistence.recordMoveIntentError(execSql, {
+    await persistence(execSql).recordMoveIntentError({
       denied: true,
       documentId: "remote-a",
       expectedUpdatedAt: before.updatedAt,
       message: "stale 403",
     });
 
-    const [after] = await persistence.listPendingMoveIntents(execSql);
+    const [after] = await persistence(execSql).listPendingMoveIntents();
     expect(after).toMatchObject({
       syncStatus: "pending",
       targetContainerId: "elsewhere",
     });
-    expect(await persistence.hasDeniedMoveIntents(execSql)).toBe(false);
+    expect(await persistence(execSql).hasDeniedMoveIntents()).toBe(false);
   } finally {
     await close();
   }
@@ -121,13 +124,13 @@ test("a stale denial cannot park a re-enqueued move", async () => {
 test("denied reset and evidence scope per organization", async () => {
   const { close, execSql } = await createTestExecSql("document-move-orgs");
   try {
-    await persistence.ensureSchema(execSql);
+    await persistence(execSql).ensureSchema();
     await ensureSqlTables(execSql, documentProjectionTables);
     for (const [doc, local, org] of [
       ["remote-a", "doc-a", "org-a"],
       ["remote-b", "doc-b", "org-b"],
     ] as const) {
-      await persistence.enqueueMoveIntent(execSql, {
+      await persistence(execSql).enqueueMoveIntent({
         documentId: doc,
         localId: local,
         replaceLinkedContainers: false,
@@ -141,7 +144,7 @@ test("denied reset and evidence scope per organization", async () => {
         ) VALUES (?, ?, ?, ?, 'note', ?, ?)`,
         [local, doc, "container", org, local, "2026-01-01T00:00:00.000Z"],
       );
-      await persistence.recordMoveIntentError(execSql, {
+      await persistence(execSql).recordMoveIntentError({
         denied: true,
         documentId: doc,
         message: "denied",
@@ -149,28 +152,28 @@ test("denied reset and evidence scope per organization", async () => {
     }
 
     expect(
-      await persistence.hasDeniedMoveIntents(execSql, {
+      await persistence(execSql).hasDeniedMoveIntents({
         organizationId: "org-a",
       }),
     ).toBe(true);
 
-    await persistence.resetDeniedMoveIntents(execSql, {
+    await persistence(execSql).resetDeniedMoveIntents({
       organizationId: "org-a",
     });
 
     // org-a replays; org-b stays parked and keeps its evidence.
     expect(
-      (await persistence.listPendingMoveIntents(execSql)).map(
+      (await persistence(execSql).listPendingMoveIntents()).map(
         (intent) => intent.documentId,
       ),
     ).toEqual(["remote-a"]);
     expect(
-      await persistence.hasDeniedMoveIntents(execSql, {
+      await persistence(execSql).hasDeniedMoveIntents({
         organizationId: "org-b",
       }),
     ).toBe(true);
     expect(
-      await persistence.hasDeniedMoveIntents(execSql, {
+      await persistence(execSql).hasDeniedMoveIntents({
         organizationId: "org-a",
       }),
     ).toBe(false);
@@ -188,7 +191,7 @@ test("denied scoping resolves organizations via containers", async () => {
     "document-move-container-orgs",
   );
   try {
-    await persistence.ensureSchema(execSql);
+    await persistence(execSql).ensureSchema();
     await ensureSqlTables(execSql, [
       ...documentProjectionTables,
       ...containerTables,
@@ -218,7 +221,7 @@ test("denied scoping resolves organizations via containers", async () => {
       // No resolvable organization: included in every scope.
       ["remote-c", "doc-c", "missing-container", null],
     ] as const) {
-      await persistence.enqueueMoveIntent(execSql, {
+      await persistence(execSql).enqueueMoveIntent({
         documentId: doc,
         localId: local,
         replaceLinkedContainers: false,
@@ -232,7 +235,7 @@ test("denied scoping resolves organizations via containers", async () => {
         ) VALUES (?, ?, ?, '', 'note', ?, ?)`,
         [local, doc, projectionContainer, local, "2026-01-01T00:00:00.000Z"],
       );
-      await persistence.recordMoveIntentError(execSql, {
+      await persistence(execSql).recordMoveIntentError({
         denied: true,
         documentId: doc,
         message: "denied",
@@ -240,27 +243,27 @@ test("denied scoping resolves organizations via containers", async () => {
     }
 
     expect(
-      await persistence.hasDeniedMoveIntents(execSql, {
+      await persistence(execSql).hasDeniedMoveIntents({
         organizationId: "org-a",
       }),
     ).toBe(true);
-    await persistence.resetDeniedMoveIntents(execSql, {
+    await persistence(execSql).resetDeniedMoveIntents({
       organizationId: "org-a",
     });
 
     // org-a replays alongside the unresolvable row; org-b stays parked.
     expect(
-      (await persistence.listPendingMoveIntents(execSql))
+      (await persistence(execSql).listPendingMoveIntents())
         .map((intent) => intent.documentId)
         .sort(),
     ).toEqual(["remote-a", "remote-c"]);
     expect(
-      await persistence.hasDeniedMoveIntents(execSql, {
+      await persistence(execSql).hasDeniedMoveIntents({
         organizationId: "org-b",
       }),
     ).toBe(true);
     expect(
-      await persistence.hasDeniedMoveIntents(execSql, {
+      await persistence(execSql).hasDeniedMoveIntents({
         organizationId: "org-a",
       }),
     ).toBe(false);

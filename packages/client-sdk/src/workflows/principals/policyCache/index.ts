@@ -10,8 +10,7 @@ import {
 } from "../../../data/keyingProjectionVerification/error";
 import { dedupeReferencedPrincipalStates } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { ensurePrincipalPolicyTables } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
 import { errorMessage } from "../../../data/shared/errorMessage";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
@@ -122,7 +121,6 @@ async function persistScopedPolicy(input: {
     ],
     execSql: input.execSql,
     organizationId: input.organizationId,
-    updatedAt: new Date().toISOString(),
     stillCurrent: input.stillCurrent,
   });
   return [...externalEntries.map(({ policy }) => policy), validation.policy];
@@ -150,11 +148,9 @@ async function cacheReferencedPrincipalPolicy(
   // must escape rather than being hidden by a canonical network retry.
   const cachedBundle = fresh
     ? null
-    : await loadPrincipalPolicyBundleForReference(
+    : await new PrincipalPolicyBundleRepository(
         execSql,
-        reference,
-        localCheckpoint,
-      );
+      ).loadPrincipalPolicyBundleForReference(reference, localCheckpoint);
   let bundle =
     cachedBundle ??
     (await reader.getCurrentPrincipalPolicy(
@@ -297,7 +293,9 @@ async function runPrincipalPolicyCache<Item, Result>(input: {
   }
 
   try {
-    await ensurePrincipalPolicyTables(input.execSql);
+    await new PrincipalPolicyBundleRepository(
+      input.execSql,
+    ).ensurePrincipalPolicyTables();
     const uniqueItems = input.dedupe(input.items);
     const loadDirectory = createPolicyDirectoryLoader(input);
     let externalAdminPolicy: Promise<VerifiedExternalAdminPolicy | null> | null =

@@ -13,8 +13,7 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
-import { retainLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/persistence/principalPolicy/locallyAcknowledgedPrincipalPolicyPersistence";
-import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../../data/persistence/principalPolicy/verifiedPrincipalPolicyBundlePersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { requireOrganizationGroupHead } from "../../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
@@ -116,12 +115,12 @@ export async function cacheGroupPolicy(input: {
       bundle.currentMemberEnvelopes,
     );
   }
-  await persistVerifiedPrincipalPolicyBundlesAtomically({
+  await new PrincipalPolicyBundleRepository(
+    input.execSql,
+  ).persistVerifiedPrincipalPolicyBundlesAtomically({
     entries: [{ bundle, policy: verified }],
-    execSql: input.execSql,
     organizationId: input.organizationId,
     stillCurrent: input.stillCurrent,
-    updatedAt: new Date().toISOString(),
   });
   return bundle;
 }
@@ -192,7 +191,9 @@ export async function loadGroupPolicyMutationContext(input: {
     currentOrgAdminUserIds,
     input.signerUserId,
   );
-  await persistVerifiedPrincipalPolicyBundlesAtomically({
+  await new PrincipalPolicyBundleRepository(
+    input.execSql,
+  ).persistVerifiedPrincipalPolicyBundlesAtomically({
     entries: [
       ...externalAdminPolicyPersistenceEntries(adminPolicy).filter(
         (entry) =>
@@ -201,9 +202,7 @@ export async function loadGroupPolicyMutationContext(input: {
       ),
       { bundle: currentPolicy, policy: verified },
     ],
-    execSql: input.execSql,
     organizationId: input.organizationId,
-    updatedAt: new Date().toISOString(),
   });
 
   return {
@@ -262,17 +261,17 @@ export async function commitGroupPolicyMutation(input: {
     request: input.organizationRequest,
     response: stored.organizationPolicy,
   });
-  await retainLocallyAcknowledgedPrincipalPolicyBundles({
+  await new PrincipalPolicyBundleRepository(
+    input.execSql,
+  ).retainLocallyAcknowledgedPrincipalPolicyBundles({
     retiredContainers: {
       containerIds: input.retiredContainerIds?.() ?? [],
       organizationId: input.organizationId,
       policy: group.policy,
     },
     entries: [group, organization],
-    execSql: input.execSql,
     organizationId: input.organizationId,
     stillCurrent: input.stillCurrent,
-    updatedAt: new Date().toISOString(),
   });
   return {
     ...group.bundle,

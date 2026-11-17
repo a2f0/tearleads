@@ -9,10 +9,8 @@ import {
 import { principalPolicyTables } from "../../sqlite/schema/principalPolicySchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../sqlite/sqlTableSchema";
-import {
-  retainPrincipalPolicyBundleInTransaction,
-  savePrincipalPolicyBundle,
-} from "../principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../principalPolicy/principalPolicyBundleRepository";
+import { retainPrincipalPolicyBundleInTransaction } from "../principalPolicy/principalPolicyPersistence";
 import {
   loadStoredPrincipalPolicyCheckpoint,
   upsertPrincipalPolicyCheckpointInTransaction,
@@ -27,11 +25,10 @@ test.each([undefined, ""])(
     try {
       const { bundle } = await createPrincipalPolicyBundle();
       const updatedAt = "2026-09-04T00:00:00.000Z";
+      const repository = new PrincipalPolicyBundleRepository(execSql);
       await expect(
-        Reflect.apply(savePrincipalPolicyBundle, undefined, [
-          execSql,
+        Reflect.apply(repository.savePrincipalPolicyBundle, repository, [
           bundle,
-          updatedAt,
           organizationId,
         ]),
       ).rejects.toThrow("require an organization ID");
@@ -79,12 +76,9 @@ test("policy cache writes pin organization ownership and reject rebinding", asyn
   );
   try {
     const { bundle } = await createPrincipalPolicyBundle();
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-08-29T00:00:00.000Z",
-      "org-one",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-one");
     const runtime = getClientSQLitePersistenceRuntime(execSql);
     // Owned, not pinned: the pin readers see no checkpoint.
     expect(await runtime.db.select().from(principalPolicyCheckpoints)).toEqual([
@@ -105,10 +99,8 @@ test("policy cache writes pin organization ownership and reject rebinding", asyn
     ).toBeNull();
 
     await expect(
-      savePrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).savePrincipalPolicyBundle(
         bundle,
-        "2026-08-29T00:01:00.000Z",
         "org-two",
       ),
     ).rejects.toMatchObject({ code: "object_mismatch" });
@@ -131,7 +123,9 @@ test("one row carries the owner and the pin, and ownership never clears a pin", 
       version: bundle.currentState.version,
     };
     const updatedAt = "2026-09-04T00:00:00.000Z";
-    await savePrincipalPolicyBundle(execSql, bundle, updatedAt, "org-one");
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).savePrincipalPolicyBundle(bundle, "org-one");
     const runtime = getClientSQLitePersistenceRuntime(execSql);
     await runtime.transaction((tx) =>
       upsertPrincipalPolicyCheckpointInTransaction(
@@ -142,7 +136,9 @@ test("one row carries the owner and the pin, and ownership never clears a pin", 
       ),
     );
     // Caching again records ownership and keeps the pin.
-    await savePrincipalPolicyBundle(execSql, bundle, updatedAt, "org-one");
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).savePrincipalPolicyBundle(bundle, "org-one");
     const pinned = {
       ...principal,
       organizationId: "org-one",
@@ -179,12 +175,9 @@ test("a half-written pin is refused rather than read as no checkpoint", async ()
   const { close, execSql } = await createTestExecSql("policy-half-pin");
   try {
     const { bundle } = await createPrincipalPolicyBundle();
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-09-04T00:00:00.000Z",
-      "org-one",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-one");
     const runtime = getClientSQLitePersistenceRuntime(execSql);
     await runtime.db
       .update(principalPolicyCheckpoints)

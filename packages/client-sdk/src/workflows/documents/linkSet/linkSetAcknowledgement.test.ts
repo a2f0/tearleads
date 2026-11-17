@@ -16,9 +16,9 @@ import {
   createResponse,
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { buildMaterializedDocumentCreatePlan } from "../create";
-import { relinkRemoteDocument } from "./linkSetRemote";
 
 const linkSetAcknowledgementTampers: readonly {
   readonly label: string;
@@ -108,8 +108,8 @@ for (const { label, message, tamper } of linkSetAcknowledgementTampers) {
     const primedProjections: DocumentWriterProjectionResponse[] = [];
     try {
       await expect(
-        relinkRemoteDocument({
-          apiClient: createMockApiClient({
+        createRemoteDocumentServiceFixture({
+          api: createMockApiClient({
             listDocumentAttachments: async () => [],
             getContainerWriterProjection: async (containerId) =>
               containerId === siblingProjection.containerId
@@ -130,13 +130,14 @@ for (const { label, message, tamper } of linkSetAcknowledgementTampers) {
               throw new Error("Unexpected unlink call");
             },
           }),
+          encapsulationSecretKey: keyPair.secretKey,
+          execSql,
+        }).relinkRemoteDocument({
           author,
           documentId: writerProjection.documentId,
-          execSql,
           operation: "link",
           resolveProjectionUserKey,
           targetContainerId: siblingProjection.containerId,
-          targetSecretKey: keyPair.secretKey,
         }),
       ).rejects.toThrow(message);
       expect(primedProjections).toEqual([]);

@@ -1,4 +1,5 @@
 export { LoroList, LoroMap } from "loro-crdt";
+export { DOCUMENT_CHANGE_MERGE_INTERVAL_SECONDS } from "./changeTimestamps";
 export {
   createDocument,
   decodeVersionVector,
@@ -30,6 +31,14 @@ export {
   type VersionVectorSpan,
   versionVectorsEqual,
 } from "./document";
+export {
+  createReadOnlyDocument,
+  type HistoryStop,
+  type HistoryVersionEntry,
+  type HistoryViewer,
+  openHistoryViewer,
+  orderHistoryStops,
+} from "./historyTimeline";
 export * from "./shared";
 export { updateMatchesDocumentHistory } from "./updateIdentity";
 export {

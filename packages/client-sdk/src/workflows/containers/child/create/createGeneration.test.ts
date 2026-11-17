@@ -6,9 +6,9 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
-import { createRemoteContainer } from "./index";
 
 test("container create planning rolls back checkpoints after generation expiry", async () => {
   const parent = await createParentProjection();
@@ -30,8 +30,8 @@ test("container create planning rolls back checkpoints after generation expiry",
   }) as ExecSql;
 
   try {
-    const created = await createRemoteContainer({
-      apiClient: createMockApiClient({
+    const created = await createContainerMutationServiceFixture({
+      api: createMockApiClient({
         createContainer: async () => {
           submitted = true;
           throw new Error("expired create must not submit");
@@ -39,14 +39,15 @@ test("container create planning rolls back checkpoints after generation expiry",
         getContainerWriterProjection: async () => parent.projection,
         getCurrentPrincipalPolicy: async () => null,
       }),
+      execSql: guardedExecSql,
+      encapsulationSecretKey: parent.secretKey,
+      reportSecurityIncident: async () => undefined,
+      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
+    }).createRemoteContainer({
       author,
       containerId: "expired-container-create",
-      execSql: guardedExecSql,
       parentContainerId: parent.projection.containerId,
-      parentSecretKey: parent.secretKey,
-      reportSecurityIncident: async () => undefined,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
       stillCurrent: () => !transactionStarted,
     });
 
@@ -85,8 +86,8 @@ test("container create hides state when its generation expires after acknowledge
   }) as ExecSql;
 
   try {
-    const created = await createRemoteContainer({
-      apiClient: createMockApiClient({
+    const created = await createContainerMutationServiceFixture({
+      api: createMockApiClient({
         createContainer: async (request) => {
           submitted = true;
           return createMutationResponseFromRequest(request);
@@ -94,14 +95,15 @@ test("container create hides state when its generation expires after acknowledge
         getContainerWriterProjection: async () => parent.projection,
         getCurrentPrincipalPolicy: async () => null,
       }),
+      execSql: guardedExecSql,
+      encapsulationSecretKey: parent.secretKey,
+      reportSecurityIncident: async () => undefined,
+      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
+    }).createRemoteContainer({
       author: parent.author,
       containerId: "expired-after-acknowledgement",
-      execSql: guardedExecSql,
       parentContainerId: parent.projection.containerId,
-      parentSecretKey: parent.secretKey,
-      reportSecurityIncident: async () => undefined,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
       stillCurrent: () => current,
     });
 
