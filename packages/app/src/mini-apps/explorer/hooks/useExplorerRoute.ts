@@ -22,6 +22,7 @@ export interface ExplorerRouteState {
     storageKey?: string | null | undefined;
   }) => void;
   openContainerInfoRoute: (containerId: string) => void;
+  openDocumentHistoryRoute: (localId: string, containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openNewStructuredDocumentRoute: (containerId: string) => void;
   openSyncLaneDetailRoute: (laneKey: string) => void;
@@ -417,9 +418,13 @@ function useExplorerRouteActions(params: {
   );
 
   const openDocumentInfoRoute = useCallback(
-    (localId: string, containerId: string) => {
-      setRoute({ view: "document-info", containerId, localId });
-    },
+    (localId: string, containerId: string) =>
+      setRoute({ view: "document-info", containerId, localId }),
+    [setRoute],
+  );
+  const openDocumentHistoryRoute = useCallback(
+    (localId: string, containerId: string) =>
+      setRoute({ view: "document-history", containerId, localId }),
     [setRoute],
   );
 
@@ -435,6 +440,7 @@ function useExplorerRouteActions(params: {
     ...blobBrowserActions,
     ...sectionActions,
     openContainerInfoRoute,
+    openDocumentHistoryRoute,
     openDocumentInfoRoute,
     openNewStructuredDocumentRoute,
     route,

@@ -196,6 +196,44 @@ export function setDocumentRowFields(
   return true;
 }
 
+/**
+ * Make a row's cells equal `fields`: write the ones that differ and clear the
+ * ones that are absent. Untouched cells keep their last editor. Returns whether
+ * the row exists and anything changed.
+ */
+export function replaceDocumentRowFields(
+  doc: RowListDocumentShape,
+  id: string,
+  fields: Readonly<Record<string, string>>,
+  attribution: DocumentRowAttribution,
+): boolean {
+  const row = findRowMap(doc.getList(DOCUMENT_ROWS_LIST_KEY), id);
+  if (!row) {
+    return false;
+  }
+
+  let changed = false;
+  for (const key of row.keys()) {
+    // Own keys only: a cell named `constructor` or `toString` is not "in"
+    // the restored fields merely because every object inherits one.
+    if (!key.startsWith(ROW_META_PREFIX) && !Object.hasOwn(fields, key)) {
+      row.delete(key);
+      changed = true;
+    }
+  }
+  for (const [key, value] of Object.entries(fields)) {
+    if (!key.startsWith(ROW_META_PREFIX) && row.get(key) !== value) {
+      row.set(key, value);
+      changed = true;
+    }
+  }
+  if (changed) {
+    row.set(ROW_UPDATED_BY_KEY, attribution.userId);
+    row.set(ROW_UPDATED_AT_KEY, attribution.at);
+  }
+  return changed;
+}
+
 export function removeDocumentRow(
   doc: RowListDocumentShape,
   id: string,

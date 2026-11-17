@@ -111,8 +111,7 @@ seconds. Its replay verifies the folder's writer projection first; when the
 verified head already sits under the destination, it settles the intent from
 that head and posts nothing, so a lost response costs no second key rotation
 and does not wait for a reload.
-[`formal/local-trust/ContainerMoveReplay.tla`][file-1]
-models the replay.
+[`formal/local-trust/ContainerMoveReplay.tla`][file-1] models the replay.
 
 Custom hosts that construct a container-contents store directly must pair
 `createContainerContentsStoreWorkflowRuntime(...)` with a
@@ -163,6 +162,7 @@ reads.
 `deriveStableDocumentId(localId)` is the pure first-creation id derivation;
 persisted remote and recovery ids take precedence. See
 [document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
+`openDocumentHistory` replays durable history read-only: [document history](../../../../docs/developer/client-sdk/document-history.md).
 
 The documents facade admits explicit `historyMode: "raw"` reads through
 `syncRemoteDocument`. A raw consumer must start at a null version vector, send

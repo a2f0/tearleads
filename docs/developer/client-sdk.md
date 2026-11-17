@@ -15,6 +15,7 @@ Hosts adapt platform behavior into the SDK rather than duplicate its setup.
 - [Public API](./client-sdk/public-api.md)
   - [Public API Entry Points](./client-sdk/public-api.md#public-api-entry-points)
   - [Package Contract](./client-sdk/public-api.md#package-contract)
+- [Document history](./client-sdk/document-history.md)
 - [Runtime behavior](./client-sdk/runtime-behavior.md)
   - [Document persistence notifications](./client-sdk/runtime-behavior.md#document-persistence-notifications)
   - [Organization policy history](./client-sdk/runtime-behavior.md#organization-policy-history)

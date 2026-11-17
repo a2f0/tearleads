@@ -151,6 +151,7 @@ test("document Get Info stays second from the right beside type actions", async 
     EXPLORER_LABELS.documentLinkAction,
     EXPLORER_LABELS.documentMoveAction,
     "Edit",
+    EXPLORER_LABELS.documentHistoryAction,
     EXPLORER_LABELS.documentInfoGetInfoAction,
     EXPLORER_LABELS.syncSectionsAction,
   ]);

@@ -1,4 +1,5 @@
 import { ArrowsOutCardinalIcon } from "@phosphor-icons/react/dist/csr/ArrowsOutCardinal";
+import { ClockCounterClockwiseIcon } from "@phosphor-icons/react/dist/csr/ClockCounterClockwise";
 import { FilePlusIcon } from "@phosphor-icons/react/dist/csr/FilePlus";
 import { FolderPlusIcon } from "@phosphor-icons/react/dist/csr/FolderPlus";
 import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
@@ -22,6 +23,7 @@ type ExplorerModel = ReturnType<typeof useExplorerModel>;
 // unchanged action from re-registering every render — no per-action useMemo
 // wrappers needed.
 const CREATE_FOLDER_ICON = <FolderPlusIcon aria-hidden size={18} />;
+const HISTORY_ICON = <ClockCounterClockwiseIcon aria-hidden size={18} />;
 const INFO_ICON = <InfoIcon aria-hidden size={18} />;
 const LINK_DOCUMENT_ICON = <LinkSimpleIcon aria-hidden size={18} />;
 const MOVE_DOCUMENT_ICON = <ArrowsOutCardinalIcon aria-hidden size={18} />;
@@ -77,7 +79,8 @@ export function useExplorerRoutedChromeActions({
   // bar never empties between a container selection and the document resolving.
   const showDocumentToolbar =
     (selectedDocument !== undefined || route.view === "document-selection") &&
-    route.view !== "document-info";
+    route.view !== "document-info" &&
+    route.view !== "document-history";
 
   useExplorerRoutedBackAction({ historyCanGoBack, model, route });
   useExplorerHubToolbarActions({ model, route });
@@ -213,6 +216,28 @@ function useExplorerDocumentToolbarActions(params: {
         }
       : null,
   );
+  // Like Get Info, History stays visible (disabled) while the selection is
+  // unresolved, so the bar does not shift when the document loads.
+  useWindowTitleBarAction(
+    show
+      ? {
+          disabled: !containerId || !documentId,
+          icon: HISTORY_ICON,
+          id: "explorer-document-history",
+          label: EXPLORER_LABELS.documentHistoryAction,
+          onClick: () => {
+            if (containerId && documentId) {
+              model.routeState.openDocumentHistoryRoute(
+                documentId,
+                containerId,
+              );
+            }
+          },
+          // Below the document type's own actions, beside Get Info.
+          priority: 90,
+        }
+      : null,
+  );
   useWindowTitleBarAction(
     show && documentId && model.canLinkSelectedDocument
       ? {
@@ -268,6 +293,15 @@ function useExplorerRoutedBackAction({
             // The projection-aware path, not the raw route action: it resolves
             // a deleted document back to its container and activates a linked
             // one.
+            model.selectDocumentProjection(route.localId, route.containerId, {
+              replace: true,
+            });
+          },
+        };
+      case "document-history":
+        return {
+          label: EXPLORER_LABELS.documentHistoryBackAction,
+          onBack: () => {
             model.selectDocumentProjection(route.localId, route.containerId, {
               replace: true,
             });
