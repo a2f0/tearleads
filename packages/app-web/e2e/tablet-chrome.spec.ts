@@ -150,6 +150,7 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
 
   const pane = page.locator(".routed-pane--tablet");
   await expect(pane).toBeVisible();
+  await expect(pane).toHaveAttribute("data-sidebar", "closed");
   await expect(pane).toHaveAttribute("data-launcher-placement", "side");
   const rail = pane.locator(".routed-pane-rail");
   const moveToBottom = rail.getByRole("button", {
