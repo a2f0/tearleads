@@ -10,6 +10,10 @@ import {
   submitCreateOrganization,
 } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  expectProvisioningReplay,
+  withoutCommitCheckpoint,
+} from "../../../test/helpers/provisioningCheckpoint";
 import { registerUser } from "../../../test/helpers/registerUser";
 
 test("POST /organizations durably replays a native restore destination", async () => {
@@ -28,17 +32,17 @@ test("POST /organizations durably replays a native restore destination", async (
   expect([response.status, concurrentReplay.status]).toEqual([200, 200]);
   const provisioned: unknown = await response.json();
   invariant(isCreateOrganizationResponse(provisioned), "expected restore org");
-  expect(await concurrentReplay.json()).toEqual(provisioned);
+  expectProvisioningReplay(await concurrentReplay.json(), provisioned);
   const replay = await submitCreateOrganization(user, body);
   expect(replay.status).toBe(200);
-  expect(await replay.json()).toEqual(provisioned);
+  expectProvisioningReplay(await replay.json(), provisioned);
   const { nativeSubscriptionRestore, ...provisioningBody } = body;
   const reorderedReplay = await submitCreateOrganization(user, {
     nativeSubscriptionRestore,
     ...provisioningBody,
   });
   expect(reorderedReplay.status).toBe(200);
-  expect(await reorderedReplay.json()).toEqual(provisioned);
+  expectProvisioningReplay(await reorderedReplay.json(), provisioned);
   const mismatchedReplay = await submitCreateOrganization(user, {
     ...(await createOrganizationRequestBody(user, {
       organizationId: body.organizationId,
@@ -59,6 +63,6 @@ test("POST /organizations durably replays a native restore destination", async (
     .where(eq(organizationBilling.organizationId, body.organizationId));
   expect(billing?.claimedAt).toBeNull();
   expect(billing?.requestSha256).toHaveLength(64);
-  expect(billing?.response).toEqual(provisioned);
+  expect(billing?.response).toEqual(withoutCommitCheckpoint(provisioned));
   expect(billing?.userId).toBe(user.userId);
 });

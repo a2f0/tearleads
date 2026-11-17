@@ -58,6 +58,8 @@ test("isRegistrationResponse", () => {
     rootMetadataDocument: createDocumentCreateResponse(),
     committedCoreMetadataUpdateIds: [],
     committedProfileUpdateIds: [],
+    commitLsn: "0/16B3748",
+    commitLsnMode: "tracked" as const,
     systemContainers: [],
     challenge: VALID_CHALLENGE,
   };
@@ -67,6 +69,8 @@ test("isRegistrationResponse", () => {
   expect(isRegistrationResponse(response)).toBe(true);
   expect(isOrganizationProvisioningResponse(response)).toBe(true);
   for (const key of [
+    "commitLsn",
+    "commitLsnMode",
     "committedCoreMetadataUpdateIds",
     "committedProfileUpdateIds",
     "systemContainers",

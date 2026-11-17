@@ -7,6 +7,9 @@ import type { CreateOrganizationResponse } from "@tearleads/validators/response"
 import { createMutationResponseFromRequest } from "./containerFixtures";
 import { createResponseFromRequest } from "./documentFixtures";
 
+/** The commit position every fixture provisioning response reports. */
+export const PROVISIONING_COMMIT_LSN = "0/16B3748";
+
 /**
  * Builds a plausible server response for organization provisioning from the
  * request the client signed. Shared by the registration/create-organization
@@ -98,6 +101,8 @@ export async function respondToOrganizationProvisioning(
     rootMetadataDocument,
     committedCoreMetadataUpdateIds,
     committedProfileUpdateIds,
+    commitLsn: PROVISIONING_COMMIT_LSN,
+    commitLsnMode: "tracked",
     ...(rosterProfileContainerResponse && rosterProfileMetadataDocument
       ? {
           rosterProfileContainer: {

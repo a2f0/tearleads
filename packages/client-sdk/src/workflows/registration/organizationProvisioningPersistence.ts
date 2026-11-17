@@ -271,6 +271,7 @@ export async function persistOrganizationProvisioningState(
         acknowledgedAccessHeads: artifacts.acknowledgedAccessHeads,
         authoredDiscoveryHeads: artifacts.authoredDiscoveryHeads,
         canStartDurableMutation: input.canStartDurableMutation,
+        commitLsn: input.response.commitLsn,
         completeProvisioningAttempt: input.completeProvisioningAttempt,
         onPersistQueued: input.onPersistQueued,
         containerId: input.containerId,

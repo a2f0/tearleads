@@ -10,6 +10,7 @@ import {
 import { OrganizationReplacementAuthorizationSchema } from "../util/organizationReplacement";
 import { ContainerCreateWithMetadataDocumentResponseSchema } from "./containerMetadata";
 import { DocumentCreateResponseSchema } from "./documentMutation";
+import { commitLsnResponseShape } from "./documentSyncSchema";
 
 /**
  * The bootstrapped state of a freshly provisioned organization: the ids and
@@ -22,7 +23,8 @@ import { DocumentCreateResponseSchema } from "./documentMutation";
  */
 const committedUpdateIdsSchema = arraySchema(uuidV4StringSchema);
 
-export const organizationProvisioningResponseShape = {
+/** What provisioning committed; a replay can return it again. */
+const organizationProvisioningResultShape = {
   committedCoreMetadataUpdateIds: committedUpdateIdsSchema,
   committedProfileUpdateIds: committedUpdateIdsSchema,
   organizationId: z.string(),
@@ -47,8 +49,18 @@ export const organizationProvisioningResponseShape = {
   userId: z.string(),
 } satisfies z.ZodRawShape;
 
+/**
+ * The provisioning result plus the commit position read after its
+ * transaction, as a document create's seed reports it, so the client records
+ * it for every document the provisioning seeded.
+ */
+export const organizationProvisioningResponseShape = {
+  ...organizationProvisioningResultShape,
+  ...commitLsnResponseShape,
+} satisfies z.ZodRawShape;
+
 export function addCommittedUpdateIdIssues(
-  value: z.output<z.ZodObject<typeof organizationProvisioningResponseShape>>,
+  value: z.output<z.ZodObject<typeof organizationProvisioningResultShape>>,
   context: z.core.$RefinementCtx<unknown>,
 ): void {
   for (const key of [
@@ -86,6 +98,11 @@ export function isOrganizationProvisioningResponse(
   return OrganizationProvisioningResponseSchema.safeParse(value).success;
 }
 
+const replacementAuthorizationShape = {
+  replacementAuthorization:
+    OrganizationReplacementAuthorizationSchema.nullable(),
+};
+
 /**
  * Response to creating an additional organization for the authenticated user.
  * The user is already registered, so unlike registration this carries no auth
@@ -95,8 +112,7 @@ export const CreateOrganizationResponseSchema =
   registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
       ...organizationProvisioningResponseShape,
-      replacementAuthorization:
-        OrganizationReplacementAuthorizationSchema.nullable(),
+      ...replacementAuthorizationShape,
     }).superRefine(addCommittedUpdateIdIssues),
     [organizationProvisioningCommittedUpdateIdsRefinement],
   );
@@ -109,4 +125,23 @@ export function isCreateOrganizationResponse(
   value: unknown,
 ): value is CreateOrganizationResponse {
   return CreateOrganizationResponseSchema.safeParse(value).success;
+}
+
+/**
+ * The create result an organization stores for replay: the response without
+ * its commit position, which each response reads anew after its transaction.
+ */
+export const StoredCreateOrganizationResultSchema = loosePlainObject({
+  ...organizationProvisioningResultShape,
+  ...replacementAuthorizationShape,
+}).superRefine(addCommittedUpdateIdIssues);
+
+export type StoredCreateOrganizationResult = z.infer<
+  typeof StoredCreateOrganizationResultSchema
+>;
+
+export function isStoredCreateOrganizationResult(
+  value: unknown,
+): value is StoredCreateOrganizationResult {
+  return StoredCreateOrganizationResultSchema.safeParse(value).success;
 }

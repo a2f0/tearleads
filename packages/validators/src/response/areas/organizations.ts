@@ -89,8 +89,10 @@ export {
   CreateOrganizationResponseSchema,
   isCreateOrganizationResponse,
   isOrganizationProvisioningResponse,
+  isStoredCreateOrganizationResult,
   type OrganizationProvisioningResponse,
   OrganizationProvisioningResponseSchema,
+  type StoredCreateOrganizationResult,
 } from "../organizationProvisioning";
 export {
   isOrganizationReadModelResponse,

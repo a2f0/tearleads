@@ -61,17 +61,20 @@ test(
         // Batched discovery lists the four lanes queued at startup in one
         // request and a later-surfaced lane in a second.
         // Login returns the first websocket ticket, so no ticket request. The
-        // self contact's create carries its queued content as its seed, and
-        // the Contacts create carries its first metadata update, so neither
-        // is followed by a content sync. Contacts is made device-first, so
+        // Contacts create carries its first metadata update, so no content
+        // sync follows it. Contacts is made device-first, so
         // its create replays its own intent in a sync pass (one more root-lane
         // query and policy read) instead of an eager create racing it.
         // A hydration pass discovers the directory once, and a coordinator
         // drain's syncs share one operation; a discovery naming the held head
-        // receives that head alone. Measured 26 calls (24 with the racing
-        // eager create, 29 with drain-scoped operations alone, 30 before
-        // either, 31 before that).
-        total: 27,
+        // receives that head alone. Provisioning returns its commit position,
+        // so the seeded documents skip their empty first syncs. Without those
+        // syncs ahead of it, the self contact's create now runs before its
+        // content is queued (it used to carry that content as its seed), so an
+        // empty read and one write follow it. Measured 24 calls (26 before the
+        // provisioning commit position, 29 with drain-scoped operations alone,
+        // 30 before either, 31 before that).
+        total: 25,
         // Provisioned containers and documents are acknowledged by hash, not
         // echoed, seeded roles skip three destination projections, and syncs
         // no longer echo the bundle and KEK targets the request named: 61 KB
@@ -89,8 +92,10 @@ test(
           // stages need no confirmation read.
           "GET /principals/history": 2,
           "POST /containers/documents/query": 2,
-          // Measured 6; a second root-lane pass can sync the root again.
-          "POST /documents/:documentId/sync": 7,
+          // Measured 4 (6 before the provisioning commit position): the root
+          // twice, as a second root-lane pass can sync it again, and the self
+          // contact's read and write.
+          "POST /documents/:documentId/sync": 5,
           "POST /containers/parent-lanes/query": 5,
           "GET /containers/:containerId/writer-projection": 1,
           // Provisioning commits the root's metadata, so no device-first copy

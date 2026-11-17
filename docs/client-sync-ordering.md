@@ -132,6 +132,17 @@ following signals require a probe:
 - a matching remote event, explicit document revalidation, or forced
   reconciliation requests a probe through the registered document store.
 
+A clean scheduled pass skips a document that has a stored `lastCommitLsn` and
+all three bundle fields. Provisioning (registration and `POST /organizations`)
+returns the `commitLsn` and `commitLsnMode` read after its transaction, as a
+document create's seed does, and the client stores that position as
+`lastCommitLsn` for every document the provisioning seeded: the root,
+roster-profile, organization-metadata and system container metadata documents
+and the roster and organization profile documents. Those documents therefore
+skip their first scheduled pass, and the first read that does run sends the
+position as `minLsn`. A provisioning replay reads the position anew, which
+still covers the original commit.
+
 Document update hints must carry `containerIds`; an unscoped event is rejected.
 A scoped remote event reconciles its known containers for discovery and
 membership changes, while content revalidation targets only the named document.

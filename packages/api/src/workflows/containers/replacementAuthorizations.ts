@@ -1,7 +1,7 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import { organizationBilling } from "@tearleads/api-shared/schema";
 import type { ContainerReplacementAuthorizationsResponse } from "@tearleads/validators/operation";
-import { isCreateOrganizationResponse } from "@tearleads/validators/response";
+import { isStoredCreateOrganizationResult } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
   ContainerWriterProjectionError,
@@ -22,7 +22,10 @@ function purgedReplacementProof(
     | undefined,
 ) {
   const response = billing?.response;
-  if (billing?.status !== "purged" || !isCreateOrganizationResponse(response))
+  if (
+    billing?.status !== "purged" ||
+    !isStoredCreateOrganizationResult(response)
+  )
     return null;
   const proof = response.replacementAuthorization;
   if (

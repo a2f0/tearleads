@@ -180,6 +180,6 @@ test("POST /organizations atomically stores core metadata bodies readable on loc
     profileUpdateIds,
   );
   expect(counter.statements).toBeLessThanOrEqual(
-    335 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    336 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
 });

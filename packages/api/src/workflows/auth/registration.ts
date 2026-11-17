@@ -6,6 +6,7 @@ import { users } from "@tearleads/api-shared/schema";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
+import { readCommitCheckpoint } from "../../documents/commitLsn";
 import {
   type OrganizationProvisioningSigner,
   provisionOrganizationInTransaction,
@@ -95,7 +96,12 @@ export async function runRegistrationWorkflow(
         },
       });
     });
-    return { userId: input.userId, ...provisioned };
+    return {
+      userId: input.userId,
+      ...provisioned,
+      // Read after commit, as a document create's seed reports its position.
+      commitCheckpoint: await readCommitCheckpoint(db),
+    };
   } catch (error) {
     const provisioningError = toOrganizationProvisioningError(error);
     if (provisioningError) {
