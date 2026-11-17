@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { expect, test } from "./appTest";
 
 /*
  * Explorer Get Info on a phone. The key/value lists (MiniAppKeyValueList) set
@@ -207,6 +208,52 @@ for (const width of PHONE_WIDTHS) {
 
     expectPhoneRows(await measureTabPanel(page));
   });
+
+  // One row that scrolls sideways: wrapped, the strip left Document Info's
+  // fifth tab alone on a second row, and the panel's top edge (the strip's
+  // baseline) ran only under that row. A tap on a tab out of view has to bring
+  // it fully into the strip, since nothing else scrolls it there on a touch
+  // screen — so the tap is dispatched in the page, where Playwright's own
+  // scroll-into-view cannot do that work for it.
+  test(`document info tab strip stays on one row (${width}px)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await openDocumentInfo(page);
+    const strip = page.getByRole("tablist");
+    await expect(strip.getByRole("tab")).toHaveCount(5, { timeout: 30_000 });
+
+    const drawn = await strip.evaluate((element) => {
+      const tabs = Array.from(element.querySelectorAll('[role="tab"]'));
+      const tops = tabs.map((tab) =>
+        Math.round(tab.getBoundingClientRect().top),
+      );
+      tabs.at(-1)?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      return {
+        rows: new Set(tops).size,
+        scrolls: element.scrollWidth > element.clientWidth,
+      };
+    });
+    expect(drawn).toEqual({ rows: 1, scrolls: true });
+
+    await expect(strip.getByRole("tab", { name: "Security" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect
+      .poll(() =>
+        strip.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          const tab = element
+            .querySelector('[aria-selected="true"]')
+            ?.getBoundingClientRect();
+          return tab
+            ? tab.left >= box.left - 0.5 && tab.right <= box.right + 0.5
+            : false;
+        }),
+      )
+      .toBe(true);
+  });
 }
 
 // Stacking is the narrow layout, not the only one: a wide pane keeps each key
@@ -274,3 +321,36 @@ for (const width of [390, 1280]) {
     );
   });
 }
+
+// Container General's "Container view" section ends in two help paragraphs. As
+// flex items their own margins do not collapse, so they sat a double space
+// apart; they should be spaced by the section's gap like everything else in it.
+test("container info help paragraphs keep the section's spacing", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openContainerInfo(page);
+
+  // The innermost match: any enclosing section also contains the text.
+  const section = page
+    .getByRole("tabpanel")
+    .locator("section", { hasText: "Container view" })
+    .last();
+  await expect(section.locator("p").nth(1)).toBeVisible({ timeout: 30_000 });
+  const spacing = await section.evaluate((element) => {
+    const [first, second] = Array.from(element.querySelectorAll(":scope > p"));
+    if (!first || !second) {
+      return null;
+    }
+    return {
+      between: Math.round(
+        second.getBoundingClientRect().top -
+          first.getBoundingClientRect().bottom,
+      ),
+      gap: Math.round(Number.parseFloat(getComputedStyle(element).rowGap)),
+    };
+  });
+
+  expect(spacing).not.toBeNull();
+  expect(spacing?.between).toBe(spacing?.gap);
+});

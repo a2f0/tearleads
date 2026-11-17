@@ -1,13 +1,10 @@
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
-import {
-  APP_HOST_PROFILES,
-  createAppHostConfig,
-} from "../../src/host/AppHostConfig";
+import { createAppHostConfig } from "../../src/host/AppHostConfig";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
 } from "../../src/mini-apps/system-monitor/systemMonitorMode";
-import { withManualIdentity } from "./manualIdentityProfile";
+import { resolveTestHostProfile } from "./manualIdentityProfile";
 import { MockWorker } from "./mockWorker";
 import { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
 
@@ -33,7 +30,7 @@ type TestAppHostConfigOptions = Partial<
 
 export function createTestAppHostConfig({
   autoProvisionIdentity = false,
-  profile = APP_HOST_PROFILES.app,
+  profile,
   ...options
 }: TestAppHostConfigOptions = {}) {
   return createAppHostConfig({
@@ -43,7 +40,7 @@ export function createTestAppHostConfig({
       createSQLiteRuntime({
         workerConstructor: MockWorker,
       }),
-    profile: autoProvisionIdentity ? profile : withManualIdentity(profile),
+    profile: resolveTestHostProfile({ autoProvisionIdentity, profile }),
     // Existing full-app smoke tests exercise the windowed shell explicitly.
     navigationMode: "windowed",
     wsUrl: "ws://localhost:3002",

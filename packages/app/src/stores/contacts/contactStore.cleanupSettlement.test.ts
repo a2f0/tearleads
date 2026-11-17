@@ -51,8 +51,8 @@ test("a scalar edit queued behind a write stays on its original document", async
     resolveVerified: async () => null,
     logError: (message, cause) => errors.push({ message, cause }),
   });
-  let blocker: Promise<void> | undefined;
-  let edit: Promise<void> | undefined;
+  let blocker: Promise<boolean> | undefined;
+  let edit: Promise<boolean> | undefined;
   try {
     store.updateRuntime(runtime);
     await waitForCondition(

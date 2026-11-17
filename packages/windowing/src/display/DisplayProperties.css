@@ -112,3 +112,97 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* System Tray: one row per tray app, its name and an on/off switch. The rows
+ * stay narrow so a wide window does not set a switch far from its name. */
+.display-properties-tray-apps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  max-width: 24rem;
+}
+
+.display-properties-tray-app {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--app-radius-control);
+  cursor: pointer;
+}
+
+.display-properties-tray-app:hover {
+  background: var(--app-hover-surface);
+}
+
+.display-properties-tray-app .display-properties-label {
+  flex: 1 1 auto;
+}
+
+.display-properties-tray-app-icon {
+  flex: 0 0 auto;
+}
+
+/* A checkbox drawn as a sliding switch: a pill track and a round thumb that
+ * moves to the end and fills with the text color when on. */
+.display-properties-switch {
+  --display-properties-switch-height: 1.25rem;
+  --display-properties-switch-thumb: calc(
+    var(--display-properties-switch-height) -
+    2 *
+    var(--border-width) -
+    4px
+  );
+
+  position: relative;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: calc(var(--display-properties-switch-height) * 1.8);
+  height: var(--display-properties-switch-height);
+  margin: 0;
+  border: var(--border-width) solid var(--color-dark);
+  border-radius: calc(var(--display-properties-switch-height) / 2);
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+  transition: background var(--transition);
+}
+
+.display-properties-switch::before {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: var(--display-properties-switch-thumb);
+  height: var(--display-properties-switch-thumb);
+  border-radius: 50%;
+  background: var(--color-dark);
+  content: "";
+  transition:
+    transform var(--transition),
+    background var(--transition);
+}
+
+.display-properties-switch:checked {
+  background: var(--color-dark);
+}
+
+.display-properties-switch:checked::before {
+  background: var(--color-light);
+  transform: translateX(calc(var(--display-properties-switch-height) * 0.8));
+}
+
+.display-properties-switch:focus-visible {
+  outline: 2px solid var(--color-dark);
+  outline-offset: 2px;
+}
+
+/* Let the platform draw its high-contrast checkbox. */
+@media (forced-colors: active) {
+  .display-properties-switch {
+    appearance: auto;
+  }
+
+  .display-properties-switch::before {
+    content: none;
+  }
+}

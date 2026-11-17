@@ -8,10 +8,7 @@ import {
 import { base64ToBytes } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import {
-  ensurePrincipalPolicyTables,
-  savePrincipalPolicyBundle,
-} from "../../src/data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
@@ -180,13 +177,12 @@ export async function createPrincipalReciteFixture(input: {
         ? nextMember.identity
         : null;
   const database = await createTestExecSql(input.databaseName);
-  await ensurePrincipalPolicyTables(database.execSql);
-  await savePrincipalPolicyBundle(
+  await new PrincipalPolicyBundleRepository(
     database.execSql,
-    previousBundle,
-    "2026-04-28T12:00:30.000Z",
-    ORGANIZATION_ID,
-  );
+  ).ensurePrincipalPolicyTables();
+  await new PrincipalPolicyBundleRepository(
+    database.execSql,
+  ).savePrincipalPolicyBundle(previousBundle, ORGANIZATION_ID);
   const requestedContainerIds: string[] = [];
 
   return {

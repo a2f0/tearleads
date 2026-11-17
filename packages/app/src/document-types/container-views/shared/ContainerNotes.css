@@ -1,0 +1,22 @@
+.container-view-notes nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-block-end: var(--space-sm);
+}
+
+.container-view-notes,
+.container-view-note {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.container-view-notes {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.container-view-note {
+  padding-block: var(--space-sm);
+}

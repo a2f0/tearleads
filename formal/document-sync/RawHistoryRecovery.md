@@ -55,7 +55,8 @@ the representative for preservation checks, so any pre-completion clear or
 overwrite remains observable without multiplying equivalent initial subsets.
 
 The safety configuration explores 7,749,072 generated states, 4,408,696 distinct
-states, and depth 14. Sets abstract operation-log identity and page
+states, and depth 14. Sets abstract operation-log identity (in production,
+each change's operations together with its recorded commit time) and page
 membership; production tests remain responsible for cryptographic verification,
 canonical operation bytes, Loro import semantics, SQLite transactionality,
 pagination-token parsing, and projection-cache refetch behavior. This is

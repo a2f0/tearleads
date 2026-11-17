@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { useScreensaver } from "@tearleads/windowing";
 import {
   act,
   fireEvent,
@@ -15,11 +16,20 @@ import { LocalKeyringUnlockGate } from "../../mini-apps/LocalKeyringUnlockGate";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 import type { LocalKeyringLockContextValue } from "../../providers/local-keyring/localKeyringLockActions";
-import { AppScreensaverAction, AppScreensaverHost } from "./AppScreensaverHost";
+import { AppScreensaverHost } from "./AppScreensaverHost";
 
 const PIN = "824913";
 
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
+
+function StartScreensaverButton() {
+  const { start } = useScreensaver();
+  return (
+    <button onClick={start} type="button">
+      Start Screensaver
+    </button>
+  );
+}
 
 function wake() {
   fireEvent.keyDown(window, { key: "Escape" });
@@ -64,7 +74,7 @@ test("the PIN privacy screen preserves the live keyring and gated editor through
       <AppRuntimeProvider hostConfig={hostConfig} autoProvisionEnabled={false}>
         <AppScreensaverHost>
           <Probe />
-          <AppScreensaverAction />
+          <StartScreensaverButton />
           <section aria-label="Previous window" data-layout={mode}>
             <LocalKeyringUnlockGate
               appName="Notes"
@@ -162,9 +172,4 @@ test("the PIN privacy screen preserves the live keyring and gated editor through
     if (hadIndexedDB) Reflect.set(globalThis, "indexedDB", originalIndexedDB);
     else Reflect.deleteProperty(globalThis, "indexedDB");
   }
-});
-
-test("isolated peer surfaces do not expose a screensaver without the shared host", () => {
-  const view = render(<AppScreensaverAction />);
-  expect(view.queryByRole("button", { name: "Start Screensaver" })).toBeNull();
 });

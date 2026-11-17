@@ -165,13 +165,10 @@ export const principalPolicySurface = [
   `${sdk}/data/persistence/principalCurrentAcknowledgementPersistence.ts`,
   `${sdk}/data/persistence/principalKeys/principalGrantRetirementPersistence.ts`,
   `${sdk}/data/persistence/principalMutationJournalPersistence.ts`,
-  `${sdk}/data/persistence/principalPolicy/locallyAcknowledgedPrincipalPolicyPersistence.ts`,
+  `${sdk}/data/persistence/principalPolicy/principalPolicyBundleRepository.ts`,
   `${sdk}/data/persistence/principalPolicy/principalPolicyPersistence.ts`,
   `${sdk}/data/persistence/principalPolicy/principalPolicyRemoteReset.ts`,
-  `${sdk}/data/persistence/principalPolicy/principalPolicyReferencePersistence.ts`,
-  `${sdk}/data/persistence/principalPolicy/verifiedPrincipalPolicyBundlePersistence.ts`,
   `${sdk}/data/persistence/principalPolicy/verifiedPrincipalPolicyCurrent.ts`,
-  `${sdk}/data/persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence.ts`,
   ...principalsDataSurface,
 ];
 

@@ -106,6 +106,16 @@ export interface AppHostFeatureFlags {
   readonly explorerPeerSharing: boolean;
   readonly panePeerUserIds: boolean;
   /**
+   * Ask "What should we call you?" before the first registration of an
+   * identity the autopilot generated, and use the answer for the personal
+   * org ("Bob's Org"), the account's own roster entry, and the self contact's
+   * nickname. Registration waits for the answer, and every mini-app behind
+   * the keyring gate shows the prompt meanwhile. Only applies with
+   * {@link autoGenerateIdentity} and {@link autoRegisterIdentity}; the demo
+   * names its peers itself.
+   */
+  readonly promptAccountName: boolean;
+  /**
    * Seed friendly peer identities on boot: auto-import the opposite pane's peer
    * as a contact (nicknamed by its peer label), name the self "You" contact and
    * the bootstrapped personal org after the pane's peer label ("Peer 1"/"Peer
@@ -145,6 +155,7 @@ export const APP_HOST_PROFILES = {
       autoRegisterIdentity: true,
       explorerPeerSharing: false,
       panePeerUserIds: false,
+      promptAccountName: true,
       seedPeerIdentities: false,
     },
     paneRuntimePolicy: "shared",
@@ -158,6 +169,7 @@ export const APP_HOST_PROFILES = {
       autoRegisterIdentity: true,
       explorerPeerSharing: true,
       panePeerUserIds: true,
+      promptAccountName: false,
       seedPeerIdentities: true,
     },
     paneRuntimePolicy: "isolated",
@@ -175,6 +187,7 @@ export const APP_HOST_PROFILES = {
       autoRegisterIdentity: false,
       explorerPeerSharing: false,
       panePeerUserIds: false,
+      promptAccountName: false,
       seedPeerIdentities: false,
     },
     paneRuntimePolicy: "shared",

@@ -33,6 +33,22 @@ export function MiniAppModalForm({
 }
 
 /**
+ * Sets a runtime value apart from a modal's copy: the phrase a confirmation
+ * asks the user to type, or the name of what the action will change.
+ */
+export function MiniAppModalHighlight({
+  className,
+  ...props
+}: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      {...props}
+      className={classNames("mini-app-modal-highlight", className)}
+    />
+  );
+}
+
+/**
  * Replaces the whole modal panel while its action runs: an in-flight action
  * cannot be cancelled, so the form gives way to one centered spinner, title,
  * and optional description rather than a spinner inside the submit button.

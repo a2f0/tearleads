@@ -8,7 +8,7 @@ import {
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 // Every head family is exercised together: root, reserved and app-owned
 // containers, their metadata documents and both profile documents.
@@ -179,11 +179,9 @@ test.each(["admin", "member", "organization"] as const)(
         ).loadPrincipalPolicyCheckpoint(state.principalType, state.principalId),
       ).toEqual(before);
       expect(
-        await loadPrincipalPolicyBundle(
+        await new PrincipalPolicyBundleRepository(
           execSql,
-          state.principalType,
-          state.principalId,
-        ),
+        ).loadPrincipalPolicyBundle(state.principalType, state.principalId),
       ).toEqual(advanced);
       expect(
         await execSql(

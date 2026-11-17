@@ -9,7 +9,7 @@ import {
   verifyPrincipalPolicySnapshots,
 } from "../../../../test/helpers/principalPolicySnapshotVerification";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { savePrincipalPolicyBundle } from "../../persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   commitProjectionCheckpoints,
   createProjectionCheckpointContext,
@@ -36,12 +36,9 @@ test("cached bundle signer mismatch remains typed through projection verificatio
   const database = await createTestExecSql("cached-policy-signer-mismatch");
   const wrongKey = generateSigningSeedAndKeyPair().signingPublicKey;
   try {
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       database.execSql,
-      fixture.adminBundle,
-      new Date().toISOString(),
-      "organization",
-    );
+    ).savePrincipalPolicyBundle(fixture.adminBundle, "organization");
     await expect(
       collectReferencedPrincipalPolicies({
         checkpointContext: createProjectionCheckpointContext({

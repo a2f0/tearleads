@@ -3,9 +3,9 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
 import { runWithSecurityIncidentReporting } from "../../../data/keyingProjectionVerification/error";
-import { purgeRemoteDocument } from "./index";
 
 test("a retry after a lost successful purge response verifies the retained proof and completes", async () => {
   const { author, resolveProjectionUserKey, writerProjection } =
@@ -18,8 +18,8 @@ test("a retry after a lost successful purge response verifies the retained proof
   let proofCommits = 0;
 
   try {
-    const response = await purgeRemoteDocument({
-      apiClient: {
+    const response = await createRemoteDocumentServiceFixture({
+      api: {
         getDocumentPurgeProof: async () => {
           proofFetches += 1;
           return proof;
@@ -35,9 +35,10 @@ test("a retry after a lost successful purge response verifies the retained proof
           throw new Error("Purge must not be submitted twice");
         },
       },
+      execSql,
+    }).purgeRemoteDocument({
       author,
       documentId: writerProjection.documentId,
-      execSql,
       onVerifiedPurge: async ({ commitPurgeProof }) => {
         await commitPurgeProof(execSql);
         proofCommits += 1;
@@ -81,8 +82,8 @@ test("a deletion hint followed by an unavailable proof preserves local data with
           objectId: writerProjection.documentId,
         },
         () =>
-          purgeRemoteDocument({
-            apiClient: {
+          createRemoteDocumentServiceFixture({
+            api: {
               getDocumentPurgeProof: async () => null,
               getDocumentWriterProjectionResult: async () => ({
                 code: DOCUMENT_NOT_FOUND_ERROR_CODE,
@@ -95,9 +96,10 @@ test("a deletion hint followed by an unavailable proof preserves local data with
                 throw new Error("Purge must not be submitted twice");
               },
             },
+            execSql: database.execSql,
+          }).purgeRemoteDocument({
             author,
             documentId: writerProjection.documentId,
-            execSql: database.execSql,
             onVerifiedPurge: () => {
               deletions += 1;
             },

@@ -1,10 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  buildMaterializedContainerRekeyPlan,
-  createRemoteContainer,
-  rekeyRemoteContainer,
-  shareRemoteContainer,
-} from "@tearleads/client-sdk";
+import { buildMaterializedContainerRekeyPlan } from "@tearleads/client-sdk";
 import { createTestUser } from "@tearleads/test-utils";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -43,12 +38,9 @@ test("a rotation carries the levels above a granted container, so a leaf-only wr
   const context = await createAncestorSdkContext(owner, organizationId, writer);
   try {
     const createChild = async (parentContainerId: string) => {
-      const child = await createRemoteContainer({
-        ...context.common,
+      const child = await context.containers.createRemoteContainer({
+        ...context.mutation,
         parentContainerId,
-        parentSecretKey: owner.kem.secretKey,
-        reportSecurityIncident: async () => undefined,
-        resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
       });
       if (!child) throw new Error("Expected child");
       return child.containerId;
@@ -60,13 +52,11 @@ test("a rotation carries the levels above a granted container, so a leaf-only wr
       organizationId,
       owner,
     });
-    const shared = await shareRemoteContainer({
-      ...context.common,
+    const shared = await context.containers.shareRemoteContainer({
+      ...context.mutation,
       accessLevel: "write",
       containerId: leafId,
       recipientUserId: writer.userId,
-      reportSecurityIncident: async () => undefined,
-      resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
     });
     expect(shared).not.toBeNull();
 
@@ -101,10 +91,9 @@ test("a rotation carries the levels above a granted container, so a leaf-only wr
 
     // The SDK answers that refusal itself: one retry, the intermediate's rekey
     // carried, both committed together.
-    const rotated = await rekeyRemoteContainer({
-      ...context.common,
+    const rotated = await context.containers.rekeyRemoteContainer({
+      ...context.mutation,
       containerId: rootId,
-      reportSecurityIncident: async () => undefined,
     });
     expect(
       rotated?.response.containerRekeys?.map((rekey) => rekey.containerId),
@@ -190,12 +179,9 @@ test("nested grants: every level above any granted container rides the rotation"
     const chain: string[] = [];
     let parentContainerId = rootId;
     for (let level = 0; level < 4; level += 1) {
-      const child = await createRemoteContainer({
-        ...context.common,
+      const child = await context.containers.createRemoteContainer({
+        ...context.mutation,
         parentContainerId,
-        parentSecretKey: owner.kem.secretKey,
-        reportSecurityIncident: async () => undefined,
-        resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
       });
       if (!child) throw new Error("Expected child");
       chain.push(child.containerId);
@@ -212,21 +198,18 @@ test("nested grants: every level above any granted container rides the rotation"
       [b, upper],
       [d, lower],
     ] as const) {
-      const shared = await shareRemoteContainer({
-        ...context.common,
+      const shared = await context.containers.shareRemoteContainer({
+        ...context.mutation,
         accessLevel: "write",
         containerId,
         recipientUserId: recipient.userId,
-        reportSecurityIncident: async () => undefined,
-        resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
       });
       expect(shared).not.toBeNull();
     }
 
-    const rotated = await rekeyRemoteContainer({
-      ...context.common,
+    const rotated = await context.containers.rekeyRemoteContainer({
+      ...context.mutation,
       containerId: rootId,
-      reportSecurityIncident: async () => undefined,
     });
     expect(
       rotated?.response.containerRekeys?.map((rekey) => rekey.containerId),

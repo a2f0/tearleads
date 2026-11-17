@@ -17,10 +17,7 @@ import {
 } from "../../../src/mini-apps/system-monitor/systemMonitorMode";
 import { useCryptoSession } from "../../../src/providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../../src/providers/db/DatabaseProvider";
-import {
-  DeveloperModeProvider,
-  saveDeveloperMode,
-} from "../../../src/providers/developer-mode/DeveloperModeProvider";
+import { saveDeveloperMode } from "../../../src/providers/developer-mode/DeveloperModeProvider";
 import { useIdentity } from "../../../src/providers/identity/IdentityProvider";
 import {
   DualPaneProvider,
@@ -28,6 +25,7 @@ import {
 } from "../../../src/shell/pane/dual-pane";
 import { PaneProvider } from "../../../src/shell/pane/runtime/PaneProvider";
 import { Pane } from "../../../src/shell/pane/shell/Pane";
+import { AppLayoutTestProviders } from "../appLayoutTestProviders";
 import { AppTestRuntimeScopeProbe } from "../appRuntimeIdle";
 import { truncateText } from "../dualPaneRequestSummary";
 import { createTestHostConfig, flattenPaneStatusText } from "../paneTestUtils";
@@ -199,7 +197,7 @@ export function renderDualPane({
   saveSystemMonitorMode(systemMonitorModeStorageKey("right"), "pinned");
 
   return renderEmptyDesktop(
-    <DeveloperModeProvider>
+    <AppLayoutTestProviders>
       <DualPaneProvider>
         <PaneSideProvider side="left">
           <PaneProvider hostConfig={hostConfig}>
@@ -218,7 +216,7 @@ export function renderDualPane({
           </RightPaneProvider>
         </PaneSideProvider>
       </DualPaneProvider>
-    </DeveloperModeProvider>,
+    </AppLayoutTestProviders>,
   );
 }
 
@@ -234,7 +232,7 @@ export function renderSinglePane({
   saveDeveloperMode(developerMode ? "enabled" : "disabled");
 
   return renderEmptyDesktop(
-    <DeveloperModeProvider>
+    <AppLayoutTestProviders>
       <DualPaneProvider>
         <PaneSideProvider side="left">
           <PaneProvider hostConfig={hostConfig}>
@@ -244,7 +242,7 @@ export function renderSinglePane({
           </PaneProvider>
         </PaneSideProvider>
       </DualPaneProvider>
-    </DeveloperModeProvider>,
+    </AppLayoutTestProviders>,
   );
 }
 

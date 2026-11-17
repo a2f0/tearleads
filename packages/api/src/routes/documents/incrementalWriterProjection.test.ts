@@ -1,9 +1,8 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import {
-  createRemoteContainer,
+  ContainerMutationService,
   createRemoteDocument,
-  rekeyRemoteContainer,
   syncRemoteDocument,
 } from "@tearleads/client-sdk";
 import {
@@ -97,6 +96,13 @@ test("real document projections cite held manifests through links, rotations and
     reportSecurityIncident: async () => undefined,
     resolveTrustedUserIdentity: device.resolveTrustedUserIdentity,
   };
+  const containers = new ContainerMutationService({
+    api: client,
+    encapsulationSecretKey: device.common.targetSecretKey,
+    execSql: device.common.execSql,
+    reportSecurityIncident: common.reportSecurityIncident,
+    resolveTrustedUserIdentity: device.resolveTrustedUserIdentity,
+  });
   try {
     const created = await createRemoteDocument({
       ...common,
@@ -110,10 +116,9 @@ test("real document projections cite held manifests through links, rotations and
       createdResponse,
     );
     const linkChild = async () => {
-      const child = await createRemoteContainer({
-        ...common,
+      const child = await containers.createRemoteContainer({
+        ...device.mutation,
         parentContainerId: root.kekState.containerId,
-        parentSecretKey: owner.kem.secretKey,
       });
       if (!child) throw new Error("Expected encrypted child");
       const request = await buildDocumentLinkRequest({
@@ -212,10 +217,14 @@ test("real document projections cite held manifests through links, rotations and
     expect(samples[2]?.documentHistory).toBe(2);
     expect(samples[2]?.omitted).toBeGreaterThan(0);
     expect(
-      await rekeyRemoteContainer({
-        ...rotator.common,
-        apiClient: client,
+      await new ContainerMutationService({
+        api: client,
+        encapsulationSecretKey: rotator.common.targetSecretKey,
+        execSql: rotator.common.execSql,
         reportSecurityIncident: async () => undefined,
+        resolveTrustedUserIdentity: rotator.resolveTrustedUserIdentity,
+      }).rekeyRemoteContainer({
+        ...rotator.mutation,
         containerId: root.kekState.containerId,
       }),
     ).not.toBeNull();

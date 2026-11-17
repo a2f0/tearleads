@@ -1,0 +1,151 @@
+import { and, eq } from "drizzle-orm";
+import {
+  organizationProvisioningAttempts,
+  organizationProvisioningAttemptTables,
+} from "../../sqlite/schema/organizationProvisioningAttemptSchema";
+import {
+  type ClientSQLiteTransactionScope,
+  getClientSQLitePersistenceRuntime,
+} from "../../sqlite/sqlitePersistenceRuntime";
+import {
+  type ExecSql,
+  ensureSqlTables,
+  runSerializedSqlMutation,
+} from "../../sqlite/sqlSchema";
+
+interface OrganizationProvisioningAttemptRecord {
+  readonly replacedOrganizationId: string;
+  readonly userId: string;
+  readonly organizationId: string;
+  readonly rootContainerId: string;
+  readonly serializedArtifacts: string;
+}
+
+/**
+ * Organization provisioning attempts, bound to one executor and clock: the
+ * signed artifacts a replacement or creation reuses after a crash, keyed by the
+ * organization it replaces or the user's creation intent.
+ */
+export class OrganizationProvisioningAttemptRepository {
+  private readonly execSql: ExecSql;
+  private readonly now: () => Date;
+
+  constructor(execSql: ExecSql, now: () => Date = () => new Date()) {
+    this.execSql = execSql;
+    this.now = now;
+  }
+
+  async load(
+    replacedOrganizationId: string,
+  ): Promise<OrganizationProvisioningAttemptRecord | null> {
+    await ensureSqlTables(this.execSql, organizationProvisioningAttemptTables);
+    const [stored] = await getClientSQLitePersistenceRuntime(this.execSql)
+      .db.select({
+        replacedOrganizationId:
+          organizationProvisioningAttempts.replacedOrganizationId,
+        userId: organizationProvisioningAttempts.userId,
+        organizationId: organizationProvisioningAttempts.organizationId,
+        rootContainerId: organizationProvisioningAttempts.rootContainerId,
+        serializedArtifacts:
+          organizationProvisioningAttempts.serializedArtifacts,
+      })
+      .from(organizationProvisioningAttempts)
+      .where(
+        eq(
+          organizationProvisioningAttempts.replacedOrganizationId,
+          replacedOrganizationId,
+        ),
+      );
+    return stored ?? null;
+  }
+
+  async loadOrSave(
+    candidate: OrganizationProvisioningAttemptRecord & {
+      readonly creationIntent?: string | undefined;
+    },
+    canSave?: (() => boolean) | undefined,
+  ): Promise<OrganizationProvisioningAttemptRecord | null> {
+    return runSerializedSqlMutation(this.execSql, async (lockedExecSql) => {
+      await ensureSqlTables(
+        lockedExecSql,
+        organizationProvisioningAttemptTables,
+      );
+      if (canSave && !canSave()) return null;
+      const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
+      await db
+        .insert(organizationProvisioningAttempts)
+        .values({ ...candidate, createdAt: this.now().toISOString() })
+        .onConflictDoNothing()
+        .run();
+      const [stored] = await db
+        .select({
+          replacedOrganizationId:
+            organizationProvisioningAttempts.replacedOrganizationId,
+          userId: organizationProvisioningAttempts.userId,
+          organizationId: organizationProvisioningAttempts.organizationId,
+          rootContainerId: organizationProvisioningAttempts.rootContainerId,
+          serializedArtifacts:
+            organizationProvisioningAttempts.serializedArtifacts,
+        })
+        .from(organizationProvisioningAttempts)
+        .where(
+          candidate.creationIntent
+            ? and(
+                eq(organizationProvisioningAttempts.userId, candidate.userId),
+                eq(
+                  organizationProvisioningAttempts.creationIntent,
+                  candidate.creationIntent,
+                ),
+              )
+            : eq(
+                organizationProvisioningAttempts.replacedOrganizationId,
+                candidate.replacedOrganizationId,
+              ),
+        );
+      if (!stored) {
+        throw new Error("Organization provisioning attempt was not persisted");
+      }
+      return stored;
+    });
+  }
+
+  async remove(
+    input: {
+      organizationId?: string | undefined;
+      replacedOrganizationId: string;
+      userId: string;
+    },
+    canCommit?: (() => boolean) | undefined,
+  ): Promise<boolean> {
+    await ensureSqlTables(this.execSql, organizationProvisioningAttemptTables);
+    if (canCommit && !canCommit()) return false;
+    const runtime = getClientSQLitePersistenceRuntime(this.execSql);
+    const remove = async (tx: ClientSQLiteTransactionScope) => {
+      await tx
+        .delete(organizationProvisioningAttempts)
+        .where(
+          and(
+            eq(
+              organizationProvisioningAttempts.replacedOrganizationId,
+              input.replacedOrganizationId,
+            ),
+            eq(organizationProvisioningAttempts.userId, input.userId),
+            ...(input.organizationId
+              ? [
+                  eq(
+                    organizationProvisioningAttempts.organizationId,
+                    input.organizationId,
+                  ),
+                ]
+              : []),
+          ),
+        )
+        .run();
+    };
+    if (!canCommit) {
+      await runtime.transaction(remove);
+      return true;
+    }
+    return (await runtime.guardedTransaction(remove, canCommit)).committed;
+  }
+}

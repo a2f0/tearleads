@@ -1,0 +1,235 @@
+import { afterEach, expect, spyOn, test } from "bun:test";
+import {
+  type ContainerDocumentQueries,
+  type ContainerNode,
+  createDomainScope,
+  type DocumentSummary,
+  syncedContainerDocumentObjectSyncState,
+} from "@tearleads/client-sdk";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
+import * as Contact from "../contact/ContactDocumentApp";
+import * as Notes from "../note/NoteDocumentApp";
+import { getDocumentTypeDefinition } from "../registry";
+import { ContainerDocumentView } from "./ContainerDocumentView";
+
+afterEach(cleanup);
+const node: ContainerNode = {
+  id: "folder",
+  kind: "container",
+  name: "Person",
+  parentId: null,
+  organizationId: "org",
+  effectiveAccessLevel: "admin",
+  syncState: syncedContainerDocumentObjectSyncState,
+  primaryDocumentId: "remote-contact",
+};
+const contact: DocumentSummary = {
+  id: "local-contact",
+  documentId: "remote-contact",
+  documentKind: "contact",
+  containerId: "folder",
+  title: "Ada",
+  updatedAt: "now",
+  effectiveAccessLevel: "read",
+};
+const scope = createDomainScope();
+function props(overrides = {}) {
+  return {
+    node,
+    scope,
+    revision: 0,
+    readOnly: false,
+    onOpenDocument: () => {},
+    documentQueries: {
+      loadContainerDocumentSummary: async () => contact,
+      listContainerDocumentSidebarWindow: async () => ({
+        rows: [],
+        totalCount: 0,
+      }),
+    } as unknown as ContainerDocumentQueries,
+    ...overrides,
+  };
+}
+
+test("missing primary falls back to contents without management controls", async () => {
+  const view = render(
+    <ContainerDocumentView
+      {...props({
+        documentQueries: {
+          ...props().documentQueries,
+          loadContainerDocumentSummary: async () => null,
+        },
+      })}
+    >
+      <div>Normal listing</div>
+    </ContainerDocumentView>,
+  );
+  await waitFor(() =>
+    expect(
+      view.queryByText(
+        "Primary document is unavailable on this device. Showing contents.",
+      ) !== null,
+    ).toBe(true),
+  );
+  expect(view.queryByText("Normal listing") !== null).toBe(true);
+  expect(view.queryByRole("combobox", { name: "Primary document" })).toBeNull();
+  expect(view.queryByRole("button", { name: /primary document/i })).toBeNull();
+});
+
+test("contact view shows scoped read-only notes below it in bounded pages", async () => {
+  const renderer = spyOn(Contact, "ContactDocumentApp").mockImplementation(
+    () => <div>Contact panel</div>,
+  );
+  const noteRenderer = spyOn(Notes, "NoteDocumentApp").mockImplementation(
+    (p) => (
+      <div>
+        {p.localId}:{p.containerId}:{String(p.readOnly)}
+      </div>
+    ),
+  );
+  const requests: unknown[] = [];
+  const queries = {
+    ...props().documentQueries,
+    listContainerDocumentSidebarWindow: async (input: {
+      containerId: string;
+      offset: number;
+      limit: number;
+      documentKind?: string;
+    }) => {
+      requests.push(input);
+      return {
+        totalCount: 6,
+        rows: Array.from(
+          { length: Math.min(input.limit, 6 - input.offset) },
+          (_, i) => ({
+            localId: `note-${input.offset + i}`,
+            documentId: `remote-note-${input.offset + i}`,
+            documentKind: "note",
+            containerId: "folder",
+            title: `Note ${input.offset + i}`,
+            updatedAt: null,
+            syncState: syncedContainerDocumentObjectSyncState,
+          }),
+        ),
+      };
+    },
+  };
+  try {
+    const view = render(
+      <ContainerDocumentView {...props({ documentQueries: queries })}>
+        <div>Normal listing</div>
+      </ContainerDocumentView>,
+    );
+    await waitFor(() =>
+      expect(view.queryByText("note-0:folder:true") !== null).toBe(true),
+    );
+    expect(view.container.textContent?.indexOf("Contact panel")).toBeLessThan(
+      view.container.textContent?.indexOf("note-0") ?? 0,
+    );
+    expect(view.queryByText("note-5:folder:true")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Next notes" }));
+    await waitFor(() =>
+      expect(view.queryByText("note-5:folder:true") !== null).toBe(true),
+    );
+    expect(view.queryByText("note-0:folder:true")).toBeNull();
+    expect(requests).toEqual([
+      { containerId: "folder", documentKind: "note", offset: 0, limit: 5 },
+      { containerId: "folder", documentKind: "note", offset: 5, limit: 5 },
+    ]);
+  } finally {
+    renderer.mockRestore();
+    noteRenderer.mockRestore();
+  }
+});
+
+test("registered primary renders with its exact identity and can return to Contents", async () => {
+  const definition = getDocumentTypeDefinition("contact");
+  const renderer = spyOn(definition, "ContainerView").mockImplementation(
+    (p) => (
+      <div>
+        Contact {p.localId} in {p.containerId}
+      </div>
+    ),
+  );
+  try {
+    const view = render(
+      <ContainerDocumentView {...props()}>
+        <div>Normal listing</div>
+      </ContainerDocumentView>,
+    );
+    await waitFor(() =>
+      expect(view.queryByText("Contact local-contact in folder") !== null).toBe(
+        true,
+      ),
+    );
+    expect(view.queryByText("Normal listing")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Contents" }));
+    expect(view.queryByText("Normal listing") !== null).toBe(true);
+    await act(async () => {
+      fireEvent.click(view.getByRole("button", { name: "Contact view" }));
+    });
+    expect(view.queryByText("Contact local-contact in folder") !== null).toBe(
+      true,
+    );
+  } finally {
+    renderer.mockRestore();
+  }
+});
+
+test.each(["note", "future-kind"])(
+  "%s primary without a specialized view shows the default notes view",
+  async (documentKind) => {
+    const noteRenderer = spyOn(Notes, "NoteDocumentApp").mockImplementation(
+      (p) => <div>preview {p.localId}</div>,
+    );
+    const queries = {
+      ...props().documentQueries,
+      loadContainerDocumentSummary: async () => ({
+        ...contact,
+        documentKind,
+        title: "Follow-up",
+      }),
+      listContainerDocumentSidebarWindow: async () => ({
+        totalCount: 1,
+        rows: [
+          {
+            localId: "note-0",
+            documentId: "remote-note-0",
+            documentKind: "note",
+            containerId: "folder",
+            title: "Note 0",
+            updatedAt: null,
+            syncState: syncedContainerDocumentObjectSyncState,
+          },
+        ],
+      }),
+    };
+    try {
+      const view = render(
+        <ContainerDocumentView {...props({ documentQueries: queries })}>
+          <div>Normal listing</div>
+        </ContainerDocumentView>,
+      );
+      await waitFor(() =>
+        expect(view.queryByText("preview note-0")).not.toBeNull(),
+      );
+      expect(view.getByRole("heading", { name: "Follow-up" })).toBeTruthy();
+      expect(view.queryByText("Normal listing")).toBeNull();
+      expect(view.queryByRole("button", { name: "Contact view" })).toBeNull();
+      fireEvent.click(view.getByRole("button", { name: "Contents" }));
+      expect(view.queryByText("Normal listing")).not.toBeNull();
+      fireEvent.click(view.getByRole("button", { name: "Notes view" }));
+      await waitFor(() =>
+        expect(view.queryByText("preview note-0")).not.toBeNull(),
+      );
+    } finally {
+      noteRenderer.mockRestore();
+    }
+  },
+);

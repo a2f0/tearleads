@@ -14,14 +14,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
-import {
-  ensurePrincipalPolicyTables,
-  loadAllPrincipalPolicyBundles,
-  loadPrincipalPolicyBundle,
-  loadPrincipalPolicyStateHash,
-  savePrincipalPolicyBundle,
-} from "./principalPolicyPersistence";
-import { retainVerifiedPrincipalPolicyBundle } from "./verifiedPrincipalPolicyRetentionPersistence";
+import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 
 async function createPrincipalPolicyBundle() {
   const principalKem = generateKemSeedAndKeyPair();
@@ -187,19 +180,24 @@ test("principal policy persistence stores and reloads the current verified bundl
   try {
     const { bundle, stateHash } = await createPrincipalPolicyBundle();
 
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-04-08T00:01:00.000Z",
-      "org-1",
-    );
+    ).ensurePrincipalPolicyTables();
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).savePrincipalPolicyBundle(bundle, "org-1");
 
     await expect(
-      loadPrincipalPolicyStateHash(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyStateHash(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBe(stateHash);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(bundle);
   } finally {
     close();
@@ -229,18 +227,13 @@ test("principal policy persistence rejects a competing head at the cached versio
         stateHash: competingStateHash,
       },
     };
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-04-08T00:01:00.000Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-1");
 
     await expect(
-      savePrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).savePrincipalPolicyBundle(
         competingBundle,
-        "2026-04-08T00:02:00.000Z",
         "org-1",
       ),
     ).rejects.toMatchObject({
@@ -248,7 +241,10 @@ test("principal policy persistence rejects a competing head at the cached versio
       name: "KeyingVerificationError",
     });
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(bundle);
   } finally {
     close();
@@ -268,12 +264,9 @@ test("principal policy persistence rejects a stored-head fork below a newer chec
       storedVersion2,
       "3",
     );
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      storedVersion2,
-      "2026-04-08T00:01:00.000Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(storedVersion2, "org-1");
     await new KeyingCheckpointRepository(
       execSql,
     ).advanceKeyingCheckpointsAtomically({
@@ -286,10 +279,8 @@ test("principal policy persistence rejects a stored-head fork below a newer chec
     });
 
     await expect(
-      savePrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).savePrincipalPolicyBundle(
         competingVersion2,
-        "2026-04-08T00:02:00.000Z",
         "org-1",
       ),
     ).rejects.toMatchObject({
@@ -297,7 +288,10 @@ test("principal policy persistence rejects a stored-head fork below a newer chec
       name: "KeyingVerificationError",
     });
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(storedVersion2);
   } finally {
     close();
@@ -310,12 +304,22 @@ test("principal policy persistence reads from a fresh database before any bundle
   );
 
   try {
-    await expect(loadAllPrincipalPolicyBundles(execSql)).resolves.toEqual([]);
     await expect(
-      loadPrincipalPolicyStateHash(execSql, "group", "missing-group"),
+      new PrincipalPolicyBundleRepository(
+        execSql,
+      ).loadAllPrincipalPolicyBundles(),
+    ).resolves.toEqual([]);
+    await expect(
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyStateHash(
+        "group",
+        "missing-group",
+      ),
     ).resolves.toBeNull();
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "missing-group"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "missing-group",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -330,29 +334,25 @@ test("principal policy persistence retains old epoch material without allowing c
   try {
     const { bundle } = await createPrincipalPolicyBundle();
     const successor = successorBundleForPersistence(bundle);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-04-08T00:01:00.000Z",
-      "org-1",
-    );
-    await savePrincipalPolicyBundle(
+    ).savePrincipalPolicyBundle(bundle, "org-1");
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      successor,
-      "2026-04-08T00:02:00.000Z",
-      "org-1",
-    );
-    await savePrincipalPolicyBundle(
+    ).savePrincipalPolicyBundle(successor, "org-1");
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      "2026-04-08T00:03:00.000Z",
-      "org-1",
-    );
+    ).savePrincipalPolicyBundle(bundle, "org-1");
 
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toEqual(successor);
-    const bundles = await loadAllPrincipalPolicyBundles(execSql);
+    const bundles = await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).loadAllPrincipalPolicyBundles();
     expect(bundles.map((entry) => entry.currentState.stateHash).sort()).toEqual(
       [bundle.currentState.stateHash, successor.currentState.stateHash].sort(),
     );
@@ -374,16 +374,14 @@ test.each(["save-v2-before-v3", "save-v3-before-v2"])(
       const version3 = successorBundleForPersistence(version2, "3");
       const verified2 = verifiedPolicyForPersistence(version2);
       const verified3 = verifiedPolicyForPersistence(version3);
-      await savePrincipalPolicyBundle(
+      await new PrincipalPolicyBundleRepository(
         execSql,
-        version1,
-        "2026-04-08T00:01:00Z",
-        "org-1",
-      );
-      await retainVerifiedPrincipalPolicyBundle({
+      ).savePrincipalPolicyBundle(version1, "org-1");
+      await new PrincipalPolicyBundleRepository(
+        execSql,
+      ).retainVerifiedPrincipalPolicyBundle({
         organizationId: "org-1",
         bundle: version2,
-        execSql,
         policy: verified2,
         updatedAt: "2026-04-08T00:02:00Z",
       });
@@ -396,34 +394,30 @@ test.each(["save-v2-before-v3", "save-v3-before-v2"])(
       });
 
       if (ordering === "save-v2-before-v3") {
-        await savePrincipalPolicyBundle(
+        await new PrincipalPolicyBundleRepository(
           execSql,
-          version2,
-          "2026-04-08T00:03:00Z",
-          "org-1",
-        );
+        ).savePrincipalPolicyBundle(version2, "org-1");
       }
-      await savePrincipalPolicyBundle(
+      await new PrincipalPolicyBundleRepository(
         execSql,
-        version3,
-        "2026-04-08T00:04:00Z",
-        "org-1",
-      );
+      ).savePrincipalPolicyBundle(version3, "org-1");
       if (ordering === "save-v3-before-v2") {
-        await savePrincipalPolicyBundle(
+        await new PrincipalPolicyBundleRepository(
           execSql,
-          version2,
-          "2026-04-08T00:05:00Z",
-          "org-1",
-        );
+        ).savePrincipalPolicyBundle(version2, "org-1");
       }
 
       await expect(
-        loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+        new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+          "group",
+          "group-1",
+        ),
       ).resolves.toEqual(version3);
-      const stateHashes = (await loadAllPrincipalPolicyBundles(execSql)).map(
-        (entry) => entry.currentState.stateHash,
-      );
+      const stateHashes = (
+        await new PrincipalPolicyBundleRepository(
+          execSql,
+        ).loadAllPrincipalPolicyBundles()
+      ).map((entry) => entry.currentState.stateHash);
       expect([...new Set(stateHashes)].sort()).toEqual(
         [version1, version2, version3]
           .map((entry) => entry.currentState.stateHash)
@@ -446,15 +440,20 @@ test("verified policy retention rejects a mismatched proof", async () => {
     const differentVersion2 = successorBundleForPersistence(version1, "4");
 
     await expect(
-      retainVerifiedPrincipalPolicyBundle({
+      new PrincipalPolicyBundleRepository(
+        execSql,
+      ).retainVerifiedPrincipalPolicyBundle({
         organizationId: "org-1",
         bundle: version2,
-        execSql,
         policy: verifiedPolicyForPersistence(differentVersion2),
         updatedAt: "2026-04-08T00:02:00Z",
       }),
     ).rejects.toThrow("Verified principal policy bundle history mismatch");
-    await expect(loadAllPrincipalPolicyBundles(execSql)).resolves.toEqual([]);
+    await expect(
+      new PrincipalPolicyBundleRepository(
+        execSql,
+      ).loadAllPrincipalPolicyBundles(),
+    ).resolves.toEqual([]);
   } finally {
     close();
   }

@@ -1,0 +1,10 @@
+.account-name-prompt {
+  display: flex;
+  gap: var(--space-sm);
+  width: min(100%, 20rem);
+}
+
+.account-name-prompt .mini-app-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}

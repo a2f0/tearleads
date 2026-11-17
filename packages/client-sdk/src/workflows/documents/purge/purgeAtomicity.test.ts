@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
-import { purgeRemoteDocument } from "./index";
 
 test("purge does not commit its proof outside atomic local teardown", async () => {
   const { author, resolveProjectionUserKey, writerProjection } =
@@ -15,8 +15,8 @@ test("purge does not commit its proof outside atomic local teardown", async () =
 
   try {
     await expect(
-      purgeRemoteDocument({
-        apiClient: {
+      createRemoteDocumentServiceFixture({
+        api: {
           getDocumentPurgeProof: async () => {
             throw new Error("Unexpected purge proof fetch");
           },
@@ -29,9 +29,10 @@ test("purge does not commit its proof outside atomic local teardown", async () =
             reclaimedBlobStorageKeys: [],
           }),
         },
+        execSql,
+      }).purgeRemoteDocument({
         author,
         documentId: writerProjection.documentId,
-        execSql,
         onVerifiedPurge: () => {
           throw new Error("Atomic local teardown failed");
         },
@@ -66,8 +67,8 @@ test("purge rejects a cross-organization projection before posting", async () =>
 
   try {
     await expect(
-      purgeRemoteDocument({
-        apiClient: {
+      createRemoteDocumentServiceFixture({
+        api: {
           getDocumentPurgeProof: async () => {
             throw new Error("Unexpected purge proof fetch");
           },
@@ -80,9 +81,10 @@ test("purge rejects a cross-organization projection before posting", async () =>
             throw new Error("Unexpected purge post");
           },
         },
+        execSql,
+      }).purgeRemoteDocument({
         author: local.author,
         documentId: local.writerProjection.documentId,
-        execSql,
         onVerifiedPurge: () => {
           throw new Error("Unexpected local teardown");
         },
