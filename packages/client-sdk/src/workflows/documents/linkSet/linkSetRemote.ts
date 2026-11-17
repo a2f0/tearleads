@@ -3,11 +3,10 @@ import type {
   DocumentLinkAccessEventBody,
 } from "@tearleads/crypto";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
-import {
-  type ContainerWriterProjectionResponse,
-  DOCUMENT_MUTATION_ERROR_CODES,
-  type DocumentLinkSetMutationResponse,
-  type DocumentWriterProjectionResponse,
+import type {
+  ContainerWriterProjectionResponse,
+  DocumentLinkSetMutationResponse,
+  DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
   acknowledgedDocumentLinkSetMutation,
@@ -41,36 +40,59 @@ import {
   prepareDocumentLinkBlobRewraps,
   reuseCommittedBlobRewraps,
 } from "./linkSetBlobRewraps";
+import {
+  INITIAL_LINK_SET_LEG_STATE,
+  isSpeculativeRewrapSource,
+  type LinkSetRewrapSource,
+  type LinkSetSubmitFailure,
+  transitionLinkSetLeg,
+} from "./linkSetLegMachine";
 import { seedLinkSetWriterProjection } from "./linkSetProjectionSeed";
 
 async function submitLinkSetMutation(input: {
   apiClient: DocumentLinkSetMutationApi;
   documentId: string;
   expectedOrganizationId: string;
-  onFailure?: DocumentLinkSetFailureHandler | undefined;
+  onFailure: (failure: LinkSetSubmitFailure) => void;
   operation: DocumentLinkSetMutationOperation;
   request: DocumentLinkSetMutationRequest;
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<DocumentLinkSetMutationResponse | null> {
   if (input.stillCurrent?.() === false) return null;
   const { apiClient } = input;
-  // Preserve the HTTP failure for the durable move-intent queue.
+  // Preserve the HTTP failure for the durable move-intent queue. Its host
+  // report waits until the leg knows the refusal is not one it recovers from.
   const resultFn =
     input.operation === "link"
       ? apiClient.linkDocumentResult.bind(apiClient)
       : apiClient.unlinkDocumentResult.bind(apiClient);
   const result = await resultFn(input.documentId, input.request, {
     expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
+    reportErrors: false,
   });
   if (result.ok) {
     return result.data;
   }
-  input.onFailure?.({
+  input.onFailure({
     code: result.code,
     message: result.message,
+    report: result.report,
     status: result.status,
   });
   return null;
+}
+
+/** Hand a refusal the leg does not recover from to its host and caller. */
+function reportLinkSetFailure(
+  input: Pick<RelinkRemoteDocumentInput, "onFailure">,
+  failure: LinkSetSubmitFailure,
+): void {
+  failure.report();
+  input.onFailure?.({
+    code: failure.code,
+    message: failure.message,
+    status: failure.status,
+  });
 }
 
 interface LinkSetProjectionFetch<TProjection> {
@@ -204,47 +226,21 @@ interface RelinkRemoteDocumentInput extends RelinkRemoteDocumentRequest {
 }
 
 /**
- * What one leg signed, so the workflow can reuse or retry it. A first attempt
- * may cite rewraps without a fresh listing: the previous leg's envelopes
- * (`reused`), or none because the local view holds no attachment (`skipped`).
- * A retry always lists (`listed`), bypassing any cached listing.
+ * What one attempt signed, so the workflow can reuse or retry it. A
+ * speculative attempt may cite rewraps without a fresh listing; a fresh one
+ * lists, bypassing any cached listing.
  */
 interface LinkSetLegAttempt {
   readonly listing: "speculative" | "fresh";
   rewraps: DocumentLinkAccessEventBody["blobRewraps"] | null;
-  source: "listed" | "reused" | "skipped" | null;
-}
-
-function createLinkSetLegAttempt(
-  listing: LinkSetLegAttempt["listing"],
-): LinkSetLegAttempt {
-  return { listing, rewraps: null, source: null };
-}
-
-function isSpeculativeAttempt(attempt: LinkSetLegAttempt): boolean {
-  return attempt.source === "reused" || attempt.source === "skipped";
-}
-
-/**
- * The server's binding check refused rewraps this attempt cited without
- * listing: a coded attachment-set refusal, or for re-cited envelopes the
- * uncoded content-key epoch refusal.
- */
-function refusedSpeculativeRewraps(
-  attempt: LinkSetLegAttempt,
-  failure: DocumentLinkSetMutationFailure,
-): boolean {
-  if (failure.status !== 409) return false;
-  if (failure.code === DOCUMENT_MUTATION_ERROR_CODES.linkAttachmentsChanged)
-    return true;
-  return attempt.source === "reused" && failure.code === undefined;
+  source: LinkSetRewrapSource | null;
 }
 
 /**
  * A leg that cited rewraps without listing and was refused because the
  * attachment set (or a re-cited key epoch) moved lists and retries once, as a
- * leg that listed would have; that first failure is not reported. The retry
- * lists, so it cannot be refused for the same stale view again.
+ * leg that listed would have; that first refusal is neither reported nor
+ * retried once the operation is no longer current (`transitionLinkSetLeg`).
  */
 export async function relinkRemoteDocument(
   remote: RemoteDocumentCollaborators,
@@ -262,38 +258,46 @@ export async function relinkRemoteDocument(
     targetSecretKey: remote.encapsulationSecretKey,
   };
   const reuse = input.attachmentReuse;
-  const failures: DocumentLinkSetMutationFailure[] = [];
-  const attempt = createLinkSetLegAttempt("speculative");
-  const result = await relinkRemoteDocumentOnce(input, attempt, (failure) => {
-    if (isSpeculativeAttempt(attempt)) failures.push(failure);
-    else input.onFailure?.(failure);
-  }).catch((error: unknown) => {
-    // A leg that threw may have committed before failing: list again next.
-    if (reuse) reuse.committed = null;
-    throw error;
-  });
-  if (reuse) reuse.committed = result ? attempt.rewraps : null;
-  if (result || !isSpeculativeAttempt(attempt)) return result;
-  // Any other refusal (stale state, an unavailable container) keeps its own
-  // recovery path.
-  if (
-    !failures.some((failure) => refusedSpeculativeRewraps(attempt, failure))
-  ) {
-    for (const failure of failures) input.onFailure?.(failure);
-    return null;
+  let leg = INITIAL_LINK_SET_LEG_STATE;
+  let result: RelinkRemoteDocumentResult | null = null;
+  while (leg.status === "speculative" || leg.status === "fresh") {
+    const attempt: LinkSetLegAttempt = {
+      listing: leg.status,
+      rewraps: null,
+      source: null,
+    };
+    const heldFailures: LinkSetSubmitFailure[] = [];
+    result = await relinkRemoteDocumentOnce(input, attempt, (failure) => {
+      if (isSpeculativeRewrapSource(attempt.source)) heldFailures.push(failure);
+      else reportLinkSetFailure(input, failure);
+    }).catch((error: unknown) => {
+      // A leg that threw may have committed before failing: list again next.
+      if (reuse) reuse.committed = null;
+      throw error;
+    });
+    if (reuse) reuse.committed = result ? attempt.rewraps : null;
+    leg = transitionLinkSetLeg(
+      leg,
+      result
+        ? { rewraps: attempt.rewraps, type: "attemptCommitted" }
+        : {
+            heldFailures,
+            source: attempt.source,
+            stillCurrent: input.stillCurrent?.() !== false,
+            type: "attemptFailed",
+          },
+    );
   }
-  const retry = createLinkSetLegAttempt("fresh");
-  const retried = await relinkRemoteDocumentOnce(input, retry, (failure) =>
-    input.onFailure?.(failure),
-  );
-  if (reuse) reuse.committed = retried ? retry.rewraps : null;
-  return retried;
+  if (leg.status === "failed") {
+    for (const failure of leg.unreported) reportLinkSetFailure(input, failure);
+  }
+  return result;
 }
 
 async function relinkRemoteDocumentOnce(
   input: RelinkRemoteDocumentInput,
   attempt: LinkSetLegAttempt,
-  onSubmitFailure: DocumentLinkSetFailureHandler,
+  onSubmitFailure: (failure: LinkSetSubmitFailure) => void,
 ): Promise<RelinkRemoteDocumentResult | null> {
   if (input.operation === "unlink" && !input.rotationSnapshot) {
     throw new Error(

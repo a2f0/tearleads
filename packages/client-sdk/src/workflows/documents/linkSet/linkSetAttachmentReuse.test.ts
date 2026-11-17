@@ -1,7 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  computeBlobAccessManifestHash,
-  computeBlobContentKeyTargetHash,
   normalizeDocumentAccessEventBody,
   readKeyingCanonicalJson,
 } from "@tearleads/crypto";
@@ -11,7 +9,6 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import {
-  type BlobAttachmentSummary,
   DOCUMENT_MUTATION_ERROR_CODES,
   type DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -22,11 +19,11 @@ import {
   createUploadedAttachmentFixture,
 } from "../../../../test/helpers/workflows/blobHydration";
 import {
+  bindingWithTargets,
   linkLegFixture,
   linkSetRefusal,
 } from "../../../../test/helpers/workflows/linkSetLegFixture";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
-import { contentKeyTargetReference } from "../../../data/blobs/attachments/readers";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
 import type { DocumentLinkSetMutationFailure } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
@@ -195,39 +192,6 @@ test("a coded refusal of a reused leg keeps its own recovery path", async () => 
   expect(run.result).toBeNull();
   expect(run.reuse.committed).toBeNull();
 });
-
-async function bindingWithTargets(
-  binding: BlobAttachmentSummary,
-  projection: DocumentWriterProjectionResponse,
-  targets: BlobAttachmentSummary["contentKeyBundle"]["targets"],
-): Promise<BlobAttachmentSummary> {
-  const references = targets.map(contentKeyTargetReference);
-  const targetHash = await computeBlobContentKeyTargetHash(references);
-  const current = {
-    ...binding.blobKekTargets,
-    documentManifestHashes: [projection.documentManifest.manifestHash],
-    linkedContainerManifestHashes: references
-      .map((target) => target.containerManifestHash)
-      .sort(),
-    linkedContainerKeyEpochIds: references
-      .map((target) => target.containerKeyEpochId)
-      .sort(),
-    targets: references.map((target) => ({ ...target })),
-    blobKeyTargetHash: targetHash,
-  };
-  const { targets: _targets, blobAccessManifestHash: _old, ...rest } = current;
-  return {
-    ...binding,
-    blobKekTargets: {
-      ...current,
-      blobAccessManifestHash: await computeBlobAccessManifestHash({
-        version: 1,
-        ...rest,
-      }),
-    },
-    contentKeyBundle: { ...binding.contentKeyBundle, targetHash, targets },
-  };
-}
 
 test("an unlink leg re-cites the link leg's attachment wrap, usable with only the destination KEK", async () => {
   const fixture = await createUploadedAttachmentFixture();

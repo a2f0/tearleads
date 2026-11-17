@@ -1,6 +1,14 @@
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  computeBlobAccessManifestHash,
+  computeBlobContentKeyTargetHash,
+  generateKemSeedAndKeyPair,
+} from "@tearleads/crypto";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  BlobAttachmentSummary,
+  DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
+import { contentKeyTargetReference } from "../../../src/data/blobs/attachments/readers";
 import type { DocumentLinkSetMutationFailure } from "../../../src/data/documents/shared/types";
 import { buildMaterializedDocumentCreatePlan } from "../../../src/workflows/documents/create";
 import {
@@ -69,6 +77,7 @@ export async function linkLegFixture(name: string) {
 export function linkSetRefusal(
   documentId: string,
   failure: DocumentLinkSetMutationFailure,
+  onReport: () => void = () => {},
 ) {
   return {
     ...failure,
@@ -76,7 +85,41 @@ export function linkSetRefusal(
     method: "POST" as const,
     ok: false as const,
     path: `/documents/${documentId}/link`,
-    report: () => {},
+    report: onReport,
     statusText: "Conflict",
+  };
+}
+
+/** `binding` as listed once its blob carries exactly `targets`. */
+export async function bindingWithTargets(
+  binding: BlobAttachmentSummary,
+  projection: DocumentWriterProjectionResponse,
+  targets: BlobAttachmentSummary["contentKeyBundle"]["targets"],
+): Promise<BlobAttachmentSummary> {
+  const references = targets.map(contentKeyTargetReference);
+  const targetHash = await computeBlobContentKeyTargetHash(references);
+  const current = {
+    ...binding.blobKekTargets,
+    documentManifestHashes: [projection.documentManifest.manifestHash],
+    linkedContainerManifestHashes: references
+      .map((target) => target.containerManifestHash)
+      .sort(),
+    linkedContainerKeyEpochIds: references
+      .map((target) => target.containerKeyEpochId)
+      .sort(),
+    targets: references.map((target) => ({ ...target })),
+    blobKeyTargetHash: targetHash,
+  };
+  const { targets: _targets, blobAccessManifestHash: _old, ...rest } = current;
+  return {
+    ...binding,
+    blobKekTargets: {
+      ...current,
+      blobAccessManifestHash: await computeBlobAccessManifestHash({
+        version: 1,
+        ...rest,
+      }),
+    },
+    contentKeyBundle: { ...binding.contentKeyBundle, targetHash, targets },
   };
 }

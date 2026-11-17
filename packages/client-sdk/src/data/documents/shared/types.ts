@@ -213,7 +213,11 @@ export type DocumentRotationProofMode = "prove" | "reuse";
 
 type DocumentLinkSetMutationResult =
   | { readonly data: DocumentLinkSetMutationResponse; readonly ok: true }
-  | (DocumentLinkSetMutationFailure & { readonly ok: false });
+  | (DocumentLinkSetMutationFailure & {
+      readonly ok: false;
+      /** The host report a `reportErrors: false` request withheld. */
+      readonly report: () => void;
+    });
 
 export interface DocumentLinkSetMutationApi {
   getBlobBytes(blobId: string): Promise<BlobBytesResponse | null>;
