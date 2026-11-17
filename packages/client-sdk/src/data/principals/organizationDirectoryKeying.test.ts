@@ -85,7 +85,7 @@ test("an unchanged admin projection keeps the key, epoch and envelopes", async (
   const { policy } = await directory([a, b]);
   const keying = await organizationDirectoryKeying({
     currentPolicy: policy,
-    currentUserSecretKey: null,
+    currentUserSecretKey: a.kem.secretKey,
     projection: [b.member, a.member],
     users: [a.identity, b.identity],
   });
@@ -174,14 +174,46 @@ test("an envelope that opens another key rotates a kept or grown directory", asy
     expect(keying.keyEpoch).toBe(4);
     expect(keying.keyFingerprint).not.toBe(policy.currentState.keyFingerprint);
   }
-  // Without the signer's key nothing can be checked, so the key is kept.
-  const kept = await organizationDirectoryKeying({
+  // Without the signer's key nothing can be checked, so the write rotates.
+  const unchecked = await organizationDirectoryKeying({
     currentPolicy: policy,
     currentUserSecretKey: null,
     projection: [a.member, b.member],
     users: [a.identity, b.identity],
   });
-  expect(kept.keyEpoch).toBe(3);
+  expect(unchecked.keyEpoch).toBe(4);
+});
+
+test("a signer envelope that fails to open rotates to a key every admin opens", async () => {
+  const [a, b] = [await admin("a"), await admin("b")];
+  const { policy } = await directory([a, b]);
+  const [signerEnvelope, ...others] = policy.currentMemberEnvelopes.envelopes;
+  if (!signerEnvelope) throw new Error("Missing signer envelope");
+  const tampered: OrganizationDirectoryCurrentPolicy = {
+    ...policy,
+    currentMemberEnvelopes: {
+      envelopes: [
+        { ...signerEnvelope, wrappedKey: others[0]?.wrappedKey ?? "" },
+        ...others,
+      ],
+    },
+  };
+  const keying = await organizationDirectoryKeying({
+    currentPolicy: tampered,
+    currentUserSecretKey: a.kem.secretKey,
+    projection: [a.member, b.member],
+    users: [a.identity, b.identity],
+  });
+  expect(keying.keyEpoch).toBe(4);
+  for (const holder of [a, b]) {
+    const secretKey = await opens(holder, keying.memberEnvelopes);
+    expect(
+      await principalSecretKeyMatchesState(secretKey, {
+        encapsulationPublicKey: keying.encapsulationPublicKey,
+        keyFingerprint: keying.keyFingerprint,
+      }),
+    ).toBe(true);
+  }
 });
 
 test("a grown admin may not share an encapsulation key with a retained one", async () => {
