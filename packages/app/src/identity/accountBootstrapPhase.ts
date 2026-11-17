@@ -142,7 +142,8 @@ const ACCOUNT_BOOTSTRAP_COPY: {
     title: "Creating your identity",
   },
   "naming-account": {
-    description: "Your name labels your personal organization and contact.",
+    description:
+      "This is encrypted and only visible to members you add to your organization.",
     phase: "naming-account",
     title: "What should we call you?",
   },
