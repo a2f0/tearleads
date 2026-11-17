@@ -273,6 +273,10 @@ async function finalizeReplacementDefaultOrganization(
  * founding user already exists, so no user row is created and the signer is
  * loaded from storage.
  */
+function replayed(response: StoredCreateOrganizationResult) {
+  return { kind: "replayed", response } as const;
+}
+
 export async function runCreateOrganizationWorkflow(
   db: ApiDatabase,
   input: CreateOrganizationRequest,
@@ -322,9 +326,9 @@ export async function runCreateOrganizationWorkflow(
         );
       }
       const nativeRestoreReplay = await readNativeRestoreReplay(tx, input);
-      if (nativeRestoreReplay) return nativeRestoreReplay;
+      if (nativeRestoreReplay) return replayed(nativeRestoreReplay);
       const creationReplay = await readOrganizationCreationReplay(tx, input);
-      if (creationReplay) return creationReplay;
+      if (creationReplay) return replayed(creationReplay);
       const existingReplacement = await assertReplacementReady(tx, input);
       if (existingReplacement) {
         await finalizeReplacementDefaultOrganization(
@@ -332,7 +336,7 @@ export async function runCreateOrganizationWorkflow(
           input,
           existingReplacement,
         );
-        return existingReplacement;
+        return replayed(existingReplacement);
       }
       const provisioned = await provisionOrganizationInTransaction(
         tx,
@@ -348,10 +352,16 @@ export async function runCreateOrganizationWorkflow(
       await recordOrganizationCreationReplay(tx, input, response);
       await linkReplacementOrganization(tx, input, response);
       await finalizeReplacementDefaultOrganization(tx, input, response);
-      return response;
+      return { kind: "committed", response } as const;
     });
-    // A replay reads the position anew, which still covers the original commit.
-    return { ...result, ...(await readProvisioningCommitCheckpoint(db)) };
+    return result.kind === "committed"
+      ? {
+          ...result.response,
+          ...(await readProvisioningCommitCheckpoint(db)),
+        }
+      : // A replay's artifacts can be older than the organization now, so it
+        // names no position and the client reads each seeded document once.
+        { ...result.response, commitLsn: null, commitLsnMode: "tracked" };
   } catch (error) {
     const provisioningError = toOrganizationProvisioningError(error);
     if (provisioningError) {

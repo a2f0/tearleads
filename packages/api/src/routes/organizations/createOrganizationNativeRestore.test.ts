@@ -11,6 +11,7 @@ import {
 } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
+  expectConcurrentProvisioning,
   expectProvisioningReplay,
   withoutCommitCheckpoint,
 } from "../../../test/helpers/provisioningCheckpoint";
@@ -32,7 +33,7 @@ test("POST /organizations durably replays a native restore destination", async (
   expect([response.status, concurrentReplay.status]).toEqual([200, 200]);
   const provisioned: unknown = await response.json();
   invariant(isCreateOrganizationResponse(provisioned), "expected restore org");
-  expectProvisioningReplay(await concurrentReplay.json(), provisioned);
+  expectConcurrentProvisioning([provisioned, await concurrentReplay.json()]);
   const replay = await submitCreateOrganization(user, body);
   expect(replay.status).toBe(200);
   expectProvisioningReplay(await replay.json(), provisioned);

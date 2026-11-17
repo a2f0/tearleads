@@ -87,7 +87,7 @@ export function addProvisioningResponseIssues(
   addCommitLsnIssues(value, context);
 }
 
-export function addCommittedUpdateIdIssues(
+function addCommittedUpdateIdIssues(
   value: z.output<z.ZodObject<typeof organizationProvisioningResultShape>>,
   context: z.core.$RefinementCtx<unknown>,
 ): void {

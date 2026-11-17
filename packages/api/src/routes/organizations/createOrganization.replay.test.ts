@@ -17,8 +17,8 @@ import {
 } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
+  expectConcurrentProvisioning,
   expectProvisioningReplay,
-  withoutCommitCheckpoint,
 } from "../../../test/helpers/provisioningCheckpoint";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { recordOrganizationCreationReplay } from "../../workflows/organizations/organizationCreationReplay";
@@ -40,16 +40,12 @@ test("ordinary create replays concurrent and canonically reordered requests", as
   expect(responses.map((response) => response.status)).toEqual([200, 200]);
   const committed = await responses[0]?.json();
   const concurrent = await responses[1]?.json();
-  // Concurrent responses share a result; their positions are read separately.
-  expect(withoutCommitCheckpoint(concurrent)).toEqual(
-    withoutCommitCheckpoint(committed),
-  );
+  expectConcurrentProvisioning([committed, concurrent]);
   const { userId, ...rest } = body;
   const replay = await submitCreateOrganization(user, { ...rest, userId });
   expect(replay.status).toBe(200);
   const replayed = await replay.json();
   expectProvisioningReplay(replayed, committed);
-  expectProvisioningReplay(replayed, concurrent);
   expect(
     await db
       .select()

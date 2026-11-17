@@ -10,6 +10,7 @@ import {
 import { openExplorer } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import { openOrgManager } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import { createAdditionalOrganization } from "../../../../test/helpers/dual-pane/organizationCreation";
+import { requestPath } from "../../../../test/helpers/dualPaneRequestSummary";
 import {
   listProxiedApiRequests,
   MOCK_SERVER_RESET_TIMEOUT_MS,
@@ -19,15 +20,67 @@ import {
   cleanupPaneTestEnvironment,
   waitForPaneRuntimeToSettle,
 } from "../../../../test/helpers/paneTestUtils";
+import type { ProxiedApiRequest } from "../../../../test/helpers/proxiedApiResponse";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
+
+function seededDocumentIds(response: unknown): string[] {
+  const read = (value: unknown, ...path: string[]): unknown =>
+    path.reduce<unknown>(
+      (current, key) =>
+        typeof current === "object" && current !== null
+          ? Reflect.get(current, key)
+          : undefined,
+      value,
+    );
+  const systemContainers = read(response, "systemContainers");
+  return [
+    read(response, "rootMetadataDocumentId"),
+    read(response, "rosterProfileContainer", "metadataDocument", "id"),
+    read(response, "rosterProfileDocumentId"),
+    read(response, "organizationMetadataContainer", "metadataDocument", "id"),
+    read(response, "organizationProfileDocumentId"),
+    ...(Array.isArray(systemContainers)
+      ? systemContainers.map((item) => read(item, "metadataDocument", "id"))
+      : []),
+  ].filter((id): id is string => typeof id === "string");
+}
+
+/** A seeded document's first read sends the provisioning commit position. */
+function expectSeededSyncsFromProvisioningLsn(
+  requests: readonly ProxiedApiRequest[],
+  provisioningPath: RegExp,
+): void {
+  const provisioning = requests.find(
+    (request) =>
+      request.method === "POST" &&
+      provisioningPath.test(requestPath(request.url)) &&
+      request.status === 200,
+  );
+  if (!provisioning) throw new Error("Expected a provisioning response");
+  const response: unknown = JSON.parse(provisioning.responseBody);
+  const commitLsn = Reflect.get(Object(response), "commitLsn");
+  expect(typeof commitLsn).toBe("string");
+  const firstSyncs = seededDocumentIds(response).flatMap((documentId) => {
+    const sync = requests.find((request) =>
+      requestPath(request.url).endsWith(`/documents/${documentId}/sync`),
+    );
+    return sync ? [sync] : [];
+  });
+  expect(firstSyncs.length).toBeGreaterThan(0);
+  for (const sync of firstSyncs) {
+    expect(
+      Reflect.get(Object(JSON.parse(sync.requestBody ?? "{}")), "minLsn"),
+    ).toBe(commitLsn);
+  }
+}
 
 test(
   "personal organization bootstrap has a complete request budget",
   async () => {
     useTestApiAppHandlers();
-    await measureWorkflowRequests({
+    const bootstrap = await measureWorkflowRequests({
       label: "personal organization bootstrap",
       operation: async () => {
         const pane = getPaneRoot(renderSinglePane(), "left");
@@ -111,6 +164,7 @@ test(
         },
       },
     });
+    expectSeededSyncsFromProvisioningLsn(bootstrap, /^\/auth\/register$/u);
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
@@ -141,7 +195,7 @@ test(
     );
     await openOrgManager(pane);
     await waitForPaneRuntimeToSettle(20_000);
-    await measureWorkflowRequests({
+    const creation = await measureWorkflowRequests({
       label: "additional organization creation + activation",
       operation: async () => {
         await createAdditionalOrganization(pane, "Request budget org");
@@ -179,6 +233,7 @@ test(
         },
       },
     });
+    expectSeededSyncsFromProvisioningLsn(creation, /^\/organizations$/u);
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

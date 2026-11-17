@@ -1,16 +1,5 @@
 import { expect } from "bun:test";
-import { parseWalLsn } from "@tearleads/validators/util";
-
-function commitLsnOf(value: unknown): string {
-  const commitLsn =
-    typeof value === "object" && value !== null
-      ? Reflect.get(value, "commitLsn")
-      : undefined;
-  if (typeof commitLsn !== "string") {
-    throw new Error("Expected a provisioning commit position");
-  }
-  return commitLsn;
-}
+import { isWalLsnString } from "@tearleads/validators/util";
 
 /** The provisioning result a replay repeats: everything but its position. */
 export function withoutCommitCheckpoint(
@@ -25,9 +14,13 @@ export function withoutCommitCheckpoint(
   return result;
 }
 
+function commitLsnOf(value: unknown): unknown {
+  return Reflect.get(Object(value), "commitLsn");
+}
+
 /**
- * A replay returns the same result with a commit position read after its own
- * transaction, which still covers the original commit.
+ * A replay returns the committed result and names no position: its artifacts
+ * can be older than the organization now, so the client reads them once.
  */
 export function expectProvisioningReplay(
   replay: unknown,
@@ -36,10 +29,25 @@ export function expectProvisioningReplay(
   expect(withoutCommitCheckpoint(replay)).toEqual(
     withoutCommitCheckpoint(original),
   );
-  expect(Reflect.get(Object(replay), "commitLsnMode")).toBe(
-    Reflect.get(Object(original), "commitLsnMode"),
-  );
+  expect(commitLsnOf(replay)).toBeNull();
+  expect(Reflect.get(Object(replay), "commitLsnMode")).toBe("tracked");
+}
+
+/**
+ * Concurrent identical creates return one result; only the request that
+ * committed it, in whichever order they finished, names a position.
+ */
+export function expectConcurrentProvisioning(responses: unknown[]): void {
+  const [first, ...rest] = responses;
+  for (const response of rest) {
+    expect(withoutCommitCheckpoint(response)).toEqual(
+      withoutCommitCheckpoint(first),
+    );
+  }
   expect(
-    parseWalLsn(commitLsnOf(replay)) >= parseWalLsn(commitLsnOf(original)),
-  ).toBe(true);
+    responses.filter((response) => isWalLsnString(commitLsnOf(response))),
+  ).toHaveLength(1);
+  expect(
+    responses.filter((response) => commitLsnOf(response) === null),
+  ).toHaveLength(responses.length - 1);
 }
