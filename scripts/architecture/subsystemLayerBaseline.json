@@ -1,36 +1,8 @@
 {
-  "packages/client-sdk/src/client/organizations/organizationReadModels.ts": [
-    "packages/client-sdk/src/client/containerContents/index.ts"
-  ],
-  "packages/client-sdk/src/client/organizations/recipientAdmission.ts": [
-    "packages/client-sdk/src/client/containerContents/index.ts"
-  ],
-  "packages/client-sdk/src/client/runtime/listenerSet.ts": [
-    "packages/client-sdk/src/client/identity/index.ts",
-    "packages/client-sdk/src/client/securityIncidents/index.ts",
-    "packages/client-sdk/src/client/session/index.ts"
-  ],
   "packages/client-sdk/src/data/containers/shared/heldContainerHeads.ts": [
     "packages/client-sdk/src/data/keyingProjectionVerification/checkpoints/checkpointContext.ts"
   ],
-  "packages/client-sdk/src/data/keyingProjectionVerification/error.ts": [
-    "packages/client-sdk/src/client/identity/userIdentities.ts",
-    "packages/client-sdk/src/client/securityIncidents/index.ts",
-    "packages/client-sdk/src/client/session/sessionLoginRefusal.ts",
-    "packages/client-sdk/src/client/session/sessionRootAuthority.ts"
-  ],
   "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts": [
     "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/index.ts": [
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
-  ],
-  "packages/client-sdk/src/workflows/registration/index.ts": [
-    "packages/client-sdk/src/client/session/index.ts",
-    "packages/client-sdk/src/client/session/sessionOrganizationCreation.ts",
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
-  ],
-  "packages/client-sdk/src/workflows/sync/index.ts": [
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
   ]
 }

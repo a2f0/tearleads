@@ -1,9 +1,9 @@
+import { createListenerSet } from "../../data/shared/listenerSet";
 import {
   createExecSql,
   type ExecSql,
   type ExecSqlClientLike,
 } from "../../data/sqlite/sqlSchema";
-import { createListenerSet } from "./listenerSet";
 
 export type DatabaseStatus = "idle" | "ready" | "error" | "terminated";
 
