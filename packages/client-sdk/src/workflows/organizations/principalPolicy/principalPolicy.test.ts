@@ -250,7 +250,9 @@ test("group creation and deletion persist authenticated organization directory s
       stateHash: adminPolicy.currentState.stateHash,
     });
 
+    const directoryBeforeDelete = organizationPolicy.currentState;
     const deleted = await deleteOrganizationGroup({
+      currentUserSecretKey: creatorKem.secretKey,
       apiClient: {
         ...apiClient,
         deleteOrganizationGroup: async (
@@ -295,6 +297,13 @@ test("group creation and deletion persist authenticated organization directory s
       signingKeyPair,
     });
     expect(deleted.deleted).toBe(true);
+    // With the signer's secret the directory successor keeps its key.
+    expect(organizationPolicy.currentState.version).toBe(
+      directoryBeforeDelete.version + 1,
+    );
+    expect(organizationPolicy.currentState.keyEpoch).toBe(
+      directoryBeforeDelete.keyEpoch,
+    );
     const persistedOrganization = await new PrincipalPolicyBundleRepository(
       execSql,
     ).loadPrincipalPolicyBundle("organization", organizationId);

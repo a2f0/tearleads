@@ -89,11 +89,12 @@ async function heldOrganizationSecret(input: {
 }
 
 /**
- * A growth wraps only the added admins, so the checks a full re-wrap runs
- * across the projection run here: every member's identity commitment, and no
+ * A kept key re-wraps nobody, or only the added admins, so the checks a full
+ * re-wrap runs across the projection run here before any request is built:
+ * every member's identity commitment against the resolved identities, and no
  * added admin sharing an encapsulation key with a retained envelope.
  */
-async function assertGrownRecipients(
+async function assertKeptRecipients(
   input: {
     readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
     readonly users: ReadonlyArray<TrustedUserIdentity>;
@@ -198,9 +199,9 @@ export async function organizationDirectoryKeying(input: {
   // what lets a successor cite its predecessor's envelope set (#2903).
   const secret = await heldOrganizationSecret(input);
   if (!secret) return rotatedKeying(input);
+  await assertKeptRecipients(input, currentEnvelopes);
   if (added.length === 0)
     return keptKeying(input.currentPolicy, currentEnvelopes);
-  await assertGrownRecipients(input, currentEnvelopes);
   return keptKeying(input.currentPolicy, [
     ...currentEnvelopes,
     ...(await rewrapProjectionMemberEnvelopes({

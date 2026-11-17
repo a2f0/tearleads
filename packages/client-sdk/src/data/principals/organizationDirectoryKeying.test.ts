@@ -320,3 +320,20 @@ test("retained admins sharing an encapsulation key are not re-served", async () 
     }),
   ).rejects.toThrow("Recipient public keys must be unique");
 });
+
+test("a kept key is refused when a resolved identity breaks its commitment", async () => {
+  const [a, b] = [await admin("a"), await admin("b")];
+  const { policy } = await directory([a, b]);
+  // The projection still commits to b's verified identity; the resolver now
+  // returns another identity for b.
+  const substituted = (await admin("b")).identity;
+  await expect(
+    organizationDirectoryKeying({
+      signerUserId: "a",
+      currentPolicy: policy,
+      currentUserSecretKey: a.kem.secretKey,
+      projection: [a.member, b.member],
+      users: [a.identity, substituted],
+    }),
+  ).rejects.toThrow();
+});
