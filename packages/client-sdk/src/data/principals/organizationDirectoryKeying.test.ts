@@ -183,3 +183,27 @@ test("an envelope that opens another key rotates a kept or grown directory", asy
   });
   expect(kept.keyEpoch).toBe(3);
 });
+
+test("a grown admin may not share an encapsulation key with a retained one", async () => {
+  const [a, b] = [await admin("a"), await admin("b")];
+  const { policy } = await directory([a, b]);
+  const shared = createTestTrustedUserIdentity({
+    encapsulationKeyFingerprint: a.identity.encapsulationKeyFingerprint,
+    encapsulationPublicKey: a.kem.publicKey,
+    signingKeyFingerprint: "c-signing",
+    signingPublicKey: generateSigningSeedAndKeyPair().signingPublicKey,
+    userId: "c",
+  });
+  await expect(
+    organizationDirectoryKeying({
+      currentPolicy: policy,
+      currentUserSecretKey: a.kem.secretKey,
+      projection: [
+        a.member,
+        b.member,
+        await createPrincipalProjectionMember(shared, "admin"),
+      ],
+      users: [a.identity, b.identity, shared],
+    }),
+  ).rejects.toThrow("must not share an encapsulation key");
+});

@@ -10,6 +10,7 @@ import type {
   PrincipalProjectionMemberRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { assertPrincipalIdentityCommitments } from "../principalContracts/principalIdentityCommitments";
 import type { TrustedUserIdentity } from "../trustedUserIdentity";
 import { principalSecretKeyMatchesState } from "./principalKeyValidation";
 import {
@@ -81,6 +82,38 @@ async function heldOrganizationSecret(input: {
     : null;
 }
 
+/**
+ * A growth wraps only the added admins, so the checks a full re-wrap runs
+ * across the projection run here: every member's identity commitment, and no
+ * added admin sharing an encapsulation key with a retained envelope.
+ */
+async function assertGrownRecipients(
+  input: {
+    readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
+    readonly users: ReadonlyArray<TrustedUserIdentity>;
+  },
+  retained: readonly PrincipalMemberEnvelopeRequest[],
+): Promise<void> {
+  const users = new Map(input.users.map((user) => [user.userId, user]));
+  await assertPrincipalIdentityCommitments({
+    authenticated: false,
+    projections: [input.projection],
+    resolveTrustedUserIdentity: async (userId) => users.get(userId) ?? null,
+  });
+  const fingerprints = new Set(
+    retained.map((envelope) => envelope.memberKeyFingerprint),
+  );
+  const retainedUsers = new Set(retained.map((envelope) => envelope.userId));
+  for (const member of input.projection) {
+    if (retainedUsers.has(member.userId)) continue;
+    const user = users.get(member.userId);
+    if (!user || fingerprints.has(user.encapsulationKeyFingerprint))
+      throw new Error(
+        "Organization directory recipients must not share an encapsulation key",
+      );
+  }
+}
+
 async function rotatedKeying(input: {
   readonly currentPolicy: OrganizationDirectoryCurrentPolicy;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
@@ -136,6 +169,7 @@ export async function organizationDirectoryKeying(input: {
   if (added.length === 0 && (!input.currentUserSecretKey || secret))
     return keptKeying(input.currentPolicy, currentEnvelopes);
   if (!secret) return rotatedKeying(input);
+  await assertGrownRecipients(input, currentEnvelopes);
   return keptKeying(input.currentPolicy, [
     ...currentEnvelopes,
     ...(await rewrapProjectionMemberEnvelopes({

@@ -7,7 +7,7 @@ group delete writes a directory successor.
 
 | Model action or predicate | Production seam |
 | --- | --- |
-| `Unchanged` | `organizationDirectoryKeying` keeps the key, epoch and predecessor envelopes when the Admins projection is unchanged |
+| `Unchanged` | `organizationDirectoryKeying` keeps the key, epoch and predecessor envelopes when the Admins projection is unchanged, or rotates when `heldOrganizationSecret` cannot recover the signed key |
 | `Grow` | It unwraps the held key with the signer's own envelope (`currentUserSecretKey`), checks it against the signed key, and wraps it only for the added admins |
 | `Shrink` / `RotateOnShrink` | Any removed or changed member rotates to a fresh key wrapped for every remaining admin; `getPrincipalPolicyTransitionMismatch` (`shrink_without_key_rotation`) refuses a shrink that keeps the key |
 | `learned` | Each envelope `wrapDekForRecipients` produces is served to its admin and cannot be withdrawn, so a user keeps every key epoch it ever unwrapped |

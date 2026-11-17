@@ -33,11 +33,15 @@ Keep(next) ==
   /\ learned' = [u \in Users |->
        IF u \in next THEN learned[u] \cup {epoch} ELSE learned[u]]
 
-Unchanged == Keep(admins)
+(* A kept or grown key needs the signer's envelope to open the signed key; *)
+(* when it does not, the write rotates instead, so each write may do either. *)
+Unchanged == Keep(admins) \/ Rotate(admins)
 
 Grow(u) ==
   /\ u \notin admins
-  /\ IF KeepOnGrow THEN Keep(admins \cup {u}) ELSE Rotate(admins \cup {u})
+  /\ IF KeepOnGrow
+       THEN Keep(admins \cup {u}) \/ Rotate(admins \cup {u})
+       ELSE Rotate(admins \cup {u})
 
 Shrink(u) ==
   /\ u \in admins /\ admins # {u}
