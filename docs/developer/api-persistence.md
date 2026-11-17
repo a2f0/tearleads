@@ -77,7 +77,9 @@ The stored shapes enforce:
   projections, as range-constrained `bigint`. Genesis starts at epoch 1 and each
   rotation advances exactly one epoch.
 - Durable `principal_policy_commits` receipts bind exact compound policy
-  requests to their original results.
+  requests to their original results. Each compound commit's container
+  mutation acknowledgement keeps a domain-separated SHA-256 of its request's
+  canonical JSON, not the request, and an exact replay must match it.
 - Signed artifacts ([events](../glossary/access.md#access-event),
   [manifests](../glossary/access.md#access-manifest), principal states) carry a
   canonical millisecond ISO-8601 `signedAt`; any other encoding fails

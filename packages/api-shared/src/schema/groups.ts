@@ -44,7 +44,6 @@ export const organizationGroupTombstones = pgTable(
     deletedCursor: bigint("deleted_cursor", { mode: "bigint" })
       .default(sql`0`)
       .notNull(),
-    deletedAt: timestamp("deleted_at").defaultNow().notNull(),
   },
   (table) => [
     index("organization_group_tombstones_org_idx").on(

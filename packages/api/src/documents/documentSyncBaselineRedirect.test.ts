@@ -6,7 +6,6 @@ import {
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import {
-  CONTENT_RECORD_ENCRYPTION_SUITE,
   computeDocumentContentRecordMetadataHash,
   type WriteHeader,
 } from "@tearleads/crypto";
@@ -178,9 +177,6 @@ async function insertBaselineCheckpoint(input: {
     documentId: input.documentId,
     organizationId: randomUUID(),
     contentKeyEpoch: input.contentKeyEpoch,
-    accessManifestHash: `manifest-${input.baselineUpdateId}`,
-    targetHash: `target-${input.baselineUpdateId}`,
-    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId: input.baselineUpdateId,
     nonceDomainHash: `nonce-${input.baselineUpdateId}`,
     headerHash: `header-${input.baselineUpdateId}`,

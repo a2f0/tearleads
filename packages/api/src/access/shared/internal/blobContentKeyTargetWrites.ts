@@ -62,7 +62,6 @@ export async function persistBlobContentKeyTargets(input: {
     .update(blobContentKeyEpochs)
     .set({
       targetHash: input.nextBundle.targetHash,
-      updatedAt: new Date(),
     })
     .where(
       and(
