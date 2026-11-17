@@ -20,7 +20,7 @@ export interface LinkSetSubmitFailure extends DocumentLinkSetMutationFailure {
  * One link or unlink leg. The first attempt (`speculative`) may cite rewraps
  * without listing; a refusal of those starts one `fresh` attempt, which lists.
  * A leg ends `committed`, `failed` with the refusals still to report, or
- * `abandoned` when the operation stopped being current before the retry.
+ * `abandoned` when the operation stopped being current, dropping what it held.
  */
 export type LinkSetLegState =
   | { readonly status: "speculative" }
@@ -80,11 +80,14 @@ export function transitionLinkSetLeg(
   if (state.status !== "speculative" && state.status !== "fresh") return state;
   if (event.type === "attemptCommitted")
     return { rewraps: event.rewraps, status: "committed" };
+  // Nothing an ended operation held back is retried or reported.
+  if (!event.stillCurrent) return { status: "abandoned" };
   const retryable =
     state.status === "speculative" &&
     event.heldFailures.some((failure) =>
       refusedSpeculativeRewraps(event.source, failure),
     );
-  if (!retryable) return { status: "failed", unreported: event.heldFailures };
-  return event.stillCurrent ? { status: "fresh" } : { status: "abandoned" };
+  return retryable
+    ? { status: "fresh" }
+    : { status: "failed", unreported: event.heldFailures };
 }

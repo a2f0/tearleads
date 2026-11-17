@@ -93,6 +93,14 @@ test("a refusal after the operation stopped being current abandons the leg", () 
   expect(
     fail(INITIAL_LINK_SET_LEG_STATE, "skipped", [ATTACHMENTS_CHANGED], false),
   ).toEqual({ status: "abandoned" });
+  // A held refusal it would not retry is dropped too, not reported.
+  const denied = { ...UNAVAILABLE, code: undefined, status: 403 };
+  expect(fail(INITIAL_LINK_SET_LEG_STATE, "reused", [denied], false)).toEqual({
+    status: "abandoned",
+  });
+  expect(fail({ status: "fresh" }, "listed", [], false)).toEqual({
+    status: "abandoned",
+  });
 });
 
 test("a finished leg ignores later events", () => {

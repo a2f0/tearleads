@@ -104,6 +104,8 @@ async function runLinkLeg(
   name: string,
   input: {
     readonly refusals: readonly DocumentLinkSetMutationFailure[];
+    /** Envelopes a previous leg of the same move committed. */
+    readonly committed?: DocumentLinkAccessEventBody["blobRewraps"];
     /** The retry's document projection read fails as the operation ends. */
     readonly retryProjectionFailsAndEnds?: boolean;
     /** The 1-based submission during which the operation stops being current. */
@@ -171,6 +173,9 @@ async function runLinkLeg(
       encapsulationSecretKey: leg.keyPair.secretKey,
       execSql,
     }).relinkRemoteDocument({
+      ...(input.committed === undefined
+        ? {}
+        : { attachmentReuse: { committed: input.committed } }),
       author: leg.author,
       documentId,
       onFailure: (failure) => failures.push(failure),
@@ -236,6 +241,34 @@ test.each(["absent", "held", "detached", "pending"] as const)(
     expect(run.result).not.toBeNull();
   },
 );
+
+test("envelopes a later leg cannot re-cite make it list, not skip", async () => {
+  // The previous leg wrapped this blob for another destination only.
+  const run = await runLinkLeg("committed-not-reusable", {
+    committed: [
+      {
+        blobId: "blob",
+        contentKeyEpoch: 1,
+        targets: [
+          {
+            bindingId: "binding",
+            containerId: "elsewhere",
+            containerKeyEpoch: 1,
+            containerKeyEpochId: "elsewhere-epoch",
+            containerManifestHash: "elsewhere-manifest",
+            documentId: "document",
+            wrappedKey: "key",
+            wrappingMetadata: { iv: "iv", suite: "suite" },
+          },
+        ],
+      },
+    ],
+    refusals: [],
+    view: "empty",
+  });
+  expect(run).toMatchObject({ failures: [], listings: 1, submissions: 1 });
+  expect(run.result).not.toBeNull();
+});
 
 test("a skipped listing the server refuses lists afresh and retries once", async () => {
   const run = await runLinkLeg("skipped-listing-refused", {

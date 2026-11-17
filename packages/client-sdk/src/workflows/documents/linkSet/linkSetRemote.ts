@@ -404,14 +404,16 @@ async function speculativeBlobRewraps(
   readonly source: "reused" | "skipped";
 } | null> {
   const committed = input.attachmentReuse?.committed;
-  const reused = committed
-    ? reuseCommittedBlobRewraps({
-        committed,
-        documentId: writerProjection.documentId,
-        targets,
-      })
-    : null;
-  if (reused) return { rewraps: reused, source: "reused" };
+  if (committed) {
+    const reused = reuseCommittedBlobRewraps({
+      committed,
+      documentId: writerProjection.documentId,
+      targets,
+    });
+    if (reused) return { rewraps: reused, source: "reused" };
+    // The previous leg cited attachments this leg cannot re-cite: list them.
+    if (committed.length > 0) return null;
+  }
   if (
     await documentMayHaveAttachments(input.execSql, writerProjection.documentId)
   )
