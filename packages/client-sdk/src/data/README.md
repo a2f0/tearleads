@@ -117,7 +117,11 @@ helper when a workflow context would express the operation more clearly.
 - Production [`data/`](./) modules must not import UI, providers, hooks, or
   workflows, including for type-only contracts. Test-only fixture builders that
   need workflow types belong under
-  [`packages/client-sdk/test/helpers/`](../../test/helpers/).
+  [`packages/client-sdk/test/helpers/`](../../test/helpers/), in the folder
+  for the highest tier they load at run time. Data tests, data test support,
+  and [`test/helpers/data/`](../../test/helpers/data/) load only data modules
+  and data helpers at run time; see
+  [test tiers](../../../../docs/developer/client-sdk-seams.md#test-tiers).
 - Production callers should import data-domain implementations and contracts
   from concrete modules, not convenience barrels or pass-through shims.
 - [`workflows/`](../workflows/) modules must not import UI, hooks, or

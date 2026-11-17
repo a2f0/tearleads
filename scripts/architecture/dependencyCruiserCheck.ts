@@ -1,5 +1,8 @@
 import { cruise, format } from "dependency-cruiser";
 import type { ArchitectureCheckResult } from "./checkFactories";
+import { findStaleTestTierBaselineEntries } from "./clientSdkTestTierBaseline";
+import testTierBaseline from "./clientSdkTestTierBaseline.json";
+import { clientSdkTestTierRules } from "./dependencyCruiserClientSdkRules";
 import {
   createDependencyCruiserOptions,
   dependencyCruiserEntryPoints,
@@ -28,6 +31,11 @@ export async function runDependencyCruiserCheck(): Promise<ArchitectureCheckResu
     result.output,
     dependencyCruiserEntryPoints,
   );
+  const staleTestTierEntries = findStaleTestTierBaselineEntries(
+    result.output,
+    clientSdkTestTierRules,
+    testTierBaseline,
+  );
   const formattedResult = await format(result.output, { outputType: "err" });
   const formattedOutput =
     typeof formattedResult.output === "string"
@@ -40,12 +48,22 @@ export async function runDependencyCruiserCheck(): Promise<ArchitectureCheckResu
           "error dependency-cruiser-graph-is-complete: dependency-cruiser must retain every workspace plus known npm and cross-workspace edges.",
           ...graphHealthViolations.map((violation) => `  ${violation}`),
         ].join("\n");
-  const output = [formattedOutput, graphHealthOutput]
+  const staleTestTierOutput =
+    staleTestTierEntries.length === 0
+      ? ""
+      : [
+          "error client-sdk-test-tier-baseline-is-current: the test-tier baseline only shrinks; drop entries that no longer violate.",
+          ...staleTestTierEntries.map((entry) => `  ${entry}`),
+        ].join("\n");
+  const output = [formattedOutput, graphHealthOutput, staleTestTierOutput]
     .filter((value) => value.length > 0)
     .join("\n");
 
   return {
-    failed: formattedResult.exitCode !== 0 || graphHealthViolations.length > 0,
+    failed:
+      formattedResult.exitCode !== 0 ||
+      graphHealthViolations.length > 0 ||
+      staleTestTierEntries.length > 0,
     output,
   };
 }
