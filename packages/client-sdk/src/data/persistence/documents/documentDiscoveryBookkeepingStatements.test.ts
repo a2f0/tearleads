@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
 import { sqlDocumentContainerProjectionPersistence } from "../container-contents/documentContainerProjectionPersistence";
-import { createDocumentDiscoveryEvidenceStore } from "./documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "./documentDiscoveryEvidencePersistence";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence,
@@ -20,7 +20,7 @@ async function bookkeepingFixture(name: string) {
     counted.execSql,
     [],
   );
-  const evidence = createDocumentDiscoveryEvidenceStore(counted.execSql);
+  const evidence = new DocumentDiscoveryEvidenceRepository(counted.execSql);
   await evidence.isCurrent(0);
   return { ...sqlite, counted, evidence };
 }
