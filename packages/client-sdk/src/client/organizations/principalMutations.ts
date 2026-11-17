@@ -1,6 +1,6 @@
 import type { ContainerGrantSubjectType } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { ContainerMutationService } from "../../workflows/containers";
 import { revokeOrganizationContainerGrant } from "../../workflows/organizations";
 import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../workflows/organizations/groupMetadata/currentGroupMetadataAuthority";

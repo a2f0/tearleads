@@ -1,6 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { PrincipalPolicyHistoryReadError } from "../historyRecovery/principalHistoryRecoveryTypes";
 import {
   type RecoverScopedPrincipalPolicyHistoryOptions,

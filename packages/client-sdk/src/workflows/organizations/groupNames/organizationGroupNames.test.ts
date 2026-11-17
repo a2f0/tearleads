@@ -7,7 +7,7 @@ import {
   repairPolicyPages,
   repairProtectionLease,
 } from "../../../../test/helpers/principalPolicyRepair";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { PrincipalPolicyService } from "../../principals/principalPolicyService";
 import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
 import { hydrateOrganizationGroupNames } from "./organizationGroupNames";

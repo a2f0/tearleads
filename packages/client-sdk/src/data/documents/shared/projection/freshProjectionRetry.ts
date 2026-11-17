@@ -1,6 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../../../keyingProjectionVerification/dependencyUnavailable";
 import { isKeyingVerificationError } from "../../../keyingProjectionVerification/error";
+import { ProjectionDependencyUnavailableError } from "../../../shared/dependencyUnavailable";
 import { ContainerKekRepairRequiredError } from "../containerKek/containerKekCurrency";
 
 type ProjectionIntegrityErrorCode =

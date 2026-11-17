@@ -5,8 +5,8 @@ import {
   createWorkflowInputFixture,
 } from "../../../test/helpers/internalRuntimeFixtures";
 import { createDomainScope } from "../../data/shared/domainScope";
+import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "../../data/trustedUserIdentity";
 import {
   identityLinkFixture,

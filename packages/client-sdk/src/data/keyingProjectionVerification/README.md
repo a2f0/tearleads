@@ -7,10 +7,11 @@ projections. The rest of this folder holds its internal helpers.
 - At the root, [`readers.ts`](readers.ts) decodes canonical wire records into
   crypto
   verification inputs, and [`error.ts`](error.ts), [`types.ts`](types.ts),
-  [`dependencyUnavailable.ts`](dependencyUnavailable.ts),
   [`projectionLifetimes.ts`](projectionLifetimes.ts), and
   [`userKeyResolver.ts`](userKeyResolver.ts) hold the shared error,
-  type, lifetime, and user-key helpers.
+  type, lifetime, and user-key helpers. The retryable
+  `ProjectionDependencyUnavailableError` lives in
+  [`../shared/dependencyUnavailable.ts`](../shared/dependencyUnavailable.ts).
 - [`checkpoints/bundleVerification.ts`](checkpoints/bundleVerification.ts) owns
   the canonical-equality assert,
   bundle-map helper, and signed access-event bundle verification shared by both

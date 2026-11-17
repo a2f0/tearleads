@@ -7,7 +7,7 @@ import {
 } from "../../../../../test/helpers/adminGroupRoot";
 import { missingPrincipalRecoveryFixture } from "../../../../../test/helpers/missingPrincipalRecovery";
 import { principalPolicyHead } from "../../../../../test/helpers/principalPolicyFixtures";
-import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import type { ContainerState } from "../../remoteHydration";
 import { shareRemoteContainerWithGroup } from "../remote";
 import { containerStateHasCurrentGroupGrant } from "./groupGrantVerification";

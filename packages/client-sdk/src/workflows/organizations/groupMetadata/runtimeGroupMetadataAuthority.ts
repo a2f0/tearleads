@@ -2,7 +2,7 @@ import type {
   ContainerAccessManifestState,
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { PrincipalPolicyRuntime } from "../../principals/principalPolicyService";
 import { createCurrentGroupMetadataContainerVerifier } from "./currentGroupMetadataAuthority";
 

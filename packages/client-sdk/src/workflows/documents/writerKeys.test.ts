@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError, toFingerprint } from "@tearleads/crypto";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
-import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
+import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { createDocumentWriterPublicKeyResolver } from "./writerKeys";
 
 test("createDocumentWriterPublicKeyResolver uses a trusted signing identity", async () => {

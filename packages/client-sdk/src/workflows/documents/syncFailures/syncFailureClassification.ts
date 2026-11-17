@@ -8,6 +8,7 @@ import {
   isUpstreamDeletedDocumentSyncFailure,
 } from "../../../data/documents/shared/responses";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
+
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 export type RemoteDocumentDeletionHandler = (input: {
