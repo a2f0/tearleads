@@ -25,12 +25,13 @@ export interface OrganizationPolicyTarget {
   readonly memberGroupId: string;
 }
 
+/** Whether the target is its organization's reserved Admins group. */
 async function assertReservedAdminsPolicyShape(
   tx: DatabaseTransaction,
   input: PrincipalPolicyAuthorityConstraintInput,
-): Promise<void> {
+): Promise<boolean> {
   if (input.expectedPrincipalType !== "group") {
-    return;
+    return false;
   }
   const organization = await loadGroupOrganizationDescriptor(
     tx,
@@ -40,7 +41,7 @@ async function assertReservedAdminsPolicyShape(
     !organization ||
     organization.adminGroupId !== input.expectedPrincipalId
   ) {
-    return;
+    return false;
   }
   if (
     input.projection.length === 0 ||
@@ -51,6 +52,7 @@ async function assertReservedAdminsPolicyShape(
       400,
     );
   }
+  return true;
 }
 
 async function assertPersonalOrganizationOwnerRetained(
@@ -150,8 +152,9 @@ async function assertOrganizationAuthorityDescriptor(
 export async function assertPolicyAuthorityConstraints(
   tx: DatabaseTransaction,
   policy: PrincipalPolicyAuthorityConstraintInput,
-): Promise<void> {
-  await assertReservedAdminsPolicyShape(tx, policy);
+): Promise<{ readonly reservedAdmins: boolean }> {
+  const reservedAdmins = await assertReservedAdminsPolicyShape(tx, policy);
   await assertPersonalOrganizationOwnerRetained(tx, policy);
   await assertOrganizationAuthorityDescriptor(tx, policy);
+  return { reservedAdmins };
 }

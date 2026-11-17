@@ -7,7 +7,7 @@ import {
   compareCanonicalStrings,
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
 
 export interface PrincipalHistoryProgressScope {
   readonly principalType: ReferencedPrincipalHead["principalType"];
@@ -158,4 +158,25 @@ export async function discardPrincipalHistoryProgress(
         eq(principalHistoryProgress.progress, input.progress),
       ),
     );
+}
+
+/** Remove every hint of these principals, at most 500 principals per statement. */
+export async function deletePrincipalHistoryProgressFor(
+  executor: DatabaseSession,
+  principalType: ReferencedPrincipalHead["principalType"],
+  principalIds: readonly string[],
+): Promise<void> {
+  for (let start = 0; start < principalIds.length; start += 500) {
+    await executor
+      .delete(principalHistoryProgress)
+      .where(
+        and(
+          eq(principalHistoryProgress.principalType, principalType),
+          inArray(
+            principalHistoryProgress.principalId,
+            principalIds.slice(start, start + 500),
+          ),
+        ),
+      );
+  }
 }

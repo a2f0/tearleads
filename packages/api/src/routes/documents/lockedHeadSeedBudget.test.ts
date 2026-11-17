@@ -114,6 +114,6 @@ test("provisioning seeds reuse each newly created document's locked paths", asyn
     JSON.stringify({ statements: counter.statements, documents: rows.length }),
   );
   expect(counter.statements).toBeLessThanOrEqual(
-    199 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    201 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
 }, 30_000);

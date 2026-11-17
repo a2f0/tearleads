@@ -31,6 +31,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { forgetTransactionAccessManifestBundles } from "../../access/write/accessManifestStore";
 import { forgetPrincipalTransactionMemo } from "../../access/write/principalStateStore";
 import { deleteDocumentRows } from "../documents/mutations/purgeDocumentRows";
+import { removePrincipalHistoryProgressOnCommit } from "../principals/principalHistoryCache";
 import { organizationPurgeBatches } from "./organizationPurgeBatches";
 import type { OrganizationRemotePurgeScope } from "./organizationPurgeScope";
 
@@ -136,6 +137,11 @@ async function deleteOrganizationPrincipalRows(
     { principalIds: [organizationId], principalType: "organization" },
     { principalIds: groupIds, principalType: "group" },
   ] as const) {
+    await removePrincipalHistoryProgressOnCommit(
+      executor,
+      principalScope.principalType,
+      principalScope.principalIds,
+    );
     for (const principalBatch of organizationPurgeBatches(
       principalScope.principalIds,
     )) {

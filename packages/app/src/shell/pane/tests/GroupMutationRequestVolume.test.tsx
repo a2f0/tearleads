@@ -46,13 +46,15 @@ test("group creation and adding a peer have separate request budgets", async () 
       label: `create ${group} organization group`,
       operation: () => createOrganizationGroup(pane, `Budget ${group} group`),
       budget: {
-        // Measured 8/5 requests. Bootstrap no longer reads the roster profile
+        // Measured 7/5 requests. Bootstrap no longer reads the roster profile
         // container's projection (its role is seeded), so the first group
         // create reads it and its Admins history; the read-model hint carries
-        // its cursor, so one read-model read follows the create. Allow three
-        // directory/Admins reads to move across the phase boundary; metadata
-        // unwrap reuses exact local evidence.
-        total: group === "first" ? 11 : 8,
+        // its cursor, so one read-model read follows the create. Registration
+        // publishes the Admins head's strict authority progress, so no create
+        // receives a preparation response. Allow three directory/Admins reads
+        // to move across the phase boundary; metadata unwrap reuses exact
+        // local evidence.
+        total: group === "first" ? 10 : 8,
         byRequest: {
           "GET /principals/history": group === "first" ? 2 : 1,
           "GET /containers/:containerId/writer-projection":
@@ -68,7 +70,6 @@ test("group creation and adding a peer have separate request budgets", async () 
           method: "POST",
           path: /^\/organizations\/[^/]+\/groups$/u,
           count: 1,
-          maxPreparations: 1,
         },
       ],
     });
@@ -159,7 +160,7 @@ test("group creation and adding a peer have separate request budgets", async () 
       `create and add peer to ${group} group`,
       pairStart,
     );
-    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 50 : 14);
+    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 49 : 14);
     expect(
       combined.filter(
         (request) =>

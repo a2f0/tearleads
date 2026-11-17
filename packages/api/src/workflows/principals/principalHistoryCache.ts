@@ -14,6 +14,7 @@ import {
 } from "../../access/read/principalHistoryProgress";
 import { upsertPrincipalHistoryIndexNodes } from "../../access/write/principalHistoryIndex";
 import {
+  deletePrincipalHistoryProgressFor,
   discardPrincipalHistoryProgress,
   upsertPrincipalHistoryProgress,
 } from "../../access/write/principalHistoryProgress";
@@ -26,8 +27,11 @@ type Selection = Parameters<typeof selectPrincipalHistoryProgress>[1];
 type ProgressInput = Parameters<
   typeof upsertPrincipalHistoryProgress
 >[1][number];
+type PrincipalType = ProgressInput["principalType"];
 interface ProgressBuffer {
   readonly resets: Map<string, Selection>;
+  /** Deleted principals, by type, whose hints go when the transaction commits. */
+  readonly removed: Map<PrincipalType, Set<string>>;
   readonly nodes: Map<string, PrincipalHistoryIndexNode>;
   readonly storedNodes: Map<string, PrincipalHistoryIndexNode>;
   readonly saved: Map<string, ProgressRow>;
@@ -61,6 +65,7 @@ function transactionBuffer(
   const previous = buffers.get(executor);
   if (previous) return previous;
   const buffer: ProgressBuffer = {
+    removed: new Map(),
     saved: new Map(),
     discarded: new Map(),
     nodes: new Map(),
@@ -81,9 +86,18 @@ function transactionBuffer(
       await upsertPrincipalHistoryIndexNodes(completion.root, [
         ...buffer.nodes.values(),
       ]);
-      await upsertPrincipalHistoryProgress(completion.root, [
-        ...buffer.saved.values(),
-      ]);
+      await upsertPrincipalHistoryProgress(
+        completion.root,
+        [...buffer.saved.values()].filter(
+          (row) => !buffer.removed.get(row.principalType)?.has(row.principalId),
+        ),
+      );
+      for (const [principalType, principalIds] of buffer.removed)
+        await deletePrincipalHistoryProgressFor(
+          completion.root,
+          principalType,
+          [...principalIds],
+        );
     }
   }, reportBackgroundFailure);
   return buffer;
@@ -218,4 +232,26 @@ export async function discardBufferedPrincipalHistoryProgress(
   for (const [key, row] of buffer.saved)
     if (row.id === input.id && row.progress === input.progress)
       buffer.saved.delete(key);
+}
+
+/**
+ * Remove every hint of principals this transaction deletes once it commits,
+ * with its own buffered hints for them, so no hint outlives its principal.
+ * Hints stay untrusted caches: removal costs only re-verification.
+ */
+export async function removePrincipalHistoryProgressOnCommit(
+  executor: DatabaseSession,
+  principalType: PrincipalType,
+  principalIds: readonly string[],
+): Promise<void> {
+  const buffer = transactionBuffer(executor);
+  if (!buffer)
+    return deletePrincipalHistoryProgressFor(
+      executor,
+      principalType,
+      principalIds,
+    );
+  const removed = buffer.removed.get(principalType) ?? new Set<string>();
+  for (const principalId of principalIds) removed.add(principalId);
+  buffer.removed.set(principalType, removed);
 }

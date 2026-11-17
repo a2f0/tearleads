@@ -12,6 +12,7 @@ import {
 } from "./preparePrincipalHistory";
 import {
   discardBufferedPrincipalHistoryProgress,
+  removePrincipalHistoryProgressOnCommit,
   selectBufferedPrincipalHistoryProgress,
 } from "./principalHistoryCache";
 import { principalHistoryProtection } from "./principalHistoryProtection";
@@ -162,4 +163,54 @@ test("one transaction reads each stored hint once and still honors its discard",
   } finally {
     local.protection.localKey.fill(0);
   }
+});
+
+test("a removed principal's stored and buffered hints go only when its transaction commits", async () => {
+  const removed = await principalHistoryPreparationFixture({ versions: 2 });
+  const kept = await principalHistoryPreparationFixture({ versions: 2 });
+  const progressOf = (principalId: string) =>
+    db
+      .select()
+      .from(principalHistoryProgress)
+      .where(eq(principalHistoryProgress.principalId, principalId));
+  const budget = () => ({
+    ...principalHistoryPreparationBudget(),
+    remainingEntries: 1,
+  });
+  // One committed hint each, then one more buffered in each transaction.
+  for (const { head } of [removed, kept])
+    await preparePrincipalHistory(db, { head, budget: budget() });
+  const rollback = new Error("rollback");
+  await expect(
+    db.transaction(async (tx) => {
+      await preparePrincipalHistory(tx, {
+        head: removed.head,
+        budget: budget(),
+      });
+      await removePrincipalHistoryProgressOnCommit(tx, "group", [
+        removed.head.principalId,
+      ]);
+      throw rollback;
+    }),
+  ).rejects.toBe(rollback);
+  expect(await progressOf(removed.head.principalId)).toHaveLength(1);
+
+  await db.transaction(async (tx) => {
+    for (const { head } of [removed, kept])
+      await preparePrincipalHistory(tx, { head, budget: budget() });
+    await removePrincipalHistoryProgressOnCommit(tx, "group", [
+      removed.head.principalId,
+    ]);
+    // Nothing is deleted before the commit.
+    expect(
+      await tx
+        .select()
+        .from(principalHistoryProgress)
+        .where(
+          eq(principalHistoryProgress.principalId, removed.head.principalId),
+        ),
+    ).toHaveLength(1);
+  });
+  expect(await progressOf(removed.head.principalId)).toEqual([]);
+  expect(await progressOf(kept.head.principalId)).toHaveLength(2);
 });

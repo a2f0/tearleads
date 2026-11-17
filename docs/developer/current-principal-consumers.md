@@ -209,17 +209,19 @@ cost comparison. See the
 [per-route budgets and persistence boundary](../request-budgets.md#restart-and-reconnect).
 
 [`GroupMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx)
-measures 8 requests for creating the first group and 5 for a later one (one
+measures 7 requests for creating the first group and 5 for a later one (one
 read-model read each; the hint naming the post-mutation cursor costs none),
-with ceilings of 11 and 8; the first create reads the roster profile
+with ceilings of 10 and 8; the first create reads the roster profile
 container's projection and its Admins history, which bootstrap no longer reads.
-First enrollment of a peer measures 38 requests, its group create included (30
+First enrollment of a peer measures 37 requests, its group create included (30
 for the add itself), with a ceiling of 43 for the add; a later addition measures
-6 and is capped at 9. The creation/addition pairs are capped at 50 and 14
+6 and is capped at 9. The creation/addition pairs are capped at 49 and 14
 requests, with at most
 11 and 3 public history reads. First addition permits 10 organization-policy and
-3 group-policy reads. Creation may also receive one validated rollback
-preparation response with identical request bytes. Policy writes acknowledge
+3 group-policy reads. Creation receives no rollback preparation response:
+registration and each Admins successor publish the stored Admins head's strict
+authority progress, which the first create used to prepare through a 202 round
+that resent its 27.8 KB body. Policy writes acknowledge
 heads rather than echoing policies, so a group create receives about 0.8 KB
 (17–18 KB before) and a group policy commit 0.7–1.9 KB (36–60 KB before): the
 first creation/addition pair receives 372 KB (452 KB before) and a later pair

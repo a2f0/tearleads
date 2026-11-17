@@ -269,7 +269,7 @@ async function applyPrincipalPolicyInTransaction(
   organizationId: string,
   identityTrustDomain: string,
 ): Promise<PutPrincipalPolicyResult> {
-  await assertPolicyAuthorityConstraints(tx, input);
+  const { reservedAdmins } = await assertPolicyAuthorityConstraints(tx, input);
   const previousState = await getCurrentPrincipalState(
     input.state.principalType,
     input.state.principalId,
@@ -292,6 +292,7 @@ async function applyPrincipalPolicyInTransaction(
     tx,
     {
       identityTrustDomain,
+      reservedAdmins,
       authorizeExternalAdminSigner: (authorization) =>
         isOrgAdminAuthorizedPrincipalPolicySigner(
           tx,

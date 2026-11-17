@@ -79,7 +79,12 @@ predecessor; future citations and the successor are checked again on the next
 attempt. Each final transaction repeats current authorization and head checks.
 Each newly inserted successor has a separate one-entry verification allowance,
 including later verification of that same head as a strict Admins authority.
-Uncommitted cache hints publish only after a successful outer commit.
+Storing a reserved Admins state, at provisioning or as a successor, verifies it
+both ways in that transaction, so its strict authority progress publishes with
+its policy progress and the first principal it governs commits without a
+preparation round. An Admins successor whose authority prefix is not prepared
+still yields a 202, and deep histories keep the bounded loop. Uncommitted cache
+hints publish only after a successful outer commit.
 
 Cold server preparation runs after the application transaction rolls back. Each
 database has two preparation workers per API process, with at most one active
