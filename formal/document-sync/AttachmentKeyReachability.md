@@ -13,6 +13,7 @@ an unrelated document content-key bundle.
 | `RetainedTargetsNeedCiphertext` / `LinkedDocumentCanUnlink` | `prepareDocumentLinkBlobRewraps` verifies retained binding scope without downloading ciphertext when no new envelope is needed |
 | `RemainingEnvelopesRetained` | `retainedTarget` requires an existing envelope at each remaining destination's current KEK epoch |
 | `PrepareLink` | `prepareDocumentLinkBlobRewraps` authenticates bytes and wraps their DEK to verified targets |
+| `PrepareLinkWithoutListing` | `speculativeBlobRewraps` cites no rewraps without listing when `documentMayHaveAttachments` finds no local attachment row; `relinkRemoteDocument` lists afresh and retries once after a `document_link_attachments_changed` refusal |
 | `cachedWraps` / `cacheValid` | `ApiClient.listDocumentAttachments` caches the envelopes used while preparing link |
 | `InvalidateAttachmentCache` | `ApiClient.evictDocumentWriterProjection` also evicts the document attachment list after link/unlink or stale-state retries |
 | `MovePreservesCommittedEnvelopes` | `prepareDocumentLinkBlobRewraps` retains the destination envelope committed by link instead of generating conflicting randomized material |
@@ -23,6 +24,14 @@ an unrelated document content-key bundle.
 | `RetainPriorWraps` | `replaceBlobContentKeyTargetsForExistingBundle` appends target sets |
 | `UseHistoricalKeys` | `assertBlobWrapScopeVerified` and `unwrapBlobContentKey` use verified history and retained KEKs |
 | `Hydrate` / `IsolateHydration` | `collectHydrationResults` keeps independent successes and reports typed failures |
+
+A device whose local view holds no attachment row for the document may skip
+the listing and cite no rewraps (`PrepareLinkWithoutListing`). Its view can be
+stale, so the binding frontier check is what keeps that safe: a commit citing
+fewer bindings than are active is refused, and the client lists and prepares
+again. Without `CheckBindingFrontier`, that skipped listing commits a link
+whose destination cannot open the attachment, violating
+`CurrentReadersCanOpen`.
 
 The finite model uses two bindings, two containers, and two KEK epochs. It
 abstracts signature verification, ciphertext authentication, and keyring

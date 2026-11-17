@@ -56,6 +56,23 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 2,
   },
+  {
+    // No reader ever used a recorded failure's HTTP status; the message and
+    // attempt time explain a blocked document. The column is unindexed. A
+    // documents table without it (never created, or not this SDK's table in a
+    // restored backup) has nothing to drop.
+    name: "drop_document_sync_failure_status",
+    up: async (execSql) => {
+      const column = await execSql(
+        "SELECT name FROM pragma_table_info('documents') WHERE name = 'sync_failure_status'",
+      );
+      if (column.length === 0) return;
+      await execSql(
+        'ALTER TABLE "documents" DROP COLUMN "sync_failure_status"',
+      );
+    },
+    version: 3,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

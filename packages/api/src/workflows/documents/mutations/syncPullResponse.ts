@@ -79,6 +79,7 @@ export async function listMissingSyncUpdatesForResponse(input: {
   const missingUpdateResult = await listMissingSyncUpdateEntries({
     documentId: input.documentId,
     executor: input.executor,
+    expectedTargetHash: input.request.expectedTargetHash,
     localVersionVector: input.request.localVersionVector,
     // The paged sync already checked this transaction before freezing its
     // upper bound. The unpaged reader still needs its sole assertion.

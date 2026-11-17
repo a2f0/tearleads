@@ -149,7 +149,6 @@ test("access_revoked cascade retains the metadata document dormant", async () =>
       {
         attemptedAt: T1,
         message: "Container metadata sync failed",
-        status: 403,
       },
     );
 

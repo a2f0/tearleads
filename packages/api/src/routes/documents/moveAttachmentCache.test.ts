@@ -81,6 +81,19 @@ test("a warm client moves an uploaded attachment on its first attempt", async ()
     if (!linked.ok) throw new Error(linked.message);
 
     const afterLink = (await client.listDocumentAttachments(document.id))?.[0];
+    // The upload's write committed to the pre-link target set, which the
+    // listing now carries in full: only a set matching the current one is
+    // omitted (#2903 P22).
+    expect(original.writeAuthorization.targets).toBeUndefined();
+    expect(afterLink?.writeAuthorization.blobKeyTargetHash).toBe(
+      original.blobKekTargets.blobKeyTargetHash,
+    );
+    expect(afterLink?.blobKekTargets.blobKeyTargetHash).not.toBe(
+      original.blobKekTargets.blobKeyTargetHash,
+    );
+    expect(afterLink?.writeAuthorization.targets).toEqual(
+      original.blobKekTargets.targets,
+    );
     // The SDK retains the destination envelope when present. A stale pre-link
     // list makes it wrap the same key again with fresh randomness instead.
     const retained = afterLink?.contentKeyBundle.targets.find(
