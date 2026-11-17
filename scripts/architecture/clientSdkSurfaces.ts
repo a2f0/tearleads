@@ -199,6 +199,7 @@ export const organizationReadModelSurface = [
   `${sdk}/data/persistence/organizations/organizationReadModelRepository.ts`,
   `${sdk}/workflows/organizations/currentOrganizationAuthority.ts`,
   `${sdk}/workflows/organizations/groupMetadata/currentGroupMetadataAuthority.ts`,
+  `${sdk}/workflows/organizations/groupMetadata/groupMetadataRuntime.ts`,
   `${sdk}/workflows/organizations/groupNames/groupMembershipName.ts`,
   `${sdk}/workflows/organizations/groupNames/organizationGroupNames.ts`,
   `${sdk}/workflows/organizations/groupPolicy/commitCurrentGroupPolicyMutation.ts`,
