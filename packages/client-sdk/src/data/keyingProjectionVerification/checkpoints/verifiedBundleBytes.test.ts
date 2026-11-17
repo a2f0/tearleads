@@ -115,3 +115,43 @@ test("a bundle changed after it was observed is stored as observed", async () =>
     database.close();
   }
 });
+
+test("a bundle read twice stores the copy it compared", async () => {
+  const checkpoint: AccessManifestCheckpoint = {
+    objectKind: "document",
+    objectId: "document-1",
+    organizationId: "organization-1",
+    epoch: 1,
+    manifestHash: MANIFEST_HASH,
+  };
+  const verified = { checkpoint };
+  const original = documentBundle();
+  recordVerifiedBundleBytes(verified, original);
+  const live = documentBundle();
+  let reads = 0;
+  // A state whose second read differs from its first.
+  Object.defineProperty(live.state, "linkedContainerIds", {
+    enumerable: true,
+    get: () => {
+      reads += 1;
+      return reads === 1 ? ["container-1"] : ["container-2"];
+    },
+  });
+  const database = await createTestExecSql("verified-bundle-read-twice");
+  try {
+    const context = createProjectionCheckpointContext({
+      execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
+    });
+    observeVerifiedProjectionBundles(
+      context,
+      new Map([[MANIFEST_HASH, live]]),
+      new Map([[MANIFEST_HASH, verified]]),
+    );
+    expect(context.verifiedBundles).toEqual([
+      { bundle: toServedAccessManifestBundle(original), checkpoint },
+    ]);
+  } finally {
+    database.close();
+  }
+});

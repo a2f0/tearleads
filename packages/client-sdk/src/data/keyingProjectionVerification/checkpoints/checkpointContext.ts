@@ -99,13 +99,15 @@ export function observeVerifiedProjectionBundles(
 ): void {
   for (const [manifestHash, bundle] of bundlesByHash) {
     const verified = verifiedByHash.get(manifestHash);
+    if (!verified) continue;
     // A cache hit verifies the hash, not these bytes: store only bytes that
-    // a fresh verification accepted, so a citation never replays others. The
-    // stored copy is taken with the comparison, before persistence awaits,
-    // so a later change to the projection's object is never stored.
-    if (verified && matchesVerifiedBundleBytes(verified, bundle))
+    // a fresh verification accepted, so a citation never replays others. One
+    // copy is compared and stored, taken before persistence awaits, so no
+    // later read of the projection's object can reach storage.
+    const snapshot = structuredClone(bundle);
+    if (matchesVerifiedBundleBytes(verified, snapshot))
       context.verifiedBundles.push({
-        bundle: structuredClone(toServedAccessManifestBundle(bundle)),
+        bundle: toServedAccessManifestBundle(snapshot),
         checkpoint: verified.checkpoint,
       });
   }
