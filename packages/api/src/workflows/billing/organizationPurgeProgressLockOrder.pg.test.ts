@@ -157,16 +157,33 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       await claimedOrganizationHints();
     const groupRows = rows.filter((row) => row.principalType === "group");
     const first = groupRows[0];
-    const last = groupRows.at(-1);
+    const keyLastGroupId = groupRows.at(-1)?.principalId;
+    const lowestHash = "0".repeat(64);
     invariant(
-      first && last && first.principalId !== last.principalId,
+      first &&
+        keyLastGroupId &&
+        first.principalId !== keyLastGroupId &&
+        first.inputHash > lowestHash,
       "expected hint rows of both groups",
     );
+    // A hint of the key-last group that sorts before `first` on every column
+    // after the principal id, so only the principal-id sort locks `first`
+    // first.
+    const [last] = await db
+      .insert(principalHistoryProgress)
+      .values({
+        ...first,
+        id: randomUUID(),
+        inputHash: lowestHash,
+        principalId: keyLastGroupId,
+      })
+      .returning();
+    invariant(last, "expected the key-last group's hint row");
     // Tombstone the key-last group first, so a purge that visits groups in
-    // tombstone order reaches the key-first group's rows last.
+    // tombstone order, unsorted, reaches the key-first group's rows last.
     await db
       .insert(organizationGroupTombstones)
-      .values({ groupId: last.principalId, organizationId });
+      .values({ groupId: keyLastGroupId, organizationId });
 
     await publishDuringPurge({ claim, first, last, now });
     expect(
