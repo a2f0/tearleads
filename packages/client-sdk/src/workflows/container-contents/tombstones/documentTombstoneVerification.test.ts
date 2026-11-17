@@ -3,6 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createWorkflowInputFixture } from "../../../../test/helpers/internalRuntimeFixtures";
+import { createContainerContentsWorkflowRuntime } from "../../../client/runtime/containerContentsRuntime";
 import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
 import {
@@ -11,7 +12,6 @@ import {
   nullContainerDocumentWatermarks,
 } from "../documentDiscovery/documentDiscovery.testUtils";
 import { createDiscoveredDocumentVerifier } from "../documentDiscovery/documentDiscoveryEvidence";
-import { createContainerContentsWorkflowRuntime } from "../runtime";
 import {
   createContainerDocumentTombstoneVerifier,
   createDocumentHeadLinkSetLoader,

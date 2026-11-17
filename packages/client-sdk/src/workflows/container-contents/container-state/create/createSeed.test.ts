@@ -9,6 +9,7 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../../../test/helpers/documentFixtures";
+import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
@@ -21,7 +22,6 @@ import {
 } from "../../containerPersistence";
 import { createInitializedContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import { listContainerMetadataDocumentUpdateIds } from "../../metadata/metadataEvents";
-import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { createTestContainerState } from "../containerState.testFixtures";
 import type { ContainerCreateIntentSyncState } from "../types";
 import { syncPendingContainerCreateIntents } from "./createIntentSync";

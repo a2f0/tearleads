@@ -12,11 +12,12 @@ import {
   createPrincipalReciteFixture,
   ROOT_CONTAINER_ID,
 } from "../../../../../test/helpers/principalReciteFixtures";
+import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification";
 import {
   heldContainerSnapshot,
   rememberVerifiedContainerHeads,
-} from "../../../../data/containers/shared/heldContainerHeads";
-import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification";
+} from "../../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { recoverPrincipalPolicyHistory } from "../../../principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { buildMaterializedContainerSharePlan } from "./shareMaterialization";
 
@@ -45,6 +46,7 @@ test("a paged policy survives held-head cloning and signs a verifiable share pla
     if (!previousProjection) throw new Error("Missing previous projection");
     const previousPath = await verifyContainerWriterProjection({
       execSql: fixture.database.execSql,
+      openPrincipalPolicyBundleReader,
       projection: previousProjection,
       resolveUserKey: fixture.input.resolveTrustedUserIdentity,
       warmReferencedPrincipalPolicies:

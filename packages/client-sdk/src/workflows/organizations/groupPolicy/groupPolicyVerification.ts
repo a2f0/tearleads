@@ -10,7 +10,7 @@ import {
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../../data/principals/principalPolicyAdminSigners";
+import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../../data/principalContracts/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import {

@@ -7,7 +7,7 @@ import {
 import { organizationPolicyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
 import { verifyPrincipalPolicySnapshots } from "../../../test/helpers/principalPolicySnapshotVerification";
 import { buildInitialOrganizationPolicyRequest } from "../../workflows/registration/organizationProvisioning";
-import { parseOrganizationAuthorityDescriptor } from "../principals/organizationAuthorityDescriptor";
+import { parseOrganizationAuthorityDescriptor } from "../principalContracts/organizationAuthorityDescriptor";
 import {
   loadOrganizationFounder,
   rememberOrganizationFounder,

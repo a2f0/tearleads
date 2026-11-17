@@ -1,7 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
-import type {
-  ContainerDocumentLinks,
-  DocumentSummary,
+import {
+  type ContainerDocumentLinks,
+  createContainerContentsWorkflowRuntime,
+  type DocumentSummary,
 } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { createDocumentStoreRuntime } from "../../../../test/helpers/documentStoreFixtures";
@@ -44,8 +45,11 @@ function renderIdentityActions(
     },
     state: { online: true },
   });
+  // The organization host is bound by the SDK's standalone constructor.
+  const { organizations } = createContainerContentsWorkflowRuntime(runtime);
   const appData: ContainerDocumentLinks = {
     ...runtime,
+    organizations,
     canMutateDocumentLinks: true,
     canMutateUnsyncedDocumentLinks: true,
     documentRuntime: () => runtime,

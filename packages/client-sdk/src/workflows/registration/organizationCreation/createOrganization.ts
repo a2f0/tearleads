@@ -14,8 +14,8 @@ import {
   type OrganizationProvisioningArtifactsInput,
   type ProvisionedSystemContainerSpec,
   persistOrganizationProvisioningState,
-} from "../../registration/organizationProvisioning";
-import type { ProvisionedStatePrimer } from "../../registration/provisionedStatePrimer";
+} from "../organizationProvisioning";
+import type { ProvisionedStatePrimer } from "../provisionedStatePrimer";
 import {
   type CreateOrganizationApi,
   organizationCreationCompletion,

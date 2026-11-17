@@ -2,7 +2,7 @@ import { createDocument } from "@tearleads/loro";
 import { ensureDocumentAttachmentStructure } from "../../../data/documents/documentContent";
 import { ensureDocumentRowsStructure } from "../../../data/documents/documentRowList";
 import { DOCUMENTS_APP_KIND } from "../../../workflows/documents";
-import { getRuntimePeerSeed } from "../../../workflows/sync";
+import { getRuntimePeerSeed } from "../../../workflows/sync/coordination";
 import type { DocumentState, DocumentStoreState } from "./state";
 
 async function createStoredDocumentWithSeed(

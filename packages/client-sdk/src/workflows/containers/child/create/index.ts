@@ -48,16 +48,15 @@ import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
 } from "../../../../data/documents/shared/projection/projectionVerificationOptions";
-import type {
-  ProjectionUserKeyResolver,
-  ReferencedPrincipalPolicyWarmer,
-} from "../../../../data/keyingProjectionVerification";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   nullOnProjectionVerificationCancellation,
+  type ProjectionUserKeyResolver,
+  type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../../data/keyingProjectionVerification";
-import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principals/principalPolicyEvidence";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principalContracts/principalPolicyEvidence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { PrincipalPolicyRepairBudget } from "../../../principals/policyRepairBudget";
 import type { ContainerMutationCollaborators } from "../../containerMutationCollaborators";
@@ -326,6 +325,7 @@ export async function buildMaterializedContainerCreatePlan(
   const principalPolicies = input.resolveProjectionUserKey
     ? await collectContainerWriterProjectionPrincipalPolicies({
         execSql: input.execSql,
+        openPrincipalPolicyBundleReader,
         projection: input.parentProjection,
         resolveUserKey: input.resolveProjectionUserKey,
         stillCurrent: input.stillCurrent,

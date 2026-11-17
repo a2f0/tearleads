@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { DocumentSyncUpdateIsolationError } from "../documents/shared/sync/documentSyncUpdateIsolation";
 import { ProjectionDependencyUnavailableError } from "../shared/dependencyUnavailable";
+import { reportAndRethrowKeyingVerificationError } from "../shared/securityIncidents";
 import { DatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import {
-  reportAndRethrowKeyingVerificationError,
   rethrowDatabaseUnavailableError,
   throwKeyingVerificationErrorWithContext,
   throwKeyingVerificationShapeFailure,

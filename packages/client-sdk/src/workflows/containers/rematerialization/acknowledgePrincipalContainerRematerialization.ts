@@ -1,7 +1,7 @@
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import { rememberVerifiedContainerHeads } from "../../../data/containers/shared/heldContainerHeads";
 import type { AuthoredContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
 import { acknowledgeContainerMutationBatch } from "../../../data/containers/shared/mutationAcknowledgement";
+import { rememberVerifiedContainerHeads } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { scheduleHeldDescendantRecitations } from "../child/recite";
 import type { PrincipalContainerRematerializationInput } from "./principalContainerRematerializationPlanning";
 import type { PlannedRematerialization } from "./principalContainerRematerializationTargets";

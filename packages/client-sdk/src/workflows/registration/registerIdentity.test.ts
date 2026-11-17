@@ -17,7 +17,7 @@ import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
-import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
+import { parseOrganizationAuthorityDescriptor } from "../../data/principalContracts/organizationAuthorityDescriptor";
 import { buildInitialOrganizationPolicyRequest } from "./organizationProvisioning";
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
 

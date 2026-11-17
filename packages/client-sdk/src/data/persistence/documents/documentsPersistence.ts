@@ -8,7 +8,10 @@ import { documentProjection } from "../../sqlite/schema/documentProjectionSchema
 import { documents } from "../../sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
-import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
+import {
+  applyContainerDocumentTombstonesWithExec,
+  type ContainerDocumentTombstonePlacementRemoval,
+} from "./internal/containerDocumentTombstones";
 import { createStoredDocumentWithHistoryCheckpoint } from "./internal/createDocumentWithHistoryCheckpoint";
 import { discardStoredDocumentToShell } from "./internal/discardDocument";
 import { upsertDiscoveredDocumentsInTransaction } from "./internal/discoveredDocumentUpsert";
@@ -149,10 +152,15 @@ export async function upsertDiscoveredDocuments(
 export async function applyContainerDocumentTombstones(
   execSql: ExecSql,
   tombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
+  removePlacementRows: ContainerDocumentTombstonePlacementRemoval,
 ): Promise<DocumentSummary[]> {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
-    return applyContainerDocumentTombstonesWithExec(lockedExecSql, tombstones);
+    return applyContainerDocumentTombstonesWithExec(
+      lockedExecSql,
+      tombstones,
+      removePlacementRows,
+    );
   });
 }
 

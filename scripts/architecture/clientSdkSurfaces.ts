@@ -29,21 +29,30 @@ const principalsWorkflowSurface = [
 // mutations on them.
 const principalsDataSurface = [
   "currentPolicyReferenceResolver",
-  "organizationAuthorityDescriptor",
   "organizationGroupRoles",
   "principalHistoryProtection",
   "principalHistoryScopeProtection",
-  "principalIdentityCommitments",
   "principalKeyValidation",
   "principalMutationJournal",
   "principalMutationJournalRecord",
-  "principalPolicyAdminSigners",
   "principalPolicyCoordinator",
   "principalPolicyCrypto",
-  "principalPolicyEvidence",
-  "principalPolicyStates",
 ].map((module) => `${sdk}/data/principals/${module}.ts`);
 
+export const documentStoreClientSurface = [`${sdk}/client/documents/index.ts`];
+
+// Every Principal Policy Contracts module is a contract: Keying Verification
+// verifies policies with them, and Principal Policy builds on them.
+export const principalPolicyContractsSurface = [
+  ...[
+    "organizationAuthorityDescriptor",
+    "principalIdentityCommitments",
+    "principalPolicyAdminSigners",
+    "principalPolicyEvidence",
+    "principalPolicyStates",
+  ].map((module) => `${sdk}/data/principalContracts/${module}.ts`),
+  `${sdk}/data/persistence/principalContracts/principalGrantRetirementPersistence.ts`,
+];
 // The document projection, container KEK path, reader, and sync contracts that
 // Container Data, Client Blob Storage, and Document Store & Sync build on.
 // Document sync also uses the KEK currency, content crypto, event, outgoing
@@ -56,6 +65,7 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/contentRecordKeys.ts`,
   `${sdk}/data/documents/shared/crypto.ts`,
   `${sdk}/data/documents/shared/events.ts`,
+  `${sdk}/data/documents/shared/projection/freshProjectionRetry.ts`,
   `${sdk}/data/documents/shared/projection/projectionVerificationOptions.ts`,
   `${sdk}/data/documents/shared/readers.ts`,
   `${sdk}/data/documents/shared/responses.ts`,
@@ -72,12 +82,10 @@ export const documentProjectionContractsSurface = [
 ];
 
 export const documentStoreSurface = [
-  `${sdk}/client/documents/index.ts`,
   `${sdk}/data/documents/index.ts`,
   `${sdk}/data/persistence/documents/records/index.ts`,
   `${sdk}/stores/documents/index.ts`,
   `${sdk}/workflows/documents/index.ts`,
-  `${sdk}/data/documents/attachmentContentIdentity.ts`,
   `${sdk}/data/documents/documentConstants.ts`,
   `${sdk}/data/documents/documentKinds.ts`,
   `${sdk}/data/documents/documentSummary.ts`,
@@ -86,6 +94,7 @@ export const documentStoreSurface = [
   `${sdk}/data/persistence/documents/containerDocumentTombstoneHoldRepository.ts`,
   `${sdk}/data/persistence/documents/containerDocumentTombstoneHoldsPersistence.ts`,
   `${sdk}/data/persistence/documents/documentDiscoveryEvidencePersistence.ts`,
+  `${sdk}/data/persistence/documents/documentPlacement.ts`,
   `${sdk}/data/persistence/documents/documentProjectionContainers.ts`,
   `${sdk}/data/persistence/documents/documentsPersistence.ts`,
   `${sdk}/data/persistence/documents/records/documentRowsInTransaction.ts`,
@@ -100,18 +109,21 @@ export const documentStoreSurface = [
   `${sdk}/workflows/documents/sync/initialSync.ts`,
   `${sdk}/workflows/documents/sync/reportDocumentSyncQuarantine.ts`,
   `${sdk}/workflows/documents/syncFailures/syncFailureClassification.ts`,
+  `${sdk}/data/persistence/documents/types.ts`,
+];
+
+export const containerContentsClientSurface = [
+  `${sdk}/client/containerContents/index.ts`,
+  `${sdk}/client/containerContents/documentDiscovery.ts`,
 ];
 
 export const containerContentsSurface = [
-  `${sdk}/client/containerContents/index.ts`,
   `${sdk}/stores/container-contents/index.ts`,
   `${sdk}/workflows/container-contents/index.ts`,
-  `${sdk}/client/containerContents/documentDiscovery.ts`,
+  `${sdk}/workflows/container-contents/pendingWrites/index.ts`,
   `${sdk}/data/persistence/container-contents/containerContentsPersistence.ts`,
   `${sdk}/data/persistence/container-contents/containerPersistence.ts`,
   `${sdk}/data/persistence/container-contents/documentContainerProjectionPersistence.ts`,
-  `${sdk}/data/persistence/container-contents/documentPlacement.ts`,
-  `${sdk}/data/persistence/container-contents/pendingContainerCreate.ts`,
   `${sdk}/stores/container-contents/types.ts`,
   `${sdk}/workflows/container-contents/documentDiscovery/containerDocumentListing.ts`,
   `${sdk}/workflows/container-contents/documentPriming/documentHydrationProbe.ts`,
@@ -121,6 +133,21 @@ export const containerContentsSurface = [
   `${sdk}/workflows/container-contents/remoteHydration/destination/destinationRoleCache.ts`,
   `${sdk}/workflows/container-contents/remoteReset/containerRemoteReset.ts`,
   `${sdk}/workflows/container-contents/syncLane.ts`,
+  `${sdk}/workflows/container-contents/attribution/documentAttributionRanges.ts`,
+  `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryEvidence.ts`,
+  `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryLanes.ts`,
+  `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryTypes.ts`,
+  `${sdk}/workflows/container-contents/documentQueries/documentStructure.ts`,
+  `${sdk}/workflows/container-contents/documentQueries/index.ts`,
+  `${sdk}/workflows/container-contents/info/blobInfo.ts`,
+  `${sdk}/workflows/container-contents/info/containerInfo.ts`,
+  `${sdk}/workflows/container-contents/info/documentInfo.ts`,
+  `${sdk}/workflows/container-contents/projectionKeys.ts`,
+  `${sdk}/workflows/container-contents/runtime.ts`,
+  `${sdk}/workflows/container-contents/syncPause/discoveryGuard.ts`,
+  `${sdk}/workflows/container-contents/syncState.ts`,
+  `${sdk}/workflows/container-contents/tombstones/documentPurge.ts`,
+  `${sdk}/workflows/container-contents/tombstones/documentTombstoneEvidence.ts`,
 ];
 
 export const containerDataSurface = [
@@ -128,7 +155,6 @@ export const containerDataSurface = [
   `${sdk}/workflows/containers/rematerialization/index.ts`,
   `${sdk}/data/containers/shared/authorAccess.ts`,
   `${sdk}/data/containers/shared/containerPathLimits.ts`,
-  `${sdk}/data/containers/shared/heldContainerHeads.ts`,
   `${sdk}/data/containers/shared/mutationAcknowledgement.ts`,
   `${sdk}/data/containers/shared/mutationFailures.ts`,
   `${sdk}/data/containers/shared/projection.ts`,
@@ -137,8 +163,9 @@ export const containerDataSurface = [
   `${sdk}/workflows/containers/child/mutationSubmit.ts`,
 ];
 
+export const blobStorageClientSurface = [`${sdk}/client/blobs/index.ts`];
+
 export const blobStorageSurface = [
-  `${sdk}/client/blobs/index.ts`,
   `${sdk}/workflows/blobs/index.ts`,
   `${sdk}/workflows/blobs/upload/index.ts`,
   `${sdk}/data/blobs/blobContracts.ts`,
@@ -146,27 +173,47 @@ export const blobStorageSurface = [
   `${sdk}/workflows/blobs/verification/attachmentDecryptor.ts`,
   `${sdk}/workflows/blobs/verification/attachmentKeyAuthenticator.ts`,
   `${sdk}/workflows/blobs/verification/retainedAttachmentVerification.ts`,
+  `${sdk}/data/blobs/createBlobStore.ts`,
+  `${sdk}/data/blobs/memoryBlobStore.ts`,
+];
+
+export const organizationClientSurface = [
+  `${sdk}/client/organizations/index.ts`,
+  `${sdk}/client/organizations/organizationReadModels.ts`,
+  `${sdk}/client/organizations/recipientAdmission.ts`,
 ];
 
 export const organizationReadModelSurface = [
-  `${sdk}/client/organizations/index.ts`,
   `${sdk}/workflows/organizations/groupShare/index.ts`,
   `${sdk}/workflows/organizations/index.ts`,
   `${sdk}/workflows/organizations/principalPolicy/index.ts`,
   `${sdk}/workflows/organizations/readModel/index.ts`,
-  `${sdk}/client/organizations/organizationReadModels.ts`,
-  `${sdk}/client/organizations/recipientAdmission.ts`,
-  `${sdk}/workflows/organizations/groupMetadata/groupMetadataErrors.ts`,
-  `${sdk}/workflows/organizations/groupMetadata/groupMetadataRuntime.ts`,
-  `${sdk}/workflows/organizations/groupMetadata/runtimeGroupMetadataAuthority.ts`,
+  `${sdk}/data/persistence/organizations/organizationProvisioningAttemptRepository.ts`,
+  `${sdk}/workflows/organizations/containerContentsHost.ts`,
   `${sdk}/workflows/organizations/groupPolicy/groupPolicyMutationHead.ts`,
   `${sdk}/workflows/organizations/organizationProfile.ts`,
   `${sdk}/workflows/organizations/principalMutations/principalMutationJournalManagement.ts`,
-  `${sdk}/workflows/organizations/provisioning/createOrganization.ts`,
-  `${sdk}/workflows/organizations/provisioning/organizationProvisioningAttempt.ts`,
-  `${sdk}/workflows/organizations/provisioning/organizationReplacementVerification.ts`,
   `${sdk}/workflows/organizations/readModel/organizationRemoteReset.ts`,
   `${sdk}/workflows/organizations/rosterProfileContainer.ts`,
+  `${sdk}/data/persistence/organizations/organizationReadModelRepository.ts`,
+  `${sdk}/workflows/organizations/currentOrganizationAuthority.ts`,
+  `${sdk}/workflows/organizations/groupMetadata/currentGroupMetadataAuthority.ts`,
+  `${sdk}/workflows/organizations/groupMetadata/groupMetadataRuntime.ts`,
+  `${sdk}/workflows/organizations/groupNames/groupMembershipName.ts`,
+  `${sdk}/workflows/organizations/groupNames/organizationGroupNames.ts`,
+  `${sdk}/workflows/organizations/groupPolicy/commitCurrentGroupPolicyMutation.ts`,
+  `${sdk}/workflows/organizations/groupPolicy/groupPolicyRequests.ts`,
+  `${sdk}/workflows/organizations/groups/createCurrentOrganizationGroup.ts`,
+  `${sdk}/workflows/organizations/groups/deleteCurrentOrganizationGroup.ts`,
+  `${sdk}/workflows/organizations/memberships/leaveRequestMembersEvidence.ts`,
+  `${sdk}/workflows/organizations/memberships/leaveRequestVerification.ts`,
+  `${sdk}/workflows/organizations/memberships/rosterVouchedAdmission.ts`,
+  `${sdk}/workflows/organizations/policyHistory/groupPolicyHistoryPage.ts`,
+  `${sdk}/workflows/organizations/policyHistory/loadPolicyHistoryDetails.ts`,
+  `${sdk}/workflows/organizations/principalMutations/runtimeCurrentGroupMutation.ts`,
+  `${sdk}/workflows/organizations/principalMutations/runtimeCurrentOrganizationMutation.ts`,
+  `${sdk}/workflows/organizations/readModel/organizationPresentationAccessState.ts`,
+  `${sdk}/workflows/organizations/trustedOrganizationUsers.ts`,
 ];
 
 export const rootConsoleSurface = [
@@ -177,7 +224,6 @@ export const rootConsoleSurface = [
 export const principalPolicySurface = [
   ...principalsWorkflowSurface,
   `${sdk}/data/persistence/principalCurrentAcknowledgementPersistence.ts`,
-  `${sdk}/data/persistence/principalKeys/principalGrantRetirementPersistence.ts`,
   `${sdk}/data/persistence/principalMutationJournalPersistence.ts`,
   `${sdk}/data/persistence/principalPolicy/principalPolicyBundleRepository.ts`,
   `${sdk}/data/persistence/principalPolicy/principalPolicyPersistence.ts`,
@@ -192,23 +238,31 @@ export const registrationSurface = [
   `${sdk}/workflows/registration/provisionedStatePrimer.ts`,
 ];
 
+export const deviceFirstClientSurface = [`${sdk}/client/deviceFirst/index.ts`];
+
 export const syncEngineSurface = [
-  `${sdk}/client/deviceFirst/index.ts`,
   `${sdk}/stores/local-projection/index.ts`,
   `${sdk}/sync/reconciliation/index.ts`,
   `${sdk}/workflows/sync/index.ts`,
+];
+
+export const syncCoordinationSurface = [
+  `${sdk}/workflows/sync/coordination.ts`,
   `${sdk}/data/shared/domainScope.ts`,
   `${sdk}/data/sync/crdtPeerSeed.ts`,
   `${sdk}/data/sync/organizationSyncPauses.ts`,
+  `${sdk}/data/sync/originatedDocuments.ts`,
   `${sdk}/data/sync/outgoingUpdateSettlement.ts`,
   `${sdk}/data/sync/sequence.ts`,
   `${sdk}/data/sync/syncCoordinator.ts`,
+  `${sdk}/data/sync/syncLaneConfig.ts`,
 ];
 
-export const identitySurface = [
+export const identitySurface = [`${sdk}/data/trustedUserIdentity/index.ts`];
+
+export const identitySessionClientSurface = [
   `${sdk}/client/identity/index.ts`,
   `${sdk}/client/session/index.ts`,
-  `${sdk}/data/trustedUserIdentity/index.ts`,
   `${sdk}/client/identity/keyPackage.ts`,
   `${sdk}/client/identity/userIdentities.ts`,
   `${sdk}/client/session/sessionRecoveryErrors.ts`,
@@ -229,6 +283,7 @@ export const purchasesSurface = [
 export const keyingVerificationSurface = [
   `${sdk}/data/keyingProjectionVerification/index.ts`,
   `${sdk}/data/keying/`,
+  `${sdk}/data/keyingProjectionVerification/checkpoints/heldContainerHeads.ts`,
   `${sdk}/data/keyingProjectionVerification/document/documentContainerProjections.ts`,
   `${sdk}/data/keyingProjectionVerification/error.ts`,
   `${sdk}/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts`,
@@ -246,9 +301,13 @@ export const keyingVerificationSurface = [
   `${sdk}/data/persistence/verifiedManifestBundlePersistence.ts`,
 ];
 
-export const securityIncidentSurface = [
+export const securityIncidentClientSurface = [
   `${sdk}/client/securityIncidents/index.ts`,
+];
+
+export const securityIncidentSurface = [
   `${sdk}/data/shared/securityIncidents.ts`,
+  `${sdk}/data/persistence/securityIncidentPersistence.ts`,
 ];
 
 export const runtimeRootSurface = [
@@ -257,7 +316,6 @@ export const runtimeRootSurface = [
   `${sdk}/TearleadsOptions.ts`,
   `${sdk}/client/host/`,
   `${sdk}/client/runtime/database.ts`,
-  `${sdk}/client/runtime/listenerSet.ts`,
   `${sdk}/client/runtime/workflowRuntime.ts`,
   `${sdk}/index.ts`,
 ];

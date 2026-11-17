@@ -9,6 +9,7 @@ import { deleteDocumentPlacements } from "../../src/data/persistence/container-c
 import type { PrincipalHistoryProtectionLease } from "../../src/data/principals/principalHistoryProtection";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import { UnverifiedUserIdentityError } from "../../src/data/trustedUserIdentity";
+import { containerContentsOrganizationHost } from "../../src/workflows/organizations/containerContentsHost";
 import type { PrincipalMutationRecoveryApi } from "../../src/workflows/organizations/principalMutations/principalMutationJournalManagement";
 import { principalMutationApiFixture } from "./principalMutationApiFixture";
 import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
@@ -105,6 +106,7 @@ export function createInternalRuntimeFixture(
   return {
     identityTrustDomain: "https://api.example.test",
     adoptRootContainer: overrides.adoptRootContainer ?? (() => false),
+    containerContentsOrganizations: containerContentsOrganizationHost,
     deleteDocumentPlacements,
     identityLinks: {
       loadAdmissionPin: async () => null,

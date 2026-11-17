@@ -8,7 +8,7 @@ import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import type { AcknowledgedPrincipalCurrentPublication } from "../../../data/persistence/principalCurrentAcknowledgementPersistence";
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { principalHistoryEvidenceScopeId } from "../../../data/principals/principalHistoryPrefixProtection";
 import type { RecoverPrincipalPolicyHistoryOptions } from "../historyRecovery/principalHistoryRecoveryTypes";
 import {

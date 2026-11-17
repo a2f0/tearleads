@@ -6,7 +6,7 @@ import {
 } from "@tearleads/crypto";
 import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import type { PublicPrincipalHistoryOptions } from "./publicPrincipalHistoryTypes";
 import { publicProjectionDirectoryBindings } from "./publicProjectionDirectory";
 import {

@@ -13,6 +13,7 @@ import {
   principalPolicyKey,
   upsertPrincipalPolicyCheckpointInTransaction,
 } from "./keyingCheckpoints/keyingCheckpointPersistence";
+import { storePrincipalGrantRetirements } from "./principalContracts/principalGrantRetirementPersistence";
 import {
   type PrincipalHistoryEvidencePage,
   writePrincipalHistoryEvidencePage,
@@ -30,7 +31,6 @@ import {
   reclaimCompletedPrincipalHistoryStages,
   touchPrincipalHistoryStage,
 } from "./principalHistory/principalHistoryStageRetention";
-import { storePrincipalGrantRetirements } from "./principalKeys/principalGrantRetirementPersistence";
 import { archivePrincipalHistoryKeyEnvelopes } from "./principalKeys/principalKeyEnvelopeArchivePersistence";
 
 /** Owned output of authenticated prefix extension and exact receipt verification. */

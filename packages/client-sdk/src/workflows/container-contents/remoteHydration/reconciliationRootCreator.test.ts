@@ -10,6 +10,7 @@ import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
+import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import { verifyRemoteContainerDestination } from "./destination/verifiedDestination";
 import { localOnlyRootState } from "./localRootState.testFixtures";
@@ -79,6 +80,7 @@ test("a persisted shared root created by another user never absorbs local conten
         },
       } as unknown as ContainerContentsPersistence,
       runtime: withPrincipalPolicies({
+        organizations: containerContentsOrganizationHost,
         apiClient: {
           getContainerWriterProjection: async () => {
             projectionReads += 1;

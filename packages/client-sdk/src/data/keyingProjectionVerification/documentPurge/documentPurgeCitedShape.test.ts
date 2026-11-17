@@ -13,7 +13,8 @@ import {
   fixtureHash,
 } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
-import { runWithSecurityIncidentReporting } from "../error";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
 test("a malformed unverified purge citation records one integrity incident", async () => {
@@ -78,6 +79,7 @@ test("a malformed unverified purge citation records one integrity incident", asy
         () =>
           verifyDocumentPurgeProof({
             execSql: database.execSql,
+            openPrincipalPolicyBundleReader,
             expectedDocumentId: proof.documentId,
             expectedOrganizationId: fixture.author.organizationId,
             proof,

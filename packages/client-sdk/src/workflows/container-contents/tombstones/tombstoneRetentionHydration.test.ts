@@ -10,6 +10,7 @@ import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyS
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/queuedUpdateRows";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
+import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import { insertTestPendingUpdate } from "../documentQueries/documentQueries.testFixtures";
 import {
@@ -93,6 +94,7 @@ test.each(["listing", "ingest"] as const)(
         containersById: new Map<string, ContainerState>(),
         persistence: defaultContainerContentsPersistence,
         runtime: withPrincipalPolicies({
+          organizations: containerContentsOrganizationHost,
           resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
           adoptRootContainer: () => {},
           apiClient: {
@@ -253,6 +255,7 @@ test("an unsigned metadata replacement cannot purge the dormant scope", async ()
       containersById: new Map<string, ContainerState>(),
       persistence: defaultContainerContentsPersistence,
       runtime: withPrincipalPolicies({
+        organizations: containerContentsOrganizationHost,
         resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
         adoptRootContainer: () => {},
         apiClient: {
@@ -359,6 +362,7 @@ test("a never-bound dormant record re-attaches instead of purging", async () => 
       containersById: new Map<string, ContainerState>(),
       persistence: defaultContainerContentsPersistence,
       runtime: withPrincipalPolicies({
+        organizations: containerContentsOrganizationHost,
         resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
         adoptRootContainer: () => {},
         apiClient: {

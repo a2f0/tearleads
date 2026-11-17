@@ -12,13 +12,14 @@ import {
   ROOT_CONTAINER_ID,
   USER_ID,
 } from "../../../../test/helpers/principalReciteFixtures";
-import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
+import { heldContainerSnapshot } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import {
   readAccessEvent,
   readAccessManifest,
 } from "../../../data/keyingProjectionVerification/readers";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildMaterializedContainerCreatePlan } from "./create";
 import { childContainerWriterProjectionFromCreatePlan } from "./create/createProjection";
 import { reciteHeldDescendants } from "./recite";
@@ -60,6 +61,7 @@ test.each(["before-pass", "in-flight"] as const)(
           containerId,
           await verifyContainerWriterProjection({
             execSql,
+            openPrincipalPolicyBundleReader,
             projection: childContainerWriterProjectionFromCreatePlan({
               materializedPlan,
               parentProjection,

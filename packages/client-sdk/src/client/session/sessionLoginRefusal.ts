@@ -1,6 +1,8 @@
 import { AccountSuspendedError } from "@tearleads/api-client";
-import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
-import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
+import {
+  reportAndRethrowKeyingVerificationError,
+  type SecurityIncidentReporter,
+} from "../../data/shared/securityIncidents";
 
 /**
  * A server answering this identity with another account, or an identity

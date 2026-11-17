@@ -9,11 +9,13 @@ import { createContainerMutationServiceFixture } from "../../../../../test/helpe
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification/container/containerProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
 } from "../../../containers/child/create";
 import { containerWriterProjectionFromRotationPlan } from "../../../containers/child/rekey/rekeyProjection";
+import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import { defaultContainerContentsPersistence as persistence } from "../../containerPersistence";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 import { upsertRemoteContainerState } from "./remoteContainerState";
@@ -103,6 +105,7 @@ test.each(["before verification", "before insertion"])(
               advancedBeforeInsert = true;
               await verifyContainerWriterProjection({
                 execSql,
+                openPrincipalPolicyBundleReader,
                 projection: current,
                 resolveUserKey,
               });
@@ -111,6 +114,7 @@ test.each(["before verification", "before insertion"])(
           },
         },
         runtime: withPrincipalPolicies({
+          organizations: containerContentsOrganizationHost,
           apiClient: {
             getContainerWriterProjection: async () => served,
             evictContainerWriterProjection: () => {},

@@ -4,7 +4,7 @@ import {
   type PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { and, eq, inArray, or } from "drizzle-orm";
-import { principalHeadMatchesReference } from "../../principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../principalContracts/organizationAuthorityDescriptor";
 import {
   principalPolicyBundleReferences,
   principalPolicyBundles,

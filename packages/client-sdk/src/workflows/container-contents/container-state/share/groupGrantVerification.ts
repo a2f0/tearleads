@@ -9,9 +9,9 @@ import {
   verifyContainerWriterProjection,
 } from "../../../../data/keyingProjectionVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import { referencedPrincipalHeadFromPolicy } from "../../../containers";
-import { createRuntimeCurrentSharePrincipalPolicy } from "../../../organizations/groupShare";
 
 import type { ContainerState } from "../../remoteHydration";
 import { loadContainerWriterProjectionForState } from "../projectionCache";
@@ -83,7 +83,8 @@ async function containerStateHasCurrentGroupGrantInternal(input: {
     return false;
   }
 
-  const readCurrent = createRuntimeCurrentSharePrincipalPolicy(input.runtime);
+  const readCurrent =
+    input.runtime.organizations.createCurrentGroupPolicyReader(input.runtime);
   if (!readCurrent)
     throw new ProjectionDependencyUnavailableError(
       "Group sharing requires private paged recovery",
@@ -98,6 +99,7 @@ async function containerStateHasCurrentGroupGrantInternal(input: {
     async ({ checkpointPolicies, policy, stillCurrent }) => {
       await verifyContainerWriterProjection({
         execSql: input.runtime.infra.execSql,
+        openPrincipalPolicyBundleReader,
         principalPolicyCache:
           principalPolicyCacheForVerifiedPolicies(checkpointPolicies),
         projection,

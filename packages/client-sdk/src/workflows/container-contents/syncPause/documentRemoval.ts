@@ -7,7 +7,7 @@ import {
   defaultDocumentsPersistence,
   deletePersistedDocument,
 } from "../../documents";
-import { OrganizationSyncPauseRepository } from "../../sync";
+import { OrganizationSyncPauseRepository } from "../../sync/coordination";
 import { carriesLocalWrites, listPendingWrites } from "../pendingWrites";
 import type { ContainerContentsWorkflowRuntimeInfra } from "../runtime";
 

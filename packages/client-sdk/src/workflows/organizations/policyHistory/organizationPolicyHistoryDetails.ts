@@ -7,7 +7,7 @@ import {
   assertProjectionVerificationCurrent,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification/types";
-import type { OrganizationGroupHead } from "../../../data/principals/organizationAuthorityDescriptor";
+import type { OrganizationGroupHead } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { buildOrganizationGroupPolicyHistoryPage } from "./groupPolicyHistoryPage";
 import { verifyOrganizationPolicyHistory } from "./organizationPolicyHistoryVerification";
 import {

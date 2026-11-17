@@ -6,8 +6,8 @@ import {
 } from "@tearleads/crypto";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { principalPolicyReferenceFromBundle } from "../../src/data/principalContracts/principalPolicyAdminSigners";
 import type { PrincipalHistoryProtectionLease } from "../../src/data/principals/principalHistoryProtection";
-import { principalPolicyReferenceFromBundle } from "../../src/data/principals/principalPolicyAdminSigners";
 import type {
   ExecSql,
   ExecSqlClientLike,
@@ -16,8 +16,8 @@ import {
   createTrustedUserIdentityService,
   loadPinnedUserIdentity,
 } from "../../src/data/trustedUserIdentity";
-import { createOrganization } from "../../src/workflows/organizations/provisioning/createOrganization";
 import { createPrincipalCurrentRecoveryBatch } from "../../src/workflows/principals/recoveryOperation/principalCurrentRecoveryBatch";
+import { createOrganization } from "../../src/workflows/registration/organizationCreation/createOrganization";
 import {
   createProvisionedPrincipalHistoryPrimer,
   type ProvisionedPrincipalHistoryPrimer,

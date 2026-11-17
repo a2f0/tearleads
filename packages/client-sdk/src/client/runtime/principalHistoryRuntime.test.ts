@@ -43,7 +43,10 @@ function adaptedLease(internalRuntime: InternalRuntime, adapter: Adapter) {
   const input = internalRuntime.workflowInput();
   const containers = () =>
     createContainerContentsStoreWorkflowRuntimeFromSnapshot(
-      input,
+      {
+        ...input,
+        organizations: internalRuntime.containerContentsOrganizations,
+      },
       () => false,
       async () => undefined,
     );

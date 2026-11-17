@@ -1,11 +1,14 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import type { DocumentPlacementCleanup } from "../../data/persistence/documents/documentsPersistence";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import type { DomainScope } from "../../data/shared/domainScope";
-import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
+import { createListenerSet } from "../../data/shared/listenerSet";
+import {
+  runWithSecurityIncidentReporting,
+  type SecurityIncidentReporter,
+} from "../../data/shared/securityIncidents";
 import { type ExecSql, unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type LocalUserIdentityCandidate,
@@ -13,7 +16,11 @@ import {
   type TrustedUserIdentityResolver,
   type TrustedUserIdentityService,
 } from "../../data/trustedUserIdentity";
-import type { ContainerContentsRootAdopter } from "../../workflows/container-contents";
+import type {
+  ContainerContentsOrganizationHost,
+  ContainerContentsRootAdopter,
+} from "../../workflows/container-contents";
+import { containerContentsOrganizationHost } from "../../workflows/organizations/containerContentsHost";
 import { PrincipalPolicyService } from "../../workflows/principals/principalPolicyService";
 import {
   createProvisionedStatePrimer,
@@ -33,7 +40,6 @@ import { acknowledgedSessionRoot } from "../session/sessionRootAuthority";
 import type { Session, SessionSnapshot } from "../session/sessionTypes";
 import type { Database } from "./database";
 import type { Events } from "./events";
-import { createListenerSet } from "./listenerSet";
 import type { Network } from "./network";
 import {
   createPrincipalHistoryProtectionCustody,
@@ -90,6 +96,7 @@ export interface InternalRuntime {
   readonly sessionGeneration: number;
   readonly adoptRootContainer: ContainerContentsRootAdopter;
   readonly deleteDocumentPlacements: DocumentPlacementCleanup;
+  readonly containerContentsOrganizations: ContainerContentsOrganizationHost;
   readonly publicRuntime: Runtime;
   boundUserId(signingKeyFingerprint: string): Promise<string | null>;
   pinLocalUserIdentity(
@@ -231,6 +238,7 @@ export function createRuntime(
     adoptRootContainer: (input) =>
       adoptSessionRootContainer(dependencies, input),
     deleteDocumentPlacements,
+    containerContentsOrganizations: containerContentsOrganizationHost,
     boundUserId: (signingKeyFingerprint) =>
       trustedUserIdentityService.boundUserId(signingKeyFingerprint),
     async pinLocalUserIdentity(userId, candidate) {

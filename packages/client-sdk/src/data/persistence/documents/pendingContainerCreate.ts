@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import {
+  CONTAINER_CREATE_INTENT_TYPE,
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
   localIntents,
@@ -7,7 +8,6 @@ import {
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import { CONTAINER_CREATE_INTENT_TYPE } from "./containerContentsPersistenceTypes";
 
 /**
  * A folder whose create has not settled can carry a listed identity that

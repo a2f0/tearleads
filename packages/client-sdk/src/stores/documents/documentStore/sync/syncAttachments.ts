@@ -12,7 +12,7 @@ import {
   resolveDocumentCreateAuthor,
 } from "../../../../workflows/documents";
 import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
-import { markOriginatedDocuments } from "../../../../workflows/sync";
+import { markOriginatedDocuments } from "../../../../workflows/sync/coordination";
 import { requestDocumentStoreSync } from "../../registry";
 import {
   dropUnavailablePendingAttachment,

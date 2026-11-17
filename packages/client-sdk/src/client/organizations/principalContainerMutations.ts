@@ -1,6 +1,6 @@
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicyCurrentEvidence } from "../../data/principalContracts/principalPolicyEvidence";
 import type { CurrentPolicyReferenceResolver } from "../../data/principals/currentPolicyReferenceResolver";
-import type { PrincipalPolicyCurrentEvidence } from "../../data/principals/principalPolicyEvidence";
 import {
   type PreparedPrincipalContainerRematerializationBatch,
   type PrincipalRematerializationPredecessor,

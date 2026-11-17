@@ -2,11 +2,12 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentSummary } from "../../../../data/documents/documentSummary";
 import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectionVerification";
 import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification";
-import { runWithSecurityIncidentReporting } from "../../../../data/keyingProjectionVerification/error";
 import { rethrowProjectionVerificationCancelled } from "../../../../data/keyingProjectionVerification/types";
 import { hasUnsettledDocumentPlacement } from "../../../../data/persistence/container-contents/documentPurgePlacement";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { errorMessage } from "../../../../data/shared/errorMessage";
+import { runWithSecurityIncidentReporting } from "../../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 
 import type { ContainerContentsPersistence } from "../../containerPersistence";
@@ -55,6 +56,7 @@ async function verifiedRemoteScope(
       }
       const path = await verifyContainerWriterProjection({
         execSql: runtime.infra.execSql,
+        openPrincipalPolicyBundleReader,
         projection,
         resolveUserKey: input.resolveProjectionUserKey,
         stillCurrent: input.stillCurrent,

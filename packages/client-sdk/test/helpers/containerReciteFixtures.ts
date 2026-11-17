@@ -8,18 +8,19 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerReciteRequest } from "@tearleads/validators/request";
 import type { ContainerReciteResponse } from "@tearleads/validators/response";
+import { verifyContainerWriterProjection } from "../../src/data/keyingProjectionVerification";
 import {
   heldContainerPath,
   heldContainerSnapshot,
   rememberAcknowledgedContainerHead,
-} from "../../src/data/containers/shared/heldContainerHeads";
-import { verifyContainerWriterProjection } from "../../src/data/keyingProjectionVerification";
+} from "../../src/data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import {
   readAccessEvent,
   readAccessManifest,
 } from "../../src/data/keyingProjectionVerification/readers";
 import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { locallyAuthoredAccessManifestHead } from "../../src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { openPrincipalPolicyBundleReader } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildContainerRecitePlan } from "../../src/workflows/containers/child/recitePlan";
 import {
   createParentProjection,
@@ -44,6 +45,7 @@ export async function createContainerReciteScenario(extraChildren = 0) {
   );
   const verifiedPath = await verifyContainerWriterProjection({
     execSql,
+    openPrincipalPolicyBundleReader,
     projection: grandchild.projection,
     resolveUserKey: createParentProjectionUserKeyResolver(parent),
   });
@@ -56,6 +58,7 @@ export async function createContainerReciteScenario(extraChildren = 0) {
     });
     const path = await verifyContainerWriterProjection({
       execSql,
+      openPrincipalPolicyBundleReader,
       projection: extra.projection,
       resolveUserKey: createParentProjectionUserKeyResolver(parent),
     });

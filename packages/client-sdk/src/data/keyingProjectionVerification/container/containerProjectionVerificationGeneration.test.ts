@@ -9,6 +9,7 @@ import {
 } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { ProjectionVerificationCancelledError } from "../types";
 import { verifyContainerWriterProjection } from "./containerProjectionVerification";
 
@@ -43,6 +44,7 @@ test("container verification surfaces cancellation after valid work expires", as
     await expect(
       verifyContainerWriterProjection({
         execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
         projection: fixture.projection,
         resolveUserKey: async (userId) => {
           const identity = await fixture.resolveUserKey(userId);
@@ -70,6 +72,7 @@ test("container verification never masks a failure after expiry", async () => {
     await expect(
       verifyContainerWriterProjection({
         execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
         projection: fixture.projection,
         resolveUserKey: async () => {
           current = false;

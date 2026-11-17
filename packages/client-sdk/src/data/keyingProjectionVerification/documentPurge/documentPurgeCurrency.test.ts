@@ -5,7 +5,7 @@ import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/
 import { deleteDocumentPlacements } from "../../persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../persistence/documents/documentsPersistence";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { runWithSecurityIncidentReporting } from "../error";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
 for (const [label, index] of [

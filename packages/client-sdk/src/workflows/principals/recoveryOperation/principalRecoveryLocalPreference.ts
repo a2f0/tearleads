@@ -1,6 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { PrincipalHistoryRecoveryRaceError } from "../historyRecovery/principalHistoryRecoveryTypes";
 import type {
   RecoverScopedPrincipalPolicyHistoryOptions,

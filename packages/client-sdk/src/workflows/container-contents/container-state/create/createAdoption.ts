@@ -7,11 +7,12 @@ import {
   verifiedContainerCreateManifest,
   verifyContainerDestinationProjection,
 } from "../../../../data/keyingProjectionVerification";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import { errorMessage } from "../../../../data/shared/errorMessage";
 import {
   isKeyingVerificationError,
   reportKeyingVerificationErrorInCauseChain,
-} from "../../../../data/keyingProjectionVerification/error";
-import { errorMessage } from "../../../../data/shared/errorMessage";
+} from "../../../../data/shared/securityIncidents";
 
 import type { ContainerState } from "../../remoteHydration";
 import type {
@@ -62,6 +63,7 @@ async function verifyAdoptableProjection(input: {
   }
   const { path, verifiedByHash } = await verifyContainerDestinationProjection({
     execSql: input.state.runtime.infra.execSql,
+    openPrincipalPolicyBundleReader,
     projection,
     resolveUserKey: input.state.resolveProjectionUserKey,
     warmReferencedPrincipalPolicies:

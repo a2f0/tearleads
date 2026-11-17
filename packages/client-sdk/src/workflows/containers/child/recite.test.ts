@@ -4,7 +4,7 @@ import { createContainerReciteScenario } from "../../../../test/helpers/containe
 import {
   heldContainerSnapshot,
   rememberAcknowledgedContainerHead,
-} from "../../../data/containers/shared/heldContainerHeads";
+} from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { locallyAuthoredAccessManifestHead } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { reciteHeldDescendants } from "./recite";

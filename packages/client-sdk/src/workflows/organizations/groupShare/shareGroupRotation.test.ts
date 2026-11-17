@@ -26,14 +26,14 @@ import {
   projectionHistoryPages,
   projectionPolicyWarmer,
 } from "../../../../test/helpers/projectionPolicyHistory";
-import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
+import { heldContainerSnapshot } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { containerStateHasCurrentGroupGrant } from "../../container-contents/container-state/share/groupGrantVerification";
 import type { ContainerWorkflowRuntime } from "../../container-contents/container-state/types";
 import type { ContainerState } from "../../container-contents/remoteHydration";
-
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
+import { containerContentsOrganizationHost } from "../containerContentsHost";
 import { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 test("current group grant verification returns false when projection verification expires", async () => {
@@ -49,6 +49,7 @@ test("current group grant verification returns false when projection verificatio
   let current = true;
   const runtime = withPrincipalPolicies(
     {
+      organizations: containerContentsOrganizationHost,
       apiClient: {
         ...projectionHistoryPages(projectionBundles),
         getPrincipalPolicyPages: repairPolicyPages(projectionBundles),

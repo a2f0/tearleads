@@ -5,10 +5,10 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../../data/shared/domainScope";
-import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { createRemoteContainerWithMetadataDocument } from "./createWithMetadata";
 
 test("container-with-metadata does not retry or report after stale-parent refresh expiry", async () => {

@@ -10,6 +10,7 @@ import {
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
 import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   type DocumentsPersistence,
   defaultDocumentsPersistence,
@@ -122,6 +123,7 @@ test("purge retry refuses a document recreated before the absence transaction", 
     await expect(
       verifyDocumentWriterProjection({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection: writerProjection,
         resolveUserKey: resolveProjectionUserKey,
       }),
@@ -246,6 +248,7 @@ test("purge retry deletes an absent custom document projection with its proof", 
     await expect(
       verifyDocumentWriterProjection({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection: fixture.writerProjection,
         resolveUserKey: fixture.resolveProjectionUserKey,
       }),

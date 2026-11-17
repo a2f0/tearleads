@@ -3,7 +3,8 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeHistoricalPolicy";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { runWithSecurityIncidentReporting } from "../error";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import {
   verifyDocumentPurgeProof,
   verifyDocumentPurgeProofBaseline,
@@ -29,6 +30,7 @@ test("an authenticated purge without a connection to a newer policy pin defers w
     ]);
     const input = {
       execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
       expectedDocumentId: fixture.proof.documentId,
       expectedOrganizationId: "organization-1",
       proof: fixture.proof,

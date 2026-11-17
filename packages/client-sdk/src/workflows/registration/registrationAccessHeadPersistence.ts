@@ -9,7 +9,7 @@ import {
 } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { LocallyAcknowledgedAccessManifestHead } from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
-import { assertContainerNotRetired } from "../../data/persistence/principalKeys/principalGrantRetirementPersistence";
+import { assertContainerNotRetired } from "../../data/persistence/principalContracts/principalGrantRetirementPersistence";
 import { keyingCheckpointTables } from "../../data/sqlite/schema/keyingCheckpointSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";

@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
 import {
   reportAndRethrowKeyingVerificationError,
-  throwKeyingVerificationErrorWithContext,
-} from "../../data/keyingProjectionVerification/error";
-import type { SecurityIncidentContext } from "../../data/shared/securityIncidents";
+  type SecurityIncidentContext,
+} from "../../data/shared/securityIncidents";
 import type {
   ExecSql,
   SqlArrayRow,

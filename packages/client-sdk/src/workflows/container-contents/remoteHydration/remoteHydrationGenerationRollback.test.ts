@@ -8,6 +8,7 @@ import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyS
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import { hydrateRemoteContainers } from "./index";
 import type { ContainerState, RemoteContainerHydrationState } from "./types";
@@ -100,6 +101,7 @@ function createState(input: {
     ),
     persistence: defaultContainerContentsPersistence,
     runtime: withPrincipalPolicies({
+      organizations: containerContentsOrganizationHost,
       resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: {
         getContainerWriterProjection:

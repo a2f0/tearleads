@@ -12,7 +12,7 @@ import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import type { PrincipalPolicyCurrentEvidence } from "../../principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../../principalContracts/principalPolicyEvidence";
 import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { addBundleByHash } from "../checkpoints/bundleVerification";
@@ -33,6 +33,7 @@ import {
   readContainerKeyWrap,
 } from "../readers";
 import type {
+  OpenPrincipalPolicyBundleReader,
   PrincipalPolicyCache,
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
@@ -173,6 +174,7 @@ async function verifyContainerKekProjection(input: {
 
 interface ContainerWriterProjectionVerificationInput {
   readonly execSql: ExecSql;
+  readonly openPrincipalPolicyBundleReader: OpenPrincipalPolicyBundleReader;
   readonly persistVerificationCheckpoints?: boolean | undefined;
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: ContainerWriterProjectionResponse;
@@ -209,7 +211,10 @@ function collectContainerProjectionBundles(
 }
 
 export async function verifyContainerWriterProjectionWithContext(
-  input: Omit<ContainerWriterProjectionVerificationInput, "execSql"> & {
+  input: Omit<
+    ContainerWriterProjectionVerificationInput,
+    "execSql" | "openPrincipalPolicyBundleReader"
+  > & {
     readonly authorizationEvidence?: readonly PrincipalPolicyAuthorization[];
   },
   checkpointContext: ProjectionCheckpointContext,
@@ -318,6 +323,7 @@ export async function verifyContainerWriterProjection(
     };
     const checkpointContext = createProjectionCheckpointContext({
       execSql: input.execSql,
+      openPrincipalPolicyBundleReader: input.openPrincipalPolicyBundleReader,
       organizationId: input.projection.organizationId,
     });
     const verifiedPath = await verifyContainerWriterProjectionWithContext(
@@ -356,6 +362,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(
       new Map<string, VerifiedContainerAccessManifest>();
     const checkpointContext = createProjectionCheckpointContext({
       execSql: input.execSql,
+      openPrincipalPolicyBundleReader: input.openPrincipalPolicyBundleReader,
       organizationId: input.projection.organizationId,
     });
     const verifiedPath = await verifyContainerWriterProjectionWithContext(

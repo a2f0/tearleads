@@ -4,11 +4,11 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ContainerState } from "../../remoteHydration";
-import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { prepareContainerStateGroupRewrap } from "./index";
 
 function createContainerState(

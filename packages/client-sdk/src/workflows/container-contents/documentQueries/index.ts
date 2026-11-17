@@ -14,7 +14,10 @@ import {
   ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
-import { DocumentContainerProjectionRepository } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import {
+  DocumentContainerProjectionRepository,
+  deleteContainerDocumentTombstonePlacementRows,
+} from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { loadLinkedDocumentSummaryRow } from "../../../data/persistence/container-contents/linkedDocumentSummary";
 import {
   applyContainerDocumentTombstones as applyPersistedContainerDocumentTombstones,
@@ -391,7 +394,11 @@ export function createContainerDocumentQueriesFromRuntime(
       );
     },
     applyContainerDocumentTombstones(tombstones) {
-      return applyPersistedContainerDocumentTombstones(execSql, tombstones);
+      return applyPersistedContainerDocumentTombstones(
+        execSql,
+        tombstones,
+        deleteContainerDocumentTombstonePlacementRows,
+      );
     },
     hasOrphanedDocuments({ currentOrganizationId }) {
       return hasOrphanedDocuments(execSql, currentOrganizationId);

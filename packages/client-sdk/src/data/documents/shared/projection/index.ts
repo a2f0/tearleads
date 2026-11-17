@@ -10,6 +10,7 @@ import {
   verifyDocumentWriterProjectionAuthorization,
 } from "../../../keyingProjectionVerification";
 import { throwKeyingVerificationShapeFailure } from "../../../keyingProjectionVerification/error";
+import { openPrincipalPolicyBundleReader } from "../../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { errorMessage } from "../../../shared/errorMessage";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import {
@@ -28,6 +29,7 @@ import {
 
 export { unwrapContainerKekPath } from "../containerKek/containerKekPath";
 export { ContainerKekHistoryUnavailableError } from "../containerKek/containerKekPathHistory";
+export { shouldRetryWithFreshProjection } from "./freshProjectionRetry";
 export {
   buildRotatedDocumentContentKeyBundle,
   collectContainerKeksForDocumentSync,
@@ -208,6 +210,7 @@ async function assertDocumentWriterProjectionConsistentInternal(
   ) {
     const authorization = await verifyDocumentWriterProjectionAuthorization({
       execSql: input.execSql,
+      openPrincipalPolicyBundleReader,
       persistVerificationCheckpoints: input.persistVerificationCheckpoints,
       principalPolicyCache: input.principalPolicyCache,
       projection: writerProjection,

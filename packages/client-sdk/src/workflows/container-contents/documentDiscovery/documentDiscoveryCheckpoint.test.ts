@@ -6,7 +6,11 @@ import {
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createWorkflowInputFixture } from "../../../../test/helpers/internalRuntimeFixtures";
 import { createQueuedDocumentMoveRemote } from "../../../../test/helpers/queuedDocumentMoveRemote";
-import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { createContainerContentsWorkflowRuntime } from "../../../client/runtime/containerContentsRuntime";
+import {
+  deleteContainerDocumentTombstonePlacementRows,
+  DocumentContainerProjectionRepository as Links,
+} from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import {
@@ -14,7 +18,6 @@ import {
   sqlDocumentsPersistence as documents,
 } from "../../../data/persistence/documents/documentsPersistence";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../documents/linkSet";
-import { createContainerContentsWorkflowRuntime } from "../runtime";
 import {
   createContainerDocumentTombstoneVerifier,
   createDocumentHeadLinkSetLoader,
@@ -135,7 +138,11 @@ test("a cached discovery head cannot resurrect a placement removed by a newer si
     expect(verdict?.kind).toBe("verified");
     if (verdict?.kind !== "verified")
       throw new Error("Expected signed unlink evidence");
-    await applyContainerDocumentTombstones(execSql, [verdict.tombstone]);
+    await applyContainerDocumentTombstones(
+      execSql,
+      [verdict.tombstone],
+      deleteContainerDocumentTombstonePlacementRows,
+    );
     // The local document row intentionally still has the old access epoch.
     expect((await documents.loadDocument(execSql, local.id))?.accessEpoch).toBe(
       candidate.accessEpoch,

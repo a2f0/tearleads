@@ -1,4 +1,4 @@
-import { createListenerSet } from "./listenerSet";
+import { createListenerSet } from "../../data/shared/listenerSet";
 
 /**
  * The API build that served this client's latest response, as named by the

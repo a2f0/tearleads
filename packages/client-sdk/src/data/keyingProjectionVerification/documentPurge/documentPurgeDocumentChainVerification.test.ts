@@ -4,10 +4,11 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeChain";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { verifyPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshotVerification";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { verifyContainerWriterProjection } from "../container/containerProjectionVerification";
 import { verifyDocumentWriterProjection } from "../document/documentProjectionVerification";
-import { runWithSecurityIncidentReporting } from "../error";
 import { verifyPurgeDocumentManifest } from "./documentPurgeDocumentChainVerification";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
@@ -19,11 +20,13 @@ test("a compact purge proof verifies transitions from a non-genesis pin", async 
   try {
     await verifyDocumentWriterProjection({
       execSql,
+      openPrincipalPolicyBundleReader,
       projection: fixture.linkedProjection,
       resolveUserKey: fixture.resolveProjectionUserKey,
     });
     const verified = await verifyDocumentPurgeProof({
       execSql,
+      openPrincipalPolicyBundleReader,
       expectedDocumentId: fixture.writerProjection.documentId,
       expectedOrganizationId: fixture.author.organizationId,
       proof: {
@@ -55,6 +58,7 @@ test("signed purge history uses retained group evidence after group deletion", a
   try {
     await verifyDocumentWriterProjection({
       execSql,
+      openPrincipalPolicyBundleReader,
       projection: fixture.writerProjection,
       resolveUserKey,
     });
@@ -65,11 +69,13 @@ test("signed purge history uses retained group evidence after group deletion", a
     const [originalPath, extraPath] = await Promise.all([
       verifyContainerWriterProjection({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection: fixture.projection,
         resolveUserKey,
       }),
       verifyContainerWriterProjection({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection: fixture.extraProjection,
         resolveUserKey,
       }),
@@ -114,7 +120,10 @@ test("signed purge history uses retained group evidence after group deletion", a
     await expect(
       verifyPurgeDocumentManifest({
         authorizationEvidence,
-        checkpointContext: createProjectionCheckpointContext({ execSql }),
+        checkpointContext: createProjectionCheckpointContext({
+          execSql,
+          openPrincipalPolicyBundleReader,
+        }),
         containerPathByManifestHash,
         enforceLocalCheckpoints: true,
         principalPolicyCache: new Map(),
@@ -137,6 +146,7 @@ test("document purge rejects a tampered intermediate signed transition", async (
   try {
     await verifyDocumentWriterProjection({
       execSql,
+      openPrincipalPolicyBundleReader,
       projection: fixture.writerProjection,
       resolveUserKey: fixture.resolveProjectionUserKey,
     });
@@ -152,6 +162,7 @@ test("document purge rejects a tampered intermediate signed transition", async (
     await expect(
       verifyDocumentPurgeProof({
         execSql,
+        openPrincipalPolicyBundleReader,
         expectedDocumentId: fixture.writerProjection.documentId,
         expectedOrganizationId: fixture.author.organizationId,
         proof: tampered,
@@ -172,6 +183,7 @@ test("a missing signed purge predecessor is recorded as integrity evidence", asy
   try {
     await verifyDocumentWriterProjection({
       execSql,
+      openPrincipalPolicyBundleReader,
       projection: fixture.writerProjection,
       resolveUserKey: fixture.resolveProjectionUserKey,
     });
@@ -193,6 +205,7 @@ test("a missing signed purge predecessor is recorded as integrity evidence", asy
         () =>
           verifyDocumentPurgeProof({
             execSql,
+            openPrincipalPolicyBundleReader,
             expectedDocumentId: proof.documentId,
             expectedOrganizationId: fixture.author.organizationId,
             proof,

@@ -10,16 +10,15 @@ import {
   verifyContainerWriterProjection,
 } from "../../../../data/keyingProjectionVerification";
 import {
-  isKeyingVerificationError,
-  reportKeyingVerificationErrorInCauseChain,
-  runWithSecurityIncidentReporting,
-} from "../../../../data/keyingProjectionVerification/error";
-import {
   type HeldContainerBinding,
   listingRepeatsHeldOrdinaryBinding,
 } from "../../../../data/persistence/container-contents/containerBinding";
-import { verifyRuntimeGroupMetadataAuthority } from "../../../organizations/groupMetadata/runtimeGroupMetadataAuthority";
-
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import {
+  isKeyingVerificationError,
+  reportKeyingVerificationErrorInCauseChain,
+  runWithSecurityIncidentReporting,
+} from "../../../../data/shared/securityIncidents";
 import type {
   ContainerState,
   RemoteContainer,
@@ -173,6 +172,7 @@ async function verifyDestinationRole(input: {
   assertDestinationProjectionIdentity(projection, listed);
   const verificationInput = {
     execSql: runtime.infra.execSql,
+    openPrincipalPolicyBundleReader,
     projection,
     resolveUserKey: runtime.resolveTrustedUserIdentity,
     stillCurrent: isCurrent,
@@ -199,7 +199,7 @@ async function verifyDestinationRole(input: {
   if (role.parentId === null && role.systemSlot !== null) {
     const head = path.at(-1);
     if (!head) throw new Error("Metadata root manifest is unavailable");
-    await verifyRuntimeGroupMetadataAuthority({
+    await runtime.organizations.verifyGroupMetadataAuthority({
       runtime,
       organizationId: listed.organizationId,
       organizationReference: projection.policyEvidence.organization?.head,
@@ -328,6 +328,7 @@ export async function verifyRemoteContainerDestination(
         input,
         resolveDestinationRole,
         () => runtime.apiClient.evictContainerWriterProjection(listed.id),
+        runtime.organizations.withMetadataRootReload,
       ).catch((error: unknown) => {
         // Never re-serve a cached projection that failed verification.
         if (isKeyingVerificationError(error))

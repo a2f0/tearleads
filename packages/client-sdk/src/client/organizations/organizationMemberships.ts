@@ -1,3 +1,4 @@
+import { carriesLocalWrites } from "../../workflows/container-contents/pendingWrites";
 import {
   type OrganizationContentHost,
   type OrganizationLeaveRequestResult,
@@ -15,11 +16,8 @@ import {
   requestAllDomainSyncLanes,
   subscribeToDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
-} from "../../workflows/sync";
-import {
-  type ContainerContents,
-  carriesLocalWrites,
-} from "../containerContents";
+} from "../../workflows/sync/coordination";
+import type { ContainerContents } from "../containerContents";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,

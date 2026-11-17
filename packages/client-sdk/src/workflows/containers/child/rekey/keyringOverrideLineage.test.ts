@@ -24,6 +24,7 @@ import {
   unwrapKeyringContainerKeksAtIndex,
 } from "../../../../data/documents/shared/containerKek/containerKekPathHistory";
 import { verifyContainerDestinationProjection } from "../../../../data/keyingProjectionVerification/container/containerDestinationVerification";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { verifyKeyringEntriesForSeal } from "../move/moveRotation";
 import { resolveRotationContext } from "../rotation/rotationContext";
 import { ContainerKeyringOverrideStaleError } from "./keyringOverrideLineage";
@@ -110,6 +111,7 @@ test("a reader rejects a keyring whose real epoch id was served elsewhere", asyn
   const scenario = await relocatedChildHistory();
   const { verifiedByHash } = await verifyContainerDestinationProjection({
     execSql: scenario.database.execSql,
+    openPrincipalPolicyBundleReader,
     projection: scenario.projection,
     resolveUserKey: createParentProjectionUserKeyResolver(scenario.parent),
   });

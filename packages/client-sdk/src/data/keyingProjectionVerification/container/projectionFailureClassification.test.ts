@@ -3,8 +3,9 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createParentProjection } from "../../../../test/helpers/containerFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { assertDocumentWriterProjectionConsistent } from "../../documents/shared/projection";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { verifyDocumentWriterProjectionAuthorization } from "../document/documentProjectionVerification";
-import { runWithSecurityIncidentReporting } from "../error";
 import { verifyContainerWriterProjection } from "./containerProjectionVerification";
 
 // A typed runtime failure inside a verification pass is a defect or an
@@ -32,6 +33,7 @@ test("a container projection defect propagates without an incident", async () =>
         () =>
           verifyContainerWriterProjection({
             execSql,
+            openPrincipalPolicyBundleReader,
             projection: fixture.projection,
             resolveUserKey: async () => {
               throw defect;
@@ -64,6 +66,7 @@ test("a document projection defect propagates without an incident", async () => 
       runWithSecurityIncidentReporting(reporter, context, () =>
         verifyDocumentWriterProjectionAuthorization({
           execSql,
+          openPrincipalPolicyBundleReader,
           projection: fixture.writerProjection,
           resolveUserKey: async () => {
             throw defect;

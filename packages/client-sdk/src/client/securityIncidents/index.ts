@@ -3,19 +3,19 @@ import {
   isKeyingVerificationCode,
   type KeyingVerificationError,
 } from "@tearleads/crypto";
-import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import {
   appendSecurityIncident,
   listSecurityIncidents,
 } from "../../data/persistence/securityIncidentPersistence";
-import type {
-  SecurityIncident,
-  SecurityIncidentContext,
-  SecurityIncidentObjectKind,
-  SecurityIncidentReporter,
+import { createListenerSet } from "../../data/shared/listenerSet";
+import {
+  isKeyingVerificationError,
+  type SecurityIncident,
+  type SecurityIncidentContext,
+  type SecurityIncidentObjectKind,
+  type SecurityIncidentReporter,
 } from "../../data/shared/securityIncidents";
 import type { Database } from "../runtime/database";
-import { createListenerSet } from "../runtime/listenerSet";
 
 export type { SecurityIncident, SecurityIncidentObjectKind };
 

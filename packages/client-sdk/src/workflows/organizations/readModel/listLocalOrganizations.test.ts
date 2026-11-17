@@ -19,8 +19,8 @@ import { organizationReadModelState } from "../../../data/sqlite/schema/organiza
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import { loadPersistedDocumentContent } from "../../documents/historyContent";
+import { createOrganization } from "../../registration/organizationCreation/createOrganization";
 import { getOrganizationProfileDocumentLocalId } from "../organizationProfile";
-import { createOrganization } from "../provisioning/createOrganization";
 import { deriveOrganizationMetadataContainerSystemSlot } from "../rosterProfileContainer";
 import { listLocalOrganizations } from "./listLocalOrganizations";
 

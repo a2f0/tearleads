@@ -17,11 +17,11 @@ import { PrincipalPolicyBundleRepository } from "../../../data/persistence/princ
 import {
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
-} from "../../../data/principals/organizationAuthorityDescriptor";
+} from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import {
   principalPolicyReferenceFromBundle,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
-} from "../../../data/principals/principalPolicyAdminSigners";
+} from "../../../data/principalContracts/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";

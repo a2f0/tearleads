@@ -4,6 +4,7 @@ import {
   collectContainerWriterProjectionPrincipalPolicies,
   type PrincipalPolicyCache,
 } from "../../../keyingProjectionVerification";
+import { openPrincipalPolicyBundleReader } from "../../../persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { ProjectionVerificationOptions } from "../projection/projectionVerificationOptions";
 import { resolveProjectionVerifier } from "../projection/projectionVerificationOptions";
@@ -39,6 +40,7 @@ export async function verifyContainerKekPathProjection(
 
   await collectContainerWriterProjectionPrincipalPolicies({
     execSql: input.execSql,
+    openPrincipalPolicyBundleReader,
     persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     principalPolicyCache: input.principalPolicyCache,
     projection: input.projection,

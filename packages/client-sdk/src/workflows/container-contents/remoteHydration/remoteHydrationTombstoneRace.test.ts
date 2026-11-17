@@ -8,6 +8,7 @@ import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyS
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import {
   ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
@@ -121,6 +122,7 @@ test("a stale tombstone does not starve independent page work", async () => {
       ]),
       persistence: defaultContainerContentsPersistence,
       runtime: withPrincipalPolicies({
+        organizations: containerContentsOrganizationHost,
         resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
         apiClient: {
           getContainerWriterProjection: directory.getContainerWriterProjection,
@@ -269,6 +271,7 @@ test("a stale descendant keeps its whole tombstone cascade retryable", async () 
       ),
       persistence: defaultContainerContentsPersistence,
       runtime: withPrincipalPolicies({
+        organizations: containerContentsOrganizationHost,
         apiClient: {
           getCurrentPrincipalPolicy: async () => null,
           listContainerParentLanes: async (request: {
