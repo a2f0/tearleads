@@ -48,7 +48,7 @@ test("a pause landing while a listing applies stores none of it", async () => {
       isPaused: () => paused,
       verifyDiscoveredDocuments: async () => {
         const verification = await verifiedListing();
-        // The pause cleanup runs after the listing was verified.
+        // The pause lands after the listing was verified.
         paused = true;
         return verification;
       },
@@ -69,12 +69,12 @@ test("a pause landing while a listing applies stores none of it", async () => {
 
     expect(applied).toBeNull();
     // Saved now, the watermark would let the listing after a resume skip the
-    // documents the cleanup removed.
+    // documents this one did not apply.
     expect(await loadWatermark(execSql)).toBeNull();
   });
 });
 
-test("a write queued behind the pause cleanup is skipped", async () => {
+test("a write queued behind the pause is skipped", async () => {
   await withWatermarks(async (execSql) => {
     let paused = false;
     const guarded = guardDocumentDiscoveryWrites({
@@ -86,7 +86,7 @@ test("a write queued behind the pause cleanup is skipped", async () => {
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
-    // The cleanup holds the mutation lock while the listing's writes arrive.
+    // The pause holds the mutation lock while the listing's writes arrive.
     const cleanup = runSerializedSqlMutation(execSql, async () => {
       await held;
       paused = true;

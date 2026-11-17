@@ -137,19 +137,26 @@ test("pausing and resuming sync is the member's own choice and wakes their clien
   ).toBe(false);
 });
 
-test("a personal organization cannot be paused", async () => {
-  const published: PublishedRealtimeEvent[] = [];
-  const app = createApp(published);
+test("a personal organization can be paused and resumed like any other", async () => {
+  const app = createApp([]);
   const user = await registeredUser();
   const personalOrganizationId = await getDefaultOrganizationId(user.userId);
 
-  const response = await putMembership(app, user, personalOrganizationId, true);
+  const paused = await putMembership(app, user, personalOrganizationId, true);
 
-  expect(response.status).toBe(409);
-  expect(published).toEqual([]);
+  expect(paused.status).toBe(200);
+  const pausedBody: unknown = await paused.json();
   expect(
-    (await putMembership(app, user, personalOrganizationId, false)).status,
-  ).toBe(200);
+    isOrganizationMembershipResponse(pausedBody) &&
+      pausedBody.isPersonalOrganizationOwner &&
+      pausedBody.syncPaused,
+  ).toBe(true);
+  const resumed = await putMembership(app, user, personalOrganizationId, false);
+  expect(resumed.status).toBe(200);
+  const resumedBody: unknown = await resumed.json();
+  expect(
+    isOrganizationMembershipResponse(resumedBody) && resumedBody.syncPaused,
+  ).toBe(false);
 });
 
 test("only an active member can change their own membership", async () => {

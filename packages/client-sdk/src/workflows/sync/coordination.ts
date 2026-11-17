@@ -5,9 +5,8 @@ export {
 export { getRuntimePeerSeed } from "../../data/sync/crdtPeerSeed";
 export {
   getOrCreateOrganizationSyncPauses,
-  isRetainedWhileSyncPaused,
+  loadOrganizationSyncPausesBeforeSync,
   type OrganizationSyncPauseChange,
-  OrganizationSyncPauseRepository,
   type OrganizationSyncPauseSubject,
   type OrganizationSyncPauses,
 } from "../../data/sync/organizationSyncPauses";

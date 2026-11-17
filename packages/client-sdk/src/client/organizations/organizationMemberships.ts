@@ -1,4 +1,3 @@
-import { carriesLocalWrites } from "../../workflows/container-contents/pendingWrites";
 import {
   type OrganizationContentHost,
   type OrganizationLeaveRequestResult,
@@ -12,19 +11,12 @@ import { loadCurrentMembersHead } from "../../workflows/organizations/membership
 import {
   type DomainScope,
   getOrCreateOrganizationSyncPauses,
-  hasDomainSyncCoordinatorPendingWork,
   requestAllDomainSyncLanes,
-  subscribeToDomainSyncCoordinator,
-  waitForDomainSyncCoordinatorToSettle,
 } from "../../workflows/sync/coordination";
-import type { ContainerContents } from "../containerContents";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
 } from "../runtime/workflowRuntime";
-
-// Long enough for a typical upload burst, short enough to answer a tap.
-const PAUSE_FLUSH_TIMEOUT_MS = 10_000;
 
 /** The user's own conduit to the organizations they belong to. */
 export interface OrganizationMemberships {
@@ -33,7 +25,11 @@ export interface OrganizationMemberships {
    * device. Null when offline or the list could not be read.
    */
   refresh(): Promise<OrganizationMembership[] | null>;
-  /** Pauses or resumes one organization for all of the user's devices. */
+  /**
+   * Pauses or resumes one organization's sync. A pause holds uploads and
+   * downloads and keeps the local copy; it follows the user to their other
+   * devices, except on their personal organization.
+   */
   setSyncPaused(
     organizationId: string,
     paused: boolean,
@@ -78,96 +74,27 @@ export interface OrganizationContentReconciler {
   reconcileNow(options: { readonly freshListing: true }): Promise<void>;
 }
 
-interface SettleRetry {
-  retry: () => Promise<boolean>;
-  running: boolean;
-  unsubscribe: () => void;
-}
-
-const settleRetriesByScope = new WeakMap<DomainScope, SettleRetry>();
-
-// One retry per scope: it runs whenever the scope's sync lanes go idle and
-// stops once it reports the work done.
-export function retryWhenWritesSettle(
-  domainScope: DomainScope,
-  retry: () => Promise<boolean>,
-): void {
-  const existing = settleRetriesByScope.get(domainScope);
-  if (existing) {
-    existing.retry = retry;
-    return;
-  }
-  const entry: SettleRetry = { retry, running: false, unsubscribe: () => {} };
-  settleRetriesByScope.set(domainScope, entry);
-  const attempt = () => {
-    if (entry.running || hasDomainSyncCoordinatorPendingWork(domainScope)) {
-      return;
-    }
-    entry.running = true;
-    void entry
-      .retry()
-      .then(
-        (done) => {
-          if (!done) return;
-          entry.unsubscribe();
-          settleRetriesByScope.delete(domainScope);
-        },
-        () => undefined,
-      )
-      .finally(() => {
-        entry.running = false;
-      });
-  };
-  entry.unsubscribe = subscribeToDomainSyncCoordinator(domainScope, attempt);
-  // The lanes may already have gone idle before the subscription existed.
-  attempt();
-}
-
-// Bound to the scope the operation started in: the tree is opened once, and
-// every action re-checks the scope so stale work never reaches another
-// identity's device state.
+// Bound to the scope the operation started in, so stale work never reaches
+// another identity's device state.
 function createOrganizationContentHost(
   runtime: InternalWorkflowRuntimeInput,
-  containerContents: ContainerContents,
   openReconciler: () => OrganizationContentReconciler,
   isCurrent: () => boolean,
 ): OrganizationContentHost {
   const { domainScope } = runtime.state;
-  const tree = containerContents.openTree();
   return {
-    async forgetOrganizationContent(organizationId) {
-      // A scope that ended has nothing left to retry.
-      if (!isCurrent()) return true;
-      return tree.forgetOrganizationContent(organizationId);
-    },
-    async hasUnsyncedOrganizationWrites(organizationId) {
-      if (!isCurrent()) return true;
-      const pending = await containerContents
-        .documentQueries()
-        .listPendingWrites();
-      return pending.some(
-        (item) =>
-          item.organizationId === organizationId && carriesLocalWrites(item),
-      );
-    },
-    async flushWrites() {
-      requestAllDomainSyncLanes(domainScope);
-      await waitForDomainSyncCoordinatorToSettle(domainScope, {
-        timeoutMs: PAUSE_FLUSH_TIMEOUT_MS,
-      });
-    },
-    async refetchContent() {
+    async resumeSync() {
       if (!isCurrent()) return;
+      // A held write leaves its lane idle, so every lane is re-driven.
+      requestAllDomainSyncLanes(domainScope);
       // Re-lists the whole tree and every container's documents. The resumed
-      // organization's folders were listed before the pause, and a hydration
-      // may already have restored them, so they must be forgotten explicitly.
-      // A sweep that started listing while paused would miss them, so this
-      // one queues behind it rather than joining it.
+      // organization's folders were listed before the pause, so they must be
+      // forgotten explicitly. A sweep that started listing while paused
+      // skipped them, so this one queues behind it rather than joining it.
       const reconciler = openReconciler();
       reconciler.resetDiscovered();
       await reconciler.reconcileNow({ freshListing: true });
     },
-    retryWhenWritesSettle: (retry) => retryWhenWritesSettle(domainScope, retry),
   };
 }
 
@@ -212,7 +139,6 @@ function setLeaveRequestedFor(
 
 export function createOrganizationMemberships(
   runtimeService: InternalRuntime,
-  containerContents: ContainerContents,
   openReconciler: () => OrganizationContentReconciler,
 ): OrganizationMemberships {
   const membershipInput = (runtime: InternalWorkflowRuntimeInput) => {
@@ -223,12 +149,7 @@ export function createOrganizationMemberships(
       apiClient: runtime.apiClient,
       domainScope,
       execSql: runtime.infra.execSql,
-      host: createOrganizationContentHost(
-        runtime,
-        containerContents,
-        openReconciler,
-        isCurrent,
-      ),
+      host: createOrganizationContentHost(runtime, openReconciler, isCurrent),
       isCurrent,
     };
   };

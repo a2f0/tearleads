@@ -95,6 +95,7 @@ async function submitPlannedSyncAttempt(args: {
       }),
       documentId: args.sync.documentId,
       expectedCommitLsnMode: args.pullContinuation?.commitLsnMode,
+      historyMode: args.sync.historyMode,
       isRemoteSyncBlocked: args.sync.isRemoteSyncBlocked,
       maxAttempts: args.maxAttempts,
       onInlineRepairRefused: () => requireStandaloneAncestorRepairs(args.sync),

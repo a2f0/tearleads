@@ -155,10 +155,7 @@ export async function discoverContainerDocumentLanesForRuntime({
       );
     if (!stored) continue;
     const isContainerPaused = () =>
-      syncPauses.isContainerPaused(
-        stored.container,
-        runtimeService.workflowInput().auth.organizationId ?? null,
-      );
+      syncPauses.isContainerPaused(stored.container);
     // A paused organization's container lists like one that is not stored,
     // and a pause landing mid-listing stops its write.
     if (!isContainerPaused())

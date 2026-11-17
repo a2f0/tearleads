@@ -20,11 +20,13 @@ import {
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import type { ReferencedPrincipalPolicyWarmer } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
+import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import {
   type DocumentSyncTraceEmitter,
   traceProjectionFailed,
   traceSubmitFailed,
 } from "../sync/syncTrace";
+import { isRoutinePullHeld } from "./syncAbandon";
 import {
   canRecoverDocumentUpdateIdConflict,
   canRetryDocumentSyncConflict,
@@ -230,7 +232,8 @@ async function submitDocumentSyncAttempt(input: {
 
 export async function submitDocumentSyncAttemptIfAllowed(
   input: Parameters<typeof submitDocumentSyncAttempt>[0] & {
-    isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
+    historyMode?: "raw" | undefined;
+    isRemoteSyncBlocked?: WorkflowRuntimeUtilInput["isRemoteSyncBlocked"];
     onOutgoingUpdatesMaterialized?:
       | ((updateIds: readonly string[]) => void)
       | undefined;
@@ -239,6 +242,7 @@ export async function submitDocumentSyncAttemptIfAllowed(
 ): Promise<DocumentSyncAttemptSubmission> {
   const {
     failureBlocksQueuedWrites,
+    historyMode,
     isRemoteSyncBlocked,
     onOutgoingUpdatesMaterialized,
     ...submissionInput
@@ -246,9 +250,10 @@ export async function submitDocumentSyncAttemptIfAllowed(
   const hasRemoteWrites =
     input.plan.request.outgoingUpdates.length > 0 ||
     (input.plan.request.containerRekeys?.length ?? 0) > 0;
-  if (hasRemoteWrites && isRemoteSyncBlocked?.(input.plan.organizationId)) {
-    return "blocked";
-  }
+  const blocked = hasRemoteWrites
+    ? isRemoteSyncBlocked?.(input.plan.organizationId)
+    : isRoutinePullHeld({ historyMode, isRemoteSyncBlocked }, input.plan);
+  if (blocked) return "blocked";
   if (input.stillCurrent?.() === false) return "cancelled";
 
   onOutgoingUpdatesMaterialized?.(

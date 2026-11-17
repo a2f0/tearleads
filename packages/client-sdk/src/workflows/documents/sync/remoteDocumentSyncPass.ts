@@ -16,6 +16,7 @@ import type {
 } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import type {
   RemoteDocumentDeletionHandler,
   TerminalSubmitFailureHandler,
@@ -88,6 +89,6 @@ export interface SyncRemoteDocumentRequest {
 export interface RemoteDocumentSyncPass extends SyncRemoteDocumentRequest {
   apiClient: DocumentSyncApi;
   execSql: ExecSql;
-  isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
+  isRemoteSyncBlocked?: WorkflowRuntimeUtilInput["isRemoteSyncBlocked"];
   targetSecretKey: Uint8Array;
 }

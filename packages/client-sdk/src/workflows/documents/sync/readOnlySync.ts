@@ -43,6 +43,10 @@ import {
   resolveSyncAttemptWriterProjection,
 } from "../syncFailures";
 import {
+  abandonBlockedSync,
+  isRoutinePullHeld,
+} from "../syncFailures/syncAbandon";
+import {
   handleUpstreamDeletedDocumentSyncFailure,
   type RemoteDocumentDeletionHandler,
   type TerminalSubmitFailureHandler,
@@ -324,9 +328,13 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
   input: Omit<
     ReadOnlyDocumentSyncCompletionInput,
     "pullComplete" | "response"
-  > & {
-    persistedState?: PersistedDocumentSyncState | null | undefined;
-  },
+  > &
+    Pick<
+      RemoteDocumentSyncPass,
+      "isRemoteSyncBlocked" | "onSyncAbandoned" | "onTerminalSubmitFailure"
+    > & {
+      persistedState?: PersistedDocumentSyncState | null | undefined;
+    },
 ): Promise<PersistedReadOnlyDocumentSyncResult> {
   let plan: DocumentSyncPlan | null;
   try {
@@ -339,6 +347,11 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
   }
   if (input.stillCurrent?.() === false) {
     return { kind: "completed", result: null };
+  }
+  // The persisted manifest names the organization, so a held pull stops
+  // here without a request.
+  if (isRoutinePullHeld(input, plan)) {
+    return { kind: "completed", result: abandonBlockedSync(input) };
   }
   const submitted = await submitDocumentSync({
     apiClient: input.apiClient,

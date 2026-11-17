@@ -1,7 +1,5 @@
-import { eq, notInArray } from "drizzle-orm";
 import type { DomainScope } from "../shared/domainScope";
 import {
-  organizationSyncPauseRemovals,
   organizationSyncPauses,
   organizationSyncPauseTables,
 } from "../sqlite/schema/organizationSyncPauseSchema";
@@ -21,12 +19,12 @@ export interface OrganizationSyncPauseSubject {
 }
 
 /**
- * Whether a container stays on the device while its organization is paused:
- * only the organization's parentless system root, the metadata root every
- * Members recipient reads, which keeps the organization named and its
- * membership visible.
+ * Whether a container keeps syncing while its organization is paused: only
+ * the organization's parentless system root, the metadata root every Members
+ * recipient reads, so a device that has never synced the organization still
+ * lists it and can resume it.
  */
-export function isRetainedWhileSyncPaused(
+function syncsWhileOrganizationPaused(
   container: OrganizationSyncPauseSubject,
 ): boolean {
   return container.parentId === null && Boolean(container.systemSlot);
@@ -38,9 +36,9 @@ export interface OrganizationSyncPauseChange {
 }
 
 /**
- * Which organizations this user paused syncing to their devices, for one
- * domain scope. Sync reads it synchronously once `load` has settled; the
- * persisted set lets a device that starts offline keep honoring a pause.
+ * Which organizations this user paused syncing on this device, for one domain
+ * scope. Sync reads it synchronously once `load` has settled; the persisted
+ * set lets a device that starts offline keep honoring a pause.
  */
 export interface OrganizationSyncPauses {
   /** Loads the persisted set once; concurrent and later calls share it. */
@@ -48,15 +46,10 @@ export interface OrganizationSyncPauses {
   isOrganizationPaused(organizationId: string): boolean;
   /**
    * Whether sync skips this container: every container of a paused
-   * organization except the one `isRetainedWhileSyncPaused` keeps. The
-   * session's active organization is never skipped, even when paused from
-   * another device: its root is the session's workspace until it switches
-   * away.
+   * organization except its metadata root. The session's active organization
+   * is held like any other; its content is already on the device.
    */
-  isContainerPaused(
-    container: OrganizationSyncPauseSubject,
-    activeOrganizationId: string | null,
-  ): boolean;
+  isContainerPaused(container: OrganizationSyncPauseSubject): boolean;
   pausedOrganizationIds(): ReadonlySet<string>;
   /** Persists exactly this set and reports which organizations changed. */
   replace(
@@ -72,11 +65,8 @@ export interface OrganizationSyncPauses {
   runExclusive<T>(task: () => Promise<T>): Promise<T>;
 }
 
-/**
- * Persistence for organization sync pauses and the documents a pause's
- * cleanup removed, bound to one executor.
- */
-export class OrganizationSyncPauseRepository {
+/** Persistence for organization sync pauses, bound to one executor. */
+class OrganizationSyncPauseRepository {
   private readonly execSql: ExecSql;
 
   constructor(execSql: ExecSql) {
@@ -114,54 +104,9 @@ export class OrganizationSyncPauseRepository {
               )
               .run();
           }
-          // A resumed organization's removed documents may be reopened again.
-          await tx
-            .delete(organizationSyncPauseRemovals)
-            .where(
-              notInArray(
-                organizationSyncPauseRemovals.organizationId,
-                tx
-                  .select({
-                    organizationId: organizationSyncPauses.organizationId,
-                  })
-                  .from(organizationSyncPauses),
-              ),
-            )
-            .run();
         },
       );
     });
-  }
-
-  /**
-   * Records, in the caller's transaction, that a pause's cleanup removed this
-   * document, so reopening it does not recreate it while the pause lasts.
-   * A plain insert on the bound executor; it never opens a transaction.
-   */
-  async recordPauseRemovedDocument(removal: {
-    readonly localId: string;
-    readonly organizationId: string;
-  }): Promise<void> {
-    await ensureSqlTables(this.execSql, organizationSyncPauseTables);
-    await getClientSQLitePersistenceRuntime(this.execSql)
-      .db.insert(organizationSyncPauseRemovals)
-      .values(removal)
-      .onConflictDoUpdate({
-        set: { organizationId: removal.organizationId },
-        target: organizationSyncPauseRemovals.localId,
-      })
-      .run();
-  }
-
-  /** Whether a pause's cleanup removed this document and the pause holds. */
-  async isPauseRemovedDocument(localId: string): Promise<boolean> {
-    await ensureSqlTables(this.execSql, organizationSyncPauseTables);
-    const rows = await getClientSQLitePersistenceRuntime(this.execSql)
-      .db.select({ localId: organizationSyncPauseRemovals.localId })
-      .from(organizationSyncPauseRemovals)
-      .where(eq(organizationSyncPauseRemovals.localId, localId))
-      .limit(1);
-    return rows.length > 0;
   }
 }
 
@@ -193,10 +138,9 @@ function createOrganizationSyncPauses(): OrganizationSyncPauses {
       return loading;
     },
     isOrganizationPaused: (organizationId) => paused.has(organizationId),
-    isContainerPaused: (container, activeOrganizationId) =>
+    isContainerPaused: (container) =>
       paused.has(container.organizationId) &&
-      container.organizationId !== activeOrganizationId &&
-      !isRetainedWhileSyncPaused(container),
+      !syncsWhileOrganizationPaused(container),
     pausedOrganizationIds: () => paused,
     replace(execSql, organizationIds) {
       const next = new Set(organizationIds);
@@ -243,6 +187,26 @@ function createOrganizationSyncPauses(): OrganizationSyncPauses {
 }
 
 const pausesByScope = new WeakMap<DomainScope, OrganizationSyncPauses>();
+
+/**
+ * Loads the scope's paused organizations before a store starts syncing, since
+ * its sync lanes read them synchronously. A failed read is reported and never
+ * keeps the store from starting; hydration and discovery load the set again
+ * before they fetch.
+ */
+export async function loadOrganizationSyncPausesBeforeSync(input: {
+  readonly domainScope: DomainScope;
+  readonly execSql: ExecSql;
+  readonly log: (message: string) => void;
+}): Promise<void> {
+  try {
+    await getOrCreateOrganizationSyncPauses(input.domainScope).load(
+      input.execSql,
+    );
+  } catch {
+    input.log("Sync: could not read the organization sync pauses");
+  }
+}
 
 /** The one pause set for a domain scope; a new scope starts unloaded. */
 export function getOrCreateOrganizationSyncPauses(

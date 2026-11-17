@@ -47,7 +47,6 @@ function OrganizationSyncButton({
   card: OrganizationDashboardCard;
   syncChoices: OrganizationSyncChoices;
 }) {
-  if (!card.canChangeSync) return null;
   const busy = syncChoices.changingOrganizationId === card.organizationId;
   return (
     <MiniAppButton
@@ -124,6 +123,9 @@ function OrganizationCard({
           name={name}
           onOpenFolder={onOpenFolder}
         />
+        {card.syncPaused ? (
+          <MiniAppStatus>{ORGANIZATIONS_LABELS.syncPausedStatus}</MiniAppStatus>
+        ) : null}
         {card.leaveRequested ? (
           <MiniAppStatus>
             {ORGANIZATIONS_LABELS.leaveRequestedStatus}

@@ -17,7 +17,6 @@ import {
   registerDocumentStoreIdentity,
   requestDocumentStoreSync,
   resolveDocumentStoreKey,
-  takeRegisteredDocumentStore,
 } from "../registry";
 import type {
   DocumentAttachmentUpload,
@@ -427,20 +426,8 @@ export function getOrCreateDocumentStore(
   options: DocumentStoreOpenOptions = {},
 ): DocumentStore {
   const registry = getOrCreateDocumentStoreRegistry(domainScope);
-  const createBacking = () =>
-    createBackingDocumentStore(
-      localId,
-      runtime,
-      defaultDocumentsPersistence,
-      initialDocumentId,
-      initialText,
-      initialDocumentKind,
-      options,
-    );
-  const existingStore = takeRegisteredDocumentStore(
-    registry,
+  const existingStore = registry.storesByKey.get(
     resolveDocumentStoreKey(registry, localId, initialDocumentId),
-    createBacking,
   );
   if (existingStore) {
     registerDocumentStore(
@@ -452,7 +439,15 @@ export function getOrCreateDocumentStore(
     return existingStore;
   }
 
-  const nextStore = createDocumentStoreFacade(createBacking());
+  const nextStore = createDocumentStore(
+    localId,
+    runtime,
+    defaultDocumentsPersistence,
+    initialDocumentId,
+    initialText,
+    initialDocumentKind,
+    options,
+  );
   registerDocumentStore(domainScope, localId, nextStore, initialDocumentId);
   return nextStore;
 }

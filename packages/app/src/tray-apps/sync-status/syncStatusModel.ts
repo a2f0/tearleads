@@ -127,6 +127,7 @@ const SYNC_STATUS_LABELS = {
   errorOther: "changes failed to sync",
   queueReadFailed: "Unable to check sync status",
   offlineSuffix: " (offline)",
+  syncPausedSuffix: " (sync is paused for an organization)",
   billingTrialEnded:
     "Free trial ended — sync paused. Update billing to resume.",
   billingDisabled:
@@ -156,6 +157,12 @@ interface SyncStatusDescriptionInput {
   readonly firstWriteError: string | null;
   readonly queueReadError: string | null;
   readonly online: boolean;
+  /**
+   * The user paused an organization's sync on this device. Its writes wait in
+   * the same identity-wide queue, so a pending count names the pause rather
+   * than reading as a stall.
+   */
+  readonly syncPaused: boolean;
   readonly billingStatus: BillingStatus | null;
   /** Whose billing paused sync; only read when `status` is `billing`. */
   readonly billingBlockScope: BillingBlockScope;
@@ -193,7 +200,10 @@ export function describeSyncStatus(input: SyncStatusDescriptionInput): string {
         input.pendingWriteCount === 1
           ? SYNC_STATUS_LABELS.pendingOne
           : `${input.pendingWriteCount} ${SYNC_STATUS_LABELS.pendingOther}`;
-      return input.online ? base : `${base}${SYNC_STATUS_LABELS.offlineSuffix}`;
+      if (!input.online) return `${base}${SYNC_STATUS_LABELS.offlineSuffix}`;
+      return input.syncPaused
+        ? `${base}${SYNC_STATUS_LABELS.syncPausedSuffix}`
+        : base;
     }
   }
 }

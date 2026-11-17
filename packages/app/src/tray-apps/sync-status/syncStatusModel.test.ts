@@ -148,6 +148,7 @@ test("describeSyncStatus names another organization as the billing reason", () =
       firstWriteError: null,
       queueReadError: null,
       online: true,
+      syncPaused: false,
       billingStatus: "active",
       billingBlockScope: "other",
     }),
@@ -163,6 +164,7 @@ test("describeSyncStatus labels the settled states", () => {
       firstWriteError: null,
       queueReadError: null,
       online: true,
+      syncPaused: false,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -175,6 +177,7 @@ test("describeSyncStatus labels the settled states", () => {
       firstWriteError: null,
       queueReadError: null,
       online: true,
+      syncPaused: false,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -190,6 +193,7 @@ test("describeSyncStatus uses the singular for one pending change", () => {
       firstWriteError: null,
       queueReadError: null,
       online: true,
+      syncPaused: false,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -205,6 +209,7 @@ test("describeSyncStatus pluralizes and notes offline for pending changes", () =
       firstWriteError: null,
       queueReadError: null,
       online: false,
+      syncPaused: false,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -220,6 +225,7 @@ test("describeSyncStatus names an expired trial as the billing reason", () => {
       firstWriteError: null,
       queueReadError: null,
       online: true,
+      syncPaused: false,
       billingStatus: "trialing",
       billingBlockScope: "active",
     }),
@@ -235,6 +241,7 @@ test("describeSyncStatus explains disabled billing", () => {
       firstWriteError: null,
       queueReadError: null,
       online: true,
+      syncPaused: false,
       billingStatus: "disabled",
       billingBlockScope: "active",
     }),
@@ -250,6 +257,7 @@ test("describeSyncStatus falls back to a generic billing message", () => {
       firstWriteError: null,
       queueReadError: null,
       online: true,
+      syncPaused: false,
       billingStatus: "deleting",
       billingBlockScope: "active",
     }),
@@ -291,6 +299,7 @@ test("describeSyncStatus appends the recorded failure to the error label", () =>
       firstWriteError: "Write access denied by the server (403)",
       queueReadError: null,
       online: true,
+      syncPaused: false,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -303,6 +312,7 @@ test("describeSyncStatus appends the recorded failure to the error label", () =>
       firstWriteError: null,
       queueReadError: null,
       online: true,
+      syncPaused: false,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -346,8 +356,29 @@ test("describeSyncStatus names the queue read failure over stale failed writes",
       firstWriteError: "Write access denied by the server (403)",
       queueReadError: "Local database schema is obsolete",
       online: true,
+      syncPaused: false,
       billingStatus: null,
       billingBlockScope: "active",
     }),
   ).toBe("Unable to check sync status — Local database schema is obsolete");
+});
+
+test("describeSyncStatus names a sync pause as why changes are waiting", () => {
+  const pending = {
+    status: "pending",
+    pendingWriteCount: 2,
+    failedWriteCount: 0,
+    firstWriteError: null,
+    queueReadError: null,
+    billingStatus: null,
+    billingBlockScope: "active",
+  } as const;
+
+  expect(
+    describeSyncStatus({ ...pending, online: true, syncPaused: true }),
+  ).toBe("2 changes not yet synced (sync is paused for an organization)");
+  // Offline is the nearer reason: nothing would send even without the pause.
+  expect(
+    describeSyncStatus({ ...pending, online: false, syncPaused: true }),
+  ).toBe("2 changes not yet synced (offline)");
 });

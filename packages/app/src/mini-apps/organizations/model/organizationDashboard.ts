@@ -23,18 +23,15 @@ export interface OrganizationDashboardCard {
    * not yet listed as a membership offers nothing.
    */
   readonly canAskToLeave: boolean;
-  /**
-   * Sync can be paused or resumed here. A personal organization never can,
-   * and the active organization, whose root the session writes to, can only
-   * be resumed if another device paused it.
-   */
-  readonly canChangeSync: boolean;
   readonly folders: ReadonlyArray<OrganizationDashboardFolder>;
   /** The user asked to leave and an administrator has not acted on it yet. */
   readonly leaveRequested: boolean;
   readonly name: string | null;
   readonly organizationId: string;
-  /** The user paused this organization's content syncing to their devices. */
+  /**
+   * Sync is paused here: this device keeps the organization's content and
+   * neither uploads nor downloads it until the user resumes.
+   */
   readonly syncPaused: boolean;
   /** The user can reach the organization's root, so it can be made active. */
   readonly workspace: boolean;
@@ -106,7 +103,6 @@ export function buildOrganizationDashboardCards(input: {
   namesById: ReadonlyMap<string, string>;
   nodes: ReadonlyArray<ContainerNode>;
   pausedOrganizationIds: ReadonlySet<string>;
-  personalOrganizationIds: ReadonlySet<string>;
 }): OrganizationDashboardCard[] {
   const nodeIds = new Set(input.nodes.map((node) => node.id));
   const foldersByOrganizationId = new Map<
@@ -130,10 +126,6 @@ export function buildOrganizationDashboardCards(input: {
     .map(([organizationId, folders]) => ({
       active: organizationId === input.activeOrganizationId,
       canAskToLeave: input.leavableOrganizationIds.has(organizationId),
-      canChangeSync:
-        !input.personalOrganizationIds.has(organizationId) &&
-        (organizationId !== input.activeOrganizationId ||
-          input.pausedOrganizationIds.has(organizationId)),
       folders: folders.sort(
         (left, right) =>
           Number(right.workspaceRoot) - Number(left.workspaceRoot) ||

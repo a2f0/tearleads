@@ -9,7 +9,6 @@ afterEach(cleanup);
 const card: OrganizationDashboardCard = {
   active: false,
   canAskToLeave: false,
-  canChangeSync: false,
   folders: [
     { accessLevel: "admin", id: "root", name: "root", workspaceRoot: true },
     {
