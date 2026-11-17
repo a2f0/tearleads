@@ -18,6 +18,7 @@ import {
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
+import { servedContainerGenesis } from "../test/helpers/servedBundleFixtures";
 import { ApiClient } from "./ApiClient";
 
 function projectionCiting(
@@ -143,14 +144,8 @@ function childProjectionUnder(
     ),
   );
   const ancestorBundle = {
-    event: {
-      body: { eventType: "container.create" },
-      event: { objectId: ancestorId, objectKind: "container" },
-      eventHash: "ancestor-event-hash",
-    },
-    manifest: {},
+    ...servedContainerGenesis(ancestorId),
     manifestHash: "ancestor-manifest-hash",
-    state: {},
   };
   return {
     ...child,

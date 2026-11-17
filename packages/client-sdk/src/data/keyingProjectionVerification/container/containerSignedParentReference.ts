@@ -213,3 +213,25 @@ export function assertSignedContainerParentPin(
     );
   }
 }
+
+/** The parent a create or move body pins, read from its verified body. */
+export function readContainerEventBodyParentReference(
+  event: VerifiedContainerAccessManifest["event"],
+  label: string,
+): ContainerParentReference {
+  return readKeyingVerificationShape(() => {
+    const body = readRecord(event.body, `${label} event body`);
+    return {
+      parentContainerId: readRecordNullableString(
+        body,
+        "parentContainerId",
+        `${label} event body`,
+      ),
+      parentManifestHash: readRecordNullableString(
+        body,
+        "parentManifestHash",
+        `${label} event body`,
+      ),
+    };
+  });
+}

@@ -26,6 +26,20 @@ import { ApiClient } from "./ApiClient";
 
 const REQUESTED = "requested-object";
 
+/** The bundle under another id: its signed event, manifest and rebuilt state. */
+function relabeledBundle(
+  bundle: ContainerWriterProjectionResponse["path"][number],
+  stateKey: "containerId" | "documentId",
+  id: string,
+): ContainerWriterProjectionResponse["path"][number] {
+  return {
+    ...bundle,
+    event: { ...bundle.event, event: { ...bundle.event.event, objectId: id } },
+    manifest: { ...bundle.manifest, objectId: id },
+    state: { ...bundle.state, [stateKey]: id },
+  };
+}
+
 function relabeledContainerProjection(
   projection: ContainerWriterProjectionResponse,
   id: string,
@@ -52,10 +66,7 @@ function relabeledContainerProjection(
     ],
     path: [
       ...projection.path.slice(0, -1),
-      {
-        ...leaf,
-        manifest: { ...leaf.manifest, objectId: id },
-      },
+      relabeledBundle(leaf, "containerId", id),
     ],
   };
 }
@@ -69,10 +80,11 @@ function relabeledDocumentProjection(
     contentKeyBundle: { ...projection.contentKeyBundle, documentId: id },
     documentId: id,
     documentKekTargets: { ...projection.documentKekTargets, documentId: id },
-    documentManifest: {
-      ...projection.documentManifest,
-      manifest: { ...projection.documentManifest.manifest, objectId: id },
-    },
+    documentManifest: relabeledBundle(
+      projection.documentManifest,
+      "documentId",
+      id,
+    ),
   };
 }
 
@@ -124,6 +136,18 @@ testApiClient(
         ...relabeled,
         path: [
           { ...leaf, manifest: { ...leaf.manifest, objectKind: "document" } },
+        ],
+      },
+      "leaf signed event objectId": {
+        ...relabeled,
+        path: [
+          {
+            ...leaf,
+            event: {
+              ...leaf.event,
+              event: { ...leaf.event.event, objectId: substituted.containerId },
+            },
+          },
         ],
       },
       "leaf KEK containerId": {
@@ -216,6 +240,19 @@ testApiClient(
           manifest: {
             ...relabeled.documentManifest.manifest,
             objectKind: "container",
+          },
+        },
+      },
+      "signed event objectId": {
+        ...relabeled,
+        documentManifest: {
+          ...relabeled.documentManifest,
+          event: {
+            ...relabeled.documentManifest.event,
+            event: {
+              ...relabeled.documentManifest.event.event,
+              objectId: substituted.documentId,
+            },
           },
         },
       },

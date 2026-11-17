@@ -120,10 +120,13 @@ state and its own body). The rebuilt state is unverified, as a served one was:
 the verifier then derives the state from the recursively verified predecessor,
 requires the two to be equal, recomputes each cited manifest's hash before any
 position that cites it is trusted, and resolves a container's parent path from
-the parent its signed bodies pin, never from the decoded state. A bundle whose
-chain is not served or does not parse decodes with an empty state, which
-verification refuses. Document purge proofs still carry the stored state with
-each bundle: a purge may verify the document head as a hash-only snapshot.
+the parent its signed bodies pin, never from the decoded state. A response
+with a bundle whose chain is not served, does not parse, names another object
+than its predecessor, or passes the reconstruction budget is a response-shape
+failure, refetched once without hints like any other; an honest server serves
+every bundle's complete predecessor chain. Document purge proofs still carry
+the stored state with each bundle: a purge may verify the document head as a
+hash-only snapshot.
 
 A projection GET may send `x-known-manifests`: up to 48 unique typed digests of
 bytes the device durably holds verified. `m:<hash>` names a manifest bundle by

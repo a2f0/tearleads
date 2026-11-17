@@ -19,17 +19,21 @@ import {
 // invalid response, so a server cannot redirect a create, move, share, rekey,
 // or content-key re-wrap onto an object it substituted. The top-level id is a
 // mutable label, so the binding also covers the hash-committed manifest object
-// kind and id (the SDK derives the state's id from the same signed event) and
-// the nested KEK and content-key bundle ids a relabeled projection would still
-// carry.
+// kind and id, the state decoding rebuilt from the signed chain (which the SDK
+// later verifies), and the nested KEK and content-key bundle ids a relabeled
+// projection would still carry.
 function manifestDescribes(
-  bundle: { manifest: Record<string, unknown> },
+  bundle: { manifest: Record<string, unknown>; state: Record<string, unknown> },
   objectKind: "container" | "document",
   id: string,
 ): boolean {
   return (
     Reflect.get(bundle.manifest, "objectKind") === objectKind &&
-    Reflect.get(bundle.manifest, "objectId") === id
+    Reflect.get(bundle.manifest, "objectId") === id &&
+    Reflect.get(
+      bundle.state,
+      objectKind === "container" ? "containerId" : "documentId",
+    ) === id
   );
 }
 

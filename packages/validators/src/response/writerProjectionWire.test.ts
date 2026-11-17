@@ -118,18 +118,27 @@ test("served bundles omit the derived state, which decoding rebuilds", () => {
     expect(value).not.toHaveProperty("state");
 
   // The rebuilder sees only stateless bytes, held ones included; a bundle
-  // it cannot rebuild decodes with an empty state the verifier refuses.
+  // it cannot rebuild makes the response undecodable, so it is refetched.
   const seen: unknown[] = [];
-  const decoded = decodeContainerWriterProjection(wire, {
-    held: new Map([["root", bundle("root")]]),
-    reconstructStates: (bundles) => {
-      seen.push(...bundles.values());
-      return new Map([["leaf", { epoch: 2 }]]);
-    },
-  });
-  expect(seen).toHaveLength(4);
+  const rebuild = (missing: string | null) =>
+    decodeContainerWriterProjection(wire, {
+      held: new Map([["root", servedBundle("root")]]),
+      reconstructStates: (bundles) => {
+        seen.push(...bundles.values());
+        return new Map(
+          [...bundles.keys()]
+            .filter((hash) => hash !== missing)
+            .map((hash) => [hash, { epoch: hash.length }]),
+        );
+      },
+    });
+  expect(rebuild("root")).toBeNull();
+  expect(rebuild(null)?.path.map((entry) => entry.state)).toEqual([
+    { epoch: 4 },
+    { epoch: 4 },
+  ]);
+  expect(seen).toHaveLength(8);
   for (const value of seen) expect(value).not.toHaveProperty("state");
-  expect(decoded?.path.map((entry) => entry.state)).toEqual([{}, { epoch: 2 }]);
 });
 
 test("an inconsistent bundle map fails closed", () => {

@@ -19,15 +19,25 @@ export interface ServedAccessManifestBundle {
   readonly manifestHash: string;
 }
 
+/**
+ * The most grant, principal-head and linked-container entries one
+ * reconstruction materializes across all its states. Each state repeats its
+ * predecessor's lists, so a linear response could otherwise force quadratic
+ * client memory before any signature is checked. The served state carried
+ * every one of these entries on the wire, at least 80 bytes each, so a
+ * projection near this bound was already beyond what a response could carry.
+ */
+export const MAX_RECONSTRUCTED_STATE_ENTRIES = 1 << 20;
+
 interface ServedEvent {
   readonly event: AccessEvent;
   readonly body: unknown;
   readonly eventHash: string;
 }
 
-interface Predecessor<State> {
+interface Predecessor {
   readonly manifestHash: string;
-  readonly state: State;
+  readonly state: ReconstructedAccessManifestState;
 }
 
 function readServedEvent(bundle: ServedAccessManifestBundle): ServedEvent {
@@ -44,45 +54,70 @@ function isContainerState(
   return "containerId" in state;
 }
 
-function sameKind<State extends ReconstructedAccessManifestState>(
-  previous: Predecessor<ReconstructedAccessManifestState> | null,
-  isKind: (state: ReconstructedAccessManifestState) => state is State,
-): Predecessor<State> | null {
-  if (previous === null) return null;
-  const { manifestHash, state } = previous;
-  if (!isKind(state)) throw new Error("predecessor is another object kind");
-  return { manifestHash, state };
+function stateObjectId(state: ReconstructedAccessManifestState): string {
+  return isContainerState(state) ? state.containerId : state.documentId;
+}
+
+/** A successor names its predecessor's object, organization and kind. */
+function assertSamePredecessorObject(
+  event: AccessEvent,
+  previous: Predecessor | null,
+): void {
+  if (
+    previous !== null &&
+    (stateObjectId(previous.state) !== event.objectId ||
+      previous.state.organizationId !== event.organizationId ||
+      isContainerState(previous.state) !== (event.objectKind === "container"))
+  ) {
+    throw new Error("predecessor names another object");
+  }
 }
 
 function stateAfter(
   served: ServedEvent,
-  previous: Predecessor<ReconstructedAccessManifestState> | null,
+  previous: Predecessor | null,
 ): ReconstructedAccessManifestState {
+  assertSamePredecessorObject(served.event, previous);
   const body = readKeyingCanonicalJson(served.body, "event body");
   const common = {
     eventHash: served.eventHash,
     objectId: served.event.objectId,
     organizationId: served.event.organizationId,
   };
+  const eventType = served.event.eventType;
   if (served.event.objectKind === "container") {
+    const containerBody = normalizeContainerAccessEventBody(body);
+    if (containerBody.eventType !== eventType)
+      throw new Error("body names another event type");
     return containerAccessStateAfterEvent({
       ...common,
-      body: normalizeContainerAccessEventBody(body),
-      previous: sameKind(previous, isContainerState),
+      body: containerBody,
+      previous:
+        previous && isContainerState(previous.state)
+          ? { manifestHash: previous.manifestHash, state: previous.state }
+          : null,
     });
   }
   if (served.event.objectKind === "document") {
+    const documentBody = normalizeDocumentAccessEventBody(body);
+    if (documentBody.eventType !== eventType)
+      throw new Error("body names another event type");
     return documentLinkSetStateAfterEvent({
       ...common,
-      body: normalizeDocumentAccessEventBody(body),
-      previous: sameKind(
-        previous,
-        (state): state is DocumentLinkSetManifestState =>
-          !isContainerState(state),
-      ),
+      body: documentBody,
+      previous:
+        previous && !isContainerState(previous.state)
+          ? { manifestHash: previous.manifestHash, state: previous.state }
+          : null,
     });
   }
   throw new Error("only container and document manifests derive this state");
+}
+
+function stateEntries(state: ReconstructedAccessManifestState): number {
+  return isContainerState(state)
+    ? state.directGrants.length + state.referencedPrincipalHeads.length
+    : state.linkedContainerIds.length;
 }
 
 function tryRead<T>(read: () => T): T | null {
@@ -100,30 +135,52 @@ interface PendingLink {
   readonly served: ServedEvent | null;
 }
 
+/** Where a walk back from a bundle ended, and so what the fold starts from. */
+type FoldBase =
+  | { readonly kind: "genesis" }
+  | { readonly kind: "predecessor"; readonly previous: Predecessor }
+  | { readonly kind: "broken" };
+
 /**
- * Walks back from `start` to a state already rebuilt or to a genesis. The
- * links come newest first; `complete` says whether folding them can succeed.
+ * Walks back from `start` to a genesis or a state already rebuilt; the links
+ * come newest first. A missing, repeated or unreadable link breaks the walk.
  */
 function walkBack(
   bundles: ReadonlyMap<string, ServedAccessManifestBundle>,
   states: States,
   start: string,
-) {
+): { readonly base: FoldBase; readonly pending: PendingLink[] } {
   const pending: PendingLink[] = [];
   const walked = new Set<string>();
   let hash: string | null = start;
   while (hash !== null && !states.has(hash)) {
     const bundle = bundles.get(hash);
-    if (!bundle || walked.has(hash)) return { pending, previous: null };
+    if (!bundle || walked.has(hash))
+      return { base: { kind: "broken" }, pending };
     walked.add(hash);
     const served = tryRead(() => readServedEvent(bundle));
     pending.push({ hash, served });
-    if (served === null) return { pending, previous: null };
+    if (served === null) return { base: { kind: "broken" }, pending };
     hash = served.event.previousManifestHash;
   }
-  if (hash === null) return { pending, previous: "genesis" as const };
+  if (hash === null) return { base: { kind: "genesis" }, pending };
   const state = states.get(hash) ?? null;
-  return { pending, previous: state && { manifestHash: hash, state } };
+  return {
+    base: state
+      ? { kind: "predecessor", previous: { manifestHash: hash, state } }
+      : { kind: "broken" },
+    pending,
+  };
+}
+
+/** The state a link folds to from its base, or null when it cannot. */
+function foldLink(
+  base: FoldBase,
+  served: ServedEvent | null,
+): ReconstructedAccessManifestState | null {
+  if (base.kind === "broken" || served === null) return null;
+  const previous = base.kind === "predecessor" ? base.previous : null;
+  return tryRead(() => stateAfter(served, previous));
 }
 
 /**
@@ -132,24 +189,25 @@ function walkBack(
  * the manifest. It is unverified, as the served state it replaces was, and
  * the verifier still requires it to equal the state it derives from the
  * recursively verified predecessor. A bundle whose chain is not served,
- * cycles, or does not parse gets null; verifying it fails as it always did.
+ * cycles, names another object, does not parse, or would pass the entry
+ * budget gets null.
  */
 export function reconstructServedAccessManifestStates(
   bundles: ReadonlyMap<string, ServedAccessManifestBundle>,
 ): Map<string, ReconstructedAccessManifestState | null> {
   const states: States = new Map();
+  let entries = 0;
   for (const start of bundles.keys()) {
     const walk = walkBack(bundles, states, start);
-    let previous = walk.previous === "genesis" ? null : walk.previous;
-    let complete = walk.previous !== null;
+    let base = walk.base;
     for (const { hash, served } of walk.pending.reverse()) {
-      const state =
-        complete && served !== null
-          ? tryRead(() => stateAfter(served, previous))
-          : null;
-      states.set(hash, state);
-      complete = state !== null;
-      previous = state && { manifestHash: hash, state };
+      const state = foldLink(base, served);
+      entries += state ? stateEntries(state) : 0;
+      const kept = entries <= MAX_RECONSTRUCTED_STATE_ENTRIES ? state : null;
+      states.set(hash, kept);
+      base = kept
+        ? { kind: "predecessor", previous: { manifestHash: hash, state: kept } }
+        : { kind: "broken" };
     }
   }
   return states;

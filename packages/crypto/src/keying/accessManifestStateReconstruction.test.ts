@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  MAX_RECONSTRUCTED_STATE_ENTRIES,
   reconstructServedAccessManifestStates,
   type ServedAccessManifestBundle,
 } from "./accessManifestStateReconstruction";
@@ -251,5 +252,50 @@ describe("reconstructServedAccessManifestStates", () => {
       ]),
     );
     expect(states.get(hash("7"))).toBeNull();
+  });
+  test("a successor naming another object gets no state", () => {
+    const [create, grant] = containerChain();
+    if (!create || !grant) throw new Error("chain missing");
+    const foreign = served({
+      manifestHash: hash("2"),
+      eventType: "container.grant",
+      objectId: "container-2",
+      previousManifestHash: hash("1"),
+      body: Object(Object(grant.event).body),
+    });
+    const states = reconstructServedAccessManifestStates(
+      byHash([create, foreign]),
+    );
+    expect(states.get(hash("1"))).toMatchObject({ epoch: 1 });
+    expect(states.get(hash("2"))).toBeNull();
+  });
+
+  test("states past the entry budget are not rebuilt", () => {
+    const [create] = containerChain();
+    if (!create) throw new Error("chain missing");
+    const chain = [create];
+    // Each grant state repeats every earlier grant: n grants hold about
+    // n * n / 2 entries in all, so this chain crosses the budget.
+    const grants =
+      Math.ceil(Math.sqrt(2 * MAX_RECONSTRUCTED_STATE_ENTRIES)) + 2;
+    for (let index = 0; index < grants; index += 1) {
+      chain.push(
+        served({
+          manifestHash: index.toString(16).padStart(64, "0"),
+          eventType: "container.grant",
+          previousManifestHash: chain.at(-1)?.manifestHash ?? null,
+          body: {
+            eventType: "container.grant",
+            containerKeyEpochId: "epoch-1",
+            containerKeyPublicKey: PUBLIC_KEY_1,
+            grant: { ...READER, subjectId: `user-${index}` },
+            referencedPrincipalHead: null,
+          },
+        }),
+      );
+    }
+    const states = reconstructServedAccessManifestStates(byHash(chain));
+    expect(states.get(hash("1"))).toMatchObject({ epoch: 1 });
+    expect(states.get(chain.at(-1)?.manifestHash ?? "")).toBeNull();
   });
 });

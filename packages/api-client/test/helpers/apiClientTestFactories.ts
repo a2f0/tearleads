@@ -21,6 +21,10 @@ import type {
   PrincipalPolicyBundleResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
+import {
+  servedContainerGenesis,
+  servedDocumentGenesis,
+} from "./servedBundleFixtures";
 
 export function createContainerMutationRequest(): ContainerMutationRequest {
   return {
@@ -44,17 +48,7 @@ export function createContainerCreateWithMetadataDocumentRequest(): ContainerCre
 }
 
 function createContainerManifestBundle(): ContainerWriterProjectionResponse["path"][number] {
-  return {
-    event: {
-      event: { eventType: "container.create" },
-      body: { eventType: "container.create" },
-      eventHash: "container-event-hash",
-    },
-    manifest: { objectId: "container-1", objectKind: "container" },
-    manifestHash: "container-manifest-hash",
-    // A fake event rebuilds no state: a decoded projection carries this one.
-    state: {},
-  };
+  return servedContainerGenesis("container-1");
 }
 
 function createContainerKek(): ContainerWriterProjectionResponse["containerKeks"][number] {
@@ -213,16 +207,7 @@ export function createDocumentLinkSetMutationResponse(): DocumentLinkSetMutation
     eventHash: "document-event-hash",
     manifestHash: "document-manifest-hash",
     targetHash: "target-hash",
-    accessManifest: {
-      event: {
-        event: { eventType: "document.link" },
-        body: { eventType: "document.link" },
-        eventHash: "document-event-hash",
-      },
-      manifest: { objectId: "document-1", objectKind: "document" },
-      manifestHash: "document-manifest-hash",
-      state: {},
-    },
+    accessManifest: servedDocumentGenesis("document-1"),
     contentKeyBundle: {
       documentId: "document-1",
       contentKeyEpoch: 1,

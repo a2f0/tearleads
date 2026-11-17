@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import type { ProjectionCheckpointContext } from "../checkpoints/checkpointContext";
+import { verifyContainerManifestBundle } from "./containerManifestVerification";
 import { readSignedContainerParentReference } from "./containerSignedParentReference";
 
 function bundle(
@@ -107,4 +109,33 @@ test("a missing predecessor or a cycle is refused before verification", () => {
   expect(() => pinOf("rekey", [looped, rekey])).toThrow(
     expect.objectContaining({ code: "object_mismatch" }),
   );
+});
+
+test("parent pins that cycle are refused before any verification", async () => {
+  const pinned = (hash: string, parentHash: string) =>
+    bundle(hash, null, {
+      eventType: "container.create",
+      parentContainerId: `container-of-${parentHash}`,
+      parentManifestHash: parentHash,
+    });
+  const bundles = [pinned("a", "b"), pinned("b", "a")];
+  const [first] = bundles;
+  if (!first) throw new Error("cycle fixture missing");
+  await expect(
+    verifyContainerManifestBundle({
+      bundle: first,
+      bundlesByHash: new Map(
+        bundles.map((entry) => [entry.manifestHash, entry]),
+      ),
+      checkpointContext: {} as ProjectionCheckpointContext,
+      enforceLocalCheckpoint: false,
+      label: "Cyclic manifest",
+      parentPath: [],
+      principalPolicyCache: new Map(),
+      resolveUserKey: async () => {
+        throw new Error("no signer is resolved for a cycle");
+      },
+      verifiedByHash: new Map(),
+    }),
+  ).rejects.toMatchObject({ code: "object_mismatch" });
 });

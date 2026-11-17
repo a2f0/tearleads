@@ -157,9 +157,9 @@ export function encodeDocumentWriterProjection(
 /**
  * Served bundles plus the exact held bytes for each omitted hash. An omission
  * the caller cannot fill from `held` (which carries only what its request
- * cited) makes the response unusable. Each bundle gets the state rebuilt
- * from the signed chain; one that cannot be rebuilt gets an empty state,
- * which every reader and the verifier refuse as they would a malformed one.
+ * cited), or a bundle whose state cannot be rebuilt from the signed chain
+ * the response serves, makes the response unusable: the caller refetches
+ * without hints, and an honest server always serves every bundle's chain.
  * Each cited position receives its own copy, as when every slot carried its
  * own JSON.
  */
@@ -175,12 +175,18 @@ function bundleResolver(
     byHash.set(hash, toServedAccessManifestBundle(bundle));
   }
   const states = decoding.reconstructStates(byHash);
+  const rebuilt = new Map<string, Bundle>();
+  for (const [hash, bundle] of byHash) {
+    const state = states.get(hash);
+    if (!state) return null;
+    rebuilt.set(hash, { ...bundle, state });
+  }
   return (hash: string): Bundle => {
-    const bundle = byHash.get(hash);
+    const bundle = rebuilt.get(hash);
     if (!bundle) {
       throw new Error(`manifest ${hash} is cited without a bundle`);
     }
-    return structuredClone({ ...bundle, state: states.get(hash) ?? {} });
+    return structuredClone(bundle);
   };
 }
 

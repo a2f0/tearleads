@@ -7,7 +7,6 @@ import {
   verifyContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import { readCanonicalRecord } from "../../keying/canonicalJson";
 import {
   assertCanonicalEqual,
   verifyAccessEventBundle,
@@ -18,9 +17,8 @@ import {
   verifyCachedManifestCheckpoint,
 } from "../checkpoints/manifestCheckpointVerification";
 import { recordVerifiedBundleBytes } from "../checkpoints/verifiedBundleBytes";
-import { readKeyingVerificationShape } from "../error";
 import { collectReferencedPrincipalPolicies } from "../principalPolicy/principalPolicyVerification";
-import { readAccessManifest, readRecordNullableString } from "../readers";
+import { readAccessManifest } from "../readers";
 import type {
   PrincipalPolicyCache,
   ProjectionUserKeyResolver,
@@ -33,6 +31,7 @@ import {
 } from "./containerAncestorCitations";
 import {
   assertSignedContainerParentPin,
+  readContainerEventBodyParentReference,
   readSignedContainerParentReference,
 } from "./containerSignedParentReference";
 
@@ -350,41 +349,6 @@ function assertContainerParentPathMatches(input: {
   }
 }
 
-interface ContainerParentReference {
-  parentContainerId: string | null;
-  parentManifestHash: string | null;
-}
-
-function readParentReference(
-  value: unknown,
-  label: string,
-): ContainerParentReference {
-  return readKeyingVerificationShape(() => {
-    const record = readCanonicalRecord(value, label);
-
-    return {
-      parentContainerId: readRecordNullableString(
-        record,
-        "parentContainerId",
-        label,
-      ),
-      parentManifestHash: readRecordNullableString(
-        record,
-        "parentManifestHash",
-        label,
-      ),
-    };
-  });
-}
-
-/** The parent a create or move body pins, read from the signed body. */
-function readContainerEventBodyParentReference(
-  event: VerifiedContainerAccessManifest["event"],
-  label: string,
-): ContainerParentReference {
-  return readParentReference(event.body, `${label} event body`);
-}
-
 async function resolveContainerManifestVerificationParentPath(input: {
   readonly authorizationEvidence?:
     | readonly PrincipalPolicyAuthorization[]
@@ -395,12 +359,20 @@ async function resolveContainerManifestVerificationParentPath(input: {
   readonly label: string;
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
   readonly principalPolicyCache: PrincipalPolicyCache;
+  // Bundles whose parent this chain of pins is already resolving.
+  readonly resolvingParents?: ReadonlySet<string> | undefined;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
 }): Promise<readonly VerifiedContainerAccessManifest[]> {
+  if (input.resolvingParents?.has(input.bundle.manifestHash)) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      `${input.label} parent pins form a cycle`,
+    );
+  }
   // Descendants keep the parent manifest hash they were created or moved under;
   // a later parent share/rekey must not require rewriting descendant manifests.
   const { parentContainerId, parentManifestHash } =
@@ -428,6 +400,10 @@ async function resolveContainerManifestVerificationParentPath(input: {
       ...input,
       bundle: parentBundle,
       label: `${input.label} parent manifest`,
+      resolvingParents: new Set([
+        ...(input.resolvingParents ?? []),
+        input.bundle.manifestHash,
+      ]),
     },
   );
   const verifiedParent = await verifyContainerManifestBundle({
