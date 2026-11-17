@@ -7,10 +7,7 @@ import {
 } from "../../../../test/helpers/organizationHistoryPage";
 import { organizationReadModelSnapshot } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
-import {
-  applyOrganizationReadModelResponse,
-  loadOrganizationReadModelProjection,
-} from "../../../data/persistence/organizations/organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { loadLocalOrganizationPolicyHistory } from "../readModel/localReadModelDetails";
@@ -34,7 +31,9 @@ async function fixture() {
   const snapshot = organizationReadModelSnapshot(common);
   snapshot.lanes.organizationPolicy.currentState =
     data.afterAddition.currentState;
-  await applyOrganizationReadModelResponse({
+  await new OrganizationReadModelRepository(
+    sql.execSql,
+  ).applyOrganizationReadModelResponse({
     ...common,
     requestedCursor: null,
     response: snapshot,
@@ -162,8 +161,9 @@ test("history access denial durably purges the local presentation", async () => 
     ).toBeNull();
     expect(await loadLocalOrganizationPolicyHistory(input)).toBeNull();
     expect(
-      await loadOrganizationReadModelProjection(
+      await new OrganizationReadModelRepository(
         input.execSql,
+      ).loadOrganizationReadModelProjection(
         input.organizationId,
         input.currentUserId,
       ),
@@ -253,7 +253,9 @@ test("a newer organization head fetches new evidence instead of reusing cached d
     });
     response.lanes.organizationPolicy.currentState =
       data.afterDeletion.currentState;
-    await applyOrganizationReadModelResponse({
+    await new OrganizationReadModelRepository(
+      input.execSql,
+    ).applyOrganizationReadModelResponse({
       ...input,
       requestedCursor: "cursor-1",
       response,

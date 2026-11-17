@@ -2,18 +2,14 @@ import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { organizationReadModelSnapshot } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
-import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMemberLoad";
-import {
-  applyOrganizationReadModelResponse,
-  loadOrganizationReadModelProjection,
-} from "./organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 test("membership reads state and requester together and keeps requester scoping", async () => {
   const db = createNativeTestExecSql();
   const counted = countingExecSql(db.execSql);
+  const repository = new OrganizationReadModelRepository(counted.execSql);
   try {
-    await applyOrganizationReadModelResponse({
-      execSql: counted.execSql,
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
       requestedCursor: null,
       response: organizationReadModelSnapshot(
@@ -26,8 +22,7 @@ test("membership reads state and requester together and keeps requester scoping"
     expect(
       await counted.count(async () => {
         expect(
-          await loadOrganizationReadModelGroupMembers(
-            counted.execSql,
+          await repository.loadOrganizationReadModelGroupMembers(
             "org-1",
             "admins-org-1",
             "user-1",
@@ -36,29 +31,22 @@ test("membership reads state and requester together and keeps requester scoping"
       }),
     ).toBe(5);
     expect(
-      await loadOrganizationReadModelGroupMembers(
-        counted.execSql,
+      await repository.loadOrganizationReadModelGroupMembers(
         "org-1",
         "admins-org-1",
         "other-user",
       ),
     ).toBeNull();
     expect(
-      await loadOrganizationReadModelGroupMembers(
-        counted.execSql,
+      await repository.loadOrganizationReadModelGroupMembers(
         "missing-org",
         "admins-org-1",
         "user-1",
       ),
     ).toBeNull();
     expect(
-      (
-        await loadOrganizationReadModelProjection(
-          counted.execSql,
-          "org-1",
-          "user-1",
-        )
-      )?.requester,
+      (await repository.loadOrganizationReadModelProjection("org-1", "user-1"))
+        ?.requester,
     ).toEqual({ isOrgAdmin: false });
   } finally {
     db.close();
@@ -68,9 +56,9 @@ test("membership reads state and requester together and keeps requester scoping"
 test("projection reads its requester with its state without losing unbound projections", async () => {
   const db = createNativeTestExecSql();
   const counted = countingExecSql(db.execSql);
+  const repository = new OrganizationReadModelRepository(counted.execSql);
   try {
-    await applyOrganizationReadModelResponse({
-      execSql: counted.execSql,
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
       requestedCursor: null,
       response: organizationReadModelSnapshot("org-1", "cursor"),
@@ -78,8 +66,7 @@ test("projection reads its requester with its state without losing unbound proje
     expect(
       await counted.count(async () => {
         expect(
-          await loadOrganizationReadModelProjection(
-            counted.execSql,
+          await repository.loadOrganizationReadModelProjection(
             "org-1",
             "user-1",
           ),
@@ -87,15 +74,13 @@ test("projection reads its requester with its state without losing unbound proje
       }),
     ).toBe(7);
     expect(
-      await loadOrganizationReadModelProjection(
-        counted.execSql,
+      await repository.loadOrganizationReadModelProjection(
         "org-1",
         "other-user",
       ),
     ).toMatchObject({ cursor: "cursor", requester: null });
     expect(
-      await loadOrganizationReadModelProjection(
-        counted.execSql,
+      await repository.loadOrganizationReadModelProjection(
         "missing-org",
         "user-1",
       ),
