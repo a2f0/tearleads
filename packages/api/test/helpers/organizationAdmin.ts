@@ -185,3 +185,88 @@ export async function addUserToAdminGroup(input: {
   }
   return prepared.adminGroupId;
 }
+
+/**
+ * Removes `member` from Admins, leaving only `actor`: the group key rotates
+ * and is wrapped for the actor alone.
+ */
+export async function prepareUserRemovalFromAdminGroup(input: {
+  actor: ReturnType<typeof createTestUser>;
+  member: TestUser;
+  organizationId: string;
+}) {
+  const [organization] = await db
+    .select({ adminGroupId: organizations.adminGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, input.organizationId))
+    .limit(1);
+  invariant(organization, "expected organization row");
+  const currentState = await getCurrentPrincipalState(
+    "group",
+    organization.adminGroupId,
+    db,
+  );
+  invariant(currentState, "expected current Admins state");
+  const currentPolicy = await loadVerifiedPrincipalPolicy(
+    db,
+    "group",
+    organization.adminGroupId,
+  );
+  const nextProjection = (
+    await listCurrentPrincipalProjectionMembers(
+      "group",
+      organization.adminGroupId,
+      db,
+    )
+  )
+    .filter(
+      (projectionMember) => projectionMember.userId !== input.member.userId,
+    )
+    .map((projectionMember) => ({
+      userId: projectionMember.userId,
+      role: projectionMember.role,
+    }));
+  const groupKem = generateKemSeedAndKeyPair();
+  const [wrappedGroupKey] = await wrapDekForRecipients(groupKem.secretKey, [
+    input.actor.kem.publicKey,
+  ]);
+  invariant(wrappedGroupKey, "expected principal member envelope");
+  const signedState = await signPrincipalStateBundle({
+    principalType: "group",
+    principalId: organization.adminGroupId,
+    version: currentState.version + 1,
+    prevStateHash: currentState.stateHash,
+    keyEpoch: currentState.keyEpoch + 1,
+    encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
+    keyFingerprint: await toFingerprint(groupKem.publicKey),
+    members: nextProjection.map((projectionMember) => ({
+      userId: projectionMember.userId,
+    })),
+    projection: nextProjection,
+    grants: currentPolicy.grants,
+    payloadCiphertext: await groupPolicyPayload(
+      organization.adminGroupId,
+      nextProjection,
+    ),
+    signedAt: SIGNED_AT,
+    signerUserId: input.actor.userId,
+    signerUserKeyFingerprint: input.actor.fingerprint,
+    signingPrivateKey: input.actor.signing.signingPrivateKey,
+    memberEnvelopes: [
+      {
+        userId: input.actor.userId,
+        memberKeyFingerprint: await toFingerprint(input.actor.kem.publicKey),
+        kemCipherText: bytesToBase64(wrappedGroupKey.kemCipherText),
+        wrappedKey: bytesToBase64(wrappedGroupKey.wrappedKey),
+      },
+    ],
+  });
+  return {
+    adminGroupId: organization.adminGroupId,
+    request: await withGroupMembershipContainerMutations({
+      actor: input.actor,
+      currentPolicy,
+      signedState,
+    }),
+  };
+}

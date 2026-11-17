@@ -68,6 +68,13 @@ before an additive join hands that key out. It also checks batch completeness,
 stale replans and that a requested change commits. See the
 [mapping and boundaries](./container-keying/GroupGrantRevocation.md).
 
+[`container-keying/OrganizationDirectoryKey.tla`](./container-keying/OrganizationDirectoryKey.tla)
+checks the organization directory key: a directory write keeps the key while
+the admins are unchanged or only grow (wrapping it for added admins) and the
+writer can verify it, and rotates on any removal, so a removed admin never
+holds the current key. See the
+[mapping and negative controls](./container-keying/OrganizationDirectoryKey.md).
+
 ### Container Tombstone Recovery
 
 [`container-keying/ContainerTombstoneRecovery.tla`](./container-keying/ContainerTombstoneRecovery.tla)

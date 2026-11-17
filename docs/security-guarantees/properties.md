@@ -163,6 +163,18 @@ addressed to that unchanged key. Strong post-removal confidentiality requires
 publishing a successor policy state with a fresh principal key epoch and fresh
 member envelopes for the remaining members.
 
+The organization directory key differs: it encrypts no data. The
+organization payload is a plain signed descriptor, and container grants
+target only groups or users, so nothing is wrapped to an organization key but
+the admin envelopes of that same key. A directory write (group create, group
+policy commit, group delete) therefore keeps the key, epoch and envelopes
+while the Admins projection is unchanged, wraps it only for added admins, and
+rotates on any removal, which verifiers enforce
+([model](../../formal/container-keying/OrganizationDirectoryKey.md)). Reusing
+the key, or an admin rotating back to an old one, has no confidentiality
+consequence. A feature that encrypts to it must first restore rotation on
+every write or a no-reuse rule.
+
 ### Managed Grants Fail Closed
 
 Group [container grants](../glossary/access.md#grant) require an active signed group

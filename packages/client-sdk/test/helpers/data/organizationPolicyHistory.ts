@@ -116,6 +116,7 @@ async function advanceDirectoryPolicy(input: {
   return policyBundleAfterMutation({
     previous: input.previous,
     mutation: await buildOrganizationGroupDirectoryPolicyRequest({
+      currentUserSecretKey: null,
       ...signingFields(input.signer),
       adminProjection: input.admin.currentProjection,
       adminUsers: [signerIdentityOf(input.signer)],
