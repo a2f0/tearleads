@@ -1,15 +1,5 @@
-import type {
-  ApiDatabase,
-  DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
-import {
-  attachmentBindings,
-  blobAuditObjects,
-  blobContentKeyEpochs,
-  blobContentKeyTargets,
-  blobContentWriteHeaders,
-  blobs,
-} from "@tearleads/api-shared/schema";
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import { blobs } from "@tearleads/api-shared/schema";
 import {
   and,
   asc,
@@ -22,9 +12,9 @@ import {
   sql,
 } from "drizzle-orm";
 import { wallClockNowExpression } from "../../../utils/postgresSql";
-import { assertBlobStorageKeyOrganization } from "../storageKeys";
 import { selectFairBlobWorkCandidates } from "./fairBlobWorkSelection";
 import { DEFAULT_BLOB_GC_GRACE_PERIOD_MS } from "./gracePeriod";
+import { RECLAIM_CHUNK_SIZE, reclaimBlobChunk } from "./reclaimBlobChunk";
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 1000;
@@ -41,11 +31,6 @@ interface ReclaimDereferencedBlobsResult {
   readonly reclaimedBlobIds: string[];
   readonly revivedBlobIds: string[];
 }
-
-type ReclaimOutcome =
-  | { readonly kind: "skipped" }
-  | { readonly kind: "revived" }
-  | { readonly kind: "reclaimed" };
 
 interface ReclaimCandidate {
   readonly blobId: string;
@@ -113,143 +98,6 @@ function toRetryReclaimCandidates(
   );
 }
 
-// Live reachability is intentionally narrower than the blob registry. Detached
-// bindings and `blob_audit_objects` preserve metadata, but only an ACTIVE
-// binding keeps blob bytes and key material live.
-async function isBlobActivelyReferenced(
-  executor: DatabaseTransaction,
-  blobId: string,
-): Promise<boolean> {
-  const [binding] = await executor
-    .select({ id: attachmentBindings.id })
-    .from(attachmentBindings)
-    .where(
-      and(
-        eq(attachmentBindings.blobId, blobId),
-        isNull(attachmentBindings.detachedAt),
-      ),
-    )
-    .limit(1);
-  return Boolean(binding);
-}
-
-async function deleteBlobKeyRows(
-  executor: DatabaseTransaction,
-  blobId: string,
-): Promise<void> {
-  // Delete the per-epoch target envelopes via a subquery on the blob's epochs,
-  // then the epochs and write headers — one round-trip each, no client-side
-  // epoch-id fetch.
-  await executor
-    .delete(blobContentKeyTargets)
-    .where(
-      inArray(
-        blobContentKeyTargets.blobContentKeyEpochId,
-        executor
-          .select({ id: blobContentKeyEpochs.id })
-          .from(blobContentKeyEpochs)
-          .where(eq(blobContentKeyEpochs.blobId, blobId)),
-      ),
-    );
-  await executor
-    .delete(blobContentKeyEpochs)
-    .where(eq(blobContentKeyEpochs.blobId, blobId));
-  await executor
-    .delete(blobContentWriteHeaders)
-    .where(eq(blobContentWriteHeaders.blobId, blobId));
-}
-
-// Lock and reclaim one candidate blob. The FOR UPDATE serializes against a
-// concurrent bind, which locks the same blob row (ensureBlobExists) before
-// inserting its binding and clearing dereferencedAt — so either the bind commits
-// first (this lock query then sees dereferencedAt cleared and skips) or this
-// reclaim commits first (the bind's lock then finds the blob gone and fails
-// closed). Either way the reachability re-check cannot miss an in-flight
-// re-reference, and a still-referenced blob is revived rather than deleted.
-async function reclaimOneBlob(
-  db: ApiDatabase,
-  input: {
-    readonly blobId: string;
-    readonly cutoff: Date;
-  },
-): Promise<ReclaimOutcome> {
-  return db.transaction(async (tx) => {
-    const lockQuery = tx
-      .select({
-        byteLength: blobs.byteLength,
-        id: blobs.id,
-        sha256: blobs.sha256,
-        storageKey: blobs.storageKey,
-      })
-      .from(blobs)
-      .where(
-        and(
-          eq(blobs.id, input.blobId),
-          isNotNull(blobs.dereferencedAt),
-          lte(blobs.dereferencedAt, input.cutoff),
-        ),
-      )
-      .limit(1);
-    const [blob] = await lockQuery.for("update");
-    if (!blob) {
-      // Revived or already reclaimed since selection.
-      return { kind: "skipped" };
-    }
-
-    if (await isBlobActivelyReferenced(tx, input.blobId)) {
-      await tx
-        .update(blobs)
-        .set({ dereferencedAt: null, reclaimAttemptedAt: null })
-        .where(eq(blobs.id, input.blobId));
-      return { kind: "revived" };
-    }
-
-    const [auditObject] = await tx
-      .select({
-        blobId: blobAuditObjects.blobId,
-        organizationId: blobAuditObjects.organizationId,
-        byteLength: blobAuditObjects.byteLength,
-        liveStorageKey: blobAuditObjects.liveStorageKey,
-        retentionMode: blobAuditObjects.retentionMode,
-        sha256: blobAuditObjects.sha256,
-      })
-      .from(blobAuditObjects)
-      .where(eq(blobAuditObjects.blobId, input.blobId))
-      .limit(1);
-    if (
-      !auditObject ||
-      auditObject.byteLength !== blob.byteLength ||
-      auditObject.liveStorageKey !== blob.storageKey ||
-      auditObject.retentionMode !== "live_only" ||
-      auditObject.sha256 !== blob.sha256
-    ) {
-      throw new Error(
-        `Blob ${input.blobId} audit metadata does not match live storage`,
-      );
-    }
-
-    assertBlobStorageKeyOrganization(
-      blob.storageKey,
-      auditObject.organizationId,
-    );
-    await deleteBlobKeyRows(tx, input.blobId);
-    await tx
-      .delete(attachmentBindings)
-      .where(eq(attachmentBindings.blobId, input.blobId));
-    await tx
-      .update(blobAuditObjects)
-      .set({
-        liveStorageKey: blob.storageKey,
-        objectDeletedAt: null,
-        prunedAt: wallClockNowExpression(),
-      })
-      .where(eq(blobAuditObjects.blobId, input.blobId));
-    await tx.delete(blobs).where(eq(blobs.id, input.blobId));
-
-    return { kind: "reclaimed" };
-  });
-}
-
 export async function deferFailedBlobReclaim(
   db: ApiDatabase,
   input: {
@@ -281,9 +129,10 @@ export async function deferFailedBlobReclaim(
 
 // Prunes live database state for blobs dereferenced longer than the grace
 // period, retaining the storage key on the audit row as a durable physical-
-// deletion work item. Each candidate is rechecked against the cutoff under the
-// blob-row lock. A failed candidate records its attempt separately so bounded
-// batches keep advancing without rewriting when the blob became unreachable.
+// deletion work item. Candidates are reclaimed in chunks, each rechecked
+// against the cutoff under its blob-row locks (`reclaimBlobChunk`). A failed
+// candidate records its attempt separately so bounded batches keep advancing
+// without rewriting when the blob became unreachable.
 export async function runReclaimDereferencedBlobsWorkflow(
   db: ApiDatabase,
   input: ReclaimDereferencedBlobsInput = {},
@@ -335,31 +184,41 @@ export async function runReclaimDereferencedBlobsWorkflow(
     limit,
   );
 
+  return reclaimCandidates(
+    db,
+    candidates.map((candidate) => candidate.blobId),
+    { cutoff, now },
+  );
+}
+
+/** Reclaims candidates chunk by chunk, keeping their order in the result. */
+async function reclaimCandidates(
+  db: ApiDatabase,
+  blobIds: readonly string[],
+  input: { readonly cutoff: Date; readonly now: Date },
+): Promise<ReclaimDereferencedBlobsResult> {
   const reclaimedBlobIds: string[] = [];
   const revivedBlobIds: string[] = [];
   const failures: unknown[] = [];
-
-  for (const candidate of candidates) {
-    try {
-      const outcome = await reclaimOneBlob(db, {
-        blobId: candidate.blobId,
-        cutoff,
-      });
-      if (outcome.kind === "reclaimed") {
-        reclaimedBlobIds.push(candidate.blobId);
-      } else if (outcome.kind === "revived") {
-        revivedBlobIds.push(candidate.blobId);
-      }
-    } catch (error) {
-      failures.push(error);
-      try {
+  for (let offset = 0; offset < blobIds.length; offset += RECLAIM_CHUNK_SIZE) {
+    const chunk = blobIds.slice(offset, offset + RECLAIM_CHUNK_SIZE);
+    const outcomes = await reclaimBlobChunk(db, {
+      blobIds: chunk,
+      cutoff: input.cutoff,
+    });
+    for (const blobId of chunk) {
+      const outcome = outcomes.get(blobId);
+      if (outcome?.kind === "failed") {
+        failures.push(outcome.error);
         await deferFailedBlobReclaim(db, {
-          blobId: candidate.blobId,
-          cutoff,
-          retryAt: now,
-        });
-      } catch (deferError) {
-        failures.push(deferError);
+          blobId,
+          cutoff: input.cutoff,
+          retryAt: input.now,
+        }).catch((deferError: unknown) => failures.push(deferError));
+      } else if (outcome?.kind === "reclaimed") {
+        reclaimedBlobIds.push(blobId);
+      } else if (outcome?.kind === "revived") {
+        revivedBlobIds.push(blobId);
       }
     }
   }

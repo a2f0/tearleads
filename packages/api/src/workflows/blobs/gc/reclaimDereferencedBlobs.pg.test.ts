@@ -1,7 +1,15 @@
 import { expect, setSystemTime, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
-import { blobAuditObjects, blobs } from "@tearleads/api-shared/schema";
-import { eq, sql } from "drizzle-orm";
+import {
+  attachmentBindings,
+  blobAuditObjects,
+  blobs,
+} from "@tearleads/api-shared/schema";
+import { eq, inArray, sql } from "drizzle-orm";
+import {
+  holdPostgresLock,
+  waitForPostgresLockWait,
+} from "../../../../test/helpers/postgresConcurrency";
 import { wallClockNowExpression } from "../../../utils/postgresSql";
 import { lockBlobMutationRows } from "../mutations/blobMutationLocks";
 import {
@@ -286,6 +294,77 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         reclaim.catch(() => undefined),
       ]);
       await cleanupBlob(blobId);
+    }
+  },
+  30_000,
+);
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "a chunk reads bindings committed while it waited for its locks",
+  async () => {
+    const now = new Date();
+    const [lowerId, higherId] = [
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+    ].toSorted();
+    if (!lowerId || !higherId) {
+      throw new Error("Missing fixture blob");
+    }
+    for (const id of [lowerId, higherId]) {
+      await insertDereferencedBlob({
+        dereferencedAt: new Date(now.getTime() - 48 * HOUR_MS),
+        id,
+      });
+    }
+    // The chunk locks the lower id, then waits here for the higher one while
+    // this transaction makes it actively referenced again.
+    const holder = await holdPostgresLock(async (tx) => {
+      await lockBlobMutationRows({ blobIds: [higherId], executor: tx });
+      await tx.insert(attachmentBindings).values({
+        blobId: higherId,
+        documentId: crypto.randomUUID(),
+        id: crypto.randomUUID(),
+        slotId: "slot_chunk_lock_wait",
+      });
+    });
+    const reclaim = runReclaimDereferencedBlobsWorkflow(db, {
+      blobIds: [lowerId, higherId],
+      gracePeriodMs: 24 * HOUR_MS,
+      now,
+    });
+
+    try {
+      await waitForPostgresLockWait({
+        blockerPid: holder.backendPid,
+        queryFragment: "blobs",
+      });
+      await holder.release();
+      const result = await reclaim;
+
+      expect(result).toEqual({
+        reclaimedBlobIds: [lowerId],
+        revivedBlobIds: [higherId],
+      });
+      expect(await blobExists(lowerId)).toBe(false);
+      const [revived] = await db
+        .select({ dereferencedAt: blobs.dereferencedAt })
+        .from(blobs)
+        .where(eq(blobs.id, higherId));
+      expect(revived).toEqual({ dereferencedAt: null });
+      expect(
+        await db
+          .select({ blobId: attachmentBindings.blobId })
+          .from(attachmentBindings)
+          .where(eq(attachmentBindings.blobId, higherId)),
+      ).toEqual([{ blobId: higherId }]);
+    } finally {
+      await holder.release();
+      await reclaim.catch(() => undefined);
+      await db
+        .delete(attachmentBindings)
+        .where(inArray(attachmentBindings.blobId, [lowerId, higherId]));
+      await cleanupBlob(lowerId);
+      await cleanupBlob(higherId);
     }
   },
   30_000,

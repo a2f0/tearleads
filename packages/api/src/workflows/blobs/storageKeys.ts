@@ -6,13 +6,22 @@ export function storageKeyForBlobStage(
   return `organizations/${encodeURIComponent(organizationId)}/blob-stages/${encodeURIComponent(stageId)}`;
 }
 
+export function blobStorageKeyMatchesOrganization(
+  storageKey: string,
+  organizationId: string,
+): boolean {
+  const prefix = `organizations/${encodeURIComponent(organizationId)}/blob-stages/`;
+  const stageId = storageKey.slice(prefix.length);
+  return (
+    storageKey.startsWith(prefix) && stageId !== "" && !stageId.includes("/")
+  );
+}
+
 export function assertBlobStorageKeyOrganization(
   storageKey: string,
   organizationId: string,
 ): void {
-  const prefix = `organizations/${encodeURIComponent(organizationId)}/blob-stages/`;
-  const stageId = storageKey.slice(prefix.length);
-  if (!storageKey.startsWith(prefix) || !stageId || stageId.includes("/")) {
+  if (!blobStorageKeyMatchesOrganization(storageKey, organizationId)) {
     throw new Error("Blob storage key does not match its organization");
   }
 }
