@@ -298,23 +298,29 @@ test("the home carousel stops at its last phone screen instead of wrapping", asy
     // gallery.css rests a slide inside the padding; happy-dom reads inline
     // styles.
     track.style.setProperty("scroll-padding-left", "16px");
-    next.click();
-    expect(unavailable()).toEqual([]);
-    // Stepping on reaches the end of the row and stays there rather than
-    // returning to the first screen. The button that cannot move is marked
-    // unavailable but never disabled, so it can keep keyboard focus.
-    for (let press = 0; press < 5; press += 1) next.click();
-    expect([track.scrollLeft, unavailable(), next.disabled]).toEqual([
-      410,
-      ["1"],
-      false,
+    const press = (button: HTMLButtonElement, times: number) =>
+      Array.from({ length: times }, () => {
+        button.click();
+        return [track.scrollLeft, unavailable()];
+      });
+    // One slide fits, so each press moves one slide. The row ends partway into
+    // the last, and a press there stays put rather than returning to the first
+    // screen.
+    expect(press(next, 3)).toEqual([
+      [264, []],
+      [410, ["1"]],
+      [410, ["1"]],
     ]);
-    for (let press = 0; press < 5; press += 1) previous.click();
-    expect([track.scrollLeft, unavailable(), previous.disabled]).toEqual([
-      0,
-      ["-1"],
-      false,
+    // Back the same way, and a press at the start stays put rather than
+    // jumping to the last screen.
+    expect(press(previous, 3)).toEqual([
+      [264, []],
+      [0, ["-1"]],
+      [0, ["-1"]],
     ]);
+    // A button that cannot move is marked unavailable but never disabled, so
+    // it can keep keyboard focus.
+    expect([previous.disabled, next.disabled]).toEqual([false, false]);
   } finally {
     removeLayout();
   }
