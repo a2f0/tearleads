@@ -20,6 +20,7 @@ import {
   organizationRosterEntries,
   organizations,
   principalDirectoryBindings,
+  principalHistoryProgress,
   principalMemberEnvelopes,
   principalMembershipProjection,
   principalPolicyCommits,
@@ -27,11 +28,10 @@ import {
   principalStatePayloads,
   principalStates,
 } from "@tearleads/api-shared/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { forgetTransactionAccessManifestBundles } from "../../access/write/accessManifestStore";
 import { forgetPrincipalTransactionMemo } from "../../access/write/principalStateStore";
 import { deleteDocumentRows } from "../documents/mutations/purgeDocumentRows";
-import { removePrincipalHistoryProgressOnCommit } from "../principals/principalHistoryCache";
 import { organizationPurgeBatches } from "./organizationPurgeBatches";
 import type { OrganizationRemotePurgeScope } from "./organizationPurgeScope";
 
@@ -137,11 +137,6 @@ async function deleteOrganizationPrincipalRows(
     { principalIds: [organizationId], principalType: "organization" },
     { principalIds: groupIds, principalType: "group" },
   ] as const) {
-    await removePrincipalHistoryProgressOnCommit(
-      executor,
-      principalScope.principalType,
-      principalScope.principalIds,
-    );
     for (const principalBatch of organizationPurgeBatches(
       principalScope.principalIds,
     )) {
@@ -163,7 +158,6 @@ async function deleteOrganizationPrincipalRows(
       }
     }
   }
-  if (groupIds.length === 0) return;
   for (const groupBatch of organizationPurgeBatches(groupIds)) {
     await executor
       .insert(organizationGroupTombstones)
@@ -171,6 +165,41 @@ async function deleteOrganizationPrincipalRows(
       .onConflictDoNothing();
     await executor.delete(groups).where(inArray(groups.id, groupBatch));
   }
+  await deleteOrganizationHistoryProgress(executor, organizationId);
+}
+
+/**
+ * Verification hints of the organization and of every group it ever had: the
+ * live ones were just tombstoned, and a deleted group kept its hints with its
+ * signed states. Purge verifies no history, so it buffers no hint to publish
+ * after commit; hash-addressed index nodes and the tombstones stay.
+ */
+async function deleteOrganizationHistoryProgress(
+  executor: DatabaseTransaction,
+  organizationId: string,
+): Promise<void> {
+  await executor
+    .delete(principalHistoryProgress)
+    .where(
+      or(
+        and(
+          eq(principalHistoryProgress.principalType, "organization"),
+          eq(principalHistoryProgress.principalId, organizationId),
+        ),
+        and(
+          eq(principalHistoryProgress.principalType, "group"),
+          inArray(
+            principalHistoryProgress.principalId,
+            executor
+              .select({ groupId: organizationGroupTombstones.groupId })
+              .from(organizationGroupTombstones)
+              .where(
+                eq(organizationGroupTombstones.organizationId, organizationId),
+              ),
+          ),
+        ),
+      ),
+    );
 }
 
 /**

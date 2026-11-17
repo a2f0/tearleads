@@ -62,8 +62,8 @@ test("organization purge statements do not grow with its documents", async () =>
   // document-baseline, principal epoch-key, and built-in grant tables were
   // retired; 57 / 59 / 59 after. Locking the organization and its two
   // groups before deleting their principal states adds three advisory locks
-  // where PGlite and Postgres take them: 60 / 59 / 62. Removing the purged
-  // principals' history progress once the purge commits adds two deletes:
-  // 62 on PGlite, 64 on PostgreSQL.
-  expect(one).toBeLessThanOrEqual(64);
+  // where PGlite and Postgres take them: 60 / 59 / 62. Deleting the history
+  // progress of the organization and every group it had adds one statement:
+  // 61 on PGlite, 63 on PostgreSQL.
+  expect(one).toBeLessThanOrEqual(63);
 });

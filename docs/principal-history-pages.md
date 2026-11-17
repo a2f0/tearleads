@@ -200,18 +200,20 @@ generations have separate unique rows, so processes using different keys do not
 overwrite each other's progress. Transactions buffer hints and publish them
 after success in autocommit upserts of at most 100 rows, written in key order,
 so concurrent publishers lock shared hint rows in the same order and cannot
-deadlock. Organization purge removes the purged organization's and groups'
-progress rows, and drops the hints its transaction buffered for them, once that
-transaction commits; hash-addressed index nodes and group tombstones stay.
-Group deletion keeps them: the deleted group's signed states stay for terminal
-proofs, and their verification still resumes from those hints.
+deadlock. Organization purge deletes the progress rows of the organization and
+of every group it had, found through their tombstones, in its own transaction;
+it verifies no history, so it has no hints to publish afterwards. Hash-addressed
+index nodes and the tombstones stay. Group deletion keeps a group's rows: its
+signed states stay for terminal proofs, whose verification still resumes from
+them.
 Publication failures are reported without changing the
 transaction result. Rolled-back hints are discarded; conditional deletion of an
 invalid hint can run after rollback. Savepoint effects wait for the outer
 transaction to finish. Index nodes are published before progress that uses them.
 Publication is awaited after locks are released and adds storage latency to the
-transaction's response. Since a transaction never writes hints itself, it reads
-each stored hint once per scope and version bound and reuses that row; every use
+transaction's response. Since a transaction that reads hints never writes them
+itself (only organization purge, which reads none, deletes them), it reads each
+stored hint once per scope and version bound and reuses that row; every use
 still restores it and rechecks the saved head.
 
 The `principal_history_index_nodes` table stores untrusted proof material keyed
