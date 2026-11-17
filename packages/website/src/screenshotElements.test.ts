@@ -263,9 +263,14 @@ function simulatePhoneLayout(): () => void {
     writable: true,
     value(this: HTMLElement, ...args: unknown[]) {
       if (!isTrack(this)) return original?.value?.apply(this, args);
-      const [options] = args as [ScrollToOptions];
       const before = position(this);
-      positions.set(this, options.left ?? 0);
+      // scrollTo(x, y) or scrollTo(options); without a left it stays put.
+      const [target] = args;
+      const left =
+        typeof target === "number"
+          ? target
+          : ((target as ScrollToOptions | undefined)?.left ?? before);
+      positions.set(this, left);
       if (position(this) !== before) this.dispatchEvent(new Event("scroll"));
     },
   }));
