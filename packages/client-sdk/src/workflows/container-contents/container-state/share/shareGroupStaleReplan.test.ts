@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { runGroupShareScenario } from "../../../../../test/helpers/groupShareScenario";
+import { runGroupShareScenario } from "../../../../../test/helpers/workflows/groupShareScenario";
 import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { shareRemoteContainerWithGroup } from "../remote";

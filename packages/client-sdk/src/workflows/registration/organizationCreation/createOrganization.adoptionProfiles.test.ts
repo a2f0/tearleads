@@ -4,7 +4,7 @@ import {
   encodeVersionVector,
   exportAllUpdates,
 } from "@tearleads/loro";
-import { organizationAdoptionFixture } from "../../../../test/helpers/organizationAdoption";
+import { organizationAdoptionFixture } from "../../../../test/helpers/workflows/organizationAdoption";
 import {
   initializeStoredDocumentKind,
   readStoredDocumentState,

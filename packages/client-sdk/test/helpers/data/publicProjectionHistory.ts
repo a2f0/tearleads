@@ -1,5 +1,5 @@
 import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
-import type { signedAuthorityRecoveryHistory } from "../principalAuthorityRecovery";
+import type { signedAuthorityRecoveryHistory } from "../workflows/principalAuthorityRecovery";
 import { principalPolicyHead } from "./principalPolicyFixtures";
 import { createPublicHistoryFixture } from "./publicPrincipalHistory";
 

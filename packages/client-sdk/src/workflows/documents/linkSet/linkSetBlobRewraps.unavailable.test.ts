@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
-import { createUploadedAttachmentFixture } from "../../../../test/helpers/blobHydration";
+import { createUploadedAttachmentFixture } from "../../../../test/helpers/workflows/blobHydration";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { prepareDocumentLinkBlobRewraps } from "./linkSetBlobRewraps";

@@ -3,8 +3,8 @@ import {
   signPrincipalState,
   verifyPrincipalPolicyCurrentSuccessor,
 } from "@tearleads/crypto";
-import { currentPolicyAcknowledgementFixture } from "../../../../test/helpers/currentPolicyAcknowledgement";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
+import { currentPolicyAcknowledgementFixture } from "../../../../test/helpers/workflows/currentPolicyAcknowledgement";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import {
   acknowledgeGroupPolicyState,
   prepareAuthoredGroupPolicy,

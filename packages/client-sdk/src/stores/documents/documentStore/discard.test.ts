@@ -4,7 +4,7 @@ import {
   createDiscardTestExecSql as createTestExecSql,
   type RecordedProjectionDelete,
   saveSyncedDocumentRecord,
-} from "../../../../test/helpers/documentDiscard";
+} from "../../../../test/helpers/stores/documentDiscard";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";

@@ -10,7 +10,7 @@ import {
 import {
   createChildContainerProjection,
   moveContainerProjection,
-} from "../../../../test/helpers/projectionHierarchy";
+} from "../../../../test/helpers/workflows/projectionHierarchy";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 
 async function withProjectionDatabase<T>(

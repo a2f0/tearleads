@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
+import { createPlacementCommitFixture } from "../../../../test/helpers/client/placementCommit";
 import { createFileBackedSql } from "../../../../test/helpers/data/fileBackedSql";
-import { createPlacementCommitFixture } from "../../../../test/helpers/placementCommit";
 import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";

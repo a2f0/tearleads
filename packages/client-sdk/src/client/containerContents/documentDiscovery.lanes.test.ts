@@ -4,7 +4,7 @@ import type { SyncWatermark } from "@tearleads/validators/response";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import {
   ContainerSyncWatermarkRepository,
   containerContentsSyncLane,

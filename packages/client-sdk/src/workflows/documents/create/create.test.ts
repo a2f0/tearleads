@@ -22,7 +22,7 @@ import {
   createResponseFromRequest,
 } from "../../../../test/helpers/data/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
-import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
+import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { acknowledgedDocumentCreate } from "../../../data/documents/shared/responses";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { documentWriterProjectionFromCreateResponse } from "./index";

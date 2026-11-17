@@ -6,7 +6,6 @@ import {
   CONTAINER_MUTATION_ERROR_CODES,
   type ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createAuthor,
   createMutationResponseFromRequest,
@@ -15,6 +14,7 @@ import {
   createRecipientIdentityResolver,
   SIGNED_AT,
 } from "../../../../../test/helpers/data/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/workflows/containerMutationServiceFixture";
 import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import { containerWriterProjectionFromSharePlan } from "../rekey/rekeyProjection";
 

@@ -8,7 +8,7 @@ import {
   getTextValue,
   importSnapshot,
 } from "@tearleads/loro";
-import { createCoverageFixture } from "../../../../../test/helpers/syncOutgoingCoverage";
+import { createCoverageFixture } from "../../../../../test/helpers/stores/syncOutgoingCoverage";
 import type { DocumentsPersistence } from "../../../../workflows/documents";
 import { setDocumentText } from "../mutations";
 import { persistDocument } from "../persistence";

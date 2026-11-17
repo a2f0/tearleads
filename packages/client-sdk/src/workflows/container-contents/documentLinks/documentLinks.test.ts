@@ -17,7 +17,7 @@ import {
   writerProjectionEvidence,
 } from "../../../../test/helpers/data/documentFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
-import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
+import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

@@ -1,8 +1,8 @@
 import { beforeAll, expect, test } from "bun:test";
 import { toFingerprint } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
+import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { isKeyingVerificationError } from "../../../data/shared/securityIncidents";
 import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import {

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createPrincipalReciteFixture,
   ROOT_CONTAINER_ID,
-} from "../../../../test/helpers/principalReciteFixtures";
+} from "../../../../test/helpers/workflows/principalReciteFixtures";
 import { containerWriterProjectionFromSharePlan } from "../child/rekey/rekeyProjection";
 import { preparePrincipalContainerRematerializationBatch } from "./principalContainerRematerialization";
 

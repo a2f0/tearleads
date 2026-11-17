@@ -9,7 +9,7 @@ import { createMockApiClient } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
-import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
+import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";

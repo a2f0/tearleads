@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { runGroupShareScenario } from "../../../../test/helpers/groupShareScenario";
+import { runGroupShareScenario } from "../../../../test/helpers/workflows/groupShareScenario";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import { DatabaseUnavailableError } from "../../../data/sqlite/availability/databaseUnavailable";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

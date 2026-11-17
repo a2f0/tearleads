@@ -3,7 +3,7 @@ import { createMockApiClient } from "@tearleads/test-utils";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "../../data/trustedUserIdentity";

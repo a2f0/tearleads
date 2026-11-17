@@ -22,7 +22,6 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
@@ -30,6 +29,7 @@ import {
   SIGNED_AT,
 } from "../../../../../test/helpers/data/containerFixtures";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/workflows/containerMutationServiceFixture";
 
 test("repeated shares submit every same-container manifest needed by retained wraps", async () => {
   const parent = await createParentProjection();

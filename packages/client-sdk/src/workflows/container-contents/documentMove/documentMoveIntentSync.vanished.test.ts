@@ -3,7 +3,7 @@ import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
   CONTAINER_UNAVAILABLE_ERROR_CODE,
 } from "@tearleads/validators/response";
-import { runQueuedDocumentMoveFixture } from "../../../../test/helpers/queuedDocumentMoveFixture";
+import { runQueuedDocumentMoveFixture } from "../../../../test/helpers/workflows/queuedDocumentMoveFixture";
 
 // #2278 #4: a coded `container_unavailable` 409 is the server's proof that a
 // cited container was deleted between the projection fetch and the commit.

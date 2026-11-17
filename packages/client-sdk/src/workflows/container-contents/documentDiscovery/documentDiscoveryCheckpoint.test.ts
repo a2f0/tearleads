@@ -4,8 +4,8 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { createQueuedDocumentMoveRemote } from "../../../../test/helpers/data/queuedDocumentMoveRemote";
-import { createWorkflowInputFixture } from "../../../../test/helpers/internalRuntimeFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createWorkflowInputFixture } from "../../../../test/helpers/workflows/internalRuntimeFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { createContainerContentsWorkflowRuntime } from "../../../client/runtime/containerContentsRuntime";
 import {
   deleteContainerDocumentTombstonePlacementRows,

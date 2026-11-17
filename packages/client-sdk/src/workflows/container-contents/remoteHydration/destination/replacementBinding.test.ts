@@ -10,7 +10,7 @@ import {
   createMockRequestFailure,
   createNativeTestExecSql,
 } from "@tearleads/test-utils";
-import { sharedReplacementBindingFixture } from "../../../../../test/helpers/sharedReplacementBinding";
+import { sharedReplacementBindingFixture } from "../../../../../test/helpers/workflows/sharedReplacementBinding";
 import {
   loadOrganizationFounder,
   rememberOrganizationFounder,

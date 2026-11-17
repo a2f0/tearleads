@@ -9,7 +9,6 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { createContainerMutationServiceFixture } from "../../../../test/helpers/containerMutationServiceFixture";
 import {
   createAuthor,
   createMutationResponseFromRequest,
@@ -20,7 +19,8 @@ import {
 import { createResponse } from "../../../../test/helpers/data/documentFixtures";
 import { createLinkSetResponseFromRequest } from "../../../../test/helpers/data/documentResponseFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
-import { createChildContainerProjection } from "../../../../test/helpers/projectionHierarchy";
+import { createContainerMutationServiceFixture } from "../../../../test/helpers/workflows/containerMutationServiceFixture";
+import { createChildContainerProjection } from "../../../../test/helpers/workflows/projectionHierarchy";
 import { buildMaterializedDocumentCreatePlan } from "../../../workflows/documents/create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../../workflows/documents/linkSet";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";

@@ -16,7 +16,6 @@ import {
   isContainerMutationRequest,
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createAuthor,
   createDeepNonCanonicalRecord,
@@ -26,6 +25,7 @@ import {
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
 } from "../../../../../test/helpers/data/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/workflows/containerMutationServiceFixture";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   buildContainerCreatePlan,

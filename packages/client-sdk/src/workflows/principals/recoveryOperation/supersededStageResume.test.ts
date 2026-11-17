@@ -5,7 +5,7 @@ import { principalPolicyHead } from "../../../../test/helpers/data/principalPoli
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../../test/helpers/principalAuthorityRecovery";
+} from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";

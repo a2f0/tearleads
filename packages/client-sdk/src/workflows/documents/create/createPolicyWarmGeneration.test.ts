@@ -13,8 +13,8 @@ import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/
 import {
   repairPolicyPages,
   repairProtectionLease,
-} from "../../../../test/helpers/principalPolicyRepair";
-import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
+} from "../../../../test/helpers/workflows/principalPolicyRepair";
+import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {

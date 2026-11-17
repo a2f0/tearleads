@@ -13,8 +13,8 @@ import {
   successor,
 } from "../../../test/helpers/data/ancestorCitationScenario";
 import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyFixtures";
-import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
-import { projectionPolicyWarmer } from "../../../test/helpers/projectionPolicyWarmer";
+import { createOrganizationHistoryFixture } from "../../../test/helpers/workflows/organizationPolicyHistory";
+import { projectionPolicyWarmer } from "../../../test/helpers/workflows/projectionPolicyWarmer";
 import { openPrincipalPolicyBundleReader } from "../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "./checkpoints/checkpointContext";
 import { verifyContainerManifestPath } from "./container/containerPathVerification";

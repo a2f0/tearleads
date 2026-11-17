@@ -3,7 +3,7 @@ import {
   createCoordinator as coordinator,
   createRecordingBackend as createBackend,
   createDeferred,
-} from "../../../test/helpers/revenueCatFakes";
+} from "../../../test/helpers/client/revenueCatFakes";
 import { revenueCatOperationTimeoutMs } from "./revenueCatErrors";
 
 function configureAnonymously(identity: ReturnType<typeof coordinator>) {

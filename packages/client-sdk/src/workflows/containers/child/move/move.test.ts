@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createAuthor,
   createParentProjection,
   createParentProjectionUserKeyResolver,
   tamperFirstProjectionEventSignature,
 } from "../../../../../test/helpers/data/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/workflows/containerMutationServiceFixture";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 

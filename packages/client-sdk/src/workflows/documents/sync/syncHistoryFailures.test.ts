@@ -11,7 +11,6 @@ import {
   asContainerMutationFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import { createContainerMutationServiceFixture } from "../../../../test/helpers/containerMutationServiceFixture";
 import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
 import {
   createSignedSyncResponseUpdate,
@@ -19,7 +18,8 @@ import {
   createUserContainerWrap,
   writerKeyResolver,
 } from "../../../../test/helpers/data/documentFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createContainerMutationServiceFixture } from "../../../../test/helpers/workflows/containerMutationServiceFixture";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import {
   ContainerKekHistoryUnavailableError,

@@ -5,7 +5,7 @@ import {
   AUTHORITY_RECOVERY_SETUP_TIMEOUT_MS,
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../../test/helpers/principalAuthorityRecovery";
+} from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import {
   principalHistoryNodes,
   principalHistoryPrefixes,

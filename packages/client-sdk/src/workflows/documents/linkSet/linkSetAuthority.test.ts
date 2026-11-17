@@ -9,8 +9,8 @@ import {
   createResponse,
   writerProjectionEvidence,
 } from "../../../../test/helpers/data/documentFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
-import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { buildMaterializedDocumentCreatePlan } from "../create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { adoptExistingRemoteDocument } from "./createAdoption";
 
 test("create adoption does not prime or succeed after content-key unwrap expires", async () => {

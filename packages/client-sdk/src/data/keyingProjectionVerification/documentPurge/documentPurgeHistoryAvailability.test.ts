@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeChain";
+import { createPurgeChainFixture } from "../../../../test/helpers/workflows/documentPurgeChain";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";

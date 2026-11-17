@@ -11,7 +11,7 @@ import { principalPolicyHead } from "../../../../../test/helpers/data/principalP
 import {
   createPrincipalReciteFixture,
   ROOT_CONTAINER_ID,
-} from "../../../../../test/helpers/principalReciteFixtures";
+} from "../../../../../test/helpers/workflows/principalReciteFixtures";
 import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification";
 import {
   heldContainerSnapshot,

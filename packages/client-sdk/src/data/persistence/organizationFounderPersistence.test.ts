@@ -5,7 +5,7 @@ import { verifyPrincipalPolicySnapshots } from "../../../test/helpers/data/princ
 import {
   createOrganizationHistoryFixture,
   policySnapshot,
-} from "../../../test/helpers/organizationPolicyHistory";
+} from "../../../test/helpers/workflows/organizationPolicyHistory";
 import { parseOrganizationAuthorityDescriptor } from "../principalContracts/organizationAuthorityDescriptor";
 import { buildInitialOrganizationPolicyRequest } from "../principals/organizationPolicyRequest";
 import {

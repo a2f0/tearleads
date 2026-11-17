@@ -8,13 +8,13 @@ import {
 import { base64ToBytes } from "@tearleads/encoding";
 import { createMockApiClient } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import { createLinkSetResponseFromRequest } from "../../../../test/helpers/data/documentFixtures";
 import {
   createBlobBytesResponse,
   createFixtureBinding,
-} from "../../../../test/helpers/blobHydrationFixture";
-import { createLinkSetResponseFromRequest } from "../../../../test/helpers/data/documentFixtures";
-import { createRelinkScopeFixture } from "../../../../test/helpers/linkSetBlobRewrapScope";
-import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
+} from "../../../../test/helpers/workflows/blobHydrationFixture";
+import { createRelinkScopeFixture } from "../../../../test/helpers/workflows/linkSetBlobRewrapScope";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import {
   deriveDocumentTargetFromProjection,
   unwrapContainerKekPath,

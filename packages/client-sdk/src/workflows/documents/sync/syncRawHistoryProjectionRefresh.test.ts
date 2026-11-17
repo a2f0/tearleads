@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { writerKeyResolver } from "../../../../test/helpers/data/documentFixtures";
-import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
 import {
   createReadOnlyResponseFixture,
   persistedStateFromProjection,
   readOnlySyncApi,
-} from "../../../../test/helpers/documentSyncFixtures";
+} from "../../../../test/helpers/workflows/documentSyncFixtures";
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 
 test.each([

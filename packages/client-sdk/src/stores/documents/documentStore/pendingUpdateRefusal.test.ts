@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createCoverageFixture } from "../../../../test/helpers/syncOutgoingCoverage";
+import { createCoverageFixture } from "../../../../test/helpers/stores/syncOutgoingCoverage";
 import type { DocumentsPersistence } from "../../../workflows/documents";
 import { rebaseDocumentAfterPendingUpdateRefusal } from "./pendingUpdateRefusal";
 import { captureDocumentStoreSyncGeneration } from "./sync/syncGeneration";

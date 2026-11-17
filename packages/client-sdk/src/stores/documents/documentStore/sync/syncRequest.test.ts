@@ -9,7 +9,7 @@ import {
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { createSyncResponse } from "../../../../../test/helpers/data/documentFixtures";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";

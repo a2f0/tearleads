@@ -9,7 +9,7 @@ import {
   provisionOrganization,
   recoverFoundingGroups,
   runtimeDatabase,
-} from "../../../test/helpers/provisionedPrincipalHistoryFixtures";
+} from "../../../test/helpers/workflows/provisionedPrincipalHistoryFixtures";
 import { createOrganization } from "./organizationCreation/createOrganization";
 
 test("primed founding heads need only the directory discovery read", async () => {

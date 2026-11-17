@@ -4,7 +4,7 @@ import {
   ROOT_CONTAINER_ID,
   TEST_SYSTEM_SLOT,
   withReadyStore,
-} from "../../../test/helpers/deviceFirstSystemContainer";
+} from "../../../test/helpers/stores/deviceFirstSystemContainer";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 
 test("a stalled explicit system-container probe cannot block ordinary local folder writes", async () => {

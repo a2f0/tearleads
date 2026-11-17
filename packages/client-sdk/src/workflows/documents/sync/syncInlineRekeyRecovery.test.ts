@@ -13,9 +13,9 @@ import {
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/data/documentFixtures";
-import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
-import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
+import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";

@@ -6,7 +6,7 @@ import {
   createPrincipalReciteFixture,
   ROOT_CONTAINER_ID,
   SECOND_CONTAINER_ID,
-} from "../../../../test/helpers/principalReciteFixtures";
+} from "../../../../test/helpers/workflows/principalReciteFixtures";
 import { buildPrincipalContainerRematerializationBatch } from "./principalContainerRematerialization";
 import { loadRematerializationTargets } from "./principalContainerRematerializationTargets";
 

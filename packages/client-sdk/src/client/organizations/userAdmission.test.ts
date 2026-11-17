@@ -3,7 +3,7 @@ import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { createDomainScope } from "../../data/shared/domainScope";
 import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { principalPolicyMatchesReference } from "@tearleads/crypto";
 import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { createPublicProjectionHistoryFixture } from "../../../../test/helpers/data/publicProjectionHistory";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { recoverProjectionPolicyHistory } from "./recoverProjectionPolicyHistory";
 
 test("unrelated retained Admins references cannot overflow a group's authority page", async () => {

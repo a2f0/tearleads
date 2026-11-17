@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import { wrapDekForRecipients } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/data/principalPolicyFixtures";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
+import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../../data/principals/principalPolicyCrypto";
 import { principalKeyEnvelopeArchive } from "../../../data/sqlite/schema/principalHistoryRetentionSchema";

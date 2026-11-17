@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
-import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
+import {
+  createBlobAttachmentBindResponse,
+  createMultipartBlobStageFixture,
+} from "../../../../test/helpers/data/blobUploadFixtures";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import {
   createBlobBytesResponse,
   createFixtureBinding,
   createSingleAttachmentHydrationApi,
   createUploadedAttachmentFixture,
   stagedBindingSummary,
-} from "../../../../test/helpers/blobHydration";
-import {
-  createBlobAttachmentBindResponse,
-  createMultipartBlobStageFixture,
-} from "../../../../test/helpers/data/blobUploadFixtures";
+} from "../../../../test/helpers/workflows/blobHydration";
 import { attachmentContentSha256 } from "../../../data/blobs/attachmentContentIdentity";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import type { DocumentAttachment } from "../../../data/documents/documentContent";

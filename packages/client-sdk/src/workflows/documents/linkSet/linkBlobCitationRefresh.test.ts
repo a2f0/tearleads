@@ -7,8 +7,8 @@ import {
   createBlobBytesResponse,
   createFixtureBinding,
   createUploadedAttachmentFixture,
-} from "../../../../test/helpers/blobHydrationFixture";
-import { refreshedCitation } from "../../../../test/helpers/refreshedCitation";
+} from "../../../../test/helpers/workflows/blobHydrationFixture";
+import { refreshedCitation } from "../../../../test/helpers/workflows/refreshedCitation";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
 import { prepareDocumentLinkBlobRewraps } from "./linkSetBlobRewraps";

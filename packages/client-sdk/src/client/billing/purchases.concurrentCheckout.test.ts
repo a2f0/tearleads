@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDeferred } from "../../../test/helpers/revenueCatFakes";
+import { createDeferred } from "../../../test/helpers/client/revenueCatFakes";
 import {
   createRevenueCatPurchases,
   PurchaseIdentityPendingError,

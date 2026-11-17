@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { signOrganizationReplacementAuthorization } from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import { createReplacementAuthorizationFixture } from "../../../../test/helpers/organizationReplacementAuthorization";
+import { createReplacementAuthorizationFixture } from "../../../../test/helpers/workflows/organizationReplacementAuthorization";
 
 for (const attack of [
   "same organization",

@@ -6,7 +6,7 @@ import {
 import {
   createFullHistoryRotationSnapshot,
   createStaleBundleSyncFixture,
-} from "../../../../test/helpers/staleBundleSyncFixture";
+} from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 import { applyAcceptedHealSideEffects } from "./syncSubmittedResult";
 

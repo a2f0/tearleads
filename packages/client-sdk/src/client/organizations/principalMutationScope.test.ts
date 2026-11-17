@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
-import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
+import { createWorkflowInputFixture } from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/shared/domainScope";
 import { createExecSql } from "../../data/sqlite/sqlSchema";

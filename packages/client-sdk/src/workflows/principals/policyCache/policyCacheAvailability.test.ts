@@ -4,7 +4,7 @@ import {
   createPrincipalPolicyBundle,
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/data/principalPolicyBundles";
-import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
+import { cacheReferencedPolicies } from "../../../../test/helpers/workflows/policyCacheFixtures";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 

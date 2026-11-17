@@ -9,8 +9,8 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { fixtureHash } from "../../../../test/helpers/data/documentFixtures";
-import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createDocumentPurgeProof } from "../../../../test/helpers/workflows/documentPurge";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";

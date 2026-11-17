@@ -19,7 +19,7 @@ import {
 import {
   repairPolicyPages,
   repairProtectionLease,
-} from "../../../../../test/helpers/principalPolicyRepair";
+} from "../../../../../test/helpers/workflows/principalPolicyRepair";
 import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";

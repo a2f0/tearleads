@@ -5,7 +5,7 @@ import { organizationReadModelSnapshot } from "../../../../test/helpers/data/org
 import {
   createOrganizationHistoryPageFixture,
   organizationHistoryPage,
-} from "../../../../test/helpers/organizationHistoryPage";
+} from "../../../../test/helpers/workflows/organizationHistoryPage";
 import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";

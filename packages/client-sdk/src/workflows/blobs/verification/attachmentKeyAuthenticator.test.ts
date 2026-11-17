@@ -8,7 +8,7 @@ import {
   createBlobBytesResponse,
   createFixtureBinding,
   createUploadedAttachmentFixture,
-} from "../../../../test/helpers/blobHydrationFixture";
+} from "../../../../test/helpers/workflows/blobHydrationFixture";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";

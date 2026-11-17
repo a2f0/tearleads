@@ -6,7 +6,7 @@ import {
   ORGANIZATION_ID,
   ROOT_CONTAINER_ID,
   SECOND_CONTAINER_ID,
-} from "../../../../test/helpers/principalReciteFixtures";
+} from "../../../../test/helpers/workflows/principalReciteFixtures";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
 import { heldContainerSnapshot } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";

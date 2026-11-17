@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { runGroupShareScenario } from "../../../../../test/helpers/groupShareScenario";
+import { runGroupShareScenario } from "../../../../../test/helpers/workflows/groupShareScenario";
 
 // A share chosen by name must carry that name; only the grant-preserving
 // re-wrap may omit it. The facade enforces this for every caller.

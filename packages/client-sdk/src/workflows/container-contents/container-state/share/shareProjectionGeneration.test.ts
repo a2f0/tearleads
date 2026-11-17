@@ -7,7 +7,7 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../../test/helpers/data/containerFixtures";
-import { createShareTestRuntime } from "../../../../../test/helpers/groupShareScenario";
+import { createShareTestRuntime } from "../../../../../test/helpers/workflows/groupShareScenario";
 import { defaultContainerContentsPersistence } from "../../containerPersistence";
 import { createInitializedContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";

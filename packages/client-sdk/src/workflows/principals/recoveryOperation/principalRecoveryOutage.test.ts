@@ -4,7 +4,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../../test/helpers/principalAuthorityRecovery";
+} from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { PrincipalPolicyHistoryReadError } from "../historyRecovery/principalHistoryRecoveryTypes";
 import { recoverScopedPrincipalPolicyHistory } from "../historyRecovery/recoverScopedPrincipalPolicyHistory";
 import { recoverWithPrincipalOutageFallback } from "./principalRecoveryOutage";

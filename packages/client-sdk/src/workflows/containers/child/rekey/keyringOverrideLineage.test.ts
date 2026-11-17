@@ -8,17 +8,17 @@ import {
 } from "@tearleads/crypto";
 import { asContainerMutationFixture } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createMutationResponseFromRequest,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/data/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/workflows/containerMutationServiceFixture";
 import {
   CHILD_ID,
   forgedEpoch1Entry,
   type RelocatedChildHistory,
   relocatedChildHistory,
-} from "../../../../../test/helpers/relocatedLineage";
+} from "../../../../../test/helpers/workflows/relocatedLineage";
 import {
   manifestHistoryEpochIds,
   unwrapKeyringContainerKeksAtIndex,

@@ -9,7 +9,7 @@ import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { createAuthor } from "../../../../../test/helpers/data/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/data/trustedUserIdentity";
-import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
+import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import {
   CONTAINER_PATH_TOO_DEEP_MESSAGE,
   ContainerPathTooDeepError,

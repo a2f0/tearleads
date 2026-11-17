@@ -7,7 +7,7 @@ import {
   satisfiesVersionVector,
   versionVectorsEqual,
 } from "@tearleads/loro";
-import { createCoverageFixture } from "../../../../../test/helpers/syncOutgoingCoverage";
+import { createCoverageFixture } from "../../../../../test/helpers/stores/syncOutgoingCoverage";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { listDeferredPendingWriteCandidates } from "../../../../workflows/container-contents/pendingWrites/deferredTails";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";

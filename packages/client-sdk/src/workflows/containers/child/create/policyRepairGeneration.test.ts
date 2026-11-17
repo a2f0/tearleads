@@ -13,8 +13,8 @@ import {
   principalPolicyHead,
 } from "../../../../../test/helpers/data/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
-import { createOrganizationHistoryFixture } from "../../../../../test/helpers/organizationPolicyHistory";
-import { createRepairWarmer } from "../../../../../test/helpers/principalPolicyRepair";
+import { createOrganizationHistoryFixture } from "../../../../../test/helpers/workflows/organizationPolicyHistory";
+import { createRepairWarmer } from "../../../../../test/helpers/workflows/principalPolicyRepair";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { buildInitialOrganizationPolicyRequest } from "../../../../data/principals/organizationPolicyRequest";
 import { recoverPrincipalPolicyRepair } from "../../../principals/policyRepair";

@@ -4,7 +4,7 @@ import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyF
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../test/helpers/principalAuthorityRecovery";
+} from "../../../test/helpers/workflows/principalAuthorityRecovery";
 import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";

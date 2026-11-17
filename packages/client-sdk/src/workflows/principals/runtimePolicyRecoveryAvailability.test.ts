@@ -7,7 +7,7 @@ import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyF
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../test/helpers/principalAuthorityRecovery";
+} from "../../../test/helpers/workflows/principalAuthorityRecovery";
 import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";

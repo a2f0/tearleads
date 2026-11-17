@@ -10,8 +10,8 @@ import { createGroupNameDirectory } from "../../../../../test/helpers/data/group
 import {
   repairPolicyPages,
   repairProtectionLease,
-} from "../../../../../test/helpers/principalPolicyRepair";
-import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
+} from "../../../../../test/helpers/workflows/principalPolicyRepair";
+import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 import { verifyRemoteContainerDestination } from "./verifiedDestination";

@@ -3,7 +3,7 @@ import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../../test/helpers/internalRuntimeFixtures";
+} from "../../../../test/helpers/workflows/internalRuntimeFixtures";
 import { createContainerContents } from "../../../client/containerContents";
 import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";

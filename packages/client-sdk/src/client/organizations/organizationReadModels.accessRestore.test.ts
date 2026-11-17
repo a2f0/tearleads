@@ -11,7 +11,7 @@ import {
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { DocumentMoveIntentRepository } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   completeDormantMetadataSweepRequest,

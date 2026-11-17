@@ -3,7 +3,7 @@ import { createNativeTestExecSql } from "@tearleads/test-utils";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
 import { clientSqlTables, containers } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";

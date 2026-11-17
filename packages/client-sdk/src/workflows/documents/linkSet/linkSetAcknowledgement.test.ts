@@ -17,7 +17,7 @@ import {
   writerProjectionEvidence,
 } from "../../../../test/helpers/data/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
-import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { buildMaterializedDocumentCreatePlan } from "../create";
 
 const linkSetAcknowledgementTampers: readonly {

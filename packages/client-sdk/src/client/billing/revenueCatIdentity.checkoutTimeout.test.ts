@@ -3,7 +3,7 @@ import {
   createCoordinator as coordinator,
   createRecordingBackend as createBackend,
   createDeferred,
-} from "../../../test/helpers/revenueCatFakes";
+} from "../../../test/helpers/client/revenueCatFakes";
 
 test("a checkout timeout rejects an already-queued identity change", async () => {
   const backend = createBackend();

@@ -11,9 +11,9 @@ import {
   createPendingUpdateRecord,
   fixtureHash,
 } from "../../../../test/helpers/data/documentFixtures";
-import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
-import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createDocumentPurgeProof } from "../../../../test/helpers/workflows/documentPurge";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import type { DocumentSyncApi } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../../data/keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";

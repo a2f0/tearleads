@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createMockApiClient } from "@tearleads/test-utils";
-import { createCurrentOrganizationRuntimeFixture } from "../../../test/helpers/currentOrganizationRuntime";
 import { organizationReadModelSnapshot } from "../../../test/helpers/data/organizationReadModelProjectionFixtures";
 import { projectionHistoryPages } from "../../../test/helpers/data/projectionPolicyPages";
+import { createCurrentOrganizationRuntimeFixture } from "../../../test/helpers/workflows/currentOrganizationRuntime";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
-import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
-import { createAuthorityRecoveryFixture } from "../../../test/helpers/principalAuthorityRecovery";
-import { withPrincipalPolicies } from "../../../test/helpers/principalPolicyServiceFixture";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
+import { createOrganizationHistoryFixture } from "../../../test/helpers/workflows/organizationPolicyHistory";
+import { createAuthorityRecoveryFixture } from "../../../test/helpers/workflows/principalAuthorityRecovery";
+import { withPrincipalPolicies } from "../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { OrganizationReadModelRepository } from "../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";

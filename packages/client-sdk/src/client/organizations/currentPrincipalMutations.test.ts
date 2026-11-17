@@ -8,12 +8,12 @@ import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../test/helpers/data/principalPolicyFixtures";
-import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
+import { createWorkflowInputFixture } from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../test/helpers/principalAuthorityRecovery";
-import { withPrincipalPolicies } from "../../../test/helpers/principalPolicyServiceFixture";
+} from "../../../test/helpers/workflows/principalAuthorityRecovery";
+import { withPrincipalPolicies } from "../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalGrantRetirements } from "../../data/sqlite/schema/principalGrantRetirementSchema";
 import { createCurrentPrincipalMutation } from "./currentPrincipalMutations";

@@ -11,10 +11,10 @@ import {
   CONTAINER_MUTATION_ERROR_CODES,
   encodeContainerWriterProjection,
 } from "@tearleads/validators/response";
-import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancestorRotationRecovery";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { createRecipientIdentityResolver } from "../../../../../test/helpers/data/containerFixtures";
 import { createContainerServer } from "../../../../../test/helpers/data/containerMutationServer";
+import { createRotatedAncestorFixture } from "../../../../../test/helpers/workflows/ancestorRotationRecovery";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/workflows/containerMutationServiceFixture";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import type { ContainerMutationServiceApi } from "../../containerMutationCollaborators";

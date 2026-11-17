@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createFixtureBinding,
   createUploadedAttachmentFixture,
-} from "../../../../../test/helpers/blobHydration";
+} from "../../../../../test/helpers/workflows/blobHydration";
 import { addDocumentAttachments } from "../../../../data/documents/documentContent";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";

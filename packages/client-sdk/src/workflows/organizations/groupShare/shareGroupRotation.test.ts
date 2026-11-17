@@ -9,21 +9,21 @@ import {
 } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { projectionHistoryPages } from "../../../../test/helpers/data/projectionPolicyPages";
 import {
   ADMIN_GROUP_ID,
   ORGANIZATION_ID,
   ROOT_CONTAINER_ID,
   setUpAdminGroupRoot,
-} from "../../../../test/helpers/adminGroupRoot";
-import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
-import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
-import { projectionHistoryPages } from "../../../../test/helpers/data/projectionPolicyPages";
+} from "../../../../test/helpers/workflows/adminGroupRoot";
 import {
   repairPolicyPages,
   repairProtectionLease,
-} from "../../../../test/helpers/principalPolicyRepair";
-import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
-import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
+} from "../../../../test/helpers/workflows/principalPolicyRepair";
+import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
+import { projectionPolicyWarmer } from "../../../../test/helpers/workflows/projectionPolicyWarmer";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import { heldContainerSnapshot } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";

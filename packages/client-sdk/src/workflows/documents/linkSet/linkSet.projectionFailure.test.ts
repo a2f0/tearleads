@@ -4,7 +4,7 @@ import {
   createMockRequestFailure,
 } from "@tearleads/test-utils";
 import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
-import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import type {
   DocumentLinkSetMutationApi,
   DocumentLinkSetMutationFailure,

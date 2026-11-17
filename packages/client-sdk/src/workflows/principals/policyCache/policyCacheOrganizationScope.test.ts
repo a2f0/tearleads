@@ -7,7 +7,7 @@ import {
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/data/principalPolicyBundles";
 import { trustedUserIdentityFromResponse } from "../../../../test/helpers/data/trustedUserIdentity";
-import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
+import { cacheReferencedPolicies } from "../../../../test/helpers/workflows/policyCacheFixtures";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { cachePrincipalPolicyBundles } from "./index";

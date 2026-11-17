@@ -15,13 +15,13 @@ import type {
   BlobAttachmentSummary,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { createLinkSetResponseFromRequest } from "../../../../test/helpers/data/documentFixtures";
 import {
   createBlobBytesResponse,
   createFixtureBinding,
   createUploadedAttachmentFixture,
-} from "../../../../test/helpers/blobHydration";
-import { createLinkSetResponseFromRequest } from "../../../../test/helpers/data/documentFixtures";
-import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
+} from "../../../../test/helpers/workflows/blobHydration";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { contentKeyTargetReference } from "../../../data/blobs/attachments/readers";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";

@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
-import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
-import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
+import { createDocumentPurgeProof } from "../../../../test/helpers/workflows/documentPurge";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
 import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { runWithSecurityIncidentReporting } from "../../../data/shared/securityIncidents";

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancestorRotationRecovery";
+import { createRotatedAncestorFixture } from "../../../../../test/helpers/workflows/ancestorRotationRecovery";
 import { unwrapContainerKekPath } from "../../../../data/documents/shared/projection";
 import { buildMaterializedDocumentCreatePlan } from "../../../documents/create";
 import { buildMaterializedContainerRekeyPlan } from "./index";

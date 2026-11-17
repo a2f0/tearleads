@@ -14,9 +14,9 @@ import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/da
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/data/principalPolicySnapshots";
 import { verifyPrincipalPolicySnapshots } from "../../../../test/helpers/data/principalPolicySnapshotVerification";
 import { createProjectionPolicyEvidence } from "../../../../test/helpers/data/projectionPolicyEvidence";
-import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
-import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
+import { createDocumentPurgeProof } from "../../../../test/helpers/workflows/documentPurge";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
+import { projectionPolicyWarmer } from "../../../../test/helpers/workflows/projectionPolicyWarmer";
 import { buildMaterializedContainerSharePlan } from "../../../workflows/containers/child/share/shareMaterialization";
 import {
   buildMaterializedDocumentCreatePlan,

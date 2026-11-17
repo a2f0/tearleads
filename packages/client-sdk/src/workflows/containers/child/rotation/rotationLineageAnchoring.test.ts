@@ -6,16 +6,16 @@ import {
 import { asContainerMutationFixture } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { createMutationResponseFromRequest } from "../../../../../test/helpers/data/containerFixtures";
-import { createChildContainerProjection } from "../../../../../test/helpers/projectionHierarchy";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/workflows/containerMutationServiceFixture";
+import { createChildContainerProjection } from "../../../../../test/helpers/workflows/projectionHierarchy";
 import {
   CHILD_ID,
   GRANTEE_ID,
   type RelocatedChildHistory,
   relocatedChildHistory,
   servingForgedKeyring,
-} from "../../../../../test/helpers/relocatedLineage";
+} from "../../../../../test/helpers/workflows/relocatedLineage";
 import type { ContainerMutationServiceApi } from "../../containerMutationCollaborators";
 
 // Each rotation re-seals the served keyring. Served over relocated history,

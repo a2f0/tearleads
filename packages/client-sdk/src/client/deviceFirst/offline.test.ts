@@ -4,7 +4,7 @@ import { waitFor } from "../../../test/helpers/data/waitFor";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerContents } from "../containerContents";

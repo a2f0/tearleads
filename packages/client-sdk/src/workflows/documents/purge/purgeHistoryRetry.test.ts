@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeChain";
+import { createPurgeChainFixture } from "../../../../test/helpers/workflows/documentPurgeChain";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { runWithSecurityIncidentReporting } from "../../../data/shared/securityIncidents";
 import {

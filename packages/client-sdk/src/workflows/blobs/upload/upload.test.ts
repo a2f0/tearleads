@@ -7,7 +7,6 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
@@ -19,7 +18,8 @@ import {
   substituteFirstProjectionUserWrapMaterial,
 } from "../../../../test/helpers/data/containerFixtures";
 import { createResponse } from "../../../../test/helpers/data/documentFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { parseBlobEncryptedBytes } from "../../../data/blobs/attachments/readers";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { readContainerState } from "../../../data/containers/shared/projection";

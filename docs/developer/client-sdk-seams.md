@@ -307,7 +307,7 @@ is the first.
   collaborators.
 - **Tests.** Tests construct the real service over fakes; there is no
   interface over the one implementation.
-  [`createBlobAttachmentServiceFixture`](../../packages/client-sdk/test/helpers/blobAttachmentServiceFixture.ts)
+  [`createBlobAttachmentServiceFixture`](../../packages/client-sdk/test/helpers/workflows/blobAttachmentServiceFixture.ts)
   accepts a fake API with only the calls a test path makes.
 - **Public API.** Replace the bag-taking exports with the class and delete
   them in the same pull request, migrating every caller, rather than keeping

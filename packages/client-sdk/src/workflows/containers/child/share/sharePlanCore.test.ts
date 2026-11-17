@@ -3,7 +3,7 @@ import {
   createPrincipalReciteFixture as createFixture,
   GROUP_ID,
   ROOT_CONTAINER_ID,
-} from "../../../../../test/helpers/principalReciteFixtures";
+} from "../../../../../test/helpers/workflows/principalReciteFixtures";
 import {
   getTargetContainerContext,
   readContainerState,

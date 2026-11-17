@@ -30,7 +30,7 @@ import {
 } from "../../../../test/helpers/data/containerFixtures";
 import { createProjectionPolicyEvidence } from "../../../../test/helpers/data/projectionPolicyEvidence";
 import { createFixtureUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
-import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
+import { projectionPolicyWarmer } from "../../../../test/helpers/workflows/projectionPolicyWarmer";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 

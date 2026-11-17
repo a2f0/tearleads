@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { organizationAdoptionFixture } from "../../../../test/helpers/organizationAdoption";
+import { organizationAdoptionFixture } from "../../../../test/helpers/workflows/organizationAdoption";
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { createInitializedContainerMetadataDocument } from "../../container-contents/metadata/containerMetadataDocument";

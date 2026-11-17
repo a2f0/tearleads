@@ -11,7 +11,7 @@ import {
   createRemovalFixture,
   echoMutation as echo,
   mutationObjectIds,
-} from "../../../../test/helpers/groupRemovalCarryFixture";
+} from "../../../../test/helpers/workflows/groupRemovalCarryFixture";
 import { removeOrganizationGroupUser } from "./index";
 
 // #2340 finding 1. A group membership change rematerializes the group's

@@ -9,7 +9,7 @@ import { principalPolicyHead } from "../../../../test/helpers/data/principalPoli
 import {
   createPrincipalReciteFixture,
   ROOT_CONTAINER_ID,
-} from "../../../../test/helpers/principalReciteFixtures";
+} from "../../../../test/helpers/workflows/principalReciteFixtures";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { resolveCurrentGroupMutationReferences } from "../../organizations/principalMutations/currentGroupMutationReferences";
 import { buildPrincipalContainerRematerializationBatch } from "./principalContainerRematerialization";

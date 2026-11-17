@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { manifestBundle } from "../../../../test/helpers/data/ancestorCitationScenario";
-import { createPurgeCurrencyFixture } from "../../../../test/helpers/documentPurgeCurrency";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createPurgeCurrencyFixture } from "../../../../test/helpers/workflows/documentPurgeCurrency";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { verifyContainerWriterProjection } from "../container/containerProjectionVerification";

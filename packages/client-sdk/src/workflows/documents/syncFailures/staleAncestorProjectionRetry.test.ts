@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
-import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/data/blobUploadFixtures";
 import { createPendingUpdateRecord } from "../../../../test/helpers/data/documentResponseFixtures";
-import { repairedAncestorDocument } from "../../../../test/helpers/repairedAncestorDocument";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
+import { repairedAncestorDocument } from "../../../../test/helpers/workflows/repairedAncestorDocument";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { ContainerKekRepairRequiredError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";

@@ -8,7 +8,7 @@ import {
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 

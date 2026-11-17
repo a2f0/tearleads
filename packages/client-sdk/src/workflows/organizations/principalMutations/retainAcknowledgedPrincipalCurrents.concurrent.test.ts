@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
+import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";

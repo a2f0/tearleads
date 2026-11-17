@@ -13,7 +13,7 @@ import { createAuthor } from "../../../../../test/helpers/data/containerFixtures
 import {
   createShareTestRuntime,
   runGroupShareScenario,
-} from "../../../../../test/helpers/groupShareScenario";
+} from "../../../../../test/helpers/workflows/groupShareScenario";
 import { defaultContainerContentsPersistence } from "../../containerPersistence";
 import { createInitializedContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";

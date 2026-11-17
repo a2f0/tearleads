@@ -10,12 +10,12 @@ import { organizationReadModelSnapshot } from "../../../test/helpers/data/organi
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import {
   repairPolicyPages,
   repairProtectionLease,
-} from "../../../test/helpers/principalPolicyRepair";
-import { withPrincipalPolicies } from "../../../test/helpers/principalPolicyServiceFixture";
+} from "../../../test/helpers/workflows/principalPolicyRepair";
+import { withPrincipalPolicies } from "../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { DocumentMoveIntentRepository } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   DocumentRecordRepository,

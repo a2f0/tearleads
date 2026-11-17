@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createFixtureBinding,
   createUploadedAttachmentFixture,
-} from "../../../../test/helpers/blobHydration";
+} from "../../../../test/helpers/workflows/blobHydration";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { assertBlobWrapScopeVerified } from "./verifiedWrapScope";
 

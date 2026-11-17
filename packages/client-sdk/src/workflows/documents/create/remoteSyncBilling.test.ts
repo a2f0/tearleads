@@ -12,9 +12,9 @@ import {
   writerKeyResolver,
 } from "../../../../test/helpers/data/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
-import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
-import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
+import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 
 test("createRemoteDocument gates writes by the resolved container organization", async () => {

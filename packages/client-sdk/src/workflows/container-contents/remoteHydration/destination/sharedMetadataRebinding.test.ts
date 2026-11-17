@@ -3,8 +3,8 @@ import {
   createMockRequestFailure,
   createNativeTestExecSql,
 } from "@tearleads/test-utils";
-import { createMetadataBindingFixture } from "../../../../../test/helpers/containerMetadataBinding";
-import { sharedReplacementBindingFixture } from "../../../../../test/helpers/sharedReplacementBinding";
+import { createMetadataBindingFixture } from "../../../../../test/helpers/workflows/containerMetadataBinding";
+import { sharedReplacementBindingFixture } from "../../../../../test/helpers/workflows/sharedReplacementBinding";
 import { defaultContainerContentsPersistence as persistence } from "../../containerPersistence";
 import { renameContainerMetadataStateFromRuntime } from "../../metadata/metadataPersistence";
 import { rememberDestinationRole } from "./destinationRoleCache";
