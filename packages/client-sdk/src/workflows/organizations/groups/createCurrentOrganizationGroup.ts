@@ -96,6 +96,9 @@ export async function createCurrentOrganizationGroup(input: {
     await buildOrganizationGroupDirectoryPolicyRequest({
       ...input,
       currentPolicy: context.directory.current,
+      // Creating a group keeps the admins; the creator's key checks that its
+      // envelope still opens the kept directory key.
+      currentUserSecretKey: input.creatorEncapsulationKeyPair.secretKey,
       descriptor: context.descriptor,
       groupHeads: replaceOrganizationGroupHead({
         descriptor: context.descriptor,

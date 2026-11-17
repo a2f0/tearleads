@@ -31,6 +31,8 @@ export async function createGroupRequest(input: {
   additionalMembers?: readonly TestUser[] | undefined;
   groupId: string;
   includeActorAsAdmin?: boolean | undefined;
+  /** The actor's KEM secret, to keep the organization directory key. */
+  keepKeyWith?: Uint8Array | undefined;
   /** Overrides the metadata key the encrypted name cites. */
   metadataKey?: GroupMetadataKey | undefined;
   name: string;
@@ -107,6 +109,7 @@ export async function createGroupRequest(input: {
 
   return withOrganizationGroupDirectoryPolicy({
     actor: input.actor,
+    keepKeyWith: input.keepKeyWith,
     organizationId: organization.organizationId,
     request: {
       groupId: input.groupId,

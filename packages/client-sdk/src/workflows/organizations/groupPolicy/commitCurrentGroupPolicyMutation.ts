@@ -47,6 +47,8 @@ interface CommitInput extends GroupPolicyChange {
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
+  /** The signer's KEM secret; it keeps the directory key when admins grow. */
+  readonly currentUserSecretKey: Uint8Array | null;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
@@ -222,6 +224,7 @@ async function prepareDirectory(
     adminProjection,
     adminUsers,
     currentPolicy: context.organizationCurrent.current,
+    currentUserSecretKey: input.currentUserSecretKey,
     descriptor: context.organizationDescriptor,
     groupHeads,
     signerUserId: input.signerUserId,
