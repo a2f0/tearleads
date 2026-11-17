@@ -3,8 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createDomainScope } from "../shared/domainScope";
 import {
   getOrCreateOrganizationSyncPauses,
-  isRetainedWhileSyncPaused,
-  OrganizationSyncPauseRepository,
+  loadOrganizationSyncPausesBeforeSync,
 } from "./organizationSyncPauses";
 
 const METADATA_SLOT = `sys_v1_${"m".repeat(43)}`;
@@ -53,28 +52,20 @@ test("skips a paused organization's containers except its metadata root", async 
       systemSlot: METADATA_SLOT,
     };
 
-    expect(isRetainedWhileSyncPaused(metadataRoot)).toBe(true);
-    const pausedRoot = { organizationId: "paused", parentId: null };
-    expect(pauses.isContainerPaused(metadataRoot, null)).toBe(false);
-    expect(pauses.isContainerPaused(pausedRoot, null)).toBe(true);
+    expect(pauses.isContainerPaused(metadataRoot)).toBe(false);
     expect(
-      pauses.isContainerPaused(
-        {
-          organizationId: "paused",
-          parentId: "root",
-          systemSlot: METADATA_SLOT,
-        },
-        null,
-      ),
+      pauses.isContainerPaused({ organizationId: "paused", parentId: null }),
     ).toBe(true);
     expect(
-      pauses.isContainerPaused(
-        { organizationId: "other", parentId: "root" },
-        null,
-      ),
+      pauses.isContainerPaused({
+        organizationId: "paused",
+        parentId: "root",
+        systemSlot: METADATA_SLOT,
+      }),
+    ).toBe(true);
+    expect(
+      pauses.isContainerPaused({ organizationId: "other", parentId: "root" }),
     ).toBe(false);
-    // A pause from another device never skips the session's active workspace.
-    expect(pauses.isContainerPaused(pausedRoot, "paused")).toBe(false);
   } finally {
     close();
   }
@@ -136,38 +127,34 @@ test("a pause set larger than SQLite binds persists whole", async () => {
   }
 });
 
-test("resuming an organization forgets only its removed documents", async () => {
+test("a failed pause read lets a store start and holds every organization until a read succeeds", async () => {
+  const domainScope = createDomainScope();
+  const pauses = getOrCreateOrganizationSyncPauses(domainScope);
+  const logs: string[] = [];
+  expect(pauses.holdsSync("org-a")).toBe(false);
+
+  await loadOrganizationSyncPausesBeforeSync({
+    domainScope,
+    execSql: async () => {
+      throw new Error("database unavailable");
+    },
+    log: (message) => logs.push(message),
+  });
+
+  expect(logs).toEqual(["Sync: could not read the organization sync pauses"]);
+  // Which organizations are paused is unknown, so none may sync.
+  expect(pauses.holdsSync("org-a")).toBe(true);
+  expect(pauses.isOrganizationPaused("org-a")).toBe(false);
+
   const { close, execSql } = await createTestExecSql(
-    "organization-sync-pause-removals",
+    "organization-sync-pauses-retry",
   );
   try {
-    const pauses = getOrCreateOrganizationSyncPauses(createDomainScope());
-    await pauses.replace(execSql, ["org-a", "org-b"]);
-    await new OrganizationSyncPauseRepository(
-      execSql,
-    ).recordPauseRemovedDocument({
-      localId: "doc-a",
-      organizationId: "org-a",
-    });
-    await new OrganizationSyncPauseRepository(
-      execSql,
-    ).recordPauseRemovedDocument({
-      localId: "doc-b",
-      organizationId: "org-b",
-    });
-
-    await pauses.replace(execSql, ["org-b"]);
-
-    expect(
-      await new OrganizationSyncPauseRepository(execSql).isPauseRemovedDocument(
-        "doc-a",
-      ),
-    ).toBe(false);
-    expect(
-      await new OrganizationSyncPauseRepository(execSql).isPauseRemovedDocument(
-        "doc-b",
-      ),
-    ).toBe(true);
+    await pauses.load(execSql);
+    expect(pauses.holdsSync("org-a")).toBe(false);
+    await pauses.replace(execSql, ["org-a"]);
+    expect(pauses.holdsSync("org-a")).toBe(true);
+    expect(pauses.holdsSync("org-b")).toBe(false);
   } finally {
     close();
   }

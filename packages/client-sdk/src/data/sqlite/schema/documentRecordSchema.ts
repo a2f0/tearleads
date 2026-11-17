@@ -61,6 +61,10 @@ const accessLevelColumn = "effective_access_level";
  * - `(appKind, localId)` is the primary key and scopes local document lookups.
  * - `(appKind, documentId) where documentId is not null` supports resolving a
  *   server document id back to the local row during discovery and relinking.
+ * - `(appKind, localId)` over records whose `pendingBaseVersion` differs from
+ *   a non-empty `snapshotEndVersion` serves the pending-write queue's
+ *   deferred-tail scan, which repeats that condition, so it reads only
+ *   unsettled records instead of every synced one.
  */
 export const documents = sqliteTable(
   "documents",
@@ -90,6 +94,11 @@ export const documents = sqliteTable(
     index("documents_app_document_idx")
       .on(table.appKind, table.documentId)
       .where(sql`${table.documentId} IS NOT NULL`),
+    index("documents_deferred_tail_idx")
+      .on(table.appKind, table.localId)
+      .where(
+        sql`${table.snapshotEndVersion} <> '' AND ${table.pendingBaseVersion} IS NOT ${table.snapshotEndVersion}`,
+      ),
   ],
 );
 

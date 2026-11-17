@@ -23,27 +23,15 @@ export interface OrganizationMembershipApi {
 }
 
 /**
- * What applying a pause needs from the device's content. Wired by the
- * composition root to the container tree and the document sync lanes.
+ * What applying a pause or a resume needs from the device's sync. Wired by
+ * the composition root to the document reconciler and the sync lanes.
  */
 export interface OrganizationContentHost {
   /**
-   * Removes an organization's content, keeping its metadata root. Refuses,
-   * returning false, while any of its writes is unsynced or still queued in
-   * an open store.
+   * Re-lists the whole tree and re-drives every sync lane, so a resumed
+   * organization fetches what it missed and sends the writes it held.
    */
-  forgetOrganizationContent(organizationId: string): Promise<boolean>;
-  /** Whether any local write for the organization has not uploaded yet. */
-  hasUnsyncedOrganizationWrites(organizationId: string): Promise<boolean>;
-  /** Asks every sync lane to upload now and waits briefly for them to idle. */
-  flushWrites(): Promise<void>;
-  /** Re-lists the whole tree so resumed organizations download again. */
-  refetchContent(): Promise<void>;
-  /**
-   * Runs `retry` each time the scope's sync lanes go idle until it resolves
-   * true. A later call replaces the pending retry.
-   */
-  retryWhenWritesSettle(retry: () => Promise<boolean>): void;
+  resumeSync(): Promise<void>;
 }
 
 interface OrganizationMembershipInput {
@@ -61,46 +49,35 @@ interface OrganizationMembershipInput {
 
 export type OrganizationSyncPauseResult =
   | { readonly status: "updated"; readonly membership: OrganizationMembership }
-  | { readonly status: "unsynced-writes" }
   | {
       readonly status: "failed";
       readonly httpStatus: number | null;
       readonly message: string;
     };
 
-async function forgetEveryPausedOrganization(input: {
-  readonly host: OrganizationContentHost;
-  readonly pauses: OrganizationSyncPauses;
-}): Promise<boolean> {
-  let complete = true;
-  for (const organizationId of [...input.pauses.pausedOrganizationIds()]) {
-    if (!(await input.host.forgetOrganizationContent(organizationId))) {
-      complete = false;
-    }
-  }
-  return complete;
-}
-
 /**
- * Removes the content of every paused organization that has nothing left to
- * upload. An organization with pending or queued writes keeps syncing those
- * out and is retried once the sync lanes go idle, so pausing never discards
- * unsynced work and a removal does not wait for the next membership read.
+ * The pauses a membership list puts in force on this device. A pause follows
+ * the user to every device, except on their personal organization: a device
+ * holds that one only when it was paused from this device, because a new
+ * device needs it to start. Resuming always applies everywhere.
  */
-export async function forgetPausedOrganizationContent(input: {
-  readonly host: OrganizationContentHost;
-  readonly pauses: OrganizationSyncPauses;
-}): Promise<void> {
-  if (await forgetEveryPausedOrganization(input)) return;
-  input.host.retryWhenWritesSettle(() =>
-    input.pauses.runExclusive(() => forgetEveryPausedOrganization(input)),
+function pausesInForce(
+  memberships: readonly OrganizationMembership[],
+  heldHere: ReadonlySet<string>,
+): string[] {
+  return memberships.flatMap((membership) =>
+    membership.syncPaused &&
+    (!membership.isPersonalOrganizationOwner ||
+      heldHere.has(membership.organizationId))
+      ? [membership.organizationId]
+      : [],
   );
 }
 
 /**
  * Reads the user's memberships and applies their pause choices, including
- * ones made on another device: paused organizations leave this device, and
- * resumed ones download again. Returns null when the list is unavailable, in
+ * ones made on another device: a paused organization's sync is held here, and
+ * a resumed one catches up. Returns null when the list is unavailable, in
  * which case the persisted pauses stay in force.
  */
 export async function refreshOrganizationMemberships(
@@ -116,21 +93,19 @@ async function applyMembershipList(
 ): Promise<OrganizationMembership[] | null> {
   const response = await input.apiClient.listOrganizationMemberships();
   if (!response || !input.isCurrent()) return null;
+  await pauses.load(input.execSql);
   const change = await pauses.replace(
     input.execSql,
-    response.memberships.flatMap((membership) =>
-      membership.syncPaused ? [membership.organizationId] : [],
-    ),
+    pausesInForce(response.memberships, pauses.pausedOrganizationIds()),
   );
-  await forgetPausedOrganizationContent({ host: input.host, pauses });
-  if (change.resumed.length > 0) await input.host.refetchContent();
+  if (change.resumed.length > 0) await input.host.resumeSync();
   return [...response.memberships];
 }
 
 /**
- * Pauses or resumes one organization for every device of this user. Pausing
- * first uploads this device's pending writes and is refused while any remain,
- * so the local copy it removes holds nothing the server lacks.
+ * Pauses or resumes one organization. Pausing holds its sync in both
+ * directions and keeps everything on the device: writes made meanwhile stay
+ * queued and send on resume, so nothing has to upload first.
  */
 export async function setOrganizationSyncPaused(
   input: OrganizationMembershipInput & {
@@ -150,21 +125,15 @@ async function applySyncPauseChoice(
   pauses: OrganizationSyncPauses,
 ): Promise<OrganizationSyncPauseResult> {
   const { host, organizationId, paused } = input;
-  const scopeEnded = {
-    httpStatus: null,
-    message: "The session changed before sync could be changed.",
-    status: "failed",
-  } as const;
   // Queued behind other membership work, the session may have switched
   // identity; the shared API client would then act for the new identity.
-  if (!input.isCurrent()) return scopeEnded;
-  if (paused) {
-    await host.flushWrites();
-    if (await host.hasUnsyncedOrganizationWrites(organizationId)) {
-      return { status: "unsynced-writes" };
-    }
+  if (!input.isCurrent()) {
+    return {
+      httpStatus: null,
+      message: "The session changed before sync could be changed.",
+      status: "failed",
+    };
   }
-  if (!input.isCurrent()) return scopeEnded;
   const result = await input.apiClient.updateOrganizationMembership(
     organizationId,
     { syncPaused: paused },
@@ -183,8 +152,7 @@ async function applySyncPauseChoice(
   const next = new Set(pauses.pausedOrganizationIds());
   if (paused) next.add(organizationId);
   else next.delete(organizationId);
-  await pauses.replace(input.execSql, next);
-  if (paused) await forgetPausedOrganizationContent({ host, pauses });
-  else await host.refetchContent();
+  const change = await pauses.replace(input.execSql, next);
+  if (change.resumed.length > 0) await host.resumeSync();
   return { membership: result.data, status: "updated" };
 }

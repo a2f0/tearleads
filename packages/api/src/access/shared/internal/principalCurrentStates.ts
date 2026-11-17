@@ -8,6 +8,10 @@ import {
   type StoredPrincipalState,
   toStoredPrincipalState,
 } from "./principalStateRecords";
+import {
+  memoizedCurrentPrincipalState,
+  rememberCurrentPrincipalState,
+} from "./principalTransactionMemo";
 
 /** Bounds the binds of one current-head read (four per principal). */
 const CURRENT_PRINCIPAL_HEAD_CHUNK = 100;
@@ -50,7 +54,10 @@ export function selectCurrentPrincipalHeads(
 
 /**
  * Current heads of principals of either type, keyed by
- * `principalCurrentStateKey`, in one statement per 100 principals.
+ * `principalCurrentStateKey`, in one statement per 100 principals. As with
+ * `getCurrentPrincipalState`, a principal whose mutation lock this
+ * transaction holds is answered from the head it already read under that
+ * lock, and only the others are queried.
  */
 export async function getCurrentPrincipalStatesFor(
   principals: readonly Pick<
@@ -66,24 +73,40 @@ export async function getCurrentPrincipalStatesFor(
     ]),
   );
   const keys = uniqueSortedStrings([...byKey.keys()]);
-  const unique = keys.flatMap((key) => {
-    const principal = byKey.get(key);
-    return principal ? [principal] : [];
-  });
   const states = new Map<string, StoredPrincipalState>();
+  const misses = keys.flatMap((key) => {
+    const principal = byKey.get(key);
+    if (!principal) return [];
+    const memoized = memoizedCurrentPrincipalState(
+      executor,
+      principal.principalType,
+      principal.principalId,
+    );
+    if (memoized === undefined) return [principal];
+    if (memoized) states.set(key, memoized);
+    return [];
+  });
   for (
     let start = 0;
-    start < unique.length;
+    start < misses.length;
     start += CURRENT_PRINCIPAL_HEAD_CHUNK
   ) {
     const rows = await selectCurrentPrincipalHeads(
       executor,
-      unique.slice(start, start + CURRENT_PRINCIPAL_HEAD_CHUNK),
+      misses.slice(start, start + CURRENT_PRINCIPAL_HEAD_CHUNK),
     );
     for (const row of rows) {
       const state = toStoredPrincipalState(row);
       states.set(principalCurrentStateKey(state), state);
     }
+  }
+  for (const principal of misses) {
+    rememberCurrentPrincipalState(
+      executor,
+      principal.principalType,
+      principal.principalId,
+      states.get(principalCurrentStateKey(principal)) ?? null,
+    );
   }
   // Keep the sorted key order the grouped join returned.
   return new Map(

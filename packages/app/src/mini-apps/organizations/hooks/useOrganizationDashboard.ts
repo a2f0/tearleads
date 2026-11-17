@@ -67,8 +67,7 @@ export function useOrganizationDashboard(): OrganizationDashboardModel {
     ready: snapshot.ready,
   });
   const syncChoices = useOrganizationSyncChoices();
-  const { memberships, pausedOrganizationIds, personalOrganizationIds } =
-    syncChoices;
+  const { memberships, pausedOrganizationIds } = syncChoices;
   const activeOrganizationId = appData.auth.organizationId ?? null;
   const cards = useMemo(
     () =>
@@ -78,14 +77,12 @@ export function useOrganizationDashboard(): OrganizationDashboardModel {
         namesById,
         nodes: snapshot.nodes,
         pausedOrganizationIds,
-        personalOrganizationIds,
       }),
     [
       activeOrganizationId,
       memberships,
       namesById,
       pausedOrganizationIds,
-      personalOrganizationIds,
       snapshot.nodes,
     ],
   );

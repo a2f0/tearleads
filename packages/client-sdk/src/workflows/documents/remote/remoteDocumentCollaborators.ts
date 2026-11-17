@@ -9,6 +9,7 @@ import type {
   DocumentLinkSetMutationApi,
 } from "../../../data/documents/shared/types";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 
 export interface DocumentPurgeApi {
   getDocumentPurgeProof(
@@ -48,8 +49,9 @@ export interface RemoteDocumentCollaborators {
   readonly execSql: ExecSql;
   /** The local identity's encapsulation secret key; null before it has one. */
   readonly encapsulationSecretKey: Uint8Array | null;
-  /** Reports an organization whose remote writes are paused, such as for billing. */
-  readonly isRemoteSyncBlocked?:
-    | ((organizationId: string) => boolean)
-    | undefined;
+  /**
+   * Reports an organization whose remote sync is held: its writes for a
+   * billing block, both directions for a sync pause.
+   */
+  readonly isRemoteSyncBlocked?: WorkflowRuntimeUtilInput["isRemoteSyncBlocked"];
 }

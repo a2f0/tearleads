@@ -106,7 +106,7 @@ for (const full of [false, true]) {
       updates.map(() => 1),
     );
     expect(counter.statements).toBeLessThanOrEqual(
-      (full ? 441 : 215) + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+      (full ? 403 : 199) + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
     );
   });
 }

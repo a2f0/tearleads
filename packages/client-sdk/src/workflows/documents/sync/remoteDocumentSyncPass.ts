@@ -16,6 +16,7 @@ import type {
 } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import type {
   RemoteDocumentDeletionHandler,
   TerminalSubmitFailureHandler,
@@ -41,6 +42,11 @@ export interface SyncRemoteDocumentRequest {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
+  /**
+   * The document's last pull lost its cursor part way and has to start over,
+   * so this pass finishes a pull already under way.
+   */
+  pullRecoveryRequired?: boolean | undefined;
   /** Atomically commits the verified purge proof with matching local teardown. */
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncAbandoned?: ((reason: string) => void) | undefined;
@@ -88,6 +94,6 @@ export interface SyncRemoteDocumentRequest {
 export interface RemoteDocumentSyncPass extends SyncRemoteDocumentRequest {
   apiClient: DocumentSyncApi;
   execSql: ExecSql;
-  isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
+  isRemoteSyncBlocked?: WorkflowRuntimeUtilInput["isRemoteSyncBlocked"];
   targetSecretKey: Uint8Array;
 }

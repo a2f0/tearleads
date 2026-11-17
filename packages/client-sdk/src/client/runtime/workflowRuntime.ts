@@ -34,6 +34,7 @@ import type {
   WorkflowRuntimeStateInput,
   WorkflowRuntimeUtilInput,
 } from "../../workflows/shared/runtimeInput";
+import { getOrCreateOrganizationSyncPauses } from "../../workflows/sync/coordination";
 import type { Blobs } from "../blobs";
 import type { Identity } from "../identity";
 import { acknowledgedSessionRoot } from "../session/sessionRootAuthority";
@@ -378,10 +379,15 @@ function runtimeInputUtilities(
     util.reportSecurityIncident !== dependencies.reportSecurityIncident
   ) {
     util = {
-      isRemoteSyncBlocked: (organizationId) =>
-        dependencies.syncBillingGate?.isBlockedForOrganization(
-          organizationId,
-        ) ?? false,
+      isRemoteSyncBlocked: (organizationId, direction = "push") =>
+        getOrCreateOrganizationSyncPauses(
+          dependencies.getDomainScope(),
+        ).holdsSync(organizationId) ||
+        (direction === "push" &&
+          (dependencies.syncBillingGate?.isBlockedForOrganization(
+            organizationId,
+          ) ??
+            false)),
       log: dependencies.log,
       logError: dependencies.logError,
       reportSecurityIncident: dependencies.reportSecurityIncident,

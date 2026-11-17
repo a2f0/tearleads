@@ -855,7 +855,7 @@ export type paths = {
         get?: never;
         /**
          * Update an organization membership
-         * @description Changes the caller's own membership settings in an organization, such as pausing its sync to their devices. Pausing changes no grant, key, or policy. Returns 404 unless the caller's roster entry is active.
+         * @description Changes the caller's own membership settings in an organization, such as pausing its sync. A pause holds the organization's uploads and downloads on the caller's devices and changes no grant, key, or policy; any organization can be paused, the caller's personal one included. Returns 404 unless the caller's roster entry is active.
          */
         put: operations["organizationMemberships.update"];
         post?: never;
@@ -3425,12 +3425,12 @@ export type components = {
         };
         /** @description One organization the caller belongs to, as the caller's own settings for it; it grants nothing. */
         OrganizationMembershipResponse: {
-            /** @description True for the caller's personal organization, which can be neither paused nor left. */
+            /** @description True for the caller's personal organization, which cannot be left. */
             isPersonalOrganizationOwner: boolean;
             /** @description When the caller asked to leave, or null. */
             leaveRequestedAt: string | null;
             organizationId: string;
-            /** @description True when the caller paused this organization's sync to their devices. */
+            /** @description True when the caller paused this organization's sync. */
             syncPaused: boolean;
         } & {
             [key: string]: unknown;
@@ -4829,7 +4829,7 @@ export type components = {
         };
         /** @description The caller's own setting for one organization they belong to. */
         UpdateOrganizationMembershipRequest: {
-            /** @description True to stop this organization's content syncing to the caller's devices; access and keys are unchanged. */
+            /** @description True to hold this organization's content sync on the caller's devices, which keep their local copy; access and keys are unchanged. */
             syncPaused: boolean;
         };
         /** @description Binds or clears the organization's encrypted profile document. */
@@ -8609,15 +8609,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };

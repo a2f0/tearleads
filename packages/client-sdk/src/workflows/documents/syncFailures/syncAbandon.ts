@@ -10,6 +10,48 @@ type AbandonedSyncInput = Pick<
   "documentId" | "onSyncAbandoned" | "onSyncTrace" | "onTerminalSubmitFailure"
 >;
 
+/**
+ * Whether the pass finishes a pull that already fetched a page: it resumes
+ * from a cursor, or restarts after its cursor expired.
+ */
+export function isPullUnderWay(
+  input: Pick<
+    RemoteDocumentSyncPass,
+    "pullContinuation" | "pullRecoveryRequired"
+  >,
+): boolean {
+  return (
+    input.pullContinuation !== undefined || input.pullRecoveryRequired === true
+  );
+}
+
+/**
+ * Whether a held organization stops this read-only pass. Only the start of a
+ * routine pull of a document the device has already pulled is held. A first
+ * pull still runs, so a document the device has listed can still be opened;
+ * a pull that has fetched a page runs to its end, first pull or not, even
+ * when an expired cursor makes it start over, so no document is left half
+ * pulled; and so does an explicit read of raw history.
+ */
+export function isRoutinePullHeld(
+  input: Pick<
+    RemoteDocumentSyncPass,
+    | "historyMode"
+    | "isRemoteSyncBlocked"
+    | "minLsn"
+    | "pullContinuation"
+    | "pullRecoveryRequired"
+  >,
+  organizationId: string,
+): boolean {
+  return (
+    input.historyMode !== "raw" &&
+    !isPullUnderWay(input) &&
+    input.minLsn !== undefined &&
+    (input.isRemoteSyncBlocked?.(organizationId, "pull") ?? false)
+  );
+}
+
 export function abandonBlockedSync(input: AbandonedSyncInput): null {
   input.onSyncTrace?.(`document sync blocked document=${input.documentId}`);
   input.onSyncAbandoned?.("blocked");
