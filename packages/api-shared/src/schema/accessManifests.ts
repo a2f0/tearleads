@@ -190,7 +190,6 @@ export const documentManifestObservations = pgTable(
     userId: uuid("user_id").notNull(),
     documentId: uuid("document_id").notNull(),
     manifestHash: text("manifest_hash").notNull(),
-    observedAt: timestamp("observed_at").defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("document_manifest_observations_user_document_hash_idx").on(
@@ -222,7 +221,6 @@ export const documentManifestObservations = pgTable(
  * - `keyEpoch`: Principal key epoch committed by the manifest.
  * - `stateHash`: Principal state hash committed by the manifest.
  * - `keyFingerprint`: Principal key fingerprint committed by the manifest.
- * - `createdAt`: Server-side projection timestamp.
  *
  * Indexes:
  * - `manifestHash` supports loading all principal heads for a manifest.
@@ -245,7 +243,6 @@ export const accessManifestPrincipalHeadProjection = pgTable(
     keyEpoch: bigint("key_epoch", { mode: "number" }).notNull(),
     stateHash: text("state_hash").notNull(),
     keyFingerprint: text("key_fingerprint").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     check(
@@ -285,7 +282,6 @@ export const accessManifestPrincipalHeadProjection = pgTable(
  *   set this row expands.
  * - `documentId`: Document described by the link-set manifest.
  * - `containerId`: Linked container id from the manifest state.
- * - `createdAt`: Server-side projection timestamp.
  *
  * Indexes:
  * - `manifestHash` supports loading the full link set for a manifest.
@@ -301,7 +297,6 @@ export const accessManifestDocumentLinkProjection = pgTable(
     manifestHash: text("manifest_hash").notNull(),
     documentId: uuid("document_id").notNull(),
     containerId: uuid("container_id").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     index("access_manifest_document_link_document_idx").on(table.documentId),
@@ -333,7 +328,6 @@ export const accessManifestContainerGrantProjection = pgTable(
     accessLevel: text("access_level").notNull(),
     subjectType: text("subject_type").notNull(),
     subjectId: uuid("subject_id").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     index("access_manifest_container_grant_subject_manifest_idx").on(

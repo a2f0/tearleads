@@ -11,7 +11,6 @@ import {
 import type { KeyingCanonicalJson } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import {
-  contentRecordEncryptionSuite,
   createLinkedContainerIds,
   createWriteHeader,
   fixtureHash,
@@ -76,9 +75,6 @@ test("document content key schema stores epochs, targets, and write headers thro
     documentId,
     organizationId,
     contentKeyEpoch: 1,
-    accessManifestHash: documentManifestHash,
-    targetHash: documentTargetHash,
-    encryptionSuite: contentRecordEncryptionSuite,
     contentRecordId: documentContentRecordId,
     nonceDomainHash: documentNonceDomainHash,
     headerHash: fixtureHash("document-header"),
@@ -202,9 +198,6 @@ test("blob content key schema stores epochs, targets, and write headers through 
     blobId,
     organizationId,
     contentKeyEpoch: 1,
-    accessManifestHash: blobManifestHash,
-    targetHash: blobTargetHash,
-    encryptionSuite: contentRecordEncryptionSuite,
     contentRecordId: blobContentRecordId,
     nonceDomainHash: blobNonceDomainHash,
     headerHash: fixtureHash("blob-header"),
