@@ -65,7 +65,15 @@ command, so they can be found and stopped.
    `agent-tool versions resolve-conflicts` resolves conflicts confined to
    version fields. Review the resulting committed HEAD with an independent
    reviewer using the bundled cross-agent-review skill. Repair blocking findings
-   and review every changed HEAD again. Review failure blocks shipping.
+   and review every changed HEAD again. Review failure blocks shipping. One
+   change keeps a review: after a clean review, a new HEAD that only integrated
+   the base and prepared versions (as when another PR took the same version
+   first). When `agent-tool review carry <reviewed-head> <new-head>` exits 0
+   with `ok: true`, the earlier clean review stands, and the new HEAD is the
+   reviewed head from then on; report the review as carried, giving the
+   reviewed head and the command's JSON output. Every other changed HEAD,
+   including one the command rejects, gets an independent review, and CI
+   still runs on the new HEAD.
 4. Run `agent-tool branch push <reviewed-head> --remote <remote>` through
    normal hooks; it verifies local and remote identity afterward. If a hook
    changed content or HEAD, review that result.
@@ -84,7 +92,8 @@ command, so they can be found and stopped.
    sets `merge.requireStrictBaseFreshness`; under that policy the wait stops
    early, so cancel the stale head's CI with
    `agent-tool pr cancel-runs --head <reviewed-head>`, then integrate,
-   validate, review, push, and wait again. Then run
+   validate, review (or carry the review, as in step 3), push, and wait again.
+   Then run
    `agent-tool pr preflight <reviewed-head> <base-branch> <reviewed-base>` to
    recheck CI, conflicts, the live base, PR identity, local state, and explicit
    version policy. When versions are managed,
@@ -120,9 +129,9 @@ untracked process it started, and remove worktrees it added. Report what
 remains and why; the work is not done while teardown fails for anything it
 started.
 
-Never infer a clean review from process success alone or carry a review across
-content changes. Do not weaken configured CI policy to get a merge through.
-If a step fails, preserve useful intermediate work and report the concrete
+Never infer a clean review from process success alone, or carry a review to a
+HEAD that `review carry` does not accept. Do not weaken configured CI policy to
+get a merge through. If a step fails, preserve useful intermediate work and report the concrete
 remaining issue. Report PR link, merged commit, review verdict, validation, final
 checkout state, the base's health at the start and end and anything repaired or
 hardened, the teardown result, and whether the shipped local branch was pruned

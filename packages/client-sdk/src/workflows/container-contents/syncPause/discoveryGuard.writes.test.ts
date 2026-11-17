@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   clearDocumentDiscoveryEvidenceOnRemoteReset,
   DocumentDiscoveryEvidenceRepository,
@@ -21,7 +21,7 @@ test.each(["documents", "links"] as const)(
     );
     try {
       await sqlDocumentsPersistence.ensureSchema(execSql);
-      await links.ensureSchema(execSql);
+      await new Links(execSql).ensureSchema();
       const evidence = new DocumentDiscoveryEvidenceRepository(execSql);
       const generation = await evidence.begin();
       const candidate = {
@@ -33,7 +33,7 @@ test.each(["documents", "links"] as const)(
       };
       if (kind === "links") {
         await upsertDiscoveredDocuments(execSql, [candidate]);
-        await links.replaceDocumentLinks(execSql, "document", ["current"]);
+        await new Links(execSql).replaceDocumentLinks("document", ["current"]);
       }
       const guarded = guardDocumentDiscoveryWrites({
         execSql,
@@ -79,7 +79,7 @@ test.each(["documents", "links"] as const)(
           ? (
               await sqlDocumentsPersistence.listDocumentSummaries(execSql)
             ).rows.map((row) => row.documentId)
-          : await links.listLinkedContainerIds(execSql, "document");
+          : await new Links(execSql).listLinkedContainerIds("document");
       expect(await read()).toEqual(kind === "documents" ? [] : ["current"]);
       // Prove these are writable inputs once a new listing is current.
       const next = await evidence.begin();

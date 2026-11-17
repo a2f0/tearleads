@@ -8,7 +8,7 @@ import {
 } from "../../../../test/helpers/documentLinkReplacement";
 import { captureStatements } from "../../../../test/helpers/statementCapture";
 import { SQLITE_BOUND_VARIABLE_BUDGET } from "../../sqlite/sqliteBindBudget";
-import { sqlDocumentContainerProjectionPersistence as links } from "./documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "./documentContainerProjectionPersistence";
 
 for (const size of [999, 1001]) {
   test(`complete replacement bounds ${size} writable documents without changing protected links`, async () => {
@@ -22,7 +22,7 @@ for (const size of [999, 1001]) {
         "SELECT * FROM documents ORDER BY local_id",
       );
       statements.length = 0;
-      await links.replaceDocumentLinksBatch(execSql, inputs);
+      await new Links(execSql).replaceDocumentLinksBatch(inputs);
       const latest = new Map(inputs.map((input) => [input.documentId, input]));
       const expected = Array.from(latest.values()).flatMap((input, index) =>
         (index >= size ? ["new", "old"] : [...new Set(input.containerIds)]).map(

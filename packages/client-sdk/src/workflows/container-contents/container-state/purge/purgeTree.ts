@@ -1,7 +1,7 @@
 import { DEFAULT_DOCUMENT_KIND } from "../../../../data/documents/documentConstants";
 import type { DocumentSummary } from "../../../../data/documents/documentSummary";
 import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectionVerification";
-import { sqlDocumentContainerProjectionPersistence } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { listDocumentsByContainerIdsOrDocumentIds } from "../../../../data/persistence/documents/documentsPersistence";
 import type { SubtreePurgeRoot } from "../../../documents/purge/subtreePurgeScope";
 import type { ContainerContentsPersistence } from "../../containerPersistence";
@@ -138,10 +138,9 @@ async function planSubtreeDocuments(input: {
     document.documentId ? [document.documentId] : [],
   );
   const linkedContainerIdsByDocumentId =
-    await sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
+    await new DocumentContainerProjectionRepository(
       input.execSql,
-      remoteDocumentIds,
-    );
+    ).listLinkedContainerIdsByDocumentIds(remoteDocumentIds);
 
   const purge: Array<{
     document: DocumentSummary;

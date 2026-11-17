@@ -6,7 +6,7 @@ import {
   saveSyncedDocumentRecord,
 } from "../../../../test/helpers/documentDiscard";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
@@ -120,11 +120,10 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
     await saveSyncedDocumentRecord(execSql, localId, "remote-doc", "folder-a");
     // Linked into a second container: the content re-pull does not rebuild
     // links, so the discard must carry them across the teardown itself.
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-      execSql,
-      "remote-doc",
-      ["folder-a", "folder-b"],
-    );
+    await new Links(execSql).replaceDocumentLinks("remote-doc", [
+      "folder-a",
+      "folder-b",
+    ]);
     // A staged upload whose row is the only durable pointer to its bytes —
     // including the settled local-attachment half a crash can leave behind,
     // which shares the staged storage key and would otherwise survive as a
@@ -173,10 +172,7 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
     );
 
     expect(
-      await sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-        execSql,
-        "remote-doc",
-      ),
+      await new Links(execSql).listLinkedContainerIds("remote-doc"),
     ).toEqual(["folder-a", "folder-b"]);
     expect(
       await sqlDocumentsPersistence.listPendingAttachments(execSql, localId),

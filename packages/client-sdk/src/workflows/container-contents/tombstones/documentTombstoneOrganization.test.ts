@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence as documents,
@@ -20,7 +20,7 @@ for (const foreignLinks of [[], ["container"]]) {
         linkedContainerIds: ["container"],
         createdAt: "2026-09-28",
       });
-      await links.replaceDocumentLinks(execSql, "document", ["container"]);
+      await new Links(execSql).replaceDocumentLinks("document", ["container"]);
       const head = {
         // The post-signature boundary accepts the retained old pin at epoch 9.
         organizationId: "old",

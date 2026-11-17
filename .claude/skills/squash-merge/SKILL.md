@@ -25,8 +25,10 @@ before merging. It checks local and PR identity, that the head contains the
 reviewed base, conflicts and merge readiness, explicit version policy against
 the live base, configured strict rulesets, and passing checks; under the strict
 policy the live base must also equal the reviewed one. If an identity changed,
-refresh, integrate, validate, and review again. Read unresolved feedback with
-`pr threads list` and follow project review policy.
+refresh, integrate, validate, and review again; a new HEAD that
+`agent-tool review carry <reviewed-head> <new-head>` accepts keeps the earlier
+clean review. Read unresolved feedback with `pr threads list` and follow
+project review policy.
 
 Use a title that satisfies `agent-tool.json` and pass both reviewed HEAD and
 base branch:

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -230,11 +230,9 @@ test("moveDocumentLink queues synced document moves and applies the local projec
         updateRuntime: () => undefined,
       }),
     };
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-      execSql,
-      "document-1",
-      ["container-1"],
-    );
+    await new Links(execSql).replaceDocumentLinks("document-1", [
+      "container-1",
+    ]);
     await defaultDocumentsPersistence.ensureSchema(execSql);
     await defaultDocumentsPersistence.saveDocument(execSql, {
       accessEpoch: 7,
@@ -289,10 +287,7 @@ test("moveDocumentLink queues synced document moves and applies the local projec
       "trash-container",
     ]);
     await expect(
-      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-        execSql,
-        "document-1",
-      ),
+      new Links(execSql).listLinkedContainerIds("document-1"),
     ).resolves.toEqual(["trash-container"]);
     await expect(
       new DocumentMoveIntentRepository(execSql).listPendingMoveIntents(),

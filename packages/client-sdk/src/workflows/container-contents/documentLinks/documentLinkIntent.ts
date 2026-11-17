@@ -1,7 +1,7 @@
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
 import {
-  sqlDocumentContainerProjectionPersistence as links,
+  DocumentContainerProjectionRepository,
   replaceDocumentLinksInTransaction,
 } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 
@@ -38,10 +38,9 @@ export async function addDocumentLinkLocally<TRuntime>(input: {
     requestSync: false,
     targetContainerId: note.containerId,
     commitSideEffect: async (execSql) => {
-      const currentLinks = await links.listLinkedContainerIds(
+      const currentLinks = await new DocumentContainerProjectionRepository(
         execSql,
-        note.documentId,
-      );
+      ).listLinkedContainerIds(note.documentId);
       linkedContainerIds = uniqueSortedStrings([
         ...currentLinks,
         note.containerId,
@@ -88,10 +87,9 @@ export async function removeDocumentLinkLocally<TRuntime>(
     note.id,
   );
   if (!persisted) return null;
-  const currentLinks = await links.listLinkedContainerIds(
+  const currentLinks = await new DocumentContainerProjectionRepository(
     execSql,
-    note.documentId,
-  );
+  ).listLinkedContainerIds(note.documentId);
   const remaining = currentLinks.filter((id) => id !== removedContainerId);
   const nextContainerId = remaining.includes(note.containerId)
     ? note.containerId
@@ -107,7 +105,9 @@ export async function removeDocumentLinkLocally<TRuntime>(
     targetContainerId: nextContainerId,
     commitSideEffect: async (transactionExecSql) => {
       linkedContainerIds = (
-        await links.listLinkedContainerIds(transactionExecSql, note.documentId)
+        await new DocumentContainerProjectionRepository(
+          transactionExecSql,
+        ).listLinkedContainerIds(note.documentId)
       ).filter((id) => id !== removedContainerId);
       if (!linkedContainerIds.includes(nextContainerId))
         throw new Error("Document placement changed before unlink");

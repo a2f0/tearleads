@@ -7,7 +7,7 @@ import {
   seedDocumentLinkReplacement,
 } from "../../../../test/helpers/documentLinkReplacement";
 import { captureStatements } from "../../../../test/helpers/statementCapture";
-import { sqlDocumentContainerProjectionPersistence as links } from "./documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "./documentContainerProjectionPersistence";
 
 for (const moveIntentId of ["other-move", "owned-move"]) {
   test(`large replacement only releases placements owned by ${moveIntentId}`, async () => {
@@ -19,7 +19,9 @@ for (const moveIntentId of ["other-move", "owned-move"]) {
       const beforeHolds = await readReplacementHolds(db.execSql);
       const beforeIntents = await db.execSql("SELECT * FROM local_intents");
       statements.length = 0;
-      await links.replaceDocumentLinksBatch(execSql, inputs, { moveIntentId });
+      await new Links(execSql).replaceDocumentLinksBatch(inputs, {
+        moveIntentId,
+      });
       const owned = moveIntentId === "owned-move";
       expect(await readReplacementLinks(db.execSql)).toEqual(
         beforeLinks.filter(
@@ -57,7 +59,7 @@ test("a stale generation rolls back every replacement batch and released hold", 
     const beforeHolds = await readReplacementHolds(db.execSql);
     statements.length = 0;
     let guardCalls = 0;
-    await links.replaceDocumentLinksBatch(execSql, inputs, {
+    await new Links(execSql).replaceDocumentLinksBatch(inputs, {
       stillCurrent() {
         guardCalls += 1;
         // Refuse at commit, after the final batch, not before reaching it.
@@ -102,7 +104,7 @@ test("an insertion failure rolls back earlier replacement batches and holds", as
       BEGIN SELECT RAISE(ABORT, 'replacement insertion rejected'); END`);
     statements.length = 0;
     await expect(
-      links.replaceDocumentLinksBatch(execSql, inputs),
+      new Links(execSql).replaceDocumentLinksBatch(inputs),
     ).rejects.toThrow();
     expect(
       statements

@@ -2,7 +2,7 @@ import {
   ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { upsertDiscoveredDocuments } from "../../../data/persistence/documents/documentsPersistence";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -44,10 +44,9 @@ export function guardDocumentDiscoveryWrites(input: {
       whileCurrent(
         undefined,
         (lockedExecSql) =>
-          sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+          new DocumentContainerProjectionRepository(
             lockedExecSql,
-            inputs,
-          ),
+          ).replaceDocumentLinksBatch(inputs),
         stillCurrent,
       ),
     saveContainerDocumentWatermark: (containerId, watermark, stillCurrent) =>

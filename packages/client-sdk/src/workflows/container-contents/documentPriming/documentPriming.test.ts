@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
@@ -390,7 +390,7 @@ test("priming recovers an all-held document without deleting its retained link",
       title: "held",
       updatedAt: "2026-09-23T00:00:00.000Z",
     });
-    await links.replaceDocumentLinks(execSql, "doc", ["held"]);
+    await new Links(execSql).replaceDocumentLinks("doc", ["held"]);
     await new ContainerDocumentTombstoneHoldRepository(
       execSql,
     ).holdContainerDocumentTombstones([
@@ -409,7 +409,7 @@ test("priming recovers an all-held document without deleting its retained link",
     });
     expect(result.orphanPrimedCount).toBe(1);
     expect(opened).toEqual([{ containerId: null, localId: "local-doc" }]);
-    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([
+    expect(await new Links(execSql).listLinkedContainerIds("doc")).toEqual([
       "held",
     ]);
   } finally {

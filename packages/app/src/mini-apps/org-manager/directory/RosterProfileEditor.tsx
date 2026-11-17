@@ -26,13 +26,18 @@ import {
   useProfileDocumentLink,
 } from "../profile/profileDocumentEditor";
 
+// Adopts a changed stored value during render. An effect would also run after
+// mount, once the field is already painted and editable, and replace a first
+// keystroke typed before it with the value the draft started from.
 function useSyncedFieldValue(value: string | null | undefined) {
   const normalizedValue = value ?? "";
+  const [syncedValue, setSyncedValue] = useState(normalizedValue);
   const [localValue, setLocalValue] = useState(normalizedValue);
 
-  useEffect(() => {
+  if (syncedValue !== normalizedValue) {
+    setSyncedValue(normalizedValue);
     setLocalValue(normalizedValue);
-  }, [normalizedValue]);
+  }
 
   return [localValue, setLocalValue] as const;
 }

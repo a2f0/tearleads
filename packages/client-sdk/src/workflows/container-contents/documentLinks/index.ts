@@ -1,8 +1,7 @@
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { errorMessage } from "../../../data/shared/errorMessage";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { isDatabaseUnavailableError } from "../../../data/sync/databaseUnavailable";
 import {
   type DocumentLinkSetFailureHandler,
@@ -44,34 +43,6 @@ export interface ContainerDocumentLinkRuntime
 }
 
 export type { RemoteDocumentPersistedState };
-
-export async function initializeDocumentLinksSchema(
-  execSql: ExecSql,
-): Promise<void> {
-  await sqlDocumentContainerProjectionPersistence.ensureSchema(execSql);
-}
-
-export async function listDocumentLinkedContainerIds(
-  execSql: ExecSql,
-  documentId: string,
-): Promise<ReadonlyArray<string>> {
-  return sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-    execSql,
-    documentId,
-  );
-}
-
-export async function replaceDocumentLinks(
-  execSql: ExecSql,
-  documentId: string,
-  containerIds: ReadonlyArray<string>,
-): Promise<void> {
-  await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-    execSql,
-    documentId,
-    containerIds,
-  );
-}
 
 /**
  * Hand a link/unlink/move/purge failure to host diagnostics as a real `Error`.
@@ -167,12 +138,11 @@ export async function relinkRemoteContainerDocument(input: {
     }
     if (input.isCurrent?.() === false) return null;
 
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+    await new DocumentContainerProjectionRepository(
       execSql,
-      documentId,
-      result.linkedContainerIds,
-      { stillCurrent: input.isCurrent },
-    );
+    ).replaceDocumentLinks(documentId, result.linkedContainerIds, {
+      stillCurrent: input.isCurrent,
+    });
 
     return result;
   } catch (error) {

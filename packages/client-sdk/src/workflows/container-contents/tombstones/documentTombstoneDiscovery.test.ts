@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import { HELD_TOMBSTONE_RETRY_INTERVAL_MS } from "../../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
@@ -77,7 +77,7 @@ async function seed(execSql: ExecSql) {
     updatedAt: at,
   });
   // The listing already seeded a bogus link row for the server-chosen folder.
-  await links.replaceDocumentLinks(execSql, "doc", [
+  await new Links(execSql).replaceDocumentLinks("doc", [
     "real-folder",
     "server-chosen",
   ]);
@@ -147,7 +147,7 @@ test("a listing tombstone the signed head still links cannot re-home the documen
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
       containerId: "real-folder",
     });
-    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([
+    expect(await new Links(execSql).listLinkedContainerIds("doc")).toEqual([
       "real-folder",
       "server-chosen",
     ]);
@@ -180,7 +180,7 @@ test("an unverifiable tombstone hides the placement until a verified head settle
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
       containerId: "real-folder",
     });
-    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([
+    expect(await new Links(execSql).listLinkedContainerIds("doc")).toEqual([
       "real-folder",
       "server-chosen",
     ]);
@@ -220,7 +220,7 @@ test("an unverifiable tombstone hides the placement until a verified head settle
           },
         })),
     });
-    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([]);
+    expect(await new Links(execSql).listLinkedContainerIds("doc")).toEqual([]);
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
       containerId: null,
     });
@@ -240,7 +240,10 @@ test("discovery retries only the listed container's holds", async () => {
   );
   try {
     const store = await seed(execSql);
-    await links.replaceDocumentLinks(execSql, "doc", ["real-folder", "other"]);
+    await new Links(execSql).replaceDocumentLinks("doc", [
+      "real-folder",
+      "other",
+    ]);
     await store.holdContainerDocumentTombstones([
       tombstone,
       { ...tombstone, containerId: "other" },

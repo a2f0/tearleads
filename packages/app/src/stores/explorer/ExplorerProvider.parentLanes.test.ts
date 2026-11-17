@@ -4,11 +4,9 @@ import {
   createContainerContentsSyncLane as createExplorerContainerContentsSyncLane,
   createContainerParentSyncLane as createExplorerContainerParentSyncLane,
   createContainerContentsStore as createExplorerStore,
+  DocumentContainerProjectionRepository,
   defaultDocumentsPersistence,
   defaultContainerContentsPersistence as defaultExplorerPersistence,
-  initializeDocumentLinksSchema as initializeExplorerDocumentLinksSchema,
-  listDocumentLinkedContainerIds as listExplorerDocumentLinkedContainerIds,
-  replaceDocumentLinks as replaceExplorerDocumentLinks,
 } from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
@@ -263,10 +261,13 @@ test("explorer sync applies container tombstones before advancing the parent wat
   });
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
+  const explorerDocumentLinks = new DocumentContainerProjectionRepository(
+    runtime.infra.execSql,
+  );
   try {
     await defaultExplorerPersistence.ensureSchema(runtime.infra.execSql);
     await defaultDocumentsPersistence.ensureSchema(runtime.infra.execSql);
-    await initializeExplorerDocumentLinksSchema(runtime.infra.execSql);
+    await explorerDocumentLinks.ensureSchema();
 
     await saveContainer(runtime.infra.execSql, {
       id: "root-container",
@@ -314,11 +315,10 @@ test("explorer sync applies container tombstones before advancing the parent wat
       },
       { updatedAt: "2026-05-05T00:00:00.000Z" },
     );
-    await replaceExplorerDocumentLinks(
-      runtime.infra.execSql,
-      "remote-document",
-      ["archive-container", "child-container"],
-    );
+    await explorerDocumentLinks.replaceDocumentLinks("remote-document", [
+      "archive-container",
+      "child-container",
+    ]);
     const watermarks = new ContainerSyncWatermarkRepository(
       runtime.infra.execSql,
     );
@@ -399,10 +399,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
       ),
     ).resolves.toBeNull();
     await expect(
-      listExplorerDocumentLinkedContainerIds(
-        runtime.infra.execSql,
-        "remote-document",
-      ),
+      explorerDocumentLinks.listLinkedContainerIds("remote-document"),
     ).resolves.toEqual(["archive-container"]);
 
     const repairedDocument = await defaultDocumentsPersistence.loadDocument(

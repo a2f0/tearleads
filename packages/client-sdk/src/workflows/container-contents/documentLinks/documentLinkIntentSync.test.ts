@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { runQueuedDocumentMoveFixture } from "../../../../test/helpers/queuedDocumentMoveFixture";
 import { sqlContainerContentsPersistence as containers } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
@@ -76,8 +76,7 @@ test("moving a different link preserves an earlier queued move destination", asy
         sourceContainerId: "queued-move-extra-container",
         targetContainerId: "queued-move-root-container",
       });
-      await links.replaceDocumentLinks(
-        execSql,
+      await new Links(execSql).replaceDocumentLinks(
         "queued-move-document",
         ["queued-move-root-container", "queued-move-trash-container"],
         { moveIntentId: "other-link-move" },
@@ -116,8 +115,7 @@ test("recovering an orphan does not restore its deleted queued destination", asy
         sourceContainerId: null,
         targetContainerId: "queued-move-extra-container",
       });
-      await links.replaceDocumentLinks(
-        execSql,
+      await new Links(execSql).replaceDocumentLinks(
         "queued-move-document",
         ["queued-move-extra-container"],
         {
@@ -146,8 +144,7 @@ test.each([false, true])(
       beforeReplay: async (execSql) => {
         const [intent] = await intents(execSql).listPendingMoveIntents();
         if (!intent) throw new Error("Missing move intent");
-        await links.replaceDocumentLinks(
-          execSql,
+        await new Links(execSql).replaceDocumentLinks(
           "queued-move-document",
           ["queued-move-extra-container", "queued-move-trash-container"],
           { moveIntentId: intent.id },
@@ -241,8 +238,7 @@ test("an older link response cannot settle a newer local move", async () => {
         targetContainerId: "queued-move-trash-container",
         replaceLinkedContainers: true,
       });
-      await links.replaceDocumentLinks(
-        execSql,
+      await new Links(execSql).replaceDocumentLinks(
         "queued-move-document",
         ["queued-move-trash-container"],
         { moveIntentId: "new-move" },
@@ -290,8 +286,7 @@ test("recovered additions preserve another activated link without an implicit un
       });
       const [intent] = await intents(execSql).listPendingMoveIntents();
       if (!intent) throw new Error("Missing recovered intent");
-      await links.replaceDocumentLinks(
-        execSql,
+      await new Links(execSql).replaceDocumentLinks(
         "queued-move-document",
         ["queued-move-extra-container", "queued-move-trash-container"],
         { moveIntentId: intent.id },
@@ -354,8 +349,7 @@ test("an in-flight addition cannot acknowledge a newer unlink", async () => {
         removedContainerId: "queued-move-trash-container",
         targetContainerId: "queued-move-root-container",
       });
-      await links.replaceDocumentLinks(
-        execSql,
+      await new Links(execSql).replaceDocumentLinks(
         "queued-move-document",
         ["queued-move-root-container"],
         { moveIntentId: "new-unlink" },
@@ -386,8 +380,7 @@ test("a coalesced round-trip move restores its target after the first replay unl
         sourceContainerId: "queued-move-trash-container",
         targetContainerId: "queued-move-root-container",
       });
-      await links.replaceDocumentLinks(
-        execSql,
+      await new Links(execSql).replaceDocumentLinks(
         "queued-move-document",
         ["queued-move-root-container"],
         { moveIntentId: "return-move" },
