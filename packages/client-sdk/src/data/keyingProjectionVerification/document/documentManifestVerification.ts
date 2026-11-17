@@ -14,6 +14,7 @@ import type {
 import {
   addBundleByHash,
   assertCanonicalEqual,
+  assertVerifiedCopy,
   verifyAccessEventBundle,
 } from "../checkpoints/bundleVerification";
 import type { ProjectionCheckpointContext } from "../checkpoints/checkpointContext";
@@ -78,8 +79,8 @@ export async function verifyDocumentManifestBundle(input: {
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
-    // A cache hit vouches for the hash, not for this copy's state.
-    assertVerifiedState(input, cached);
+    // A cache hit vouches for the hash, not for this copy.
+    assertVerifiedCopy(input, cached);
     if (input.enforceLocalCheckpoint) {
       await verifyCachedManifestCheckpoint({
         current: cached,

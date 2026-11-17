@@ -160,9 +160,23 @@ export function createDocumentPurgeResponse() {
   };
 }
 
+/** A purge proof bundle carries its full stored state. */
+function createAccessManifestSnapshotBundle() {
+  return {
+    ...createAccessManifestBundle(),
+    state: {
+      version: 1,
+      organizationId: "organization-1",
+      epoch: 1,
+      previousManifestHash: null,
+      eventHash: "event-hash",
+    },
+  };
+}
+
 export function createDocumentPurgeProofResponse() {
-  const authorizingContainer = createAccessManifestBundle();
-  const documentManifestBundle = createAccessManifestBundle();
+  const authorizingContainer = createAccessManifestSnapshotBundle();
+  const documentManifestBundle = createAccessManifestSnapshotBundle();
   return {
     authorizingContainerPath: [authorizingContainer],
     documentContainerManifestHistory: [],

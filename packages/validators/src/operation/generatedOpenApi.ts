@@ -1713,16 +1713,22 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A signed access manifest with the event that produced it, exactly as the API stores it. */
-        AccessManifestBundleWireResponse: {
+        /** @description A signed access manifest with the event that produced it and its full derived state, as a document purge proof serves it for hash-only snapshot verification. */
+        AccessManifestSnapshotBundleWireResponse: {
             event: components["schemas"]["AccessEventBundleWireResponse"];
             manifest: {
                 [key: string]: unknown;
             };
             /** @description Hash of the canonical manifest; other responses cite the manifest by this value. */
             manifestHash: string;
-            /** @description Derived structural state the manifest commits to. */
+            /** @description The complete derived state the manifest commits to. */
             state: {
+                epoch: number;
+                eventHash: string;
+                organizationId: string;
+                previousManifestHash: string | null;
+                version: number;
+            } & {
                 [key: string]: unknown;
             };
         } & {
@@ -2770,14 +2776,14 @@ export type components = {
         /** @description The signed proof that a document was purged, with the manifests and policy history a client needs to verify it. */
         DocumentPurgeProofResponse: {
             /** @description Container path that authorized the purge. */
-            authorizingContainerPath: components["schemas"]["AccessManifestBundleWireResponse"][];
-            documentContainerManifestHistory: components["schemas"]["AccessManifestBundleWireResponse"][];
+            authorizingContainerPath: components["schemas"]["AccessManifestSnapshotBundleWireResponse"][];
+            documentContainerManifestHistory: components["schemas"]["AccessManifestSnapshotBundleWireResponse"][];
             documentId: string;
             /** @description The document's last link-set manifest. */
-            documentManifest: components["schemas"]["AccessManifestBundleWireResponse"];
-            documentManifestContainerPaths: components["schemas"]["AccessManifestBundleWireResponse"][][];
+            documentManifest: components["schemas"]["AccessManifestSnapshotBundleWireResponse"];
+            documentManifestContainerPaths: components["schemas"]["AccessManifestSnapshotBundleWireResponse"][][];
             /** @description Earlier link-set manifests of the document. */
-            documentManifestPredecessors: components["schemas"]["AccessManifestBundleWireResponse"][];
+            documentManifestPredecessors: components["schemas"]["AccessManifestSnapshotBundleWireResponse"][];
             policyEvidence: components["schemas"]["ProjectionPolicyEvidenceResponse"];
             purgedAt: string;
             /** @description The signed `document.purge` event. */
@@ -2798,12 +2804,12 @@ export type components = {
         };
         /** @description The purge proof. Blobs only this document referenced are soft-deleted and reclaimed later by garbage collection. */
         DocumentPurgeResponse: {
-            authorizingContainerPath: components["schemas"]["AccessManifestBundleWireResponse"][];
-            documentContainerManifestHistory: components["schemas"]["AccessManifestBundleWireResponse"][];
+            authorizingContainerPath: components["schemas"]["AccessManifestSnapshotBundleWireResponse"][];
+            documentContainerManifestHistory: components["schemas"]["AccessManifestSnapshotBundleWireResponse"][];
             documentId: string;
-            documentManifest: components["schemas"]["AccessManifestBundleWireResponse"];
-            documentManifestContainerPaths: components["schemas"]["AccessManifestBundleWireResponse"][][];
-            documentManifestPredecessors: components["schemas"]["AccessManifestBundleWireResponse"][];
+            documentManifest: components["schemas"]["AccessManifestSnapshotBundleWireResponse"];
+            documentManifestContainerPaths: components["schemas"]["AccessManifestSnapshotBundleWireResponse"][][];
+            documentManifestPredecessors: components["schemas"]["AccessManifestSnapshotBundleWireResponse"][];
             policyEvidence: components["schemas"]["ProjectionPolicyEvidenceResponse"];
             purgedAt: string;
             purgeEvent: components["schemas"]["AccessEventBundleWireResponse"];

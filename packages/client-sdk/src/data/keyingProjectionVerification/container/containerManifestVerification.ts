@@ -9,6 +9,7 @@ import {
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import {
   assertCanonicalEqual,
+  assertVerifiedCopy,
   verifyAccessEventBundle,
 } from "../checkpoints/bundleVerification";
 import type { ProjectionCheckpointContext } from "../checkpoints/checkpointContext";
@@ -104,9 +105,9 @@ export async function verifyContainerManifestBundle(input: {
     await resolveContainerManifestVerificationParentPath(input);
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
-    // A cache hit vouches for the hash, not for this copy's state: callers
-    // read the state off the bundle they passed, so it must be the verified one.
-    assertVerifiedState(input, cached);
+    // A cache hit vouches for the hash, not for this copy: callers read the
+    // bundle they passed, so it must be the verified one byte for byte.
+    assertVerifiedCopy(input, cached);
     assertContainerParentPathMatches({
       label: input.label,
       parentPath,

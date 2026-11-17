@@ -33,7 +33,7 @@
         "additionalProperties": {},
         "description": "A signed access event as stored: the event, its typed body, and its hash, which clients verify before trusting."
       },
-      "AccessManifestBundleWireResponse": {
+      "AccessManifestSnapshotBundleWireResponse": {
         "type": "object",
         "properties": {
           "event": {
@@ -51,9 +51,46 @@
           },
           "state": {
             "type": "object",
-            "properties": {},
+            "properties": {
+              "version": {
+                "exclusiveMinimum": 0,
+                "maximum": 1.7976931348623157e+308,
+                "type": "integer"
+              },
+              "organizationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "epoch": {
+                "exclusiveMinimum": 0,
+                "maximum": 1.7976931348623157e+308,
+                "type": "integer"
+              },
+              "previousManifestHash": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "eventHash": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "version",
+              "organizationId",
+              "epoch",
+              "previousManifestHash",
+              "eventHash"
+            ],
             "additionalProperties": {},
-            "description": "Derived structural state the manifest commits to."
+            "description": "The complete derived state the manifest commits to."
           }
         },
         "required": [
@@ -63,7 +100,7 @@
           "state"
         ],
         "additionalProperties": {},
-        "description": "A signed access manifest with the event that produced it, exactly as the API stores it."
+        "description": "A signed access manifest with the event that produced it and its full derived state, as a document purge proof serves it for hash-only snapshot verification."
       },
       "BillingErrorResponse": {
         "type": "object",
@@ -3321,14 +3358,14 @@
             "minItems": 1,
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+              "$ref": "#/components/schemas/AccessManifestSnapshotBundleWireResponse"
             },
             "description": "Container path that authorized the purge."
           },
           "documentContainerManifestHistory": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+              "$ref": "#/components/schemas/AccessManifestSnapshotBundleWireResponse"
             }
           },
           "documentId": {
@@ -3336,7 +3373,7 @@
             "minLength": 1
           },
           "documentManifest": {
-            "$ref": "#/components/schemas/AccessManifestBundleWireResponse",
+            "$ref": "#/components/schemas/AccessManifestSnapshotBundleWireResponse",
             "description": "The document's last link-set manifest."
           },
           "documentManifestContainerPaths": {
@@ -3344,14 +3381,14 @@
             "items": {
               "type": "array",
               "items": {
-                "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+                "$ref": "#/components/schemas/AccessManifestSnapshotBundleWireResponse"
               }
             }
           },
           "documentManifestPredecessors": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+              "$ref": "#/components/schemas/AccessManifestSnapshotBundleWireResponse"
             },
             "description": "Earlier link-set manifests of the document."
           },
@@ -3415,13 +3452,13 @@
             "minItems": 1,
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+              "$ref": "#/components/schemas/AccessManifestSnapshotBundleWireResponse"
             }
           },
           "documentContainerManifestHistory": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+              "$ref": "#/components/schemas/AccessManifestSnapshotBundleWireResponse"
             }
           },
           "documentId": {
@@ -3429,21 +3466,21 @@
             "minLength": 1
           },
           "documentManifest": {
-            "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+            "$ref": "#/components/schemas/AccessManifestSnapshotBundleWireResponse"
           },
           "documentManifestContainerPaths": {
             "type": "array",
             "items": {
               "type": "array",
               "items": {
-                "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+                "$ref": "#/components/schemas/AccessManifestSnapshotBundleWireResponse"
               }
             }
           },
           "documentManifestPredecessors": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+              "$ref": "#/components/schemas/AccessManifestSnapshotBundleWireResponse"
             }
           },
           "purgeEvent": {

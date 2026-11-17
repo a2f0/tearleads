@@ -155,3 +155,40 @@ test("a cache hit still refuses a copy whose state differs", async () => {
     second.close();
   }
 });
+
+test("a cache hit refuses a copy with a different signature", async () => {
+  const fixture = await createVerificationFixture();
+  const first = await createTestExecSql("verified-bundles-signature-first");
+  const second = await createTestExecSql("verified-bundles-signature-second");
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  const verifiedByHash = new Map();
+  try {
+    await verifyContainerWriterProjection({
+      execSql: first.execSql,
+      openPrincipalPolicyBundleReader,
+      projection: fixture.projection,
+      resolveUserKey: fixture.resolveUserKey,
+      verifiedByHash,
+    });
+    const resigned = {
+      ...leaf,
+      event: {
+        ...leaf.event,
+        event: { ...leaf.event.event, signature: "AAAA" },
+      },
+    };
+    await expect(
+      verifyContainerWriterProjection({
+        execSql: second.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [resigned] },
+        resolveUserKey: fixture.resolveUserKey,
+        verifiedByHash,
+      }),
+    ).rejects.toMatchObject({ code: "hash_mismatch" });
+  } finally {
+    first.close();
+    second.close();
+  }
+});
