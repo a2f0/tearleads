@@ -139,8 +139,8 @@ telemetry never uses durable storage or a remote diagnostics service.
 
 **Copy report for support** includes these counts and client/server/database
 timings even when another System Monitor tab is active. Its **Environment**
-section also includes the root and every workspace package's version from the
-client build; these are not live backend package versions. **API Version**
+section also includes every workspace package's version from the client
+build; these are not live backend package versions. **API Version**
 separately identifies the backend response most recently received.
 
 ## Explorer hydration and pending downloads

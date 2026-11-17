@@ -249,15 +249,18 @@ including the ones the push gate leaves out, in a few minutes.
 
 ## Package versions
 
-`bun run agent-tool versions prepare <base-oid>` versions the root manifest
-alongside changed workspaces. The root starts at `0.1.0`; subsequent shipped
-changes bump it one patch beyond the merge base, including workspace-only
-changes. Keep `versions.packages` in
-[`agent-tool.json`](../../agent-tool.json) equal to `"."` plus every workspace
-in the root [`package.json`](../../package.json): explicit package selection
-replaces automatic discovery.
+`bun run agent-tool versions prepare <base-oid>` bumps each changed workspace
+one patch beyond its version on the merge base. Keep `versions.packages` in
+[`agent-tool.json`](../../agent-tool.json) equal to every workspace in the root
+[`package.json`](../../package.json): explicit package selection replaces
+automatic discovery. The private root manifest is deliberately absent, so a
+change confined to root files bumps nothing, and concurrent pull requests no
+longer collide on a root version. Its `version` field stays as it is and
+nothing reads it.
 
-Web, Capacitor, and Electrobun capture all those manifest versions at build
-time for System Monitor's **Environment** tab and copied support report.
-Their build hashes include all workspace manifests so cached bundles cannot
-report stale package versions.
+Web, Capacitor, and Electrobun capture every workspace's manifest version at
+build time for System Monitor's **Environment** tab and copied support report;
+the `app` package's version identifies a client build.
+[`packageVersions.ts`](../../scripts/lib/packageVersions.ts) reads the root
+manifest only for its workspace list. Their build hashes include all workspace
+manifests so cached bundles cannot report stale package versions.

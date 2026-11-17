@@ -55,14 +55,14 @@ test("packaged desktop build overrides remain literal strings in the browser", a
       BUN_PUBLIC_WS_URL: "wss://api.example.test/events",
       BUN_PUBLIC_APP_VERSION: 'release-"quoted"',
       BUN_PUBLIC_GIT_SHA: "abcdef1",
-      BUN_PUBLIC_PACKAGE_VERSIONS: '{"tearleads":"0.1.2","app":"0.2.3"}',
+      BUN_PUBLIC_PACKAGE_VERSIONS: '{"app":"0.2.3","app-electrobun":"0.0.4"}',
     }),
   ).toEqual({
     api: "https://api.example.test",
     ws: "wss://api.example.test/events",
     version: 'release-"quoted"',
     commit: "abcdef1",
-    packages: { tearleads: "0.1.2", app: "0.2.3" },
+    packages: { app: "0.2.3", "app-electrobun": "0.0.4" },
   });
 });
 

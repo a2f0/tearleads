@@ -23,15 +23,14 @@ test.each([undefined, "", "{", "null", "[]", "42", '{"app":42}'])(
 test("package metadata preserves scoped package names and release versions", () => {
   const info = createAppBuildInfo({
     commit: undefined,
-    packageVersionsJson:
-      '{"tearleads":"0.1.0","@tearleads/client-sdk":"0.2.0-rc.1"}',
+    packageVersionsJson: '{"app":"0.1.0","@tearleads/client-sdk":"0.2.0-rc.1"}',
     target: "web",
     version: undefined,
   });
   expect(info).toEqual({
     commit: "unknown",
     packageVersions: {
-      tearleads: "0.1.0",
+      app: "0.1.0",
       "@tearleads/client-sdk": "0.2.0-rc.1",
     },
     target: "web",
