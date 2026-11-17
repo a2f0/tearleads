@@ -22,10 +22,11 @@ function readByteCount(value: unknown): number {
  * lengths of every variable-size part of its response entry: the ciphertext
  * (`byte_length`), author fingerprint, version vectors, plaintext hash, a
  * checkpoint's source version vector, and the compact JSON of its write
- * header and authorization targets. JSON never encodes a value in fewer
- * bytes, so a page prefix whose floors overflow the byte ceiling cannot fit,
- * and nothing past it has to be loaded to find the page. What the floors
- * leave out is fixed-size: keys, ids, epochs, and timestamps.
+ * header. JSON never encodes a value in fewer bytes, so a page prefix whose
+ * floors overflow the byte ceiling cannot fit, and nothing past it has to be
+ * loaded to find the page. What the floors leave out is fixed-size (keys,
+ * ids, epochs, and timestamps) or may be omitted: an entry carries its
+ * authorization targets only when they differ from the set the client holds.
  */
 export async function listDocumentUpdateResponseByteFloors(
   executor: DatabaseSession,
@@ -41,8 +42,7 @@ export async function listDocumentUpdateResponseByteFloors(
         + ${textBytes(documentUpdates.partialEndVersionVector)}
         + ${textBytes(documentUpdates.plaintextHash)}
         + coalesce(${textBytes(documentUpdates.baselineSourceVersionVector)}, 0)
-        + coalesce(${jsonBytes(documentContentWriteHeaders.header)}, 0)
-        + coalesce(${jsonBytes(documentContentWriteHeaders.authorizationTargets)}, 0)`,
+        + coalesce(${jsonBytes(documentContentWriteHeaders.header)}, 0)`,
     })
     .from(documentUpdates)
     // A missing header is the response's own integrity failure to report.

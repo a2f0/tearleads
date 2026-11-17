@@ -337,8 +337,65 @@
             "type": "string"
           },
           "writeAuthorization": {
-            "$ref": "#/components/schemas/BlobKekTargetsResponse",
-            "description": "Key targets the blob's write was authorized against."
+            "type": "object",
+            "properties": {
+              "activeBindingIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "blobAccessManifestHash": {
+                "type": "string"
+              },
+              "blobId": {
+                "type": "string"
+              },
+              "blobKeyTargetHash": {
+                "type": "string"
+              },
+              "documentManifestHashes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "linkedContainerKeyEpochIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "linkedContainerManifestHashes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "organizationId": {
+                "type": "string"
+              },
+              "targets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "required": [
+              "activeBindingIds",
+              "blobAccessManifestHash",
+              "blobId",
+              "blobKeyTargetHash",
+              "documentManifestHashes",
+              "linkedContainerKeyEpochIds",
+              "linkedContainerManifestHashes",
+              "organizationId"
+            ],
+            "additionalProperties": {},
+            "description": "Key targets the blob's write was authorized against. Its `targets` are omitted when its `blobKeyTargetHash` equals `blobKekTargets.blobKeyTargetHash`; the reader refills them from `blobKekTargets.targets` and re-hashes them."
           },
           "writeHeader": {
             "type": "object",
@@ -3944,7 +4001,7 @@
               ],
               "additionalProperties": {}
             },
-            "description": "Container KEK targets the write was authorized against."
+            "description": "Container KEK targets the write was authorized against. Omitted when the write header's `targetHash` equals the request's `expectedTargetHash`; the client refills them from the content-key bundle it holds and re-hashes them against the signed hash."
           },
           "authorFingerprint": {
             "type": "string",
@@ -4000,7 +4057,6 @@
         },
         "required": [
           "accessEpoch",
-          "authorizationTargets",
           "authorFingerprint",
           "createdAt",
           "documentId",

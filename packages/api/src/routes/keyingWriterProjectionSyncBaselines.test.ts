@@ -89,9 +89,14 @@ test("POST /documents/:documentId/sync records a baseline once across a retried 
   const synced = await syncResponse.json();
   expect(isDocumentSyncResponse(synced)).toBe(true);
   expect(synced.acceptedOutgoingUpdateIds).toEqual([updateId]);
-  expect(synced.updates[0]?.authorizationTargets).toEqual(
-    created.documentKekTargets.targets,
-  );
+  // The write commits to the target hash the request expected, the set the
+  // client holds, so the response omits it; the stored header keeps it.
+  expect(synced.updates[0]?.authorizationTargets).toBeUndefined();
+  const [storedHeader] = await db
+    .select({ targets: documentContentWriteHeaders.authorizationTargets })
+    .from(documentContentWriteHeaders)
+    .where(eq(documentContentWriteHeaders.updateId, updateId));
+  expect(storedHeader?.targets).toEqual(created.documentKekTargets.targets);
   const [[syncedDocumentRow], [syncedContainerRow]] = await Promise.all([
     db
       .select({ updatedAt: documents.updatedAt })
@@ -190,6 +195,31 @@ test("POST /documents/:documentId/sync redirects historical updates to the atomi
     await linkResponse.json(),
   );
   expect(isDocumentLinkSetMutationResponse(linkedDocument)).toBe(true);
+
+  // A raw pull at the linked target set carries the earlier update's own set:
+  // its signed header commits to the pre-link target hash, not the one held.
+  const rawResponse = await routeApp.request(`/documents/${created.id}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      contentKeyEpoch: linkedDocument.contentKeyEpoch,
+      expectedLinkSetManifestHash: linkedDocument.manifestHash,
+      expectedTargetHash: linkedDocument.targetHash,
+      historyMode: "raw",
+      localVersionVector: null,
+      outgoingUpdates: [],
+      supportsPullPagination: true,
+    } satisfies DocumentSyncRequest),
+  });
+  expect(rawResponse.status).toBe(200);
+  const raw = await rawResponse.json();
+  expect(
+    raw.updates.find((update: { id: string }) => update.id === updateId)
+      ?.authorizationTargets,
+  ).toEqual(created.documentKekTargets.targets);
 
   const unlinkRequest = await buildDocumentUnlinkRequest({
     child,
