@@ -6,12 +6,16 @@ import {
   DOCUMENT_SYNC_ERROR_CODES,
 } from "@tearleads/validators/response";
 import { runQueuedDocumentMoveFixture } from "../../../../test/helpers/queuedDocumentMoveFixture";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { createDomainScope } from "../../../data/shared/domainScope";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultDocumentsPersistence } from "../../documents";
 import { createTestContainerState } from "../container-state/containerState.testFixtures";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import { syncPendingDocumentMoveIntents } from "./documentMoveIntentSync";
+
+const moveIntents = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 test("pending document move intents replay signed link-set mutations and clear after success", async () => {
   const fixture = await runQueuedDocumentMoveFixture({
@@ -132,7 +136,7 @@ test("document move sync propagates identity failures without recording a retry"
       text: "",
       title: "Document",
     });
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "document",
       localId: "local-document",
       sourceContainerId: "source",
@@ -172,8 +176,7 @@ test("document move sync propagates identity failures without recording a retry"
       }),
     ).rejects.toBe(integrityError);
 
-    const pending =
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    const pending = await moveIntents(execSql).listPendingMoveIntents();
     expect(pending).toHaveLength(1);
     expect(pending[0]?.lastError).toBeNull();
   } finally {
@@ -246,7 +249,7 @@ test("a blocked document move keeps replaying and re-records its reason", async 
       text: "",
       title: "Document",
     });
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "document",
       localId: "local-document",
       sourceContainerId: "source",
@@ -279,8 +282,7 @@ test("a blocked document move keeps replaying and re-records its reason", async 
       });
 
     await runOnce();
-    const [firstPass] =
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    const [firstPass] = await moveIntents(execSql).listPendingMoveIntents();
     expect(firstPass).toMatchObject({
       lastError:
         "Document move intent references a missing destination container",
@@ -291,8 +293,7 @@ test("a blocked document move keeps replaying and re-records its reason", async 
 
     await new Promise((resolve) => setTimeout(resolve, 2));
     await runOnce();
-    const [secondPass] =
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    const [secondPass] = await moveIntents(execSql).listPendingMoveIntents();
     expect(secondPass?.syncStatus).toBe("blocked");
     // The second pass genuinely retried: its attempt timestamp advanced.
     expect(secondPass?.lastAttemptedAt).not.toBe(firstAttemptAt);
@@ -360,15 +361,15 @@ test("denied moves replay once per launch, before the scan", async () => {
       ).map((row) => Reflect.get(row, "syncStatus"));
 
     await defaultDocumentsPersistence.ensureSchema(execSql);
-    await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).ensureSchema();
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "replay-remote",
       localId: "replay-missing-local",
       replaceLinkedContainers: false,
       sourceContainerId: "from",
       targetContainerId: "to",
     });
-    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+    await moveIntents(execSql).recordMoveIntentError({
       denied: true,
       documentId: "replay-remote",
       message: "denied",
@@ -389,7 +390,7 @@ test("denied moves replay once per launch, before the scan", async () => {
 
     // Re-denied within the same launch: no second replay, the scan excludes
     // it, and the intent stays parked.
-    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+    await moveIntents(execSql).recordMoveIntentError({
       denied: true,
       documentId: "replay-remote",
       message: "denied again",
@@ -426,7 +427,7 @@ test("a document move into a folder whose create is pending waits", async () => 
   let opened = 0;
   try {
     await defaultDocumentsPersistence.ensureSchema(execSql);
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "document",
       localId: "local-document",
       sourceContainerId: "source",
@@ -476,8 +477,7 @@ test("a document move into a folder whose create is pending waits", async () => 
 
     expect(moved).toBe(0);
     expect(opened).toBe(0);
-    const [pending] =
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    const [pending] = await moveIntents(execSql).listPendingMoveIntents();
     expect(pending?.lastError).toBe(
       "Document move destination container is not synced yet",
     );

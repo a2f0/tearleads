@@ -5,8 +5,8 @@ import {
   createWorkflowInputFixture,
 } from "../../../../test/helpers/internalRuntimeFixtures";
 import { createContainerContents } from "../../../client/containerContents";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRemoteHistoryFixture } from "../../../stores/documents/documentStore/documentStore.testFixtures";
@@ -41,7 +41,7 @@ test.each([false, true])(
         execSql,
         localId: "local",
       });
-      await links.replaceDocumentLinks(execSql, documentId, [
+      await new Links(execSql).replaceDocumentLinks(documentId, [
         "source-container",
       ]);
       const workflow = createWorkflowInputFixture({
@@ -92,12 +92,14 @@ test.each([false, true])(
       expect(await documents.loadDocument(execSql, "local")).toMatchObject({
         containerId: expectedContainer,
       });
-      expect(await links.listLinkedContainerIds(execSql, documentId)).toEqual([
-        expectedContainer,
-      ]);
-      expect(await intents.listPendingMoveIntents(execSql)).toHaveLength(
-        failProjection ? 0 : 1,
-      );
+      expect(
+        await new Links(execSql).listLinkedContainerIds(documentId),
+      ).toEqual([expectedContainer]);
+      expect(
+        await new DocumentMoveIntentRepository(
+          execSql,
+        ).listPendingMoveIntents(),
+      ).toHaveLength(failProjection ? 0 : 1);
       expect(published).toEqual(failProjection ? [] : ["trash"]);
       expect(placementChanges).toEqual(failProjection ? [] : [true]);
     } finally {

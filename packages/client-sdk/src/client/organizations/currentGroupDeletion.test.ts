@@ -107,6 +107,7 @@ async function fixture(custody = true) {
     ...f,
     state,
     input: {
+      identityTrustDomain: "https://api.example.test",
       runtime,
       groupId: history.group.currentState.principalId,
       stillCurrent: () => state.callerCurrent,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { clientSqlTables } from "../../../data/sqlite/schema";
 import { accessManifestCheckpoints } from "../../../data/sqlite/schema/keyingCheckpointSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
@@ -36,7 +36,10 @@ for (const cached of [false, true]) {
           accessStateHash: "old-hash",
           linkedContainerIds: ["container"],
         };
-        const store = createDocumentDiscoveryEvidenceStore(execSql, () => now);
+        const store = new DocumentDiscoveryEvidenceRepository(
+          execSql,
+          () => now,
+        );
         if (cached) await store.saveHead("document", head, await store.begin());
         const verify = createDiscoveredDocumentVerifier(
           organizationId,

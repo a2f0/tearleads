@@ -4,8 +4,8 @@ import {
   DOCUMENTS_APP_KIND,
   sqlDocumentsPersistence,
 } from "../../../data/persistence/documents/documentsPersistence";
-import { findLocalIdByDocumentId } from "../../../data/persistence/documents/records";
-import { loadOrganizationProfileDocumentIds } from "../../../data/persistence/organizations/organizationProfileDocumentPointers";
+import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { loadPersistedDocumentContent } from "../../documents";
 import {
@@ -109,11 +109,9 @@ async function readLocalOrganizationName(
   if (profileDocumentId) {
     // Reach the row wherever it landed: a device that only synced the document
     // keys it under the server documentId rather than any local alias.
-    const syncedLocalId = await findLocalIdByDocumentId(
+    const syncedLocalId = await new DocumentRecordRepository(
       execSql,
-      DOCUMENTS_APP_KIND,
-      profileDocumentId,
-    );
+    ).findLocalIdByDocumentId(DOCUMENTS_APP_KIND, profileDocumentId);
     const syncedName = syncedLocalId
       ? await readOrganizationNameFromDocument(execSql, syncedLocalId)
       : null;
@@ -235,9 +233,9 @@ export async function listLocalOrganizations(input: {
   // A projected read model is not a precondition for listing organizations, so
   // an unreadable one degrades to the container-derived lookups below.
   const profileDocumentIdsByOrganizationId =
-    await loadOrganizationProfileDocumentIds(input.execSql).catch(
-      () => new Map<string, string>(),
-    );
+    await new OrganizationReadModelRepository(input.execSql)
+      .loadOrganizationProfileDocumentIds()
+      .catch(() => new Map<string, string>());
   const organizations = [...indexLocalOrganizations(containers)].sort(
     compareLocalOrganizations,
   );

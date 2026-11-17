@@ -22,8 +22,7 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../../sqlite/sqlSchema";
-import { clearDocumentSyncFailure } from "../records";
-import { deleteDocumentHistory } from "../records/documentHistoryPersistence";
+import { DocumentRecordRepository } from "../records";
 import type {
   DiscardDocumentToShellResult,
   DocumentsPersistence,
@@ -163,8 +162,9 @@ async function clearDiscardedDocumentRows(input: {
       ),
     )
     .run();
-  await deleteDocumentHistory(lockedExecSql, getDocumentScope(localId));
-  await clearDocumentSyncFailure(lockedExecSql, getDocumentScope(localId));
+  const records = new DocumentRecordRepository(lockedExecSql);
+  await records.deleteDocumentHistory(getDocumentScope(localId));
+  await records.clearDocumentSyncFailure(getDocumentScope(localId));
 }
 
 async function saveDiscardShell(input: {

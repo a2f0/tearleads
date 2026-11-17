@@ -235,9 +235,10 @@ branch. To keep that loop short, check what you changed before pushing:
   `Build and test` run it.
 - `bun run check:package <workspace>` for the packages you changed, and
   `bun run check:affected` before handing off a larger change.
-- `bun run lint:architecture` after adding or moving an `import`. A cycle is
-  easy to create by importing a shared symbol back from a module that already
-  imports you; extract the symbol into its own module instead.
+- `bun run lint:architecture` after adding or moving an `import`; the push gate
+  leaves it to CI's `Lint` job. A cycle is easy to create by importing a shared
+  symbol back from a module that already imports you; extract the symbol into
+  its own module instead.
   dependency-cruiser's `no-circular` rule covers package source; Biome's
   `noImportCycles` (with type-only imports counted) covers every file it checks,
   including [`scripts/`](../../scripts/), so `bun run lint:biome` reports one

@@ -13,7 +13,6 @@ import { principalMutationApiFixture } from "./principalMutationApiFixture";
 import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
 
 interface WorkflowInputFixtureOptions {
-  readonly identityTrustDomain?: string;
   readonly apiClient: ApiClient;
   readonly auth?: Partial<InternalWorkflowRuntimeInput["auth"]> | undefined;
   readonly blobStore?:
@@ -59,8 +58,6 @@ export function createWorkflowInputFixture(
   } satisfies PrincipalMutationRecoveryApi;
   return withPrincipalPolicies(
     {
-      identityTrustDomain:
-        options.identityTrustDomain ?? "https://api.example.test",
       apiClient: principalMutationApiFixture(api, recovery),
       resolveTrustedUserIdentity:
         options.resolveTrustedUserIdentity ?? (async () => null),
@@ -105,6 +102,7 @@ export function createInternalRuntimeFixture(
   } = {},
 ): InternalRuntime {
   return {
+    identityTrustDomain: "https://api.example.test",
     adoptRootContainer: overrides.adoptRootContainer ?? (() => false),
     identityLinks: {
       loadAdmissionPin: async () => null,

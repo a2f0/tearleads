@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
-import { sqlDocumentContainerProjectionPersistence } from "../container-contents/documentContainerProjectionPersistence";
-import { createDocumentDiscoveryEvidenceStore } from "./documentDiscoveryEvidencePersistence";
+import { DocumentContainerProjectionRepository as Links } from "../container-contents/documentContainerProjectionPersistence";
+import { DocumentDiscoveryEvidenceRepository } from "./documentDiscoveryEvidencePersistence";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence,
@@ -16,11 +16,8 @@ async function bookkeepingFixture(name: string) {
   const counted = countingExecSql(sqlite.execSql);
   await sqlDocumentsPersistence.ensureSchema(counted.execSql);
   // Warm the link and evidence table ensures so they are not counted.
-  await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
-    counted.execSql,
-    [],
-  );
-  const evidence = createDocumentDiscoveryEvidenceStore(counted.execSql);
+  await new Links(counted.execSql).replaceDocumentLinksBatch([]);
+  const evidence = new DocumentDiscoveryEvidenceRepository(counted.execSql);
   await evidence.isCurrent(0);
   return { ...sqlite, counted, evidence };
 }
@@ -38,8 +35,7 @@ test("discovery bookkeeping runs in a fixed number of statements", async () => {
   const f = await bookkeepingFixture("discovery-bookkeeping-budget");
   try {
     const links = await f.counted.count(() =>
-      sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
-        f.counted.execSql,
+      new Links(f.counted.execSql).replaceDocumentLinksBatch(
         documentIds.map((documentId) => ({
           containerIds: ["container-a", "container-b"],
           documentId,
@@ -82,8 +78,7 @@ test("tombstone apply runs in a fixed number of statements", async () => {
         text: "",
       });
     }
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
-      f.counted.execSql,
+    await new Links(f.counted.execSql).replaceDocumentLinksBatch(
       tombstoned.map((documentId) => ({
         containerIds: ["container-a", "container-b"],
         documentId,

@@ -1,10 +1,13 @@
 import { expect, test } from "bun:test";
 import { createPlacementCommitFixture } from "../../../../test/helpers/placementCommit";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { relinkDocumentStoreWithCommitSideEffect } from "../../../stores/documents/documentStore/internalRelink";
 import { settleDocumentMoveIntent } from "./documentMoveIntentSettlement";
+
+const intents = (execSql: ExecSql) => new DocumentMoveIntentRepository(execSql);
 
 test.each(["move", "link", "unlink"] as const)(
   "%s uses one commit without nested worker savepoints",
@@ -31,7 +34,7 @@ test.each(["move", "link", "unlink"] as const)(
         },
       );
       expect(
-        await links.listLinkedContainerIds(f.db.execSql, f.documentId),
+        await new Links(f.db.execSql).listLinkedContainerIds(f.documentId),
       ).toEqual(
         operation === "move"
           ? ["trash"]
@@ -39,7 +42,7 @@ test.each(["move", "link", "unlink"] as const)(
             ? ["other-container", "source-container", "trash"]
             : ["other-container"],
       );
-      expect(await intents.listPendingMoveIntents(f.db.execSql)).toHaveLength(
+      expect(await intents(f.db.execSql).listPendingMoveIntents()).toHaveLength(
         1,
       );
       expect(traffic.length).toBeLessThanOrEqual(
@@ -57,7 +60,7 @@ test("move settlement joins the document commit without worker savepoints", asyn
   const f = await createPlacementCommitFixture();
   try {
     await f.move();
-    const [intent] = await intents.listPendingMoveIntents(f.db.execSql);
+    const [intent] = await intents(f.db.execSql).listPendingMoveIntents();
     if (!intent) throw new Error("Missing queued move");
     f.db.statements.length = 0;
     await relinkDocumentStoreWithCommitSideEffect(
@@ -88,9 +91,9 @@ test("move settlement joins the document commit without worker savepoints", asyn
       containerId: "trash",
       accessEpoch: 2,
     });
-    expect(await intents.listPendingMoveIntents(f.db.execSql)).toEqual([]);
+    expect(await intents(f.db.execSql).listPendingMoveIntents()).toEqual([]);
     expect(
-      await links.listLinkedContainerIds(f.db.execSql, f.documentId),
+      await new Links(f.db.execSql).listLinkedContainerIds(f.documentId),
     ).toEqual(["trash"]);
     expect(traffic.length).toBeLessThanOrEqual(14);
     expect(savepoints).toEqual([]);

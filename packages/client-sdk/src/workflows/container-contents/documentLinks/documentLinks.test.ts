@@ -19,7 +19,7 @@ import {
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DocumentsPersistence } from "../../documents";
 import { buildMaterializedDocumentCreatePlan } from "../../documents/create";
@@ -82,11 +82,9 @@ test("relinkRemoteContainerDocument persists linked container projections after 
       documentKekTargets: createdResponse.documentKekTargets,
       documentManifest: createdResponse.accessManifest,
     };
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-      execSql,
-      writerProjection.documentId,
-      [rootProjection.containerId],
-    );
+    await new Links(execSql).replaceDocumentLinks(writerProjection.documentId, [
+      rootProjection.containerId,
+    ]);
     const submittedRequests: DocumentLinkSetMutationRequest[] = [];
 
     const linked = await relinkRemoteContainerDocument({
@@ -156,10 +154,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
     expect(submittedRequests).toHaveLength(1);
     expect(linked?.linkedContainerIds).toEqual(expectedLinkedContainerIds);
     await expect(
-      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-        execSql,
-        writerProjection.documentId,
-      ),
+      new Links(execSql).listLinkedContainerIds(writerProjection.documentId),
     ).resolves.toEqual(expectedLinkedContainerIds);
   } finally {
     close();

@@ -12,7 +12,7 @@ import { createAuthorityRecoveryFixture } from "../../../test/helpers/principalA
 import { withPrincipalPolicies } from "../../../test/helpers/principalPolicyServiceFixture";
 import { projectionHistoryPages } from "../../../test/helpers/projectionPolicyHistory";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
-import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
@@ -46,9 +46,10 @@ test("failed paged verification never falls back to an available full group hist
         stateHash: group.currentState.stateHash,
       }));
     response.lanes.grants.grants = [];
-    await applyOrganizationReadModelResponse({
+    await new OrganizationReadModelRepository(
+      f.options.execSql,
+    ).applyOrganizationReadModelResponse({
       currentUserId: "founder",
-      execSql: f.options.execSql,
       requestedCursor: null,
       response,
     });
@@ -145,9 +146,10 @@ test("organization history enriches online and preserves verified local entries 
     });
     response.lanes.organizationPolicy.currentState =
       data.afterAddition.currentState;
-    await applyOrganizationReadModelResponse({
+    await new OrganizationReadModelRepository(
+      sql.execSql,
+    ).applyOrganizationReadModelResponse({
       currentUserId: data.signerUserId,
-      execSql: sql.execSql,
       requestedCursor: null,
       response,
     });

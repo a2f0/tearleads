@@ -6,9 +6,9 @@ import {
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createWorkflowInputFixture } from "../../../../test/helpers/internalRuntimeFixtures";
 import { createQueuedDocumentMoveRemote } from "../../../../test/helpers/queuedDocumentMoveRemote";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
-import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence as documents,
@@ -79,7 +79,7 @@ test("a cached discovery head cannot resurrect a placement removed by a newer si
       }),
     );
     const load = createDocumentHeadLinkSetLoader(runtime);
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     const loadEpoch = (id: string) =>
       new ContainerDocumentTombstoneHoldRepository(
         execSql,
@@ -108,8 +108,7 @@ test("a cached discovery head cannot resurrect a placement removed by a newer si
     if (!input) throw new Error("Expected first discovery input");
     await documents.ensureSchema(execSql);
     const local = await documents.upsertDiscoveredDocument(execSql, input);
-    await links.replaceDocumentLinks(
-      execSql,
+    await new Links(execSql).replaceDocumentLinks(
       documentId,
       input.linkedContainerIds,
     );

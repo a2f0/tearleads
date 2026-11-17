@@ -3,8 +3,8 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { defaultDocumentsPersistence } from "../../documents";
 import {
@@ -125,13 +125,10 @@ test("a remote orphan moves from null scope into a writable container", async ()
     ]);
     expect(linkedContainers.get("document-1")).toEqual(["documents-container"]);
     await expect(
-      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-        execSql,
-        "document-1",
-      ),
+      new Links(execSql).listLinkedContainerIds("document-1"),
     ).resolves.toEqual(["documents-container"]);
     await expect(
-      sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
+      new DocumentMoveIntentRepository(execSql).listPendingMoveIntents(),
     ).resolves.toMatchObject([
       {
         documentId: "document-1",

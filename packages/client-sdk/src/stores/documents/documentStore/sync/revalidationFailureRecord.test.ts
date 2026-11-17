@@ -6,8 +6,7 @@ import {
 } from "../../../../../test/helpers/queuedUpdateRows";
 import { DocumentSyncUpdateIsolationError } from "../../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import { clearDocumentSyncFailure } from "../../../../data/persistence/documents/records";
-import { hasRecordedTerminalSyncFailures } from "../../../../data/persistence/documents/records/documentSyncFailurePersistence";
+import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
 import { runSerializedSqlMutation } from "../../../../data/sqlite/sqlExec";
 import type { DocumentRecord } from "../../../../workflows/documents/persistence";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
@@ -80,6 +79,7 @@ test("incoming poison updates record a durable document-scoped quarantine", asyn
 // read-only 403 records nothing (it must never flag unattempted local edits).
 test("revalidation failures record durably except read-only 403s", async () => {
   const { close, execSql } = await createTestExecSql("revalidation-record");
+  const records = new DocumentRecordRepository(execSql);
   try {
     await seedStoredDocument(execSql, "revalidating-doc");
     const state = {
@@ -89,13 +89,13 @@ test("revalidation failures record durably except read-only 403s", async () => {
     const handler = documentRevalidationFailureHandler(state);
 
     await handler({ message: "denied", status: 403 });
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(false);
 
     await handler({
       message: "Container for this document is unavailable",
       status: 409,
     });
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(true);
   } finally {
     close();
   }
@@ -105,6 +105,7 @@ test("revalidation failures record durably except read-only 403s", async () => {
 // the lane must leave a durable failure row rather than going silent.
 test("a container-less local-only create records a terminal failure", async () => {
   const { close, execSql } = await createTestExecSql("orphan-create-failure");
+  const records = new DocumentRecordRepository(execSql);
   try {
     await seedStoredDocument(execSql, "orphaned-local-only");
     const state = {
@@ -126,7 +127,7 @@ test("a container-less local-only create records a terminal failure", async () =
     );
 
     expect(result).toBe(record);
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(true);
   } finally {
     close();
   }
@@ -222,6 +223,7 @@ test("a null-scoped orphan destroys on authoritative deletion", async () => {
 // record nothing — never resurrect the failure row the teardown deleted.
 test("a stale terminal handler cannot recreate a deleted failure row", async () => {
   const { close, execSql } = await createTestExecSql("stale-terminal-handler");
+  const records = new DocumentRecordRepository(execSql);
   try {
     await seedStoredDocument(execSql, "torn-down-doc");
     const doc = {} as unknown as DocumentState;
@@ -249,7 +251,7 @@ test("a stale terminal handler cannot recreate a deleted failure row", async () 
       releaseTeardown = resolve;
     });
     const teardown = runSerializedSqlMutation(execSql, async (locked) => {
-      await clearDocumentSyncFailure(locked, {
+      await new DocumentRecordRepository(locked).clearDocumentSyncFailure({
         appKind: "documents",
         localId: "torn-down-doc",
       });
@@ -261,7 +263,7 @@ test("a stale terminal handler cannot recreate a deleted failure row", async () 
     await teardown;
     await queuedHandler;
 
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(false);
   } finally {
     close();
   }
@@ -272,6 +274,7 @@ test("a stale terminal handler cannot recreate a deleted failure row", async () 
 // invalidation, and records nothing.
 test("a handler racing authoritative deletion records nothing", async () => {
   const { close, execSql } = await createTestExecSql("deletion-handler-race");
+  const records = new DocumentRecordRepository(execSql);
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     await sqlDocumentsPersistence.saveDocument(
@@ -331,7 +334,7 @@ test("a handler racing authoritative deletion records nothing", async () => {
     await deletion;
     await racingHandler;
 
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(false);
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "race-doc"),
     ).toBeFalsy();

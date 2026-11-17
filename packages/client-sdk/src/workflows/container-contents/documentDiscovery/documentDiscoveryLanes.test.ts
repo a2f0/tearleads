@@ -6,7 +6,7 @@ import {
   ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
-import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../../data/persistence/documents/documentDiscoveryReset";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -72,7 +72,7 @@ const listLanes: ContainerDocumentLaneLister = async (lanes) =>
 interface Harness {
   readonly applied: Array<{ containerId: string; documentIds: string[] }>;
   readonly execSql: ExecSql;
-  readonly store: ReturnType<typeof createDocumentDiscoveryEvidenceStore>;
+  readonly store: DocumentDiscoveryEvidenceRepository;
   discover(input?: {
     readonly failUpsertFor?: string;
     readonly onOutcome?: ContainerDocumentDiscoveryOutcomeHandler;
@@ -81,7 +81,7 @@ interface Harness {
 }
 
 async function createHarness(execSql: ExecSql): Promise<Harness> {
-  const store = createDocumentDiscoveryEvidenceStore(execSql);
+  const store = new DocumentDiscoveryEvidenceRepository(execSql);
   const applied: Harness["applied"] = [];
   const lane = (
     containerId: string,

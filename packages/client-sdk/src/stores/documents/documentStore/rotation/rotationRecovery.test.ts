@@ -11,7 +11,7 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import { hasRecordedTerminalSyncFailures } from "../../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
 import type { DocumentsRuntime } from "../../types";
 import {
   createRemoteHistoryFixture,
@@ -401,7 +401,11 @@ test("a torn-down store records no rotation preflight failure", async () => {
     await expect(
       assertDocumentStoreCanRotateContentKey(state),
     ).rejects.toThrow();
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+    expect(
+      await new DocumentRecordRepository(
+        execSql,
+      ).hasRecordedTerminalSyncFailures(),
+    ).toBe(false);
   } finally {
     close();
   }

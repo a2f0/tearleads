@@ -5,31 +5,28 @@ import {
   organizationReadModelGroups as groups,
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
-import { loadAppliedOrganizationReadModelCursor } from "./organizationReadModelCursorPersistence";
-import { applyOrganizationReadModelResponse } from "./organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 test("another identity applying shared lanes does not make this requester current", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-applied-cursor-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   const applied = (requesterUserId: string) =>
-    loadAppliedOrganizationReadModelCursor({
-      execSql,
+    repository.loadAppliedOrganizationReadModelCursor({
       organizationId: "org-1",
       requesterUserId,
     });
 
   try {
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: snapshot("org-1", "cursor-1"),
     });
     // Identity B records its own requester row at the same cursor.
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-2",
-      execSql,
       requestedCursor: null,
       response: delta({
         groups: groups("org-1", "initial"),
@@ -45,9 +42,8 @@ test("another identity applying shared lanes does not make this requester curren
       nextCursor: "cursor-2",
       organizationId: "org-1",
     });
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: "cursor-1",
       response: next,
     });
@@ -56,9 +52,8 @@ test("another identity applying shared lanes does not make this requester curren
     // cursor-2 must still reconcile for B.
     expect(await applied("user-2")).toBeNull();
 
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-2",
-      execSql,
       requestedCursor: "cursor-1",
       response: { ...next, currentUser: { isOrgAdmin: false } },
     });

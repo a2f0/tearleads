@@ -9,10 +9,7 @@ import { dataUsage } from "../../../../test/helpers/organizationReadModelFixture
 import { organizationReadModelDirectoryUser } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
 import { withSqliteBindBudget } from "../../../../test/helpers/sqliteBindBudgetGuard";
 import { OrganizationDataUsageRepository } from "./organizationDataUsagePersistence";
-import {
-  applyOrganizationReadModelResponse,
-  loadOrganizationReadModelProjection,
-} from "./organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 const ORGANIZATION_ID = "organization-capacity";
 const MEMBER_GROUP_ID = "members-capacity";
@@ -145,27 +142,25 @@ test("a wide organization page persists within SQLite's bound-variable budget", 
     "organization-read-model-capacity",
   );
   const execSql = withSqliteBindBudget(testExecSql);
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-0",
-        execSql,
         requestedCursor: null,
         response: wideSnapshot("cursor-1", 1),
       }),
     ).resolves.toBe("applied");
     const { mode: _mode, ...replacement } = wideSnapshot("cursor-2", 2);
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-0",
-        execSql,
         requestedCursor: "cursor-1",
         response: { ...replacement, mode: "delta" },
       }),
     ).resolves.toBe("applied");
 
-    const projection = await loadOrganizationReadModelProjection(
-      execSql,
+    const projection = await repository.loadOrganizationReadModelProjection(
       ORGANIZATION_ID,
       "user-0",
     );
@@ -189,12 +184,12 @@ test("a wide roster prunes inactive requesters without binding the roster", asyn
     "organization-read-model-wide-requester-prune",
   );
   const execSql = withSqliteBindBudget(testExecSql);
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
     // Each later identity joins the applied snapshot with its requester row.
     for (const currentUserId of ["user-0", "user-1", "user-2"]) {
-      await applyOrganizationReadModelResponse({
+      await repository.applyOrganizationReadModelResponse({
         currentUserId,
-        execSql,
         requestedCursor: null,
         response: wideSnapshot("cursor-1", 1, currentUserId),
       });
@@ -207,9 +202,8 @@ test("a wide roster prunes inactive requesters without binding the roster", asyn
     }
 
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-0",
-        execSql,
         requestedCursor: "cursor-1",
         response: {
           version: 6,
@@ -229,8 +223,7 @@ test("a wide roster prunes inactive requesters without binding the roster", asyn
       ["user-1", true],
       ["user-2", false],
     ] as const) {
-      const projection = await loadOrganizationReadModelProjection(
-        execSql,
+      const projection = await repository.loadOrganizationReadModelProjection(
         ORGANIZATION_ID,
         userId,
       );

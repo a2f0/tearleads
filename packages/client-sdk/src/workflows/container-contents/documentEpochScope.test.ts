@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence as metadata } from "../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { hydrateStoredContainerState } from "./storedContainerState";
@@ -49,26 +49,26 @@ test.each(["metadata-first", "document-first"] as const)(
       expect(
         await holds(execSql).loadLocalDocumentAccessEpoch("document-1"),
       ).toBe(2);
-      await links.replaceDocumentLinksBatch(execSql, [
+      await new Links(execSql).replaceDocumentLinksBatch([
         {
           documentId: "document-1",
           containerIds: ["honest-container"],
           accessEpoch: 3,
         },
       ]);
-      expect(await links.listLinkedContainerIds(execSql, "document-1")).toEqual(
-        ["honest-container"],
-      );
-      await links.replaceDocumentLinksBatch(execSql, [
+      expect(
+        await new Links(execSql).listLinkedContainerIds("document-1"),
+      ).toEqual(["honest-container"]);
+      await new Links(execSql).replaceDocumentLinksBatch([
         {
           documentId: "document-1",
           containerIds: ["stale-container"],
           accessEpoch: 1,
         },
       ]);
-      expect(await links.listLinkedContainerIds(execSql, "document-1")).toEqual(
-        ["honest-container"],
-      );
+      expect(
+        await new Links(execSql).listLinkedContainerIds("document-1"),
+      ).toEqual(["honest-container"]);
       expect(
         (await metadata.loadContainerMetadataRecord(execSql, container.id))
           ?.accessEpoch,

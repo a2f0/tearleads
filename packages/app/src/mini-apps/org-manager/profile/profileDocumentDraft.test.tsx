@@ -36,16 +36,25 @@ for (const kind of ["roster", "organization"] as const) {
       kind === "roster"
         ? ORG_MANAGER_LABELS.loadingProfileDocument
         : ORG_MANAGER_LABELS.loadingOrganizationProfile;
+    const name =
+      kind === "roster"
+        ? ORG_MANAGER_LABELS.firstName
+        : ORG_MANAGER_LABELS.organizationName;
+    // Type in the first microtask after the commit that inserts the field.
+    // React yields to the host after that commit and runs its passive effects
+    // in a later task, so this is the earliest keystroke a user can land on
+    // the painted field; nothing the field defers past mount may replace it.
+    const typeOnInsertion = new MutationObserver(() => {
+      const field = view.queryByRole("textbox", { name });
+      if (!field) return;
+      typeOnInsertion.disconnect();
+      fireEvent.change(field, { target: { value: "Unsaved draft" } });
+    });
+    typeOnInsertion.observe(view.container, { childList: true, subtree: true });
     try {
-      const input = await view.findByRole("textbox", {
-        name:
-          kind === "roster"
-            ? ORG_MANAGER_LABELS.firstName
-            : ORG_MANAGER_LABELS.organizationName,
-      });
+      const input = await view.findByRole("textbox", { name });
       if (!(input instanceof HTMLInputElement))
         throw new Error("Expected input");
-      fireEvent.change(input, { target: { value: "Unsaved draft" } });
       const version = f.sdk.runtime.version;
       // Session sync mode notifies the runtime without changing the documents
       // scope (domain, database, principal, or signing keys).
@@ -64,6 +73,7 @@ for (const kind of ["roster", "organization"] as const) {
       expect(input.isConnected).toBe(false);
       expect(view.getByText(loading)).toBeTruthy();
     } finally {
+      typeOnInsertion.disconnect();
       view.unmount();
       restoreHost();
       f.close();

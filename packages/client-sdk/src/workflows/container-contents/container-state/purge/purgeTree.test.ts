@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentContainerProjectionPersistence } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "../../containerPersistence";
 import type { ContainerState } from "../../remoteHydration";
@@ -169,11 +169,10 @@ test("purgeContainerTree unlinks extra internal links before remote purge", asyn
       },
       { updatedAt: "2026-08-27T00:00:00.000Z" },
     );
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-      execSql,
-      documentId,
-      ["trashed", "trashed-child"],
-    );
+    await new Links(execSql).replaceDocumentLinks(documentId, [
+      "trashed",
+      "trashed-child",
+    ]);
 
     const result = await purgeContainerTree({
       containersById: containersById([
@@ -318,11 +317,11 @@ test("purgeContainerTree reports zero completions after a later unlink fails", a
       },
       { updatedAt: "2026-09-01T00:00:00.000Z" },
     );
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-      database.execSql,
-      documentId,
-      ["trashed", "trashed-child", "outside"],
-    );
+    await new Links(database.execSql).replaceDocumentLinks(documentId, [
+      "trashed",
+      "trashed-child",
+      "outside",
+    ]);
 
     const result = await purgeContainerTree({
       containersById: containersById([

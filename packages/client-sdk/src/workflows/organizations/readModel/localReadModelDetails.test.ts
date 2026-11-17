@@ -11,7 +11,7 @@ import {
   ensureContainerTables,
   saveContainer,
 } from "../../../data/persistence/container-contents/containerPersistence";
-import { applyOrganizationReadModelResponse } from "../../../data/persistence/organizations/organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   loadLocalOrganizationContainerGrants,
@@ -234,6 +234,7 @@ test("local organization detail derives a user's groups and effective grants", a
   const { close, execSql } = await createTestExecSql(
     "organization-local-read-model-details",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
     await ensureContainerTables(execSql);
     await saveContainer(execSql, {
@@ -245,9 +246,8 @@ test("local organization detail derives a user's groups and effective grants", a
       icon: null,
     });
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: CURRENT_USER_ID,
-        execSql,
         requestedCursor: null,
         response: snapshot(),
       }),
@@ -330,12 +330,12 @@ test("local group policy history requires an exact projected policy head", async
   const { close, execSql } = await createTestExecSql(
     "organization-local-group-policy-history",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
     const bundle = policyBundleForGroup(CYCLE_GROUP_ID);
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: CURRENT_USER_ID,
-        execSql,
         requestedCursor: null,
         response: policySnapshot({ bundle }),
       }),
@@ -374,12 +374,12 @@ test("local group policy history rejects a stale stored policy bundle", async ()
   const { close, execSql } = await createTestExecSql(
     "organization-local-group-policy-history-stale",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
     const bundle = policyBundleForGroup(CYCLE_GROUP_ID);
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: CURRENT_USER_ID,
-        execSql,
         requestedCursor: null,
         response: policySnapshot({
           bundle,

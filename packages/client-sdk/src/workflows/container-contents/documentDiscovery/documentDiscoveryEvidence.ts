@@ -1,7 +1,7 @@
 import type { DiscoveredDocumentInput } from "../../../data/documents/documentSummary";
 import type {
   DiscoveredDocumentCandidate,
-  DocumentDiscoveryEvidenceStore,
+  DocumentDiscoveryEvidenceRepository,
 } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type {
   DocumentHeadLinkSetLoader,
@@ -33,7 +33,7 @@ async function verifyInput(
   input: DiscoveredDocumentCandidate,
   loadHead: DocumentHeadLinkSetLoader,
   loadLocalEpoch: LocalDocumentAccessEpochLoader,
-  store: DocumentDiscoveryEvidenceStore,
+  store: DocumentDiscoveryEvidenceRepository,
   generation: number,
   organizationId: string | undefined,
 ): Promise<DiscoveredDocumentInput | null | "unavailable"> {
@@ -84,7 +84,7 @@ export function createDiscoveredDocumentVerifier(
   organizationId: string | undefined,
   loadHead: DocumentHeadLinkSetLoader,
   loadLocalEpoch: LocalDocumentAccessEpochLoader,
-  store: DocumentDiscoveryEvidenceStore,
+  store: DocumentDiscoveryEvidenceRepository,
   onPendingDiscovery?: ((delayMs: number) => void) | undefined,
 ): DiscoverContainerDocumentsOptions["verifyDiscoveredDocuments"] {
   return async (inputs, containerIds, generation, tombstones = []) => {

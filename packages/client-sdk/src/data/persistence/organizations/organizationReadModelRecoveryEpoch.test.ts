@@ -6,20 +6,19 @@ import {
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../principals/principalPolicyCoordinator";
-import { purgeOrganizationAccessProjection } from "./organizationAccessRevocationPersistence";
-import { applyOrganizationReadModelResponse } from "./organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 test("an applied organization read-model change evicts in-flight principal recovery", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-recovery-epoch-test",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
     expect(
       getOrCreatePrincipalPolicyCoordinator(execSql).recoveryEpoch("org-1"),
     ).toBe(0);
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: snapshot("org-1", "cursor-1"),
     });
@@ -31,9 +30,8 @@ test("an applied organization read-model change evicts in-flight principal recov
       nextCursor: "cursor-2",
       organizationId: "org-1",
     });
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: "cursor-1",
       response: change,
     });
@@ -42,9 +40,8 @@ test("an applied organization read-model change evicts in-flight principal recov
     ).toBe(2);
     // A replayed response changes nothing and keeps the operation's memo.
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: "user-1",
-        execSql,
         requestedCursor: "cursor-1",
         response: change,
       }),
@@ -55,8 +52,7 @@ test("an applied organization read-model change evicts in-flight principal recov
     expect(
       getOrCreatePrincipalPolicyCoordinator(execSql).recoveryEpoch("org-2"),
     ).toBe(0);
-    await purgeOrganizationAccessProjection({
-      execSql,
+    await repository.purgeOrganizationAccessProjection({
       organizationId: "org-1",
       requesterUserId: "user-1",
     });

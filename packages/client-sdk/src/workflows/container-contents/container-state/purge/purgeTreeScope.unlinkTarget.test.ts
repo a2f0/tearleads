@@ -15,7 +15,7 @@ import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence as persistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../../documents/linkSet";
 import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
@@ -131,8 +131,7 @@ for (const restoreDuringPreparation of [false, true]) {
         },
         { updatedAt: "2026-10-01T00:00:00.000Z" },
       );
-      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-        execSql,
+      await new Links(execSql).replaceDocumentLinks(
         writerProjection.documentId,
         [root.container.id, child.container.id],
       );

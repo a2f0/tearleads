@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentContainerProjectionPersistence } from "../container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../container-contents/documentContainerProjectionPersistence";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence,
@@ -370,15 +370,12 @@ test("container document tombstones remove links and repair selected container",
   );
 
   try {
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
-      execSql,
-      [
-        {
-          containerIds: ["container-a", "container-b"],
-          documentId: "document-1",
-        },
-      ],
-    );
+    await new Links(execSql).replaceDocumentLinksBatch([
+      {
+        containerIds: ["container-a", "container-b"],
+        documentId: "document-1",
+      },
+    ]);
     await sqlDocumentsPersistence.upsertDiscoveredDocument(execSql, {
       accessEpoch: 1,
       accessStateHash: "access-state-hash-1",
@@ -411,10 +408,7 @@ test("container document tombstones remove links and repair selected container",
       },
     ]);
     await expect(
-      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-        execSql,
-        "document-1",
-      ),
+      new Links(execSql).listLinkedContainerIds("document-1"),
     ).resolves.toEqual(["container-b"]);
     await expect(
       sqlDocumentsPersistence.loadDocument(execSql, "document-1"),
@@ -446,10 +440,7 @@ test("container document tombstones remove links and repair selected container",
       },
     ]);
     await expect(
-      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-        execSql,
-        "document-1",
-      ),
+      new Links(execSql).listLinkedContainerIds("document-1"),
     ).resolves.toEqual([]);
     await expect(
       sqlDocumentsPersistence.loadDocument(execSql, "document-1"),

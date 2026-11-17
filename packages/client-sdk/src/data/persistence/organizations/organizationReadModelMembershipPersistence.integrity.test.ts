@@ -8,11 +8,7 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
-import type { ExecSql } from "../../sqlite/sqlSchema";
-import {
-  applyOrganizationReadModelResponse,
-  loadOrganizationReadModelProjection,
-} from "./organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 function withMemberships(
   response: OrganizationReadModelSnapshotResponse,
@@ -25,21 +21,19 @@ function withMemberships(
 }
 
 async function expectRejectedSnapshot(
-  execSql: ExecSql,
+  repository: OrganizationReadModelRepository,
   response: OrganizationReadModelSnapshotResponse,
   message: string,
 ): Promise<void> {
   await expect(
-    applyOrganizationReadModelResponse({
+    repository.applyOrganizationReadModelResponse({
       currentUserId: organizationReadModelUserId,
-      execSql,
       requestedCursor: null,
       response,
     }),
   ).rejects.toThrow(message);
   await expect(
-    loadOrganizationReadModelProjection(
-      execSql,
+    repository.loadOrganizationReadModelProjection(
       response.organizationId,
       organizationReadModelUserId,
     ),
@@ -50,11 +44,12 @@ test("membership snapshots require the reserved Members head", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-membership-missing-members-head",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   const response = organizationReadModelSnapshot();
   const memberships = response.lanes.groupMemberships;
   try {
     await expectRejectedSnapshot(
-      execSql,
+      repository,
       withMemberships(response, {
         ...memberships,
         groups: memberships.groups.filter(
@@ -72,11 +67,12 @@ test("membership snapshots reject heads outside the group catalog", async () => 
   const { close, execSql } = await createTestExecSql(
     "organization-membership-extra-head",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   const response = organizationReadModelSnapshot();
   const memberships = response.lanes.groupMemberships;
   try {
     await expectRejectedSnapshot(
-      execSql,
+      repository,
       withMemberships(response, {
         ...memberships,
         groups: [
@@ -95,10 +91,11 @@ test("membership snapshots reject tombstones", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-membership-snapshot-tombstone",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   const response = organizationReadModelSnapshot();
   try {
     await expectRejectedSnapshot(
-      execSql,
+      repository,
       withMemberships(response, {
         ...response.lanes.groupMemberships,
         deletedGroupIds: ["deleted-group"],
@@ -114,6 +111,7 @@ test("stateless catalog groups require no membership head", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-membership-stateless-group",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   const response = organizationReadModelSnapshot();
   response.lanes.groups.groups.push({
     groupId: "stateless-group",
@@ -125,9 +123,8 @@ test("stateless catalog groups require no membership head", async () => {
   });
   try {
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: organizationReadModelUserId,
-        execSql,
         requestedCursor: null,
         response,
       }),

@@ -6,19 +6,13 @@ import {
   ORGANIZATION_READ_MODEL_ERROR_CODES,
   type OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
-import { purgeOrganizationAccessProjection } from "../../../data/persistence/organizations/organizationAccessRevocationPersistence";
-import { recordOrganizationPresentationDenials } from "../../../data/persistence/organizations/organizationPresentationDenialPersistence";
-import {
-  loadOrganizationReadModelGroupMembers,
-  type OrganizationReadModelGroupMembers,
-} from "../../../data/persistence/organizations/organizationReadModelMemberLoad";
+import type { OrganizationReadModelGroupMembers } from "../../../data/persistence/organizations/organizationReadModelMemberLoad";
 import { OrganizationReadModelBindingError } from "../../../data/persistence/organizations/organizationReadModelMembershipPersistence";
-import {
-  applyOrganizationReadModelResponse,
-  loadOrganizationReadModelProjection,
-  type OrganizationReadModelProjection,
-  purgeOrganizationReadModelProjection,
+import type {
+  ApplyOrganizationReadModelResponseResult,
+  OrganizationReadModelProjection,
 } from "../../../data/persistence/organizations/organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { OrganizationDirectoryAndGroups } from "./index";
 import {
@@ -95,8 +89,9 @@ async function loadProjection(
 function loadRawProjection(
   input: OrganizationReadModelProjectionInput,
 ): Promise<OrganizationReadModelProjection | null> {
-  return loadOrganizationReadModelProjection(
+  return new OrganizationReadModelRepository(
     input.execSql,
+  ).loadOrganizationReadModelProjection(
     input.organizationId,
     input.currentUserId,
   );
@@ -204,11 +199,12 @@ async function requestReadModelPage(
   if (isOrganizationPresentationAccessDeniedFailure(result)) {
     const accessInput = organizationPresentationAccessInput(input);
     denyOrganizationPresentationAccess(accessInput, ["readModel", "usage"]);
+    const repository = new OrganizationReadModelRepository(input.execSql);
     // The durable marker lands before the purge attempt: if the purge fails,
     // an offline restart must still refuse to serve the revoked projection.
     try {
       await runOrganizationPresentationMutation(input.execSql, () =>
-        recordOrganizationPresentationDenials(accessInput, [
+        repository.recordOrganizationPresentationDenials(accessInput, [
           "readModel",
           "usage",
         ]),
@@ -218,8 +214,7 @@ async function requestReadModelPage(
     }
     try {
       await runOrganizationPresentationMutation(input.execSql, () =>
-        purgeOrganizationAccessProjection({
-          execSql: input.execSql,
+        repository.purgeOrganizationAccessProjection({
           organizationId: input.organizationId,
           requesterUserId: input.currentUserId,
         }),
@@ -275,9 +270,7 @@ type ApplyResponseStep =
   | ReconciliationStep
   | {
       readonly kind: "applied";
-      readonly result: Awaited<
-        ReturnType<typeof applyOrganizationReadModelResponse>
-      >;
+      readonly result: ApplyOrganizationReadModelResponseResult;
     };
 
 async function applyResponse(
@@ -285,12 +278,12 @@ async function applyResponse(
   state: ReconciliationState,
   response: OrganizationReadModelResponse,
 ): Promise<ApplyResponseStep> {
+  const repository = new OrganizationReadModelRepository(input.execSql);
   try {
     return {
       kind: "applied",
-      result: await applyOrganizationReadModelResponse({
+      result: await repository.applyOrganizationReadModelResponse({
         currentUserId: input.currentUserId,
-        execSql: input.execSql,
         requestedCursor: state.expectedLocalCursor,
         response,
       }),
@@ -304,10 +297,7 @@ async function applyResponse(
       return localResult(input, state, { failed: true });
     }
     state.retriedBindingFailure = true;
-    await purgeOrganizationReadModelProjection(
-      input.execSql,
-      input.organizationId,
-    );
+    await repository.purgeOrganizationReadModelProjection(input.organizationId);
     if (!reconciliationIsCurrent(input, state)) {
       return { kind: "done", value: null };
     }
@@ -328,11 +318,11 @@ async function prepareDeniedProjectionForApply(
     // The apply that follows replaces the shared rows authoritatively, so
     // only this requester's row is dropped: another local identity sharing
     // the database keeps its access and reads the replacement.
-    await purgeOrganizationReadModelProjection(
+    await new OrganizationReadModelRepository(
       input.execSql,
-      input.organizationId,
-      { onlyRequesterUserId: input.currentUserId },
-    );
+    ).purgeOrganizationReadModelProjection(input.organizationId, {
+      onlyRequesterUserId: input.currentUserId,
+    });
   } catch (error) {
     input.logError?.("Failed to replace denied organization read model", error);
     return { kind: "done", value: null };
@@ -411,8 +401,9 @@ export async function loadLocalOrganizationGroupMembers(
     organizationPresentationAccessInput(input),
     "readModel",
     () =>
-      loadOrganizationReadModelGroupMembers(
+      new OrganizationReadModelRepository(
         input.execSql,
+      ).loadOrganizationReadModelGroupMembers(
         input.organizationId,
         input.groupId,
         input.currentUserId,

@@ -1,7 +1,7 @@
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
-import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { getOrCreateOrganizationSyncPauses } from "../../data/sync/organizationSyncPauses";
 import { listContainerDocumentLanesFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { createDiscoveredDocumentVerifier } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryEvidence";
@@ -44,9 +44,7 @@ type ExecSql = ReturnType<InternalRuntime["workflowInput"]>["infra"]["execSql"];
 function createDiscoveryLane(input: {
   readonly containerOrganizationId: string | undefined;
   readonly isContainerPaused: () => boolean;
-  readonly evidenceStore: ReturnType<
-    typeof createDocumentDiscoveryEvidenceStore
-  >;
+  readonly evidenceStore: DocumentDiscoveryEvidenceRepository;
   readonly execSql: ExecSql;
   readonly holdRepository: ContainerDocumentTombstoneHoldRepository;
   /** The discovery pass's token: its lanes share one directory discovery. */
@@ -135,7 +133,7 @@ export async function discoverContainerDocumentLanesForRuntime({
   }
   const runtime = createContainerContentsWorkflowRuntimeFromSnapshot(input);
   const execSql = input.infra.execSql;
-  const evidenceStore = createDocumentDiscoveryEvidenceStore(execSql);
+  const evidenceStore = new DocumentDiscoveryEvidenceRepository(execSql);
   const holdRepository = new ContainerDocumentTombstoneHoldRepository(execSql);
   const queries = createContainerDocumentQueriesFromRuntime(runtime);
   // Capture the reset fence before reading any lane's scope, so a reset

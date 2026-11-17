@@ -396,15 +396,13 @@ export {
   createContainerContentsWorkflowRuntime,
   createContainerParentSyncLane,
   createInitializedContainerMetadataDocument,
+  DocumentContainerProjectionRepository,
   defaultContainerContentsPersistence,
   deriveContainerSystemSlot,
-  initializeDocumentLinksSchema,
   listBlobInfo,
-  listDocumentLinkedContainerIds,
   loadContainerInfo,
   loadDocumentAttributionRanges,
   loadDocumentInfo,
-  replaceDocumentLinks,
   syncedContainerDocumentObjectSyncState,
 } from "./workflows/container-contents";
 export type {

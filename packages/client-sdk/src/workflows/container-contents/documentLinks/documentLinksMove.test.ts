@@ -16,7 +16,7 @@ import {
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../../documents/create";
 import { moveRemoteContainerDocument } from "./documentLinksMove";
 
@@ -88,11 +88,9 @@ async function runMoveRemoteContainerDocumentFixture(input: {
       documentKekTargets: createdResponse.documentKekTargets,
       documentManifest: createdResponse.accessManifest,
     };
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-      execSql,
-      writerProjection.documentId,
-      [rootProjection.containerId],
-    );
+    await new Links(execSql).replaceDocumentLinks(writerProjection.documentId, [
+      rootProjection.containerId,
+    ]);
     const submittedRequests: Array<{
       hasRotationBaseline: boolean;
       operation: "link" | "unlink";
@@ -252,11 +250,9 @@ async function runMoveRemoteContainerDocumentFixture(input: {
       moved = await move();
     }
 
-    const linkedContainerIds =
-      await sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-        execSql,
-        writerProjection.documentId,
-      );
+    const linkedContainerIds = await new Links(execSql).listLinkedContainerIds(
+      writerProjection.documentId,
+    );
     return {
       moved,
       linkedContainerIds,

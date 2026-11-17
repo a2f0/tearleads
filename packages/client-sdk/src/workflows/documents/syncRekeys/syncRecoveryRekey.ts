@@ -3,9 +3,9 @@ import { minimumVersionVectors } from "@tearleads/loro";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import {
+  DocumentRecordRepository,
   MAX_PENDING_UPDATE_REKEYS,
   type PendingUpdateRecord,
-  rekeyDocumentPendingUpdate,
 } from "../../../data/persistence/documents/records";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
@@ -129,8 +129,12 @@ export async function rekeyUnsettledRecoveryPendingUpdates(input: {
   exhaustedPendingUpdateIds: string[];
   rekeyedPendingUpdateIds: string[];
 }> {
-  const rekeyPendingUpdate =
-    input.rekeyPendingUpdate ?? rekeyDocumentPendingUpdate;
+  const rekeyPendingUpdate: RekeyPendingUpdate =
+    input.rekeyPendingUpdate ??
+    ((lockedExecSql, id) =>
+      new DocumentRecordRepository(lockedExecSql).rekeyDocumentPendingUpdate(
+        id,
+      ));
   const settled = new Set(input.settledPendingUpdateIds);
   const rekeyedPendingUpdateIds: string[] = [];
   const exhaustedPendingUpdateIds: string[] = [];

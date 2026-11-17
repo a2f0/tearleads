@@ -6,14 +6,10 @@ import {
   saveSyncedDocumentRecord,
 } from "../../../../test/helpers/documentDiscard";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import {
-  hasRecordedTerminalSyncFailures,
-  listDocumentPendingUpdates,
-  recordDocumentSyncFailure,
-} from "../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
 import {
   deletePendingAttachment,
@@ -27,6 +23,7 @@ import { captureDocumentStoreSyncGeneration } from "./sync/syncGeneration";
 
 test("discard re-seeds the discovered-share shell and clears the queue", async () => {
   const { close, execSql } = await createTestExecSql("discard-remote");
+  const records = new DocumentRecordRepository(execSql);
   const localId = "discard-doc";
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
@@ -38,8 +35,7 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
       partialStartVersionVector: "start",
       updateData: "poisoned-bytes",
     });
-    await recordDocumentSyncFailure(
-      execSql,
+    await records.recordDocumentSyncFailure(
       { appKind: DOCUMENTS_APP_KIND, localId },
       {
         attemptedAt: new Date().toISOString(),
@@ -68,12 +64,12 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
     expect(shell?.lastCommitLsn ?? null).toBeNull();
     expect(shell?.pullContinuation).toBeUndefined();
     expect(
-      await listDocumentPendingUpdates(execSql, {
+      await records.listDocumentPendingUpdates({
         appKind: DOCUMENTS_APP_KIND,
         localId,
       }),
     ).toEqual([]);
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(false);
     // Reset for re-initialization so the shell re-pulls.
     expect(state.record).toBeNull();
     expect(state.initialized).toBe(false);
@@ -103,7 +99,7 @@ test("discard refuses a local-only document whose queue is its only copy", async
     const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
     expect(record?.snapshotEndVersion).toBe("synced-end-version");
     expect(
-      await listDocumentPendingUpdates(execSql, {
+      await new DocumentRecordRepository(execSql).listDocumentPendingUpdates({
         appKind: DOCUMENTS_APP_KIND,
         localId,
       }),
@@ -124,11 +120,10 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
     await saveSyncedDocumentRecord(execSql, localId, "remote-doc", "folder-a");
     // Linked into a second container: the content re-pull does not rebuild
     // links, so the discard must carry them across the teardown itself.
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-      execSql,
-      "remote-doc",
-      ["folder-a", "folder-b"],
-    );
+    await new Links(execSql).replaceDocumentLinks("remote-doc", [
+      "folder-a",
+      "folder-b",
+    ]);
     // A staged upload whose row is the only durable pointer to its bytes —
     // including the settled local-attachment half a crash can leave behind,
     // which shares the staged storage key and would otherwise survive as a
@@ -177,10 +172,7 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
     );
 
     expect(
-      await sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-        execSql,
-        "remote-doc",
-      ),
+      await new Links(execSql).listLinkedContainerIds("remote-doc"),
     ).toEqual(["folder-a", "folder-b"]);
     expect(
       await sqlDocumentsPersistence.listPendingAttachments(execSql, localId),
@@ -215,7 +207,7 @@ test("discard refuses a document with a queued move intent", async () => {
     // The local containerId is now the move's optimistic placement, not
     // server truth — reseeding it would silently commit the move locally
     // while discarding the intent that was meant to perform it.
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await new DocumentMoveIntentRepository(execSql).enqueueMoveIntent({
       documentId: "remote-doc",
       localId,
       sourceContainerId: "folder-server",
@@ -230,7 +222,7 @@ test("discard refuses a document with a queued move intent", async () => {
     const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
     expect(record?.snapshotEndVersion).toBe("synced-end-version");
     expect(
-      await listDocumentPendingUpdates(execSql, {
+      await new DocumentRecordRepository(execSql).listDocumentPendingUpdates({
         appKind: DOCUMENTS_APP_KIND,
         localId,
       }),
@@ -365,7 +357,7 @@ test("stale writers cannot resurrect rows after a discard", async () => {
       staleGeneration,
     );
     expect(
-      await listDocumentPendingUpdates(execSql, {
+      await new DocumentRecordRepository(execSql).listDocumentPendingUpdates({
         appKind: DOCUMENTS_APP_KIND,
         localId,
       }),

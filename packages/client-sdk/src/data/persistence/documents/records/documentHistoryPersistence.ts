@@ -9,11 +9,12 @@ import { and, eq, exists, inArray, isNull, ne, sql } from "drizzle-orm";
 import {
   documentHistoryCheckpoints,
   documentHistoryUpdates,
-  documentTables,
 } from "../../../sqlite/schema/documentRecordSchema";
 import { sqliteInsertBatchSize } from "../../../sqlite/sqliteBindBudget";
-import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../../../sqlite/sqlSchema";
+import type {
+  ClientSQLiteDatabase,
+  ClientSQLiteTransactionScope,
+} from "../../../sqlite/sqlitePersistenceRuntime";
 import type { DocumentScope } from "./documentPersistenceTypes";
 
 const HISTORY_INSERT_BATCH_SIZE = sqliteInsertBatchSize(documentHistoryUpdates);
@@ -33,7 +34,7 @@ export const DOCUMENT_HISTORY_COMPACTION_MAX_BYTES = 512 * 1024;
  * decrypted pulled updates. Restores advance the outgoing-delta marker across
  * remote rows (already server-side); local rows never advance it.
  */
-type DocumentHistoryUpdateOrigin = "local" | "remote";
+export type DocumentHistoryUpdateOrigin = "local" | "remote";
 
 /**
  * Rows of the update log that are history tail: every row except an "outbox"
@@ -56,49 +57,48 @@ function compactableTailInScope(scope: DocumentScope) {
   return and(tailInScope(scope), isNull(documentHistoryUpdates.updateId));
 }
 
+type HistoryRead = Pick<ClientSQLiteTransactionScope, "select">;
+
 interface DocumentHistoryTailUpdate {
   readonly origin: DocumentHistoryUpdateOrigin;
   readonly updateData: string;
 }
 
-interface DocumentHistoryRestoreState {
+export interface DocumentHistoryRestoreState {
   readonly snapshot: string;
   readonly tailUpdates: readonly DocumentHistoryTailUpdate[];
 }
 
-export async function appendDocumentHistoryUpdates(
-  execSql: ExecSql,
-  scope: DocumentScope,
-  updates: readonly string[],
-  origin: DocumentHistoryUpdateOrigin,
+export async function insertDocumentHistoryUpdatesInTransaction(
+  tx: Pick<ClientSQLiteTransactionScope, "insert">,
+  input: {
+    createdAt: string;
+    origin: DocumentHistoryUpdateOrigin;
+    scope: DocumentScope;
+    updates: readonly string[];
+  },
 ): Promise<void> {
-  if (updates.length === 0) {
-    return;
+  const { createdAt, origin, scope, updates } = input;
+  // A pull page carries at most 64 updates, which fits one statement; the
+  // chunking keeps any longer append within SQLite's bind budget.
+  for (
+    let index = 0;
+    index < updates.length;
+    index += HISTORY_INSERT_BATCH_SIZE
+  ) {
+    await tx.insert(documentHistoryUpdates).values(
+      updates
+        .slice(index, index + HISTORY_INSERT_BATCH_SIZE)
+        .map((updateData) => ({
+          id: crypto.randomUUID(),
+          appKind: scope.appKind,
+          localId: scope.localId,
+          updateData,
+          origin,
+          createdAt,
+        })),
+    );
   }
-  await ensureSqlTables(execSql, documentTables);
-  const createdAt = new Date().toISOString();
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    // A pull page carries at most 64 updates, which fits one statement; the
-    // chunking keeps any longer append within SQLite's bind budget.
-    for (
-      let index = 0;
-      index < updates.length;
-      index += HISTORY_INSERT_BATCH_SIZE
-    ) {
-      await db.insert(documentHistoryUpdates).values(
-        updates
-          .slice(index, index + HISTORY_INSERT_BATCH_SIZE)
-          .map((updateData) => ({
-            id: crypto.randomUUID(),
-            appKind: scope.appKind,
-            localId: scope.localId,
-            updateData,
-            origin,
-            createdAt,
-          })),
-      );
-    }
-  });
 }
 
 /**
@@ -110,12 +110,10 @@ export async function appendDocumentHistoryUpdates(
  * rows can be the only durable copy of a local edit, so they must never be
  * silently ignored.
  */
-export async function loadDocumentHistoryRestoreState(
-  execSql: ExecSql,
+export async function selectDocumentHistoryRestoreState(
+  db: HistoryRead,
   scope: DocumentScope,
 ): Promise<DocumentHistoryRestoreState | null> {
-  await ensureSqlTables(execSql, documentTables);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
   // Read the TAIL before the (full) checkpoint: if another pane compacts
   // between the two reads, this order yields old-tail + new-checkpoint — a
   // safe superset (the new checkpoint subsumes the old tail, and replay is
@@ -167,12 +165,10 @@ export async function loadDocumentHistoryRestoreState(
  * until settlement, so counting them would re-export full history on every
  * persist while offline edits wait to sync.
  */
-export async function readDocumentHistoryTailSize(
-  execSql: ExecSql,
+export async function selectDocumentHistoryTailSize(
+  db: HistoryRead,
   scope: DocumentScope,
-): Promise<{ byteLength: number; hasCheckpoint: boolean; rowCount: number }> {
-  await ensureSqlTables(execSql, documentTables);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
+): Promise<DocumentHistoryTailSize> {
   // One statement: an aggregate without GROUP BY always returns one row, and
   // the checkpoint probe rides along as an EXISTS column.
   const [totals] = await db
@@ -200,7 +196,13 @@ export async function readDocumentHistoryTailSize(
   };
 }
 
-interface DocumentHistoryTailEntry {
+export interface DocumentHistoryTailSize {
+  byteLength: number;
+  hasCheckpoint: boolean;
+  rowCount: number;
+}
+
+export interface DocumentHistoryTailEntry {
   readonly id: string;
   readonly updateData: string;
 }
@@ -211,12 +213,10 @@ interface DocumentHistoryTailEntry {
  * (another pane's append may carry ops this pane's document has not merged
  * yet). Queued rows are never candidates.
  */
-export async function listDocumentHistoryTailEntries(
-  execSql: ExecSql,
+export async function selectDocumentHistoryTailEntries(
+  db: HistoryRead,
   scope: DocumentScope,
 ): Promise<DocumentHistoryTailEntry[]> {
-  await ensureSqlTables(execSql, documentTables);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select({
       id: documentHistoryUpdates.id,
@@ -232,100 +232,83 @@ export async function listDocumentHistoryTailEntries(
 /** Covered-tail ids per delete; the scope adds only a few binds. */
 const HISTORY_ROW_CHUNK = 400;
 
+export interface DocumentHistoryCheckpointReplacement {
+  coveredTailIds: readonly string[];
+  endVersionVector: string;
+  /**
+   * Skip the monotonic version gate. Only for document CREATION, where any
+   * existing checkpoint under this localId is the orphan of a failed prior
+   * attempt (checkpoint written, record row never committed) — a retry's
+   * fresh document need not dominate that orphan to replace it.
+   */
+  force?: boolean;
+  snapshot: string;
+  /**
+   * Re-checked after acquiring the serialized mutation slot (like the
+   * record-save path): a store reset/recreation that happened while this
+   * call waited in the queue must abort the write, or a stale compactor
+   * could install the OLD document's checkpoint over the new identity's.
+   */
+  stillCurrent?: () => boolean;
+}
+
 /**
- * Replace the scope's checkpoint with a fresh full-history snapshot and
- * delete ONLY the tail rows the caller captured before exporting it. Every
- * append path writes its tail row after the ops are already in the live
- * document, so any row captured before the export is provably covered by
- * the snapshot — while a row appended concurrently (between export and this
- * delete) survives for the next compaction instead of being lost.
+ * The statements of `replaceDocumentHistoryCheckpoint` on the caller's locked
+ * handle. They run sequentially and open no transaction of their own.
  */
-export async function replaceDocumentHistoryCheckpoint(
-  execSql: ExecSql,
+export async function replaceDocumentHistoryCheckpointInTransaction(
+  tx: ClientSQLiteDatabase,
   scope: DocumentScope,
-  input: {
-    coveredTailIds: readonly string[];
-    endVersionVector: string;
-    /**
-     * Skip the monotonic version gate. Only for document CREATION, where any
-     * existing checkpoint under this localId is the orphan of a failed prior
-     * attempt (checkpoint written, record row never committed) — a retry's
-     * fresh document need not dominate that orphan to replace it.
-     */
-    force?: boolean;
-    snapshot: string;
-    /**
-     * Re-checked after acquiring the serialized mutation slot (like the
-     * record-save path): a store reset/recreation that happened while this
-     * call waited in the queue must abort the write, or a stale compactor
-     * could install the OLD document's checkpoint over the new identity's.
-     */
-    stillCurrent?: () => boolean;
-  },
+  input: DocumentHistoryCheckpointReplacement,
+  now: () => Date,
 ): Promise<boolean> {
-  await ensureSqlTables(execSql, documentTables);
-  // Sequential (non-transactional) so callers already inside a transaction
-  // can nest this. Crash between the statements leaves the new checkpoint
-  // plus covered tail rows — a safe superset, since tail replay is
-  // idempotent by op identity. The replacement itself is a compare-and-swap
-  // on the stored revision, so the version gate cannot be bypassed by a
-  // concurrent compactor between the read and the write: whoever loses the
-  // CAS re-reads and re-evaluates the gate against the winner's checkpoint.
-  return getClientSQLitePersistenceRuntime(execSql).runMutation(async (tx) => {
-    if (input.stillCurrent?.() === false) {
+  if (input.stillCurrent?.() === false) {
+    return false;
+  }
+  for (let attempt = 0; attempt < CHECKPOINT_CAS_ATTEMPTS; attempt += 1) {
+    let replaced: boolean;
+    try {
+      replaced = await tryReplaceCheckpointOnce(tx, scope, input, now);
+    } catch (error) {
+      rethrowUnlessGateRejected(error);
+      // A fresher checkpoint dominates this candidate: no write, and
+      // the caller's covered rows must stay for the covering pane.
       return false;
     }
-    for (let attempt = 0; attempt < CHECKPOINT_CAS_ATTEMPTS; attempt += 1) {
-      let replaced: boolean;
-      try {
-        replaced = await tryReplaceCheckpointOnce(tx, scope, input);
-      } catch (error) {
-        rethrowUnlessGateRejected(error);
-        // A fresher checkpoint dominates this candidate: no write, and
-        // the caller's covered rows must stay for the covering pane.
-        return false;
-      }
-      if (!replaced) {
-        // CAS lost to a concurrent writer — re-read and re-evaluate the
-        // gate against the winner's checkpoint.
-        continue;
-      }
-      for (
-        let index = 0;
-        index < input.coveredTailIds.length;
-        index += HISTORY_ROW_CHUNK
-      ) {
-        // Never a queued row, even if a caller names one: its operations may
-        // be in the checkpoint, but it is still the unsent update itself.
-        await tx
-          .delete(documentHistoryUpdates)
-          .where(
-            and(
-              compactableTailInScope(scope),
-              inArray(
-                documentHistoryUpdates.id,
-                input.coveredTailIds.slice(index, index + HISTORY_ROW_CHUNK),
-              ),
-            ),
-          );
-      }
-      return true;
+    if (!replaced) {
+      // CAS lost to a concurrent writer — re-read and re-evaluate the
+      // gate against the winner's checkpoint.
+      continue;
     }
-    // Exhaustion must not read as durable success: creation and rebuild
-    // callers persist record rows assuming the checkpoint landed.
-    throw new Error(
-      "Document history checkpoint replacement lost every CAS attempt",
-    );
-  });
+    for (
+      let index = 0;
+      index < input.coveredTailIds.length;
+      index += HISTORY_ROW_CHUNK
+    ) {
+      // Never a queued row, even if a caller names one: its operations may
+      // be in the checkpoint, but it is still the unsent update itself.
+      await tx
+        .delete(documentHistoryUpdates)
+        .where(
+          and(
+            compactableTailInScope(scope),
+            inArray(
+              documentHistoryUpdates.id,
+              input.coveredTailIds.slice(index, index + HISTORY_ROW_CHUNK),
+            ),
+          ),
+        );
+    }
+    return true;
+  }
+  // Exhaustion must not read as durable success: creation and rebuild
+  // callers persist record rows assuming the checkpoint landed.
+  throw new Error(
+    "Document history checkpoint replacement lost every CAS attempt",
+  );
 }
 
 const CHECKPOINT_CAS_ATTEMPTS = 16;
-
-type MutationDb = Parameters<
-  Parameters<
-    ReturnType<typeof getClientSQLitePersistenceRuntime>["runMutation"]
-  >[0]
->[0];
 
 /**
  * One compare-and-swap attempt. Returns true when this caller's checkpoint
@@ -334,15 +317,16 @@ type MutationDb = Parameters<
  * fresher stored checkpoint dominates the candidate.
  */
 async function tryReplaceCheckpointOnce(
-  tx: MutationDb,
+  tx: ClientSQLiteDatabase,
   scope: DocumentScope,
   input: {
     endVersionVector: string;
     force?: boolean;
     snapshot: string;
   },
+  now: () => Date,
 ): Promise<boolean> {
-  const updatedAt = new Date().toISOString();
+  const updatedAt = now().toISOString();
   const revision = crypto.randomUUID();
   const [stored] = await tx
     .select({
@@ -458,27 +442,24 @@ function rethrowUnlessGateRejected(error: unknown): void {
   if (!(error instanceof CheckpointGateRejected)) throw error;
 }
 
-export async function deleteDocumentHistory(
-  execSql: ExecSql,
+export async function deleteDocumentHistoryInTransaction(
+  tx: Pick<ClientSQLiteTransactionScope, "delete">,
   scope: DocumentScope,
 ): Promise<void> {
-  await ensureSqlTables(execSql, documentTables);
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (tx) => {
-    await tx
-      .delete(documentHistoryCheckpoints)
-      .where(
-        and(
-          eq(documentHistoryCheckpoints.appKind, scope.appKind),
-          eq(documentHistoryCheckpoints.localId, scope.localId),
-        ),
-      );
-    await tx
-      .delete(documentHistoryUpdates)
-      .where(
-        and(
-          eq(documentHistoryUpdates.appKind, scope.appKind),
-          eq(documentHistoryUpdates.localId, scope.localId),
-        ),
-      );
-  });
+  await tx
+    .delete(documentHistoryCheckpoints)
+    .where(
+      and(
+        eq(documentHistoryCheckpoints.appKind, scope.appKind),
+        eq(documentHistoryCheckpoints.localId, scope.localId),
+      ),
+    );
+  await tx
+    .delete(documentHistoryUpdates)
+    .where(
+      and(
+        eq(documentHistoryUpdates.appKind, scope.appKind),
+        eq(documentHistoryUpdates.localId, scope.localId),
+      ),
+    );
 }

@@ -1,7 +1,7 @@
 import { replaceDocumentLinksInTransaction } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   type DocumentMoveIntentRecord,
-  sqlDocumentMoveIntentPersistence,
+  DocumentMoveIntentRepository,
 } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { loadDocumentMovePlacement } from "../../../data/persistence/container-contents/documentPlacement";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
@@ -29,14 +29,14 @@ export async function settleDocumentMoveIntent(input: {
       );
     return;
   }
-  const settled = await sqlDocumentMoveIntentPersistence.markMoveIntentSynced(
+  // The relink transaction's executor: settlement commits with the relink.
+  const settled = await new DocumentMoveIntentRepository(
     input.execSql,
-    {
-      documentId: input.intent.documentId,
-      expectedIntentId: input.intent.id,
-      expectedUpdatedAt: input.intent.updatedAt,
-    },
-  );
+  ).markMoveIntentSynced({
+    documentId: input.intent.documentId,
+    expectedIntentId: input.intent.id,
+    expectedUpdatedAt: input.intent.updatedAt,
+  });
   if (!settled || !input.isCurrent()) {
     throw new Error(
       "Document move intent was superseded before local settlement",

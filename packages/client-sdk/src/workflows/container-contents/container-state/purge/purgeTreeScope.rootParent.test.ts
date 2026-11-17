@@ -6,7 +6,7 @@ import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence as persistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";
@@ -78,8 +78,7 @@ for (const capturedParentId of ["materialized-sync-parent", "trash"]) {
         text: "Unsynced restored work",
         title: "Local note",
       });
-      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-        execSql,
+      await new Links(execSql).replaceDocumentLinks(
         writerProjection.documentId,
         [rootId],
       );
