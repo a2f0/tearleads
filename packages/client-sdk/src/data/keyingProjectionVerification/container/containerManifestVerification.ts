@@ -148,9 +148,12 @@ export async function verifyContainerManifestBundle(input: {
 type CitedAncestorInput = Parameters<typeof verifyContainerManifestBundle>[0];
 
 async function verifyFreshContainerManifestBundle(
-  input: CitedAncestorInput,
+  served: CitedAncestorInput,
   parentPath: readonly VerifiedContainerAccessManifest[],
 ): Promise<VerifiedContainerAccessManifest> {
+  // Verify and record one copy taken before the first await, so the bytes
+  // recorded as verified are exactly the bytes verified.
+  const input = { ...served, bundle: structuredClone(served.bundle) };
   const event = await verifyAccessEventBundle(input);
   const manifest = readAccessManifest(
     input.bundle.manifest,

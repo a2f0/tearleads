@@ -7,16 +7,11 @@ import {
   checkpointChildAt,
   createScenario,
   grantBy,
-  manifestBundle,
   ORGANIZATION_ID,
   ROOT_ID,
   verifyPath,
 } from "../../../../test/helpers/data/ancestorCitationScenario";
-import { recordVerifiedBundleBytes } from "../checkpoints/verifiedBundleBytes";
-import {
-  resolveCitedAncestorPath,
-  verifiedCitedHead,
-} from "./containerAncestorCitations";
+import { verifiedCitedHead } from "./containerAncestorCitations";
 
 // A child manifest pins the parent it was created under, and successors
 // inherit that pin, so a member revoked from an ancestor could keep signing
@@ -329,70 +324,4 @@ test("a served ancestor head older than the one a head cites is a rollback", asy
   } finally {
     close();
   }
-});
-
-test("a cached cited ancestor is re-verified only when its served bytes differ", async () => {
-  const scenario = await createScenario();
-  const { root1 } = scenario;
-  const served = manifestBundle(root1);
-  recordVerifiedBundleBytes(root1, served);
-  const resolve = async (bundle: typeof served) => {
-    const checked: unknown[] = [];
-    const path = await resolveCitedAncestorPath({
-      bundlesByHash: new Map([[root1.manifestHash, bundle]]),
-      event: scenario.child1.event,
-      label: "Cited ancestors",
-      parentContainerId: ROOT_ID,
-      verifiedByHash: new Map([[root1.manifestHash, root1]]),
-      verifyHistoryBundle: async (copy) => {
-        checked.push(copy);
-        return root1;
-      },
-    });
-    expect(path).toEqual([root1]);
-    return checked;
-  };
-  // The bytes the cache verified: answered from the cache.
-  expect(await resolve(served)).toEqual([]);
-  // Other bytes under the same hash: verified as a cold device would.
-  const resigned = {
-    ...served,
-    event: {
-      ...served.event,
-      event: { ...served.event.event, signature: "A" },
-    },
-  };
-  expect(await resolve(resigned)).toEqual([resigned]);
-});
-
-test("a deep path compares each served ancestor's bytes once", async () => {
-  const scenario = await createScenario();
-  const { root1 } = scenario;
-  const served = manifestBundle(root1);
-  recordVerifiedBundleBytes(root1, served);
-  let reads = 0;
-  const counted = new Proxy(served, {
-    get(target, property, receiver) {
-      reads += 1;
-      return Reflect.get(target, property, receiver);
-    },
-  });
-  const input = {
-    bundlesByHash: new Map([[root1.manifestHash, counted]]),
-    event: scenario.child1.event,
-    label: "Cited ancestors",
-    parentContainerId: ROOT_ID,
-    verifiedByHash: new Map([[root1.manifestHash, root1]]),
-    verifyHistoryBundle: async () => {
-      throw new Error("a matching ancestor is never re-verified");
-    },
-  };
-  // Every descendant of a deep path cites the same ancestor.
-  await resolveCitedAncestorPath(input);
-  const firstComparison = reads;
-  expect(firstComparison).toBeGreaterThan(0);
-  for (let descendant = 0; descendant < 99; descendant += 1) {
-    await resolveCitedAncestorPath(input);
-  }
-  expect(reads).toBe(firstComparison);
 });

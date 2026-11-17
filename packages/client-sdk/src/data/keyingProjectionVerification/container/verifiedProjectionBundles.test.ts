@@ -200,3 +200,32 @@ test("a valid copy with different bytes verifies afresh from a warm cache", asyn
     for (const database of databases) database.close();
   }
 });
+
+test("a bundle changed while its signer resolves is neither verified nor stored", async () => {
+  const fixture = await createVerificationFixture();
+  const database = await createTestExecSql("verified-bundles-snapshot");
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  const live = structuredClone(leaf);
+  const original = toServedAccessManifestBundle(leaf);
+  try {
+    await verifyContainerWriterProjection({
+      execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
+      projection: { ...fixture.projection, path: [live] },
+      // The served object changes while verification awaits its signer.
+      resolveUserKey: async (userId) => {
+        Reflect.set(live.event.event, "signature", "AAAA");
+        return fixture.resolveUserKey(userId);
+      },
+    });
+    const stored = await loadVerifiedManifestCitations(
+      database.execSql,
+      target,
+    );
+    expect(stored).not.toContainEqual(toServedAccessManifestBundle(live));
+    expect(stored).not.toContainEqual(original);
+  } finally {
+    database.close();
+  }
+});

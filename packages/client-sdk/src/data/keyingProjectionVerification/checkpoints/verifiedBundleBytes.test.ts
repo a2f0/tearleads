@@ -38,7 +38,7 @@ function documentBundle() {
   };
 }
 
-test("a bundle changed after its comparison is stored as the bytes verification saw", async () => {
+test("a bundle changed after a successful comparison is not stored", async () => {
   const checkpoint: AccessManifestCheckpoint = {
     objectKind: "document",
     objectId: "document-1",
@@ -63,6 +63,14 @@ test("a bundle changed after its comparison is stored as the bytes verification 
     observeVerifiedProjectionBundles(
       context,
       new Map([[MANIFEST_HASH, live]]),
+      new Map([[MANIFEST_HASH, verified]]),
+    );
+    // Nothing remembers the earlier match: the changed bytes are compared
+    // again and refused, and nothing else is stored in their place.
+    expect(context.verifiedBundles).toEqual([]);
+    observeVerifiedProjectionBundles(
+      context,
+      new Map([[MANIFEST_HASH, documentBundle()]]),
       new Map([[MANIFEST_HASH, verified]]),
     );
     expect(context.verifiedBundles).toEqual([

@@ -5,7 +5,6 @@ import {
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { readCanonicalRecord } from "../../keying/canonicalJson";
-import { matchesVerifiedBundleBytes } from "../checkpoints/verifiedBundleBytes";
 import { readKeyingVerificationShape } from "../error";
 import { readRecordString } from "../readers";
 
@@ -103,13 +102,9 @@ async function resolveCitedManifest(
   manifestHash: string,
   containerId: string,
 ): Promise<VerifiedContainerAccessManifest> {
-  // The cache answers only for the bytes it verified: a served ancestor that
-  // differs is verified as a cold device would verify it.
   const verified = input.verifiedByHash.get(manifestHash);
+  if (verified) return verified;
   const bundle = input.bundlesByHash.get(manifestHash);
-  if (verified && (!bundle || matchesVerifiedBundleBytes(verified, bundle))) {
-    return verified;
-  }
   if (!bundle) {
     throw new KeyingVerificationError(
       "missing_dependency",

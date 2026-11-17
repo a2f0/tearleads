@@ -94,7 +94,17 @@ export async function verifyDocumentManifestBundle(input: {
     }
     return cached;
   }
+  // Verify and record one copy taken before the first await, so the bytes
+  // recorded as verified are exactly the bytes verified.
+  return verifyFreshDocumentManifestBundle({
+    ...input,
+    bundle: structuredClone(input.bundle),
+  });
+}
 
+async function verifyFreshDocumentManifestBundle(
+  input: Parameters<typeof verifyDocumentManifestBundle>[0],
+): Promise<VerifiedDocumentLinkSetManifest> {
   const event = await verifyAccessEventBundle(input);
   const manifest = readAccessManifest(
     input.bundle.manifest,
