@@ -81,7 +81,6 @@ async function recordStrandedDocumentFailure(execSql: ExecSql): Promise<void> {
     {
       attemptedAt: "2026-01-01T00:00:00.000Z",
       message: "Write access denied by the server (403)",
-      status: 403,
     },
   );
 }
