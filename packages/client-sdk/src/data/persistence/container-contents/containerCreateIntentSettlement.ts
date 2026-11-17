@@ -1,12 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import {
+  CONTAINER_CREATE_INTENT_TYPE,
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import {
-  CONTAINER_CREATE_INTENT_TYPE,
   CONTAINER_MOVE_INTENT_TYPE,
   type ContainerMoveIntentInput,
 } from "./containerContentsPersistenceTypes";

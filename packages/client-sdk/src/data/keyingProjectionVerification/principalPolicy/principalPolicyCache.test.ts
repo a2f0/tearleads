@@ -14,7 +14,10 @@ import {
 } from "../../../../test/helpers/policyCacheFixtures";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import {
+  openPrincipalPolicyBundleReader,
+  PrincipalPolicyBundleRepository,
+} from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { principalPolicyBundleContainsReference } from "../../principalContracts/principalPolicyStates";
 import {
   filterUncachedPrincipalPolicyReferences,
@@ -94,6 +97,7 @@ test("filterUncachedPrincipalPolicyReferences treats a reference with no stored 
 
     const uncached = await filterUncachedPrincipalPolicyReferences({
       execSql,
+      openPrincipalPolicyBundleReader,
       principalPolicyCache: EMPTY_CACHE,
       references: [reference],
     });
@@ -117,6 +121,7 @@ test("filterUncachedPrincipalPolicyReferences treats an exact currentState match
 
     const uncached = await filterUncachedPrincipalPolicyReferences({
       execSql,
+      openPrincipalPolicyBundleReader,
       principalPolicyCache: EMPTY_CACHE,
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
@@ -144,6 +149,7 @@ test("filterUncachedPrincipalPolicyReferences treats an exact previousStates mat
 
     const uncached = await filterUncachedPrincipalPolicyReferences({
       execSql,
+      openPrincipalPolicyBundleReader,
       principalPolicyCache: EMPTY_CACHE,
       references: [referencedPrincipalStateFromPolicyState(previousState)],
     });
@@ -173,6 +179,7 @@ test("filterUncachedPrincipalPolicyReferences re-warms when the stored bundle la
 
     const uncached = await filterUncachedPrincipalPolicyReferences({
       execSql,
+      openPrincipalPolicyBundleReader,
       principalPolicyCache: EMPTY_CACHE,
       references: [reference],
     });
@@ -200,6 +207,7 @@ test("filterUncachedPrincipalPolicyReferences treats an in-memory cache hit as c
 
     const uncached = await filterUncachedPrincipalPolicyReferences({
       execSql,
+      openPrincipalPolicyBundleReader,
       principalPolicyCache: cache,
       references: [reference],
     });
@@ -265,6 +273,7 @@ test("filterUncachedPrincipalPolicyReferences accepts an in-memory chain extendi
     await expect(
       filterUncachedPrincipalPolicyReferences({
         execSql,
+        openPrincipalPolicyBundleReader,
         principalPolicyCache: cache,
         references: [reference],
       }),
@@ -310,6 +319,7 @@ test("filterUncachedPrincipalPolicyReferences rejects an in-memory chain that co
     await expect(
       filterUncachedPrincipalPolicyReferences({
         execSql,
+        openPrincipalPolicyBundleReader,
         principalPolicyCache: cache,
         references: [reference],
       }),
@@ -350,6 +360,7 @@ test("filterUncachedPrincipalPolicyReferences re-warms a cache behind the durabl
     await expect(
       filterUncachedPrincipalPolicyReferences({
         execSql,
+        openPrincipalPolicyBundleReader,
         principalPolicyCache: EMPTY_CACHE,
         references: [reference],
       }),
@@ -395,6 +406,7 @@ test("filterUncachedPrincipalPolicyReferences uses retained history ahead of the
     await expect(
       filterUncachedPrincipalPolicyReferences({
         execSql,
+        openPrincipalPolicyBundleReader,
         principalPolicyCache: EMPTY_CACHE,
         references: [reference],
       }),

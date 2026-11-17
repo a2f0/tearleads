@@ -5,6 +5,7 @@ import {
   createProjectionCheckpointContext,
   observePrincipalPolicy,
 } from "../../src/data/keyingProjectionVerification/checkpoints/checkpointContext";
+import { openPrincipalPolicyBundleReader } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
@@ -107,6 +108,7 @@ export async function createNewerPolicyPurgeFixture() {
     if (!resolved) throw new Error("Missing current-policy resolver");
     const context = createProjectionCheckpointContext({
       execSql: f.options.execSql,
+      openPrincipalPolicyBundleReader,
       organizationId,
     });
     for (const policy of [...resolved.dependencies, resolved.policy])

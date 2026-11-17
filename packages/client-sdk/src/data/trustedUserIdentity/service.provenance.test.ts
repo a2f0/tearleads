@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createPin } from "../../../test/helpers/trustedUserIdentityPin";
 import { TrustedUserIdentityPinMismatchError } from "../persistence/identity/trustedUserIdentityPinModel";
 import { TrustedUserIdentityPinRepository } from "../persistence/identity/trustedUserIdentityPinRepository";
-import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
+import { DatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "./admission";
 import {
   identityLinkFixture,

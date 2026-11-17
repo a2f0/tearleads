@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { attachmentContentSha256 } from "../../../../data/blobs/attachmentContentIdentity";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
-import { attachmentContentSha256 } from "../../../../data/documents/attachmentContentIdentity";
 import {
   addDocumentAttachments,
   getDocumentAttachments,

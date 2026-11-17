@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
-import { DocumentContainerProjectionRepository as Links } from "../container-contents/documentContainerProjectionPersistence";
+import {
+  deleteContainerDocumentTombstonePlacementRows,
+  DocumentContainerProjectionRepository as Links,
+} from "../container-contents/documentContainerProjectionPersistence";
 import { DocumentDiscoveryEvidenceRepository } from "./documentDiscoveryEvidencePersistence";
 import {
   applyContainerDocumentTombstones,
@@ -94,6 +97,7 @@ test("tombstone apply runs in a fixed number of statements", async () => {
           linkedContainerIds: ["container-a"],
           updatedAt: "2026-10-30T01:00:00.000Z",
         })),
+        deleteContainerDocumentTombstonePlacementRows,
       ),
     );
     // One set update replaces the per-projection writes (was 11 + N).

@@ -48,6 +48,7 @@ reference.
 | Document discovery evidence | `DocumentDiscoveryEvidenceRepository(execSql, now)` | One per discovery pass, built by `discoverContainerDocumentLanesForRuntime` | None |
 | Principal mutation journal | `PrincipalMutationJournalRepository(execSql)` | Built from the caller's executor at each call | None |
 | Principal policy bundle storage | `PrincipalPolicyBundleRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Principal policy bundles read by verification | `OpenPrincipalPolicyBundleReader` (`openPrincipalPolicyBundleReader`), the host for Keying Verification's bundle reads | `openPrincipalPolicyBundleReader`, which builds `PrincipalPolicyBundleRepository` on the executor each read uses; every verifier caller passes it | None |
 | Trusted identity pin storage | `TrustedUserIdentityPinRepository(execSql)` | Built from the caller's executor at each call | None |
 | Document container projection | `DocumentContainerProjectionRepository(execSql, now)` | Built from the caller's executor (the transaction or locked handle inside a commit) at each call | None |
 | Organization read models | `OrganizationReadModelRepository(execSql, now)` | Built from the caller's executor at each call | None |
@@ -172,7 +173,9 @@ earn their ports.
 Do not wrap single-implementation code in an interface. Principal-policy
 persistence spans about thirteen modules with one SQLite implementation, and
 tests already run against in-memory SQLite; a store port there would add
-indirection without a second adapter.
+indirection without a second adapter. The verifier's bundle reader below is a
+host interface for dependency direction, not a store port, and it covers only
+the three reads verification makes.
 
 Do not replace a fake that exercises trust-boundary code. Tests that serve
 [policy pages](../principal-history-transport.md) from a `Bun.serve` fake run
@@ -197,6 +200,12 @@ needs a decision only an upper one can make. Recovery records acknowledged
 principal currents, but only the organization workflows that authored a
 mutation can check its receipt, so they pass those checks in as
 `PrincipalAcknowledgementChecks` rather than recovery importing them.
+
+Keying Verification reads cached principal policy bundles but sits below
+Principal Policy, so its callers pass `openPrincipalPolicyBundleReader` in.
+Verification opens the `PrincipalPolicyBundleReader` on the executor each read
+runs on, a locked transaction handle included, so every read keeps that
+executor's snapshot.
 
 State that a lower layer also writes lives in a neutral lower module, reached by
 upper layers through a [`workflows/`](../../packages/client-sdk/src/workflows/)

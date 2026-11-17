@@ -14,6 +14,7 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import type { ResolvedPrincipalPolicyEvidence } from "../../../data/keyingProjectionVerification/types";
 import type { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { PrincipalPolicyCurrentEvidence } from "../../../data/principalContracts/principalPolicyEvidence";
 import type { CurrentPolicyReferenceResolver } from "../../../data/principals/currentPolicyReferenceResolver";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
@@ -160,6 +161,7 @@ export async function rerootOnAuthoredPaths(
   const { rematerialization } = batch;
   await verifyContainerWriterProjection({
     execSql: rematerialization.execSql,
+    openPrincipalPolicyBundleReader,
     principalPolicyCache: batch.principalPolicyCache,
     projection: served,
     resolveUserKey: batch.resolveProjectionUserKey,

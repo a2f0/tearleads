@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import {
   nullOnProjectionVerificationCancellation,
@@ -37,6 +38,7 @@ test("principal verification recognizes expiry after one warming pass", async ()
     const verification = collectReferencedPrincipalPolicies({
       checkpointContext: createProjectionCheckpointContext({
         execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
       }),
       organizationId: "organization-1",
       principalPolicyCache: new Map(),
@@ -69,6 +71,7 @@ test("principal verification does not invoke a legacy warmer after expiry", asyn
     const verification = collectReferencedPrincipalPolicies({
       checkpointContext: createProjectionCheckpointContext({
         execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
       }),
       organizationId: "organization-1",
       principalPolicyCache: new Map(),

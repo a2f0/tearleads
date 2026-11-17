@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
-import { DatabaseUnavailableError } from "../../../data/sync/databaseUnavailable";
+import { DatabaseUnavailableError } from "../../../data/sqlite/availability/databaseUnavailable";
 import { collectHydrationResults } from "./hydrationResults";
 
 test("attachment failures preserve successes and report each integrity failure", async () => {

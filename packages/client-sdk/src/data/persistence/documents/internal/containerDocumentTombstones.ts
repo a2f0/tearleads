@@ -11,12 +11,8 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
-import {
-  deleteDocumentPlacementRowsInTransaction,
-  deleteUnlinkedDocumentPlacementRowsInTransaction,
-} from "../../container-contents/documentContainerProjectionPersistence";
-import { filterWritableDocumentPlacements } from "../../container-contents/documentPlacement";
 import { getLatestTimestamp } from "../../latestTimestamp";
+import { filterWritableDocumentPlacements } from "../documentPlacement";
 import type { ContainerDocumentTombstoneInput } from "../types";
 import { deleteContainerDocumentTombstoneHoldRows } from "./containerDocumentTombstoneHolds";
 import {
@@ -82,25 +78,18 @@ function buildContainerDocumentTombstoneState(
 }
 
 /**
- * Remove the tombstoned placement and, with the head now verified, every
- * remaining local link row the head does not link: those are listing-seeded
- * rows, and leaving one would keep showing the document in a container the
- * signed link set never named. Rows the head links are kept as they are.
+ * Container Contents owns the link rows: it removes the tombstoned placement
+ * and, with the head now verified, every remaining local link row the head
+ * does not link, inside the tombstone transaction.
  */
-async function deleteContainerDocumentTombstoneRows(
+export type ContainerDocumentTombstonePlacementRemoval = (
   tx: ClientSQLiteTransactionScope,
-  uniqueTombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
+  tombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
   verifiedLinkedContainerIdsByDocumentId: ReadonlyMap<
     string,
     ReadonlySet<string>
   >,
-): Promise<void> {
-  await deleteDocumentPlacementRowsInTransaction(tx, uniqueTombstones);
-  await deleteUnlinkedDocumentPlacementRowsInTransaction(
-    tx,
-    verifiedLinkedContainerIdsByDocumentId,
-  );
-}
+) => Promise<void>;
 
 /**
  * The primary container after a removal: the first remaining local row the
@@ -320,6 +309,7 @@ async function loadChangedDocumentSummaries(
 export async function applyContainerDocumentTombstonesWithExec(
   execSql: ExecSql,
   tombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
+  removePlacementRows: ContainerDocumentTombstonePlacementRemoval,
 ) {
   const uniqueTombstones = dedupeContainerDocumentTombstones(tombstones);
   if (uniqueTombstones.length === 0) {
@@ -349,7 +339,7 @@ export async function applyContainerDocumentTombstonesWithExec(
       tombstoneUpdatedAtByDocumentId,
       verifiedLinkedContainerIdsByDocumentId,
     } = buildContainerDocumentTombstoneState(applicable);
-    await deleteContainerDocumentTombstoneRows(
+    await removePlacementRows(
       tx,
       applicable,
       verifiedLinkedContainerIdsByDocumentId,

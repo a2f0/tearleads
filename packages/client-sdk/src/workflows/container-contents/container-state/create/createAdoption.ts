@@ -11,6 +11,7 @@ import {
   isKeyingVerificationError,
   reportKeyingVerificationErrorInCauseChain,
 } from "../../../../data/keyingProjectionVerification/error";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { errorMessage } from "../../../../data/shared/errorMessage";
 
 import type { ContainerState } from "../../remoteHydration";
@@ -62,6 +63,7 @@ async function verifyAdoptableProjection(input: {
   }
   const { path, verifiedByHash } = await verifyContainerDestinationProjection({
     execSql: input.state.runtime.infra.execSql,
+    openPrincipalPolicyBundleReader,
     projection,
     resolveUserKey: input.state.resolveProjectionUserKey,
     warmReferencedPrincipalPolicies:

@@ -11,6 +11,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   verifyContainerWriterProjection,
 } from "../../../../data/keyingProjectionVerification";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principalContracts/principalPolicyEvidence";
 import type { CurrentPolicyReferenceResolver } from "../../../../data/principals/currentPolicyReferenceResolver";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
@@ -106,6 +107,7 @@ export async function planCarriedDescendantRekey(
   // its own batch after the server had committed it.
   await verifyContainerWriterProjection({
     execSql: input.execSql,
+    openPrincipalPolicyBundleReader,
     principalPolicyCache: input.principalPolicyCache,
     projection: input.served,
     resolveUserKey: input.resolveProjectionUserKey,

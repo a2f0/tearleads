@@ -4,6 +4,7 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/document
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("purge does not commit its proof outside atomic local teardown", async () => {
   const { author, resolveProjectionUserKey, writerProjection } =
@@ -44,6 +45,7 @@ test("purge does not commit its proof outside atomic local teardown", async () =
     await expect(
       verifyDocumentWriterProjection({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection: writerProjection,
         resolveUserKey: resolveProjectionUserKey,
       }),

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
 import { collectPrincipalPolicySignerPublicKeys } from "../../workflows/principals/policyVerification";
 import { runWithSecurityIncidentReporting } from "../keyingProjectionVerification/error";
-import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
+import { DatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import {
   createApiUserIdentitySource,
   createTrustedUserIdentityService,
