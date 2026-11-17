@@ -4,6 +4,7 @@ import {
   requireProjectionUserKeyResolver,
   verifyDocumentWriterProjectionAuthorization,
 } from "../../../data/keyingProjectionVerification";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { RemoteDocumentSyncPass } from "../sync/remoteDocumentSyncPass";
 
 /** A repair refusal on one link does not revoke write access through another. */
@@ -15,6 +16,7 @@ export async function hasOtherLinkedWriteAccess(
   if (projection.authorizingContainerPaths.length < 2) return false;
   const verified = await verifyDocumentWriterProjectionAuthorization({
     execSql: sync.execSql,
+    openPrincipalPolicyBundleReader,
     persistVerificationCheckpoints: false,
     projection,
     resolveUserKey: requireProjectionUserKeyResolver(

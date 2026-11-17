@@ -22,6 +22,7 @@ import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trust
 import { buildMaterializedDocumentCreatePlan } from "../../../../workflows/documents/create";
 import { verifyDocumentWriterProjection } from "../../../keyingProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../../persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("document dependency evidence cannot hide a newer container head", async () => {
   const revokedUserId = "revoked-user";
@@ -105,6 +106,7 @@ test("document dependency evidence cannot hide a newer container head", async ()
     await expect(
       verifyDocumentWriterProjection({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection,
         resolveUserKey: async (userId) => {
           if (userId === parent.userId) {

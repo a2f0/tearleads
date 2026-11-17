@@ -5,6 +5,7 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyPageResponse,
 } from "@tearleads/validators/response";
+import { openPrincipalPolicyBundleReader } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import {
   organizationHistoryFixtureFrom,
@@ -193,6 +194,7 @@ export async function createAuthorityRecoveryFixture(
     options: {
       historyReader: apiClient,
       execSql: sqlite.execSql,
+      openPrincipalPolicyBundleReader,
       organizationId: history.organizationId,
       reference: principalPolicyHead(history.group),
       protection: {

@@ -31,7 +31,10 @@ import { unwrapDocumentSyncResponseContentKeys } from "../../../workflows/docume
 
 import { createProjectionCheckpointContext } from "../../keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../keyingProjectionVerification/principalPolicy/principalPolicyVerification";
-import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import {
+  openPrincipalPolicyBundleReader,
+  PrincipalPolicyBundleRepository,
+} from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { decryptDocumentSyncUpdatesByEpoch } from "./crypto";
 
 async function managedGrantFixture(input: {
@@ -133,7 +136,10 @@ for (const grantKind of ["user", "group"] as const) {
             resolveTrustedUserIdentity: managed.resolveTrustedUserIdentity,
           });
         const [verifiedPolicy] = await collectReferencedPrincipalPolicies({
-          checkpointContext: createProjectionCheckpointContext({ execSql }),
+          checkpointContext: createProjectionCheckpointContext({
+            execSql,
+            openPrincipalPolicyBundleReader,
+          }),
           organizationId: ORGANIZATION_ID,
           principalPolicyCache: new Map(),
           references: [principalPolicyHead(managed.policies.current)],
@@ -257,7 +263,10 @@ test("an interrupted client warms a rotated-group policy and recovers in the sam
         resolveTrustedUserIdentity,
       });
     const [verifiedPolicy] = await collectReferencedPrincipalPolicies({
-      checkpointContext: createProjectionCheckpointContext({ execSql }),
+      checkpointContext: createProjectionCheckpointContext({
+        execSql,
+        openPrincipalPolicyBundleReader,
+      }),
       organizationId: ORGANIZATION_ID,
       principalPolicyCache: new Map(),
       references: [principalPolicyHead(policies.current)],

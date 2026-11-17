@@ -20,6 +20,7 @@ import { createProjectionCheckpointContext } from "../../src/data/keyingProjecti
 import { verifyContainerManifestPath } from "../../src/data/keyingProjectionVerification/container/containerPathVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 // A child manifest pins the parent it was created under, and successors
@@ -237,7 +238,10 @@ export function verifyPath(
     bundlesByHash: new Map(
       input.bundles.map((value) => [value.manifestHash, manifestBundle(value)]),
     ),
-    checkpointContext: createProjectionCheckpointContext({ execSql }),
+    checkpointContext: createProjectionCheckpointContext({
+      execSql,
+      openPrincipalPolicyBundleReader,
+    }),
     enforceLocalCheckpoints: true,
     label: "Ancestor citation path",
     path: input.path.map(manifestBundle),

@@ -4,6 +4,7 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/document
 import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeChain";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { verifyDocumentWriterProjection } from "../document/documentProjectionVerification";
 import { runWithSecurityIncidentReporting } from "../error";
 
@@ -28,6 +29,7 @@ test("complete purge history conflicting with a local pin records an incident wi
   try {
     await verifyDocumentWriterProjection({
       execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
       projection: original.writerProjection,
       resolveUserKey,
     });

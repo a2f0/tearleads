@@ -27,11 +27,6 @@
     "packages/client-sdk/src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence.ts",
     "packages/client-sdk/src/data/persistence/keyingCheckpoints/organizationReplacementCheckpointPersistence.ts"
   ],
-  "packages/client-sdk/src/data/persistence/principalPolicy/principalPolicyBundleRepository.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/documentPurge/documentPurgeCheckpointCurrency.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts"
-  ],
   "packages/client-sdk/src/data/principals/organizationAuthorityDescriptor.ts": [
     "packages/client-sdk/src/data/keyingProjectionVerification/documentPurge/documentPurgePrincipalEvidence.ts",
     "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/mergeProjectionPolicyEvidence.ts",

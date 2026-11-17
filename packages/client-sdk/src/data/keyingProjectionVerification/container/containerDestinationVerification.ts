@@ -13,6 +13,7 @@ import {
 import { verifyProjectionAuthorizationEvidence } from "../principalPolicy/projectionAuthorizationEvidence";
 import { projectionLifetimeGuard } from "../projectionLifetimes";
 import type {
+  OpenPrincipalPolicyBundleReader,
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../types";
@@ -23,6 +24,7 @@ import { addContainerWriterProjectionBundles } from "./containerProjectionVerifi
 /** Authenticate immutable destination roles without advancing write-authority pins. */
 export async function verifyContainerDestinationProjection(input: {
   readonly execSql: ExecSql;
+  readonly openPrincipalPolicyBundleReader: OpenPrincipalPolicyBundleReader;
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly stillCurrent?: (() => boolean) | undefined;
@@ -43,6 +45,7 @@ export async function verifyContainerDestinationProjection(input: {
   const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
   const checkpointContext = createProjectionCheckpointContext({
     execSql: input.execSql,
+    openPrincipalPolicyBundleReader: input.openPrincipalPolicyBundleReader,
     organizationId: input.projection.organizationId,
   });
   const principalPolicyCache = new Map();
