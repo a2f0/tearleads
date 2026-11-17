@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { loadTrustedUserIdentityPin } from "../persistence/trustedUserIdentityPinPersistence";
+import { TrustedUserIdentityPinRepository } from "../persistence/identity/trustedUserIdentityPinRepository";
 import {
   identityLinkFixture,
   LINK_TRUST_DOMAIN,
@@ -111,8 +111,9 @@ for (const key of ["signing", "encapsulation", "both"] as const) {
       expect(used).toBe(false);
       expect(invalidations).toBe(1);
       expect(
-        await loadTrustedUserIdentityPin({
+        await new TrustedUserIdentityPinRepository(
           execSql,
+        ).loadTrustedUserIdentityPin({
           identityTrustDomain: LINK_TRUST_DOMAIN,
           userId: LINK_USER_ID,
         }),
@@ -146,8 +147,9 @@ test("a valid link never overwrites a conflicting TOFU pin", async () => {
       "Trusted user identity changed",
     );
     expect(
-      await loadTrustedUserIdentityPin({
+      await new TrustedUserIdentityPinRepository(
         execSql,
+      ).loadTrustedUserIdentityPin({
         identityTrustDomain: LINK_TRUST_DOMAIN,
         userId: LINK_USER_ID,
       }),
@@ -213,8 +215,9 @@ test("foreign-service links fail before fetching; missing and changed-runtime id
       "active identity changed",
     );
     expect(
-      await loadTrustedUserIdentityPin({
+      await new TrustedUserIdentityPinRepository(
         execSql,
+      ).loadTrustedUserIdentityPin({
         identityTrustDomain: LINK_TRUST_DOMAIN,
         userId: LINK_USER_ID,
       }),

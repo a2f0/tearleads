@@ -51,8 +51,12 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
-import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import {
+  type ContainerRotationBag,
+  type ContainerRotationCollaborators,
+  containerRotationBag,
+} from "../containerMutationCollaborators";
 import { buildContainerRotationArtifacts } from "./move/moveRotation";
 import {
   containerMutationRequestCore,
@@ -310,22 +314,21 @@ export async function buildMaterializedContainerRevokePlan(input: {
   });
 }
 
-interface RevokeRemoteContainerInput {
-  reportSecurityIncident: SecurityIncidentReporter;
-  apiClient: ContainerRevokeApi;
+export interface RevokeRemoteContainerRequest {
   author: ContainerMutationAuthor;
   containerId: string;
   eventId?: string | undefined;
-  execSql: ExecSql;
   revokedSubject: ContainerRevokeSubject;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
-  targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }
 
-type RevokedRemoteContainer = {
+type RevokeRemoteContainerInput = RevokeRemoteContainerRequest &
+  ContainerRotationBag<ContainerRevokeApi>;
+
+export type RevokedRemoteContainer = {
   containerKey: Uint8Array;
   plan: ContainerRevokePlan;
   response: ContainerRotationResponse;
@@ -474,8 +477,10 @@ async function revokeRemoteContainerAttempt(
 
 /** A concurrent mutation can advance the path while a revoke is in flight. */
 export async function revokeRemoteContainer(
-  input: RevokeRemoteContainerInput,
+  collaborators: ContainerRotationCollaborators<ContainerRevokeApi>,
+  request: RevokeRemoteContainerRequest,
 ): Promise<RevokedRemoteContainer | null> {
+  const input = { ...request, ...containerRotationBag(collaborators) };
   if (input.stillCurrent?.() === false) return null;
   const first = await revokeRemoteContainerAttempt(input, true);
   if (first !== STALE_PATH) return first;

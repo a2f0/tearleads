@@ -108,10 +108,11 @@ export interface AppHostFeatureFlags {
   /**
    * Ask "What should we call you?" before the first registration of an
    * identity the autopilot generated, and use the answer for the personal
-   * org ("Bob's Org") and the self contact's nickname. Registration waits for
-   * the answer, and every mini-app behind the keyring gate shows the prompt
-   * meanwhile. Only applies with {@link autoGenerateIdentity} and
-   * {@link autoRegisterIdentity}; the demo names its peers itself.
+   * org ("Bob's Org"), the account's own roster entry, and the self contact's
+   * nickname. Registration waits for the answer, and every mini-app behind
+   * the keyring gate shows the prompt meanwhile. Only applies with
+   * {@link autoGenerateIdentity} and {@link autoRegisterIdentity}; the demo
+   * names its peers itself.
    */
   readonly promptAccountName: boolean;
   /**

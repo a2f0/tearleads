@@ -12,7 +12,7 @@ import {
   projectionPolicySource,
 } from "../../../../test/helpers/projectionPolicyHistory";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
-import { retainLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/persistence/principalPolicy/locallyAcknowledgedPrincipalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { recoverPublicPrincipalHistory } from "../../principals/publicHistory/recoverPublicPrincipalHistory";
 import { preparePrincipalContainerRematerializationBatch } from "./principalContainerRematerialization";
 
@@ -74,30 +74,30 @@ test("a container skipped as deleted during rotation cannot reappear under its o
       },
     ]) {
       await expect(
-        retainLocallyAcknowledgedPrincipalPolicyBundles({
+        new PrincipalPolicyBundleRepository(
+          fixture.database.execSql,
+        ).retainLocallyAcknowledgedPrincipalPolicyBundles({
           entries: [
             { bundle: fixture.nextBundle, policy: fixture.input.nextPolicy },
           ],
-          execSql: fixture.database.execSql,
           organizationId: ORGANIZATION_ID,
           retiredContainers,
-          updatedAt: new Date().toISOString(),
         }),
       ).rejects.toThrow("Retirement must match");
       await verify();
     }
-    await retainLocallyAcknowledgedPrincipalPolicyBundles({
+    await new PrincipalPolicyBundleRepository(
+      fixture.database.execSql,
+    ).retainLocallyAcknowledgedPrincipalPolicyBundles({
       entries: [
         { bundle: fixture.nextBundle, policy: fixture.input.nextPolicy },
       ],
-      execSql: fixture.database.execSql,
       organizationId: ORGANIZATION_ID,
       retiredContainers: {
         containerIds: prepared.retiredContainerIds,
         organizationId: ORGANIZATION_ID,
         policy: fixture.input.nextPolicy,
       },
-      updatedAt: new Date().toISOString(),
     });
     await prepared.acknowledge(
       await Promise.all(

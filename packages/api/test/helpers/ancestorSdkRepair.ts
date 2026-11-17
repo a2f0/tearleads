@@ -1,4 +1,5 @@
 import {
+  ContainerMutationService,
   cacheReferencedPrincipalPolicies,
   syncRemoteDocument,
   validateDocumentSyncUpdateImports,
@@ -44,10 +45,19 @@ type AncestorSdkCommon = Pick<
   | "warmReferencedPrincipalPolicies"
 > & { apiClient: ReturnType<typeof createRouteSdkClient> };
 
+/** What every container mutation this actor signs carries per call. */
+type AncestorMutationRequest = Pick<
+  AncestorSdkCommon,
+  "author" | "resolveProjectionUserKey" | "warmReferencedPrincipalPolicies"
+>;
+
 interface AncestorSdkContext {
   readonly close: () => void;
   readonly execSql: Parameters<typeof syncRemoteDocument>[0]["execSql"];
   readonly common: AncestorSdkCommon;
+  /** Bound to `common`'s API client, executor, and secret key. */
+  readonly containers: ContainerMutationService;
+  readonly mutation: AncestorMutationRequest;
   readonly postMutation: (
     path: string,
     request: ContainerMutationRequest,
@@ -161,7 +171,24 @@ export async function createAncestorSdkContext(
         }),
     }),
   };
-  return { ...database, common, postMutation, resolveTrustedUserIdentity };
+  return {
+    ...database,
+    common,
+    containers: new ContainerMutationService({
+      api: apiClient,
+      encapsulationSecretKey: common.targetSecretKey,
+      execSql: common.execSql,
+      reportSecurityIncident: async () => undefined,
+      resolveTrustedUserIdentity,
+    }),
+    mutation: {
+      author: common.author,
+      resolveProjectionUserKey: common.resolveProjectionUserKey,
+      warmReferencedPrincipalPolicies: common.warmReferencedPrincipalPolicies,
+    },
+    postMutation,
+    resolveTrustedUserIdentity,
+  };
 }
 
 export async function editColdDocumentAfterAncestorRotation(input: {

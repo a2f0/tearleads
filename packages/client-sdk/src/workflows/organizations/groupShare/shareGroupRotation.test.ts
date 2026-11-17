@@ -27,11 +27,7 @@ import {
 } from "../../../../test/helpers/projectionPolicyHistory";
 import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
-import {
-  ensurePrincipalPolicyTables,
-  loadPrincipalPolicyBundle,
-  savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { containerStateHasCurrentGroupGrant } from "../../container-contents/container-state/share/groupGrantVerification";
 import type { ContainerWorkflowRuntime } from "../../container-contents/container-state/types";
 import type { ContainerState } from "../../container-contents/remoteHydration";
@@ -123,13 +119,12 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
   );
 
   try {
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      epochOnePolicy,
-      "2026-04-28T12:00:30.000Z",
-      ORGANIZATION_ID,
-    );
+    ).ensurePrincipalPolicyTables();
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).savePrincipalPolicyBundle(epochOnePolicy, ORGANIZATION_ID);
     await unwrapContainerKekPath({
       execSql,
       warmReferencedPrincipalPolicies: projectionPolicyWarmer({
@@ -251,11 +246,9 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
         },
       ],
     };
-    const cachedPolicy = await loadPrincipalPolicyBundle(
+    const cachedPolicy = await new PrincipalPolicyBundleRepository(
       execSql,
-      "group",
-      ADMIN_GROUP_ID,
-    );
+    ).loadPrincipalPolicyBundle("group", ADMIN_GROUP_ID);
     expect(cachedPolicy?.currentState.keyEpoch).toBe(2);
     expect(cachedPolicy?.currentState.keyFingerprint).toBe(
       epochTwoPolicy.currentState.keyFingerprint,
@@ -346,13 +339,12 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
   );
 
   try {
-    await ensurePrincipalPolicyTables(warmDatabase.execSql);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       warmDatabase.execSql,
-      epochOnePolicy,
-      "2026-04-28T12:00:30.000Z",
-      ORGANIZATION_ID,
-    );
+    ).ensurePrincipalPolicyTables();
+    await new PrincipalPolicyBundleRepository(
+      warmDatabase.execSql,
+    ).savePrincipalPolicyBundle(epochOnePolicy, ORGANIZATION_ID);
     const rekeyed = await buildMaterializedContainerRekeyPlan({
       author,
       execSql: warmDatabase.execSql,
@@ -384,13 +376,12 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
       ],
     };
 
-    await ensurePrincipalPolicyTables(coldDatabase.execSql);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       coldDatabase.execSql,
-      epochTwoPolicy,
-      "2026-04-28T12:02:30.000Z",
-      ORGANIZATION_ID,
-    );
+    ).ensurePrincipalPolicyTables();
+    await new PrincipalPolicyBundleRepository(
+      coldDatabase.execSql,
+    ).savePrincipalPolicyBundle(epochTwoPolicy, ORGANIZATION_ID);
     const coldKeks = await unwrapContainerKekPath({
       execSql: coldDatabase.execSql,
       warmReferencedPrincipalPolicies: projectionPolicyWarmer({

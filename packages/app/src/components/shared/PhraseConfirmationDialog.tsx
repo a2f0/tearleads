@@ -12,6 +12,7 @@ import {
   MiniAppInput,
   MiniAppModalBackdrop,
   MiniAppModalForm,
+  MiniAppModalHighlight,
   MiniAppModalPanel,
   MiniAppStatus,
 } from "../mini-app/MiniAppLayout";
@@ -90,11 +91,8 @@ export function PhraseConfirmationDialog({
           </p>
           <MiniAppField htmlFor={inputId}>
             <span>
-              Type{" "}
-              <span className="phrase-confirmation-dialog-phrase">
-                {phrase}
-              </span>{" "}
-              to continue
+              Type <MiniAppModalHighlight>{phrase}</MiniAppModalHighlight> to
+              continue
             </span>
             <MiniAppInput
               disabled={busy}

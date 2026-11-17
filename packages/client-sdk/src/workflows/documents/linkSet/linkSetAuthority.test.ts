@@ -10,10 +10,10 @@ import {
   createResponse,
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { buildMaterializedDocumentCreatePlan } from "../create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";
-import { relinkRemoteDocument } from "./linkSetRemote";
 
 async function createFixture(
   accessLevel: "read" | "write",
@@ -83,15 +83,18 @@ async function expectRemoteRefusal(
 ) {
   const failures: (number | null)[] = [];
   const input = fixture.input;
-  const result = await relinkRemoteDocument({
-    ...input,
-    apiClient: createMockApiClient({
+  const result = await createRemoteDocumentServiceFixture({
+    api: createMockApiClient({
       getContainerWriterProjection: async () => input.targetContainerProjection,
       getDocumentWriterProjection: async () => input.writerProjection,
       linkDocument: async () => {
         throw new Error("Unauthorized link was submitted");
       },
     }),
+    encapsulationSecretKey: input.targetSecretKey,
+    execSql: input.execSql,
+  }).relinkRemoteDocument({
+    ...input,
     documentId: input.writerProjection.documentId,
     targetContainerId: input.targetContainerProjection.containerId,
     onFailure: (failure) => {

@@ -7,7 +7,7 @@ import {
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/policyCacheFixtures";
 import { trustedUserIdentityFromResponse } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { cachePrincipalPolicyBundles } from "./index";
 
 test("principal policy cache preserves trusted identity integrity failures", async () => {
@@ -34,7 +34,10 @@ test("principal policy cache preserves trusted identity integrity failures", asy
       }),
     ).rejects.toBe(integrityError);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -73,7 +76,10 @@ test("principal policy cache reports integrity failures that expire the generati
     ).rejects.toBe(integrityError);
     expect(incidents).toEqual([integrityError]);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -110,7 +116,10 @@ test("principal policy cache preserves foreign-instance integrity failures", asy
       }),
     ).rejects.toBe(foreignInstanceError);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -156,7 +165,10 @@ test("API-supplied policy bundles hard-fail when signed permissions are tampered
       name: "KeyingVerificationError",
     });
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();

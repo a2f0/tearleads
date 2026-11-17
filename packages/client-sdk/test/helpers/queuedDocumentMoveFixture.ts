@@ -20,11 +20,9 @@ import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { syncPendingDocumentMoveIntents } from "../../src/workflows/container-contents/documentMove/documentMoveIntentSync";
 import type { DocumentStructuralMutationRelinkInput } from "../../src/workflows/container-contents/documentQueries/documentStructure";
 import type { ContainerContentsWorkflowRuntime } from "../../src/workflows/container-contents/runtime";
-import {
-  defaultDocumentsPersistence,
-  relinkRemoteDocument,
-} from "../../src/workflows/documents";
+import { defaultDocumentsPersistence } from "../../src/workflows/documents";
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
+import { RemoteDocumentService } from "../../src/workflows/documents/remote/remoteDocumentService";
 import { createRuntimePrincipalPolicyWarmer } from "../../src/workflows/principals/runtimePolicyWarmer";
 import { createAuthor, createResponse } from "./documentFixtures";
 import { queuedDocumentMoveLocalState } from "./queuedDocumentMoveLocalState";
@@ -374,14 +372,17 @@ export async function runQueuedDocumentMoveFixture(input: {
       linkFailuresRemaining = 0;
       unlinkFailuresRemaining = 0;
       const preLinkFailures: string[] = [];
+      const remoteDocuments = new RemoteDocumentService({
+        api: runtime.apiClient,
+        encapsulationSecretKey: keyPair.secretKey,
+        execSql,
+      });
       for (const operation of (input.remoteUnlinkSource
         ? ["link", "unlink"]
         : ["link"]) as ("link" | "unlink")[]) {
-        const linked = await relinkRemoteDocument({
-          apiClient: runtime.apiClient,
+        const linked = await remoteDocuments.relinkRemoteDocument({
           author,
           documentId,
-          execSql,
           onFailure: (failure) => {
             preLinkFailures.push(`${failure.message} (${failure.status})`);
           },
@@ -392,7 +393,6 @@ export async function runQueuedDocumentMoveFixture(input: {
             operation === "link"
               ? extraProjection.containerId
               : rootProjection.containerId,
-          targetSecretKey: keyPair.secretKey,
           warmReferencedPrincipalPolicies:
             createRuntimePrincipalPolicyWarmer(runtime),
         });

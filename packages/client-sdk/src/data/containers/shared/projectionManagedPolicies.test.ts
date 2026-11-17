@@ -32,10 +32,7 @@ import { createProjectionPolicyEvidence } from "../../../../test/helpers/project
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
 import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
-import {
-  ensurePrincipalPolicyTables,
-  savePrincipalPolicyBundle,
-} from "../../persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 
 async function createGroupPrincipalPolicyBundle(input: {
   memberRecipientPublicKeys: Array<{
@@ -343,13 +340,12 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
   );
 
   try {
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      groupBundle,
-      "2026-04-28T12:01:00.000Z",
-      parent.author.organizationId,
-    );
+    ).ensurePrincipalPolicyTables();
+    await new PrincipalPolicyBundleRepository(
+      execSql,
+    ).savePrincipalPolicyBundle(groupBundle, parent.author.organizationId);
 
     const groupMemberKeks = await unwrapContainerKekPath({
       execSql,

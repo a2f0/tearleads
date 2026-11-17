@@ -17,6 +17,7 @@ import {
   createResponse,
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import {
@@ -25,7 +26,6 @@ import {
 } from "../../containers/child/create";
 import { buildMaterializedContainerSharePlan } from "../../containers/child/share/shareMaterialization";
 import { buildMaterializedDocumentCreatePlan } from "../create";
-import { relinkRemoteDocument } from "./linkSetRemote";
 
 test("a child-only writer relinks an attachment without the parent secret", async () => {
   const root = await createParentProjection();
@@ -150,13 +150,8 @@ test("a child-only writer relinks an attachment without the parent secret", asyn
     });
     try {
       let submitted = false;
-      const linked = await relinkRemoteDocument({
-        ...authorInput,
-        execSql: fixture.execSql,
-        documentId: created.id,
-        operation: "link",
-        targetContainerId: target.containerId,
-        apiClient: createMockApiClient({
+      const linked = await createRemoteDocumentServiceFixture({
+        api: createMockApiClient({
           getContainerWriterProjection: async () => target,
           getDocumentWriterProjection: async () => writerProjection,
           listDocumentAttachments: async () => [createFixtureBinding(fixture)],
@@ -171,6 +166,13 @@ test("a child-only writer relinks an attachment without the parent secret", asyn
             return createLinkSetResponseFromRequest(documentId, request);
           },
         }),
+        encapsulationSecretKey: authorInput.targetSecretKey,
+        execSql: fixture.execSql,
+      }).relinkRemoteDocument({
+        ...authorInput,
+        documentId: created.id,
+        operation: "link",
+        targetContainerId: target.containerId,
       });
       expect(linked).not.toBeNull();
       expect(submitted).toBe(true);

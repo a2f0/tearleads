@@ -1,6 +1,6 @@
 import type { ContainerAccessManifestState } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
@@ -20,11 +20,9 @@ type Input = Omit<
 export function createGroupMetadataContainerVerifier(input: Input) {
   return async (state: ContainerAccessManifestState): Promise<void> => {
     assertProjectionVerificationCurrent(input.stillCurrent);
-    const cached = await loadPrincipalPolicyBundle(
+    const cached = await new PrincipalPolicyBundleRepository(
       input.execSql,
-      "organization",
-      input.organizationId,
-    );
+    ).loadPrincipalPolicyBundle("organization", input.organizationId);
     let authority = await loadGroupNameDirectoryAuthority({
       ...input,
       organizationPolicyReference: cached

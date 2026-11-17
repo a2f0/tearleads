@@ -1,12 +1,6 @@
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
-import {
-  holdContainerDocumentTombstones,
-  listKnownContainerDocumentPlacements,
-  listRetryableHeldContainerDocumentTombstones,
-  loadLocalDocumentAccessEpoch,
-  refuteContainerDocumentTombstoneHolds,
-} from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
+import { ContainerDocumentTombstoneHoldRepository } from "../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { getOrCreateOrganizationSyncPauses } from "../../data/sync/organizationSyncPauses";
 import { listContainerDocumentLanesFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
@@ -55,6 +49,7 @@ function createDiscoveryLane(input: {
     typeof createDocumentDiscoveryEvidenceStore
   >;
   readonly execSql: ExecSql;
+  readonly holdRepository: ContainerDocumentTombstoneHoldRepository;
   /** The discovery pass's token: its lanes share one directory discovery. */
   readonly policyOperation: PrincipalPolicyOperation;
   readonly queries: ReturnType<
@@ -63,7 +58,8 @@ function createDiscoveryLane(input: {
   readonly request: ContainerDocumentDiscoveryRequest;
   readonly runtime: ContainerContentsWorkflowRuntime;
 }): ContainerDocumentDiscoveryLane {
-  const { containerOrganizationId, execSql, request, runtime } = input;
+  const { containerOrganizationId, execSql, holdRepository, request, runtime } =
+    input;
   const warmReferencedPrincipalPolicies = createRuntimePrincipalPolicyWarmer(
     runtime,
     { operation: input.policyOperation },
@@ -74,7 +70,7 @@ function createDiscoveryLane(input: {
     input.policyOperation,
   );
   const loadEpoch = (documentId: string) =>
-    loadLocalDocumentAccessEpoch(execSql, documentId);
+    holdRepository.loadLocalDocumentAccessEpoch(documentId);
   return {
     ...input.queries,
     cacheReferencedPrincipalPolicies: (references) =>
@@ -86,14 +82,14 @@ function createDiscoveryLane(input: {
         : Promise.resolve(),
     containerId: request.containerId,
     holdContainerDocumentTombstones: (tombstones) =>
-      holdContainerDocumentTombstones(execSql, tombstones),
+      holdRepository.holdContainerDocumentTombstones(tombstones),
     listHeldContainerDocumentTombstones: (containerIds) =>
-      listRetryableHeldContainerDocumentTombstones(execSql, containerIds),
+      holdRepository.listRetryableHeldContainerDocumentTombstones(containerIds),
     listKnownContainerDocumentPlacements: (placements) =>
-      listKnownContainerDocumentPlacements(execSql, placements),
+      holdRepository.listKnownContainerDocumentPlacements(placements),
     onFullListing: request.onFullListing,
     refuteContainerDocumentTombstoneHolds: (placements) =>
-      refuteContainerDocumentTombstoneHolds(execSql, placements),
+      holdRepository.refuteContainerDocumentTombstoneHolds(placements),
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
       containerOrganizationId,
       loadHead,
@@ -141,6 +137,7 @@ export async function discoverContainerDocumentLanesForRuntime({
   const runtime = createContainerContentsWorkflowRuntime(input);
   const execSql = input.infra.execSql;
   const evidenceStore = createDocumentDiscoveryEvidenceStore(execSql);
+  const holdRepository = new ContainerDocumentTombstoneHoldRepository(execSql);
   const queries = createContainerDocumentQueriesFromRuntime(runtime);
   // Capture the reset fence before reading any lane's scope, so a reset
   // between these reads and the listing cannot publish old-organization
@@ -171,6 +168,7 @@ export async function discoverContainerDocumentLanesForRuntime({
           isContainerPaused,
           evidenceStore,
           execSql,
+          holdRepository,
           policyOperation,
           queries,
           request,

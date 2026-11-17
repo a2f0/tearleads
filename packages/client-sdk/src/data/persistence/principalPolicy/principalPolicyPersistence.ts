@@ -4,15 +4,9 @@ import type {
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { and, asc, desc, eq, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { principalPolicyBundles } from "../../sqlite/schema";
-import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
-import { principalPolicyTables } from "../../sqlite/schema/principalPolicySchema";
-import {
-  type ClientSQLiteTransactionScope,
-  getClientSQLitePersistenceRuntime,
-} from "../../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { storedPrincipalPolicyPin } from "../keyingCheckpoints/keyingCheckpointPersistence";
 import {
   recordPrincipalPolicyBundleOrganizationInTransaction,
@@ -111,10 +105,12 @@ function parsePrincipalPolicyBundle(
   return bundle;
 }
 
-export async function ensurePrincipalPolicyTables(
-  execSql: ExecSql,
-): Promise<void> {
-  await ensureSqlTables(execSql, principalPolicyTables);
+/** A selected row's bundle; null when the row is not a managed principal. */
+export function parseSelectedPrincipalPolicyBundle(
+  row: SelectedPrincipalPolicyRow,
+): PrincipalPolicyBundleResponse | null {
+  const parsed = parsePrincipalPolicyRow(row);
+  return parsed ? parsePrincipalPolicyBundle(parsed) : null;
 }
 
 /** The ONE select shape for a stored principal-policy bundle row. */
@@ -144,7 +140,7 @@ export function wherePrincipalPolicyBundlePrincipal(principal: {
 }
 
 /** The one current head of a principal. */
-function wherePrincipalPolicyCurrent(principal: {
+export function wherePrincipalPolicyCurrent(principal: {
   readonly principalType: string;
   readonly principalId: string;
 }) {
@@ -188,70 +184,6 @@ async function loadCurrentAndRetainedPolicyBundles(
       (stored) => !stored.isCurrent && stored.stateHash === row.stateHash,
     ),
   };
-}
-
-export async function loadPrincipalPolicyBundle(
-  execSql: ExecSql,
-  principalType: PrincipalStateResponse["principalType"],
-  principalId: string,
-): Promise<PrincipalPolicyBundleResponse | null> {
-  await ensurePrincipalPolicyTables(execSql);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const rows = await db
-    .select(principalPolicyBundleSelection)
-    .from(principalPolicyBundles)
-    .where(wherePrincipalPolicyCurrent({ principalType, principalId }))
-    .limit(1);
-
-  const row = rows[0] ? parsePrincipalPolicyRow(rows[0]) : null;
-  return row ? parsePrincipalPolicyBundle(row) : null;
-}
-
-/** Current heads first, then retained bundles. */
-export async function loadAllPrincipalPolicyBundles(
-  execSql: ExecSql,
-): Promise<PrincipalPolicyBundleResponse[]> {
-  await ensurePrincipalPolicyTables(execSql);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const rows = await db
-    .select(principalPolicyBundleSelection)
-    .from(principalPolicyBundles)
-    .orderBy(
-      desc(principalPolicyBundles.isCurrent),
-      asc(principalPolicyBundles.principalType),
-      asc(principalPolicyBundles.principalId),
-      asc(principalPolicyBundles.stateHash),
-    );
-
-  const bundles: PrincipalPolicyBundleResponse[] = [];
-
-  for (const rawRow of rows) {
-    const row = parsePrincipalPolicyRow(rawRow);
-
-    if (!row) {
-      continue;
-    }
-
-    bundles.push(parsePrincipalPolicyBundle(row));
-  }
-
-  return bundles;
-}
-
-export async function loadPrincipalPolicyStateHash(
-  execSql: ExecSql,
-  principalType: PrincipalStateResponse["principalType"],
-  principalId: string,
-): Promise<string | null> {
-  await ensurePrincipalPolicyTables(execSql);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const rows = await db
-    .select({ stateHash: principalPolicyBundles.stateHash })
-    .from(principalPolicyBundles)
-    .where(wherePrincipalPolicyCurrent({ principalType, principalId }))
-    .limit(1);
-
-  return rows[0]?.stateHash ?? null;
 }
 
 function policyBundleRow(
@@ -456,33 +388,4 @@ export async function retainPrincipalPolicyBundleInTransaction(
     .values({ ...row, isCurrent: false })
     .run();
   await indexPrincipalPolicyBundleInTransaction(tx, bundle);
-}
-
-export async function savePrincipalPolicyBundle(
-  execSql: ExecSql,
-  bundle: PrincipalPolicyBundleResponse,
-  updatedAt: string,
-  organizationId: string,
-  options?: { stillCurrent?: (() => boolean) | undefined } | undefined,
-): Promise<void> {
-  await ensureSqlTables(execSql, [
-    ...principalPolicyTables,
-    ...keyingCheckpointTables,
-  ]);
-
-  const runtime = getClientSQLitePersistenceRuntime(execSql);
-  const save = (tx: ClientSQLiteTransactionScope) =>
-    writePrincipalPolicyBundleInTransaction(
-      tx,
-      bundle,
-      updatedAt,
-      organizationId,
-    );
-  if (options?.stillCurrent) {
-    await runtime.guardedTransaction(save, options.stillCurrent, {
-      behavior: "immediate",
-    });
-    return;
-  }
-  await runtime.transaction(save, { behavior: "immediate" });
 }

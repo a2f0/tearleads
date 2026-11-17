@@ -9,10 +9,7 @@ import {
 import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
 import { trustedUserIdentityFromResponse } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import {
-  loadPrincipalPolicyBundle,
-  savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { cachePrincipalPolicyBundles } from "./index";
 
 for (const scenario of [
@@ -55,8 +52,9 @@ for (const scenario of [
           return response ? trustedUserIdentityFromResponse(response) : null;
         },
       });
-      const stored = await loadPrincipalPolicyBundle(
+      const stored = await new PrincipalPolicyBundleRepository(
         execSql,
+      ).loadPrincipalPolicyBundle(
         supplied.currentState.principalType,
         supplied.currentState.principalId,
       );
@@ -65,8 +63,11 @@ for (const scenario of [
           bundle.currentState.stateHash,
         );
         expect(
-          (await loadPrincipalPolicyBundle(execSql, "organization", "org-1"))
-            ?.currentState.stateHash,
+          (
+            await new PrincipalPolicyBundleRepository(
+              execSql,
+            ).loadPrincipalPolicyBundle("organization", "org-1")
+          )?.currentState.stateHash,
         ).toBe(directory.bundle.currentState.stateHash);
       } else {
         expect(stored).toBeNull();
@@ -98,7 +99,9 @@ test("a standalone signed group cannot acquire an arbitrary organization through
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
     expect(
-      await loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      await new PrincipalPolicyBundleRepository(
+        execSql,
+      ).loadPrincipalPolicyBundle("group", "group-1"),
     ).toBeNull();
   } finally {
     close();
@@ -118,12 +121,9 @@ for (const cached of [false, true]) {
         group: bundle,
       });
       if (cached)
-        await savePrincipalPolicyBundle(
+        await new PrincipalPolicyBundleRepository(
           execSql,
-          previousBundle,
-          "2026-09-12T00:00:00.000Z",
-          "org-1",
-        );
+        ).savePrincipalPolicyBundle(previousBundle, "org-1");
       let groupReads = 0;
       await cacheReferencedPolicies({
         directory,
@@ -138,8 +138,11 @@ for (const cached of [false, true]) {
       });
       expect(groupReads).toBe(1);
       expect(
-        (await loadPrincipalPolicyBundle(execSql, "group", "group-1"))
-          ?.currentState.stateHash,
+        (
+          await new PrincipalPolicyBundleRepository(
+            execSql,
+          ).loadPrincipalPolicyBundle("group", "group-1")
+        )?.currentState.stateHash,
       ).toBe(bundle.currentState.stateHash);
       expect(
         (
@@ -176,7 +179,9 @@ test("a different same-version group chain is not authenticated by the directory
       },
     });
     expect(
-      (await loadPrincipalPolicyBundle(execSql, "group", "group-1")) === null,
+      (await new PrincipalPolicyBundleRepository(
+        execSql,
+      ).loadPrincipalPolicyBundle("group", "group-1")) === null,
     ).toBe(true);
     expect(
       await new KeyingCheckpointRepository(
@@ -221,7 +226,9 @@ test("tampering with the signed organization directory aborts warming and report
       }),
     ).rejects.toMatchObject({ code: "hash_mismatch" });
     expect(
-      (await loadPrincipalPolicyBundle(execSql, "group", "group-1")) === null,
+      (await new PrincipalPolicyBundleRepository(
+        execSql,
+      ).loadPrincipalPolicyBundle("group", "group-1")) === null,
     ).toBe(true);
     expect(
       await new KeyingCheckpointRepository(

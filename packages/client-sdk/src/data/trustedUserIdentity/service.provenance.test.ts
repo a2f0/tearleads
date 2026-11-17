@@ -2,10 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createPin } from "../../../test/helpers/trustedUserIdentityPin";
 import { TrustedUserIdentityPinMismatchError } from "../persistence/identity/trustedUserIdentityPinModel";
-import {
-  compareOrInsertTrustedUserIdentityPin,
-  loadTrustedUserIdentityPin,
-} from "../persistence/trustedUserIdentityPinPersistence";
+import { TrustedUserIdentityPinRepository } from "../persistence/identity/trustedUserIdentityPinRepository";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "./admission";
 import {
@@ -32,8 +29,9 @@ function serviceFor(
 async function storedProvenance(
   execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"],
 ) {
-  const pin = await loadTrustedUserIdentityPin({
+  const pin = await new TrustedUserIdentityPinRepository(
     execSql,
+  ).loadTrustedUserIdentityPin({
     identityTrustDomain: LINK_TRUST_DOMAIN,
     userId: LINK_USER_ID,
   });
@@ -110,10 +108,13 @@ test("provenance never rises past a key mismatch", async () => {
   const { close, execSql } = await createTestExecSql("pin-provenance-mismatch");
   const observed = createPin({ provenance: "observed" });
   try {
-    await compareOrInsertTrustedUserIdentityPin({ execSql, pin: observed });
+    await new TrustedUserIdentityPinRepository(
+      execSql,
+    ).compareOrInsertTrustedUserIdentityPin({ pin: observed });
     await expect(
-      compareOrInsertTrustedUserIdentityPin({
+      new TrustedUserIdentityPinRepository(
         execSql,
+      ).compareOrInsertTrustedUserIdentityPin({
         pin: createPin({
           provenance: "link",
           signingPublicKey: "signing-public-key-b",
@@ -121,16 +122,22 @@ test("provenance never rises past a key mismatch", async () => {
       }),
     ).rejects.toBeInstanceOf(TrustedUserIdentityPinMismatchError);
     expect(
-      (await loadTrustedUserIdentityPin({ execSql, ...observed }))?.provenance,
+      (
+        await new TrustedUserIdentityPinRepository(
+          execSql,
+        ).loadTrustedUserIdentityPin({ ...observed })
+      )?.provenance,
     ).toBe("observed");
 
-    const linked = await compareOrInsertTrustedUserIdentityPin({
+    const linked = await new TrustedUserIdentityPinRepository(
       execSql,
+    ).compareOrInsertTrustedUserIdentityPin({
       pin: createPin({ provenance: "link" }),
     });
     expect(linked.provenance).toBe("link");
-    const later = await compareOrInsertTrustedUserIdentityPin({
+    const later = await new TrustedUserIdentityPinRepository(
       execSql,
+    ).compareOrInsertTrustedUserIdentityPin({
       pin: createPin({ provenance: "observed" }),
     });
     expect(later).toMatchObject({ provenance: "link" });
@@ -147,8 +154,7 @@ test("a pin table without provenance is an obsolete local database", async () =>
       `CREATE TABLE "trusted_user_identity_pins" ("identity_trust_domain" TEXT NOT NULL, "user_id" TEXT NOT NULL, "format_version" INTEGER NOT NULL, "signing_suite" TEXT NOT NULL, "signing_public_key" TEXT NOT NULL, "signing_key_fingerprint" TEXT NOT NULL, "encapsulation_suite" TEXT NOT NULL, "encapsulation_public_key" TEXT NOT NULL, "encapsulation_key_fingerprint" TEXT NOT NULL, "first_seen_at" TEXT NOT NULL, PRIMARY KEY ("identity_trust_domain", "user_id"))`,
     );
     await expect(
-      loadTrustedUserIdentityPin({
-        execSql,
+      new TrustedUserIdentityPinRepository(execSql).loadTrustedUserIdentityPin({
         identityTrustDomain: LINK_TRUST_DOMAIN,
         userId: LINK_USER_ID,
       }),

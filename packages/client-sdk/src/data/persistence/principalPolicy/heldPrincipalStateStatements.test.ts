@@ -2,8 +2,7 @@ import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { createSuccessorPrincipalPolicyBundle } from "../../../../test/helpers/policyCacheFixtures";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
-import { loadHeldPrincipalState } from "./heldPrincipalState";
-import { savePrincipalPolicyBundle } from "./principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 
 test("held states read an indexed predecessor or exact head with one bundle statement", async () => {
   const db = createNativeTestExecSql();
@@ -11,23 +10,24 @@ test("held states read an indexed predecessor or exact head with one bundle stat
   const { bundle, previousBundle } =
     await createSuccessorPrincipalPolicyBundle();
   try {
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       counted.execSql,
-      bundle,
-      "2026-01-01T00:00:00.000Z",
-      "organization",
-    );
+    ).savePrincipalPolicyBundle(bundle, "organization");
     for (const state of [bundle.currentState, previousBundle.currentState]) {
       expect(
         await counted.count(async () => {
-          expect(await loadHeldPrincipalState(counted.execSql, state)).toEqual(
-            state,
-          );
+          expect(
+            await new PrincipalPolicyBundleRepository(
+              counted.execSql,
+            ).loadHeldPrincipalState(state),
+          ).toEqual(state);
         }),
       ).toBe(2);
     }
     expect(
-      await loadHeldPrincipalState(counted.execSql, {
+      await new PrincipalPolicyBundleRepository(
+        counted.execSql,
+      ).loadHeldPrincipalState({
         ...previousBundle.currentState,
         keyEpoch: 999,
       }),

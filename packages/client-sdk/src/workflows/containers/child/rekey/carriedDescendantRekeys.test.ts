@@ -2,10 +2,10 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancestorRotationRecovery";
 import { createContainerServer } from "../../../../../test/helpers/containerMutationServer";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKek/containerKekCurrency";
 import { unwrapContainerKekPath } from "../../../../data/documents/shared/projection";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { rekeyRemoteContainer } from "./rekeyRemote";
 
 // #2340 finding 1. A rotation commits with the rekeys of every descendant above
 // a directly granted container, so a writer granted only further down never
@@ -31,11 +31,15 @@ test("a refused rotation is resubmitted carrying the descendants it strands", as
       ],
       { [rootId]: ["child"] },
     );
-    const rotated = await rekeyRemoteContainer({
-      ...owner,
-      apiClient: server.apiClient,
-      containerId: rootId,
+    const rotated = await createContainerMutationServiceFixture({
+      api: server.apiClient,
+      encapsulationSecretKey: owner.targetSecretKey,
+      execSql: owner.execSql,
       reportSecurityIncident: async () => {},
+    }).rekeyRemoteContainer({
+      author: owner.author,
+      containerId: rootId,
+      resolveProjectionUserKey: owner.resolveProjectionUserKey,
     });
     // One refusal, one retry, and the signed rotation itself was reused.
     expect(server.submissions).toEqual([[rootId], [rootId, "child"]]);
@@ -99,11 +103,15 @@ test("a chain of required descendants is signed parent-first on the batch's own 
       ],
       { [rootId]: ["child", "grandchild"] },
     );
-    const rotated = await rekeyRemoteContainer({
-      ...owner,
-      apiClient: server.apiClient,
-      containerId: rootId,
+    const rotated = await createContainerMutationServiceFixture({
+      api: server.apiClient,
+      encapsulationSecretKey: owner.targetSecretKey,
+      execSql: owner.execSql,
       reportSecurityIncident: async () => {},
+    }).rekeyRemoteContainer({
+      author: owner.author,
+      containerId: rootId,
+      resolveProjectionUserKey: owner.resolveProjectionUserKey,
     });
     expect(server.submissions.at(-1)).toEqual([rootId, "child", "grandchild"]);
     expect(rotated).not.toBeNull();
@@ -137,11 +145,15 @@ test("a named container outside the rotated subtree is never signed for", async 
       { child: [fixture.root.projection.containerId] },
     );
     await expect(
-      rekeyRemoteContainer({
-        ...owner,
-        apiClient: server.apiClient,
-        containerId: "child",
+      createContainerMutationServiceFixture({
+        api: server.apiClient,
+        encapsulationSecretKey: owner.targetSecretKey,
+        execSql: owner.execSql,
         reportSecurityIncident: async () => {},
+      }).rekeyRemoteContainer({
+        author: owner.author,
+        containerId: "child",
+        resolveProjectionUserKey: owner.resolveProjectionUserKey,
       }),
     ).rejects.toThrow(/not below the rotated container/);
     expect(server.submissions).toEqual([["child"]]);

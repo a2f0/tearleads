@@ -2,10 +2,8 @@ import type { ContainerDirectGrant } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
-import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
-import { revokeRemoteContainer } from "../containers";
+import type { ContainerMutationService } from "../containers";
 import { resolveDocumentCreateAuthor } from "../documents";
 
 type OrganizationContainerGrantSubject = Pick<
@@ -13,20 +11,11 @@ type OrganizationContainerGrantSubject = Pick<
   "subjectId" | "subjectType"
 >;
 
-type OrganizationContainerGrantRevocationApi = Parameters<
-  typeof revokeRemoteContainer
->[0]["apiClient"];
-
 export async function revokeOrganizationContainerGrant(input: {
   readonly stillCurrent: () => boolean;
-  readonly reportSecurityIncident: SecurityIncidentReporter;
-  readonly apiClient: OrganizationContainerGrantRevocationApi;
   readonly containerId: string;
-  readonly encapsulationKeyPair: {
-    readonly publicKey: Uint8Array;
-    readonly secretKey: Uint8Array;
-  };
-  readonly execSql: ExecSql;
+  /** Bound to the runtime snapshot whose encapsulation key reaches the container. */
+  readonly containers: ContainerMutationService;
   readonly organizationId: string;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly revokedSubject: OrganizationContainerGrantSubject;
@@ -54,18 +43,14 @@ export async function revokeOrganizationContainerGrant(input: {
     throw new Error("Org Manager signing context is unavailable");
   }
 
-  const revoked = await revokeRemoteContainer({
+  const revoked = await input.containers.revokeRemoteContainer({
     stillCurrent: input.stillCurrent,
-    reportSecurityIncident: input.reportSecurityIncident,
-    apiClient: input.apiClient,
     author,
     containerId: input.containerId,
-    execSql: input.execSql,
     revokedSubject: input.revokedSubject,
     resolveProjectionUserKey: createProjectionUserKeyResolver({
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     }),
-    targetSecretKey: input.encapsulationKeyPair.secretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   if (!revoked) {
