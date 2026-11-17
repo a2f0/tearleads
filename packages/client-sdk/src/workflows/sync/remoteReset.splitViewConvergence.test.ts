@@ -26,6 +26,7 @@ import {
   createAuthor,
   createResponseFromRequest,
 } from "../../../test/helpers/documentFixtures";
+import { createRemoteDocumentForTest as createRemoteDocument } from "../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import {
   importDecryptedDocumentSyncUpdates,
@@ -46,10 +47,7 @@ import {
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import type { ExecSql } from "../../sqlite";
-import {
-  createRemoteDocument,
-  documentWriterProjectionFromCreateResponse,
-} from "../documents/create";
+import { documentWriterProjectionFromCreateResponse } from "../documents/create";
 import { clearRemoteSyncState } from "./remoteReset";
 
 const LOCAL_ID = "shared-note";

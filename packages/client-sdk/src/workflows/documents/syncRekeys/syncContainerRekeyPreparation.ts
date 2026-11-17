@@ -11,18 +11,19 @@ import {
   submitContainerRotation,
   submitRotationCarryingDescendants,
 } from "../../containers/child/mutationSubmit";
-import type { SyncRemoteDocumentInput } from "../sync/readOnlySync";
+import type { RemoteDocumentSyncPass } from "../sync/remoteDocumentSyncPass";
 import { refreshSyncAttemptWriterProjection } from "../syncFailures";
 import { shouldRetrySyncWithFreshWriterProjection } from "../syncFailures/syncFailureClassification";
 import { DocumentAncestorRepairAbandonedError } from "../syncFailures/syncRepairAbandon";
 import { buildAutomaticContainerRekeys } from "./syncAutomaticContainerRekeys";
 
 /**
- * Repairs committed during one sync pass, keyed by the pass's own input object
- * (stable across all three attempts). The sync loop explicitly prepares each
- * attempt, so a counter local to one call would not bound the whole pass.
+ * Repairs committed during one sync pass, keyed by the pass object that one
+ * `syncRemoteDocument` call builds and hands to all three attempts. The sync
+ * loop explicitly prepares each attempt, so a counter local to one call would
+ * not bound the whole pass.
  */
-const passRepairTotals = new WeakMap<SyncRemoteDocumentInput, number>();
+const passRepairTotals = new WeakMap<RemoteDocumentSyncPass, number>();
 
 /**
  * Passes whose inline repairs the server refused for stranding a level above a
@@ -30,16 +31,16 @@ const passRepairTotals = new WeakMap<SyncRemoteDocumentInput, number>();
  * descendants each repair must carry; a standalone rekey can, so the rest of
  * the pass commits every repair standalone before writing.
  */
-const standaloneRepairPasses = new WeakSet<SyncRemoteDocumentInput>();
+const standaloneRepairPasses = new WeakSet<RemoteDocumentSyncPass>();
 
 export function requiresStandaloneAncestorRepairs(
-  sync: SyncRemoteDocumentInput,
+  sync: RemoteDocumentSyncPass,
 ): boolean {
   return standaloneRepairPasses.has(sync);
 }
 
 export function requireStandaloneAncestorRepairs(
-  sync: SyncRemoteDocumentInput,
+  sync: RemoteDocumentSyncPass,
 ): void {
   standaloneRepairPasses.add(sync);
 }
@@ -58,7 +59,7 @@ function isTerminalRepairStatus(status: number | null): boolean {
  * reported as an ordinary abandon.
  */
 function submitStandaloneRepair(
-  sync: SyncRemoteDocumentInput,
+  sync: RemoteDocumentSyncPass,
   plan: MaterializedContainerRekeyPlan["plan"],
   writerProjection: MaterializedContainerRekeyPlan["writerProjection"],
 ) {
@@ -109,7 +110,7 @@ function submitStandaloneRepair(
 }
 
 async function abandonRefusedRepair(
-  sync: SyncRemoteDocumentInput,
+  sync: RemoteDocumentSyncPass,
   containerId: string,
   result: Awaited<ReturnType<typeof submitStandaloneRepair>>["result"],
 ): Promise<never> {
@@ -140,7 +141,7 @@ function markRepaired(
 async function commitRepairPrefix(input: {
   plans: readonly MaterializedContainerRekeyPlan[];
   repairedIds: Set<string>;
-  sync: SyncRemoteDocumentInput;
+  sync: RemoteDocumentSyncPass;
 }): Promise<number> {
   let committed = 0;
   for (const { plan, writerProjection } of input.plans) {
@@ -193,7 +194,7 @@ async function commitRepairPrefix(input: {
  * A tighter local resource budget may be used, but never above the protocol cap.
  */
 export async function prepareAutomaticContainerRekeys(
-  sync: SyncRemoteDocumentInput,
+  sync: RemoteDocumentSyncPass,
   initialProjection: DocumentWriterProjectionResponse,
   maxRepairs = MAX_CONTAINER_PATH_LENGTH,
 ): Promise<{
@@ -282,7 +283,7 @@ export async function prepareAutomaticContainerRekeys(
 
 /** An explicit preparation retry may commit repairs; plan retries never do. */
 export async function prepareSyncAttemptContainerRekeys(
-  sync: SyncRemoteDocumentInput,
+  sync: RemoteDocumentSyncPass,
   projection: DocumentWriterProjectionResponse,
 ) {
   try {

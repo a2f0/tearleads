@@ -13,6 +13,7 @@ import {
   repairPolicyPages,
   repairProtectionLease,
 } from "../../../../test/helpers/principalPolicyRepair";
+import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
@@ -20,9 +21,7 @@ import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
 } from "../../containers/root/create";
-
 import { PrincipalPolicyService } from "../../principals/principalPolicyService";
-import { createRemoteDocument } from "./index";
 
 test("expired document create does not fetch or cache a refreshed group policy", async () => {
   const organizationId = "stale-document-create-organization";

@@ -3,7 +3,7 @@ import {
   createFixtureBinding,
   createUploadedAttachmentFixture,
 } from "../../../../test/helpers/blobHydration";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { assertBlobWrapScopeVerified } from "./verifiedWrapScope";
 
 // A projection that has not served the wrap-cited container manifest is

@@ -6,7 +6,7 @@ import type {
 } from "@tearleads/validators/response";
 import { isContainerNotFoundFailure } from "../../../data/containers/shared/mutationFailures";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { errorMessage } from "../../../data/shared/errorMessage";
 import {
   type AppliedContainerMove,

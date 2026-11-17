@@ -1,7 +1,7 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { BlobAttachmentSummary } from "@tearleads/validators/response";
 import type { DocumentWriterProjectionAuthorization } from "../../../data/keyingProjectionVerification";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 
 /** A retained wrap must name a KEK committed by verified container history. */
 export function assertBlobWrapScopeVerified(input: {

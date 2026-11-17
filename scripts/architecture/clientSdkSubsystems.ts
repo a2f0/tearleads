@@ -248,6 +248,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       "Helpers every layer uses with no subsystem of their own: error messages, record readers, User Timing measures, timestamp selection, and the workflow runtime input contract.",
     seam: "direct import",
     paths: [
+      `${sdk}/data/shared/dependencyUnavailable.ts`,
       `${sdk}/data/shared/errorMessage.ts`,
       `${sdk}/data/shared/recordReaders.ts`,
       `${sdk}/data/shared/userTiming.ts`,

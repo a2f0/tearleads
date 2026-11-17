@@ -2,7 +2,7 @@ import { mergeVersionVectors } from "@tearleads/loro";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentCreateSeedResponse } from "@tearleads/validators/response";
 import type {
-  createRemoteDocument,
+  CreateRemoteDocumentResult,
   DocumentRecord,
   PendingUpdateRecord,
 } from "../../../../workflows/documents";
@@ -14,10 +14,6 @@ import type {
   SaveDocumentRecordOptions,
 } from "../state";
 import type { DocumentStoreSyncGeneration } from "./syncGeneration";
-
-type CreatedRemoteDocument = NonNullable<
-  Awaited<ReturnType<typeof createRemoteDocument>>
->;
 
 /** A create's seed; `onCommitted` runs once its settlement persists. */
 export interface CreateSeed {
@@ -107,7 +103,7 @@ function advancePendingBaseVersion(
  * snapshot fields: the user may have kept typing during the round trip.
  */
 export async function persistCreatedRemoteDocument(input: {
-  readonly created: CreatedRemoteDocument;
+  readonly created: CreateRemoteDocumentResult;
   readonly currentDoc: DocumentState;
   readonly generation: DocumentStoreSyncGeneration | undefined;
   readonly seed: CreateSeed | undefined;

@@ -8,11 +8,11 @@ import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import {
   externalAuthorityCouldAuthorize,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../../../data/principals/principalPolicyAdminSigners";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { VerifiedExternalAdminPolicy } from "../externalAdminPolicy";
 import {
