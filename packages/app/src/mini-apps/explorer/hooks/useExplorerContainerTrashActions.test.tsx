@@ -256,3 +256,14 @@ test("a follow-up begun after a move compares against the new position", () => {
 
   expect(selected).toEqual(["source"]);
 });
+
+test("a folder move that settles after the Explorer unmounted selects nothing", async () => {
+  const { selected, settle, view } = renderPendingFolderMove();
+
+  // The user leaves the Explorer (in the routed shell, selecting would
+  // navigate back to it) while the move is still in flight.
+  view.unmount();
+  await settle();
+
+  expect(selected).toEqual([]);
+});

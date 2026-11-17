@@ -27,9 +27,11 @@ export type ExplorerSelectionFollowUp = (id: string) => void;
  * settles, so the detail pane does not linger on what was removed. Those
  * actions start from a context menu and leave the Explorer usable while the
  * mutation runs, so a user who opens another container meanwhile must not be
- * pulled back when it settles. Call the returned function as the action
- * begins: the follow-up it hands back selects only while the selection and the
- * detail view are still the ones it captured.
+ * pulled back when it settles, and one who leaves the Explorer must not have
+ * it reopened (in the routed shell, selecting navigates to the Explorer's
+ * route). Call the returned function as the action begins: the follow-up it
+ * hands back selects only while the Explorer is mounted and the selection and
+ * the detail view are still the ones it captured.
  */
 export function useExplorerSelectionFollowUp(params: {
   routeView: string;
@@ -37,12 +39,16 @@ export function useExplorerSelectionFollowUp(params: {
   selectExplorerItem: (id: string | null) => void;
 }): () => ExplorerSelectionFollowUp {
   const { routeView, selectedId, selectExplorerItem } = params;
-  const positionRef = useRef<ExplorerSelectionPosition>({
+  // Null once the Explorer unmounts, so no follow-up can still select.
+  const positionRef = useRef<ExplorerSelectionPosition | null>({
     routeView,
     selectedId,
   });
   useLayoutEffect(() => {
     positionRef.current = { routeView, selectedId };
+    return () => {
+      positionRef.current = null;
+    };
   }, [routeView, selectedId]);
 
   return useCallback(() => {
@@ -50,6 +56,8 @@ export function useExplorerSelectionFollowUp(params: {
     return (id: string) => {
       const current = positionRef.current;
       if (
+        begun !== null &&
+        current !== null &&
         current.selectedId === begun.selectedId &&
         current.routeView === begun.routeView
       ) {
