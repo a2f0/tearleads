@@ -1,15 +1,4 @@
 {
-  "packages/client-sdk/src/client/organizations/organizationReadModels.ts": [
-    "packages/client-sdk/src/client/containerContents/index.ts"
-  ],
-  "packages/client-sdk/src/client/organizations/recipientAdmission.ts": [
-    "packages/client-sdk/src/client/containerContents/index.ts"
-  ],
-  "packages/client-sdk/src/client/runtime/listenerSet.ts": [
-    "packages/client-sdk/src/client/identity/index.ts",
-    "packages/client-sdk/src/client/securityIncidents/index.ts",
-    "packages/client-sdk/src/client/session/index.ts"
-  ],
   "packages/client-sdk/src/data/containers/shared/heldContainerHeads.ts": [
     "packages/client-sdk/src/data/keyingProjectionVerification/checkpoints/checkpointContext.ts"
   ],
@@ -64,12 +53,6 @@
     "packages/client-sdk/src/workflows/blobs/upload/index.ts",
     "packages/client-sdk/src/workflows/blobs/verification/attachmentKeyAuthenticator.ts"
   ],
-  "packages/client-sdk/src/data/keyingProjectionVerification/error.ts": [
-    "packages/client-sdk/src/client/identity/userIdentities.ts",
-    "packages/client-sdk/src/client/securityIncidents/index.ts",
-    "packages/client-sdk/src/client/session/sessionLoginRefusal.ts",
-    "packages/client-sdk/src/client/session/sessionRootAuthority.ts"
-  ],
   "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts": [
     "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstones.ts",
     "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts"
@@ -122,7 +105,6 @@
     "packages/client-sdk/src/workflows/registration/persistRegistrationBootstrap.ts"
   ],
   "packages/client-sdk/src/data/sync/databaseUnavailable.ts": [
-    "packages/client-sdk/src/client/organizations/recipientAdmission.ts",
     "packages/client-sdk/src/data/keyingProjectionVerification/error.ts",
     "packages/client-sdk/src/data/trustedUserIdentity/pinnedResolution.ts",
     "packages/client-sdk/src/data/trustedUserIdentity/service.ts",
@@ -130,7 +112,6 @@
     "packages/client-sdk/src/workflows/documents/writerKeys.ts"
   ],
   "packages/client-sdk/src/data/sync/organizationSyncPauses.ts": [
-    "packages/client-sdk/src/client/containerContents/documentDiscovery.ts",
     "packages/client-sdk/src/workflows/container-contents/remoteHydration/remoteContainers/organizationSyncPauseFilter.ts"
   ],
   "packages/client-sdk/src/data/sync/outgoingUpdateSettlement.ts": [
@@ -165,28 +146,10 @@
     "packages/client-sdk/src/workflows/container-contents/container-state/share/groupGrantVerification.ts",
     "packages/client-sdk/src/workflows/container-contents/container-state/share/groupShareEpoch.ts"
   ],
-  "packages/client-sdk/src/workflows/organizations/index.ts": [
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/provisioning/createOrganization.ts": [
-    "packages/client-sdk/src/client/session/index.ts",
-    "packages/client-sdk/src/client/session/sessionOrganizationCreation.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/provisioning/organizationProvisioningAttempt.ts": [
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/provisioning/organizationReplacementVerification.ts": [
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
-  ],
-  "packages/client-sdk/src/workflows/registration/index.ts": [
-    "packages/client-sdk/src/client/session/index.ts"
-  ],
   "packages/client-sdk/src/workflows/registration/organizationProvisioning.ts": [
     "packages/client-sdk/src/workflows/organizations/provisioning/createOrganization.ts"
   ],
   "packages/client-sdk/src/workflows/sync/index.ts": [
-    "packages/client-sdk/src/client/organizations/organizationMemberships.ts",
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts",
     "packages/client-sdk/src/stores/container-contents/operations/forgetOrganizationContentOperation.ts",
     "packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentUploadLane.ts",
     "packages/client-sdk/src/stores/documents/documentStore/initialization/index.ts",

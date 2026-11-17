@@ -3,6 +3,7 @@ import type { DocumentProjectorRegistry } from "../../data/documents/documentKin
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import type { DomainScope } from "../../data/shared/domainScope";
+import { createListenerSet } from "../../data/shared/listenerSet";
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import { type ExecSql, unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -31,7 +32,6 @@ import { acknowledgedSessionRoot } from "../session/sessionRootAuthority";
 import type { Session, SessionSnapshot } from "../session/sessionTypes";
 import type { Database } from "./database";
 import type { Events } from "./events";
-import { createListenerSet } from "./listenerSet";
 import type { Network } from "./network";
 import {
   createPrincipalHistoryProtectionCustody,

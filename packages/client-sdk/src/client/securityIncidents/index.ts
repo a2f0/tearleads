@@ -8,6 +8,7 @@ import {
   appendSecurityIncident,
   listSecurityIncidents,
 } from "../../data/persistence/securityIncidentPersistence";
+import { createListenerSet } from "../../data/shared/listenerSet";
 import type {
   SecurityIncident,
   SecurityIncidentContext,
@@ -15,7 +16,6 @@ import type {
   SecurityIncidentReporter,
 } from "../../data/shared/securityIncidents";
 import type { Database } from "../runtime/database";
-import { createListenerSet } from "../runtime/listenerSet";
 
 export type { SecurityIncident, SecurityIncidentObjectKind };
 

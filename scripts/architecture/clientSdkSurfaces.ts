@@ -44,8 +44,9 @@ const principalsDataSurface = [
   "principalPolicyStates",
 ].map((module) => `${sdk}/data/principals/${module}.ts`);
 
+export const documentStoreClientSurface = [`${sdk}/client/documents/index.ts`];
+
 export const documentStoreSurface = [
-  `${sdk}/client/documents/index.ts`,
   `${sdk}/data/documents/index.ts`,
   `${sdk}/data/documents/shared/containerKek/index.ts`,
   `${sdk}/data/documents/shared/projection/index.ts`,
@@ -84,13 +85,18 @@ export const documentStoreSurface = [
   `${sdk}/workflows/documents/sync/initialSync.ts`,
   `${sdk}/workflows/documents/sync/reportDocumentSyncQuarantine.ts`,
   `${sdk}/workflows/documents/syncFailures/syncFailureClassification.ts`,
+  `${sdk}/data/persistence/documents/types.ts`,
+];
+
+export const containerContentsClientSurface = [
+  `${sdk}/client/containerContents/index.ts`,
+  `${sdk}/client/containerContents/documentDiscovery.ts`,
 ];
 
 export const containerContentsSurface = [
-  `${sdk}/client/containerContents/index.ts`,
   `${sdk}/stores/container-contents/index.ts`,
   `${sdk}/workflows/container-contents/index.ts`,
-  `${sdk}/client/containerContents/documentDiscovery.ts`,
+  `${sdk}/workflows/container-contents/pendingWrites/index.ts`,
   `${sdk}/data/persistence/container-contents/containerContentsPersistence.ts`,
   `${sdk}/data/persistence/container-contents/containerPersistence.ts`,
   `${sdk}/data/persistence/container-contents/documentContainerProjectionPersistence.ts`,
@@ -105,6 +111,21 @@ export const containerContentsSurface = [
   `${sdk}/workflows/container-contents/remoteHydration/destination/destinationRoleCache.ts`,
   `${sdk}/workflows/container-contents/remoteReset/containerRemoteReset.ts`,
   `${sdk}/workflows/container-contents/syncLane.ts`,
+  `${sdk}/workflows/container-contents/attribution/documentAttributionRanges.ts`,
+  `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryEvidence.ts`,
+  `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryLanes.ts`,
+  `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryTypes.ts`,
+  `${sdk}/workflows/container-contents/documentQueries/documentStructure.ts`,
+  `${sdk}/workflows/container-contents/documentQueries/index.ts`,
+  `${sdk}/workflows/container-contents/info/blobInfo.ts`,
+  `${sdk}/workflows/container-contents/info/containerInfo.ts`,
+  `${sdk}/workflows/container-contents/info/documentInfo.ts`,
+  `${sdk}/workflows/container-contents/projectionKeys.ts`,
+  `${sdk}/workflows/container-contents/runtime.ts`,
+  `${sdk}/workflows/container-contents/syncPause/discoveryGuard.ts`,
+  `${sdk}/workflows/container-contents/syncState.ts`,
+  `${sdk}/workflows/container-contents/tombstones/documentPurge.ts`,
+  `${sdk}/workflows/container-contents/tombstones/documentTombstoneEvidence.ts`,
 ];
 
 export const containerDataSurface = [
@@ -121,8 +142,9 @@ export const containerDataSurface = [
   `${sdk}/workflows/containers/child/mutationSubmit.ts`,
 ];
 
+export const blobStorageClientSurface = [`${sdk}/client/blobs/index.ts`];
+
 export const blobStorageSurface = [
-  `${sdk}/client/blobs/index.ts`,
   `${sdk}/workflows/blobs/index.ts`,
   `${sdk}/workflows/blobs/upload/index.ts`,
   `${sdk}/data/blobs/blobContracts.ts`,
@@ -130,16 +152,21 @@ export const blobStorageSurface = [
   `${sdk}/workflows/blobs/verification/attachmentDecryptor.ts`,
   `${sdk}/workflows/blobs/verification/attachmentKeyAuthenticator.ts`,
   `${sdk}/workflows/blobs/verification/retainedAttachmentVerification.ts`,
+  `${sdk}/data/blobs/createBlobStore.ts`,
+  `${sdk}/data/blobs/memoryBlobStore.ts`,
+];
+
+export const organizationClientSurface = [
+  `${sdk}/client/organizations/index.ts`,
+  `${sdk}/client/organizations/organizationReadModels.ts`,
+  `${sdk}/client/organizations/recipientAdmission.ts`,
 ];
 
 export const organizationReadModelSurface = [
-  `${sdk}/client/organizations/index.ts`,
   `${sdk}/workflows/organizations/groupShare/index.ts`,
   `${sdk}/workflows/organizations/index.ts`,
   `${sdk}/workflows/organizations/principalPolicy/index.ts`,
   `${sdk}/workflows/organizations/readModel/index.ts`,
-  `${sdk}/client/organizations/organizationReadModels.ts`,
-  `${sdk}/client/organizations/recipientAdmission.ts`,
   `${sdk}/workflows/organizations/groupMetadata/groupMetadataErrors.ts`,
   `${sdk}/workflows/organizations/groupMetadata/groupMetadataRuntime.ts`,
   `${sdk}/workflows/organizations/groupMetadata/runtimeGroupMetadataAuthority.ts`,
@@ -151,6 +178,24 @@ export const organizationReadModelSurface = [
   `${sdk}/workflows/organizations/provisioning/organizationReplacementVerification.ts`,
   `${sdk}/workflows/organizations/readModel/organizationRemoteReset.ts`,
   `${sdk}/workflows/organizations/rosterProfileContainer.ts`,
+  `${sdk}/data/persistence/organizations/organizationReadModelRepository.ts`,
+  `${sdk}/workflows/organizations/currentOrganizationAuthority.ts`,
+  `${sdk}/workflows/organizations/groupMetadata/currentGroupMetadataAuthority.ts`,
+  `${sdk}/workflows/organizations/groupNames/groupMembershipName.ts`,
+  `${sdk}/workflows/organizations/groupNames/organizationGroupNames.ts`,
+  `${sdk}/workflows/organizations/groupPolicy/commitCurrentGroupPolicyMutation.ts`,
+  `${sdk}/workflows/organizations/groupPolicy/groupPolicyRequests.ts`,
+  `${sdk}/workflows/organizations/groups/createCurrentOrganizationGroup.ts`,
+  `${sdk}/workflows/organizations/groups/deleteCurrentOrganizationGroup.ts`,
+  `${sdk}/workflows/organizations/memberships/leaveRequestMembersEvidence.ts`,
+  `${sdk}/workflows/organizations/memberships/leaveRequestVerification.ts`,
+  `${sdk}/workflows/organizations/memberships/rosterVouchedAdmission.ts`,
+  `${sdk}/workflows/organizations/policyHistory/groupPolicyHistoryPage.ts`,
+  `${sdk}/workflows/organizations/policyHistory/loadPolicyHistoryDetails.ts`,
+  `${sdk}/workflows/organizations/principalMutations/runtimeCurrentGroupMutation.ts`,
+  `${sdk}/workflows/organizations/principalMutations/runtimeCurrentOrganizationMutation.ts`,
+  `${sdk}/workflows/organizations/readModel/organizationPresentationAccessState.ts`,
+  `${sdk}/workflows/organizations/trustedOrganizationUsers.ts`,
 ];
 
 export const rootConsoleSurface = [
@@ -176,8 +221,9 @@ export const registrationSurface = [
   `${sdk}/workflows/registration/provisionedStatePrimer.ts`,
 ];
 
+export const deviceFirstClientSurface = [`${sdk}/client/deviceFirst/index.ts`];
+
 export const syncEngineSurface = [
-  `${sdk}/client/deviceFirst/index.ts`,
   `${sdk}/stores/local-projection/index.ts`,
   `${sdk}/sync/reconciliation/index.ts`,
   `${sdk}/workflows/sync/index.ts`,
@@ -190,10 +236,11 @@ export const syncEngineSurface = [
   `${sdk}/data/sync/syncCoordinator.ts`,
 ];
 
-export const identitySurface = [
+export const identitySurface = [`${sdk}/data/trustedUserIdentity/index.ts`];
+
+export const identitySessionClientSurface = [
   `${sdk}/client/identity/index.ts`,
   `${sdk}/client/session/index.ts`,
-  `${sdk}/data/trustedUserIdentity/index.ts`,
   `${sdk}/client/identity/keyPackage.ts`,
   `${sdk}/client/identity/userIdentities.ts`,
   `${sdk}/client/session/sessionRecoveryErrors.ts`,
@@ -231,9 +278,13 @@ export const keyingVerificationSurface = [
   `${sdk}/data/persistence/verifiedManifestBundlePersistence.ts`,
 ];
 
-export const securityIncidentSurface = [
+export const securityIncidentClientSurface = [
   `${sdk}/client/securityIncidents/index.ts`,
+];
+
+export const securityIncidentSurface = [
   `${sdk}/data/shared/securityIncidents.ts`,
+  `${sdk}/data/persistence/securityIncidentPersistence.ts`,
 ];
 
 export const runtimeRootSurface = [
@@ -242,7 +293,6 @@ export const runtimeRootSurface = [
   `${sdk}/TearleadsOptions.ts`,
   `${sdk}/client/host/`,
   `${sdk}/client/runtime/database.ts`,
-  `${sdk}/client/runtime/listenerSet.ts`,
   `${sdk}/client/runtime/workflowRuntime.ts`,
   `${sdk}/index.ts`,
 ];

@@ -26,7 +26,6 @@ import { createRoot, type Root, rootRuntimeOf } from "./client/root";
 import { ApiVersion } from "./client/runtime/apiVersion";
 import { Database } from "./client/runtime/database";
 import { Events } from "./client/runtime/events";
-import { createListenerSet } from "./client/runtime/listenerSet";
 import { Network } from "./client/runtime/network";
 import { SyncBillingGate } from "./client/runtime/syncBillingGate";
 import {
@@ -46,6 +45,7 @@ import {
 } from "./data/documents/documentKinds";
 import { createVerifiedManifestCitations } from "./data/persistence/verifiedManifestBundlePersistence";
 import { createDomainScope, type DomainScope } from "./data/shared/domainScope";
+import { createListenerSet } from "./data/shared/listenerSet";
 import type { SecurityIncidentReporter } from "./data/shared/securityIncidents";
 import { disposeDomainSyncCoordinator } from "./data/sync/syncCoordinator";
 import { resolveIdentityTrustDomain } from "./data/trustedUserIdentity";

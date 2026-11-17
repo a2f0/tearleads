@@ -6,7 +6,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { errorMessage } from "../../data/shared/errorMessage";
-import { createListenerSet } from "../runtime/listenerSet";
+import { createListenerSet } from "../../data/shared/listenerSet";
 import {
   createIdentityKeyPackage,
   type IdentityKeyPackage,
