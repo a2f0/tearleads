@@ -119,6 +119,8 @@ function ReadyDocumentHistory(params: {
             <DocumentHistoryRestore
               index={settled.index}
               isLatest={isCurrentDocumentVersion(state, settled.index)}
+              // Choosing a stop stops playback, including the one on screen.
+              onRequested={() => controls.seek(settled.index)}
               onRestored={controls.reload}
               versionTime={changeTime}
               view={settled.view}

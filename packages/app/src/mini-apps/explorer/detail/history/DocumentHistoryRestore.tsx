@@ -84,11 +84,18 @@ export function DocumentHistoryRestore(params: {
   index: number;
   /** The newest stop is the document as it is: there is nothing to restore. */
   isLatest: boolean;
+  /**
+   * The user asked to restore this stop. The host holds the timeline here:
+   * during playback the next tick would move to another stop and dismiss the
+   * confirmation before it could be answered.
+   */
+  onRequested: () => void;
   onRestored: () => void;
   versionTime: string;
   view: DocumentHistoryView;
 }) {
-  const { index, isLatest, onRestored, versionTime, view } = params;
+  const { index, isLatest, onRequested, onRestored, versionTime, view } =
+    params;
   const { canWrite, ready, restoreContent } = useDocument();
   // Replaced when the database, account, or keys change. A restore confirmed
   // under one scope must not land under another.
@@ -155,7 +162,10 @@ export function DocumentHistoryRestore(params: {
     <div className="explorer-document-history-restore">
       <MiniAppButton
         loading={state.status === "restoring"}
-        onClick={() => send({ index, type: "requested" })}
+        onClick={() => {
+          onRequested();
+          send({ index, type: "requested" });
+        }}
       >
         {EXPLORER_LABELS.documentHistoryRestoreAction}
       </MiniAppButton>

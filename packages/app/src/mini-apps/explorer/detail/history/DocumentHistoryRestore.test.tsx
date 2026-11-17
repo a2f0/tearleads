@@ -66,7 +66,11 @@ function liveDocument(snapshot: DocumentSnapshot = SNAPSHOT) {
 
 function mount(
   store: DocumentStore,
-  options: { isLatest?: boolean; onRestored?: () => void } = {},
+  options: {
+    isLatest?: boolean;
+    onRequested?: () => void;
+    onRestored?: () => void;
+  } = {},
 ) {
   const scope = { current: {} as object };
   const element = (readOnly: boolean, index = 2) => (
@@ -76,6 +80,7 @@ function mount(
           <DocumentHistoryRestore
             index={index}
             isLatest={options.isLatest ?? false}
+            onRequested={options.onRequested ?? (() => undefined)}
             onRestored={options.onRestored ?? (() => undefined)}
             versionTime="Jan 1, 2030, 12:00:00 PM"
             view={VIEW}
@@ -127,6 +132,26 @@ test("a confirmed restore writes the version on screen and reports it", async ()
 
   await act(async () => live.calls[0]?.settle(true));
   expect(restored).toBe(1);
+});
+
+test("asking to restore tells the host to hold the timeline before confirming", async () => {
+  const live = liveDocument();
+  const order: string[] = [];
+  const view = mount(live.store, { onRequested: () => order.push("held") });
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.documentHistoryRestoreAction,
+    }),
+  );
+  await view.findByRole("dialog", {
+    name: EXPLORER_LABELS.documentHistoryRestoreTitle,
+  });
+
+  // During playback the next tick would otherwise move to another stop and
+  // dismiss this confirmation.
+  expect(order).toEqual(["held"]);
+  expect(live.calls).toHaveLength(0);
 });
 
 test("nothing is written until the restore is confirmed, and cancelling abandons it", async () => {
