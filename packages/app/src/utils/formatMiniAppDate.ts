@@ -45,3 +45,15 @@ export function formatMiniAppDateTime(
     options,
   );
 }
+
+/** Date and time to the second, for events whose order within a minute matters. */
+export function formatMiniAppDateTimeSeconds(
+  value: MiniAppDateValue,
+  options?: MiniAppDateFormatOptions,
+): string {
+  return formatMiniAppDateValue(
+    value,
+    { dateStyle: "medium", timeStyle: "medium" },
+    options,
+  );
+}

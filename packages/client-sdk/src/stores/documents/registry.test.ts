@@ -57,6 +57,7 @@ function createStore(
     },
     requestSync: () => undefined,
     relink: async () => null,
+    restoreContent: async () => true,
     setStructuredFields: async () => undefined,
     setText: async () => undefined,
     subscribe: () => () => undefined,

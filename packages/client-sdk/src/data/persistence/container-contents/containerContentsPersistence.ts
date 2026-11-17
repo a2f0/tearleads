@@ -21,7 +21,7 @@ import {
   runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
-import { enqueueDocumentPendingUpdate } from "../documents/records";
+import { DocumentRecordRepository } from "../documents/records";
 import {
   hasQueuedDocumentUpdates,
   settleQueuedDocumentUpdatesInTransaction,
@@ -98,8 +98,9 @@ async function saveStoredContainer(
         localUpdatedAt,
       });
       if (options && "pendingUpdate" in options) {
-        await enqueueDocumentPendingUpdate(
+        await new DocumentRecordRepository(
           lockedExecSql,
+        ).enqueueDocumentPendingUpdate(
           getContainerMetadataScope(container.id),
           options.pendingUpdate,
         );

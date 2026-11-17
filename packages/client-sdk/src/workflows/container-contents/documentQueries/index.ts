@@ -11,8 +11,8 @@ import {
   RETAINED_CONTAINER_METADATA_SQL,
 } from "../../../data/persistence/container-contents/containerRecoveryPersistence";
 import {
+  ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
-  sqlContainerSyncWatermarkPersistence,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { loadLinkedDocumentSummaryRow } from "../../../data/persistence/container-contents/linkedDocumentSummary";
@@ -426,8 +426,7 @@ export function createContainerDocumentQueriesFromRuntime(
       );
     },
     loadContainerDocumentWatermark(containerId) {
-      return sqlContainerSyncWatermarkPersistence.loadWatermark(
-        execSql,
+      return new ContainerSyncWatermarkRepository(execSql).loadWatermark(
         containerContentsSyncLane(containerId),
       );
     },
@@ -453,8 +452,7 @@ export function createContainerDocumentQueriesFromRuntime(
       );
     },
     async saveContainerDocumentWatermark(containerId, watermark) {
-      await sqlContainerSyncWatermarkPersistence.saveWatermark(
-        execSql,
+      await new ContainerSyncWatermarkRepository(execSql).saveWatermark(
         containerContentsSyncLane(containerId),
         watermark,
       );

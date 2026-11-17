@@ -2,10 +2,7 @@ import { expect, test } from "bun:test";
 import { createDocument, getTextValue, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import {
-  hasRecordedTerminalSyncFailures,
-  recordDocumentSyncFailure,
-} from "../../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
 import type { DocumentsPersistence } from "../../../../workflows/documents";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import {
@@ -27,6 +24,7 @@ test("a superseded finalize keeps its signal and requests another pass", async (
   const { close, execSql } = await createTestExecSql(
     "document-sync-finalize-superseded",
   );
+  const records = new DocumentRecordRepository(execSql);
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const fixture = await createRemoteHistoryFixture();
@@ -120,8 +118,7 @@ test("a superseded finalize keeps its signal and requests another pass", async (
         requestedSyncCount += 1;
       },
     } as NonNullable<typeof state.syncLane>;
-    await recordDocumentSyncFailure(
-      execSql,
+    await records.recordDocumentSyncFailure(
       { appKind: "documents", localId },
       {
         attemptedAt: "2026-08-25T00:00:00.000Z",
@@ -141,7 +138,7 @@ test("a superseded finalize keeps its signal and requests another pass", async (
       unavailableWriterLogMessage: "unexpected unavailable writer",
     });
     if (!attempt) throw new Error("Expected a completed sync response");
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(true);
     expect(attempt.synced.decryptedUpdates.length).toBeGreaterThan(0);
     const publishedTexts: string[] = [];
     state.listeners.add(() => {
@@ -164,7 +161,7 @@ test("a superseded finalize keeps its signal and requests another pass", async (
     expect(publishedTexts.every((text) => text === "survives key")).toBe(true);
     expect(state.snapshot.text).toBe("survives key");
     expect(state.remoteUpdatePending).toBe(true);
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(true);
     expect(requestedSyncCount).toBe(1);
     expect(historyLoadCount).toBe(0);
     expect(atomicStateLoadCount).toBe(1);

@@ -19,9 +19,8 @@ import {
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
 import {
-  enqueueDocumentLinkIntent,
-  enqueueDocumentMoveIntent,
-  enqueueDocumentUnlinkIntent,
+  enqueueDocumentPlacementIntent,
+  type PlacementIntentInput,
 } from "./documentPlacementIntentEnqueue";
 
 type DocumentIntentLinkTarget = {
@@ -188,19 +187,57 @@ function mapDocumentMoveIntentRecord(
   };
 }
 
-export const sqlDocumentMoveIntentPersistence = {
-  async ensureSchema(execSql: ExecSql): Promise<void> {
-    await ensureSqlTables(execSql, documentPlacementIntentTables);
-  },
+/**
+ * The document placement intent lane, bound to one executor and clock.
+ * `markMoveIntentSynced` opens no transaction of its own: it runs inside the
+ * caller's relink commit, so build it from that commit's executor.
+ */
+export class DocumentMoveIntentRepository {
+  private readonly execSql: ExecSql;
+  private readonly now: () => Date;
 
-  enqueueMoveIntent: enqueueDocumentMoveIntent,
-  enqueueLinkIntent: enqueueDocumentLinkIntent,
-  enqueueUnlinkIntent: enqueueDocumentUnlinkIntent,
+  constructor(execSql: ExecSql, now: () => Date = () => new Date()) {
+    this.execSql = execSql;
+    this.now = now;
+  }
 
-  async listPendingMoveIntents(
-    execSql: ExecSql,
-  ): Promise<DocumentMoveIntentRecord[]> {
-    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+  async ensureSchema(): Promise<void> {
+    await ensureSqlTables(this.execSql, documentPlacementIntentTables);
+  }
+
+  enqueueMoveIntent(input: PlacementIntentInput): Promise<void> {
+    return enqueueDocumentPlacementIntent(
+      this.execSql,
+      input,
+      "move",
+      this.now,
+    );
+  }
+
+  enqueueLinkIntent(
+    input: PlacementIntentInput & { sourceContainerId: string },
+  ): Promise<void> {
+    return enqueueDocumentPlacementIntent(
+      this.execSql,
+      input,
+      "link",
+      this.now,
+    );
+  }
+
+  enqueueUnlinkIntent(
+    input: PlacementIntentInput & { removedContainerId: string },
+  ): Promise<void> {
+    return enqueueDocumentPlacementIntent(
+      this.execSql,
+      input,
+      "unlink",
+      this.now,
+    );
+  }
+
+  async listPendingMoveIntents(): Promise<DocumentMoveIntentRecord[]> {
+    return runSerializedSqlMutation(this.execSql, async (lockedExecSql) => {
       await ensureSqlTables(lockedExecSql, documentPlacementIntentTables);
       return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
         async (tx) => {
@@ -263,17 +300,14 @@ export const sqlDocumentMoveIntentPersistence = {
         },
       );
     });
-  },
+  }
 
-  async markMoveIntentSynced(
-    execSql: ExecSql,
-    input: {
-      documentId: string;
-      expectedIntentId?: string | undefined;
-      expectedUpdatedAt: string;
-    },
-  ): Promise<boolean> {
-    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+  async markMoveIntentSynced(input: {
+    documentId: string;
+    expectedIntentId?: string | undefined;
+    expectedUpdatedAt: string;
+  }): Promise<boolean> {
+    return runSerializedSqlMutation(this.execSql, async (lockedExecSql) => {
       const deleted = await lockedExecSql(
         `DELETE FROM local_intents
          WHERE lane = ?
@@ -298,42 +332,39 @@ export const sqlDocumentMoveIntentPersistence = {
       }
       return deleted.length > 0;
     });
-  },
+  }
 
-  async recordMoveIntentError(
-    execSql: ExecSql,
-    input: {
-      blocked?: boolean | undefined;
-      /**
-       * A permission denial (403): the intent parks as `denied` — excluded
-       * from routine structural replays — until the org-access-restored
-       * signal or a manual retry flips it back to pending (edge-case row 7).
-       */
-      denied?: boolean | undefined;
-      documentId: string;
-      /** Exact intent revision read by the pass; preferred over wall-clock CAS. */
-      expectedIntentId?: string | undefined;
-      /**
-       * Optimistic concurrency: when given, the error only records against
-       * the intent revision the pass read — a re-enqueued move (new
-       * updatedAt) is never parked by a stale in-flight failure.
-       */
-      expectedUpdatedAt?: string | undefined;
-      message: string;
-      stillCurrent?: (() => boolean) | undefined;
-      /**
-       * Server proof that a cited container was deleted (coded 404 or
-       * `container_unavailable` 409): the intent parks terminally as
-       * `unavailable`, outside every replay, until the tombstone cascade
-       * retargets it or a re-enqueue replaces it. Outranks `denied`: a
-       * restored permission cannot revive a deleted container.
-       */
-      unavailable?: boolean | undefined;
-    },
-  ): Promise<void> {
-    await getClientSQLitePersistenceRuntime(execSql).guardedTransaction(
+  async recordMoveIntentError(input: {
+    blocked?: boolean | undefined;
+    /**
+     * A permission denial (403): the intent parks as `denied` — excluded
+     * from routine structural replays — until the org-access-restored
+     * signal or a manual retry flips it back to pending (edge-case row 7).
+     */
+    denied?: boolean | undefined;
+    documentId: string;
+    /** Exact intent revision read by the pass; preferred over wall-clock CAS. */
+    expectedIntentId?: string | undefined;
+    /**
+     * Optimistic concurrency: when given, the error only records against
+     * the intent revision the pass read — a re-enqueued move (new
+     * updatedAt) is never parked by a stale in-flight failure.
+     */
+    expectedUpdatedAt?: string | undefined;
+    message: string;
+    stillCurrent?: (() => boolean) | undefined;
+    /**
+     * Server proof that a cited container was deleted (coded 404 or
+     * `container_unavailable` 409): the intent parks terminally as
+     * `unavailable`, outside every replay, until the tombstone cascade
+     * retargets it or a re-enqueue replaces it. Outranks `denied`: a
+     * restored permission cannot revive a deleted container.
+     */
+    unavailable?: boolean | undefined;
+  }): Promise<void> {
+    await getClientSQLitePersistenceRuntime(this.execSql).guardedTransaction(
       async (db) => {
-        const updatedAt = new Date().toISOString();
+        const updatedAt = this.now().toISOString();
         await db
           .update(localIntents)
           .set({
@@ -368,21 +399,21 @@ export const sqlDocumentMoveIntentPersistence = {
       input.stillCurrent ?? (() => true),
       { behavior: "immediate" },
     );
-  },
+  }
+
   /**
    * Evidence for the org-access-restored re-arm gate: a parked
    * permission-denied move proves a queued write was refused.
    */
-  async hasDeniedMoveIntents(
-    execSql: ExecSql,
-    input?: { organizationId?: string },
-  ): Promise<boolean> {
-    await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
-    await ensureSqlTables(execSql, [
+  async hasDeniedMoveIntents(input?: {
+    organizationId?: string;
+  }): Promise<boolean> {
+    await this.ensureSchema();
+    await ensureSqlTables(this.execSql, [
       ...documentProjectionTables,
       ...containerTables,
     ]);
-    const rows = await execSql(
+    const rows = await this.execSql(
       `SELECT intent.subject_id AS document_id
        FROM local_intents intent
        ${input?.organizationId ? DENIED_INTENT_ORGANIZATION_JOINS_SQL : ""}
@@ -398,22 +429,23 @@ export const sqlDocumentMoveIntentPersistence = {
       ],
     );
     return rows.length > 0;
-  },
+  }
+
   /**
    * Flip parked permission-denied moves back to pending so the re-armed
    * structural pass replays them (access restored, or a manual retry scoped
    * to one document).
    */
-  async resetDeniedMoveIntents(
-    execSql: ExecSql,
-    input?: { localId?: string; organizationId?: string },
-  ): Promise<void> {
-    await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
-    await ensureSqlTables(execSql, [
+  async resetDeniedMoveIntents(input?: {
+    localId?: string;
+    organizationId?: string;
+  }): Promise<void> {
+    await this.ensureSchema();
+    await ensureSqlTables(this.execSql, [
       ...documentProjectionTables,
       ...containerTables,
     ]);
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await runSerializedSqlMutation(this.execSql, async (lockedExecSql) => {
       // Organization scoping resolves each intent's organization through the
       // container joins above: restoring one organization's access must not
       // un-park moves that another organization still denies. Rows with no
@@ -437,7 +469,7 @@ export const sqlDocumentMoveIntentPersistence = {
                : ""
            }`,
         [
-          new Date().toISOString(),
+          this.now().toISOString(),
           LOCAL_INTENT_LANES.documentPlacement,
           ...DOCUMENT_PLACEMENT_INTENT_TYPES,
           ...(input?.localId ? [input.localId] : []),
@@ -447,5 +479,5 @@ export const sqlDocumentMoveIntentPersistence = {
         ],
       );
     });
-  },
-};
+  }
+}

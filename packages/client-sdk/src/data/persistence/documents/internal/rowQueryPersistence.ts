@@ -10,9 +10,8 @@ import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import {
+  DocumentRecordRepository,
   documentRecordSelection,
-  findLocalIdByDocumentId,
-  loadDocumentRecord,
   mapSelectedDocumentRecord,
 } from "../records";
 import type { DocumentsPersistence, StoredDocumentRecord } from "../types";
@@ -195,7 +194,10 @@ export const documentRowQueryPersistence: DocumentRowQueryPersistence = {
       .filter((localId): localId is string => localId !== null);
   },
   findLocalIdByDocumentId: (execSql, documentId) =>
-    findLocalIdByDocumentId(execSql, DOCUMENTS_APP_KIND, documentId),
+    new DocumentRecordRepository(execSql).findLocalIdByDocumentId(
+      DOCUMENTS_APP_KIND,
+      documentId,
+    ),
   async hasDocument(execSql, localId) {
     return hasDocumentRow(execSql, localId);
   },
@@ -205,7 +207,9 @@ export const documentRowQueryPersistence: DocumentRowQueryPersistence = {
     expectedDocumentId,
     expectedRecoveryGeneration,
   ) {
-    const record = await loadDocumentRecord(execSql, getDocumentScope(localId));
+    const record = await new DocumentRecordRepository(
+      execSql,
+    ).loadDocumentRecord(getDocumentScope(localId));
     return (
       record?.documentId === expectedDocumentId &&
       (record.recoveryGeneration ?? 0) === expectedRecoveryGeneration

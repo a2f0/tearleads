@@ -1,17 +1,14 @@
 import { expect, test } from "bun:test";
 import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import {
-  clearDocumentSyncFailure,
-  recordDocumentSyncFailure,
-} from "../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
-  markContainerSyncLaneChecked,
 } from "../../../workflows/container-contents/containerPersistence";
 import {
   saveTestDocument,
@@ -28,7 +25,7 @@ async function createStartupWorkFixture(testDbName: string) {
   const { close, execSql } = await createTestExecSql(testDbName);
   await defaultContainerContentsPersistence.ensureSchema(execSql);
   await sqlDocumentsPersistence.ensureSchema(execSql);
-  await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+  await new DocumentMoveIntentRepository(execSql).ensureSchema();
   const state = {
     containersById: new Map([["root-container", {}]]),
     persistence: defaultContainerContentsPersistence,
@@ -80,8 +77,7 @@ test("startup restores a fresh durable root-lane hydration marker", async () => 
     "startup-restores-root-lane-hydration",
   );
   try {
-    await markContainerSyncLaneChecked(
-      execSql,
+    await new ContainerSyncWatermarkRepository(execSql).markChecked(
       createContainerParentSyncLane(null),
     );
     let hydrationRequestCount = 0;
@@ -130,8 +126,7 @@ test("startup schedules stale-root recovery with no durable sync work", async ()
     "startup-schedules-stale-root-recovery",
   );
   try {
-    await markContainerSyncLaneChecked(
-      execSql,
+    await new ContainerSyncWatermarkRepository(execSql).markChecked(
       createContainerParentSyncLane(null),
     );
     let hydrationRequestCount = 0;
@@ -289,12 +284,12 @@ test("hasStartupContainerSyncWork detects a recorded sync failure", async () => 
   const { close, execSql, state } = await createStartupWorkFixture(
     "startup-work-sync-failure",
   );
+  const records = new DocumentRecordRepository(execSql);
   try {
     await saveSettledTestDocument({ execSql, id: "refused-doc", seed: "s9" });
     await expect(hasStartupContainerSyncWork(state)).resolves.toBe(false);
 
-    await recordDocumentSyncFailure(
-      execSql,
+    await records.recordDocumentSyncFailure(
       { appKind: "documents", localId: "refused-doc" },
       {
         attemptedAt: "2026-07-27T00:00:00.000Z",
@@ -304,7 +299,7 @@ test("hasStartupContainerSyncWork detects a recorded sync failure", async () => 
     );
     await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);
 
-    await clearDocumentSyncFailure(execSql, {
+    await records.clearDocumentSyncFailure({
       appKind: "documents",
       localId: "refused-doc",
     });
@@ -320,7 +315,7 @@ test("hasStartupContainerSyncWork detects a pending document move intent", async
   );
   try {
     await saveSettledTestDocument({ execSql, id: "moved-doc", seed: "s3" });
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await new DocumentMoveIntentRepository(execSql).enqueueMoveIntent({
       documentId: "remote-moved-doc",
       localId: "moved-doc",
       sourceContainerId: "root-container",

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { captureStatements } from "../../../../test/helpers/statementCapture";
 import { sqlContainerContentsPersistence as persistence } from "./containerContentsPersistence";
-import { sqlDocumentMoveIntentPersistence } from "./documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "./documentMoveIntentPersistence";
 
 const now = "2026-01-03T00:00:00.000Z";
 
@@ -51,7 +51,7 @@ for (const discoveryOnly of [false, true]) {
     const { execSql, statements } = captureStatements(db.execSql);
     try {
       await persistence.ensureSchema(execSql);
-      await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+      await new DocumentMoveIntentRepository(execSql).ensureSchema();
       await db.execSql(
         `INSERT INTO local_intents (id, lane, intent_type, subject_id,
            local_id, target_container_id, sync_status, created_at, updated_at)

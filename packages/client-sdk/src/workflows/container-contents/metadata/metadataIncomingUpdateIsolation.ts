@@ -4,7 +4,7 @@ import {
   importDecryptedDocumentSyncUpdates,
   validateDocumentSyncUpdateImports,
 } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
-import { recordDocumentSyncFailure } from "../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
@@ -28,11 +28,9 @@ export async function recordCurrentMetadataSyncFailure(input: {
     await getClientSQLitePersistenceRuntime(lockedExecSql).guardedTransaction(
       async () => {
         if (input.isCurrent?.() === false) return;
-        await recordDocumentSyncFailure(
+        await new DocumentRecordRepository(
           lockedExecSql,
-          input.metadataScope,
-          input.failure,
-        );
+        ).recordDocumentSyncFailure(input.metadataScope, input.failure);
       },
       () => input.isCurrent?.() !== false,
     );

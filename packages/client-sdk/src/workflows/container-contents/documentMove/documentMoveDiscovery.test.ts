@@ -1,14 +1,17 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence as documents,
   upsertDiscoveredDocuments,
 } from "../../../data/persistence/documents/documentsPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
-import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
+import {
+  type ExecSql,
+  runSerializedSqlMutation,
+} from "../../../data/sqlite/sqlSchema";
 import {
   discoverContainerDocuments,
   laneLister,
@@ -17,6 +20,8 @@ import {
 import type { DiscoverContainerDocumentsOptions } from "../documentDiscovery/documentDiscoveryTypes";
 import { listContainerContentsDocumentsForContainers } from "../documentQueries/documentSubtreeQueries";
 import { settleDocumentMoveIntent } from "./documentMoveIntentSettlement";
+
+const intents = (execSql: ExecSql) => new DocumentMoveIntentRepository(execSql);
 
 test("a delayed trash tombstone preserves the latest trash intent after restore", async () => {
   const { execSql, close } = await createTestExecSql("move-tombstone-intent");
@@ -39,7 +44,7 @@ test("a delayed trash tombstone preserves the latest trash intent after restore"
       "trash",
     ].entries()) {
       const id = `intent-${revision}`;
-      await intents.enqueueMoveIntent(execSql, {
+      await intents(execSql).enqueueMoveIntent({
         id,
         documentId: "moving",
         localId: "moving",
@@ -73,7 +78,7 @@ test("a delayed trash tombstone preserves the latest trash intent after restore"
     expect(await links.listLinkedContainerIds(execSql, "moving")).toEqual([
       "trash",
     ]);
-    expect(await intents.listPendingMoveIntents(execSql)).toMatchObject([
+    expect(await intents(execSql).listPendingMoveIntents()).toMatchObject([
       { id: "intent-2", targetContainerId: "trash" },
     ]);
     expect(await documents.loadDocument(execSql, "unrelated")).toMatchObject({
@@ -200,7 +205,7 @@ test("discovery cannot return sequentially trashed documents to root", async () 
         accessEpoch: 1,
       });
       await links.replaceDocumentLinks(execSql, id, ["trash"]);
-      await intents.enqueueMoveIntent(execSql, {
+      await intents(execSql).enqueueMoveIntent({
         documentId: id,
         localId: id,
         sourceContainerId: "root",
@@ -216,7 +221,7 @@ test("discovery cannot return sequentially trashed documents to root", async () 
 
       // Final placement and intent removal commit together. A listing
       // captured before this commit must stay obsolete after settlement.
-      const intent = (await intents.listPendingMoveIntents(execSql)).find(
+      const intent = (await intents(execSql).listPendingMoveIntents()).find(
         (row) => row.documentId === id,
       );
       if (!intent) throw new Error("Missing move intent");
@@ -267,14 +272,14 @@ test.each([false, true])(
         snapshotEndVersion: "",
         text: "",
       });
-      await intents.enqueueMoveIntent(execSql, {
+      await intents(execSql).enqueueMoveIntent({
         documentId: "remote",
         localId: "local",
         targetContainerId: "trash",
       });
-      const [old] = await intents.listPendingMoveIntents(execSql);
+      const [old] = await intents(execSql).listPendingMoveIntents();
       if (!old) throw new Error("Missing move");
-      await intents.enqueueMoveIntent(execSql, {
+      await intents(execSql).enqueueMoveIntent({
         documentId: "remote",
         localId: "local",
         targetContainerId: "restored",
@@ -308,7 +313,7 @@ test.each([false, true])(
         containerId: "restored",
         accessEpoch: 1,
       });
-      expect(await intents.listPendingMoveIntents(execSql)).toHaveLength(1);
+      expect(await intents(execSql).listPendingMoveIntents()).toHaveLength(1);
     } finally {
       close();
     }

@@ -7,7 +7,7 @@ import {
 } from "../../../../data/documents/documentRowList";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import { requestDocumentStoreSync } from "../../registry";
-import type { DocumentMutationGuard } from "../../types";
+import type { DocumentMutationGuard, DocumentStore } from "../../types";
 import { ensureDocumentStoreReady } from "../initialization";
 import { chainQueuedWrite } from "../localWriteQueue";
 import { revalidateDocumentMutationIdentity } from "../mutationIdentityRevalidation";
@@ -199,4 +199,26 @@ export async function removeRowFromDocumentStore(
   }
 
   await queueRowMutation(state, (doc) => removeDocumentRow(doc, id), options);
+}
+
+/** The store's row writes, each counted and run on the live sync lane. */
+export function createRowWrites(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+  liveWrite: <Result>(write: () => Promise<Result>) => Promise<Result>,
+): Pick<DocumentStore, "addRow" | "removeRow" | "updateRowFields"> {
+  return {
+    addRow: (fields, options) =>
+      liveWrite(() =>
+        addRowToDocumentStore(state, scheduleSync, fields, options),
+      ),
+    removeRow: (id, options) =>
+      liveWrite(() =>
+        removeRowFromDocumentStore(state, scheduleSync, id, options),
+      ),
+    updateRowFields: (id, patch, options) =>
+      liveWrite(() =>
+        updateRowInDocumentStore(state, scheduleSync, id, patch, options),
+      ),
+  };
 }

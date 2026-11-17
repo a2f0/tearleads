@@ -9,8 +9,8 @@ import type { ListContainerParentLanesResponse } from "@tearleads/validators/res
 import { waitFor } from "../../../../test/helpers/waitFor";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
-  markContainerSyncLaneChecked,
 } from "../../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "../containerContentsStore";
 import {
@@ -32,8 +32,7 @@ async function readyStore(
   const { close, execSql } = await createTestExecSql(name);
   // A checked root lane keeps startup cache-first: no listing until refresh.
   await seedLocalRootContainer(execSql, { rootContainerId: "peer-root" });
-  await markContainerSyncLaneChecked(
-    execSql,
+  await new ContainerSyncWatermarkRepository(execSql).markChecked(
     createContainerParentSyncLane(null),
   );
   const runtime = createContainerContentsTestRuntime({

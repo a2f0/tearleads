@@ -1,4 +1,4 @@
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 
 export async function recordPendingDocumentMoveIntentError(input: {
@@ -13,18 +13,17 @@ export async function recordPendingDocumentMoveIntentError(input: {
   unavailable?: boolean | undefined;
 }): Promise<boolean> {
   if (!input.isCurrent()) return false;
-  await sqlDocumentMoveIntentPersistence.recordMoveIntentError(
+  await new DocumentMoveIntentRepository(
     input.state.runtime.infra.execSql,
-    {
-      blocked: input.blocked,
-      denied: input.denied,
-      documentId: input.documentId,
-      expectedIntentId: input.expectedIntentId,
-      expectedUpdatedAt: input.expectedUpdatedAt,
-      message: input.message,
-      stillCurrent: input.isCurrent,
-      unavailable: input.unavailable,
-    },
-  );
+  ).recordMoveIntentError({
+    blocked: input.blocked,
+    denied: input.denied,
+    documentId: input.documentId,
+    expectedIntentId: input.expectedIntentId,
+    expectedUpdatedAt: input.expectedUpdatedAt,
+    message: input.message,
+    stillCurrent: input.isCurrent,
+    unavailable: input.unavailable,
+  });
   return input.isCurrent();
 }

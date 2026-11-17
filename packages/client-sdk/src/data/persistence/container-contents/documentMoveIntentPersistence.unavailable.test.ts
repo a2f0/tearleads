@@ -6,9 +6,12 @@ import {
   documentProjectionTables,
 } from "../../sqlite/schema/documentProjectionSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import { ensureSqlTables } from "../../sqlite/sqlSchema";
+import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { reassignContainerDocumentsInTransaction } from "./containerDocumentReassignment";
-import { sqlDocumentMoveIntentPersistence as persistence } from "./documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "./documentMoveIntentPersistence";
+
+const persistence = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 const readStatus = async (
   execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"],
@@ -28,13 +31,13 @@ test("unavailable document move intents park terminally until retargeted", async
     "document-move-unavailable",
   );
   try {
-    await persistence.ensureSchema(execSql);
+    await persistence(execSql).ensureSchema();
     await ensureSqlTables(execSql, [
       ...documentContainerProjectionTables,
       ...documentProjectionTables,
       ...containerTables,
     ]);
-    await persistence.enqueueMoveIntent(execSql, {
+    await persistence(execSql).enqueueMoveIntent({
       documentId: "remote",
       localId: "doc",
       replaceLinkedContainers: false,
@@ -42,20 +45,20 @@ test("unavailable document move intents park terminally until retargeted", async
       targetContainerId: "deleted-target",
     });
 
-    await persistence.recordMoveIntentError(execSql, {
+    await persistence(execSql).recordMoveIntentError({
       denied: true,
       documentId: "remote",
       message: "Remote document move cites a container deleted on the server",
       unavailable: true,
     });
     expect(await readStatus(execSql)).toEqual(["unavailable"]);
-    expect(await persistence.listPendingMoveIntents(execSql)).toEqual([]);
-    expect(await persistence.hasDeniedMoveIntents(execSql)).toBe(false);
+    expect(await persistence(execSql).listPendingMoveIntents()).toEqual([]);
+    expect(await persistence(execSql).hasDeniedMoveIntents()).toBe(false);
 
     // Neither the access-restored reset nor a manual retry revives it: a
     // restored permission cannot bring a deleted container back.
-    await persistence.resetDeniedMoveIntents(execSql);
-    await persistence.resetDeniedMoveIntents(execSql, { localId: "doc" });
+    await persistence(execSql).resetDeniedMoveIntents();
+    await persistence(execSql).resetDeniedMoveIntents({ localId: "doc" });
     expect(await readStatus(execSql)).toEqual(["unavailable"]);
 
     // The tombstone cascade retargets the intent and re-arms it.
@@ -67,24 +70,24 @@ test("unavailable document move intents park terminally until retargeted", async
         updatedAt: new Date().toISOString(),
       });
     });
-    expect(await persistence.listPendingMoveIntents(execSql)).toMatchObject([
+    expect(await persistence(execSql).listPendingMoveIntents()).toMatchObject([
       { syncStatus: "pending", targetContainerId: "parent" },
     ]);
 
     // A fresh enqueue (the user moves the document again) also re-arms it.
-    await persistence.recordMoveIntentError(execSql, {
+    await persistence(execSql).recordMoveIntentError({
       documentId: "remote",
       message: "gone again",
       unavailable: true,
     });
     expect(await readStatus(execSql)).toEqual(["unavailable"]);
-    await persistence.enqueueMoveIntent(execSql, {
+    await persistence(execSql).enqueueMoveIntent({
       documentId: "remote",
       localId: "doc",
       sourceContainerId: "from",
       targetContainerId: "elsewhere",
     });
-    expect(await persistence.listPendingMoveIntents(execSql)).toMatchObject([
+    expect(await persistence(execSql).listPendingMoveIntents()).toMatchObject([
       {
         lastError: null,
         syncStatus: "pending",

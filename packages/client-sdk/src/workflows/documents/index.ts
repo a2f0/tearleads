@@ -23,11 +23,7 @@ export type {
   DocumentRotationProofMode,
   RelinkRemoteDocumentResult,
 } from "../../data/documents/shared/types";
-export {
-  clearDocumentSyncFailure,
-  invalidateDocumentSyncPullContinuation,
-  recordDocumentSyncFailure,
-} from "../../data/persistence/documents/records";
+export { DocumentRecordRepository } from "../../data/persistence/documents/records";
 export {
   DOCUMENT_HISTORY_COMPACTION_MAX_BYTES,
   DOCUMENT_HISTORY_COMPACTION_MAX_ROWS,
@@ -53,6 +49,20 @@ export {
   createRemoteDocument,
   documentWriterProjectionFromCreateResponse,
 } from "./create";
+export {
+  type DocumentHistory,
+  type DocumentHistoryStop,
+  type DocumentHistoryVersion,
+  type DocumentHistoryVersionEntry,
+  type DocumentHistoryView,
+  openDocumentHistory,
+} from "./history/documentHistory";
+export {
+  type DocumentHistoryChange,
+  type DocumentHistoryRowChange,
+  type DocumentHistoryTextChange,
+  isEmptyDocumentHistoryChange,
+} from "./history/documentHistoryChange";
 export {
   importDocumentHistoryTailUpdates,
   loadPersistedDocumentContent,

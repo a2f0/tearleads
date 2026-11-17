@@ -2,12 +2,14 @@ import { expect, test } from "bun:test";
 import { createFileBackedSql } from "../../../../test/helpers/fileBackedSql";
 import { createPlacementCommitFixture } from "../../../../test/helpers/placementCommit";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { relinkDocumentStoreWithCommitSideEffect } from "../../../stores/documents/documentStore/internalRelink";
 import { subscribeToPersistedDocuments } from "../../../stores/documents/registry";
 import { settleDocumentMoveIntent } from "./documentMoveIntentSettlement";
+
+const intents = (execSql: ExecSql) => new DocumentMoveIntentRepository(execSql);
 
 // Await the worker before invoking Bun's synchronous rejection matcher: the
 // matcher otherwise blocks delivery of the worker's failure response.
@@ -84,7 +86,7 @@ test.each([
     const f = await createPlacementCommitFixture();
     try {
       await f.link();
-      const [intent] = await intents.listPendingMoveIntents(f.db.execSql);
+      const [intent] = await intents(f.db.execSql).listPendingMoveIntents();
       if (!intent) throw new Error("Missing queued intent");
       const before = await snapshot(f.db.execSql);
       await f.db.execSql(
@@ -123,7 +125,7 @@ test.each([false, true])(
     const f = await createPlacementCommitFixture();
     try {
       await f.move();
-      const [intent] = await intents.listPendingMoveIntents(f.db.execSql);
+      const [intent] = await intents(f.db.execSql).listPendingMoveIntents();
       if (!intent) throw new Error("Missing queued intent");
       const before = await snapshot(f.db.execSql);
       for (const stale of ["generation", "intent"] as const) {
@@ -174,11 +176,11 @@ test.each(["move", "link", "unlink", "projection"] as const)(
     };
     const run = () => {
       if (operation === "move")
-        return intents.enqueueMoveIntent(f.db.execSql, input);
+        return intents(f.db.execSql).enqueueMoveIntent(input);
       if (operation === "link")
-        return intents.enqueueLinkIntent(f.db.execSql, input);
+        return intents(f.db.execSql).enqueueLinkIntent(input);
       if (operation === "unlink")
-        return intents.enqueueUnlinkIntent(f.db.execSql, input);
+        return intents(f.db.execSql).enqueueUnlinkIntent(input);
       return links.replaceDocumentLinks(f.db.execSql, f.documentId, ["trash"]);
     };
     try {

@@ -31,7 +31,7 @@ import {
 } from "../../../../../test/helpers/onlineDocumentStoreFixtures";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import { getDocumentScope } from "../../../../data/persistence/documents/internal/documentRows";
-import { enqueueDocumentPendingUpdateWithHistory } from "../../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import {
   type DocumentsPersistence,
@@ -356,11 +356,9 @@ async function commitLateForeignWrite(
   writer.commit();
   const fields = createPendingUpdateFields(exportUpdatesSince(writer, before));
   if (!fields) throw new Error("expected a foreign update");
-  const updateId = await enqueueDocumentPendingUpdateWithHistory(
+  const updateId = await new DocumentRecordRepository(
     execSql,
-    getDocumentScope(localId),
-    fields,
-  );
+  ).enqueueDocumentPendingUpdateWithHistory(getDocumentScope(localId), fields);
   if (!updateId) throw new Error("expected the foreign row to be queued");
   return updateId;
 }

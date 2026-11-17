@@ -1,11 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
-  enqueueDocumentPendingUpdate,
+  DocumentRecordRepository,
   ensureDocumentTables,
-  listDocumentPendingUpdates,
   MAX_PENDING_UPDATE_REKEYS,
-  rekeyDocumentPendingUpdate,
 } from "../../../data/persistence/documents/records";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import {
@@ -68,12 +66,13 @@ test("re-key rolls back when recovery expires before commit", async () => {
   const scope = { appKind: "documents", localId: "expiring-document" };
   try {
     await ensureDocumentTables(execSql);
-    const pendingUpdateId = await enqueueDocumentPendingUpdate(execSql, scope, {
+    const records = new DocumentRecordRepository(execSql);
+    const pendingUpdateId = await records.enqueueDocumentPendingUpdate(scope, {
       partialEndVersionVector: "end",
       partialStartVersionVector: "start",
       updateData: "data",
     });
-    const [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+    const [pendingUpdate] = await records.listDocumentPendingUpdates(scope);
     if (!pendingUpdate) throw new Error("Expected a pending update");
     let current = true;
 
@@ -81,7 +80,9 @@ test("re-key rolls back when recovery expires before commit", async () => {
       execSql,
       recoveryPendingUpdatesById: new Map([[pendingUpdate.id, pendingUpdate]]),
       rekeyPendingUpdate: async (lockedExecSql, id) => {
-        const nextId = await rekeyDocumentPendingUpdate(lockedExecSql, id);
+        const nextId = await new DocumentRecordRepository(
+          lockedExecSql,
+        ).rekeyDocumentPendingUpdate(id);
         current = false;
         return nextId;
       },
@@ -93,7 +94,7 @@ test("re-key rolls back when recovery expires before commit", async () => {
       exhaustedPendingUpdateIds: [],
       rekeyedPendingUpdateIds: [],
     });
-    expect(await listDocumentPendingUpdates(execSql, scope)).toEqual([
+    expect(await records.listDocumentPendingUpdates(scope)).toEqual([
       expect.objectContaining({ id: pendingUpdateId, rekeyCount: 0 }),
     ]);
   } finally {

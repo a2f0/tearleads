@@ -39,7 +39,7 @@ Supported package entry points:
 
 | Entry point | Use for |
 | --- | --- |
-| `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, purchase capabilities, [`BlobAttachmentService`](configuration.md#blob-attachment-service) (which replaced the free `uploadDocumentAttachment`, `hydrateDocumentAttachmentBlobs`, and `decryptDocumentAttachmentBlob` exports), [`ContainerMutationService`](configuration.md#container-mutation-service) (which replaced the free `createRemoteContainer`, `shareRemoteContainer`, `moveRemoteContainer`, `rekeyRemoteContainer`, and `revokeRemoteContainer` exports), and public workflow symbols |
+| `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, purchase capabilities, [`BlobAttachmentService`](configuration.md#blob-attachment-service) (which replaced the free `uploadDocumentAttachment`, `hydrateDocumentAttachmentBlobs`, and `decryptDocumentAttachmentBlob` exports), [`ContainerMutationService`](configuration.md#container-mutation-service) (which replaced the free `createRemoteContainer`, `shareRemoteContainer`, `moveRemoteContainer`, `rekeyRemoteContainer`, and `revokeRemoteContainer` exports), `ContainerSyncWatermarkRepository` (which replaced `loadContainerSyncWatermark(execSql, lane)` and `saveContainerSyncWatermark(execSql, lane, watermark)` with `new ContainerSyncWatermarkRepository(execSql, now?)` and its `loadWatermark(lane)`, `saveWatermark(lane, watermark, { stillCurrent }?)` returning whether it committed, `loadWatermarkRecords`, `loadCheckRecords`, `markChecked`, and `recordLaneFetch`), and public workflow symbols |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, adapter helpers, and [local schema migration](../../../packages/client-sdk/src/data/sqlite/migrations/README.md) (`ensureLocalSchemaMigrated` at boot; `withLocalSchemaMigrationLock`, `migrateLocalSchema`, and the ledger check in a backup restore) |
 | `@tearleads/client-sdk/sqlite/worker.js` | The SQLite worker module a host serves for `createSQLiteRuntime` |
 | `@tearleads/client-sdk/sqlite/sqlite3.wasm` | The SQLite WebAssembly the host serves beside `worker.js` |
@@ -356,7 +356,7 @@ requested remote identity. That result refuses a second birth; it does not
 adopt, overwrite, or merge the alias. A host reopening a known profile must
 resolve its actual persisted local ID, use the captured workflow runtime, and
 open without creation seeds. Scope, readiness, and access checks still apply.
-See [custom document persistence](../custom-document-persistence.md).
+See [custom document persistence](../custom-document-persistence.md) and [`documents.openHistory`](./document-history.md).
 
 ### Unsaved document writes
 

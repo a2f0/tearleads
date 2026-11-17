@@ -3,8 +3,8 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { SyncWatermark } from "@tearleads/validators/response";
 import type { DiscoveredDocumentInput } from "../../../data/documents/documentSummary";
 import {
+  ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
-  sqlContainerSyncWatermarkPersistence,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../../data/persistence/documents/documentDiscoveryReset";
@@ -91,8 +91,7 @@ async function createHarness(execSql: ExecSql): Promise<Harness> {
     containerId,
     replaceDocumentLinksBatch: async () => {},
     saveContainerDocumentWatermark: async (id, watermark) => {
-      await sqlContainerSyncWatermarkPersistence.saveWatermark(
-        execSql,
+      await new ContainerSyncWatermarkRepository(execSql).saveWatermark(
         containerContentsSyncLane(id),
         watermark,
       );
@@ -136,8 +135,7 @@ async function createHarness(execSql: ExecSql): Promise<Harness> {
         lanes: LANES.map((id) => lane(id, input.failUpsertFor)),
         listContainerDocumentLanes: listLanes,
         loadContainerDocumentWatermark: (id) =>
-          sqlContainerSyncWatermarkPersistence.loadWatermark(
-            execSql,
+          new ContainerSyncWatermarkRepository(execSql).loadWatermark(
             containerContentsSyncLane(id),
           ),
         onOutcome: input.onOutcome,
@@ -145,8 +143,7 @@ async function createHarness(execSql: ExecSql): Promise<Harness> {
     savedCursors: () =>
       Promise.all(
         LANES.map((id) =>
-          sqlContainerSyncWatermarkPersistence.loadWatermark(
-            execSql,
+          new ContainerSyncWatermarkRepository(execSql).loadWatermark(
             containerContentsSyncLane(id),
           ),
         ),
