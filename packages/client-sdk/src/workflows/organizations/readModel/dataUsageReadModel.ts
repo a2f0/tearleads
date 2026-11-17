@@ -3,11 +3,7 @@ import type {
   RequestResultOptions,
 } from "@tearleads/api-client";
 import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
-import {
-  loadOrganizationDataUsageProjection,
-  purgeOrganizationDataUsageProjection,
-  saveOrganizationDataUsageProjection,
-} from "../../../data/persistence/organizations/organizationDataUsagePersistence";
+import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
 import { recordOrganizationPresentationDenials } from "../../../data/persistence/organizations/organizationPresentationDenialPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -49,8 +45,9 @@ export async function loadLocalOrganizationDataUsage(
   input: OrganizationDataUsageProjectionInput,
 ): Promise<OrganizationDataUsage | null> {
   return runOrganizationPresentationRead(input, "usage", () =>
-    loadOrganizationDataUsageProjection(
+    new OrganizationDataUsageRepository(
       input.execSql,
+    ).loadOrganizationDataUsageProjection(
       input.organizationId,
       input.requesterUserId,
     ),
@@ -94,8 +91,9 @@ export async function reconcileOrganizationDataUsage(
       }
       try {
         await runOrganizationPresentationMutation(input.execSql, () =>
-          purgeOrganizationDataUsageProjection(
+          new OrganizationDataUsageRepository(
             input.execSql,
+          ).purgeOrganizationDataUsageProjection(
             input.organizationId,
             input.requesterUserId,
           ),
@@ -125,8 +123,9 @@ export async function reconcileOrganizationDataUsage(
       return null;
     }
     try {
-      await saveOrganizationDataUsageProjection({
-        execSql: input.execSql,
+      await new OrganizationDataUsageRepository(
+        input.execSql,
+      ).saveOrganizationDataUsageProjection({
         requesterUserId: input.requesterUserId,
         response: result.data,
       });

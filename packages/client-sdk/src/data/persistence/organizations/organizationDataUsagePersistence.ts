@@ -145,115 +145,123 @@ function canonicalBreakdownJson(
   return JSON.stringify(breakdown);
 }
 
-export async function loadOrganizationDataUsageProjection(
-  execSql: ExecSql,
-  organizationId: string,
-  requesterUserId: string,
-): Promise<OrganizationDataUsageResponse | null> {
-  requireScope(organizationId, requesterUserId);
-  await ensureSqlTables(execSql, organizationDataUsageTables);
-  return getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
-    const scope = and(
-      eq(organizationDataUsageSnapshots.organizationId, organizationId),
-      eq(organizationDataUsageSnapshots.requesterUserId, requesterUserId),
+export class OrganizationDataUsageRepository {
+  constructor(
+    private readonly execSql: ExecSql,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  async loadOrganizationDataUsageProjection(
+    organizationId: string,
+    requesterUserId: string,
+  ): Promise<OrganizationDataUsageResponse | null> {
+    requireScope(organizationId, requesterUserId);
+    await ensureSqlTables(this.execSql, organizationDataUsageTables);
+    return getClientSQLitePersistenceRuntime(this.execSql).transaction(
+      async (tx) => {
+        const scope = and(
+          eq(organizationDataUsageSnapshots.organizationId, organizationId),
+          eq(organizationDataUsageSnapshots.requesterUserId, requesterUserId),
+        );
+        const [snapshot] = await tx
+          .select()
+          .from(organizationDataUsageSnapshots)
+          .where(scope)
+          .limit(1);
+        if (!snapshot) {
+          return null;
+        }
+        const response = isStoredSnapshotValid(
+          snapshot,
+          organizationId,
+          requesterUserId,
+        )
+          ? storedResponse(snapshot)
+          : null;
+        if (!response) {
+          await purgeOrganizationDataUsageProjectionInTransaction({
+            organizationId,
+            requesterUserId,
+            tx,
+          });
+        }
+        return response;
+      },
     );
-    const [snapshot] = await tx
-      .select()
-      .from(organizationDataUsageSnapshots)
-      .where(scope)
-      .limit(1);
-    if (!snapshot) {
-      return null;
-    }
-    const response = isStoredSnapshotValid(
-      snapshot,
-      organizationId,
-      requesterUserId,
-    )
-      ? storedResponse(snapshot)
-      : null;
-    if (!response) {
-      await purgeOrganizationDataUsageProjectionInTransaction({
-        organizationId,
-        requesterUserId,
-        tx,
-      });
-    }
-    return response;
-  });
-}
+  }
 
-export async function saveOrganizationDataUsageProjection(input: {
-  readonly execSql: ExecSql;
-  readonly requesterUserId: string;
-  readonly response: OrganizationDataUsageResponse;
-}): Promise<void> {
-  const response = parseResponse(input.response);
-  requireScope(response.organizationId, input.requesterUserId);
-  await ensureSqlTables(input.execSql, [
-    ...organizationDataUsageTables,
-    ...organizationReadModelTables,
-  ]);
-  await getClientSQLitePersistenceRuntime(input.execSql).transaction(
-    async (tx) => {
-      // Storing an authoritative usage response proves access: retire any
-      // durable denial marker for this scope in the same transaction.
-      await clearOrganizationPresentationDenialInTransaction({
-        organizationId: response.organizationId,
-        projection: "usage",
-        requesterUserId: input.requesterUserId,
-        tx,
-      });
-      const snapshot = {
-        organizationId: response.organizationId,
-        requesterUserId: input.requesterUserId,
-        projectionVersion: ORGANIZATION_DATA_USAGE_PROJECTION_VERSION,
-        blobCount: response.blobs.blobCount,
-        blobByteLength: response.blobs.byteLength,
-        documentByteLength: response.documents.byteLength,
-        documentCount: response.documents.documentCount,
-        documentUpdateCount: response.documents.updateCount,
-        totalByteLength: response.totalByteLength,
-        categoryBreakdownJson: canonicalBreakdownJson(response),
-        refreshedAt: new Date().toISOString(),
-      };
-      await tx
-        .insert(organizationDataUsageSnapshots)
-        .values(snapshot)
-        .onConflictDoUpdate({
-          target: [
-            organizationDataUsageSnapshots.organizationId,
-            organizationDataUsageSnapshots.requesterUserId,
-          ],
-          set: {
-            projectionVersion: snapshot.projectionVersion,
-            blobCount: snapshot.blobCount,
-            blobByteLength: snapshot.blobByteLength,
-            documentByteLength: snapshot.documentByteLength,
-            documentCount: snapshot.documentCount,
-            documentUpdateCount: snapshot.documentUpdateCount,
-            totalByteLength: snapshot.totalByteLength,
-            categoryBreakdownJson: snapshot.categoryBreakdownJson,
-            refreshedAt: snapshot.refreshedAt,
-          },
-        })
-        .run();
-    },
-  );
-}
+  async saveOrganizationDataUsageProjection(input: {
+    readonly requesterUserId: string;
+    readonly response: OrganizationDataUsageResponse;
+  }): Promise<void> {
+    const response = parseResponse(input.response);
+    requireScope(response.organizationId, input.requesterUserId);
+    await ensureSqlTables(this.execSql, [
+      ...organizationDataUsageTables,
+      ...organizationReadModelTables,
+    ]);
+    await getClientSQLitePersistenceRuntime(this.execSql).transaction(
+      async (tx) => {
+        // Storing an authoritative usage response proves access: retire any
+        // durable denial marker for this scope in the same transaction.
+        await clearOrganizationPresentationDenialInTransaction({
+          organizationId: response.organizationId,
+          projection: "usage",
+          requesterUserId: input.requesterUserId,
+          tx,
+        });
+        const snapshot = {
+          organizationId: response.organizationId,
+          requesterUserId: input.requesterUserId,
+          projectionVersion: ORGANIZATION_DATA_USAGE_PROJECTION_VERSION,
+          blobCount: response.blobs.blobCount,
+          blobByteLength: response.blobs.byteLength,
+          documentByteLength: response.documents.byteLength,
+          documentCount: response.documents.documentCount,
+          documentUpdateCount: response.documents.updateCount,
+          totalByteLength: response.totalByteLength,
+          categoryBreakdownJson: canonicalBreakdownJson(response),
+          refreshedAt: this.now().toISOString(),
+        };
+        await tx
+          .insert(organizationDataUsageSnapshots)
+          .values(snapshot)
+          .onConflictDoUpdate({
+            target: [
+              organizationDataUsageSnapshots.organizationId,
+              organizationDataUsageSnapshots.requesterUserId,
+            ],
+            set: {
+              projectionVersion: snapshot.projectionVersion,
+              blobCount: snapshot.blobCount,
+              blobByteLength: snapshot.blobByteLength,
+              documentByteLength: snapshot.documentByteLength,
+              documentCount: snapshot.documentCount,
+              documentUpdateCount: snapshot.documentUpdateCount,
+              totalByteLength: snapshot.totalByteLength,
+              categoryBreakdownJson: snapshot.categoryBreakdownJson,
+              refreshedAt: snapshot.refreshedAt,
+            },
+          })
+          .run();
+      },
+    );
+  }
 
-export async function purgeOrganizationDataUsageProjection(
-  execSql: ExecSql,
-  organizationId: string,
-  requesterUserId?: string,
-): Promise<void> {
-  requireScope(organizationId, requesterUserId);
-  await ensureSqlTables(execSql, organizationDataUsageTables);
-  await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
-    await purgeOrganizationDataUsageProjectionInTransaction({
-      organizationId,
-      requesterUserId,
-      tx,
-    });
-  });
+  async purgeOrganizationDataUsageProjection(
+    organizationId: string,
+    requesterUserId?: string,
+  ): Promise<void> {
+    requireScope(organizationId, requesterUserId);
+    await ensureSqlTables(this.execSql, organizationDataUsageTables);
+    await getClientSQLitePersistenceRuntime(this.execSql).transaction(
+      async (tx) => {
+        await purgeOrganizationDataUsageProjectionInTransaction({
+          organizationId,
+          requesterUserId,
+          tx,
+        });
+      },
+    );
+  }
 }
