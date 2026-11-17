@@ -43,3 +43,12 @@ export interface Subsystem {
   readonly tables?: readonly string[];
   readonly readableTables?: readonly string[];
 }
+
+/**
+ * Subsystem names in dependency order: each inner list is one subsystem layer,
+ * lowest first, and its names are ordered lowest first too. A production file
+ * may import at runtime only from subsystems ranked below its own. Enforced by
+ * `subsystem-imports-follow-layer-order`, with older back-edges in
+ * `subsystemLayerBaseline.json`.
+ */
+export type SubsystemLayers = readonly (readonly string[])[];
