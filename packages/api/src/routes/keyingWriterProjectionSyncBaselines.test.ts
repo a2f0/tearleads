@@ -91,7 +91,11 @@ test("POST /documents/:documentId/sync records a baseline once across a retried 
   expect(synced.acceptedOutgoingUpdateIds).toEqual([updateId]);
   // The write commits to the target hash the request expected, the set the
   // client holds, so the response omits it; the stored header keeps it.
-  expect(synced.updates[0]?.authorizationTargets).toBeUndefined();
+  const echoed = synced.updates.find(
+    (update: { id: string }) => update.id === updateId,
+  );
+  expect(echoed).toBeDefined();
+  expect(echoed).not.toHaveProperty("authorizationTargets");
   const [storedHeader] = await db
     .select({ targets: documentContentWriteHeaders.authorizationTargets })
     .from(documentContentWriteHeaders)
@@ -218,10 +222,13 @@ test("POST /documents/:documentId/sync redirects historical updates to the atomi
   });
   expect(rawResponse.status).toBe(200);
   const raw = await rawResponse.json();
-  expect(
-    raw.updates.find((update: { id: string }) => update.id === updateId)
-      ?.authorizationTargets,
-  ).toEqual(created.documentKekTargets.targets);
+  const historical = raw.updates.find(
+    (update: { id: string }) => update.id === updateId,
+  );
+  expect(historical).toBeDefined();
+  expect(historical?.authorizationTargets).toEqual(
+    created.documentKekTargets.targets,
+  );
 
   const unlinkRequest = await buildDocumentUnlinkRequest({
     child,

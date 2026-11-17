@@ -27,8 +27,10 @@ function readByteCount(value: unknown): number {
  * and nothing past it has to be loaded to find the page. What the floors
  * leave out is fixed-size: keys, ids, epochs, and timestamps. An entry omits
  * its authorization targets when they are the set the client holds; the
- * floor still counts them, because the page loads them, so it stays a bound
- * on what loads and at worst ends a page a few hundred bytes early.
+ * floor still counts them, because the page loads them, so the floors bound
+ * the data a page loads rather than its response. A page whose entries omit
+ * their sets can therefore end early by the sum of those sets' bytes, and the
+ * next page continues it.
  */
 export async function listDocumentUpdateResponseByteFloors(
   executor: DatabaseSession,
