@@ -115,8 +115,8 @@ test("tablet form column stops at the measure", async ({ page }) => {
   expect(geometry.panelWidth).toBeCloseTo(geometry.width, 0);
 });
 
-test("tablet passport image stops at the measure", async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 1000 });
+test("passport preview stays card-sized in a wide pane", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/app/explorer");
 
   await page.getByRole("button", { name: "New Document" }).click();
@@ -152,6 +152,12 @@ test("tablet passport image stops at the measure", async ({ page }) => {
   expect(geometry.capPx).not.toBeNull();
   expect(geometry.width).toBeCloseTo(geometry.capPx ?? 0, 0);
   expect(geometry.width).toBeLessThan(geometry.parentWidth);
+  const previewBox = await page
+    .locator(".structured-document-slot-preview")
+    .boundingBox();
+  expect(previewBox).not.toBeNull();
+  expect(previewBox?.width).toBeCloseTo(320, 0);
+  expect(previewBox?.height).toBeCloseTo(320 / 1.58, 0);
 });
 
 /*

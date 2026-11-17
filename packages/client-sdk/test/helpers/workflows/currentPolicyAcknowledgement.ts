@@ -80,6 +80,7 @@ export async function currentPolicyAcknowledgementFixture(
             accessLevel: "read",
           })
         : await buildOrganizationGroupDirectoryPolicyRequest({
+            currentUserSecretKey: null,
             ...signer,
             adminProjection: history.admin.currentProjection,
             adminUsers: [identity],

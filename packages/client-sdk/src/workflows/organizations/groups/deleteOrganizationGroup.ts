@@ -24,6 +24,8 @@ export async function deleteOrganizationGroup(input: {
       request: DeleteOrganizationGroupRequest,
     ) => Promise<DeleteOrganizationGroupResponse | null>;
   };
+  /** The signer's KEM secret; without it the organization directory rotates. */
+  readonly currentUserSecretKey?: Uint8Array | null | undefined;
   readonly execSql: ExecSql;
   readonly groupId: string;
   readonly organizationId: string;
@@ -58,6 +60,7 @@ export async function deleteOrganizationGroup(input: {
       adminProjection,
       adminUsers,
       currentPolicy: externalAdminPolicy.bundle,
+      currentUserSecretKey: input.currentUserSecretKey ?? null,
       descriptor: externalAdminPolicy.descriptor,
       groupHeads: removeOrganizationGroupHead({
         descriptor: externalAdminPolicy.descriptor,

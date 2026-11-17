@@ -5,6 +5,7 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
   closeDefaultExplorerWindows,
   disableAnimations,
+  showExplorerSidebar,
   waitForBooted,
 } from "./appShell";
 import { screenshotDeviceScreen } from "./deviceScreen";
@@ -116,12 +117,8 @@ async function openAuthenticatedExplorers(page: Page): Promise<{
 
   const ownerWindow = await openPaneApp(page, ownerPane, "Explorer");
   const peerWindow = await openPaneApp(page, peerPane, "Explorer");
-  await expect(ownerWindow.locator(".explorer-sidebar-viewport")).toBeVisible({
-    timeout: 30_000,
-  });
-  await expect(peerWindow.locator(".explorer-sidebar-viewport")).toBeVisible({
-    timeout: 30_000,
-  });
+  await showExplorerSidebar(ownerWindow);
+  await showExplorerSidebar(peerWindow);
   await ensureExplorerReady(ownerWindow);
   await ensureExplorerReady(peerWindow);
 

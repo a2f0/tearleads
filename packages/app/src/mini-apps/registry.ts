@@ -43,6 +43,7 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
   explorer: {
     createComponent: () => ExplorerApp,
     icon: MINI_APP_ICONS.explorer,
+    initialShowSidebar: false,
     title: MINI_APP_TITLES.explorer,
   },
   "identity-manager": {
