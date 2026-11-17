@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   clearDocumentDiscoveryEvidenceOnRemoteReset,
-  createDocumentDiscoveryEvidenceStore,
+  DocumentDiscoveryEvidenceRepository,
 } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import {
   sqlDocumentsPersistence,
@@ -22,7 +22,7 @@ test.each(["documents", "links"] as const)(
     try {
       await sqlDocumentsPersistence.ensureSchema(execSql);
       await links.ensureSchema(execSql);
-      const evidence = createDocumentDiscoveryEvidenceStore(execSql);
+      const evidence = new DocumentDiscoveryEvidenceRepository(execSql);
       const generation = await evidence.begin();
       const candidate = {
         accessEpoch: 1,

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
-  createDocumentDiscoveryEvidenceStore,
   type DiscoveredDocumentCandidate,
+  DocumentDiscoveryEvidenceRepository,
 } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { documentContainerProjectionTables } from "../../../data/sqlite/schema/documentProjectionSchema";
 import { ensureSqlTables } from "../../../data/sqlite/sqlSchema";
@@ -41,7 +41,7 @@ test("unavailable discoveries back off independently and a bounded prefix surviv
       calls += 1;
       return id === "doc-00" && !recovered ? null : head;
     };
-    const store = createDocumentDiscoveryEvidenceStore(execSql, () => now);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql, () => now);
     const first = await createDiscoveredDocumentVerifier(
       "org",
       load,
@@ -59,7 +59,10 @@ test("unavailable discoveries back off independently and a bounded prefix surviv
     expect(await first.commit()).toBe(false);
     // A recreated adapter picks up the remaining eight without retrying the
     // unavailable document or relying on closure-local progress.
-    const reopened = createDocumentDiscoveryEvidenceStore(execSql, () => now);
+    const reopened = new DocumentDiscoveryEvidenceRepository(
+      execSql,
+      () => now,
+    );
     const verify = createDiscoveredDocumentVerifier(
       "org",
       load,
@@ -85,7 +88,7 @@ test("matching signed heads avoid repeat fetches and changed candidates survive 
     "discovery-evidence-cache",
   );
   try {
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     let calls = 0;
     const verify = createDiscoveredDocumentVerifier(
       "org",
@@ -124,7 +127,7 @@ for (const available of [true, false]) {
       `discovery-lanes-${available}`,
     );
     try {
-      const store = createDocumentDiscoveryEvidenceStore(execSql);
+      const store = new DocumentDiscoveryEvidenceRepository(execSql);
       const saved: string[] = [];
       const inputs: unknown[] = [];
       let retries = 0;
@@ -211,14 +214,14 @@ test("an old hold table fails with the reset diagnosis before querying hidden", 
 test("local request order replaces inflated epochs and ignores older overlapping listings", async () => {
   const { execSql, close } = await createTestExecSql("discovery-request-order");
   try {
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     const older = await store.begin();
     const newer = await store.begin();
     await store.stage([{ ...candidate("doc"), accessEpoch: 1_000_000 }], older);
     await store.stage([{ ...candidate("doc"), accessEpoch: 2 }], newer);
     await store.stage([{ ...candidate("doc"), accessEpoch: 1_000_000 }], older);
     expect((await store.pending(["a"], 32))[0]?.accessEpoch).toBe(2);
-    const reopened = createDocumentDiscoveryEvidenceStore(execSql);
+    const reopened = new DocumentDiscoveryEvidenceRepository(execSql);
     expect(await reopened.begin()).toBeGreaterThan(newer);
   } finally {
     close();
@@ -228,7 +231,7 @@ test("local request order replaces inflated epochs and ignores older overlapping
 test("a local epoch advance refreshes a matching but outdated signed-head cache", async () => {
   const { execSql, close } = await createTestExecSql("discovery-cache-refresh");
   try {
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     let epoch = 1;
     let calls = 0;
     const verify = createDiscoveredDocumentVerifier(
@@ -264,14 +267,14 @@ test("unavailable candidates back off across restarts and changed evidence reset
   );
   try {
     let now = 0;
-    let store = createDocumentDiscoveryEvidenceStore(execSql, () => now);
+    let store = new DocumentDiscoveryEvidenceRepository(execSql, () => now);
     const input = candidate("doc");
     await store.stage([input], await store.begin());
     for (let attempt = 1; attempt <= 9; attempt++) {
       await store.defer(input, await store.begin());
       const delay = 15 * 60_000 * 2 ** Math.min(attempt - 1, 7);
       expect(await store.retryDelay(["a"])).toBe(delay);
-      store = createDocumentDiscoveryEvidenceStore(execSql, () => now);
+      store = new DocumentDiscoveryEvidenceRepository(execSql, () => now);
       await store.stage([input], await store.begin());
       expect(await store.retryDelay(["a"])).toBe(delay);
       expect(await store.pending(["a"], 32)).toEqual([]);
@@ -291,7 +294,7 @@ test("unavailable candidates back off across restarts and changed evidence reset
 test("a coded missing head settles an unapplied listing candidate", async () => {
   const { execSql, close } = await createTestExecSql("discovery-missing-head");
   try {
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     const verify = createDiscoveredDocumentVerifier(
       "org",
       async () => "not-found",
@@ -316,7 +319,7 @@ test("invalid listing epochs cannot poison durable discovery", async () => {
     "discovery-invalid-candidate",
   );
   try {
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     const verify = createDiscoveredDocumentVerifier(
       "org",
       async () => head,
@@ -346,7 +349,7 @@ test("one signed verification covers multiple listed lanes without resetting bac
     "discovery-deduplicated-lanes",
   );
   try {
-    const store = createDocumentDiscoveryEvidenceStore(execSql, () => 0);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql, () => 0);
     let calls = 0;
     const verify = createDiscoveredDocumentVerifier(
       "org",

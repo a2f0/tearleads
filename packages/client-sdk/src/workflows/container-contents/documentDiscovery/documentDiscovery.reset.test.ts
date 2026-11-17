@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../../data/persistence/documents/documentDiscoveryReset";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
@@ -17,7 +17,7 @@ for (const phase of ["listing", "head", "commit"] as const) {
       `discovery-reset-${phase}`,
     );
     try {
-      const store = createDocumentDiscoveryEvidenceStore(execSql);
+      const store = new DocumentDiscoveryEvidenceRepository(execSql);
       let reset = true;
       const maybeReset = async (currentPhase: typeof phase) => {
         if (!reset || currentPhase !== phase) return;
@@ -29,7 +29,7 @@ for (const phase of ["listing", "head", "commit"] as const) {
           }),
         );
       };
-      const acknowledge = store.acknowledge;
+      const acknowledge = store.acknowledge.bind(store);
       store.acknowledge = async (inputs, generation) => {
         await maybeReset("commit");
         await acknowledge(inputs, generation);
