@@ -47,10 +47,14 @@ function seededDocumentIds(response: unknown): string[] {
   ].filter((id): id is string => typeof id === "string");
 }
 
-/** A seeded document's first read sends the provisioning commit position. */
-function expectSeededSyncsFromProvisioningLsn(
+/**
+ * A seeded document's first read sends registration's commit position. An
+ * additional organization reports none, so its seeded first reads send none.
+ */
+function expectSeededFirstSyncs(
   requests: readonly ProxiedApiRequest[],
   provisioningPath: RegExp,
+  position: "position" | "none",
 ): void {
   const provisioning = requests.find(
     (request) =>
@@ -61,7 +65,9 @@ function expectSeededSyncsFromProvisioningLsn(
   if (!provisioning) throw new Error("Expected a provisioning response");
   const response: unknown = JSON.parse(provisioning.responseBody);
   const commitLsn = Reflect.get(Object(response), "commitLsn");
-  expect(typeof commitLsn).toBe("string");
+  expect(typeof commitLsn).toBe(
+    position === "position" ? "string" : "undefined",
+  );
   const firstSyncs = seededDocumentIds(response).flatMap((documentId) => {
     const sync = requests.find((request) =>
       requestPath(request.url).endsWith(`/documents/${documentId}/sync`),
@@ -164,7 +170,7 @@ test(
         },
       },
     });
-    expectSeededSyncsFromProvisioningLsn(bootstrap, /^\/auth\/register$/u);
+    expectSeededFirstSyncs(bootstrap, /^\/auth\/register$/u, "position");
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
@@ -233,7 +239,7 @@ test(
         },
       },
     });
-    expectSeededSyncsFromProvisioningLsn(creation, /^\/organizations$/u);
+    expectSeededFirstSyncs(creation, /^\/organizations$/u, "none");
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

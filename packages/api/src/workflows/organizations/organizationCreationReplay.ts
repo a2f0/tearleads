@@ -10,8 +10,8 @@ import {
 } from "@tearleads/crypto";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import {
-  isStoredCreateOrganizationResult,
-  type StoredCreateOrganizationResult,
+  type CreateOrganizationResponse,
+  isCreateOrganizationResponse,
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { sha256Hex } from "../../utils/sha256";
@@ -33,7 +33,7 @@ function requestSha256(input: CreateOrganizationRequest): string {
 export async function readOrganizationCreationReplay(
   tx: DatabaseTransaction,
   input: CreateOrganizationRequest,
-): Promise<StoredCreateOrganizationResult | null> {
+): Promise<CreateOrganizationResponse | null> {
   if (!isOrdinaryCreate(input)) return null;
   const [stored] = await tx
     .select({
@@ -75,7 +75,7 @@ export async function readOrganizationCreationReplay(
     );
   }
   if (
-    !isStoredCreateOrganizationResult(stored.response) ||
+    !isCreateOrganizationResponse(stored.response) ||
     stored.response.organizationId !== input.organizationId ||
     stored.response.rootContainerId !== input.rootContainerId ||
     stored.response.userId !== input.userId
@@ -101,7 +101,7 @@ export async function readOrganizationCreationReplay(
 export async function recordOrganizationCreationReplay(
   tx: DatabaseTransaction,
   input: CreateOrganizationRequest,
-  response: StoredCreateOrganizationResult,
+  response: CreateOrganizationResponse,
 ): Promise<void> {
   if (!isOrdinaryCreate(input)) return;
   const [stored] = await tx

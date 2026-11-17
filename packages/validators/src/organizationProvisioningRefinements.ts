@@ -1,8 +1,3 @@
-import {
-  documentSyncResponseCommitLsnModeRefinement,
-  documentSyncResponseCommitLsnSentinelRefinement,
-} from "./documentSyncRefinements";
-
 export const organizationProvisioningDocumentSeedRefinement = {
   description:
     "each provisioned document seed must contain exactly one outgoing update and no container rekeys",
@@ -35,6 +30,4 @@ export const organizationProvisioningCommittedUpdateIdsRefinement = {
 export const organizationProvisioningResponseRuntimeRefinements = [
   organizationProvisioningCommittedUpdateIdsRefinement,
   organizationProvisioningContainerKeyringRefinement,
-  documentSyncResponseCommitLsnModeRefinement,
-  documentSyncResponseCommitLsnSentinelRefinement,
 ] as const;

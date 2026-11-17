@@ -20,7 +20,6 @@ import {
   submitVerify,
 } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { expectProvisioningReplay } from "../../../test/helpers/provisioningCheckpoint";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { runStartOrganizationTrialWorkflow } from "../../workflows/billing/organizationBilling";
 import { assertOrganizationCanSync } from "../../workflows/billing/organizationSyncEligibility";
@@ -86,7 +85,7 @@ test("replacement creation returns one winner to competing devices", async () =>
   invariant(isCreateOrganizationResponse(winner), "expected replacement");
   const secondResponse = await submitCreateOrganization(user, secondBody);
   expect(secondResponse.status).toBe(200);
-  expectProvisioningReplay(await secondResponse.json(), winner);
+  expect(await secondResponse.json()).toEqual(winner);
   expect(winner.organizationId).toBe(firstBody.organizationId);
   expect(
     await db
@@ -139,6 +138,6 @@ test("replacement creation returns one winner to competing devices", async () =>
     finalizeReplacement: true,
   });
   expect(finalizationResponse.status).toBe(200);
-  expectProvisioningReplay(await finalizationResponse.json(), winner);
+  expect(await finalizationResponse.json()).toEqual(winner);
   expect(await reauthenticateOrganizationId(user)).toBe(winner.organizationId);
 });

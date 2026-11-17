@@ -12,8 +12,7 @@ import { base64ToBytes } from "@tearleads/encoding";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import {
   type CreateOrganizationResponse,
-  isStoredCreateOrganizationResult,
-  type StoredCreateOrganizationResult,
+  isCreateOrganizationResponse,
 } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import { sha256Hex } from "../../utils/sha256";
@@ -33,10 +32,7 @@ import {
   toOrganizationProvisioningError,
 } from "./provisionOrganization";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
-import {
-  readProvisioningCommitCheckpoint,
-  toOrganizationProvisioningResponse,
-} from "./provisionOrganizationResponse";
+import { toOrganizationProvisioningResponse } from "./provisionOrganizationResponse";
 import { validateOrganizationProvisioningInput } from "./provisionOrganizationValidation";
 
 function nativeRestoreRequestSha256(input: CreateOrganizationRequest): string {
@@ -80,7 +76,7 @@ async function readProvisioningSigner(
 async function assertReplacementReady(
   tx: DatabaseTransaction,
   input: CreateOrganizationRequest,
-): Promise<StoredCreateOrganizationResult | null> {
+): Promise<CreateOrganizationResponse | null> {
   const replacedOrganizationId = input.replacesOrganizationId;
   if (!replacedOrganizationId) return null;
   if (replacedOrganizationId === input.organizationId) {
@@ -117,7 +113,7 @@ async function assertReplacementReady(
     if (
       (user?.defaultOrganizationId !== replacedOrganizationId &&
         user?.defaultOrganizationId !== billing.replacementOrganizationId) ||
-      !isStoredCreateOrganizationResult(response) ||
+      !isCreateOrganizationResponse(response) ||
       response.organizationId !== billing.replacementOrganizationId ||
       response.userId !== input.userId
     ) {
@@ -139,7 +135,7 @@ async function assertReplacementReady(
 async function readNativeRestoreReplay(
   tx: DatabaseTransaction,
   input: CreateOrganizationRequest,
-): Promise<StoredCreateOrganizationResult | null> {
+): Promise<CreateOrganizationResponse | null> {
   if (!input.nativeSubscriptionRestore) return null;
   const [billing] = await tx
     .select({
@@ -154,7 +150,7 @@ async function readNativeRestoreReplay(
   if (
     billing.userId !== input.userId ||
     billing.requestSha256 !== nativeRestoreRequestSha256(input) ||
-    !isStoredCreateOrganizationResult(billing.response) ||
+    !isCreateOrganizationResponse(billing.response) ||
     billing.response.organizationId !== input.organizationId ||
     billing.response.rootContainerId !== input.rootContainerId ||
     billing.response.userId !== input.userId
@@ -170,7 +166,7 @@ async function readNativeRestoreReplay(
 async function markNativeRestoreDestination(
   tx: DatabaseTransaction,
   input: CreateOrganizationRequest,
-  response: StoredCreateOrganizationResult,
+  response: CreateOrganizationResponse,
 ): Promise<void> {
   if (!input.nativeSubscriptionRestore) return;
   const [marked] = await tx
@@ -193,7 +189,7 @@ async function markNativeRestoreDestination(
 async function linkReplacementOrganization(
   tx: DatabaseTransaction,
   input: CreateOrganizationRequest,
-  response: StoredCreateOrganizationResult,
+  response: CreateOrganizationResponse,
 ): Promise<void> {
   if (!input.replacesOrganizationId) return;
   const [linked] = await tx
@@ -221,7 +217,7 @@ async function linkReplacementOrganization(
 async function finalizeReplacementDefaultOrganization(
   tx: DatabaseTransaction,
   input: CreateOrganizationRequest,
-  response: StoredCreateOrganizationResult,
+  response: CreateOrganizationResponse,
 ): Promise<void> {
   if (!input.finalizeReplacement) return;
   const replacedOrganizationId = input.replacesOrganizationId;
@@ -273,10 +269,6 @@ async function finalizeReplacementDefaultOrganization(
  * founding user already exists, so no user row is created and the signer is
  * loaded from storage.
  */
-function replayed(response: StoredCreateOrganizationResult) {
-  return { kind: "replayed", response } as const;
-}
-
 export async function runCreateOrganizationWorkflow(
   db: ApiDatabase,
   input: CreateOrganizationRequest,
@@ -314,7 +306,7 @@ export async function runCreateOrganizationWorkflow(
     signer.signingPublicKey,
   );
   try {
-    const result = await db.transaction(async (tx) => {
+    return await db.transaction(async (tx) => {
       if (!input.replacesOrganizationId) {
         // Serialize identical create requests before checking the response.
         // A concurrent winner records its replay payload while this request is
@@ -326,9 +318,9 @@ export async function runCreateOrganizationWorkflow(
         );
       }
       const nativeRestoreReplay = await readNativeRestoreReplay(tx, input);
-      if (nativeRestoreReplay) return replayed(nativeRestoreReplay);
+      if (nativeRestoreReplay) return nativeRestoreReplay;
       const creationReplay = await readOrganizationCreationReplay(tx, input);
-      if (creationReplay) return replayed(creationReplay);
+      if (creationReplay) return creationReplay;
       const existingReplacement = await assertReplacementReady(tx, input);
       if (existingReplacement) {
         await finalizeReplacementDefaultOrganization(
@@ -336,7 +328,7 @@ export async function runCreateOrganizationWorkflow(
           input,
           existingReplacement,
         );
-        return replayed(existingReplacement);
+        return existingReplacement;
       }
       const provisioned = await provisionOrganizationInTransaction(
         tx,
@@ -344,7 +336,7 @@ export async function runCreateOrganizationWorkflow(
         signer,
         { initialBilling: "local", identityTrustDomain },
       );
-      const response: StoredCreateOrganizationResult = {
+      const response: CreateOrganizationResponse = {
         ...toOrganizationProvisioningResponse(input.userId, provisioned),
         replacementAuthorization: input.replacementAuthorization ?? null,
       };
@@ -352,16 +344,8 @@ export async function runCreateOrganizationWorkflow(
       await recordOrganizationCreationReplay(tx, input, response);
       await linkReplacementOrganization(tx, input, response);
       await finalizeReplacementDefaultOrganization(tx, input, response);
-      return { kind: "committed", response } as const;
+      return response;
     });
-    return result.kind === "committed"
-      ? {
-          ...result.response,
-          ...(await readProvisioningCommitCheckpoint(db)),
-        }
-      : // A replay's artifacts can be older than the organization now, so it
-        // names no position and the client reads each seeded document once.
-        { ...result.response, commitLsn: null, commitLsnMode: "tracked" };
   } catch (error) {
     const provisioningError = toOrganizationProvisioningError(error);
     if (provisioningError) {

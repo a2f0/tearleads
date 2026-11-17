@@ -1,20 +1,17 @@
 import { expect, test } from "bun:test";
+import { toFingerprint } from "@tearleads/crypto";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type {
-  CreateOrganizationRequest,
   DocumentSyncRequest,
+  RegistrationRequest,
 } from "@tearleads/validators/request";
 import {
-  isCreateOrganizationResponse,
   isDocumentSyncResponse,
+  isRegistrationResponse,
 } from "@tearleads/validators/response";
 import invariant from "invariant";
-import {
-  createOrganizationRequestBody,
-  submitCreateOrganization,
-} from "../../../test/helpers/api";
+import { createRegistrationRequestBody } from "../../../test/helpers/api/submitRegistration";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
 interface SeededDocument {
@@ -31,8 +28,8 @@ function seededDocument(initialSync: DocumentSyncRequest): SeededDocument {
   return { documentId, initialSync };
 }
 
-/** Every document provisioning seeds, with the sync that seeded it. */
-function seededDocuments(body: CreateOrganizationRequest): SeededDocument[] {
+/** Every document registration seeds, with the sync that seeded it. */
+function seededDocuments(body: RegistrationRequest): SeededDocument[] {
   return [
     body.initialRootMetadataDocument.initialSync,
     body.initialRosterProfileContainer?.initialMetadataSync,
@@ -47,7 +44,7 @@ function seededDocuments(body: CreateOrganizationRequest): SeededDocument[] {
   );
 }
 
-/** A first read from nothing, bounded below by the provisioning position. */
+/** A first read from nothing, bounded below by the registration position. */
 async function firstRead(input: {
   readonly document: SeededDocument;
   readonly minLsn: string;
@@ -73,21 +70,32 @@ async function firstRead(input: {
   });
 }
 
-test("the provisioning response's commit position covers every seeded document", async () => {
+test("the registration response's commit position covers every seeded document", async () => {
   const user = createTestUser();
-  await registerUser(user);
-  await authenticate(user);
-  const body = await createOrganizationRequestBody(user, {
-    includeOrganizationProfileDocument: true,
-    includeRosterProfileDocument: true,
-    includeTrashSystemContainer: true,
+  user.fingerprint = await toFingerprint(user.signing.signingPublicKey);
+  const body = await createRegistrationRequestBody(
+    user.signing.signingPublicKey,
+    user.signing.signingPrivateKey,
+    user.kem.publicKey,
+    {
+      includeOrganizationProfileDocument: true,
+      includeRosterProfileDocument: true,
+      includeTrashSystemContainer: true,
+    },
+  );
+  const response = await routeApp.request("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
-  const response = await submitCreateOrganization(user, body);
   expect(response.status).toBe(200);
-  const created = await response.json();
-  invariant(isCreateOrganizationResponse(created), "expected provisioning");
-  expect(created.commitLsnMode).toBe("tracked");
-  const minLsn = created.commitLsn;
+  const registered = await response.json();
+  invariant(isRegistrationResponse(registered), "expected registration");
+  user.userId = registered.userId;
+  user.rootContainerId = registered.rootContainerId;
+  await authenticate(user);
+  expect(registered.commitLsnMode).toBe("tracked");
+  const minLsn = registered.commitLsn;
   invariant(minLsn !== null, "expected a tracked commit position");
 
   const documents = seededDocuments(body);
@@ -95,7 +103,7 @@ test("the provisioning response's commit position covers every seeded document",
   expect(documents).toHaveLength(6);
   for (const document of documents) {
     // Read-your-writes holds at the reported position: a read from nothing
-    // returns exactly the update provisioning seeded.
+    // returns exactly the update registration seeded.
     const read = await firstRead({ document, minLsn, user });
     expect(read.status).toBe(200);
     const sync = await read.json();

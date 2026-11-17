@@ -7,7 +7,7 @@ import type { CreateOrganizationResponse } from "@tearleads/validators/response"
 import { createMutationResponseFromRequest } from "./containerFixtures";
 import { createResponseFromRequest } from "./documentFixtures";
 
-/** The commit position every fixture provisioning response reports. */
+/** The commit position every fixture registration response reports. */
 export const PROVISIONING_COMMIT_LSN = "0/16B3748";
 
 /**
@@ -101,8 +101,6 @@ export async function respondToOrganizationProvisioning(
     rootMetadataDocument,
     committedCoreMetadataUpdateIds,
     committedProfileUpdateIds,
-    commitLsn: PROVISIONING_COMMIT_LSN,
-    commitLsnMode: "tracked",
     ...(rosterProfileContainerResponse && rosterProfileMetadataDocument
       ? {
           rosterProfileContainer: {
@@ -172,5 +170,7 @@ export async function respondToRegistration(
       initialSystemContainers,
     })),
     challenge: "a".repeat(64),
+    commitLsn: PROVISIONING_COMMIT_LSN,
+    commitLsnMode: "tracked" as const,
   };
 }

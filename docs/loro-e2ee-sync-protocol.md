@@ -495,6 +495,6 @@ The client then replans against the new manifest and key targets.
 Loro causal metadata does not, by itself, solve database replication lag.
 Document sync carries a consistency token: the client sends its last recorded
 `commitLsn` as `minLsn`, and the server refuses (`503`) a read whose database
-position has not reached it. Provisioning returns the `commitLsn` read after its
+position has not reached it. Registration returns the `commitLsn` read after its
 transaction, recorded for every document it seeded. Attachment metadata routes
 carry no consistency token.

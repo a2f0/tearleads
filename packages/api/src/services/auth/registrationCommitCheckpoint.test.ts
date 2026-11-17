@@ -13,7 +13,7 @@ import { registerUser } from "./registration";
 
 /**
  * The database, recording whether each root-level raw query ran while a
- * transaction was open. Provisioning issues one: the commit position read.
+ * transaction was open. Registration issues one: the commit position read.
  */
 function observedDatabase(options: { readonly failRootReads?: boolean }) {
   const rootReads: { readonly duringTransaction: boolean }[] = [];
@@ -65,7 +65,7 @@ test("registration reads its commit position after the transaction commits", asy
   expect(response.commitLsn).toMatch(/^[0-9A-F]+\/[0-9A-F]+$/u);
 });
 
-test("organization creation reads its commit position after the transaction commits", async () => {
+test("organization creation reports no commit position", async () => {
   const user = createTestUser();
   await registerTestUser(user);
   const { observed, rootReads } = observedDatabase({});
@@ -74,9 +74,11 @@ test("organization creation reads its commit position after the transaction comm
     await createOrganizationRequestBody(user),
     API_TEST_IDENTITY_TRUST_DOMAIN,
   );
-  expect(rootReads).toEqual([{ duringTransaction: false }]);
-  expect(response.commitLsnMode).toBe("tracked");
-  expect(response.commitLsn).toMatch(/^[0-9A-F]+\/[0-9A-F]+$/u);
+  // Another session of the creator could edit the new seeded documents
+  // before this device subscribes, so no position lets it skip a read.
+  expect(rootReads).toEqual([]);
+  expect(response).not.toHaveProperty("commitLsn");
+  expect(response).not.toHaveProperty("commitLsnMode");
 });
 
 test("a failed commit position read still acknowledges the committed registration", async () => {

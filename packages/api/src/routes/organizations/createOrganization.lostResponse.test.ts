@@ -24,7 +24,6 @@ import {
 } from "../../../test/helpers/containerParentLaneQuery";
 import { identityBoundRouteApp as routeApp } from "../../../test/helpers/identityBoundRouteApp";
 import { API_TEST_IDENTITY_TRUST_DOMAIN } from "../../../test/helpers/policyProjection";
-import { expectProvisioningReplay } from "../../../test/helpers/provisioningCheckpoint";
 import { registerUser } from "../../../test/helpers/registerUser";
 
 async function makeDevice(
@@ -198,7 +197,7 @@ test("ordinary create retries a lost committed response into the same device org
     });
     expect(requests).toHaveLength(2);
     expect(requests[1]).toEqual(requests[0]);
-    expectProvisioningReplay(committed[1], first);
+    expect(committed[1]).toEqual(first);
     expect(
       await database.execSql(
         "SELECT id, organization_id FROM containers WHERE id = ?",

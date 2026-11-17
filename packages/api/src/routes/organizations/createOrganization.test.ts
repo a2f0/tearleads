@@ -29,7 +29,6 @@ import {
   submitCreateOrganization,
 } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { expectProvisioningReplay } from "../../../test/helpers/provisioningCheckpoint";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createRouteApp, routeApp } from "../../routeApp";
 
@@ -461,7 +460,7 @@ test("POST /organizations links a replacement only after purge completion", asyn
 
   const retryResponse = await submitCreateOrganization(user, body);
   expect(retryResponse.status).toBe(200);
-  expectProvisioningReplay(await retryResponse.json(), provisioned);
+  expect(await retryResponse.json()).toEqual(provisioned);
   const [replacementLink] = await db
     .select({
       replacementOrganizationId: organizationBilling.replacementOrganizationId,

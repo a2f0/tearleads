@@ -10,11 +10,6 @@ import {
   submitCreateOrganization,
 } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
-import {
-  expectConcurrentProvisioning,
-  expectProvisioningReplay,
-  withoutCommitCheckpoint,
-} from "../../../test/helpers/provisioningCheckpoint";
 import { registerUser } from "../../../test/helpers/registerUser";
 
 test("POST /organizations durably replays a native restore destination", async () => {
@@ -33,17 +28,17 @@ test("POST /organizations durably replays a native restore destination", async (
   expect([response.status, concurrentReplay.status]).toEqual([200, 200]);
   const provisioned: unknown = await response.json();
   invariant(isCreateOrganizationResponse(provisioned), "expected restore org");
-  expectConcurrentProvisioning([provisioned, await concurrentReplay.json()]);
+  expect(await concurrentReplay.json()).toEqual(provisioned);
   const replay = await submitCreateOrganization(user, body);
   expect(replay.status).toBe(200);
-  expectProvisioningReplay(await replay.json(), provisioned);
+  expect(await replay.json()).toEqual(provisioned);
   const { nativeSubscriptionRestore, ...provisioningBody } = body;
   const reorderedReplay = await submitCreateOrganization(user, {
     nativeSubscriptionRestore,
     ...provisioningBody,
   });
   expect(reorderedReplay.status).toBe(200);
-  expectProvisioningReplay(await reorderedReplay.json(), provisioned);
+  expect(await reorderedReplay.json()).toEqual(provisioned);
   const mismatchedReplay = await submitCreateOrganization(user, {
     ...(await createOrganizationRequestBody(user, {
       organizationId: body.organizationId,
@@ -64,6 +59,6 @@ test("POST /organizations durably replays a native restore destination", async (
     .where(eq(organizationBilling.organizationId, body.organizationId));
   expect(billing?.claimedAt).toBeNull();
   expect(billing?.requestSha256).toHaveLength(64);
-  expect(billing?.response).toEqual(withoutCommitCheckpoint(provisioned));
+  expect(billing?.response).toEqual(provisioned);
   expect(billing?.userId).toBe(user.userId);
 });

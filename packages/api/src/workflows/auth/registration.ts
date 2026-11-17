@@ -5,19 +5,40 @@ import type {
 import { users } from "@tearleads/api-shared/schema";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
+import type { RegistrationResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { reportBackgroundFailure } from "../../diagnostics/reportBackgroundFailure";
+import { readCommitCheckpoint } from "../../documents/commitLsn";
 import {
   type OrganizationProvisioningSigner,
   provisionOrganizationInTransaction,
   toOrganizationProvisioningError,
 } from "../organizations/provisionOrganization";
 import { OrganizationProvisioningError } from "../organizations/provisionOrganizationError";
-import { readProvisioningCommitCheckpoint } from "../organizations/provisionOrganizationResponse";
 import { validateOrganizationProvisioningInput } from "../organizations/provisionOrganizationValidation";
 
 export { OrganizationProvisioningError as RegistrationError };
 
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTRATION_DUPLICATE_FINGERPRINT";
+
+/**
+ * Read after the registration committed, as a document create's seed reports
+ * its position. The registration stands whatever this read does: a failure is
+ * reported and answered with no position, which leaves the client to read its
+ * seeded documents once, as without one. Only registration reports a
+ * position: a new identity has no other device that could edit its seeded
+ * documents before this one subscribes to them.
+ */
+async function readRegistrationCommitCheckpoint(
+  db: ApiDatabase,
+): Promise<Pick<RegistrationResponse, "commitLsn" | "commitLsnMode">> {
+  try {
+    return await readCommitCheckpoint(db);
+  } catch (error) {
+    reportBackgroundFailure(error);
+    return { commitLsn: null, commitLsnMode: "tracked" };
+  }
+}
 
 async function createRegisteredUser(
   tx: DatabaseTransaction,
@@ -99,7 +120,7 @@ export async function runRegistrationWorkflow(
     return {
       userId: input.userId,
       ...provisioned,
-      commitCheckpoint: await readProvisioningCommitCheckpoint(db),
+      commitCheckpoint: await readRegistrationCommitCheckpoint(db),
     };
   } catch (error) {
     const provisioningError = toOrganizationProvisioningError(error);
