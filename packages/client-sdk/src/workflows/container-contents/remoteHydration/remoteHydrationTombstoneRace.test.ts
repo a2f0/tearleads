@@ -6,15 +6,22 @@ import type {
 } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
-  loadContainerSyncWatermark,
 } from "../containerPersistence";
 import { hydrateRemoteContainers } from "./index";
 import type { ContainerState, RemoteContainerHydrationState } from "./types";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
+
+function loadParentWatermark(execSql: ExecSql, parentId: string) {
+  return new ContainerSyncWatermarkRepository(execSql).loadWatermark(
+    createContainerParentSyncLane(parentId),
+  );
+}
 
 function remoteContainer(
   id: string,
@@ -210,10 +217,7 @@ test("a stale tombstone does not starve independent page work", async () => {
       ),
     ).resolves.toBe(true);
     await expect(
-      loadContainerSyncWatermark(
-        execSql,
-        createContainerParentSyncLane(parentState.container.id),
-      ),
+      loadParentWatermark(execSql, parentState.container.id),
     ).resolves.toBeNull();
   } finally {
     await close();
@@ -325,10 +329,7 @@ test("a stale descendant keeps its whole tombstone cascade retryable", async () 
       ).resolves.toBe(true);
     }
     await expect(
-      loadContainerSyncWatermark(
-        execSql,
-        createContainerParentSyncLane(parentState.container.id),
-      ),
+      loadParentWatermark(execSql, parentState.container.id),
     ).resolves.toBeNull();
 
     await hydrate();
@@ -343,10 +344,7 @@ test("a stale descendant keeps its whole tombstone cascade retryable", async () 
       ).resolves.toBe(false);
     }
     await expect(
-      loadContainerSyncWatermark(
-        execSql,
-        createContainerParentSyncLane(parentState.container.id),
-      ),
+      loadParentWatermark(execSql, parentState.container.id),
     ).resolves.toEqual(pageWatermark);
   } finally {
     await close();
