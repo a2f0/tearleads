@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { createAttachmentProofReader } from "./attachmentDecryptor";
 
 // The reader only forwards projections, so opaque stand-ins are enough.

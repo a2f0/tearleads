@@ -214,7 +214,6 @@ export const purchasesSurface = [
 export const keyingVerificationSurface = [
   `${sdk}/data/keyingProjectionVerification/index.ts`,
   `${sdk}/data/keying/`,
-  `${sdk}/data/keyingProjectionVerification/dependencyUnavailable.ts`,
   `${sdk}/data/keyingProjectionVerification/document/documentContainerProjections.ts`,
   `${sdk}/data/keyingProjectionVerification/error.ts`,
   `${sdk}/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts`,

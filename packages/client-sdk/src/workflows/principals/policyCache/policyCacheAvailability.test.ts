@@ -5,8 +5,8 @@ import {
   createPrincipalPolicyBundle,
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/policyCacheFixtures";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 
 test("an unreachable policy signer defers caching without an incident", async () => {
   const { close, execSql } = await createTestExecSql(

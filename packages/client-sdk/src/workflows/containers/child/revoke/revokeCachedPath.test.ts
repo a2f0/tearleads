@@ -15,8 +15,8 @@ import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancest
 import { createRecipientIdentityResolver } from "../../../../../test/helpers/containerFixtures";
 import { createContainerServer } from "../../../../../test/helpers/containerMutationServer";
 import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
-import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import type { ContainerMutationServiceApi } from "../../containerMutationCollaborators";
 
 async function fixture(carry = false) {

@@ -1,6 +1,5 @@
 import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import type { PrincipalPolicyHistoryProgressOptions } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import {
   assertProjectionVerificationCurrent,
@@ -9,6 +8,7 @@ import {
 } from "../../data/keyingProjectionVerification/types";
 import { directoryHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { errorMessage } from "../../data/shared/errorMessage";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { AcknowledgedPrincipalCurrentInput } from "./acknowledgements/acknowledgedPrincipalCurrents";

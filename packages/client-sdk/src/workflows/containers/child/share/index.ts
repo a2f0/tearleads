@@ -21,7 +21,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../../data/keyingProjectionVerification";
-import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,

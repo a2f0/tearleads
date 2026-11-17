@@ -12,6 +12,7 @@ import type {
   AccessManifestBundleWireResponse,
   DocumentPurgeProofResponse,
 } from "@tearleads/validators/response";
+import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import {
   addBundleByHash,
   assertCanonicalEqual,
@@ -22,7 +23,6 @@ import {
   type ProjectionCheckpointContext,
 } from "../checkpoints/checkpointContext";
 import { loadManifestCheckpointVerification } from "../checkpoints/manifestCheckpointVerification";
-import { ProjectionDependencyUnavailableError } from "../dependencyUnavailable";
 import { verifyDocumentManifestBundle } from "../document/documentManifestVerification";
 import { readAccessManifest, readDocumentAccessEventBody } from "../readers";
 import type { PrincipalPolicyCache, ProjectionUserKeyResolver } from "../types";

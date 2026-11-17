@@ -6,7 +6,7 @@ import {
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { withUnauthenticatedPolicyIdentities } from "../../principals/principalIdentityCommitments";
 import { principalPolicyBundleStates } from "../../principals/principalPolicyStates";
-import { ProjectionDependencyUnavailableError } from "../dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import type { ProjectionUserKeyResolver } from "../types";
 
 /**
