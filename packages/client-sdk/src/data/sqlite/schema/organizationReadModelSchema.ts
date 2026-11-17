@@ -43,7 +43,10 @@ export const organizationReadModelRequesters = sqliteTable(
   (table) => [primaryKey({ columns: [table.organizationId, table.userId] })],
 );
 
-/** Normalized organization directory rows. `isSelf` is derived at read time. */
+/**
+ * Normalized organization directory rows. `isSelf` is derived at read time.
+ * Rows keep key fingerprints only; keys come from the trusted identity store.
+ */
 export const organizationReadModelDirectoryUsers = sqliteTable(
   "organization_read_model_directory_users",
   {
@@ -51,8 +54,6 @@ export const organizationReadModelDirectoryUsers = sqliteTable(
     userId: text("user_id").notNull(),
     sortOrder: integer("sort_order").notNull(),
     signingKeyFingerprint: text("signing_key_fingerprint").notNull(),
-    signingPublicKey: text("signing_public_key").notNull(),
-    encapsulationPublicKey: text("encapsulation_public_key").notNull(),
     encapsulationKeyFingerprint: text(
       "encapsulation_key_fingerprint",
     ).notNull(),

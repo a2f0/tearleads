@@ -6,7 +6,11 @@ import {
 } from "../sqlExec";
 import { getClientSQLitePersistenceRuntime } from "../sqlitePersistenceRuntime";
 import { ensureSqlTables, type SqlTableSchema } from "../sqlTableSchema";
-import type { LocalSchemaMigration } from "./localSchemaMigrations";
+import {
+  type LocalSchemaMigration,
+  localSchemaMigrations,
+  localSchemaSteps,
+} from "./localSchemaMigrations";
 import {
   assertRestorableLocalSchemaLedger,
   ensureLocalSchemaMigrated,
@@ -15,6 +19,13 @@ import {
 } from "./migrateLocalSchema";
 
 type TestExecSql = Awaited<ReturnType<typeof createTestExecSql>>["execSql"];
+
+// The ledger this build records, and the first version it does not know.
+const CURRENT_LEDGER = localSchemaSteps(localSchemaMigrations).map(
+  ({ name, version }) => `${version}:${name}`,
+);
+const CURRENT_VERSION = localSchemaMigrations.length + 1;
+const NEWER_VERSION = CURRENT_VERSION + 1;
 
 const notesTable: SqlTableSchema = {
   createSql:
@@ -287,7 +298,7 @@ test("a table ensure and a direct migration on one cold connection both finish u
         Bun.sleep(2000).then(() => "deadlocked"),
       ]);
       expect(outcome).toBe("finished");
-      expect(await ledger(execSql)).toEqual(["1:baseline"]);
+      expect(await ledger(execSql)).toEqual(CURRENT_LEDGER);
     });
   } finally {
     uninstall();
@@ -311,7 +322,7 @@ test("a connection migrated up front keeps its ledger when a later transaction r
         ),
       ),
     ).rejects.toThrow("rolled back");
-    expect(await ledger(execSql)).toEqual(["1:baseline"]);
+    expect(await ledger(execSql)).toEqual(CURRENT_LEDGER);
   }));
 
 test("a database written by a newer build is refused without changes", () =>
@@ -331,33 +342,37 @@ test("table ensures migrate first, once per connection, and again after a schema
       'CREATE TABLE "notes" ("id" TEXT PRIMARY KEY NOT NULL, "title" TEXT)',
     );
     await ensureSqlTables(execSql, [notesTable]);
-    expect(await ledger(execSql)).toEqual(["1:baseline"]);
+    expect(await ledger(execSql)).toEqual(CURRENT_LEDGER);
 
-    await execSql(`DELETE FROM "${LOCAL_SCHEMA_MIGRATIONS_TABLE}"`);
     await execSql(
-      `INSERT INTO "${LOCAL_SCHEMA_MIGRATIONS_TABLE}" VALUES (1, 'baseline', 0), (2, 'future', 0)`,
+      `INSERT INTO "${LOCAL_SCHEMA_MIGRATIONS_TABLE}" VALUES (?, 'future', 0)`,
+      [NEWER_VERSION],
     );
     await ensureSqlTables(execSql, [notesTable]);
     resetConnectionSchemaMemo(execSql);
     await expect(ensureSqlTables(execSql, [notesTable])).rejects.toThrow(
-      "Local database schema version 2 is newer than this app supports (1)",
+      `Local database schema version ${NEWER_VERSION} is newer than this app supports (${CURRENT_VERSION})`,
     );
   }));
 
 test("assertRestorableLocalSchemaLedger admits older and missing ledgers only", () => {
+  const current = localSchemaSteps(localSchemaMigrations).map(
+    ({ name, version }) => ({ applied_at: 0, name, version }),
+  );
   expect(() => assertRestorableLocalSchemaLedger([])).not.toThrow();
   expect(() =>
     assertRestorableLocalSchemaLedger([
       { applied_at: 0, name: "baseline", version: 1 },
     ]),
   ).not.toThrow();
+  expect(() => assertRestorableLocalSchemaLedger(current)).not.toThrow();
   expect(() =>
     assertRestorableLocalSchemaLedger([
-      { applied_at: 0, name: "baseline", version: 1 },
-      { applied_at: 0, name: "future", version: 2 },
+      ...current,
+      { applied_at: 0, name: "future", version: NEWER_VERSION },
     ]),
   ).toThrow(
-    "Local database schema version 2 is newer than this app supports (1)",
+    `Local database schema version ${NEWER_VERSION} is newer than this app supports (${CURRENT_VERSION})`,
   );
   expect(() =>
     assertRestorableLocalSchemaLedger([

@@ -18,8 +18,6 @@ export function organizationReadModelDirectoryUser(
   return {
     userId,
     signingKeyFingerprint: `signing-fingerprint-${userId}`,
-    signingPublicKey: `signing-public-key-${userId}`,
-    encapsulationPublicKey: `encapsulation-public-key-${userId}`,
     encapsulationKeyFingerprint: `encapsulation-fingerprint-${userId}`,
     createdAt: CREATED_AT,
     isPersonalOrganizationOwner: false,

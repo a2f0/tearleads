@@ -35,11 +35,28 @@ export const LOCAL_SCHEMA_BASELINE: LocalSchemaStep = {
   version: 1,
 };
 
+const DIRECTORY_USERS_TABLE = "organization_read_model_directory_users";
+
 /**
  * Ordered and append-only: version 2 first, each one after the last. Never
  * edit or remove a shipped step; a correction is a new step.
  */
-export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [];
+export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
+  {
+    // Directory rows carry key fingerprints only; public keys come from the
+    // trusted identity store. Neither column is indexed or constrained.
+    name: "drop_directory_user_public_keys",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable(DIRECTORY_USERS_TABLE))) return;
+      for (const column of ["signing_public_key", "encapsulation_public_key"]) {
+        await execSql(
+          `ALTER TABLE "${DIRECTORY_USERS_TABLE}" DROP COLUMN "${column}"`,
+        );
+      }
+    },
+    version: 2,
+  },
+];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;
 

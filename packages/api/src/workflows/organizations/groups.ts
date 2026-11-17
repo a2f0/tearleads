@@ -3,19 +3,12 @@ import type {
   DatabaseSession,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import { groups as groupsTable } from "@tearleads/api-shared/schema";
 import type { DeleteOrganizationGroupRequest } from "@tearleads/validators/request";
 import type {
   DeleteOrganizationGroupResponse,
   ListOrganizationGroupsResponse,
-  OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
-import { and, eq } from "drizzle-orm";
-import {
-  getCurrentPrincipalState,
-  listProjectionMembersForState,
-} from "../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { lockGroupReferenceExclusiveInTransaction } from "../principals/groupReferenceLock";
 import { PrincipalHistoryPreparationUnavailable } from "../principals/principalHistoryPreparationUnavailable";
@@ -47,32 +40,10 @@ import { toGroupSummary } from "./groupSummary";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
 import { organizationGroupDeletionOutcome } from "./organizationGroupOperationOutcome";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
-import { loadUsersById, toOrganizationGroupMemberResponse } from "./users";
 
 interface OrganizationGroupSummariesResult {
   readonly groups: OrganizationGroupSummaryResponse[];
   readonly memberGroupId: string;
-}
-
-async function requireGroupInOrganization(input: {
-  executor: DatabaseSession;
-  groupId: string;
-  organizationId: string;
-}): Promise<void> {
-  const [group] = await input.executor
-    .select({ groupId: groupsTable.id })
-    .from(groupsTable)
-    .where(
-      and(
-        eq(groupsTable.id, input.groupId),
-        eq(groupsTable.organizationId, input.organizationId),
-      ),
-    )
-    .limit(1);
-
-  if (!group) {
-    throw new OrganizationManagerError("Group not found", 404);
-  }
 }
 
 export async function loadOrganizationGroupsInTransaction(input: {
@@ -261,66 +232,4 @@ async function listOrganizationGroupSummariesInTransaction(input: {
       ];
     }),
   };
-}
-
-async function listOrganizationGroupMembersInTransaction(input: {
-  executor: DatabaseSession;
-  groupId: string;
-  organizationId: string;
-  sessionUserId: string;
-}): Promise<OrganizationGroupMembersResponse> {
-  await requireDirectOrganizationAccess({
-    executor: input.executor,
-    organizationId: input.organizationId,
-    userId: input.sessionUserId,
-  });
-  await requireGroupInOrganization(input);
-
-  const currentState = await getCurrentPrincipalState(
-    "group",
-    input.groupId,
-    input.executor,
-  );
-  if (!currentState) {
-    throw new OrganizationManagerError("Group policy not found", 404);
-  }
-
-  // The members of the head just read, rather than of a second head read.
-  const projection = await listProjectionMembersForState(
-    "group",
-    input.groupId,
-    currentState.stateHash,
-    input.executor,
-  );
-  const usersById = await loadUsersById(
-    input.executor,
-    projection.map((member) => member.userId),
-  );
-
-  return {
-    organizationId: input.organizationId,
-    groupId: input.groupId,
-    members: projection.map((member) =>
-      toOrganizationGroupMemberResponse({
-        member,
-        usersById,
-      }),
-    ),
-  };
-}
-
-export async function runListOrganizationGroupMembersWorkflow(
-  db: ApiDatabase,
-  organizationId: string,
-  groupId: string,
-  sessionUserId: string,
-): Promise<OrganizationGroupMembersResponse> {
-  return db.transaction((tx) =>
-    listOrganizationGroupMembersInTransaction({
-      executor: tx,
-      groupId,
-      organizationId,
-      sessionUserId,
-    }),
-  );
 }

@@ -23,8 +23,6 @@ function directoryUser(
   return {
     userId: "user-id",
     signingKeyFingerprint: "signing-fp",
-    signingPublicKey: "signing-pub",
-    encapsulationPublicKey: "encap-pub",
     encapsulationKeyFingerprint: "encap-fp",
     createdAt: "2026-01-01T00:00:00.000Z",
     isPersonalOrganizationOwner: false,
@@ -181,7 +179,6 @@ test("planDemoPeerRosterSeed plans an add when the peer is unknown", () => {
   const self = directoryUser({
     userId: "self",
     isSelf: true,
-    encapsulationPublicKey: "self-pub",
     encapsulationKeyFingerprint: "self-fp",
   });
   const plan = planDemoPeerRosterSeed({
@@ -203,7 +200,6 @@ test("planDemoPeerRosterSeed adds a known-but-unseeded peer", () => {
   const peer = directoryUser({
     userId: "peer",
     status: "disabled",
-    encapsulationPublicKey: "peer-pub",
     encapsulationKeyFingerprint: "peer-fp",
   });
   const plan = planDemoPeerRosterSeed({

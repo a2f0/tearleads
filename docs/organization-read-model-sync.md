@@ -126,13 +126,15 @@ deleted with it.
 
 Protocol version 6 includes these lanes:
 
-- `directory`: roster and profile-binding rows, plus each member's pending
-  signed leave request (see [organization memberships](organization-memberships.md));
+- `directory`: roster and profile-binding rows with each member's signing and
+  encapsulation key fingerprints, plus each member's pending signed leave
+  request (see [organization memberships](organization-memberships.md)). Rows
+  carry no public keys: a client takes keys only from its trusted identity
+  store;
 - `groups`: visible group catalog rows and state-head summaries;
 - `groupMemberships`: state-hash-bound membership projections for individual
   groups, including the reserved `Members` group that is hidden from the group
-  catalog. Each member names only its user ID and role; public keys travel once
-  per user in the `directory` lane, and keying reads neither copy;
+  catalog. Each member names only its user ID and role;
 - `grants`: a whole-lane replacement of [container](./glossary/access.md#container)
   access presentation rows;
 - `organizationPolicy`: the current organization policy head used only to
@@ -165,8 +167,10 @@ publishes no hint. Ordinary [document](./glossary/content.md#document) or
 avoids turning content sync into organization-wide grant fanout.
 
 `directory`, `groups`, `grants`, and `organizationPolicy` deltas replace the
-whole lane. A `groupMemberships` delta replaces each changed group's
-state-bound membership head and deletes each tombstoned group.
+whole lane. The client stores a directory delta by writing only the rows that
+differ from its stored lane and deleting users the lane no longer lists. A
+`groupMemberships` delta replaces each changed group's state-bound membership
+head and deletes each tombstoned group.
 
 ## Protocol versioning
 
