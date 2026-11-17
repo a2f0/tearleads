@@ -3,7 +3,7 @@ import { toFingerprint } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { isKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
+import { isKeyingVerificationError } from "../../../data/shared/securityIncidents";
 import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import {
   principalHistoryEntries,

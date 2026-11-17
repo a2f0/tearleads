@@ -1,4 +1,4 @@
-import { runWithSecurityIncidentReporting } from "../../../data/keyingProjectionVerification/error";
+import { runWithSecurityIncidentReporting } from "../../../data/shared/securityIncidents";
 import {
   shareContainerState,
   shareContainerStateWithGroup,

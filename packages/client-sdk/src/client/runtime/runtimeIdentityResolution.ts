@@ -1,5 +1,7 @@
-import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
-import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
+import {
+  runWithSecurityIncidentReporting,
+  type SecurityIncidentReporter,
+} from "../../data/shared/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   createApiUserIdentitySource,

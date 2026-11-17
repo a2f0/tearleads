@@ -5,10 +5,10 @@ import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeC
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { verifyPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshotVerification";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { verifyContainerWriterProjection } from "../container/containerProjectionVerification";
 import { verifyDocumentWriterProjection } from "../document/documentProjectionVerification";
-import { runWithSecurityIncidentReporting } from "../error";
 import { verifyPurgeDocumentManifest } from "./documentPurgeDocumentChainVerification";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 

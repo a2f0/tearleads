@@ -26,8 +26,8 @@ import {
   projectionHistoryPages,
   projectionPolicyWarmer,
 } from "../../../../test/helpers/projectionPolicyHistory";
-import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
+import { heldContainerSnapshot } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { containerStateHasCurrentGroupGrant } from "../../container-contents/container-state/share/groupGrantVerification";
 import type { ContainerWorkflowRuntime } from "../../container-contents/container-state/types";

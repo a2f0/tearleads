@@ -155,7 +155,6 @@ export const containerDataSurface = [
   `${sdk}/workflows/containers/rematerialization/index.ts`,
   `${sdk}/data/containers/shared/authorAccess.ts`,
   `${sdk}/data/containers/shared/containerPathLimits.ts`,
-  `${sdk}/data/containers/shared/heldContainerHeads.ts`,
   `${sdk}/data/containers/shared/mutationAcknowledgement.ts`,
   `${sdk}/data/containers/shared/mutationFailures.ts`,
   `${sdk}/data/containers/shared/projection.ts`,
@@ -284,6 +283,7 @@ export const purchasesSurface = [
 export const keyingVerificationSurface = [
   `${sdk}/data/keyingProjectionVerification/index.ts`,
   `${sdk}/data/keying/`,
+  `${sdk}/data/keyingProjectionVerification/checkpoints/heldContainerHeads.ts`,
   `${sdk}/data/keyingProjectionVerification/document/documentContainerProjections.ts`,
   `${sdk}/data/keyingProjectionVerification/error.ts`,
   `${sdk}/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts`,

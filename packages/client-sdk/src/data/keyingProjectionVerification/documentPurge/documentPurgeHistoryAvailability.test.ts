@@ -3,8 +3,8 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeChain";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { verifyDocumentWriterProjection } from "../document/documentProjectionVerification";
-import { runWithSecurityIncidentReporting } from "../error";
 import { verifyDocumentPurgeProofBaseline } from "./documentPurgeProofVerification";
 
 test("initial purge history must reach genesis before reading local pins", async () => {

@@ -1,7 +1,4 @@
 {
-  "packages/client-sdk/src/data/containers/shared/heldContainerHeads.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/checkpoints/checkpointContext.ts"
-  ],
   "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts": [
     "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts"
   ]

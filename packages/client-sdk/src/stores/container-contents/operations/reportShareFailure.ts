@@ -1,4 +1,4 @@
-import { isKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
+import { isKeyingVerificationError } from "../../../data/shared/securityIncidents";
 import { isProjectionVerificationCancelledError } from "../../../workflows/containers";
 import { isDatabaseUnavailableError } from "../../../workflows/documents";
 import { getContainerContentsStoreLogLabel } from "../logLabel";

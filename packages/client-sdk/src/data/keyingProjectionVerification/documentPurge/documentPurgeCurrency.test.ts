@@ -4,7 +4,7 @@ import { createPurgeCurrencyFixture } from "../../../../test/helpers/documentPur
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
 import { sqlDocumentsPersistence } from "../../persistence/documents/documentsPersistence";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { runWithSecurityIncidentReporting } from "../error";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
 for (const [label, index] of [

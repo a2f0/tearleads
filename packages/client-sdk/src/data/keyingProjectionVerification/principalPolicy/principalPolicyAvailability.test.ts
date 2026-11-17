@@ -10,9 +10,9 @@ import {
   openPrincipalPolicyBundleReader,
   PrincipalPolicyBundleRepository,
 } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { verifyContainerWriterProjection } from "../container/containerProjectionVerification";
-import { runWithSecurityIncidentReporting } from "../error";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 
 test("an unavailable organization signer defers external authorization without an incident", async () => {

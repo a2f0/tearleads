@@ -1,6 +1,6 @@
 import { ContainerPathTooDeepError } from "../../../../data/containers/shared/containerPathLimits";
-import { reportAndRethrowKeyingVerificationError } from "../../../../data/keyingProjectionVerification/error";
 import { errorMessage } from "../../../../data/shared/errorMessage";
+import { reportAndRethrowKeyingVerificationError } from "../../../../data/shared/securityIncidents";
 
 import {
   createDetachedContainerMetadataState,

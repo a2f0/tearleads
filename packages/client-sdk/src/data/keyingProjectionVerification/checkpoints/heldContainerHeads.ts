@@ -4,10 +4,10 @@ import type {
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
+import type { AuthoredContainerMutationHead } from "../../containers/shared/mutationAcknowledgement";
 import { readCanonicalRecord } from "../../keying/canonicalJson";
 import type { PrincipalPolicyCheckpointEvidence } from "../../principalContracts/principalPolicyEvidence";
 import { type ExecSql, resolveCanonicalExecSql } from "../../sqlite/sqlSchema";
-import type { AuthoredContainerMutationHead } from "./mutationAcknowledgement";
 
 export interface HeldContainerHead {
   readonly bundle: AccessManifestBundleWire;

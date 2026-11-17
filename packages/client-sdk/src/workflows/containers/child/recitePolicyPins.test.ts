@@ -12,8 +12,8 @@ import {
   ROOT_CONTAINER_ID,
   USER_ID,
 } from "../../../../test/helpers/principalReciteFixtures";
-import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
+import { heldContainerSnapshot } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import {
   readAccessEvent,
   readAccessManifest,

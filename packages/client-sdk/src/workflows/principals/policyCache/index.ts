@@ -4,16 +4,16 @@ import type {
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { isProjectionVerificationCancelledError } from "../../../data/keyingProjectionVerification";
-import {
-  reportAndRethrowKeyingVerificationError,
-  rethrowKeyingVerificationError,
-} from "../../../data/keyingProjectionVerification/error";
+import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { dedupeReferencedPrincipalStates } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { principalPolicyReferenceFromBundle } from "../../../data/principalContracts/principalPolicyAdminSigners";
 import { errorMessage } from "../../../data/shared/errorMessage";
-import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
+import {
+  reportAndRethrowKeyingVerificationError,
+  type SecurityIncidentReporter,
+} from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { CurrentPrincipalPolicyReader } from "../currentPrincipalPolicyReader";

@@ -1,6 +1,6 @@
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import type { PendingBlobDeletionsQuery } from "@tearleads/validators/operation";
-import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
+import { runWithSecurityIncidentReporting } from "../../data/shared/securityIncidents";
 import {
   cancelStripeSubscription,
   changeStripePlan,

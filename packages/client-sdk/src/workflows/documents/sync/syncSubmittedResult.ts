@@ -11,9 +11,9 @@ import {
   type ProjectionUserKeyResolver,
   verifyDocumentWriterProjectionAuthorization,
 } from "../../../data/keyingProjectionVerification";
-import { isKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import { isKeyingVerificationError } from "../../../data/shared/securityIncidents";
 import { refreshSyncAttemptWriterProjection } from "../syncFailures";
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 import {
