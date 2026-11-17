@@ -4,11 +4,11 @@ import {
   requireProjectionUserKeyResolver,
   verifyDocumentWriterProjectionAuthorization,
 } from "../../../data/keyingProjectionVerification";
-import type { SyncRemoteDocumentInput } from "../sync/readOnlySync";
+import type { RemoteDocumentSyncPass } from "../sync/remoteDocumentSyncPass";
 
 /** A repair refusal on one link does not revoke write access through another. */
 export async function hasOtherLinkedWriteAccess(
-  sync: SyncRemoteDocumentInput,
+  sync: RemoteDocumentSyncPass,
   projection: DocumentWriterProjectionResponse,
   inaccessibleContainerId: string,
 ): Promise<boolean> {

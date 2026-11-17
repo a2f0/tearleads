@@ -10,8 +10,9 @@ redirection and returns every retained missing update plus the
 
 ## Client Contract
 
-Call `syncRemoteDocument` with `historyMode: "raw"`, a null local
-[version vector](./glossary/content.md#version-vector), and no outgoing updates.
+Call `RemoteDocumentService.syncRemoteDocument` with `historyMode: "raw"`, a
+null local [version vector](./glossary/content.md#version-vector), and no
+outgoing updates.
 Ordinary sync omits `historyMode`.
 
 A raw consumer must:

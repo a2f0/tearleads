@@ -7,8 +7,8 @@ import {
 } from "@tearleads/test-utils";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
+import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { createRemoteDocument } from "./index";
 
 test("createRemoteDocument records a terminal failure when the container projection fetch fails", async () => {
   const { author } = await createAuthor();

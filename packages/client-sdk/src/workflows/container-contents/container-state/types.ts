@@ -4,10 +4,10 @@ import type {
   ContainerWriterProjectionResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
+import type { DocumentCreateApi } from "../../../data/documents/shared/types";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { DocumentRecord } from "../../../data/persistence/documents/records";
 import type { ContainerMutationServiceApi } from "../../containers";
-import type { createRemoteDocument } from "../../documents";
 import type { shareRemoteContainerWithGroup } from "../../organizations/groupShare";
 import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
 import type { PrincipalPolicyHistoryReader } from "../../principals/principalPolicyHistoryReader";
@@ -26,7 +26,7 @@ import type { ContainerContentsWorkflowRuntime } from "../runtime";
 
 export type ContainerWorkflowApi = ContainerMutationServiceApi &
   Parameters<typeof shareRemoteContainerWithGroup>[0]["apiClient"] &
-  Parameters<typeof createRemoteDocument>[0]["apiClient"] &
+  DocumentCreateApi &
   Partial<PrincipalPolicyHistoryReader> &
   CurrentPrincipalPolicyReader & {
     deleteContainerResult(

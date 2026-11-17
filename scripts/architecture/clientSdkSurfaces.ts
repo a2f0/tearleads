@@ -199,7 +199,6 @@ export const syncEngineSurface = [
   `${sdk}/workflows/sync/index.ts`,
   `${sdk}/data/shared/domainScope.ts`,
   `${sdk}/data/sync/crdtPeerSeed.ts`,
-  `${sdk}/data/sync/databaseUnavailable.ts`,
   `${sdk}/data/sync/organizationSyncPauses.ts`,
   `${sdk}/data/sync/outgoingUpdateSettlement.ts`,
   `${sdk}/data/sync/sequence.ts`,
@@ -230,7 +229,6 @@ export const purchasesSurface = [
 export const keyingVerificationSurface = [
   `${sdk}/data/keyingProjectionVerification/index.ts`,
   `${sdk}/data/keying/`,
-  `${sdk}/data/keyingProjectionVerification/dependencyUnavailable.ts`,
   `${sdk}/data/keyingProjectionVerification/document/documentContainerProjections.ts`,
   `${sdk}/data/keyingProjectionVerification/error.ts`,
   `${sdk}/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts`,

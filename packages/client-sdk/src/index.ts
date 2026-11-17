@@ -434,6 +434,8 @@ export {
   rootContainerWriterProjectionFromCreatePlan,
 } from "./workflows/containers";
 export type {
+  CreateRemoteDocumentRequest,
+  CreateRemoteDocumentResult,
   DocumentBirthResult,
   DocumentRecord,
   DocumentSyncContainerRekeyBuilder,
@@ -448,13 +450,14 @@ export type {
   PendingUpdateInsert,
   PendingUpdateRecord,
   QueuedPendingUpdateRecord,
-  SyncRemoteDocumentInput,
+  RemoteDocumentServiceApi,
+  SyncRemoteDocumentRequest,
+  SyncRemoteDocumentResult,
 } from "./workflows/documents";
 export {
   buildMaterializedDocumentCreatePlan,
   createDocumentProjectionUserKeyResolver,
   createDocumentsWorkflowRuntime,
-  createRemoteDocument,
   DOCUMENT_SYNC_TRACE_FRAGMENT,
   DOCUMENT_SYNC_TRACE_PATTERN,
   DOCUMENTS_APP_KIND,
@@ -466,8 +469,8 @@ export {
   isDocumentSyncUpdateIsolationError,
   isEmptyDocumentHistoryChange,
   persistedDocumentCreateStateFromResponse,
+  RemoteDocumentService,
   readPullContinuation,
-  syncRemoteDocument,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
   validateDocumentSyncUpdateImports,

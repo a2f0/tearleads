@@ -20,10 +20,7 @@ import type {
   DocumentSyncPlan,
   SyncRemoteDocumentResult,
 } from "../../../data/documents/shared/sync/documentSyncTypes";
-import type {
-  DocumentSyncUpdateIsolationError,
-  IncomingDocumentSyncUpdateValidator,
-} from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import type { IncomingDocumentSyncUpdateValidator } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
   type DocumentSyncPullContinuation,
   resolvePullContinuationMinLsn,
@@ -38,7 +35,6 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
-import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   assertRawContinuationCanRetry,
@@ -54,12 +50,11 @@ import {
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
-import type { RekeyPendingUpdate } from "../syncRekeys/syncRecoveryRekey";
 import {
   handleReadOnlyProjectionCompletionError,
   REFRESH_CACHED_PROJECTION,
 } from "./readOnlyProjectionFailure";
-import type { DocumentSyncContainerRekeyBuilder } from "./syncAttemptState";
+import type { RemoteDocumentSyncPass } from "./remoteDocumentSyncPass";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 import { type DocumentSyncTraceEmitter, traceSubmitFailed } from "./syncTrace";
 
@@ -427,67 +422,8 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
   }
 }
 
-export interface SyncRemoteDocumentInput {
-  apiClient: DocumentSyncApi;
-  author: DocumentCreateAuthor;
-  /**
-   * Supplies a full-history Loro snapshot of the local document so a
-   * write-bearing pass can heal a stale content-key bundle by rotating to a
-   * fresh content key anchored by a rotation baseline.
-   */
-  buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
-  /** Overrides automatic ancestor repair for each submission's current projection. */
-  buildContainerRekeys?: DocumentSyncContainerRekeyBuilder;
-  documentId: string;
-  execSql: ExecSql;
-  /** Explicit read-only recovery that bypasses rotation-baseline redirect. */
-  historyMode?: "raw" | undefined;
-  isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
-  localVersionVector: string | null;
-  minLsn?: string | undefined;
-  pullContinuation?: DocumentSyncPullContinuation | undefined;
-  /** Atomically commits the verified purge proof with matching local teardown. */
-  onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
-  onSyncAbandoned?: ((reason: string) => void) | undefined;
-  /** Clipboard-safe trace sink (see syncTrace.ts); never receives content. */
-  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
-  /**
-   * Fires when a pass WITHOUT queued writes cannot resolve its writer
-   * projection (e.g. a coded 409 from the projection route). Read-only
-   * revalidation otherwise fails silently — one burned request and a trace
-   * line — leaving the document permanently stale with nothing durable to
-   * explain why (edge-case row 13).
-   */
-  onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
-  /** Records a verified response update that could not be decrypted/imported. */
-  onIncomingUpdateIsolationFailure?:
-    | ((failure: DocumentSyncUpdateIsolationError) => void | Promise<void>)
-    | undefined;
-  /** Fires immediately before a materialized outgoing batch is submitted. */
-  onOutgoingUpdatesMaterialized?:
-    | ((updateIds: readonly string[]) => void)
-    | undefined;
-  /** Invalidates continuation state after the server rejects its snapshot. */
-  onPullContinuationInvalidated?:
-    | ((continuation: DocumentSyncPullContinuation) => void | Promise<void>)
-    | undefined;
-  onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
-  pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
-  persistedState?: PersistedDocumentSyncState | null | undefined;
-  rekeyPendingUpdate?: RekeyPendingUpdate | undefined;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
-  signedAt?: string | undefined;
-  stillCurrent?: (() => boolean) | undefined;
-  targetSecretKey: Uint8Array;
-  /** Validates decrypted updates against scratch state before callers persist. */
-  validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-  writerProjection?: DocumentWriterProjectionResponse | undefined;
-}
-
 export async function tryPersistedReadOnlyDocumentSync(
-  input: SyncRemoteDocumentInput,
+  input: RemoteDocumentSyncPass,
   resolveProjectionUserKey: ProjectionUserKeyResolver,
 ): Promise<PersistedReadOnlyDocumentSyncResult | null> {
   if (input.stillCurrent?.() === false) return null;

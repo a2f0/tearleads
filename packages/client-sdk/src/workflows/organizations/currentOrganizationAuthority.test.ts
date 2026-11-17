@@ -4,7 +4,7 @@ import {
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
 import { PrincipalPolicyService } from "../principals/principalPolicyService";
 import { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";

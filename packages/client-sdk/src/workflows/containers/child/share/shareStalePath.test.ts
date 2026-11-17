@@ -15,7 +15,7 @@ import {
   SIGNED_AT,
 } from "../../../../../test/helpers/containerFixtures";
 import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
-import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import { containerWriterProjectionFromSharePlan } from "../rekey/rekeyProjection";
 
 // A head on the signed path can advance while a share is in flight, most often

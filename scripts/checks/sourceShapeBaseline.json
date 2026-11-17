@@ -73,8 +73,8 @@
       "bytes": 21345
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 649,
-      "bytes": 19224
+      "lines": 652,
+      "bytes": 19322
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 601,

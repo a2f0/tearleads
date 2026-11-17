@@ -12,12 +12,10 @@ import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
 import { createResponseFromRequest } from "../../../../test/helpers/documentResponseFixtures";
+import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
-import {
-  createRemoteDocument,
-  isStaleDocumentCreateTargetConflict,
-} from "./index";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
+import { isStaleDocumentCreateTargetConflict } from "./index";
 
 test("document create replan requires the exact stale-state code", () => {
   const diagnostic =

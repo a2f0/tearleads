@@ -1,10 +1,11 @@
 import {
   recoverProjectionPolicyHistory,
   recoverScopedPrincipalPolicyHistory,
-  type syncRemoteDocument,
+  type SyncRemoteDocumentRequest,
 } from "@tearleads/client-sdk";
+import type { SdkRemoteDocumentCollaborators } from "./sdkRemoteDocuments";
 
-type SyncInput = Parameters<typeof syncRemoteDocument>[0];
+type SyncInput = SdkRemoteDocumentCollaborators & SyncRemoteDocumentRequest;
 
 /** Exercise the public scoped recovery and projection contracts on a fresh DB. */
 export function createPagedColdPolicyWarmer(input: {

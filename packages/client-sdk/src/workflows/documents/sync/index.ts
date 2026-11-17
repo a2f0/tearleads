@@ -16,6 +16,7 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../purge";
+import type { RemoteDocumentCollaborators } from "../remote/remoteDocumentCollaborators";
 import {
   assertRawContinuationCanRetry,
   resolveSyncAttemptWriterProjection,
@@ -28,10 +29,11 @@ import {
 import { recoverablePendingUpdates } from "../syncPlan/syncPlanRequestBounds";
 import { requireStandaloneAncestorRepairs } from "../syncRekeys/syncContainerRekeyPreparation";
 import { recoveryLocalVersionVector } from "../syncRekeys/syncRecoveryRekey";
-import {
-  type SyncRemoteDocumentInput,
-  tryPersistedReadOnlyDocumentSync,
-} from "./readOnlySync";
+import { tryPersistedReadOnlyDocumentSync } from "./readOnlySync";
+import type {
+  RemoteDocumentSyncPass,
+  SyncRemoteDocumentRequest,
+} from "./remoteDocumentSyncPass";
 import {
   planDocumentSyncAttempt,
   projectionFailureHandler,
@@ -46,7 +48,7 @@ import { resolveSubmittedDocumentSyncResult } from "./syncSubmittedResult";
  * A retryable stale-projection conflict means this writer projection is behind
  * the server. Evict only this document so the next attempt re-derives targets.
  */
-function evictStaleProjectionForRetry(input: SyncRemoteDocumentInput): void {
+function evictStaleProjectionForRetry(input: RemoteDocumentSyncPass): void {
   input.apiClient.evictDocumentWriterProjection?.(input.documentId);
 }
 
@@ -61,7 +63,7 @@ function canRegenerateQueuedCheckpoints(input: {
   materializedPlan: MaterializedDocumentSyncPlan;
   pendingUpdates: readonly PendingUpdateRecord[];
   regenerateQueuedCheckpoints: boolean;
-  sync: SyncRemoteDocumentInput;
+  sync: RemoteDocumentSyncPass;
 }): boolean {
   return (
     !input.regenerateQueuedCheckpoints &&
@@ -78,7 +80,7 @@ async function submitPlannedSyncAttempt(args: {
   pendingUpdates: readonly PendingUpdateRecord[];
   pullContinuation?: DocumentSyncPullContinuation | undefined;
   regenerateQueuedCheckpoints: boolean;
-  sync: SyncRemoteDocumentInput;
+  sync: RemoteDocumentSyncPass;
   failureBlocksQueuedWrites: boolean;
 }) {
   try {
@@ -120,7 +122,7 @@ async function submitPlannedSyncAttempt(args: {
 }
 
 function resolveAttemptProjection(
-  input: SyncRemoteDocumentInput,
+  input: RemoteDocumentSyncPass,
   failureBlocksQueuedWrites: boolean,
   reusableWriterProjection: DocumentWriterProjectionResponse | null,
 ) {
@@ -138,7 +140,7 @@ function resolveAttemptProjection(
     stillCurrent: input.stillCurrent,
   });
 }
-function resolveRemoteSyncProjectionUserKey(input: SyncRemoteDocumentInput) {
+function resolveRemoteSyncProjectionUserKey(input: RemoteDocumentSyncPass) {
   return requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote document sync",
@@ -146,7 +148,7 @@ function resolveRemoteSyncProjectionUserKey(input: SyncRemoteDocumentInput) {
 }
 
 async function invalidatePullCursor(
-  input: SyncRemoteDocumentInput,
+  input: RemoteDocumentSyncPass,
   pullContinuation: DocumentSyncPullContinuation | undefined,
 ): Promise<undefined> {
   if (pullContinuation !== undefined) {
@@ -156,7 +158,7 @@ async function invalidatePullCursor(
 }
 
 async function preparePersistedDocumentSync(
-  input: SyncRemoteDocumentInput,
+  input: RemoteDocumentSyncPass,
   resolveProjectionUserKey: ProjectionUserKeyResolver,
 ): Promise<
   | { readonly kind: "completed"; result: SyncRemoteDocumentResult | null }
@@ -198,7 +200,7 @@ function failureBlocksQueuedWrites(input: {
 }
 
 async function retryRemoteSyncAttempt(
-  sync: SyncRemoteDocumentInput,
+  sync: RemoteDocumentSyncPass,
   continuation: DocumentSyncPullContinuation | undefined,
 ): Promise<RemoteDocumentSyncAttemptOutcome> {
   evictStaleProjectionForRetry(sync);
@@ -214,7 +216,7 @@ async function runRemoteDocumentSyncAttempt(input: {
   pendingUpdateIds: readonly string[];
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   state: RemoteDocumentSyncAttemptState;
-  sync: SyncRemoteDocumentInput;
+  sync: RemoteDocumentSyncPass;
 }): Promise<RemoteDocumentSyncAttemptOutcome> {
   if (input.sync.stillCurrent?.() === false) {
     return { kind: "complete", result: null };
@@ -232,8 +234,8 @@ async function runRemoteDocumentSyncAttempt(input: {
     return { kind: "complete", result: null };
   }
   const planned = await planDocumentSyncAttempt({
-    // The sync input stays the same object: per-pass repair state is keyed on
-    // it (see syncContainerRekeyPreparation.ts).
+    // The pass stays the same object: per-pass repair state is keyed on it
+    // (see syncContainerRekeyPreparation.ts).
     localVersionVector: recoveryLocalVersionVector(
       input.sync.localVersionVector,
       input.state.recoveryPendingUpdatesById,
@@ -310,7 +312,7 @@ async function runRemoteDocumentSyncAttempt(input: {
 }
 
 async function syncRemoteDocumentInternal(
-  input: SyncRemoteDocumentInput,
+  input: RemoteDocumentSyncPass,
 ): Promise<SyncRemoteDocumentResult | null> {
   if (input.stillCurrent?.() === false) return null;
   const resolveProjectionUserKey = resolveRemoteSyncProjectionUserKey(input);
@@ -359,15 +361,27 @@ async function syncRemoteDocumentInternal(
   return abandonAfterRetryableConflicts(input);
 }
 
+/**
+ * Builds this call's one pass object and hands it to every attempt, so the
+ * per-pass repair state keyed on it spans exactly this call. Throws when the
+ * collaborators carry no encapsulation secret key.
+ */
 export async function syncRemoteDocument(
-  input: SyncRemoteDocumentInput,
+  remote: RemoteDocumentCollaborators,
+  input: SyncRemoteDocumentRequest,
 ): Promise<SyncRemoteDocumentResult | null> {
+  if (!remote.encapsulationSecretKey) {
+    throw new Error("Remote document sync requires an encapsulation key");
+  }
   try {
     return await syncRemoteDocumentInternal({
       ...input,
+      apiClient: remote.api,
+      execSql: remote.execSql,
+      isRemoteSyncBlocked: remote.isRemoteSyncBlocked,
       onRemoteDocumentDeleted: createVerifiedRemoteDocumentDeletionHandler({
-        apiClient: input.apiClient,
-        execSql: input.execSql,
+        apiClient: remote.api,
+        execSql: remote.execSql,
         expectedOrganizationId: input.author.organizationId,
         onVerifiedDeletion: ({ commitPurgeProof, documentId }) => {
           if (input.stillCurrent?.() === false) return;
@@ -386,6 +400,7 @@ export async function syncRemoteDocument(
         stillCurrent: input.stillCurrent,
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       }),
+      targetSecretKey: remote.encapsulationSecretKey,
     });
   } catch (error) {
     if (isProjectionVerificationCancelledError(error)) return null;
