@@ -36,11 +36,20 @@ export function recordVerifiedBundleBytes(
   if (bytes !== null) verifiedBundleBytes.set(verified, bytes);
 }
 
+// Each bundle object already found identical to a verified result. A
+// projection's bundles are decoded once and never mutated, and a deep path
+// asks about the same ancestors from every descendant, so each bundle is
+// serialized and compared at most once per verified result.
+const confirmedCopies = new WeakMap<object, object>();
+
 /** Whether `bundle` is byte-identical to the one `verified` came from. */
 export function matchesVerifiedBundleBytes(
   verified: object,
   bundle: AccessManifestBundleWireResponse,
 ): boolean {
+  if (confirmedCopies.get(bundle) === verified) return true;
   const recorded = verifiedBundleBytes.get(verified);
-  return recorded !== undefined && recorded === canonicalBytes(bundle);
+  const matches = recorded !== undefined && recorded === canonicalBytes(bundle);
+  if (matches) confirmedCopies.set(bundle, verified);
+  return matches;
 }

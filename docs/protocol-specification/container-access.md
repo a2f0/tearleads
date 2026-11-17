@@ -113,9 +113,12 @@ event, body and manifest with a reduced `state`: the derived fields the
 bundle's own signed bytes name are left off, namely the version, object id,
 organization, epoch, predecessor and event hash the hash-committed manifest
 carries, and for a container the key epoch and public key its signed body
-carries. What remains is what the bundle's bytes alone cannot give: a
-container's parent pin, metadata document, system slot, direct grants and
-principal heads, and a document's linked containers. No signed bytes change. A
+carries. Exactly those fields are omitted. The state keeps every other field:
+a container's parent pin, metadata document, system slot, direct grants and
+principal heads, and a document's linked containers. Some of them appear in a
+given bundle's body or manifest (a create body names the parent pin, a
+manifest its principal heads), but not in every event's bytes, so filling them
+back would need the predecessor chain. No signed bytes change. A
 cited hash without a bundle, a bundle stored under a key other than its own
 `manifestHash`, or a bundle nothing cites is a response-shape failure. The
 client resolves every citation to its own copy of the bundle before any cache

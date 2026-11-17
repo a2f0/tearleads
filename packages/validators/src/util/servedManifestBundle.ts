@@ -11,14 +11,33 @@ import {
   type AccessManifestBundleWireResponse,
 } from "./accessManifestBundle";
 
+declare const servedManifestState: unique symbol;
+
 /**
- * A served bundle's reduced state. It is deliberately not a state record, so
+ * A served bundle's reduced state. It is deliberately not a state record, and
+ * it carries a brand only parsing or `toServedAccessManifestBundle` gives, so
  * TypeScript refuses a served bundle wherever a full one is required (a purge
- * proof, a verifier input); `completeServedAccessManifestBundle` is the one
- * conversion that reads it.
+ * proof, a verifier input) and a full bundle wherever a served one is (a held
+ * citation); `completeServedAccessManifestBundle` is the one conversion that
+ * reads it.
  */
 export interface ServedManifestState {
-  readonly servedManifestState?: never;
+  readonly [servedManifestState]: true;
+}
+
+/** Any plain object is a served state on the wire; the brand is static. */
+function isServedManifestState(value: unknown): value is ServedManifestState {
+  return isPlainObject(value);
+}
+
+function asServedManifestState(
+  state: Record<string, unknown>,
+): ServedManifestState {
+  const value: unknown = state;
+  if (!isServedManifestState(value)) {
+    throw new TypeError("A served state must be a plain object");
+  }
+  return value;
 }
 
 /**
@@ -35,7 +54,7 @@ export const ServedAccessManifestBundleWireResponseSchema = loosePlainObject({
   manifest: plainObjectSchema,
   manifestHash: nonEmptyStringSchema,
   state: registerJsonSchemaView(
-    z.custom<ServedManifestState>(isPlainObject),
+    z.custom<ServedManifestState>(isServedManifestState),
     z.looseObject({}),
   ),
 });
@@ -84,13 +103,13 @@ function signedStateFields(
 export function toServedAccessManifestBundle(
   bundle: AccessManifestBundleWireResponse,
 ): ServedAccessManifestBundleWireResponse {
-  const state = { ...bundle.state };
+  const state: Record<string, unknown> = { ...bundle.state };
   for (const [field] of signedStateFields(bundle)) delete state[field];
   return {
     event: bundle.event,
     manifest: bundle.manifest,
     manifestHash: bundle.manifestHash,
-    state,
+    state: asServedManifestState(state),
   };
 }
 
