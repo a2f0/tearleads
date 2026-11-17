@@ -67,6 +67,9 @@ async function deleteDocumentAttachmentRows(input: {
     .delete(attachmentBindings)
     .where(inArray(attachmentBindings.documentId, [...input.documentIds]));
   if (input.orphanedBlobIds.length > 0) {
+    // The caller already holds these rows' locks, taken in UUID order with the
+    // rest of the document's blobs (`resolveOrphanedBlobIds`), so this update
+    // acquires no blob lock out of that order.
     await input.executor
       .update(blobs)
       .set({

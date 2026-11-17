@@ -31,6 +31,10 @@ import {
 import { and, eq, inArray, or } from "drizzle-orm";
 import { forgetTransactionAccessManifestBundles } from "../../access/write/accessManifestStore";
 import { forgetPrincipalTransactionMemo } from "../../access/write/principalStateStore";
+import {
+  lockBlobMutationRows,
+  planBlobMutationLockIds,
+} from "../blobs/mutations/blobMutationLocks";
 import { deleteDocumentRows } from "../documents/mutations/purgeDocumentRows";
 import { organizationPurgeBatches } from "./organizationPurgeBatches";
 import type { OrganizationRemotePurgeScope } from "./organizationPurgeScope";
@@ -243,7 +247,16 @@ export async function deleteOrganizationRemoteRows(input: {
     .update(blobStages)
     .set({ expiresAt: input.now })
     .where(eq(blobStages.organizationId, input.organizationId));
-  for (const blobBatch of organizationPurgeBatches(input.scope.blobIds)) {
+  // An update locks its rows in scan order. Lock each batch in UUID order
+  // first, over the whole sorted set, so this cannot deadlock with a reclaim
+  // chunk that holds some of these rows in the same order.
+  for (const blobBatch of organizationPurgeBatches(
+    planBlobMutationLockIds(input.scope.blobIds),
+  )) {
+    await lockBlobMutationRows({
+      blobIds: blobBatch,
+      executor: input.executor,
+    });
     await input.executor
       .update(blobs)
       .set({ dereferencedAt: input.now, reclaimAttemptedAt: null })
