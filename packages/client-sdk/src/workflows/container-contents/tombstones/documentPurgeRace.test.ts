@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import {
   createDocumentProjectorRegistry,
   defaultDocumentProjectorRegistry,
@@ -55,7 +56,7 @@ test("purge retry refuses a document recreated before the absence transaction", 
         noteId: "local-document",
         persistence,
         resolveProjectionUserKey,
-        runtime: {
+        runtime: withPrincipalPolicies({
           apiClient: createMockApiClient({
             getPrincipalPolicyPages: () => {
               throw new Error("Unexpected principal page read");
@@ -105,10 +106,10 @@ test("purge retry refuses a document recreated before the absence transaction", 
             online: true,
           },
           util: {
-            log: (message) => logs.push(message),
+            log: (message: string) => logs.push(message),
             reportSecurityIncident: async () => undefined,
           },
-        },
+        }),
       }),
     ).resolves.toBeNull();
 
@@ -181,7 +182,7 @@ test("purge retry deletes an absent custom document projection with its proof", 
         noteId: "local-document",
         persistence,
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-        runtime: {
+        runtime: withPrincipalPolicies({
           apiClient: createMockApiClient({
             getPrincipalPolicyPages: () => {
               throw new Error("Unexpected principal page read");
@@ -234,7 +235,7 @@ test("purge retry deletes an absent custom document projection with its proof", 
             log: () => undefined,
             reportSecurityIncident: async () => undefined,
           },
-        },
+        }),
       }),
     ).resolves.toMatchObject({
       documentId: fixture.writerProjection.documentId,

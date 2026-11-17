@@ -6,6 +6,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../../data/shared/domainScope";
@@ -78,7 +79,7 @@ test("stale container create identity failures do not report into a replacement"
     ]),
     persistence,
     resolveProjectionUserKey: async () => null,
-    runtime: {
+    runtime: withPrincipalPolicies({
       apiClient: createMockApiClient({
         getContainerWriterProjection: async () => {
           projectionRequests += 1;
@@ -117,11 +118,11 @@ test("stale container create identity failures do not report into a replacement"
       },
       util: {
         log: () => {},
-        reportSecurityIncident: async (error) => {
+        reportSecurityIncident: async (error: unknown) => {
           incidents.push(error);
         },
       },
-    },
+    }),
   };
 
   await expect(
@@ -388,7 +389,7 @@ test("container create sync keeps an intent pending while the container row lack
     ]),
     persistence,
     resolveProjectionUserKey: async () => null,
-    runtime: {
+    runtime: withPrincipalPolicies({
       apiClient: {} as ContainerCreateIntentSyncState["runtime"]["apiClient"],
       auth: {
         isAuthenticated: true,
@@ -423,7 +424,7 @@ test("container create sync keeps an intent pending while the container row lack
         log: () => {},
         reportSecurityIncident: async () => undefined,
       },
-    },
+    }),
   };
 
   const created = await syncPendingContainerCreateIntents({

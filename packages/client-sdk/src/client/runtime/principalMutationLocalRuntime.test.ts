@@ -6,7 +6,7 @@ import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { didContainerWriteRuntimeChange } from "../../stores/container-contents/remoteWrites/writeGeneration";
 import { Tearleads } from "../../Tearleads";
-import { createContainerContentsStoreWorkflowRuntime } from "../../workflows/container-contents/runtime";
+import { createContainerContentsStoreWorkflowRuntimeFromSnapshot } from "../../workflows/container-contents/runtime";
 import { createRuntime } from "./workflowRuntime";
 
 test("signed-out runtime reads and network notifications preserve local write custody", async () => {
@@ -35,7 +35,7 @@ test("signed-out runtime reads and network notifications preserve local write cu
       session: sdk.session,
     });
     const read = () =>
-      createContainerContentsStoreWorkflowRuntime(
+      createContainerContentsStoreWorkflowRuntimeFromSnapshot(
         runtime.workflowInput(),
         runtime.adoptRootContainer,
         async () => undefined,

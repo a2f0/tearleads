@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
@@ -27,7 +28,7 @@ function createRuntime(input: {
     logs: [] as string[],
     errors: [] as unknown[],
   };
-  const runtime = {
+  const runtime = withPrincipalPolicies({
     apiClient: {
       evictDocumentWriterProjection: (documentId: string) => {
         calls.evicted.push(documentId);
@@ -62,7 +63,7 @@ function createRuntime(input: {
         calls.incidents.push(context);
       },
     },
-  } as unknown as ContainerContentsWorkflowRuntime;
+  }) as unknown as ContainerContentsWorkflowRuntime;
   return { calls, runtime };
 }
 

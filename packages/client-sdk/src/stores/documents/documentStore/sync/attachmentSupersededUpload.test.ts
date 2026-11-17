@@ -9,7 +9,7 @@ import {
   removeDocumentAttachment,
 } from "../../../../data/documents/documentContent";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,

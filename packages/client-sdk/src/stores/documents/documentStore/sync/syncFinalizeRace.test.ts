@@ -4,7 +4,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
 import type { DocumentsPersistence } from "../../../../workflows/documents";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,

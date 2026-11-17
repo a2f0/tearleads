@@ -1,4 +1,3 @@
-import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import { finishRemoteHydration } from "./completeHydration";
 import { createContainerChildIndex } from "./lanes/childIndex";
 import { createContainerParentHydrationQueue } from "./lanes/parentLaneQueue";
@@ -231,9 +230,8 @@ async function drainRemoteContainerIngestQueue(input: {
         return;
       }
       await cacheRemoteContainerPrincipalPolicies({
-        cacheReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-          state.runtime,
-        ),
+        cacheReferencedPrincipalPolicies:
+          state.runtime.principalPolicies.createWarmer(),
         remoteContainers: queuedRemoteContainers,
         stillCurrent: input.isCurrent,
       });

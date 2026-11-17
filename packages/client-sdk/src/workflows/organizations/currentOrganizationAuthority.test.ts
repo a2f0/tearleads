@@ -6,7 +6,7 @@ import {
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
-import { createRuntimePrincipalPolicyCurrentResolver } from "../principals/runtimePolicyRecovery";
+import { PrincipalPolicyService } from "../principals/principalPolicyService";
 import { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
@@ -17,7 +17,7 @@ beforeAll(async () => {
 async function fixture() {
   const f = await createAuthorityRecoveryFixture(history);
   const state = { current: true, online: true };
-  const resolveCurrentPolicy = createRuntimePrincipalPolicyCurrentResolver({
+  const resolveCurrentPolicy = new PrincipalPolicyService({
     apiClient: f.apiClient,
     infra: { execSql: f.options.execSql },
     resolveTrustedUserIdentity: f.options.resolveTrustedUserIdentity,
@@ -28,7 +28,7 @@ async function fixture() {
         protection: f.options.protection,
         stillCurrent: () => state.current,
       }),
-  });
+  }).createCurrentPolicyResolver();
   if (!resolveCurrentPolicy) throw new Error("Missing current policy resolver");
   const input = {
     execSql: f.options.execSql,

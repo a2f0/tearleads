@@ -4,12 +4,12 @@ import {
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
-import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "../../data/trustedUserIdentity";
 import { BlobAttachmentService } from "../blobs/blobAttachmentService";
+import { PrincipalPolicyService } from "../principals/principalPolicyService";
 import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
@@ -52,11 +52,19 @@ export interface DocumentsWorkflowRuntimeInputGroups {
 
 export interface DocumentsWorkflowRuntimeInput
   extends DocumentsWorkflowRuntimeInputGroups {
-  /** Private host custody, inherited without exposing it on runtime views. */
+  /** Private host custody, held by the runtime's policy service and never exposed on runtime views. */
   readonly withPrincipalHistoryProtection?:
     | PrincipalHistoryProtectionLease
     | undefined;
   readonly apiClient: ApiClient;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+}
+
+/** A runtime snapshot whose producer already bound its policy service, such as `workflowInput()`. */
+export interface DocumentsWorkflowRuntimeSnapshot
+  extends DocumentsWorkflowRuntimeInputGroups {
+  readonly apiClient: ApiClient;
+  readonly principalPolicies: PrincipalPolicyService;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
@@ -65,37 +73,50 @@ export interface DocumentsWorkflowRuntime
   readonly apiClient: ApiClient;
   /** Bound to this snapshot's API client, executor, and key material. */
   readonly blobAttachments: BlobAttachmentService;
+  /** Bound to this snapshot's API client, executor, and history custody. */
+  readonly principalPolicies: PrincipalPolicyService;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
+/** Standalone hosts supply their own lease; the view never carries it. */
 export function createDocumentsWorkflowRuntime(
   input: DocumentsWorkflowRuntimeInput,
 ): DocumentsWorkflowRuntime {
+  return createDocumentsWorkflowRuntimeFromSnapshot({
+    ...input,
+    principalPolicies: new PrincipalPolicyService(input),
+  });
+}
+
+export function createDocumentsWorkflowRuntimeFromSnapshot(
+  snapshot: DocumentsWorkflowRuntimeSnapshot,
+): DocumentsWorkflowRuntime {
   const documentProjectors = resolveDocumentProjectorRegistry(
-    input.infra.documentProjectors,
+    snapshot.infra.documentProjectors,
   );
   const infra = {
-    ...input.infra,
+    ...snapshot.infra,
     documentProjectors,
   };
 
-  return inheritPrincipalHistoryProtection(input, {
-    apiClient: input.apiClient,
+  return {
+    apiClient: snapshot.apiClient,
     blobAttachments: new BlobAttachmentService({
-      api: input.apiClient,
+      api: snapshot.apiClient,
       encapsulationSecretKey:
-        input.crypto.encapsulationKeyPair?.secretKey ?? null,
-      execSql: input.infra.execSql,
-      log: input.util.log,
-      reportSecurityIncident: input.util.reportSecurityIncident,
+        snapshot.crypto.encapsulationKeyPair?.secretKey ?? null,
+      execSql: snapshot.infra.execSql,
+      log: snapshot.util.log,
+      reportSecurityIncident: snapshot.util.reportSecurityIncident,
     }),
-    auth: input.auth,
-    crypto: input.crypto,
+    auth: snapshot.auth,
+    crypto: snapshot.crypto,
     infra,
+    principalPolicies: snapshot.principalPolicies,
     resolveTrustedUserIdentity: requireTrustedUserIdentityResolver(
-      input.resolveTrustedUserIdentity,
+      snapshot.resolveTrustedUserIdentity,
     ),
-    state: input.state,
-    util: input.util,
-  });
+    state: snapshot.state,
+    util: snapshot.util,
+  };
 }

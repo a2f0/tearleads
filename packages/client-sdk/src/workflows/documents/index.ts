@@ -112,11 +112,13 @@ export type { RemoteDocumentServiceApi } from "./remote/remoteDocumentCollaborat
 export { RemoteDocumentService } from "./remote/remoteDocumentService";
 export {
   createDocumentsWorkflowRuntime,
+  createDocumentsWorkflowRuntimeFromSnapshot,
   type DocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntimeGroups,
   type DocumentsWorkflowRuntimeInfra,
   type DocumentsWorkflowRuntimeInput,
   type DocumentsWorkflowRuntimeInputGroups,
+  type DocumentsWorkflowRuntimeSnapshot,
 } from "./runtime";
 export { syncRemoteDocument } from "./sync";
 export { documentCreateSeedCandidate } from "./sync/initialSync";

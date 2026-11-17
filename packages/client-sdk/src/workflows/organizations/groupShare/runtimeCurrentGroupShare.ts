@@ -3,17 +3,12 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
-import { inheritPrincipalHistoryProtection } from "../../../data/principals/principalHistoryRuntime";
 import {
   buildMaterializedContainerSharePlan,
   resolveShareProjection,
   submitAcknowledgedContainerMutation,
   submitPlainContainerMutation,
 } from "../../containers";
-import {
-  apiPrincipalPolicyPageReader,
-  apiProjectionPolicyHistoryReader,
-} from "../../principals/principalPolicyHistoryReader";
 import { createRuntimeCurrentGroupMutation } from "../principalMutations/runtimeCurrentGroupMutation";
 import { commitCurrentShareGrant } from "./currentShareGrantMutation";
 import { createRuntimeCurrentSharePrincipalPolicy } from "./currentSharePrincipalPolicy";
@@ -26,22 +21,18 @@ export function createRuntimeCurrentGroupShare(
 ): typeof shareRemoteContainerWithGroup | undefined {
   const readCurrent = createRuntimeCurrentSharePrincipalPolicy(runtime);
   const api = runtime.apiClient;
-  const historyReader = apiPrincipalPolicyPageReader(api);
-  if (!readCurrent || !historyReader) return undefined;
-  const mutate = createRuntimeCurrentGroupMutation(
-    inheritPrincipalHistoryProtection(runtime, {
-      ...runtime,
-      apiClient: {
-        ...historyReader,
-        ...apiProjectionPolicyHistoryReader(api),
-        recoverPendingPrincipalMutation: async (organizationId: string) => {
-          // Built-in clients supply journal recovery; standalone hosts retain
-          // responsibility for transport and exact-outcome recovery.
-          await api.recoverPendingPrincipalMutation?.(organizationId);
-        },
+  if (!readCurrent) return undefined;
+  // The derived runtime keeps this snapshot's policy service and its lease.
+  const mutate = createRuntimeCurrentGroupMutation({
+    ...runtime,
+    apiClient: {
+      recoverPendingPrincipalMutation: async (organizationId: string) => {
+        // Built-in clients supply journal recovery; standalone hosts retain
+        // responsibility for transport and exact-outcome recovery.
+        await api.recoverPendingPrincipalMutation?.(organizationId);
       },
-    }),
-  );
+    },
+  });
   if (!mutate) throw new Error("Current group mutation custody is unavailable");
   const shareOnce = async (
     input: Parameters<typeof shareRemoteContainerWithGroup>[0],

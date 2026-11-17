@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type { ListContainersResponse } from "@tearleads/validators/response";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { createDomainScope } from "../../../data/shared/domainScope";
@@ -75,7 +76,7 @@ for (const failure of ["withheld", "tampered", "expired", "runtime"] as const) {
         const state = {
           containersById: new Map(),
           persistence,
-          runtime: {
+          runtime: withPrincipalPolicies({
             resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
             apiClient: {
               evictContainerWriterProjection: () => {},
@@ -127,7 +128,7 @@ for (const failure of ["withheld", "tampered", "expired", "runtime"] as const) {
                 incidents.push(error);
               },
             },
-          },
+          }),
         } as unknown as RemoteContainerHydrationState;
         let completed = false;
         const hydration = hydrateRemoteContainers({

@@ -21,7 +21,7 @@ import {
   rootContainerWriterProjectionFromCreatePlan,
 } from "../../containers/root/create";
 
-import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
+import { PrincipalPolicyService } from "../../principals/principalPolicyService";
 import { createRemoteDocument } from "./index";
 
 test("expired document create does not fetch or cache a refreshed group policy", async () => {
@@ -84,7 +84,7 @@ test("expired document create does not fetch or cache a refreshed group policy",
   let projectionEvictions = 0;
   let submissions = 0;
   let current = true;
-  const warmReferencedPrincipalPolicies = createRuntimePrincipalPolicyWarmer({
+  const warmReferencedPrincipalPolicies = new PrincipalPolicyService({
     apiClient: createMockApiClient({
       getPrincipalPolicyPages: async function* (...args) {
         policyGets += 1;
@@ -100,7 +100,7 @@ test("expired document create does not fetch or cache a refreshed group policy",
     util: {
       reportSecurityIncident: async () => undefined,
     },
-  });
+  }).createWarmer();
 
   try {
     const created = await createRemoteDocument({

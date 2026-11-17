@@ -18,7 +18,7 @@ import {
 import { resolveDocumentCreateAuthor } from "../../documents";
 import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadata/groupMetadataRuntime";
 import { createRuntimeCurrentGroupShare } from "../../organizations/groupShare";
-import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
+
 import {
   type ContainerAlreadyCommitted,
   createRemoteContainerWithMetadataDocument,
@@ -136,9 +136,8 @@ export async function shareRemoteContainer(input: {
     recipientUserId: input.recipientUserId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     stillCurrent: input.stillCurrent,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      input.runtime,
-    ),
+    warmReferencedPrincipalPolicies:
+      input.runtime.principalPolicies.createWarmer(),
   });
   if (!shared) {
     return null;
@@ -197,9 +196,8 @@ export async function shareRemoteContainerWithGroup(input: {
     signingKeyPair: input.runtime.crypto.signingKeyPair,
     stillCurrent: input.stillCurrent,
     targetSecretKey: collaborators.encapsulationSecretKey,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      input.runtime,
-    ),
+    warmReferencedPrincipalPolicies:
+      input.runtime.principalPolicies.createWarmer(),
   });
   if (!shared) {
     return null;
@@ -236,9 +234,8 @@ export async function moveRemoteContainer(input: {
     onAccepted: input.onAccepted,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     stillCurrent: input.stillCurrent,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      input.runtime,
-    ),
+    warmReferencedPrincipalPolicies:
+      input.runtime.principalPolicies.createWarmer(),
   });
   if (!replayed || "applied" in replayed) {
     return replayed;

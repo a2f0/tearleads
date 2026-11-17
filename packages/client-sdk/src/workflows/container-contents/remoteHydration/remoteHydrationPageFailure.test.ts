@@ -4,6 +4,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -87,7 +88,7 @@ test("a failed page upsert does not checkpoint or skip trailing containers", asy
     const state = {
       containersById: new Map([[existingState.container.id, existingState]]),
       persistence: defaultContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: createMockApiClient({
           getContainerWriterProjection:
@@ -114,7 +115,7 @@ test("a failed page upsert does not checkpoint or skip trailing containers", asy
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
 
     await hydrateRemoteContainers({
@@ -157,7 +158,7 @@ test("a fetched page cannot resurrect a container deleted before apply", async (
     const state = {
       containersById: new Map([[existingState.container.id, existingState]]),
       persistence: defaultContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: createMockApiClient({
           getContainerWriterProjection:
@@ -188,7 +189,7 @@ test("a fetched page cannot resurrect a container deleted before apply", async (
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
 
     await hydrateRemoteContainers({
@@ -227,7 +228,7 @@ test("a fetched page cannot overwrite a container mutated in place during fetch"
     const state = {
       containersById: new Map([[existingState.container.id, existingState]]),
       persistence: defaultContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: createMockApiClient({
           getContainerWriterProjection:
@@ -257,7 +258,7 @@ test("a fetched page cannot overwrite a container mutated in place during fetch"
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
 
     await hydrateRemoteContainers({
@@ -294,7 +295,7 @@ test("a stale page item does not starve an independent new container", async () 
     const state = {
       containersById: new Map([[existingState.container.id, existingState]]),
       persistence: defaultContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: createMockApiClient({
           getContainerWriterProjection:
@@ -330,7 +331,7 @@ test("a stale page item does not starve an independent new container", async () 
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
 
     await hydrateRemoteContainers({
@@ -368,7 +369,7 @@ test("a stale tombstone cannot delete a container restored during fetch", async 
     const state = {
       containersById: new Map<string, ContainerState>(),
       persistence: defaultContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: createMockApiClient({
           getContainerWriterProjection:
@@ -411,7 +412,7 @@ test("a stale tombstone cannot delete a container restored during fetch", async 
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
 
     await hydrateRemoteContainers({

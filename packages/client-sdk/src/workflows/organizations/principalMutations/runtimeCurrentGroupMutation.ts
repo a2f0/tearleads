@@ -5,21 +5,27 @@ import { assertProjectionVerificationCurrent } from "../../../data/keyingProject
 import type { CurrentPolicyReferenceResolver } from "../../../data/principals/currentPolicyReferenceResolver";
 import { scopedGroupHistoryProtection } from "../../../data/principals/principalHistoryScopeProtection";
 import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
+import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import { captureAcknowledgedPrincipalPredecessor } from "../../principals/acknowledgements/acknowledgedPrincipalPredecessor";
 import type { PrincipalPolicyPageReader } from "../../principals/principalPolicyHistoryReader";
-import type { PrincipalPolicyRecoveryRuntime } from "../../principals/runtimePolicyRecovery";
+import {
+  createCurrentPrincipalMutationLease,
+  type PrincipalPolicyRuntime,
+} from "../../principals/principalPolicyService";
 import { loadCurrentGroupPolicyMutationContext } from "../groupPolicy/currentGroupPolicyMutationContext";
 import { resolveCurrentGroupMutationReferences } from "./currentGroupMutationReferences";
-import { createCurrentPrincipalMutationLease } from "./currentPrincipalMutationLease";
 import type { PrincipalMutationRecoveryApi } from "./principalMutationJournalManagement";
 import {
   type AcknowledgedPrincipalCurrentInput,
   retainAcknowledgedPrincipalCurrents,
 } from "./retainAcknowledgedPrincipalCurrents";
 
-type MutationRuntime = PrincipalPolicyRecoveryRuntime & {
-  readonly apiClient: PrincipalPolicyRecoveryRuntime["apiClient"] &
-    Pick<PrincipalMutationRecoveryApi, "recoverPendingPrincipalMutation">;
+type MutationRuntime = PrincipalPolicyRuntime & {
+  readonly apiClient: Pick<
+    PrincipalMutationRecoveryApi,
+    "recoverPendingPrincipalMutation"
+  >;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 };
 
 type CurrentMutationContext = Awaited<
@@ -61,7 +67,7 @@ interface MutationInput {
 
 /** Keep private prefix custody inside the entire mutation and its acknowledgement. */
 export function createRuntimeCurrentGroupMutation(runtime: MutationRuntime) {
-  const lease = createCurrentPrincipalMutationLease(runtime);
+  const lease = createCurrentPrincipalMutationLease(runtime.principalPolicies);
   if (!lease) return undefined;
   return async <T>(
     input: MutationInput,

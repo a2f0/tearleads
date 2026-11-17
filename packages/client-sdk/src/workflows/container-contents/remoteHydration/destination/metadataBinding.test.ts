@@ -3,6 +3,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { createMetadataBindingFixture } from "../../../../../test/helpers/containerMetadataBinding";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { insertQueuedUpdateRows } from "../../../../../test/helpers/queuedUpdateRows";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
@@ -217,10 +218,10 @@ test("a restarted store reuses a verified binding its listing repeats", async ()
       },
       state: {
         ...fixture.state,
-        runtime: {
+        runtime: withPrincipalPolicies({
           ...fixture.state.runtime,
           infra: { ...fixture.state.runtime.infra, execSql: restartedExecSql },
-        },
+        }),
       },
     });
     expect(restarted?.metadataDocumentId).toBe(fixture.metadataDocumentId);

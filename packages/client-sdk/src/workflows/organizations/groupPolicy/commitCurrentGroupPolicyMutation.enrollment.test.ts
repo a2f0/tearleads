@@ -1,6 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import { createRemovalFixture } from "../../../../test/helpers/groupRemovalCarryFixture";
 import { createAuthorityRecoveryFixture } from "../../../../test/helpers/principalAuthorityRecovery";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createRuntimeCurrentGroupMutation } from "../principalMutations/runtimeCurrentGroupMutation";
 import { commitCurrentGroupPolicyMutation } from "./commitCurrentGroupPolicyMutation";
 import { buildRemoveGroupUserPolicyRequest } from "./groupPolicyRequests";
@@ -17,19 +18,23 @@ test.each(["member group", "directory head"] as const)(
       resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
     });
     const submit = mock(async () => null);
-    const mutate = createRuntimeCurrentGroupMutation({
-      apiClient: {
-        getPrincipalPolicyPages: f.apiClient.getPrincipalPolicyPages.bind(
-          f.apiClient,
-        ),
-        recoverPendingPrincipalMutation: async () => {},
-      },
-      infra: { execSql: f.options.execSql },
-      resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
-      util: { reportSecurityIncident: async () => {} },
-      withPrincipalHistoryProtection: async (work) =>
-        work({ protection: f.options.protection, stillCurrent: () => true }),
-    });
+    const mutate = createRuntimeCurrentGroupMutation(
+      withPrincipalPolicies(
+        {
+          apiClient: {
+            getPrincipalPolicyPages: f.apiClient.getPrincipalPolicyPages.bind(
+              f.apiClient,
+            ),
+            recoverPendingPrincipalMutation: async () => {},
+          },
+          infra: { execSql: f.options.execSql },
+          resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
+          util: { reportSecurityIncident: async () => {} },
+        },
+        async (work) =>
+          work({ protection: f.options.protection, stillCurrent: () => true }),
+      ),
+    );
     try {
       if (!mutate) throw new Error("Missing mutation runtime");
       const signer = await fixture.resolveTrustedUserIdentity(

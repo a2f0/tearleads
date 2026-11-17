@@ -8,7 +8,7 @@ import {
   syncRemoteDocument,
   validateDocumentSyncUpdateImports,
 } from "../../../../workflows/documents";
-import { createRuntimePrincipalPolicyWarmer } from "../../../../workflows/principals/runtimePolicyWarmer";
+
 import { requestDocumentStoreSync } from "../../registry";
 import { installRebuiltDocument } from "../history/historyRebuild";
 import { chainIdentityWrite } from "../identityWriteChain";
@@ -176,9 +176,8 @@ async function pullVerifiedRawHistoryForRotation(input: {
         writerKeyLabel: "writer key",
       }),
       targetSecretKey: encapsulationKeyPair.secretKey,
-      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-        input.state.runtime,
-      ),
+      warmReferencedPrincipalPolicies:
+        input.state.runtime.principalPolicies.createWarmer(),
       writerProjection,
     });
     if (!synced) {

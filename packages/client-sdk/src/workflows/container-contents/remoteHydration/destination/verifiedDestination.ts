@@ -19,7 +19,7 @@ import {
   listingRepeatsHeldOrdinaryBinding,
 } from "../../../../data/persistence/container-contents/containerBinding";
 import { verifyRuntimeGroupMetadataAuthority } from "../../../organizations/groupMetadata/runtimeGroupMetadataAuthority";
-import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
+
 import type {
   ContainerState,
   RemoteContainer,
@@ -176,8 +176,7 @@ async function verifyDestinationRole(input: {
     projection,
     resolveUserKey: runtime.resolveTrustedUserIdentity,
     stillCurrent: isCurrent,
-    warmReferencedPrincipalPolicies:
-      createRuntimePrincipalPolicyWarmer(runtime),
+    warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
   };
   const { path, verifiedByHash } =
     await verifyContainerDestinationProjection(verificationInput);

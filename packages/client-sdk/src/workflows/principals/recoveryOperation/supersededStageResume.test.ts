@@ -9,7 +9,7 @@ import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFix
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
-import { createRuntimePrincipalPolicyCurrentResolver } from "../runtimePolicyRecovery";
+import { PrincipalPolicyService } from "../principalPolicyService";
 import { createPrincipalCurrentRecoveryBatch } from "./principalCurrentRecoveryBatch";
 import { resumeAfterSupersededStage } from "./supersededStageResume";
 
@@ -28,7 +28,7 @@ function createResolver(
   incidents: unknown[],
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
 ) {
-  const resolve = createRuntimePrincipalPolicyCurrentResolver({
+  const resolve = new PrincipalPolicyService({
     apiClient: {
       getPrincipalPolicyPages: source.apiClient.getPrincipalPolicyPages.bind(
         source.apiClient,
@@ -47,7 +47,7 @@ function createResolver(
         incidents.push(error);
       },
     },
-  });
+  }).createCurrentPolicyResolver();
   if (!resolve) throw new Error("Expected current policy recovery");
   return (stillCurrent: () => boolean) =>
     resolve({

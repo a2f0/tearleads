@@ -4,7 +4,7 @@ import {
   isDatabaseUnavailableError,
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
-import type { PrincipalPolicyOperation } from "../principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../principals/principalPolicyService";
 
 export { sequenceUnchanged } from "../../data/sync/sequence";
 // Facade re-exports: container-contents stores must reach these shared sync

@@ -4,6 +4,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/queuedUpdateRows";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
@@ -88,7 +89,7 @@ function createState(
   return {
     containersById,
     persistence: defaultContainerContentsPersistence,
-    runtime: {
+    runtime: withPrincipalPolicies({
       resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
       apiClient: {
         getContainerWriterProjection: directory.getContainerWriterProjection,
@@ -107,7 +108,7 @@ function createState(
       infra: { dbStatus: "ready", execSql },
       state: { domainScope: createDomainScope(), online: true },
       util: { log: () => {} },
-    },
+    }),
   } as unknown as RemoteContainerHydrationState;
 }
 

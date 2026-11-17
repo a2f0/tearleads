@@ -5,11 +5,11 @@ import {
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { createCurrentPrincipalMutationLease } from "../../principals/principalPolicyService";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { createSelectedCurrentGroupMetadataContainerVerifier } from "../groupMetadata/currentGroupMetadataAuthority";
 import { assertGroupMetadataBinding } from "../groupMetadata/groupMetadataBinding";
 import { createRuntimeGroupMetadataAccess } from "../groupMetadata/groupMetadataRuntime";
-import { createCurrentPrincipalMutationLease } from "../principalMutations/currentPrincipalMutationLease";
 import type { PrincipalMutationRecoveryApi } from "../principalMutations/principalMutationJournalManagement";
 import {
   type GroupPolicyNameReader,
@@ -19,14 +19,13 @@ import { GroupShareNameMismatchError } from "./sharePrincipalPolicy";
 
 type CurrentShareRuntime = Parameters<
   typeof createRuntimeGroupMetadataAccess
->[0] &
-  Parameters<typeof createCurrentPrincipalMutationLease>[0] & {
-    readonly apiClient: {
-      readonly recoverPendingPrincipalMutation?:
-        | PrincipalMutationRecoveryApi["recoverPendingPrincipalMutation"]
-        | undefined;
-    };
+>[0] & {
+  readonly apiClient: {
+    readonly recoverPendingPrincipalMutation?:
+      | PrincipalMutationRecoveryApi["recoverPendingPrincipalMutation"]
+      | undefined;
   };
+};
 
 interface CurrentShareInput {
   readonly groupId: string;
@@ -55,7 +54,7 @@ export interface CurrentSharePrincipalPolicy {
 export function createRuntimeCurrentSharePrincipalPolicy(
   runtime: CurrentShareRuntime,
 ) {
-  const lease = createCurrentPrincipalMutationLease(runtime);
+  const lease = createCurrentPrincipalMutationLease(runtime.principalPolicies);
   if (!lease) return undefined;
   return async <T>(
     input: CurrentShareInput,

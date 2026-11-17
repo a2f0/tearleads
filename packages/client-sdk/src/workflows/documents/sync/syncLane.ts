@@ -4,7 +4,7 @@ import {
   isDatabaseUnavailableError,
   type SyncLane,
 } from "../../../data/sync/syncCoordinator";
-import type { PrincipalPolicyOperation } from "../../principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 
 // Facade re-export: document stores must reach this shared sync helper
 // through this workflow boundary, not by importing data/sync directly.

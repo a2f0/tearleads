@@ -10,7 +10,7 @@ import type {
   RemoteContainerHydrationHost,
 } from "../../../workflows/container-contents/remoteHydration";
 import { createContainerContentsDocumentsRuntime } from "../../../workflows/container-contents/runtime";
-import type { PrincipalPolicyOperation } from "../../../workflows/principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../../workflows/principals/principalPolicyService";
 import { openDocumentStore, requestDomainDocumentSync } from "../../documents";
 import { relinkDocumentStoreWithCommitSideEffect } from "../../documents/documentStore/internalRelink";
 import { DocumentRemoteWorkBusyError } from "../../documents/documentStore/sync/remoteWork";

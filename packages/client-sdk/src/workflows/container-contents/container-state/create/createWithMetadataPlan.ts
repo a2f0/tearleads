@@ -11,7 +11,7 @@ import {
   buildMaterializedDocumentCreatePlan,
   type resolveDocumentCreateAuthor,
 } from "../../../documents";
-import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
+
 import type { ContainerWorkflowRuntime } from "../types";
 
 export interface ContainerWithMetadataPlanInput {
@@ -57,9 +57,8 @@ async function buildPlans(input: ContainerWithMetadataPlanInput) {
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.containerSignedAt,
     stillCurrent: input.stillCurrent,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      input.runtime,
-    ),
+    warmReferencedPrincipalPolicies:
+      input.runtime.principalPolicies.createWarmer(),
   });
   const childProjection = childContainerWriterProjectionFromCreatePlan({
     materializedPlan: containerPlan,

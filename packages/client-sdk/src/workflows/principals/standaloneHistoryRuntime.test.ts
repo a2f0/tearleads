@@ -15,7 +15,6 @@ import {
   type DocumentsWorkflowRuntimeInput,
   type PrincipalHistoryProtectionLease,
 } from "../../index";
-import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 
 test("standalone runtime inputs carry private history custody through every public adapter", async () => {
   const history = await signedAuthorityRecoveryHistory();
@@ -92,7 +91,7 @@ test("standalone runtime inputs carry private history custody through every publ
         Reflect.get(runtime, "withPrincipalHistoryProtection"),
       ).toBeUndefined();
       const resolve =
-        createRuntimePrincipalPolicyWarmer(runtime).resolveProjectionHistory;
+        runtime.principalPolicies.createWarmer().resolveProjectionHistory;
       if (!resolve)
         throw new Error("Standalone runtime lost its history resolver");
       const result = await resolve(f.options);

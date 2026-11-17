@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   type ContainerMoveIntentRecord,
@@ -19,7 +20,7 @@ test("an overtaking move intent prevents stale live-state installation", async (
     containersById: new Map([["child", child]]),
     persistence,
     resolveProjectionUserKey: async () => null,
-    runtime: {
+    runtime: withPrincipalPolicies({
       apiClient: { getCurrentPrincipalPolicy: async () => null },
       infra: { execSql },
       resolveTrustedUserIdentity: async () => null,
@@ -27,7 +28,7 @@ test("an overtaking move intent prevents stale live-state installation", async (
         log: () => {},
         reportSecurityIncident: async () => {},
       },
-    },
+    }),
   } as unknown as ContainerMoveIntentSyncState;
   const intent: ContainerMoveIntentRecord = {
     containerId: "child",
@@ -96,12 +97,12 @@ test("a generation change in the commit acknowledgment leaves live state unchang
     containersById: new Map([["child", child]]),
     persistence,
     resolveProjectionUserKey: async () => null,
-    runtime: {
+    runtime: withPrincipalPolicies({
       apiClient: { getCurrentPrincipalPolicy: async () => null },
       infra: { execSql },
       resolveTrustedUserIdentity: async () => null,
       util: { log: () => {}, reportSecurityIncident: async () => {} },
-    },
+    }),
   } as unknown as ContainerMoveIntentSyncState;
   const intent: ContainerMoveIntentRecord = {
     containerId: "child",
@@ -192,12 +193,12 @@ test("move persistence rejects a save without atomic intent settlement", async (
     containersById: new Map([["child", child]]),
     persistence,
     resolveProjectionUserKey: async () => null,
-    runtime: {
+    runtime: withPrincipalPolicies({
       apiClient: { getCurrentPrincipalPolicy: async () => null },
       infra: { execSql },
       resolveTrustedUserIdentity: async () => null,
       util: { log: () => {}, reportSecurityIncident: async () => {} },
-    },
+    }),
   } as unknown as ContainerMoveIntentSyncState;
   const intent: ContainerMoveIntentRecord = {
     containerId: "child",

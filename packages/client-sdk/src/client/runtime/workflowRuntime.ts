@@ -12,6 +12,7 @@ import {
   type TrustedUserIdentityService,
 } from "../../data/trustedUserIdentity";
 import type { ContainerContentsRootAdopter } from "../../workflows/container-contents";
+import { PrincipalPolicyService } from "../../workflows/principals/principalPolicyService";
 import {
   createProvisionedStatePrimer,
   type ProvisionedStatePrimer,
@@ -66,9 +67,8 @@ export interface Runtime {
 export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
   readonly apiClient: PrincipalMutationApi;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-  readonly withPrincipalHistoryProtection?:
-    | PrincipalHistoryProtectionLease
-    | undefined;
+  /** Bound to this snapshot's API client, executor, and history custody. */
+  readonly principalPolicies: PrincipalPolicyService;
 }
 
 export interface InternalRuntime {
@@ -434,15 +434,24 @@ function createRuntimeInputFactory(
     });
     util = runtimeInputUtilities(dependencies, util);
 
+    const apiClient = bindMutationApi();
     return {
-      apiClient: bindMutationApi(),
+      apiClient,
       auth,
       crypto,
       infra,
       state,
       util,
       resolveTrustedUserIdentity,
-      withPrincipalHistoryProtection: bindHistoryProtection(),
+      // Binds this snapshot's lease now; work on an older snapshot keeps its own.
+      principalPolicies: new PrincipalPolicyService({
+        apiClient,
+        infra,
+        state,
+        util,
+        resolveTrustedUserIdentity,
+        withPrincipalHistoryProtection: bindHistoryProtection(),
+      }),
     };
   };
 
@@ -451,7 +460,7 @@ function createRuntimeInputFactory(
       const {
         apiClient: _apiClient,
         resolveTrustedUserIdentity: _resolveTrustedUserIdentity,
-        withPrincipalHistoryProtection: _withPrincipalHistoryProtection,
+        principalPolicies: _principalPolicies,
         util: workflowUtil,
         ...input
       } = workflowInput(containerId);

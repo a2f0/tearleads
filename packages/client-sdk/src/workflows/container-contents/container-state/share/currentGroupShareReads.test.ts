@@ -6,8 +6,8 @@ import { createShareTestRuntime } from "../../../../../test/helpers/groupShareSc
 import { createLocalAuthorityRecoveryFixture } from "../../../../../test/helpers/principalAuthorityLocal";
 import { signedAuthorityRecoveryHistory } from "../../../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../../test/helpers/principalPolicyFixtures";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { inheritPrincipalHistoryProtection } from "../../../../data/principals/principalHistoryRuntime";
 import { createTestContainerState } from "../containerState.testFixtures";
 import { containerStateHasCurrentGroupGrant } from "./groupGrantVerification";
 import { resolveCurrentGroupKeyEpoch } from "./groupShareEpoch";
@@ -37,19 +37,7 @@ async function fixture() {
     fullReads += 1;
     throw new Error("Unexpected Full fallback");
   };
-  const runtime = inheritPrincipalHistoryProtection(
-    {
-      withPrincipalHistoryProtection: async <T>(
-        work: (input: {
-          protection: typeof f.options.protection;
-          stillCurrent: () => boolean;
-        }) => Promise<T>,
-      ) =>
-        work({
-          protection: f.options.protection,
-          stillCurrent: () => true,
-        }),
-    },
+  const runtime = withPrincipalPolicies(
     createShareTestRuntime({
       apiClient: f.options.apiClient,
       author: owner.author,
@@ -57,6 +45,16 @@ async function fixture() {
       logs: [],
       resolveTrustedUserIdentity: history.resolveTrustedUserIdentity,
     }),
+    async <T>(
+      work: (input: {
+        protection: typeof f.options.protection;
+        stillCurrent: () => boolean;
+      }) => Promise<T>,
+    ) =>
+      work({
+        protection: f.options.protection,
+        stillCurrent: () => true,
+      }),
   );
   return {
     ...f,

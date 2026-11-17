@@ -449,9 +449,9 @@ requires clearing local app data if that recovery cannot find the account.
 
 Standalone document and container runtimes require private
 `withPrincipalHistoryProtection: PrincipalHistoryProtectionLease` for built-in
-history recovery. Store and derived-document adapters inherit custody without
-exposing the callback on returned runtime views. This includes
-[current group sharing](../../../../docs/developer/principal-current-sharing.md).
+history recovery. The view's `principalPolicies` (`PrincipalPolicyService`)
+holds it for store and derived-document adapters without exposing the
+callback. This includes [current group sharing](../../../../docs/developer/principal-current-sharing.md).
 Hosts own key cleanup and lease invalidation on authority/storage changes, as
 specified in the principal-history recovery guide.
 

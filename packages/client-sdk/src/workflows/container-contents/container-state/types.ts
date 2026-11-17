@@ -56,6 +56,7 @@ export interface ContainerWorkflowRuntime
     | "auth"
     | "crypto"
     | "infra"
+    | "principalPolicies"
     | "resolveTrustedUserIdentity"
     | "state"
     | "util"

@@ -24,7 +24,7 @@ import {
 } from "../../data/persistence/organizationFounderPersistence";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
-import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
+import { PrincipalPolicyService } from "./principalPolicyService";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
@@ -57,7 +57,7 @@ async function fixture() {
   };
   // Each warmer is one workflow operation with its own recovery memo.
   const createWarmer = () =>
-    createRuntimePrincipalPolicyWarmer({
+    new PrincipalPolicyService({
       apiClient: createMockApiClient({
         getPrincipalPolicyPages: source.apiClient.getPrincipalPolicyPages.bind(
           source.apiClient,
@@ -76,7 +76,7 @@ async function fixture() {
           incidents.push(error);
         },
       },
-    });
+    }).createWarmer();
   const warmer = createWarmer();
   const collect = async (
     cache: PrincipalPolicyCache = new Map(),

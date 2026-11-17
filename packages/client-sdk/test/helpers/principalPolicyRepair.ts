@@ -5,7 +5,7 @@ import { PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE } from "@tearleads/validators/respo
 import type { PrincipalHistoryProtectionLease } from "../../src/data/principals/principalHistoryProtection";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../src/data/trustedUserIdentity";
-import { createRuntimePrincipalPolicyWarmer } from "../../src/workflows/principals/runtimePolicyWarmer";
+import { PrincipalPolicyService } from "../../src/workflows/principals/principalPolicyService";
 
 export function repairPolicyPages(
   bundles: readonly PrincipalPolicyBundleResponse[],
@@ -85,12 +85,12 @@ export function createRepairWarmer(input: {
       }
     },
   });
-  const warmer = createRuntimePrincipalPolicyWarmer({
+  const warmer = new PrincipalPolicyService({
     apiClient,
     infra: { execSql: input.execSql },
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     withPrincipalHistoryProtection: repairProtectionLease(input.stillCurrent),
     util: { reportSecurityIncident: async () => {} },
-  });
+  }).createWarmer();
   return { warmer, apiClient, requests };
 }

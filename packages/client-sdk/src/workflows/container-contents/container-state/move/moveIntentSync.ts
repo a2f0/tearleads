@@ -1,7 +1,7 @@
 import { ContainerPathTooDeepError } from "../../../../data/containers/shared/containerPathLimits";
 import { reportAndRethrowKeyingVerificationError } from "../../../../data/keyingProjectionVerification/error";
 import { errorMessage } from "../../../../data/shared/errorMessage";
-import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
+
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
@@ -107,7 +107,7 @@ export async function persistAcceptedMoveIntent(input: {
     return false;
   }
 
-  await createRuntimePrincipalPolicyWarmer(state.runtime)({
+  await state.runtime.principalPolicies.createWarmer()({
     organizationId: moved.organizationId,
     references: moved.metadataReferencedPrincipals,
     stillCurrent: input.isCurrent,

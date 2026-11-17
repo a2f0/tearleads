@@ -2,10 +2,7 @@ import type { OrganizationLeaveRequestMembersHead } from "@tearleads/validators/
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { requireOrganizationGroupHead } from "../../../data/principals/organizationAuthorityDescriptor";
-import {
-  createRuntimePrincipalPolicyCurrentResolver,
-  type PrincipalPolicyRecoveryRuntime,
-} from "../../principals/runtimePolicyRecovery";
+import type { PrincipalPolicyRuntime } from "../../principals/principalPolicyService";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { loadLocalOrganizationPolicyReference } from "../readModel/localReadModelDetails";
 import {
@@ -14,7 +11,7 @@ import {
 } from "./leaveRequestMembership";
 
 interface MembersEvidenceInput {
-  readonly runtime: PrincipalPolicyRecoveryRuntime;
+  readonly runtime: PrincipalPolicyRuntime;
   readonly organizationId: string;
   readonly stillCurrent: () => boolean;
 }
@@ -26,9 +23,8 @@ interface MembersEvidenceInput {
 export async function loadCurrentMembersHead(
   input: MembersEvidenceInput,
 ): Promise<OrganizationLeaveRequestMembersHead> {
-  const resolveCurrentPolicy = createRuntimePrincipalPolicyCurrentResolver(
-    input.runtime,
-  );
+  const resolveCurrentPolicy =
+    input.runtime.principalPolicies.createCurrentPolicyResolver();
   if (!resolveCurrentPolicy)
     throw new ProjectionDependencyUnavailableError(
       "Asking to leave requires private paged recovery",
@@ -62,7 +58,7 @@ export async function loadCurrentMembersHead(
 export function createRuntimeLeaveRequestMembershipCheck(
   input: MembersEvidenceInput & { readonly currentUserId: string },
 ): LeaveRequestMembershipCheck {
-  const resolve = createRuntimePrincipalPolicyCurrentResolver(input.runtime);
+  const resolve = input.runtime.principalPolicies.createCurrentPolicyResolver();
   return createLeaveRequestMembershipCheck({
     async loadMembersHead() {
       if (!resolve) return null;

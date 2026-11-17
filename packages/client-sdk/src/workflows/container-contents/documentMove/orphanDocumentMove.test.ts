@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
@@ -61,7 +62,7 @@ test("a remote orphan moves from null scope into a writable container", async ()
       },
     };
     const linkedContainers = new Map<string, ReadonlyArray<string>>();
-    const runtime: DocumentStructuralMutationRuntime = {
+    const runtime: DocumentStructuralMutationRuntime = withPrincipalPolicies({
       apiClient: {} as DocumentStructuralMutationRuntime["apiClient"],
       auth: {
         isAuthenticated: true,
@@ -91,7 +92,7 @@ test("a remote orphan moves from null scope into a writable container", async ()
         log: () => undefined,
         reportSecurityIncident: async () => undefined,
       },
-    };
+    });
     const note: DocumentSummary = {
       containerId: null,
       documentId: "document-1",

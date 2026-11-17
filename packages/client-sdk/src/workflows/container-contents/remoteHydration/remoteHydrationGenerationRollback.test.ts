@@ -4,6 +4,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -98,7 +99,7 @@ function createState(input: {
       ]),
     ),
     persistence: defaultContainerContentsPersistence,
-    runtime: {
+    runtime: withPrincipalPolicies({
       resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: {
         getContainerWriterProjection:
@@ -125,7 +126,7 @@ function createState(input: {
       infra: { dbStatus: "ready", execSql: input.execSql },
       state: { domainScope: createDomainScope(), online: true },
       util: { log: () => {} },
-    },
+    }),
   } as unknown as RemoteContainerHydrationState;
 }
 

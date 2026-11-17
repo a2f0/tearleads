@@ -7,7 +7,7 @@ import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { reclaimDocumentOrphanBlobs } from "../../../../workflows/documents";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import type { DocumentsRuntime } from "../../types";
 import { discardDocumentStoreLocalState } from "../discard";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";

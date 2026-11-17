@@ -12,7 +12,7 @@ import { createProjectionCheckpointContext } from "../../data/keyingProjectionVe
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
-import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
+import { PrincipalPolicyService } from "./principalPolicyService";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
@@ -68,7 +68,7 @@ async function fixture() {
   const transport: Pick<ApiClient, "getPrincipalPolicyPages"> = {
     getPrincipalPolicyPages: pages,
   };
-  const warmer = createRuntimePrincipalPolicyWarmer({
+  const warmer = new PrincipalPolicyService({
     apiClient: createMockApiClient({
       getPrincipalPolicyPages: (...args) =>
         transport.getPrincipalPolicyPages(...args),
@@ -90,7 +90,7 @@ async function fixture() {
         incidents.push(error);
       },
     },
-  });
+  }).createWarmer();
   const collect = (reference = principalPolicyHead(history.created)) =>
     collectReferencedPrincipalPolicies({
       checkpointContext: createProjectionCheckpointContext(source.options),

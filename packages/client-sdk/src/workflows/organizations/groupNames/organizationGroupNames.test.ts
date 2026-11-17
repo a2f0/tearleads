@@ -8,7 +8,7 @@ import {
   repairProtectionLease,
 } from "../../../../test/helpers/principalPolicyRepair";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
-import { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
+import { PrincipalPolicyService } from "../../principals/principalPolicyService";
 import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
 import { hydrateOrganizationGroupNames } from "./organizationGroupNames";
 
@@ -44,7 +44,7 @@ test("directory labels are decrypted only at their authenticated group heads", a
       organizationId,
     );
     if (!organization) throw new Error("Expected signed organization");
-    const resolveCurrentPolicy = createRuntimePrincipalPolicyCurrentResolver({
+    const resolveCurrentPolicy = new PrincipalPolicyService({
       apiClient: {
         getPrincipalPolicyPages: repairPolicyPages([
           organization,
@@ -55,7 +55,7 @@ test("directory labels are decrypted only at their authenticated group heads", a
       resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
       withPrincipalHistoryProtection: repairProtectionLease(),
       util: { reportSecurityIncident: async () => {} },
-    });
+    }).createCurrentPolicyResolver();
     const input = {
       resolveCurrentPolicy,
       ...fixture,

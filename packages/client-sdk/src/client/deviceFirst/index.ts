@@ -32,7 +32,7 @@ import {
 import {
   type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
-  createContainerContentsStoreWorkflowRuntime,
+  createContainerContentsStoreWorkflowRuntimeFromSnapshot,
 } from "../../workflows/container-contents";
 import { listAllContainerDocumentIdsFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { probeUndiscoveredRemoteDocumentBatch } from "../../workflows/container-contents/documentPriming/documentHydrationProbe";
@@ -358,7 +358,7 @@ export function createDeviceFirstWorkflowRuntime(
   runtimeService: InternalRuntime,
 ): ContainerContentsStoreWorkflowRuntime {
   const input = runtimeService.workflowInput();
-  return createContainerContentsStoreWorkflowRuntime(
+  return createContainerContentsStoreWorkflowRuntimeFromSnapshot(
     input,
     runtimeService.adoptRootContainer,
     // Admit against the trust store of the database this runtime writes.

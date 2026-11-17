@@ -12,7 +12,7 @@ import { ProjectionDependencyUnavailableError } from "../../../../data/keyingPro
 import { principalPolicyCacheForVerifiedPolicies } from "../../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { referencedPrincipalHeadFromPolicy } from "../../../containers";
 import { createRuntimeCurrentSharePrincipalPolicy } from "../../../organizations/groupShare";
-import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
+
 import type { ContainerState } from "../../remoteHydration";
 import { loadContainerWriterProjectionForState } from "../projectionCache";
 import type { ContainerWorkflowRuntime } from "../types";
@@ -103,9 +103,8 @@ async function containerStateHasCurrentGroupGrantInternal(input: {
         projection,
         resolveUserKey: input.resolveProjectionUserKey,
         stillCurrent,
-        warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-          input.runtime,
-        ),
+        warmReferencedPrincipalPolicies:
+          input.runtime.principalPolicies.createWarmer(),
       });
       return projectionHasCurrentGroupGrant({
         accessLevel: input.accessLevel,
