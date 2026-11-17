@@ -9,7 +9,7 @@ import {
   organizationReadModelUserId,
 } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createRejectingExecSql } from "../../../../test/helpers/rejectingExecSql";
-import { loadOrganizationDataUsageProjection } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
+import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
@@ -103,11 +103,9 @@ test("a failed purge cannot serve the revoked projection after a restart", async
       ),
     ).resolves.not.toBeNull();
     await expect(
-      loadOrganizationDataUsageProjection(
+      new OrganizationDataUsageRepository(
         restarted,
-        organizationId,
-        requesterUserId,
-      ),
+      ).loadOrganizationDataUsageProjection(organizationId, requesterUserId),
     ).resolves.toEqual(dataUsage);
 
     // Restored access reconciles from a cursorless snapshot (the marker hid

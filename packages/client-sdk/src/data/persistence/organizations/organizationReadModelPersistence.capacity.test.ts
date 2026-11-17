@@ -8,10 +8,7 @@ import type {
 import { dataUsage } from "../../../../test/helpers/organizationReadModelFixtures";
 import { organizationReadModelDirectoryUser } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
 import { withSqliteBindBudget } from "../../../../test/helpers/sqliteBindBudgetGuard";
-import {
-  loadOrganizationDataUsageProjection,
-  saveOrganizationDataUsageProjection,
-} from "./organizationDataUsagePersistence";
+import { OrganizationDataUsageRepository } from "./organizationDataUsagePersistence";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
@@ -201,8 +198,9 @@ test("a wide roster prunes inactive requesters without binding the roster", asyn
         requestedCursor: null,
         response: wideSnapshot("cursor-1", 1, currentUserId),
       });
-      await saveOrganizationDataUsageProjection({
+      await new OrganizationDataUsageRepository(
         execSql,
+      ).saveOrganizationDataUsageProjection({
         requesterUserId: currentUserId,
         response: { ...dataUsage, organizationId: ORGANIZATION_ID },
       });
@@ -237,11 +235,9 @@ test("a wide roster prunes inactive requesters without binding the roster", asyn
         userId,
       );
       expect(projection?.requester !== null).toBe(retained);
-      const usage = await loadOrganizationDataUsageProjection(
+      const usage = await new OrganizationDataUsageRepository(
         execSql,
-        ORGANIZATION_ID,
-        userId,
-      );
+      ).loadOrganizationDataUsageProjection(ORGANIZATION_ID, userId);
       expect(usage !== null).toBe(retained);
     }
   } finally {
