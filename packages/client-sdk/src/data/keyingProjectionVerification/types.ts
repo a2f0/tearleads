@@ -9,7 +9,7 @@ import type {
   PrincipalStateResponse,
   ProjectionPolicyEvidenceResponse,
 } from "@tearleads/validators/response";
-import type { PrincipalPolicyCurrentEvidence } from "../principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../principalContracts/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import type { TrustedUserIdentity } from "../trustedUserIdentity";
 

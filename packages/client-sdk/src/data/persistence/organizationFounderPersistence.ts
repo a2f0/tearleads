@@ -3,7 +3,7 @@ import {
   type PrincipalPolicyAuthorization,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { principalPolicyEvidenceEntries } from "../principals/principalPolicyEvidence";
+import { principalPolicyEvidenceEntries } from "../principalContracts/principalPolicyEvidence";
 import { keyingCheckpointTables } from "../sqlite/schema/keyingCheckpointSchema";
 import { organizationFounders } from "../sqlite/schema/organizationFounderSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";

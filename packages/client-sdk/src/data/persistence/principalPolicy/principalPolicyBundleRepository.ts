@@ -20,7 +20,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import type { AcknowledgedPrincipalGrantRetirements } from "../principalKeys/principalGrantRetirementPersistence";
+import type { AcknowledgedPrincipalGrantRetirements } from "../principalContracts/principalGrantRetirementPersistence";
 import {
   type PrincipalKeyEnvelopeCandidate,
   selectPrincipalKeyEnvelopeCandidates,

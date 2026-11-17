@@ -5,7 +5,7 @@ import {
   type VerifiedOrganizationReplacementAuthorization,
 } from "@tearleads/crypto";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { assertContainerNotRetired } from "../principalKeys/principalGrantRetirementPersistence";
+import { assertContainerNotRetired } from "../principalContracts/principalGrantRetirementPersistence";
 import {
   loadStoredAccessManifestCheckpoint,
   loadStoredPrincipalPolicyCheckpoint,

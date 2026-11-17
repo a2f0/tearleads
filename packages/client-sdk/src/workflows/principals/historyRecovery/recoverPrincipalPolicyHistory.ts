@@ -13,12 +13,12 @@ import { assertProjectionVerificationCurrent } from "../../../data/keyingProject
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
-import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
-import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
 import {
   assertSelectedPolicyCommitments,
   publishAuthenticatedSigners,
-} from "../../../data/principals/principalIdentityCommitments";
+} from "../../../data/principalContracts/principalIdentityCommitments";
+import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
+import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
 import { appendVerifiedHistoryPage } from "./principalHistoryPageAppend";
 import { validatePrincipalHistoryRecoveryAuthority } from "./principalHistoryRecoveryAuthority";
 import { publishReusablePrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";

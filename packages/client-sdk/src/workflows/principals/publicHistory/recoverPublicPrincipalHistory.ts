@@ -14,9 +14,9 @@ import { assertProjectionVerificationCurrent } from "../../../data/keyingProject
 import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
+import { publishAuthenticatedSigners } from "../../../data/principalContracts/principalIdentityCommitments";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
-import { publishAuthenticatedSigners } from "../../../data/principals/principalIdentityCommitments";
 import { PrincipalPolicyHistoryReadError } from "../historyRecovery/principalHistoryRecoveryTypes";
 import {
   type HeldHeadState,

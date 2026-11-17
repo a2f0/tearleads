@@ -6,14 +6,14 @@ import {
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
+import { principalPolicyReferenceFromBundle } from "../../../data/principalContracts/principalPolicyAdminSigners";
 import {
   principalHistoryEvidenceScopeId,
   principalHistoryPrefixProtection,
 } from "../../../data/principals/principalHistoryPrefixProtection";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { parsePrincipalHistoryStageCurrent } from "../../../data/principals/principalHistoryStageProtection";
-import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
 import type { RecoverPrincipalPolicyHistoryOptions } from "../historyRecovery/principalHistoryRecoveryTypes";
 import { principalHistoryVerificationContext } from "../historyRecovery/principalHistoryRecoveryVerification";
 

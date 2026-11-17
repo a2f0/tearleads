@@ -22,32 +22,6 @@
   "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts": [
     "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts"
   ],
-  "packages/client-sdk/src/data/persistence/principalKeys/principalGrantRetirementPersistence.ts": [
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence.ts",
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence.ts",
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/organizationReplacementCheckpointPersistence.ts"
-  ],
-  "packages/client-sdk/src/data/principals/organizationAuthorityDescriptor.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/documentPurge/documentPurgePrincipalEvidence.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/mergeProjectionPolicyEvidence.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts"
-  ],
-  "packages/client-sdk/src/data/principals/principalIdentityCommitments.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicySigners.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts"
-  ],
-  "packages/client-sdk/src/data/principals/principalPolicyAdminSigners.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts"
-  ],
-  "packages/client-sdk/src/data/principals/principalPolicyEvidence.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts",
-    "packages/client-sdk/src/data/persistence/organizationFounderPersistence.ts"
-  ],
-  "packages/client-sdk/src/data/principals/principalPolicyStates.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicySigners.ts"
-  ],
   "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataErrors.ts": [
     "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/destinationRootReload.ts"
   ],

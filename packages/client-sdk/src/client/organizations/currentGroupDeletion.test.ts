@@ -10,7 +10,7 @@ import {
   policyReceiptFromBundle,
 } from "../../../test/helpers/principalPolicyFixtures";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
+import { parseOrganizationAuthorityDescriptor } from "../../data/principalContracts/organizationAuthorityDescriptor";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { deleteGroupForOrganization } from "./principalMutations";
 

@@ -8,7 +8,7 @@ import { assertProjectionVerificationCurrent } from "../../data/keyingProjection
 import {
   publishVerifiedPolicyBundle,
   withUnauthenticatedPolicyIdentities,
-} from "../../data/principals/principalIdentityCommitments";
+} from "../../data/principalContracts/principalIdentityCommitments";
 import {
   requireTrustedUserIdentityResolver,
   type StagedUserIdentityResolver,

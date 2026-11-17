@@ -72,6 +72,7 @@ rejects any other file there.
   [`containers/`](../../packages/client-sdk/src/data/containers/),
   [`documents/`](../../packages/client-sdk/src/data/documents/),
   [`principals/`](../../packages/client-sdk/src/data/principals/),
+  [`principalContracts/`](../../packages/client-sdk/src/data/principalContracts/),
   [`sync/`](../../packages/client-sdk/src/data/sync/),
   [`trustedUserIdentity/`](../../packages/client-sdk/src/data/trustedUserIdentity/))
   hold that domain's contracts and helpers.

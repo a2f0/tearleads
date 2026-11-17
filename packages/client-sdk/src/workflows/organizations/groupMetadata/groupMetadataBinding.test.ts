@@ -5,7 +5,7 @@ import {
 } from "@tearleads/crypto";
 import { testGroupMetadataKey } from "../../../../test/helpers/groupMetadata";
 import { principalPolicy } from "../../../../test/helpers/organizationReadModelFixtures";
-import type { OrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
+import type { OrganizationAuthorityDescriptor } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { assertGroupMetadataBinding } from "./groupMetadataBinding";
 
 const descriptor: OrganizationAuthorityDescriptor = {

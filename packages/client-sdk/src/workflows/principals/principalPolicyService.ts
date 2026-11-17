@@ -6,8 +6,8 @@ import {
   isProjectionVerificationCancelledError,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
+import { principalPolicyReferenceFromBundle } from "../../data/principalContracts/principalPolicyAdminSigners";
 import { directoryHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
-import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { errorMessage } from "../../data/shared/errorMessage";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

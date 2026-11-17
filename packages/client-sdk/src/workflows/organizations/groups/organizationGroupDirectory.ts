@@ -23,7 +23,7 @@ import {
   normalizeOrganizationGroupHeads,
   type OrganizationAuthorityDescriptor,
   type OrganizationGroupHead,
-} from "../../../data/principals/organizationAuthorityDescriptor";
+} from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type {

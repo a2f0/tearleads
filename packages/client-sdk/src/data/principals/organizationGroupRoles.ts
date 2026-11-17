@@ -4,8 +4,8 @@ import {
 } from "@tearleads/crypto";
 import { KeyingCheckpointRepository } from "../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../persistence/principalPolicy/principalPolicyBundleRepository";
+import { parseOrganizationAuthorityDescriptor } from "../principalContracts/organizationAuthorityDescriptor";
 import type { ExecSql } from "../sqlite/sqlSchema";
-import { parseOrganizationAuthorityDescriptor } from "./organizationAuthorityDescriptor";
 
 /** Public labels come only from a descriptor pinned by prior verification. */
 export async function loadVerifiedOrganizationGroupRoles(

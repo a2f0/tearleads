@@ -10,7 +10,7 @@ import type {
 } from "../../../data/containers/shared/types";
 import type { PrincipalPolicyCache } from "../../../data/keyingProjectionVerification";
 import { referencedPrincipalPolicyKey } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
-import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principalContracts/principalPolicyEvidence";
 import type { SpeculativePath } from "../child/rekey/carriedDescendantRekeys";
 
 export type MaterializedPrincipalContainerMutationPlan =

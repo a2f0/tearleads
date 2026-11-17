@@ -8,7 +8,7 @@ import type {
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
-import { requireOrganizationGroupHead } from "../../data/principals/organizationAuthorityDescriptor";
+import { requireOrganizationGroupHead } from "../../data/principalContracts/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { loadCurrentOrganizationAuthority } from "../../workflows/organizations/currentOrganizationAuthority";
 import type { RosterAdmissionEvidence } from "../../workflows/organizations/memberships/rosterVouchedAdmission";

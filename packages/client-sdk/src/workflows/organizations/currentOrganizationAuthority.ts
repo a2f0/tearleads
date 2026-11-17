@@ -9,7 +9,7 @@ import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
-} from "../../data/principals/organizationAuthorityDescriptor";
+} from "../../data/principalContracts/organizationAuthorityDescriptor";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type {

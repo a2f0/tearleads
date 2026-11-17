@@ -3,7 +3,7 @@ import {
   type PrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { principalPolicyBundleStates } from "../../principals/principalPolicyStates";
+import { principalPolicyBundleStates } from "../../principalContracts/principalPolicyStates";
 import { assertPrincipalPolicyCheckpointShape } from "../keyingCheckpoints/keyingCheckpointPersistence";
 
 export function applyPrincipalPolicyReferenceCheckpoint(

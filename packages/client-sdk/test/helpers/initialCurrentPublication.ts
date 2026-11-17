@@ -3,8 +3,8 @@ import {
   signPrincipalState,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
-import { principalPolicyReferenceFromBundle } from "../../src/data/principals/principalPolicyAdminSigners";
+import { parseOrganizationAuthorityDescriptor } from "../../src/data/principalContracts/organizationAuthorityDescriptor";
+import { principalPolicyReferenceFromBundle } from "../../src/data/principalContracts/principalPolicyAdminSigners";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,

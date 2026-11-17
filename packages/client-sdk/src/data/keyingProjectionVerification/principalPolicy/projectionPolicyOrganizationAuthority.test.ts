@@ -15,7 +15,7 @@ import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
-} from "../../principals/organizationAuthorityDescriptor";
+} from "../../principalContracts/organizationAuthorityDescriptor";
 import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 
 for (const historical of [false, true]) {
