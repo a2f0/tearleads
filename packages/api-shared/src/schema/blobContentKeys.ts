@@ -1,6 +1,5 @@
 import type {
   BlobContentKeyTarget,
-  ContentRecordEncryptionSuite,
   KeyingCanonicalJson,
   WriteHeader,
 } from "@tearleads/crypto";
@@ -43,9 +42,6 @@ export interface BlobWriteAuthorization {
  * - `contentKeyEpoch`: Blob content-key epoch used by the encrypted payload.
  * - `targetHash`: Hash of the normalized target rows in
  *   `blobContentKeyTargets`.
- * - `createdAt`: Server-side insertion timestamp for the epoch row.
- * - `updatedAt`: Server-side timestamp for key-package refreshes, such as
- *   attachment target growth, target shrink, or container KEK rewrap.
  *
  * Indexes:
  * - `(blobId, contentKeyEpoch)` is unique because a blob can have one accepted
@@ -60,8 +56,6 @@ export const blobContentKeyEpochs = pgTable(
     blobId: uuid("blob_id").notNull(),
     contentKeyEpoch: integer("content_key_epoch").notNull(),
     targetHash: text("target_hash").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("blob_content_key_epochs_blob_epoch_idx").on(
@@ -101,7 +95,6 @@ export const blobContentKeyEpochs = pgTable(
  *   AES-GCM IV. The wrap's authenticated data binds the suite, blob id,
  *   content-key epoch and target container epoch, so it opens for no other
  *   blob, epoch or target; bindings of the same blob share the key.
- * - `createdAt`: Server-side insertion timestamp for the target row.
  *
  * Indexes:
  * - `blobContentKeyEpochId` supports loading the full target set for an epoch.
@@ -130,7 +123,6 @@ export const blobContentKeyTargets = pgTable(
     wrappingMetadata: jsonb("wrapping_metadata")
       .$type<KeyingCanonicalJson>()
       .notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("blob_content_key_targets_epoch_binding_container_idx").on(
@@ -158,9 +150,6 @@ export const blobContentKeyTargets = pgTable(
  * - `blobId`: Blob whose encrypted payload this header describes.
  * - `organizationId`: Organization boundary from the verified header.
  * - `contentKeyEpoch`: Blob content-key epoch used for the payload.
- * - `accessManifestHash`: Blob access manifest hash verified for the write.
- * - `targetHash`: Blob content-key target hash verified for the write.
- * - `encryptionSuite`: Content-record encryption suite used by the client.
  * - `contentRecordId`: Client content record id inside the header. For blob
  *   payloads this is unique within `(blobId, contentKeyEpoch)`.
  * - `nonceDomainHash`: Nonce-domain commitment; uniqueness prevents nonce
@@ -187,11 +176,6 @@ export const blobContentWriteHeaders = pgTable(
     blobId: uuid("blob_id").notNull(),
     organizationId: uuid("organization_id").notNull(),
     contentKeyEpoch: integer("content_key_epoch").notNull(),
-    accessManifestHash: text("access_manifest_hash").notNull(),
-    targetHash: text("target_hash").notNull(),
-    encryptionSuite: text("encryption_suite")
-      .$type<ContentRecordEncryptionSuite>()
-      .notNull(),
     contentRecordId: text("content_record_id").notNull(),
     nonceDomainHash: text("nonce_domain_hash").notNull(),
     headerHash: text("header_hash").notNull(),

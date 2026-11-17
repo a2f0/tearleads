@@ -6,11 +6,7 @@ import {
   documents,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
-import {
-  CONTENT_RECORD_ENCRYPTION_SUITE,
-  type DocumentContentKeyTarget,
-  type WriteHeader,
-} from "@tearleads/crypto";
+import type { DocumentContentKeyTarget, WriteHeader } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { observeQueries } from "../../test/helpers/observeDatabaseQueries";
 import {
@@ -71,18 +67,15 @@ async function storeWriteHeader(input: {
 }) {
   // Only the stored JSON's size matters here, not its validity.
   await db.insert(documentContentWriteHeaders).values({
-    accessManifestHash: "manifest",
     authorizationTargets:
       input.authorizationTargets as DocumentContentKeyTarget[],
     contentKeyEpoch: 1,
     contentRecordId: input.updateId,
     documentId: input.documentId,
-    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     header: input.header as unknown as WriteHeader,
     headerHash: `header-${input.updateId}`,
     nonceDomainHash: `nonce-${input.updateId}`,
     organizationId: crypto.randomUUID(),
-    targetHash: "targets",
     updateId: input.updateId,
   });
 }

@@ -121,18 +121,15 @@ const manglingBlobStore = createContentWriteHeaderStore<
     const [inserted] = await executor
       .insert(blobContentWriteHeaders)
       .values({
-        accessManifestHash: header.accessManifestHash,
         authorization: input.authorization,
         blobId: input.blobId,
         contentKeyEpoch: header.contentKeyEpoch,
         contentRecordId: header.contentRecordId,
-        encryptionSuite: header.encryptionSuite,
         header,
         headerHash: input.headerHash,
         nonceDomainHash: header.nonceDomainHash,
         organizationId: header.organizationId,
         recordId: input.recordId,
-        targetHash: header.targetHash,
       })
       .onConflictDoNothing()
       .returning(writeHeaderColumns(blobContentWriteHeaders));
