@@ -364,6 +364,8 @@ export async function setOrganizationGroupContainerGrant(input: {
   readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly assertCanCommit?: (() => void) | undefined;
   readonly containerId: string;
+  /** The signer's KEM secret; it keeps the directory key when verified. */
+  readonly currentUserSecretKey: Uint8Array | null;
   readonly execSql: ExecSql;
   readonly groupId: string;
   readonly organizationId: string;
@@ -389,7 +391,7 @@ export async function setOrganizationGroupContainerGrant(input: {
     containerId: input.containerId,
   });
   return commitAndCacheGroupPolicyMutation({
-    currentUserSecretKey: null,
+    currentUserSecretKey: input.currentUserSecretKey,
     apiClient: input.apiClient,
     assertCanCommit: input.assertCanCommit,
     currentPolicy: policyContext.currentPolicy,
