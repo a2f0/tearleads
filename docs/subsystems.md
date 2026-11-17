@@ -29,6 +29,9 @@ axes.
   with the manifest.
 - `subsystem-imports-use-declared-surface` enforces surfaces; see
   [SDK seams](developer/client-sdk-seams.md#subsystem-surfaces).
+- `subsystem-imports-follow-layer-order` keeps client SDK runtime imports
+  pointing down the subsystem layers; see
+  [SDK seams](developer/client-sdk-seams.md#subsystem-layers).
 
 Registered packages: [`packages/api`](../packages/api/),
 [`packages/client-sdk`](../packages/client-sdk/), and

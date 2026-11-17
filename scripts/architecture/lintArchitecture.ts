@@ -21,19 +21,8 @@ import {
 } from "./clientSdkPackageContract";
 import { runDependencyCruiserCheck } from "./dependencyCruiserCheck";
 import { packageSourcePath } from "./dependencySourceRoots";
-import {
-  findSubsystemSurfaceViolations,
-  subsystemSurfaceBaselinePath,
-} from "./subsystemSurfaces";
-import {
-  findSubsystemCoverageViolations,
-  findSubsystemDocsViolations,
-  miniAppNames,
-} from "./subsystems";
-import {
-  findSubsystemTableViolations,
-  subsystemTableBaselinePath,
-} from "./subsystemTables";
+import { subsystemChecks } from "./subsystemChecks";
+import { miniAppNames } from "./subsystems";
 import { findWorkspaceRegistryViolations } from "./workspaceRegistryContract";
 
 const appSrc = packageSourcePath.app;
@@ -400,35 +389,7 @@ const architectureChecks: ArchitectureCheck[] = [
       "The workspace registry must match package manifests, TypeScript, Knip, and dependency-cruiser coverage.",
     name: "workspace-registry-matches-tooling",
   }),
-  createListCheck({
-    findItems: findSubsystemCoverageViolations,
-    formatItem: (violation) =>
-      violation.matchedSubsystems.length === 0
-        ? `${violation.filePath}: not claimed by any subsystem`
-        : `${violation.filePath}: claimed by multiple subsystems (${violation.matchedSubsystems.join(", ")})`,
-    message:
-      "Every production source file in a registered package should map to exactly one subsystem in scripts/architecture/subsystems.ts (client SDK rows: clientSdkSubsystems.ts). Add the file to the owning subsystem's paths (or a new subsystem) and document it in docs/subsystems.md.",
-    name: "subsystem-registry-covers-every-source-file",
-  }),
-  createListCheck({
-    findItems: findSubsystemDocsViolations,
-    formatItem: (violation) => `${violation.name} ${violation.detail}`,
-    message:
-      "The docs/subsystems.md registry table and scripts/architecture/subsystems.ts should list the same subsystems.",
-    name: "subsystem-registry-matches-docs",
-  }),
-  createListCheck({
-    findItems: findSubsystemSurfaceViolations,
-    formatItem: (violation) => violation,
-    message: `Other subsystems import only the files in a subsystem's declared surface. Import through its facade, or add a deliberate contract module to the surface. Older deep imports are listed in ${subsystemSurfaceBaselinePath}, which only shrinks.`,
-    name: "subsystem-imports-use-declared-surface",
-  }),
-  createListCheck({
-    findItems: findSubsystemTableViolations,
-    formatItem: (violation) => violation,
-    message: `Only the subsystem that owns a SQLite table imports it from the schema or names it in raw SQL. Reach another subsystem's data through its surface. Older uses are listed in ${subsystemTableBaselinePath}, which only shrinks.`,
-    name: "subsystem-uses-own-tables",
-  }),
+  ...subsystemChecks,
 ];
 
 export async function runArchitectureLint(): Promise<number> {
