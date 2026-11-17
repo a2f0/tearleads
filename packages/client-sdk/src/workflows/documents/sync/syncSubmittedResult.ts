@@ -19,7 +19,7 @@ import {
   hasDeferredPendingUpdatesAfterSubmit,
   responseAcceptedRecoveryBaseline,
 } from "../syncPlan/syncPlanRequestBounds";
-import type { SyncRemoteDocumentInput } from "./readOnlySync";
+import type { RemoteDocumentSyncPass } from "./remoteDocumentSyncPass";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 import { traceHealed } from "./syncTrace";
 
@@ -30,7 +30,7 @@ type SubmittedDocumentSyncResultInput = {
   recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   response: DocumentSyncResponse;
-  sync: SyncRemoteDocumentInput;
+  sync: RemoteDocumentSyncPass;
   writerProjection: DocumentWriterProjectionResponse;
 };
 
@@ -39,9 +39,9 @@ export function applyAcceptedHealSideEffects(input: {
   documentId: string;
   evictWriterProjection?: ((documentId: string) => void) | undefined;
   materializedPlan: MaterializedDocumentSyncPlan;
-  onSyncTrace: SyncRemoteDocumentInput["onSyncTrace"];
+  onSyncTrace: RemoteDocumentSyncPass["onSyncTrace"];
   response: DocumentSyncResponse;
-  stillCurrent: SyncRemoteDocumentInput["stillCurrent"];
+  stillCurrent: RemoteDocumentSyncPass["stillCurrent"];
 }): void {
   if (
     !input.materializedPlan.healedStaleContentKeyBundle ||

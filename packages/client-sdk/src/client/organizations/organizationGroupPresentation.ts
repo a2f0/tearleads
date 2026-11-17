@@ -1,4 +1,4 @@
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
 

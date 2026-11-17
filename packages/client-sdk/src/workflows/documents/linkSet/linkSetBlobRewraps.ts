@@ -23,9 +23,9 @@ import {
 } from "../../../data/documents/shared/readers";
 import type { DocumentLinkSetMutationApi } from "../../../data/documents/shared/types";
 import { requireProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createAttachmentProofReader } from "../../blobs/verification/attachmentDecryptor";
 import { createAttachmentKeyAuthenticator } from "../../blobs/verification/attachmentKeyAuthenticator";

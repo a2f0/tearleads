@@ -7,6 +7,7 @@ import {
   createResponseFromRequest,
 } from "../../../../test/helpers/documentResponseFixtures";
 import { createInaccessibleStaleIntermediateFixture } from "../../../../test/helpers/inaccessibleStaleIntermediate";
+import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
 import { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
@@ -20,7 +21,6 @@ import {
 import { buildAutomaticContainerRekeys } from "../syncRekeys/syncAutomaticContainerRekeys";
 import { applyContainerRekeyPlan } from "../syncRekeys/syncContainerRekeyProjection";
 import { buildRemoteDocumentSyncPlan } from "../syncRekeys/syncContainerRekeys";
-import { syncRemoteDocument } from "./index";
 import { DOCUMENT_SYNC_TRACE_PATTERN } from "./syncTrace";
 
 type Fixture = Awaited<

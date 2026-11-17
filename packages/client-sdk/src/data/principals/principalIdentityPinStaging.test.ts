@@ -6,7 +6,7 @@ import {
   fixtureProjectionMember,
 } from "../../../test/helpers/trustedUserIdentity";
 import { collectPrincipalPolicySignerPublicKeys } from "../../workflows/principals/policyVerification";
-import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
+import { DatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import { createIdentityLink } from "../trustedUserIdentity/identityLink";
 
 type Fixture = Awaited<ReturnType<typeof principalIdentityPinFixture>>;

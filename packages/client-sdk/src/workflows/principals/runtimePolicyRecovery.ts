@@ -1,6 +1,5 @@
 import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import {
   assertProjectionVerificationCurrent,
   type PrincipalPolicyResolveRequest,
@@ -11,6 +10,7 @@ import {
   getOrCreatePrincipalPolicyCoordinator,
   type PrincipalPolicyCoordinator,
 } from "../../data/principals/principalPolicyCoordinator";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import {
   runWithSecurityIncidentReporting,
   type SecurityIncidentReporter,

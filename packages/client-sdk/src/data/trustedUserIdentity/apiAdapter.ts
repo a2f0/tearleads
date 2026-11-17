@@ -1,6 +1,6 @@
 import type { ApiClient } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../shared/dependencyUnavailable";
 import type { RemoteUserIdentitySource } from "./types";
 
 /**

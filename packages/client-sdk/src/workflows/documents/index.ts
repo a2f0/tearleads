@@ -5,6 +5,7 @@ export {
 export { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 export { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
 export { selectDocumentSyncOutgoingBatch } from "../../data/documents/shared/sync/documentSyncOutgoingBatch";
+export type { SyncRemoteDocumentResult } from "../../data/documents/shared/sync/documentSyncTypes";
 export {
   type DocumentSyncUpdateIsolationError,
   type IncomingDocumentSyncUpdateValidator,
@@ -17,6 +18,7 @@ export {
   readPullContinuation,
 } from "../../data/documents/shared/sync/syncPagination";
 export type {
+  CreateRemoteDocumentResult,
   DocumentCreateAuthor,
   DocumentLinkSetFailureHandler,
   DocumentLinkSetMutationFailure,
@@ -46,9 +48,9 @@ export { reclaimDocumentOrphanBlobs } from "./attachments/orphanBlobReclaims";
 export { resolveDocumentCreateAuthor } from "./author";
 export {
   buildMaterializedDocumentCreatePlan,
-  createRemoteDocument,
   documentWriterProjectionFromCreateResponse,
 } from "./create";
+export type { CreateRemoteDocumentRequest } from "./create/remoteDocumentCreateRequest";
 export {
   type DocumentHistory,
   type DocumentHistoryStop,
@@ -120,9 +122,8 @@ export {
   type DocumentsWorkflowRuntimeInputGroups,
   type DocumentsWorkflowRuntimeSnapshot,
 } from "./runtime";
-export { syncRemoteDocument } from "./sync";
 export { documentCreateSeedCandidate } from "./sync/initialSync";
-export type { SyncRemoteDocumentInput } from "./sync/readOnlySync";
+export type { SyncRemoteDocumentRequest } from "./sync/remoteDocumentSyncPass";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {
   type DocumentSyncLane,

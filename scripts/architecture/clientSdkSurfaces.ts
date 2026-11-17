@@ -44,11 +44,36 @@ const principalsDataSurface = [
   "principalPolicyStates",
 ].map((module) => `${sdk}/data/principals/${module}.ts`);
 
+// The document projection, container KEK path, reader, and sync contracts that
+// Container Data, Client Blob Storage, and Document Store & Sync build on.
+// Document sync also uses the KEK currency, content crypto, event, outgoing
+// batch, pagination, decryption, acknowledgement, and submit-failure contracts.
+export const documentProjectionContractsSurface = [
+  `${sdk}/data/documents/shared/containerKek/index.ts`,
+  `${sdk}/data/documents/shared/projection/index.ts`,
+  `${sdk}/data/documents/shared/containerKek/containerKekCurrency.ts`,
+  `${sdk}/data/documents/shared/containerKek/containerKekPath.ts`,
+  `${sdk}/data/documents/shared/contentRecordKeys.ts`,
+  `${sdk}/data/documents/shared/crypto.ts`,
+  `${sdk}/data/documents/shared/events.ts`,
+  `${sdk}/data/documents/shared/projection/projectionVerificationOptions.ts`,
+  `${sdk}/data/documents/shared/readers.ts`,
+  `${sdk}/data/documents/shared/responses.ts`,
+  `${sdk}/data/documents/shared/stableDocumentId.ts`,
+  `${sdk}/data/documents/shared/sync/documentSyncOutgoingBatch.ts`,
+  `${sdk}/data/documents/shared/sync/documentSyncTypes.ts`,
+  `${sdk}/data/documents/shared/sync/documentSyncUpdateDecryption.ts`,
+  `${sdk}/data/documents/shared/sync/documentSyncUpdateIsolation.ts`,
+  `${sdk}/data/documents/shared/sync/mutationAcknowledgement.ts`,
+  `${sdk}/data/documents/shared/sync/pullContinuation.ts`,
+  `${sdk}/data/documents/shared/sync/syncPagination.ts`,
+  `${sdk}/data/documents/shared/sync/syncSubmitFailure.ts`,
+  `${sdk}/data/documents/shared/types.ts`,
+];
+
 export const documentStoreSurface = [
   `${sdk}/client/documents/index.ts`,
   `${sdk}/data/documents/index.ts`,
-  `${sdk}/data/documents/shared/containerKek/index.ts`,
-  `${sdk}/data/documents/shared/projection/index.ts`,
   `${sdk}/data/persistence/documents/records/index.ts`,
   `${sdk}/stores/documents/index.ts`,
   `${sdk}/workflows/documents/index.ts`,
@@ -58,15 +83,6 @@ export const documentStoreSurface = [
   `${sdk}/data/documents/documentSummary.ts`,
   `${sdk}/data/documents/documentSync.ts`,
   `${sdk}/data/documents/editAttribution.ts`,
-  `${sdk}/data/documents/shared/contentRecordKeys.ts`,
-  `${sdk}/data/documents/shared/projection/projectionVerificationOptions.ts`,
-  `${sdk}/data/documents/shared/readers.ts`,
-  `${sdk}/data/documents/shared/responses.ts`,
-  `${sdk}/data/documents/shared/stableDocumentId.ts`,
-  `${sdk}/data/documents/shared/sync/documentSyncTypes.ts`,
-  `${sdk}/data/documents/shared/sync/documentSyncUpdateIsolation.ts`,
-  `${sdk}/data/documents/shared/sync/pullContinuation.ts`,
-  `${sdk}/data/documents/shared/types.ts`,
   `${sdk}/data/persistence/documents/containerDocumentTombstoneHoldRepository.ts`,
   `${sdk}/data/persistence/documents/containerDocumentTombstoneHoldsPersistence.ts`,
   `${sdk}/data/persistence/documents/documentDiscoveryEvidencePersistence.ts`,
@@ -182,7 +198,6 @@ export const syncEngineSurface = [
   `${sdk}/workflows/sync/index.ts`,
   `${sdk}/data/shared/domainScope.ts`,
   `${sdk}/data/sync/crdtPeerSeed.ts`,
-  `${sdk}/data/sync/databaseUnavailable.ts`,
   `${sdk}/data/sync/organizationSyncPauses.ts`,
   `${sdk}/data/sync/outgoingUpdateSettlement.ts`,
   `${sdk}/data/sync/sequence.ts`,
@@ -214,7 +229,6 @@ export const keyingVerificationSurface = [
   `${sdk}/data/keyingProjectionVerification/index.ts`,
   `${sdk}/data/keying/`,
   `${sdk}/data/keyingProjectionVerification/checkpoints/heldContainerHeads.ts`,
-  `${sdk}/data/keyingProjectionVerification/dependencyUnavailable.ts`,
   `${sdk}/data/keyingProjectionVerification/document/documentContainerProjections.ts`,
   `${sdk}/data/keyingProjectionVerification/error.ts`,
   `${sdk}/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts`,

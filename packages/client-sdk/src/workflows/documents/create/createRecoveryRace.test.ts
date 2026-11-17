@@ -13,12 +13,10 @@ import {
   createAuthor,
   createResponseFromRequest,
 } from "../../../../test/helpers/documentFixtures";
+import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
-import {
-  createRemoteDocument,
-  documentWriterProjectionFromCreateResponse,
-} from "./index";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
+import { documentWriterProjectionFromCreateResponse } from "./index";
 
 test.each(["unavailable", "integrity", "forged-recovery"] as const)(
   "a committed create handles %s during acknowledgement without submitting again",

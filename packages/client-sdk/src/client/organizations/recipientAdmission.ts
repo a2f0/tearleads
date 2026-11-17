@@ -4,14 +4,14 @@ import type {
 } from "@tearleads/crypto";
 import { computeUserIdentityBundleFingerprint } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import {
   runWithSecurityIncidentReporting,
   type SecurityIncidentReporter,
 } from "../../data/shared/securityIncidents";
+import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import {
   type StagedUserIdentityResolver,
   type TrustedUserIdentityResolver,

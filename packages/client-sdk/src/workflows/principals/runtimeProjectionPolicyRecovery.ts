@@ -1,10 +1,10 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import {
   assertProjectionVerificationCurrent,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { runWithSecurityIncidentReporting } from "../../data/shared/securityIncidents";
 import { PrincipalPolicyHistoryReadError } from "./historyRecovery/principalHistoryRecoveryTypes";
 import { apiProjectionPolicyHistoryReader } from "./principalPolicyHistoryReader";

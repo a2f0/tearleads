@@ -21,13 +21,11 @@ import {
   createAuthor,
   createResponseFromRequest,
 } from "../../../../test/helpers/documentFixtures";
+import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { acknowledgedDocumentCreate } from "../../../data/documents/shared/responses";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import {
-  createRemoteDocument,
-  documentWriterProjectionFromCreateResponse,
-} from "./index";
+import { documentWriterProjectionFromCreateResponse } from "./index";
 
 test("createRemoteDocument submits the materialized request and persists the verified response", async () => {
   const { author, signingPublicKey } = await createAuthor();

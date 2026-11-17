@@ -2,7 +2,6 @@ import {
   KeyingVerificationError,
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { assertCurrentMatchesVerifiedPolicy } from "../../data/persistence/principalPolicy/verifiedPrincipalPolicyCurrent";
@@ -11,6 +10,7 @@ import {
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
 } from "../../data/principals/organizationAuthorityDescriptor";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type {
   PrincipalPolicyCurrentResolver as CurrentPolicyResolver,

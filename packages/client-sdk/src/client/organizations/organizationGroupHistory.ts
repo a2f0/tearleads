@@ -1,5 +1,5 @@
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { loadLocalOrganizationPolicyReference } from "../../workflows/organizations";
 import { buildOrganizationGroupPolicyHistoryPage } from "../../workflows/organizations/policyHistory/groupPolicyHistoryPage";
 

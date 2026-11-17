@@ -1,8 +1,8 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { ProjectionDependencyUnavailableError } from "../shared/dependencyUnavailable";
 import { errorMessage } from "../shared/errorMessage";
 import { isKeyingVerificationError } from "../shared/securityIncidents";
-import { isDatabaseUnavailableError } from "../sync/databaseUnavailable";
-import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
+import { isDatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import { rethrowProjectionVerificationCancelled } from "./types";
 
 const KEYING_VERIFICATION_CONTEXT_LIMIT = 16;

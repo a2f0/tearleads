@@ -11,10 +11,10 @@ import {
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
 import type { PrincipalPolicySnapshotResponse } from "@tearleads/validators/response";
-import { ProjectionDependencyUnavailableError } from "../../src/data/keyingProjectionVerification/dependencyUnavailable";
 import type { ProjectionUserKeyResolver } from "../../src/data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
+import { ProjectionDependencyUnavailableError } from "../../src/data/shared/dependencyUnavailable";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { verifyReceivedPolicySnapshot } from "./principalSnapshotVerificationCache";
 

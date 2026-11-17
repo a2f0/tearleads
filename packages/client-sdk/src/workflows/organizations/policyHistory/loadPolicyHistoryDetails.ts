@@ -1,7 +1,7 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import type { ReferencedPrincipalPolicyWarmer } from "../../../data/keyingProjectionVerification/types";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import {
   reportKeyingVerificationErrorInCauseChain,

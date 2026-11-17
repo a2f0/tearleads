@@ -4,7 +4,10 @@ import type {
   DocumentPurgeResponse,
 } from "@tearleads/validators/response";
 import type { DocumentSyncApi } from "../../../data/documents/shared/sync/documentSyncTypes";
-import type { DocumentLinkSetMutationApi } from "../../../data/documents/shared/types";
+import type {
+  DocumentCreateApi,
+  DocumentLinkSetMutationApi,
+} from "../../../data/documents/shared/types";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 export interface DocumentPurgeApi {
@@ -30,17 +33,23 @@ export interface DocumentPurgeApi {
 }
 
 /** The API slices a `RemoteDocumentService` calls. */
-export type RemoteDocumentServiceApi = DocumentLinkSetMutationApi &
+export type RemoteDocumentServiceApi = DocumentSyncApi &
+  DocumentCreateApi &
+  DocumentLinkSetMutationApi &
   DocumentPurgeApi;
 
 /**
  * What a `RemoteDocumentService` binds for its lifetime, one runtime snapshot:
- * the API client, executor, and key material that snapshot carries, so a call
- * never mixes one snapshot's executor with another's key.
+ * the API client, executor, key material, and remote-sync block that snapshot
+ * carries, so a call never mixes one snapshot's executor with another's key.
  */
 export interface RemoteDocumentCollaborators {
   readonly api: RemoteDocumentServiceApi;
   readonly execSql: ExecSql;
   /** The local identity's encapsulation secret key; null before it has one. */
   readonly encapsulationSecretKey: Uint8Array | null;
+  /** Reports an organization whose remote writes are paused, such as for billing. */
+  readonly isRemoteSyncBlocked?:
+    | ((organizationId: string) => boolean)
+    | undefined;
 }

@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { DocumentSyncUpdateIsolationError } from "../documents/shared/sync/documentSyncUpdateIsolation";
+import { ProjectionDependencyUnavailableError } from "../shared/dependencyUnavailable";
 import { reportAndRethrowKeyingVerificationError } from "../shared/securityIncidents";
-import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
-import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
+import { DatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import {
+  rethrowDatabaseUnavailableError,
   throwKeyingVerificationErrorWithContext,
   throwKeyingVerificationShapeFailure,
 } from "./error";
@@ -122,4 +123,16 @@ test("verification cause traversal is bounded and cycle-safe", async () => {
   );
 
   expect(reported).toBe(false);
+});
+
+test("projection boundaries preserve database teardown errors", () => {
+  const unavailable = new DatabaseUnavailableError("trust store gone");
+  expect(() => rethrowDatabaseUnavailableError(unavailable)).toThrow(
+    unavailable,
+  );
+  expect(() =>
+    rethrowDatabaseUnavailableError(
+      new KeyingVerificationError("invalid_shape", "bad projection"),
+    ),
+  ).not.toThrow();
 });

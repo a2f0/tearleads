@@ -1,9 +1,9 @@
 import type { IncomingDocumentSyncUpdateValidator } from "../../src/data/documents/shared/sync/documentSyncUpdateIsolation";
-import { syncRemoteDocument } from "../../src/workflows/documents/sync";
-import type { SyncRemoteDocumentInput } from "../../src/workflows/documents/sync/readOnlySync";
+import type { RemoteDocumentSyncPass } from "../../src/workflows/documents/sync/remoteDocumentSyncPass";
+import { syncRemoteDocumentForTest } from "./remoteDocumentServiceFixture";
 
-type TestSyncRemoteDocumentInput = Omit<
-  SyncRemoteDocumentInput,
+type TestRemoteDocumentSyncPass = Omit<
+  RemoteDocumentSyncPass,
   "validateIncomingUpdates"
 > & {
   validateIncomingUpdates?: IncomingDocumentSyncUpdateValidator | undefined;
@@ -11,10 +11,10 @@ type TestSyncRemoteDocumentInput = Omit<
 
 /** Keeps non-import tests explicit about bypassing scratch Loro validation. */
 export function syncRemoteDocumentWithoutImportValidationForTest(
-  input: TestSyncRemoteDocumentInput,
+  input: TestRemoteDocumentSyncPass,
 ) {
   const { validateIncomingUpdates = () => undefined, ...syncInput } = input;
-  return syncRemoteDocument({
+  return syncRemoteDocumentForTest({
     ...syncInput,
     validateIncomingUpdates,
   });

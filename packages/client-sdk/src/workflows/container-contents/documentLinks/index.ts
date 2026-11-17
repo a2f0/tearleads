@@ -2,7 +2,7 @@ import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVe
 import { DocumentContainerProjectionRepository } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { errorMessage } from "../../../data/shared/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/shared/securityIncidents";
-import { isDatabaseUnavailableError } from "../../../data/sync/databaseUnavailable";
+import { isDatabaseUnavailableError } from "../../../data/sqlite/availability/databaseUnavailable";
 import {
   type DocumentLinkSetFailureHandler,
   type LinkSetAttachmentReuse,
