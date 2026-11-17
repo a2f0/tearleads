@@ -93,6 +93,12 @@ export interface ContainerContentsStoreSyncState {
   persistence: ContainerContentsPersistence;
   remoteHydrationPromise: Promise<void> | null;
   remoteHydrationGeneration: number | null;
+  /**
+   * A request that must list every lane from its start (the re-list after an
+   * acknowledged connection) is waiting; whichever hydration next consumes the
+   * queued lanes performs that reset.
+   */
+  remoteHydrationResetAllLanesPending: boolean;
   remoteHydrationStructuralGeneration: number | null;
   remoteReconnectRefreshPending: boolean;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;

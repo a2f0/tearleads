@@ -169,19 +169,23 @@ export async function hasStartupContainerSyncWork(state: {
   if (containerIds.length === 0) {
     return false;
   }
-  const [containersWithPendingMetadata, containersWithPullContinuations] =
-    await Promise.all([
-      state.persistence.listContainerIdsWithPendingUpdates(
-        execSql,
-        containerIds,
-      ),
-      state.persistence.listContainerIdsWithPullContinuations(
-        execSql,
-        containerIds,
-      ),
-    ]);
+  const [
+    containersWithPendingMetadata,
+    containersWithPullContinuations,
+    owedMetadataReads,
+  ] = await Promise.all([
+    state.persistence.listContainerIdsWithPendingUpdates(execSql, containerIds),
+    state.persistence.listContainerIdsWithPullContinuations(
+      execSql,
+      containerIds,
+    ),
+    // A read a listing owed before the restart needs a pass even when the
+    // cached tree is fresh and no connection is acknowledged.
+    state.persistence.listContainerMetadataRevalidations(execSql),
+  ]);
   return (
     containersWithPendingMetadata.length > 0 ||
-    containersWithPullContinuations.length > 0
+    containersWithPullContinuations.length > 0 ||
+    owedMetadataReads.length > 0
   );
 }

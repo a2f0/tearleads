@@ -24,6 +24,7 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
     lifecycleGeneration: number;
     remoteHydrationGeneration: number | null;
     remoteHydrationPromise: Promise<void> | null;
+    remoteHydrationResetAllLanesPending: boolean;
     remoteHydrationStructuralGeneration: number | null;
     rootLaneHydrated: boolean;
     snapshot: {
@@ -295,11 +296,47 @@ function consumeQueuedHydrationScope(
   };
 }
 
+/**
+ * Whichever hydration next consumes the queued lanes owes a reset requested
+ * while it waited, so a coalesced request cannot drop it; a failed pass leaves
+ * it owed to the next one.
+ */
+function noteResetAllLanesRequest(input: {
+  readonly resetAllLaneWatermarks?: boolean | undefined;
+  readonly state: RemoteHydrationRequestState;
+}): void {
+  if (input.resetAllLaneWatermarks) {
+    input.state.remoteHydrationResetAllLanesPending = true;
+  }
+}
+
+function captureRequestGeneration(state: RemoteHydrationRequestState) {
+  const lifecycleGeneration = state.lifecycleGeneration;
+  const structuralGeneration = state.structuralGeneration;
+  return {
+    isCurrent: () =>
+      isRequestGenerationCurrent({
+        lifecycleGeneration,
+        state,
+        structuralGeneration,
+      }),
+    lifecycleGeneration,
+    structuralGeneration,
+  };
+}
+
+function takeResetAllLanesRequest(state: RemoteHydrationRequestState): boolean {
+  const pending = state.remoteHydrationResetAllLanesPending;
+  state.remoteHydrationResetAllLanesPending = false;
+  return pending;
+}
+
 export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
   const { host, scheduleSync, state } = input;
   queueRequestedParentIds(input);
+  noteResetAllLanesRequest(input);
   const readinessBarrier = waitForRemoteHydrationReadiness(input);
   if (readinessBarrier) {
     return readinessBarrier;
@@ -307,17 +344,12 @@ export function requestContainerContentsRemoteHydration(
 
   const { followDiscoveredParentLanes, parentIds } =
     consumeQueuedHydrationScope(state, input.followDiscoveredParentLanes);
+  const resetAllLaneWatermarks = takeResetAllLanesRequest(state);
 
   let appliedRemoteContainerChange = false;
   let retainInterruptedHydration = false;
-  const lifecycleGeneration = state.lifecycleGeneration;
-  const structuralGeneration = state.structuralGeneration;
-  const isCurrent = () =>
-    isRequestGenerationCurrent({
-      lifecycleGeneration,
-      state,
-      structuralGeneration,
-    });
+  const { isCurrent, lifecycleGeneration, structuralGeneration } =
+    captureRequestGeneration(state);
   const onFullyHydrated = input.recreateOnFullyHydratedAtStart
     ? input.recreateOnFullyHydratedAfterReset?.()
     : input.onFullyHydrated;
@@ -342,7 +374,7 @@ export function requestContainerContentsRemoteHydration(
         isCurrent,
         onFullyHydrated,
         parentIds,
-        resetAllLaneWatermarks: input.resetAllLaneWatermarks,
+        resetAllLaneWatermarks,
         resetRootLaneWatermark: input.resetRootLaneWatermark,
         state,
       });
@@ -354,6 +386,9 @@ export function requestContainerContentsRemoteHydration(
       }
     })
     .catch((error: unknown) => {
+      if (resetAllLaneWatermarks && isCurrent()) {
+        noteResetAllLanesRequest({ resetAllLaneWatermarks: true, state });
+      }
       if (isCurrent() && isDatabaseUnavailableError(error)) {
         retainInterruptedHydration = true;
         return;

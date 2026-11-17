@@ -1,12 +1,16 @@
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { syncPendingContainerCreateIntents } from "../../../workflows/container-contents/container-state/create/createIntentSync";
 import { syncPendingContainerMoveIntents } from "../../../workflows/container-contents/container-state/move/moveIntentSync";
+import type {
+  ContainerMetadataRevalidation,
+  ExecSql,
+} from "../../../workflows/container-contents/containerPersistence";
 import {
   type DocumentMoveIntentSyncHost,
   syncPendingDocumentMoveIntents,
 } from "../../../workflows/container-contents/documentMove/documentMoveIntentSync";
 import { syncContainerMetadataState } from "../../../workflows/container-contents/metadata";
 import { currentMetadataPullContinuation } from "../../../workflows/container-contents/metadata/metadataPersistence";
+import type { SyncedContainerMetadataState } from "../../../workflows/container-contents/metadata/metadataTypes";
 import type {
   ContainerState,
   RemoteContainerHydrationHost,
@@ -24,6 +28,7 @@ import {
 } from "../documentWork/documentRecovery";
 import { createAcceptedMoveRetry } from "./acceptedMoveRetry";
 import {
+  findOwedContainerMetadataRead,
   restoreOwedContainerMetadataReads,
   settleOwedContainerMetadataRead,
 } from "./metadataRevalidation";
@@ -165,6 +170,14 @@ async function syncSingleContainerMetadata(input: {
   const metadataDocumentId = containerState.record.documentId;
   const readExecSql = state.runtime.infra.execSql;
   const resumesEarlierPull = resumesEarlierMetadataPull(containerState);
+  // The durable request this read answers, read before the read begins.
+  const owedRead = isQueuedForRead(state, metadataDocumentId)
+    ? await findOwedContainerMetadataRead(state, {
+        documentId: metadataDocumentId as string,
+        execSql: readExecSql,
+      })
+    : null;
+  if (!isCurrent()) return;
   // Snapshot this signal before the GET so a mid-pass event survives clearing.
   const consumedSeqById = new Map<string, number>();
   if (typeof metadataDocumentId === "string") {
@@ -210,12 +223,16 @@ async function syncSingleContainerMetadata(input: {
     return;
   }
 
+  // A resumed pull reads only to its earlier bound, and a superseded result
+  // discarded what it pulled: either keeps the signals for a fresh read.
+  const keepsSignals = resumesEarlierPull || isSupersededMetadataSync(synced);
   const stillCurrent = await settleConsumedMetadataSignals({
     consumedSeqById,
     documentIds: [metadataDocumentId, synced.record.documentId],
     isCurrent,
+    keepsSignals,
+    owedRead,
     readExecSql,
-    resumesEarlierPull,
     state,
   });
   if (!stillCurrent) return;
@@ -225,10 +242,10 @@ async function syncSingleContainerMetadata(input: {
   // doing so would overwrite that preserved live edit.
   host.updateSnapshot();
 
-  // A resumed pull that kept an owed read hands it to a fresh pull next pass.
+  // A pass that kept an owed read hands it to a fresh read next pass.
   if (
     synced.shouldRequestFollowupSync ||
-    (resumesEarlierPull && isQueuedForRead(state, metadataDocumentId))
+    (keepsSignals && isQueuedForRead(state, metadataDocumentId))
   ) {
     requestContainerContentsStoreSync(state);
   }
@@ -245,6 +262,21 @@ function resumesEarlierMetadataPull(containerState: ContainerState): boolean {
   );
 }
 
+function isSupersededMetadataSync(
+  synced: Pick<
+    SyncedContainerMetadataState,
+    | "mutationSuperseded"
+    | "pullContinuationSuperseded"
+    | "syncIdentitySuperseded"
+  >,
+): boolean {
+  return (
+    synced.mutationSuperseded === true ||
+    synced.pullContinuationSuperseded === true ||
+    synced.syncIdentitySuperseded === true
+  );
+}
+
 function isQueuedForRead(
   state: ContainerContentsStoreSyncState,
   documentId: string | null | undefined,
@@ -256,35 +288,39 @@ function isQueuedForRead(
 }
 
 /**
- * Clears the signals a completed metadata sync consumed and settles any read
- * a listing owed: the sync pulled every update this client lacked, unless a
- * newer signal queued the document again. A pass that resumed an earlier pull
- * settles nothing. Returns false once the pass is no longer current.
+ * Clears the signals a completed metadata sync consumed and settles the read a
+ * listing owed: the sync pulled every update this client lacked, unless a
+ * newer signal queued the document again. A pass that keeps its signals
+ * settles nothing. Returns false once the pass is no longer current, before
+ * touching a replacement store's queue.
  */
 async function settleConsumedMetadataSignals(input: {
   consumedSeqById: ReadonlyMap<string, number>;
   documentIds: ReadonlyArray<string | null | undefined>;
   isCurrent: () => boolean;
+  keepsSignals: boolean;
+  owedRead: ContainerMetadataRevalidation | null;
   readExecSql: ExecSql;
-  resumesEarlierPull: boolean;
   state: ContainerContentsStoreSyncState;
 }): Promise<boolean> {
-  if (input.resumesEarlierPull) return true;
+  if (input.keepsSignals) return true;
   for (const id of new Set(input.documentIds)) {
     if (typeof id !== "string") continue;
+    if (!input.isCurrent()) return false;
     clearMetadataSyncQueueIfUnchanged({
       consumedSeqById: input.consumedSeqById,
       id,
       needingSync: input.state.metadataDocumentIdsNeedingSync,
       seqById: input.state.metadataSyncSignalSeqById,
     });
-    if (!input.isCurrent()) return false;
+  }
+  if (input.owedRead) {
     await settleOwedContainerMetadataRead(input.state, {
-      documentId: id,
       execSql: input.readExecSql,
+      revalidation: input.owedRead,
     });
   }
-  return true;
+  return input.isCurrent();
 }
 
 /**

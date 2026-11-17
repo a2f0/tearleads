@@ -106,6 +106,7 @@ export function createContainerContentsStoreState(
     plannedMetadataDocumentIds: new Set(),
     remoteHydrationPromise: null,
     remoteHydrationGeneration: null,
+    remoteHydrationResetAllLanesPending: false,
     remoteHydrationStructuralGeneration: null,
     remoteReconnectRefreshPending: false,
     resolveProjectionUserKey:
@@ -173,6 +174,7 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.metadataDocumentIdsNeedingSync = new Set();
   state.metadataSyncSignalSeqById = new Map();
   state.owedMetadataReadsRestored = false;
+  state.remoteHydrationResetAllLanesPending = false;
   state.plannedMetadataDocumentIds = new Set();
   state.rootLaneHydrated = false;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);

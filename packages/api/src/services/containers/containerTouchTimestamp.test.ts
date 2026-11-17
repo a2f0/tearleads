@@ -3,13 +3,13 @@ import { db } from "@tearleads/api-shared/postgres";
 import { containers } from "@tearleads/api-shared/schema";
 import { eq, sql } from "drizzle-orm";
 import invariant from "invariant";
-import { registerOrganization } from "../../../../../test/helpers/organizationPurge";
+import { registerOrganization } from "../../../test/helpers/organizationPurge";
+import { touchContainers } from "../../workflows/documents/mutations/shared/documentRows";
 import {
   compareSyncTimestamps,
   syncItemTimestamp,
   syncTimestampExpression,
-} from "../../../../services/containers/syncTimestamp";
-import { touchContainers } from "./documentRows";
+} from "./syncTimestamp";
 
 async function listedTimestamp(containerId: string): Promise<string> {
   const [row] = await db

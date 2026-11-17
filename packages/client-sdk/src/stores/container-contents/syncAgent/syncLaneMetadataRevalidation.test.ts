@@ -8,7 +8,6 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../../workflows/container-contents/containerPersistence";
-import { listContainerMetadataRevalidations } from "../../../workflows/container-contents/metadata/metadataRevalidation";
 import type { SyncedContainerMetadataState } from "../../../workflows/container-contents/metadata/metadataTypes";
 import type { ContainerState } from "../../../workflows/container-contents/remoteHydration";
 import { createPrincipalPolicyOperation } from "../../../workflows/principals/principalPolicyService";
@@ -39,11 +38,26 @@ function synced(folder: ContainerState): SyncedContainerMetadataState {
  * metadata sync records whether each read was forced and, when it resumed the
  * earlier pull, reads that pull's last page.
  */
-async function owedFolder(input: { resumesEarlierPull: boolean }) {
+async function owedFolder(input: {
+  resetDuringSettle?: boolean;
+  resumesEarlierPull: boolean;
+  superseded?: boolean;
+}) {
+  // Store events in order, so a test can see what followed a settlement.
+  const events: string[] = [];
   const persistence: ContainerContentsPersistence = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [],
     listUnsyncedMoveIntents: async () => [],
+    settleContainerMetadataRevalidation: async (execSql, revalidation) => {
+      events.push("settle");
+      await defaultContainerContentsPersistence.settleContainerMetadataRevalidation(
+        execSql,
+        revalidation,
+      );
+      // The store's database is replaced while the delete runs.
+      if (input.resetDuringSettle) state.lifecycleGeneration += 1;
+    },
   };
   const database = await createTestExecSql(
     `sync-lane-metadata-revalidation-${crypto.randomUUID()}`,
@@ -79,14 +93,19 @@ async function owedFolder(input: { resumesEarlierPull: boolean }) {
       });
       // This pass reads the earlier pull's last page.
       delete folder.record.pullContinuation;
-      return synced(folder);
+      return input.superseded
+        ? { ...synced(folder), mutationSuperseded: true as const }
+        : synced(folder);
     },
   );
   const runPass = () =>
     runContainerContentsStoreSyncIteration({
       host: {
         persistContainerState: async () => ({ status: "missing" }),
-        updateSnapshot: () => updateContainerContentsSnapshot(state),
+        updateSnapshot: () => {
+          events.push("snapshot");
+          updateContainerContentsSnapshot(state);
+        },
       },
       policyOperation: createPrincipalPolicyOperation(),
       reconcileRestoredAccess: async () => {},
@@ -95,10 +114,12 @@ async function owedFolder(input: { resumesEarlierPull: boolean }) {
       syncContainerMetadata: syncContainerMetadata as never,
     });
   const owed = async () => ({
-    durable: await listContainerMetadataRevalidations(database.execSql),
+    durable: (
+      await persistence.listContainerMetadataRevalidations(database.execSql)
+    ).map(({ documentId }) => documentId),
     queued: state.metadataDocumentIdsNeedingSync.has(documentId),
   });
-  return { close: database.close, followups, owed, reads, runPass };
+  return { close: database.close, events, followups, owed, reads, runPass };
 }
 
 test("a fresh forced read pays the debt a listing owed", async () => {
@@ -131,6 +152,39 @@ test("a read that resumes an earlier pull hands the debt to a fresh pull", async
       { forced: true, resumed: false },
     ]);
     expect(await folder.owed()).toEqual({ durable: [], queued: false });
+  } finally {
+    folder.close();
+  }
+});
+
+test("a superseded read keeps the debt and its forced follow-up", async () => {
+  const folder = await owedFolder({
+    resumesEarlierPull: false,
+    superseded: true,
+  });
+  try {
+    await folder.runPass();
+    expect(await folder.owed()).toEqual({
+      durable: ["metadata-folder"],
+      queued: true,
+    });
+    expect(folder.followups).toHaveBeenCalled();
+  } finally {
+    folder.close();
+  }
+});
+
+test("a pass whose store is replaced while it settles publishes nothing", async () => {
+  const folder = await owedFolder({
+    resetDuringSettle: true,
+    resumesEarlierPull: false,
+  });
+  try {
+    await folder.runPass();
+    const settled = folder.events.indexOf("settle");
+    expect(settled).toBeGreaterThanOrEqual(0);
+    expect(folder.events.slice(settled + 1)).not.toContain("snapshot");
+    expect(folder.followups).not.toHaveBeenCalled();
   } finally {
     folder.close();
   }

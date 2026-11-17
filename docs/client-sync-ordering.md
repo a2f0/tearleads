@@ -129,16 +129,21 @@ which the container tree listing reports. Recovery uses that:
 - Durability. Hydration queues the forced read in memory and then writes it to
   `container_metadata_revalidations`, before it records the new timestamp and
   lane watermark. A store's first sync pass requeues what a previous run still
-  owed, so a restart that interrupts the read reloads the debt instead of
-  losing the evidence.
+  owed, and an owed read alone schedules that pass at startup, so a restart
+  that interrupts the read reloads the debt instead of losing the evidence.
 - Settling. A completed sync pulls every update the client lacks, so it settles
   the debt, unless a newer signal queued the document while the read was in
-  flight. A pass that resumes an earlier paginated pull reads only up to that
-  pull's upper bound, so it settles nothing; a fresh pull afterwards does.
+  flight. Each request carries a revision, and a read settles only the one it
+  saw before it began, so a newer request from another tab survives. A pass
+  that resumes an earlier paginated pull reads only up to that pull's upper
+  bound, and a superseded result discarded what it pulled; neither settles,
+  and each hands the read to a fresh pass.
 - Coverage. Reconnect and restart re-list the root lane and every held lane
   from its start, so either one recovers a lost metadata hint. A lane
   watermark is not trusted here: a folder written by an instance with a
-  trailing clock can sort below the watermark a sibling set.
+  trailing clock can sort below the watermark a sibling set. When that re-list
+  waits behind another hydration, whichever pass next takes the queued lanes
+  performs the reset.
 - No-brick. The forced read uses the stored commit position as its floor, as
   a hint-forced read does, and never waits on another device.
 

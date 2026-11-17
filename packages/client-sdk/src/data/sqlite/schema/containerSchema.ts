@@ -134,6 +134,8 @@ export const containerMetadataRevalidations = sqliteTable(
   "container_metadata_revalidations",
   {
     documentId: text("document_id").notNull(),
+    // Replaced on every request, so a read settles only the request it saw.
+    revision: text("revision").notNull(),
     requestedAt: text("requested_at").notNull(),
   },
   (table) => [primaryKey({ columns: [table.documentId] })],
