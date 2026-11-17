@@ -73,6 +73,7 @@ export async function buildOrganizationGroupDirectoryPolicyRequest(input: {
     currentPolicy: input.currentPolicy,
     currentUserSecretKey: input.currentUserSecretKey,
     projection,
+    signerUserId: input.signerUserId,
     users: input.adminUsers,
   });
   const payloadCiphertext = encodeOrganizationAuthorityDescriptor({

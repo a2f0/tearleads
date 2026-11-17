@@ -63,12 +63,18 @@ function keptKeying(
 async function heldOrganizationSecret(input: {
   readonly currentPolicy: OrganizationDirectoryCurrentPolicy;
   readonly currentUserSecretKey: Uint8Array | null;
+  readonly signerUserId: string;
 }): Promise<Uint8Array | null> {
   if (!input.currentUserSecretKey) return null;
+  // Only the signer's own envelope: one decapsulation.
+  const own = input.currentPolicy.currentMemberEnvelopes.envelopes.filter(
+    (envelope) => envelope.userId === input.signerUserId,
+  );
+  if (own.length !== 1) return null;
   let secret: Uint8Array;
   try {
     secret = await unwrapDek(
-      toRecipientEntries(input.currentPolicy.currentMemberEnvelopes.envelopes),
+      toRecipientEntries(own),
       input.currentUserSecretKey,
     );
   } catch {
@@ -142,6 +148,8 @@ async function rotatedKeying(input: {
 export async function organizationDirectoryKeying(input: {
   readonly currentPolicy: OrganizationDirectoryCurrentPolicy;
   readonly currentUserSecretKey: Uint8Array | null;
+  /** The signing admin; only its envelope is opened to check the key. */
+  readonly signerUserId: string;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
   readonly users: ReadonlyArray<TrustedUserIdentity>;
 }): Promise<OrganizationDirectoryKeying> {

@@ -84,6 +84,7 @@ test("an unchanged admin projection keeps the key, epoch and envelopes", async (
   const [a, b] = [await admin("a"), await admin("b")];
   const { policy } = await directory([a, b]);
   const keying = await organizationDirectoryKeying({
+    signerUserId: "a",
     currentPolicy: policy,
     currentUserSecretKey: a.kem.secretKey,
     projection: [b.member, a.member],
@@ -101,6 +102,7 @@ test("an added admin is wrapped the held key; existing envelopes stay", async ()
   const [a, b, c] = [await admin("a"), await admin("b"), await admin("c")];
   const { organizationKem, policy } = await directory([a, b]);
   const keying = await organizationDirectoryKeying({
+    signerUserId: "a",
     currentPolicy: policy,
     currentUserSecretKey: a.kem.secretKey,
     projection: [a.member, b.member, c.member],
@@ -127,6 +129,7 @@ test("growth without the held key, a removal, or a changed member rotates", asyn
     [a.kem.secretKey, [a, reidentified], [a, reidentified]],
   ] as const) {
     const keying = await organizationDirectoryKeying({
+      signerUserId: "a",
       currentPolicy: policy,
       currentUserSecretKey: secret,
       projection: members.map((holder) => holder.member),
@@ -147,6 +150,7 @@ test("growth without the held key, a removal, or a changed member rotates", asyn
   }
   // A removed admin's envelope opens none of the rotated key.
   const shrunk = await organizationDirectoryKeying({
+    signerUserId: "a",
     currentPolicy: policy,
     currentUserSecretKey: a.kem.secretKey,
     projection: [a.member],
@@ -166,6 +170,7 @@ test("an envelope that opens another key rotates a kept or grown directory", asy
     [a, b, c],
   ]) {
     const keying = await organizationDirectoryKeying({
+      signerUserId: "a",
       currentPolicy: policy,
       currentUserSecretKey: a.kem.secretKey,
       projection: members.map((holder) => holder.member),
@@ -176,6 +181,7 @@ test("an envelope that opens another key rotates a kept or grown directory", asy
   }
   // Without the signer's key nothing can be checked, so the write rotates.
   const unchecked = await organizationDirectoryKeying({
+    signerUserId: "a",
     currentPolicy: policy,
     currentUserSecretKey: null,
     projection: [a.member, b.member],
@@ -199,6 +205,7 @@ test("a signer envelope that fails to open rotates to a key every admin opens", 
     },
   };
   const keying = await organizationDirectoryKeying({
+    signerUserId: "a",
     currentPolicy: tampered,
     currentUserSecretKey: a.kem.secretKey,
     projection: [a.member, b.member],
@@ -228,6 +235,7 @@ test("a grown admin may not share an encapsulation key with a retained one", asy
   });
   await expect(
     organizationDirectoryKeying({
+      signerUserId: "a",
       currentPolicy: policy,
       currentUserSecretKey: a.kem.secretKey,
       projection: [
@@ -253,6 +261,7 @@ test("a kept key re-serves only the signed envelope fields", async () => {
     },
   };
   const keying = await organizationDirectoryKeying({
+    signerUserId: "a",
     currentPolicy: withExtra,
     currentUserSecretKey: a.kem.secretKey,
     projection: [a.member, b.member],
