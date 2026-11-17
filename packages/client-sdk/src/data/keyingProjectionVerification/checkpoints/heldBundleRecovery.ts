@@ -22,24 +22,51 @@ import type { ExecSql } from "../../sqlite/sqlSchema";
  * server and its verification decides. The refusal itself is reported
  * unchanged, so a failure in freshly served evidence keeps its meaning.
  */
-export async function verifyWithHeldBundleRecovery<T>(
-  input: {
-    readonly execSql: ExecSql;
-    readonly projection: object;
-    readonly stillCurrent?: (() => boolean) | undefined;
-  },
+interface HeldBundleRecoveryInput {
+  readonly execSql: ExecSql;
+  readonly projection: object;
+  readonly stillCurrent?: (() => boolean) | undefined;
+}
+
+export function verifyWithHeldBundleRecovery<T>(
+  input: HeldBundleRecoveryInput,
   verify: () => Promise<T>,
 ): Promise<T> {
+  return runWithHeldBundleRecovery(
+    input,
+    verify,
+    (error) =>
+      error instanceof KeyingVerificationError ||
+      error instanceof ProjectionDependencyUnavailableError,
+  );
+}
+
+/**
+ * The same recovery for a check of a projection's own consistency that runs
+ * before verification (such as a document head's hashes before a queued
+ * write): any refusal of a projection that took held bundles drops them.
+ */
+export function checkWithHeldBundleRecovery<T>(
+  input: HeldBundleRecoveryInput,
+  check: () => Promise<T>,
+): Promise<T> {
+  return runWithHeldBundleRecovery(input, check, () => true);
+}
+
+async function runWithHeldBundleRecovery<T>(
+  input: HeldBundleRecoveryInput,
+  run: () => Promise<T>,
+  recovers: (error: unknown) => boolean,
+): Promise<T> {
   try {
-    return await verify();
+    return await run();
   } catch (error) {
     const held = heldBundlesUsedBy(input.projection);
     // A superseded request changes no shared cache state.
     if (
       held.length > 0 &&
       input.stillCurrent?.() !== false &&
-      (error instanceof KeyingVerificationError ||
-        error instanceof ProjectionDependencyUnavailableError)
+      recovers(error)
     ) {
       // No read cites these rows while they are dropped, and no cache serves
       // this projection again, so the next read fetches the bundles.

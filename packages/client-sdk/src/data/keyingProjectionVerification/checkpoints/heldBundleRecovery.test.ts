@@ -27,6 +27,7 @@ import {
   collectContainerWriterProjectionPrincipalPolicies,
   verifyContainerWriterProjection,
 } from "../container/containerProjectionVerification";
+import { checkWithHeldBundleRecovery } from "./heldBundleRecovery";
 
 const CONTAINER_ID = "seeded-container";
 const target = { kind: "container", id: CONTAINER_ID } as const;
@@ -374,6 +375,33 @@ test("a request superseded during its signer lookup changes no shared state", as
     expect(
       await loadVerifiedManifestCitations(database.execSql, target),
     ).toEqual([wrong]);
+  } finally {
+    database.close();
+  }
+});
+
+test("a consistency check that refuses a cited projection drops its held bundles", async () => {
+  const fixture = await seededFixture();
+  const database = await createTestExecSql("held-bundle-precheck");
+  const wrong = toServedAccessManifestBundle({
+    ...fixture.leaf,
+    state: { ...fixture.leaf.state, directGrants: [] },
+  });
+  try {
+    const cited = await seedWrongRow(database.execSql, fixture, wrong);
+    // A precheck before verification, as a queued write runs on its head.
+    await expect(
+      checkWithHeldBundleRecovery(
+        { execSql: database.execSql, projection: cited },
+        async () => {
+          throw new Error("Document sync manifest state mismatch");
+        },
+      ),
+    ).rejects.toThrow("state mismatch");
+    expect(isRejectedDecodedProjection(cited)).toBe(true);
+    expect(
+      await loadVerifiedManifestCitations(database.execSql, target),
+    ).toEqual([]);
   } finally {
     database.close();
   }

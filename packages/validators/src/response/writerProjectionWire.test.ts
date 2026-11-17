@@ -258,19 +258,22 @@ test("a projection derived from a decoded one answers for it", () => {
     containerProjection(),
     new Set(["root"]),
   );
-  const held = new Map([
-    ["root", toServedAccessManifestBundle(bundle("root"))],
-  ]);
+  const root = toServedAccessManifestBundle(bundle("root"));
+  const held = new Map([["root", root]]);
   const decoded = decodeContainerWriterProjection(jsonRoundTrip(wire), held);
   if (!decoded) throw new Error("projection did not decode");
-  expect(heldBundlesUsedBy(decoded)).toEqual([held.get("root")]);
+  expect(heldBundlesUsedBy(decoded)).toEqual([root]);
   const sliced = deriveDecodedProjection(decoded, {
     ...decoded,
     path: decoded.path.slice(0, 1),
   });
+  // Another projection built from the same decoded one, held elsewhere.
+  const intermediate = deriveDecodedProjection(decoded, { ...decoded });
   const pathOfSlice = deriveDecodedProjection(sliced, { ...sliced });
-  expect(heldBundlesUsedBy(pathOfSlice)).toEqual([held.get("root")]);
-  // Refusing a derived projection refuses the decoded one a cache holds.
+  expect(heldBundlesUsedBy(pathOfSlice)).toEqual([root]);
+  // Refusing any derived projection refuses the decoded one a cache holds
+  // and every other projection built from it.
   rejectDecodedProjection(pathOfSlice);
   expect(isRejectedDecodedProjection(decoded)).toBe(true);
+  expect(isRejectedDecodedProjection(intermediate)).toBe(true);
 });

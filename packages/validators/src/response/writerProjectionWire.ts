@@ -262,11 +262,17 @@ export function rejectDecodedProjection(projection: object): void {
   if (origin) rejectedProjections.add(origin);
 }
 
+/**
+ * Whether a projection, or the decoded projection it was derived from, was
+ * refused: refusing any projection built from a decoded one refuses every
+ * other projection built from it too.
+ */
 export function isRejectedDecodedProjection(projection: unknown): boolean {
+  if (typeof projection !== "object" || projection === null) return false;
+  const origin = decodedOrigins.get(projection);
   return (
-    typeof projection === "object" &&
-    projection !== null &&
-    rejectedProjections.has(projection)
+    rejectedProjections.has(projection) ||
+    (origin !== undefined && rejectedProjections.has(origin))
   );
 }
 
