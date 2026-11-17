@@ -2,6 +2,7 @@ import {
   blobStorageSurface,
   containerContentsSurface,
   containerDataSurface,
+  documentProjectionContractsSurface,
   documentStoreSurface,
   identitySurface,
   keyingVerificationSurface,
@@ -35,6 +36,15 @@ const sdk = packageSourcePath.clientSdk;
 /** The `packages/client-sdk` rows of the subsystem manifest in `subsystems.ts`. */
 export const clientSdkSubsystems: readonly Subsystem[] = [
   {
+    name: "Document Projection Contracts",
+    package: "client-sdk",
+    responsibility:
+      "Verified document projection reads, container KEK path resolution and wrapping, content-record keys and crypto, document readers and response decoding, and the document sync wire contracts that container, blob, and document workflows share.",
+    seam: "data/documents/shared/projection; data/documents/shared/containerKek",
+    paths: [`${sdk}/data/documents/shared/`],
+    surface: documentProjectionContractsSurface,
+  },
+  {
     name: "Document Store & Sync",
     package: "client-sdk",
     responsibility:
@@ -42,7 +52,19 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     seam: "tearleads.documents facade; workflows/documents",
     paths: [
       `${sdk}/workflows/documents/`,
-      `${sdk}/data/documents/`,
+      `${sdk}/data/documents/attachmentContentIdentity.ts`,
+      `${sdk}/data/documents/documentConstants.ts`,
+      `${sdk}/data/documents/documentContent.ts`,
+      `${sdk}/data/documents/documentKinds.ts`,
+      `${sdk}/data/documents/documentRestore.ts`,
+      `${sdk}/data/documents/documentRowList.ts`,
+      `${sdk}/data/documents/documentSummary.ts`,
+      `${sdk}/data/documents/documentSync.ts`,
+      `${sdk}/data/documents/editAttribution.ts`,
+      `${sdk}/data/documents/editAttributionBlame.ts`,
+      `${sdk}/data/documents/editAttributionTypes.ts`,
+      `${sdk}/data/documents/envFile.ts`,
+      `${sdk}/data/documents/index.ts`,
       `${sdk}/data/persistence/documents/`,
       `${sdk}/stores/documents/`,
       `${sdk}/client/documents/`,
