@@ -8,7 +8,10 @@ import {
   containerKekWireLevel,
   encodeContainerWriterProjection,
 } from "@tearleads/validators/response";
-import { parseKnownManifestHints } from "@tearleads/validators/util";
+import {
+  parseKnownManifestHints,
+  toServedAccessManifestBundle,
+} from "@tearleads/validators/util";
 import { HttpResponse, http } from "msw";
 import { createContainerWriterProjectionResponse } from "../test/helpers/apiClientTestFactories";
 import {
@@ -122,7 +125,7 @@ testApiClient(
       cite: async () => {
         await late.promise;
         return [projection().path[0]].flatMap((bundle) =>
-          bundle ? [bundle] : [],
+          bundle ? [toServedAccessManifestBundle(bundle)] : [],
         );
       },
     });

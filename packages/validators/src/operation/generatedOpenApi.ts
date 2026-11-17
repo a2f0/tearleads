@@ -2392,7 +2392,7 @@ export type components = {
         ContainerWriterProjectionWireResponse: {
             /** @description Signed manifest bundles keyed by manifest hash. */
             bundles: {
-                [key: string]: components["schemas"]["AccessManifestBundleWireResponse"];
+                [key: string]: components["schemas"]["ServedAccessManifestBundleWireResponse"];
             };
             containerId: string;
             /** @description One KEK level for each manifest in `path`. */
@@ -3040,7 +3040,7 @@ export type components = {
             })[];
             /** @description Signed manifest bundles keyed by manifest hash. */
             bundles: {
-                [key: string]: components["schemas"]["AccessManifestBundleWireResponse"];
+                [key: string]: components["schemas"]["ServedAccessManifestBundleWireResponse"];
             };
             contentKeyBundle: components["schemas"]["DocumentContentKeyBundleResponse"];
             /**
@@ -4692,6 +4692,21 @@ export type components = {
             events: components["schemas"]["RootRevenuecatEventResponse"][];
             /** @description Opaque cursor for the next page, or null at the end. */
             nextCursor: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A signed access manifest with the event that produced it, as a writer projection serves it: the state omits what the bundle's own signed bytes name, which clients fill back from those bytes. */
+        ServedAccessManifestBundleWireResponse: {
+            event: components["schemas"]["AccessEventBundleWireResponse"];
+            manifest: {
+                [key: string]: unknown;
+            };
+            /** @description Hash of the canonical manifest; other responses cite the manifest by this value. */
+            manifestHash: string;
+            /** @description The derived state without the fields the hash-committed manifest and, for a container, the signed body name in full (version, object id, organization, epoch, predecessor, event hash, key epoch and public key). It keeps a container's parent pin, metadata document, system slot, direct grants and referenced principal heads, and a document's linked containers. */
+            state: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
