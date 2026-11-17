@@ -45,6 +45,23 @@
   color: inherit;
 }
 
+/* The read-only body is plain text in the editor's box: it wraps and keeps
+   line breaks the way the textarea does, without being an input. */
+.note-document-editor--read-only {
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+/* Routed layouts floor every textarea at 16px (the native-input auto-zoom
+   floor). Match it so a note reads at one size whether or not it is editable. */
+:root[data-navigation-mode="routed"] .note-document-editor--read-only {
+  font-size: max(16px, 1em);
+}
+
+.note-document-editor-placeholder {
+  opacity: var(--opacity-muted);
+}
+
 /* === Attachments panel === */
 .note-document-dropzone {
   flex: 0 0 auto;

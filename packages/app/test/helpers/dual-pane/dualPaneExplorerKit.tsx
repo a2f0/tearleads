@@ -7,6 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import invariant from "invariant";
+import { NOTE_DOCUMENT_LABELS } from "../../../src/document-types/note/noteDocumentLabels";
 import {
   requestPath,
   summarizeProxiedApiRequests,
@@ -315,15 +316,26 @@ export async function waitForExplorerNoteVisible(
   );
 }
 
-function getNoteEditor(pane: HTMLElement): HTMLTextAreaElement {
-  const editor = within(pane).getByRole("textbox", {
-    name: /Notes editor/u,
-  });
-  invariant(
-    editor instanceof HTMLTextAreaElement,
-    "Expected notes editor textarea.",
+// A writable note renders its editor; one the viewer cannot edit (a read-only
+// grant, the Trash) renders its body as plain text instead.
+function getSelectedNoteBody(pane: HTMLElement): HTMLElement {
+  return (
+    within(pane).queryByRole("textbox", { name: /Notes editor/u }) ??
+    within(pane).getByRole("article", {
+      name: NOTE_DOCUMENT_LABELS.readOnlyBody,
+    })
   );
-  return editor;
+}
+
+function readSelectedNoteText(pane: HTMLElement): string {
+  const body = getSelectedNoteBody(pane);
+  if (body instanceof HTMLTextAreaElement) {
+    return body.value;
+  }
+  // A loading or empty read-only note shows a placeholder, not note text.
+  return body.querySelector(".note-document-editor-placeholder")
+    ? ""
+    : (body.textContent ?? "");
 }
 
 export async function selectExplorerNoteByName(
@@ -340,7 +352,7 @@ export async function selectExplorerNoteByName(
     fireEvent.click(noteItem);
   });
   await waitFor(() => {
-    expect(getNoteEditor(pane)).toBeTruthy();
+    expect(getSelectedNoteBody(pane)).toBeTruthy();
   });
 }
 
@@ -371,7 +383,7 @@ export async function waitForSelectedNoteText(
 ) {
   try {
     await waitForCondition(
-      () => getNoteEditor(pane).value === text,
+      () => readSelectedNoteText(pane) === text,
       message,
       timeoutMs,
     );
@@ -380,7 +392,7 @@ export async function waitForSelectedNoteText(
       listProxiedApiRequests().slice(-30),
     );
     throw new Error(
-      `${message}\nexpected=${text}\nactual=${getNoteEditor(pane).value}\nrequests=\n${requests}\npane=${truncateText(pane.textContent ?? "")}`,
+      `${message}\nexpected=${text}\nactual=${readSelectedNoteText(pane)}\nrequests=\n${requests}\npane=${truncateText(pane.textContent ?? "")}`,
       { cause: error },
     );
   }
