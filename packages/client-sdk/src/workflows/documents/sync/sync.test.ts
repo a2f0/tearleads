@@ -10,12 +10,12 @@ import {
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/data/documentFixtures";
-import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
 import {
   createLoroPendingUpdate,
   decryptedUpdateText,
-} from "../../../../test/helpers/documentSyncFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+} from "../../../../test/helpers/workflows/documentSyncFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { persistedDocumentSyncStateFromResponse } from "../../../data/documents/shared/sync/syncResponses";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

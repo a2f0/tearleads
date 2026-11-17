@@ -10,13 +10,13 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import { createMultipartBlobStageFixture } from "../../../../test/helpers/data/blobUploadFixtures";
 import { SIGNED_AT } from "../../../../test/helpers/data/containerFixtures";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import {
   createDocumentAfterRevoke,
   createRevokedRotationFixture,
-} from "../../../../test/helpers/revokedKekRotation";
+} from "../../../../test/helpers/workflows/revokedKekRotation";
 import type { BlobBytes } from "../../blobs/blobContracts";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 import { unwrapDocumentContentKeyTarget } from "../../documents/shared/projection/projectionContentKeys";

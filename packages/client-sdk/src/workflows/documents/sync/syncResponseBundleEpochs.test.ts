@@ -9,7 +9,7 @@ import {
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/data/documentFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { persistedDocumentSyncStateFromResponse } from "../../../data/documents/shared/responses";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { unwrapDocumentSyncResponseContentKeys } from "../syncPlan/syncContentKeys";

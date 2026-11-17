@@ -10,8 +10,8 @@ import {
   createPendingUpdateRecord,
   writerKeyResolver,
 } from "../../../../test/helpers/data/documentFixtures";
-import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import {
   createBlobBytesResponse,
   createFixtureBinding,
   createUploadedAttachmentFixture,
-} from "../../../../test/helpers/blobHydrationFixture";
-import { refreshedCitation } from "../../../../test/helpers/refreshedCitation";
+} from "../../../../test/helpers/workflows/blobHydrationFixture";
+import { refreshedCitation } from "../../../../test/helpers/workflows/refreshedCitation";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
 import { createAttachmentDecryptor } from "../verification/attachmentDecryptor";
 

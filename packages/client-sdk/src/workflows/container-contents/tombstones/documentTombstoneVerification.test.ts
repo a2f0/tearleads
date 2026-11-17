@@ -1,8 +1,8 @@
 import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { createWorkflowInputFixture } from "../../../../test/helpers/internalRuntimeFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createWorkflowInputFixture } from "../../../../test/helpers/workflows/internalRuntimeFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { createContainerContentsWorkflowRuntime } from "../../../client/runtime/containerContentsRuntime";
 import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";

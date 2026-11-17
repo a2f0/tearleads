@@ -8,17 +8,17 @@ import {
   signWriteHeader,
   toFingerprint,
 } from "@tearleads/crypto";
-import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
-import {
-  createFixtureBinding,
-  createUploadedAttachmentFixture,
-  stagedBindingSummary,
-} from "../../../../test/helpers/blobHydration";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/data/blobUploadFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
+import {
+  createFixtureBinding,
+  createUploadedAttachmentFixture,
+  stagedBindingSummary,
+} from "../../../../test/helpers/workflows/blobHydration";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
 
 test("decryptDocumentAttachmentBlob accepts the signed write-time authorization after blob targets advance", async () => {

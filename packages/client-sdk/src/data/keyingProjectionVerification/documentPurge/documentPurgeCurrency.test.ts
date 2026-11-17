@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { createPurgeCurrencyFixture } from "../../../../test/helpers/documentPurgeCurrency";
+import { createPurgeCurrencyFixture } from "../../../../test/helpers/workflows/documentPurgeCurrency";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
 import { deleteDocumentPlacements } from "../../persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../persistence/documents/documentsPersistence";

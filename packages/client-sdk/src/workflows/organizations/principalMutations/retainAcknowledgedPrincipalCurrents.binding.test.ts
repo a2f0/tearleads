@@ -3,12 +3,12 @@ import {
   computePrincipalStatePayloadCiphertextHash,
   signPrincipalState,
 } from "@tearleads/crypto";
-import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../../test/helpers/data/principalPolicyFixtures";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
+import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   encodeOrganizationAuthorityDescriptor,

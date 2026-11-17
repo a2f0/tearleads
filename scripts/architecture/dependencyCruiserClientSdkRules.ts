@@ -1,9 +1,18 @@
 import type { IConfiguration } from "dependency-cruiser";
+import {
+  baselinedFilePatterns,
+  type ClientSdkTestTierBaseline,
+} from "./clientSdkTestTierBaseline";
+import testTierBaselineJson from "./clientSdkTestTierBaseline.json";
 import { packageSourceRoot, testFilePattern } from "./dependencySourceRoots";
 
+type ForbiddenRule = NonNullable<IConfiguration["forbidden"]>[number];
+
 const sdkSourceRoot = packageSourceRoot.clientSdk;
+const sdkHelperRoot = sdkSourceRoot.replace(/src\/$/, "test/helpers/");
 const testFiles = testFilePattern.source;
 const testSupportFiles = [testFiles, "\\.(testFixtures|testUtils)\\.[tj]sx?$"];
+const testTierBaseline: ClientSdkTestTierBaseline = testTierBaselineJson;
 
 // Directional tiers, lowest first: data -> workflows -> stores -> sync
 // (background reconciliation) -> client (the facade and composition root).
@@ -24,6 +33,78 @@ const clientSdkLayer = {
   syncCoordinator: `${sdkSourceRoot}data/sync/(syncC|c)oordinator`,
   workflows: `${sdkSourceRoot}workflows/`,
 };
+
+// Test helpers sort into folders by the highest tier they load at run time.
+const sdkHelperTier = {
+  data: `${sdkHelperRoot}data/`,
+  workflows: `${sdkHelperRoot}workflows/`,
+};
+
+function testTierRule(input: {
+  readonly name: string;
+  readonly comment: string;
+  readonly from: string;
+  readonly allowed: string[];
+}) {
+  const exempt = baselinedFilePatterns(testTierBaseline, input.name);
+  return {
+    name: input.name,
+    severity: "error",
+    comment: input.comment,
+    from:
+      exempt.length > 0
+        ? { path: input.from, pathNot: exempt }
+        : { path: input.from },
+    to: {
+      path: [sdkSourceRoot, sdkHelperRoot],
+      pathNot: input.allowed,
+      dependencyTypesNot: ["type-only"],
+    },
+  } satisfies ForbiddenRule & { readonly from: { readonly path: string } };
+}
+
+const dataTierModules = [clientSdkLayer.data, sdkHelperTier.data];
+const workflowTierModules = [
+  ...dataTierModules,
+  clientSdkLayer.workflows,
+  sdkHelperTier.workflows,
+];
+
+// A test loads only its own tier and the tiers below it, through source or
+// helpers, so a change above that tier never reruns it. Each rule binds a
+// tier's modules, tests, and test support, and the helpers of that tier, by
+// induction over runtime imports; type-only imports stay allowed.
+// clientSdkTestTierBaseline.json lists the files still exempt.
+export const clientSdkTestTierRules = [
+  testTierRule({
+    name: "client-sdk-data-tests-load-only-the-data-tier",
+    comment:
+      "src/data tests and test support load only src/data and test/helpers/data at run time; a test that needs a workflow belongs beside that workflow.",
+    from: clientSdkLayer.data,
+    allowed: dataTierModules,
+  }),
+  testTierRule({
+    name: "client-sdk-data-test-helpers-load-only-the-data-tier",
+    comment:
+      "test/helpers/data loads only src/data and other data helpers at run time; a helper that needs more sorts into a higher helper tier.",
+    from: sdkHelperTier.data,
+    allowed: dataTierModules,
+  }),
+  testTierRule({
+    name: "client-sdk-workflow-tests-load-only-data-and-workflows",
+    comment:
+      "src/workflows tests and test support load only the data and workflow tiers and their helpers at run time.",
+    from: clientSdkLayer.workflows,
+    allowed: workflowTierModules,
+  }),
+  testTierRule({
+    name: "client-sdk-workflow-test-helpers-load-only-data-and-workflows",
+    comment:
+      "test/helpers/workflows loads only the data and workflow tiers and their helpers at run time.",
+    from: sdkHelperTier.workflows,
+    allowed: workflowTierModules,
+  }),
+];
 
 export const clientSdkDependencyRules = [
   {
@@ -129,4 +210,5 @@ export const clientSdkDependencyRules = [
       dependencyTypesNot: ["type-only"],
     },
   },
+  ...clientSdkTestTierRules,
 ] satisfies NonNullable<IConfiguration["forbidden"]>;

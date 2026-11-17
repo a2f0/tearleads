@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createCurrentOrganizationRuntimeFixture } from "../../../test/helpers/currentOrganizationRuntime";
-import { createInternalRuntimeFixture } from "../../../test/helpers/internalRuntimeFixtures";
+import { createCurrentOrganizationRuntimeFixture } from "../../../test/helpers/workflows/currentOrganizationRuntime";
+import { createInternalRuntimeFixture } from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { hydrateOrganizationGroupNamesForRuntime } from "./organizationGroupNameHydration";
 
 test("runtime group labels use bounded policy recovery through private custody", async () => {

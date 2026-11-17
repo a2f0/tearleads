@@ -7,7 +7,7 @@ import {
 import {
   createOrganizationHistoryPageFixture,
   organizationHistoryPage,
-} from "../../../../test/helpers/organizationHistoryPage";
+} from "../../../../test/helpers/workflows/organizationHistoryPage";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,

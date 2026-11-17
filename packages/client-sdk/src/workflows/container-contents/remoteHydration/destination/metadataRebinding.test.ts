@@ -4,7 +4,7 @@ import {
   createMetadataBindingFixture,
   installForeignOrganizationBinding,
   installOrganizationBinding,
-} from "../../../../../test/helpers/containerMetadataBinding";
+} from "../../../../../test/helpers/workflows/containerMetadataBinding";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { clientSqlTables } from "../../../../data/sqlite/schema";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";

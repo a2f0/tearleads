@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { runQueuedDocumentMoveFixture } from "../../../../test/helpers/queuedDocumentMoveFixture";
+import { runQueuedDocumentMoveFixture } from "../../../../test/helpers/workflows/queuedDocumentMoveFixture";
 import { listContainerContentsDocumentsForContainers } from "../documentQueries/documentSubtreeQueries";
 
 test.each([true, false])(

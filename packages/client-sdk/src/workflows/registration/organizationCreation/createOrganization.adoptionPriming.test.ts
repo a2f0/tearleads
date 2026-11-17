@@ -3,11 +3,11 @@ import {
   acknowledgePolicy,
   organizationAdoptionFixture,
   signSuccessorPolicy,
-} from "../../../../test/helpers/organizationAdoption";
+} from "../../../../test/helpers/workflows/organizationAdoption";
 import {
   createPrimingRuntime,
   pinFounder,
-} from "../../../../test/helpers/provisionedPrincipalHistoryFixtures";
+} from "../../../../test/helpers/workflows/provisionedPrincipalHistoryFixtures";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createOrganization } from "./createOrganization";
 

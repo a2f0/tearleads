@@ -6,8 +6,8 @@ import {
 } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "../../../../test/helpers/data/waitFor";
-import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createDocumentPurgeProof } from "../../../../test/helpers/workflows/documentPurge";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";

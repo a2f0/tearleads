@@ -4,7 +4,7 @@ import {
   createProbeRuntime,
   settleCoordinator,
   settleWithin,
-} from "../../../../../test/helpers/remoteSyncWait";
+} from "../../../../../test/helpers/workflows/remoteSyncWait";
 import { disposeDomainSyncCoordinator } from "../../../../data/sync/syncCoordinator";
 import {
   type DocumentsPersistence,

@@ -8,7 +8,7 @@ import {
   provisionOrganization,
   recoverFoundingGroups,
   runtimeDatabase,
-} from "../../../test/helpers/provisionedPrincipalHistoryFixtures";
+} from "../../../test/helpers/workflows/provisionedPrincipalHistoryFixtures";
 import { TrustedUserIdentityPinRepository } from "../../data/persistence/identity/trustedUserIdentityPinRepository";
 import { loadPinnedUserIdentity } from "../../data/trustedUserIdentity";
 

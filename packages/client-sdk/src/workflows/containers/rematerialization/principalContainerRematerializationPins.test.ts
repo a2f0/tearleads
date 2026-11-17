@@ -3,7 +3,7 @@ import type { ContainerWriterProjectionResponse } from "@tearleads/validators/re
 import {
   createPrincipalReciteFixture,
   ROOT_CONTAINER_ID,
-} from "../../../../test/helpers/principalReciteFixtures";
+} from "../../../../test/helpers/workflows/principalReciteFixtures";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { buildMaterializedContainerCreatePlan } from "../child/create";
 import { childContainerWriterProjectionFromCreatePlan } from "../child/create/createProjection";

@@ -4,7 +4,7 @@ import { waitFor } from "../../../test/helpers/data/waitFor";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import type { BlobStore } from "../../data/blobs/blobContracts";
 import { createDomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

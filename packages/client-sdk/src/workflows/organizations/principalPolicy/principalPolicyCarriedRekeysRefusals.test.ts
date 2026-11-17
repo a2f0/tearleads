@@ -6,7 +6,7 @@ import {
   createRemovalFixture,
   mutationObjectIds,
   stubRekeyRequest,
-} from "../../../../test/helpers/groupRemovalCarryFixture";
+} from "../../../../test/helpers/workflows/groupRemovalCarryFixture";
 import { removeOrganizationGroupUser } from "./index";
 
 type Fixture = Awaited<ReturnType<typeof createRemovalFixture>>;

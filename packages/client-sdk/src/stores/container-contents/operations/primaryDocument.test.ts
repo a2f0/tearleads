@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { base64ToBytes } from "@tearleads/encoding";
 import { importUpdates } from "@tearleads/loro";
-import { primaryDocumentFixture } from "../../../../test/helpers/containerPrimaryDocument";
+import { primaryDocumentFixture } from "../../../../test/helpers/stores/containerPrimaryDocument";
 import {
   createContainerMetadataDocument,
   readContainerMetadataValue,

@@ -21,7 +21,6 @@ import {
 } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import { createContainerMutationServiceFixture } from "../../../../test/helpers/containerMutationServiceFixture";
 import {
   createAuthor,
   createMutationResponseFromRequest,
@@ -30,6 +29,7 @@ import {
   createRecipientIdentityResolver,
   SIGNED_AT,
 } from "../../../../test/helpers/data/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../test/helpers/workflows/containerMutationServiceFixture";
 
 test("revokeRemoteContainer removes a direct user grant and rotates the KEK", async () => {
   const revokedUserId = "user-2";

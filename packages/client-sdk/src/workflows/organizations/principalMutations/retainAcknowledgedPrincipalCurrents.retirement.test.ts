@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/data/principalPolicyFixtures";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
+import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import { captureAcknowledgedPrincipalPredecessor } from "../../principals/acknowledgements/acknowledgedPrincipalPredecessor";

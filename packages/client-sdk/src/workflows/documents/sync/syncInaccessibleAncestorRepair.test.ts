@@ -6,9 +6,9 @@ import {
   createPendingUpdateRecord,
   createResponseFromRequest,
 } from "../../../../test/helpers/data/documentResponseFixtures";
-import { createInaccessibleStaleIntermediateFixture } from "../../../../test/helpers/inaccessibleStaleIntermediate";
-import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
-import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
+import { createInaccessibleStaleIntermediateFixture } from "../../../../test/helpers/workflows/inaccessibleStaleIntermediate";
+import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
+import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import { normalizeContainerKeyWrap } from "../../../data/documents/shared/readers";

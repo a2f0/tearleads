@@ -1,12 +1,12 @@
 import { beforeAll, expect, test } from "bun:test";
+import { principalPolicyHead } from "../../../../../test/helpers/data/principalPolicyFixtures";
 import {
   ADMIN_GROUP_ID,
   ORGANIZATION_ID,
   ROOT_CONTAINER_ID,
   setUpAdminGroupRoot,
-} from "../../../../../test/helpers/adminGroupRoot";
-import { principalPolicyHead } from "../../../../../test/helpers/data/principalPolicyFixtures";
-import { missingPrincipalRecoveryFixture } from "../../../../../test/helpers/missingPrincipalRecovery";
+} from "../../../../../test/helpers/workflows/adminGroupRoot";
+import { missingPrincipalRecoveryFixture } from "../../../../../test/helpers/workflows/missingPrincipalRecovery";
 import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import type { ContainerState } from "../../remoteHydration";
 import { shareRemoteContainerWithGroup } from "../remote";

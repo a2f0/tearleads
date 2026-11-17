@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createMockApiClient } from "@tearleads/test-utils";
-import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
+import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { PrincipalPolicyNotCachedError } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import { createPrincipalPolicyOperation } from "../../principals/principalPolicyService";

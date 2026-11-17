@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { createPublicProjectionHistoryFixture } from "../../../../test/helpers/data/publicProjectionHistory";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import {
   principalHistoryEntries,
   principalHistoryPrefixes,

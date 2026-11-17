@@ -4,7 +4,7 @@ import {
   adoptionAccessHeads,
   organizationAdoptionFixture,
   signSuccessorPolicy,
-} from "../../../../test/helpers/organizationAdoption";
+} from "../../../../test/helpers/workflows/organizationAdoption";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";

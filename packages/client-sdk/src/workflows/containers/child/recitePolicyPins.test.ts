@@ -4,14 +4,14 @@ import {
   verifyContainerAccessManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import { reciteResponse } from "../../../../test/helpers/containerReciteFixtures";
+import { reciteResponse } from "../../../../test/helpers/workflows/containerReciteFixtures";
 import {
   createPrincipalReciteFixture,
   GROUP_ID,
   ORGANIZATION_ID,
   ROOT_CONTAINER_ID,
   USER_ID,
-} from "../../../../test/helpers/principalReciteFixtures";
+} from "../../../../test/helpers/workflows/principalReciteFixtures";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
 import { heldContainerSnapshot } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import {

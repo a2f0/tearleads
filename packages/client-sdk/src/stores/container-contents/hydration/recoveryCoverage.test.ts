@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ListContainerParentLanesResponse } from "@tearleads/validators/response";
-import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
+import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { RemoteContainerHydrationHost } from "../../../workflows/container-contents/remoteHydration";
 import {

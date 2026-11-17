@@ -5,10 +5,6 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
-import {
-  createDeepRotatedAncestorFixture,
-  createRotatedAncestorFixture,
-} from "../../../../test/helpers/ancestorRotationRecovery";
 import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
 import { createContainerServer } from "../../../../test/helpers/data/containerMutationServer";
 import { writerKeyResolver } from "../../../../test/helpers/data/documentFixtures";
@@ -16,8 +12,12 @@ import {
   createPendingUpdateRecord,
   createResponseFromRequest,
 } from "../../../../test/helpers/data/documentResponseFixtures";
-import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
-import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
+import {
+  createDeepRotatedAncestorFixture,
+  createRotatedAncestorFixture,
+} from "../../../../test/helpers/workflows/ancestorRotationRecovery";
+import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
+import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import {
   buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,

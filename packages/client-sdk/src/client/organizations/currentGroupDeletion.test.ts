@@ -4,11 +4,11 @@ import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../test/helpers/data/principalPolicyFixtures";
-import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
+import { createWorkflowInputFixture } from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../test/helpers/principalAuthorityRecovery";
+} from "../../../test/helpers/workflows/principalAuthorityRecovery";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principalContracts/organizationAuthorityDescriptor";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";

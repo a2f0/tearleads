@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { createCurrentOrganizationRuntimeFixture } from "../../../../test/helpers/currentOrganizationRuntime";
-import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
+import { createCurrentOrganizationRuntimeFixture } from "../../../../test/helpers/workflows/currentOrganizationRuntime";
+import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import {
   ensureContainerTables,
   saveContainer,

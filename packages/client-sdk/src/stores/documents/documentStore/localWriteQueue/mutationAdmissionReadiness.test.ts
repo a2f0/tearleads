@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createMutationAdmissionFixture } from "../../../../../test/helpers/mutationAdmission";
+import { createMutationAdmissionFixture } from "../../../../../test/helpers/stores/mutationAdmission";
 import type { DocumentMutationGuard, DocumentStore } from "../../types";
 
 const operations = ["add", "update", "remove", "structured"] as const;

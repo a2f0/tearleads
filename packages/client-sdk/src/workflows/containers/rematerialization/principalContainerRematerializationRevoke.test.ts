@@ -4,7 +4,7 @@ import {
   createPrincipalReciteFixture as createFixture,
   GROUP_ID,
   ROOT_CONTAINER_ID,
-} from "../../../../test/helpers/principalReciteFixtures";
+} from "../../../../test/helpers/workflows/principalReciteFixtures";
 import { readContainerState } from "../../../data/containers/shared/projection";
 import { buildMaterializedContainerCreatePlan } from "../child/create";
 import { childContainerWriterProjectionFromCreatePlan } from "../child/create/createProjection";

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { MAX_CONTAINER_RECITATION_EPOCH } from "@tearleads/crypto";
-import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
+import { createContainerReciteScenario } from "../../../../test/helpers/workflows/containerReciteFixtures";
 import {
   heldContainerSnapshot,
   rememberAcknowledgedContainerHead,

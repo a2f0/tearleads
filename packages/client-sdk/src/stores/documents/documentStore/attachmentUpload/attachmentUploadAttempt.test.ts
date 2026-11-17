@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createBlobAttachmentServiceFixture } from "../../../../../test/helpers/blobAttachmentServiceFixture";
 import { createMultipartBlobStageFixture } from "../../../../../test/helpers/data/blobUploadFixtures";
 import { initiatedStage } from "../../../../../test/helpers/data/multipartUpload";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
+import { createBlobAttachmentServiceFixture } from "../../../../../test/helpers/workflows/blobAttachmentServiceFixture";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
 import type { BlobBytes } from "../../../../data/blobs/blobContracts";
 import type { SecurityIncidentContext } from "../../../../data/shared/securityIncidents";
 import type { DocumentStoreState } from "../state";

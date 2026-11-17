@@ -9,7 +9,7 @@ import {
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/data/principalPolicyBundles";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
-import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
+import { cacheReferencedPolicies } from "../../../../test/helpers/workflows/policyCacheFixtures";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("referenced policy warming re-verifies an exact local bundle without a policy GET", async () => {

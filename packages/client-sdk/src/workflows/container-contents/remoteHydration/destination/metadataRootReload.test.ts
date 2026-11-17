@@ -8,9 +8,9 @@ import {
   projectionHistoryPages,
   projectionPolicySource,
 } from "../../../../../test/helpers/data/projectionPolicyPages";
-import { repairPolicyPages } from "../../../../../test/helpers/principalPolicyRepair";
-import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
-import { createReservedGroupAdvance } from "../../../../../test/helpers/reservedGroupAdvance";
+import { repairPolicyPages } from "../../../../../test/helpers/workflows/principalPolicyRepair";
+import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
+import { createReservedGroupAdvance } from "../../../../../test/helpers/workflows/reservedGroupAdvance";
 import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 import { verifyRemoteContainerDestination } from "./verifiedDestination";

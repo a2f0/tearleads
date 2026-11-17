@@ -1,0 +1,133 @@
+import { expect } from "bun:test";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { buildInitialOrganizationPolicyRequest } from "../../../src/data/principals/organizationPolicyRequest";
+import {
+  buildRootContainerCreatePlan,
+  rootContainerWriterProjectionFromCreatePlan,
+} from "../../../src/workflows/containers/root/create";
+import { createAuthor, SIGNED_AT } from "../data/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "../data/groupMetadata";
+import { createSuccessorGroupPolicyBundle } from "../data/groupPolicyFixtures";
+import {
+  organizationPolicyBundleFromInitialRequest,
+  policyBundleFromInitialRequest,
+  principalPolicyHead,
+} from "../data/principalPolicyFixtures";
+import {
+  projectionDirectoryPayload,
+  projectionPolicySource,
+} from "../data/projectionPolicyPages";
+import { createTestTrustedUserIdentityResolver } from "../data/trustedUserIdentity";
+
+export const ADMIN_GROUP_ID = "admins-group";
+export const ORGANIZATION_ID = "organization-1";
+export const ROOT_CONTAINER_ID = "root-container";
+const USER_ID = "remaining-admin";
+export async function setUpAdminGroupRoot() {
+  const { author, signingPublicKey } = await createAuthor({
+    organizationId: ORGANIZATION_ID,
+    userId: USER_ID,
+  });
+  const memberKem = generateKemSeedAndKeyPair();
+  const initialAdminGroup = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
+    creatorEncapsulationKeyPair: memberKem,
+    grants: [{ accessLevel: "admin", containerId: ROOT_CONTAINER_ID }],
+    groupId: ADMIN_GROUP_ID,
+    name: "Admins",
+    signerUserId: USER_ID,
+    signingFingerprint: author.signerKeyFingerprint,
+    signingKeyPair: {
+      signingPrivateKey: author.signerPrivateKey,
+      signingPublicKey,
+    },
+  });
+  const epochOnePolicy =
+    await policyBundleFromInitialRequest(initialAdminGroup);
+  const epochTwoPolicy = await createSuccessorGroupPolicyBundle({
+    author,
+    groupId: ADMIN_GROUP_ID,
+    groupKem: generateKemSeedAndKeyPair(),
+    memberPublicKey: memberKem.publicKey,
+    previousBundle: epochOnePolicy,
+    signedAt: new Date(
+      Date.parse(epochOnePolicy.currentState.signedAt) + 1_000,
+    ).toISOString(),
+    userId: USER_ID,
+  });
+  const initialMembersGroup = await buildInitialGroupPolicyRequest({
+    identityTrustDomain: "https://api.example.test",
+    creatorEncapsulationKeyPair: memberKem,
+    groupId: "members-group",
+    name: "Members",
+    signerUserId: USER_ID,
+    signingFingerprint: author.signerKeyFingerprint,
+    signingKeyPair: {
+      signingPrivateKey: author.signerPrivateKey,
+      signingPublicKey,
+    },
+  });
+  const membersPolicy =
+    await policyBundleFromInitialRequest(initialMembersGroup);
+  const initialOrganizationPolicy = await buildInitialOrganizationPolicyRequest(
+    {
+      identityTrustDomain: "https://api.example.test",
+      adminGroupId: ADMIN_GROUP_ID,
+      encapsulationPublicKey: memberKem.publicKey,
+      groupHeads: [
+        principalPolicyHead(epochTwoPolicy),
+        principalPolicyHead(membersPolicy),
+      ],
+      memberGroupId: "members-group",
+      organizationId: ORGANIZATION_ID,
+      signingKeyPair: {
+        signingPrivateKey: author.signerPrivateKey,
+        signingPublicKey,
+      },
+      userId: USER_ID,
+    },
+  );
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    ORGANIZATION_ID,
+    initialOrganizationPolicy,
+  );
+  const containerKey = crypto.getRandomValues(new Uint8Array(32));
+  const root = await buildRootContainerCreatePlan({
+    adminGroup: initialAdminGroup,
+    author,
+    containerId: ROOT_CONTAINER_ID,
+    containerKey,
+    metadataDocumentId: "root-metadata-document",
+    recipientEncapsulationPublicKey: memberKem.publicKey,
+    signedAt: SIGNED_AT,
+  });
+  expect(
+    root.plan.request.principalPolicyRefs.map((ref) => ref.principalId),
+  ).toEqual([initialAdminGroup.groupId]);
+  const initialProjection = rootContainerWriterProjectionFromCreatePlan(
+    root.plan,
+  );
+  initialProjection.policyEvidence = {
+    organization: projectionPolicySource(organizationPolicy),
+    organizationPayloads: [projectionDirectoryPayload(organizationPolicy)],
+    groups: [projectionPolicySource(epochTwoPolicy)],
+  };
+  const resolveUserIdentity = createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: memberKem.publicKey,
+    signingKeyFingerprint: author.signerKeyFingerprint,
+    signingPublicKey,
+    userId: USER_ID,
+  });
+
+  return {
+    author,
+    containerKey,
+    epochOnePolicy,
+    epochTwoPolicy,
+    initialProjection,
+    memberKem,
+    organizationPolicy,
+    resolveUserIdentity,
+    projectionBundles: [organizationPolicy, epochTwoPolicy],
+  };
+}

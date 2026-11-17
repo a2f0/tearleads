@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createAdoptionScenario,
   runListedCreateAdoption,
-} from "../../../../../test/helpers/containerCreateAdoption";
+} from "../../../../../test/helpers/client/containerCreateAdoption";
 
 // A pending create whose container a listing already carries is adopted only
 // when the signed epoch-1 create is this user's, in the intended organization

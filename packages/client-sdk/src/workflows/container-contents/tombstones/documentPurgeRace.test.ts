@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
-import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
+import { createDocumentPurgeProof } from "../../../../test/helpers/workflows/documentPurge";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
+import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import {
   createDocumentProjectorRegistry,
   defaultDocumentProjectorRegistry,

@@ -5,7 +5,7 @@ import {
 } from "../../../../../test/helpers/data/containerFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/data/trustedUserIdentity";
 import { withTestExecSql } from "../../../../../test/helpers/data/withTestExecSql";
-import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
+import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence as persistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";

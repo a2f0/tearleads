@@ -10,7 +10,7 @@ import {
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { createDomainScope } from "../../data/shared/domainScope";
 import { createOrganizations } from "../organizations";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";

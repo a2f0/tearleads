@@ -5,9 +5,9 @@ import { createAuthor } from "../../../../../test/helpers/data/containerFixtures
 import { createLocalAuthorityRecoveryFixture } from "../../../../../test/helpers/data/principalAuthorityLocal";
 import { principalPolicyHead } from "../../../../../test/helpers/data/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
-import { createShareTestRuntime } from "../../../../../test/helpers/groupShareScenario";
-import { signedAuthorityRecoveryHistory } from "../../../../../test/helpers/principalAuthorityRecovery";
-import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
+import { createShareTestRuntime } from "../../../../../test/helpers/workflows/groupShareScenario";
+import { signedAuthorityRecoveryHistory } from "../../../../../test/helpers/workflows/principalAuthorityRecovery";
+import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { createTestContainerState } from "../containerState.testFixtures";
 import { containerStateHasCurrentGroupGrant } from "./groupGrantVerification";
 import { resolveCurrentGroupKeyEpoch } from "./groupShareEpoch";

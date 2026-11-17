@@ -7,7 +7,7 @@ import {
   organizationId,
   principalPolicy,
 } from "../../../test/helpers/data/organizationReadModelFixtures";
-import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
+import { createWorkflowInputFixture } from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import {

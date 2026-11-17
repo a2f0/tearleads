@@ -14,12 +14,12 @@ import {
   createResponseFromRequest,
   type DocumentCreateFixture,
 } from "../../../../../test/helpers/data/documentFixtures";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
 import {
   createEchoDocumentSyncResponse,
   createOnlineDocumentsRuntime,
   createStoredDocumentWriterProjection,
-} from "../../../../../test/helpers/onlineDocumentStoreFixtures";
+} from "../../../../../test/helpers/workflows/onlineDocumentStoreFixtures";
 import {
   defaultDocumentsPersistence,
   listPendingDocumentUpdates,

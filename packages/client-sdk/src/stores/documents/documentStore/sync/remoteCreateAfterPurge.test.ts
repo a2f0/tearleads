@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
-import { createProbeRuntime } from "../../../../../test/helpers/remoteSyncWait";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
+import { createProbeRuntime } from "../../../../../test/helpers/workflows/remoteSyncWait";
 import { purgeLocalContainerDocument } from "../../../../workflows/container-contents/tombstones/documentPurge";
 import {
   type DocumentRecord,

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/currentShareMetadata";
+import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/workflows/currentShareMetadata";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { resolveCurrentGroupKeyEpoch } from "./groupShareEpoch";
 

@@ -2,11 +2,6 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
-  createBlobBytesResponse,
-  createFixtureBinding,
-  createUploadedAttachmentFixture,
-} from "../../../../test/helpers/blobHydrationFixture";
-import {
   createAuthor,
   createMutationResponseFromRequest,
   createParentProjection,
@@ -18,7 +13,12 @@ import {
   writerProjectionEvidence,
 } from "../../../../test/helpers/data/documentFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
-import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
+import {
+  createBlobBytesResponse,
+  createFixtureBinding,
+  createUploadedAttachmentFixture,
+} from "../../../../test/helpers/workflows/blobHydrationFixture";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import {
   buildMaterializedContainerCreatePlan,

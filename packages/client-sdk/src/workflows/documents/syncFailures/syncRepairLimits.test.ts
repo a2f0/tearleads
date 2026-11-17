@@ -6,7 +6,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
-import { withStaleDocument } from "../../../../test/helpers/syncRepairBoundary";
+import { withStaleDocument } from "../../../../test/helpers/workflows/syncRepairBoundary";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import {
   prepareAutomaticContainerRekeys,

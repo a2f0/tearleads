@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createNewerPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeNewerPolicies";
+import { createNewerPolicyPurgeFixture } from "../../../../test/helpers/workflows/documentPurgeNewerPolicies";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalHistoryPrefixes } from "../../sqlite/schema/principalHistoryEvidenceSchema";

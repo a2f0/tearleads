@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { encodeVersionVector } from "@tearleads/loro";
 import { createFileBackedSql } from "../../../../../test/helpers/data/fileBackedSql";
 import { countingExecSql } from "../../../../../test/helpers/data/statementCounting";
-import { createCoverageFixture } from "../../../../../test/helpers/syncOutgoingCoverage";
+import { createCoverageFixture } from "../../../../../test/helpers/stores/syncOutgoingCoverage";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { setDocumentText } from "../mutations";
 import { captureDocumentStoreSyncGeneration } from "../sync/syncGeneration";

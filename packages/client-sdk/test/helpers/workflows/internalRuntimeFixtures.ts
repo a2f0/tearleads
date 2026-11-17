@@ -1,0 +1,138 @@
+import type { ApiClient } from "@tearleads/api-client";
+import type {
+  InternalRuntime,
+  InternalWorkflowRuntimeInput,
+} from "../../../src/client/runtime/workflowRuntime";
+import type { BlobStore } from "../../../src/data/blobs/blobContracts";
+import { defaultDocumentProjectorRegistry } from "../../../src/data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
+import type { PrincipalHistoryProtectionLease } from "../../../src/data/principals/principalHistoryProtection";
+import { createDomainScope } from "../../../src/data/shared/domainScope";
+import { UnverifiedUserIdentityError } from "../../../src/data/trustedUserIdentity";
+import { containerContentsOrganizationHost } from "../../../src/workflows/organizations/containerContentsHost";
+import type { PrincipalMutationRecoveryApi } from "../../../src/workflows/organizations/principalMutations/principalMutationJournalManagement";
+import { principalMutationApiFixture } from "../data/principalMutationApiFixture";
+import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
+
+interface WorkflowInputFixtureOptions {
+  readonly apiClient: ApiClient;
+  readonly auth?: Partial<InternalWorkflowRuntimeInput["auth"]> | undefined;
+  readonly blobStore?:
+    | InternalWorkflowRuntimeInput["infra"]["blobStore"]
+    | undefined;
+  readonly containerId?: string | null | undefined;
+  readonly dbStatus?:
+    | InternalWorkflowRuntimeInput["infra"]["dbStatus"]
+    | undefined;
+  readonly domainScope?:
+    | InternalWorkflowRuntimeInput["state"]["domainScope"]
+    | undefined;
+  readonly execSql: InternalWorkflowRuntimeInput["infra"]["execSql"];
+  readonly logError?: InternalWorkflowRuntimeInput["util"]["logError"];
+  readonly online?: boolean | undefined;
+  readonly resolveTrustedUserIdentity?: InternalWorkflowRuntimeInput["resolveTrustedUserIdentity"];
+  /** The snapshot's bound history custody; none when omitted. */
+  readonly withPrincipalHistoryProtection?:
+    | PrincipalHistoryProtectionLease
+    | undefined;
+}
+
+/**
+ * Builds the workflow-runtime input tests hand to client coordinators. Only
+ * apiClient and execSql are required; everything else defaults to a quiet,
+ * authenticated, online, ready-database runtime.
+ */
+export function createWorkflowInputFixture(
+  options: WorkflowInputFixtureOptions,
+): InternalWorkflowRuntimeInput {
+  const api: ApiClient & Partial<PrincipalMutationRecoveryApi> =
+    options.apiClient;
+  // Coordinator fixtures have no saved mutations unless a test supplies them.
+  const recovery = {
+    readPendingPrincipalMutation:
+      api.readPendingPrincipalMutation ?? (async () => null),
+    recoverPendingPrincipalMutation:
+      api.recoverPendingPrincipalMutation ?? (async () => {}),
+    abandonPendingPrincipalMutation:
+      api.abandonPendingPrincipalMutation ?? (async () => false),
+    discardUnreadablePrincipalMutation:
+      api.discardUnreadablePrincipalMutation ?? (async () => false),
+  } satisfies PrincipalMutationRecoveryApi;
+  return withPrincipalPolicies(
+    {
+      apiClient: principalMutationApiFixture(api, recovery),
+      resolveTrustedUserIdentity:
+        options.resolveTrustedUserIdentity ?? (async () => null),
+      auth: {
+        isAuthenticated: true,
+        organizationId: null,
+        userId: null,
+        ...options.auth,
+      },
+      crypto: {
+        encapsulationKeyPair: null,
+        signingFingerprint: null,
+        signingKeyPair: null,
+      },
+      infra: {
+        blobStore: options.blobStore ?? ({} as BlobStore),
+        dbStatus: options.dbStatus ?? "ready",
+        documentProjectors: defaultDocumentProjectorRegistry,
+        execSql: options.execSql,
+      },
+      state: {
+        containerId: options.containerId ?? null,
+        domainScope: options.domainScope ?? createDomainScope(),
+        events: [],
+        online: options.online ?? true,
+      },
+      util: {
+        log: () => {},
+        logError: options.logError ?? (() => {}),
+        reportSecurityIncident: async () => undefined,
+      },
+    },
+    options.withPrincipalHistoryProtection,
+  );
+}
+
+/** Wraps a workflow-input source into the InternalRuntime stub tests inject. */
+export function createInternalRuntimeFixture(
+  workflowInput: () => InternalWorkflowRuntimeInput,
+  overrides: {
+    readonly adoptRootContainer?: InternalRuntime["adoptRootContainer"];
+  } = {},
+): InternalRuntime {
+  return {
+    identityTrustDomain: "https://api.example.test",
+    adoptRootContainer: overrides.adoptRootContainer ?? (() => false),
+    containerContentsOrganizations: containerContentsOrganizationHost,
+    deleteDocumentPlacements,
+    identityLinks: {
+      loadAdmissionPin: async () => null,
+      resolvePinned: async () => null,
+      resolveVerified: async () => null,
+      requireVerified: async (userId) => {
+        throw new UnverifiedUserIdentityError(userId);
+      },
+      createLink: async () => {
+        throw new Error("Identity links are not configured in this fixture.");
+      },
+      createLinkFor: async () => null,
+      verifyLink: async () => {
+        throw new Error("Identity links are not configured in this fixture.");
+      },
+    },
+    retirePrincipalHistoryProtection: () => {},
+    sessionGeneration: 0,
+    boundUserId: async () => null,
+    pinLocalUserIdentity: async () => {},
+    primeProvisionedState: async () => {},
+    publicRuntime: {
+      version: 0,
+      input: workflowInput,
+      subscribe: () => () => {},
+    },
+    workflowInput,
+  };
+}

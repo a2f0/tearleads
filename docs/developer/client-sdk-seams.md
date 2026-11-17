@@ -307,7 +307,7 @@ is the first.
   collaborators.
 - **Tests.** Tests construct the real service over fakes; there is no
   interface over the one implementation.
-  [`createBlobAttachmentServiceFixture`](../../packages/client-sdk/test/helpers/blobAttachmentServiceFixture.ts)
+  [`createBlobAttachmentServiceFixture`](../../packages/client-sdk/test/helpers/workflows/blobAttachmentServiceFixture.ts)
   accepts a fake API with only the calls a test path makes.
 - **Public API.** Replace the bag-taking exports with the class and delete
   them in the same pull request, migrating every caller, rather than keeping
@@ -409,6 +409,33 @@ shrinks.
 - Never add a baseline entry to land new code, and never reorder the subsystem
   layers to make an import pass.
 - When you move a file the baseline names, rename its entries.
+
+## Test tiers
+
+A test loads only its own tier and the tiers below it, so a change in a higher
+tier never reruns it. Shared test helpers live under
+[`packages/client-sdk/test/helpers/`](../../packages/client-sdk/test/helpers/)
+in a folder named for the highest tier they load at run time: `data/`,
+`workflows/`, `stores/`, or `client/`. The helpers root holds no files
+(`.ls-lint.yml`).
+
+Four rules in
+[`dependencyCruiserClientSdkRules.ts`](../../scripts/architecture/dependencyCruiserClientSdkRules.ts)
+enforce this for the two lowest tiers, with type-only imports allowed:
+
+- everything under `src/data/`, tests and test support included, and every
+  helper in `test/helpers/data/` load only `src/data/` and
+  `test/helpers/data/`;
+- everything under `src/workflows/` and every helper in
+  `test/helpers/workflows/` load only those and the data tier.
+
+A helper that needs a higher tier moves to that tier's folder; a test that
+needs a workflow belongs beside that workflow. Tests that still break a rule
+are listed by rule in
+[`scripts/architecture/clientSdkTestTierBaseline.json`](../../scripts/architecture/clientSdkTestTierBaseline.json).
+`bun run lint:architecture` also fails on an entry that no longer breaks its
+rule or no longer exists, so the list only shrinks. Never add an entry to land
+new code; when you move a file the baseline names, rename or delete its entry.
 
 ## Enforcing a boundary
 

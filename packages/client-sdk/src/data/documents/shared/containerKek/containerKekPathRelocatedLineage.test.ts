@@ -3,7 +3,7 @@ import { createParentProjectionUserKeyResolver } from "../../../../../test/helpe
 import {
   relocatedChildHistory,
   servingForgedKeyring,
-} from "../../../../../test/helpers/relocatedLineage";
+} from "../../../../../test/helpers/workflows/relocatedLineage";
 import { unwrapContainerKekPathWithHistoryFailures } from "./containerKekPath";
 
 // The default read path builds its own verified-manifest map, so these drive

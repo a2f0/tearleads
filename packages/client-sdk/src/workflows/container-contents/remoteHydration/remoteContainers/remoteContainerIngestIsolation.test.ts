@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/cachedContainerHydrationRuntime";
+import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/stores/cachedContainerHydrationRuntime";
 import { createRemoteContainerIngestor } from "../index";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 

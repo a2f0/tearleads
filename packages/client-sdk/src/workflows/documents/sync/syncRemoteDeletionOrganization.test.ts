@@ -6,9 +6,9 @@ import {
 } from "@tearleads/test-utils";
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { createPendingUpdateRecord } from "../../../../test/helpers/data/documentFixtures";
-import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
-import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createDocumentPurgeProof } from "../../../../test/helpers/workflows/documentPurge";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 
 test("purge proof for the same document id in another organization fails closed", async () => {
   const local = await createMaterializedSyncFixture();

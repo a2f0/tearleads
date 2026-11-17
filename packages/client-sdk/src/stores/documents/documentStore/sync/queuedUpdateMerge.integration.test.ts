@@ -23,12 +23,12 @@ import {
   createResponseFromRequest,
   type DocumentCreateFixture,
 } from "../../../../../test/helpers/data/documentFixtures";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
 import {
   createEchoDocumentSyncResponse,
   createOnlineDocumentsRuntime,
   createStoredDocumentWriterProjection,
-} from "../../../../../test/helpers/onlineDocumentStoreFixtures";
+} from "../../../../../test/helpers/workflows/onlineDocumentStoreFixtures";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import { getDocumentScope } from "../../../../data/persistence/documents/internal/documentRows";
 import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";

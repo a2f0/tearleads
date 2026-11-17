@@ -8,7 +8,7 @@ import {
 } from "@tearleads/loro";
 import { isDocumentSyncRequest } from "@tearleads/validators/request";
 import { createPendingUpdateRecord } from "../../../../test/helpers/data/documentFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 
 async function createFullHistoryPendingUpdate(text: string) {

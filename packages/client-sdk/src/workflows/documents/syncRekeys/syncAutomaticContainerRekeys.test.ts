@@ -1,15 +1,15 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import {
-  createForkedRotatedAncestorFixture,
-  createRotatedAncestorFixture,
-} from "../../../../test/helpers/ancestorRotationRecovery";
 import { writerKeyResolver } from "../../../../test/helpers/data/documentFixtures";
 import {
   createPendingUpdateRecord,
   createResponseFromRequest,
 } from "../../../../test/helpers/data/documentResponseFixtures";
-import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
+import {
+  createForkedRotatedAncestorFixture,
+  createRotatedAncestorFixture,
+} from "../../../../test/helpers/workflows/ancestorRotationRecovery";
+import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import {

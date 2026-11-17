@@ -1,0 +1,230 @@
+import {
+  type ContainerKekKeyringEntry,
+  computeContainerKekMaterialId,
+  generateKemSeedAndKeyPair,
+  sealContainerKekKeyring,
+} from "@tearleads/crypto";
+import {
+  asContainerMutationFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type { ExecSql } from "../../../src/data/sqlite/sqlSchema";
+import {
+  createMutationResponseFromRequest,
+  createParentProjection,
+  createParentProjectionUserKeyResolver,
+  createRecipientIdentityResolver,
+} from "../data/containerFixtures";
+import { createContainerMutationServiceFixture } from "./containerMutationServiceFixture";
+import { createChildContainerProjection } from "./projectionHierarchy";
+
+export const CHILD_ID = "lineage-child";
+export const GRANTEE_ID = "lineage-grantee";
+
+type ParentProjection = Awaited<ReturnType<typeof createParentProjection>>;
+type ChildProjection = Awaited<
+  ReturnType<typeof createChildContainerProjection>
+>;
+
+/**
+ * Grants the child to `GRANTEE_ID` at epoch 1, so a later revoke has a real
+ * subject. Returns the shared projection and a key resolver that knows the
+ * grantee as well as the parent.
+ */
+async function shareChildWithGrantee(input: {
+  readonly child: ChildProjection;
+  readonly execSql: ExecSql;
+  readonly parent: ParentProjection;
+}) {
+  const granteeKeyPair = generateKemSeedAndKeyPair();
+  const resolveGrantee = createRecipientIdentityResolver({
+    encapsulationPublicKey: granteeKeyPair.publicKey,
+    signingKeyFingerprint: input.parent.author.signerKeyFingerprint,
+    signingPublicKey: input.parent.signingPublicKey,
+  });
+  const resolveParent = createParentProjectionUserKeyResolver(input.parent);
+  const resolveProjectionUserKey = (userId: string) =>
+    userId === GRANTEE_ID ? resolveGrantee(userId) : resolveParent(userId);
+  const childKek = input.child.projection.containerKeks.at(-1);
+  if (!childKek) throw new Error("Expected the child KEK");
+  const shared = await createContainerMutationServiceFixture({
+    reportSecurityIncident: async () => {},
+    api: {
+      reciteContainer: async () => null,
+      getContainerWriterProjection: async () => input.child.projection,
+      shareContainer: async (_containerId, request) =>
+        createMutationResponseFromRequest(request, input.child.projection),
+    },
+    execSql: input.execSql,
+    resolveTrustedUserIdentity: resolveGrantee,
+    encapsulationSecretKey: input.parent.secretKey,
+  }).shareRemoteContainer({
+    accessLevel: "read",
+    author: input.parent.author,
+    containerId: CHILD_ID,
+    recipientUserId: GRANTEE_ID,
+    resolveProjectionUserKey,
+  });
+  if (!shared) throw new Error("Expected the child to be shared");
+  const projection: ContainerWriterProjectionResponse = {
+    ...input.child.projection,
+    path: [
+      ...input.child.projection.path.slice(0, -1),
+      asContainerMutationFixture(shared.response).accessManifest,
+    ],
+    containerKeks: [
+      ...input.child.projection.containerKeks.slice(0, -1),
+      {
+        ...asContainerMutationFixture(shared.response).containerKek,
+        containerManifestHistory: [
+          input.child.bundle,
+          ...childKek.containerManifestHistory,
+        ],
+      },
+    ],
+  };
+  return { projection, resolveProjectionUserKey };
+}
+
+/**
+ * A child rotated once (epoch 1 -> 2), then served with its epoch-1 manifests
+ * under the root's KEK instead of its own: the pooled lineage still verifies,
+ * but the child KEK's history no longer names the epoch-1 id (#2365 finding
+ * 32). With `shareWithGrantee`, the child is granted to `GRANTEE_ID` at epoch
+ * 1, so the relocated history carries a revocable subject.
+ */
+export async function relocatedChildHistory(
+  options: { readonly shareWithGrantee?: boolean } = {},
+) {
+  const parent = await createParentProjection();
+  const child = await createChildContainerProjection({
+    containerId: CHILD_ID,
+    parent,
+    parentProjection: parent.projection,
+  });
+  const database = await createTestExecSql("relocated-lineage");
+  const shared = options.shareWithGrantee
+    ? await shareChildWithGrantee({
+        child,
+        execSql: database.execSql,
+        parent,
+      })
+    : null;
+  const epoch1Projection = shared?.projection ?? child.projection;
+  const resolveProjectionUserKey =
+    shared?.resolveProjectionUserKey ??
+    createParentProjectionUserKeyResolver(parent);
+  const rekeyed = await createContainerMutationServiceFixture({
+    reportSecurityIncident: async () => {},
+    api: {
+      reciteContainer: async () => null,
+      getContainerWriterProjection: async () => epoch1Projection,
+      rekeyContainer: async (_containerId, request) =>
+        createMutationResponseFromRequest(request, epoch1Projection),
+    },
+    execSql: database.execSql,
+    encapsulationSecretKey: parent.secretKey,
+  }).rekeyRemoteContainer({
+    author: parent.author,
+    containerId: CHILD_ID,
+    resolveProjectionUserKey,
+  });
+  const rootKek = epoch1Projection.containerKeks[0];
+  const epoch1Kek = epoch1Projection.containerKeks.at(-1);
+  const epoch1Head = epoch1Projection.path.at(-1);
+  if (!rekeyed || !rootKek || !epoch1Kek || !epoch1Head) {
+    throw new Error("Expected a rotated child under a root KEK");
+  }
+  const epoch1Id = epoch1Kek.containerKeyEpochId;
+  // Every epoch-1 manifest moves under the root's KEK: the create, and the
+  // grant when the child was shared.
+  const epoch1Manifests = [
+    ...epoch1Kek.containerManifestHistory.filter(
+      (bundle) => bundle.manifestHash !== epoch1Head.manifestHash,
+    ),
+    epoch1Head,
+  ];
+  const relocatedHashes = new Set(
+    epoch1Manifests.map((bundle) => bundle.manifestHash),
+  );
+  const epoch2Kek = asContainerMutationFixture(rekeyed.response).containerKek;
+  const projection: ContainerWriterProjectionResponse = {
+    ...epoch1Projection,
+    path: [
+      ...epoch1Projection.path.slice(0, -1),
+      asContainerMutationFixture(rekeyed.response).accessManifest,
+    ],
+    containerKeks: [
+      {
+        ...rootKek,
+        containerManifestHistory: [
+          ...rootKek.containerManifestHistory,
+          ...epoch1Manifests,
+        ],
+      },
+      {
+        ...epoch2Kek,
+        containerManifestHistory: epoch2Kek.containerManifestHistory.filter(
+          (bundle) => !relocatedHashes.has(bundle.manifestHash),
+        ),
+      },
+    ],
+  };
+  return {
+    child,
+    database,
+    epoch1Id,
+    epoch2Key: rekeyed.containerKey,
+    epoch2Kek,
+    parent,
+    projection,
+    resolveProjectionUserKey,
+  };
+}
+
+export async function forgedEpoch1Entry(): Promise<ContainerKekKeyringEntry> {
+  // Server-chosen material under an invented id: self-consistent, so the
+  // per-entry material check passes.
+  const keyMaterial = crypto.getRandomValues(new Uint8Array(32));
+  const containerKeyEpochId = await computeContainerKekMaterialId({
+    containerId: CHILD_ID,
+    keyEpoch: 1,
+    keyMaterial,
+  });
+  return { containerKeyEpochId, keyMaterial };
+}
+
+export type RelocatedChildHistory = Awaited<
+  ReturnType<typeof relocatedChildHistory>
+>;
+
+/**
+ * The relocated projection, with the child's served keyring replaced by one
+ * sealed under its epoch-2 key around a forged epoch-1 entry. No signed event
+ * commits to it, so a reader records a history failure while the current KEK
+ * still unwraps, and the rotation reaches its re-seal.
+ */
+export async function servingForgedKeyring(
+  scenario: RelocatedChildHistory,
+): Promise<ContainerWriterProjectionResponse> {
+  const [rootKek, childKek] = scenario.projection.containerKeks;
+  if (!rootKek || !childKek) throw new Error("Expected root and child KEKs");
+  const forgedKeyring = await sealContainerKekKeyring({
+    containerId: CHILD_ID,
+    entries: [await forgedEpoch1Entry()],
+    keyEpoch: 2,
+    successorContainerKey: scenario.epoch2Key,
+    successorContainerKeyEpochId: childKek.containerKeyEpochId,
+  });
+  return {
+    ...scenario.projection,
+    containerKeks: [
+      rootKek,
+      {
+        ...childKek,
+        keyring: forgedKeyring,
+      },
+    ],
+  };
+}

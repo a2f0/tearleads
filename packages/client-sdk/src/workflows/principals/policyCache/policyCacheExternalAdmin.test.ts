@@ -12,7 +12,7 @@ import {
   principalPolicyBundleFromInitialPolicy,
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/data/principalPolicyBundles";
-import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
+import { cacheReferencedPolicies } from "../../../../test/helpers/workflows/policyCacheFixtures";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("principal policy sync authorizes empty group bundles from verified organization admins", async () => {

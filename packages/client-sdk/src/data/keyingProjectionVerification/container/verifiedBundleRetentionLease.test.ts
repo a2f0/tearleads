@@ -8,8 +8,8 @@ import {
   projectionDirectoryPayload,
   projectionPolicySource,
 } from "../../../../test/helpers/data/projectionPolicyPages";
-import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
-import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
+import { projectionPolicyWarmer } from "../../../../test/helpers/workflows/projectionPolicyWarmer";
+import { sharedReplacementBindingFixture } from "../../../../test/helpers/workflows/sharedReplacementBinding";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";
 import {
   openPrincipalPolicyBundleReader,

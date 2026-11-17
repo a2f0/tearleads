@@ -8,7 +8,7 @@ import type {
 } from "@tearleads/validators/response";
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/data/queuedUpdateRows";
 import { createSignedContainerDirectory } from "../../../../test/helpers/data/signedContainerDirectory";
-import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
+import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import { defaultContainerContentsPersistence } from "../containerPersistence";

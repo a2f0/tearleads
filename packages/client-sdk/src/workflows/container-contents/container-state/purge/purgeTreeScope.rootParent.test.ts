@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { withTestExecSql } from "../../../../../test/helpers/data/withTestExecSql";
-import { createDocumentPurgeProof } from "../../../../../test/helpers/documentPurge";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
-import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
+import { createDocumentPurgeProof } from "../../../../../test/helpers/workflows/documentPurge";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
+import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence as persistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";

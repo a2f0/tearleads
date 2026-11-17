@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
+import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   type ContainerMoveIntentRecord,

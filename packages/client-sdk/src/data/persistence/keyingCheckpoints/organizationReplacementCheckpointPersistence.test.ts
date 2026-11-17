@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createReplacementAuthorizationFixture } from "../../../../test/helpers/organizationReplacementAuthorization";
+import { createReplacementAuthorizationFixture } from "../../../../test/helpers/workflows/organizationReplacementAuthorization";
 import {
   clientSqlTables,
   principalPolicyCheckpoints,

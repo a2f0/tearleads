@@ -5,7 +5,7 @@ import type { PendingBlobDeletionsResponse } from "@tearleads/validators/respons
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { denyOrganizationPresentationAccess } from "../../workflows/organizations/readModel/organizationPresentationAccessState";
 import { listPendingBlobDeletions } from "./pendingBlobDeletions";
 

@@ -6,7 +6,7 @@ import { principalPolicyHead } from "../../../../test/helpers/data/principalPoli
 import {
   repairPolicyPages,
   repairProtectionLease,
-} from "../../../../test/helpers/principalPolicyRepair";
+} from "../../../../test/helpers/workflows/principalPolicyRepair";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { PrincipalPolicyService } from "../../principals/principalPolicyService";
 import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";

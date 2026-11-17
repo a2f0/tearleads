@@ -4,8 +4,8 @@ import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyF
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../test/helpers/principalAuthorityRecovery";
-import { repairProtectionLease } from "../../../test/helpers/principalPolicyRepair";
+} from "../../../test/helpers/workflows/principalAuthorityRecovery";
+import { repairProtectionLease } from "../../../test/helpers/workflows/principalPolicyRepair";
 import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";

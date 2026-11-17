@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
-import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/currentShareMetadata";
 import {
   createAuthor,
   createMutationResponseFromRequest,
 } from "../../../../../test/helpers/data/containerFixtures";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
-import { createShareTestRuntime } from "../../../../../test/helpers/groupShareScenario";
-import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
+import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/workflows/currentShareMetadata";
+import { createShareTestRuntime } from "../../../../../test/helpers/workflows/groupShareScenario";
+import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { commitCurrentShareGrant } from "../../../organizations/groupShare/currentShareGrantMutation";
 import { createRuntimeCurrentGroupMutation } from "../../../organizations/principalMutations/runtimeCurrentGroupMutation";
 import { shareRemoteContainerWithGroup } from "../remote";

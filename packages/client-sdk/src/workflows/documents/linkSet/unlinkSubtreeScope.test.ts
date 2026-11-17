@@ -9,8 +9,8 @@ import {
   createLinkSetResponseFromRequest,
   writerProjectionEvidence,
 } from "../../../../test/helpers/data/documentFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
-import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";
 
 async function createLinkedFixture() {

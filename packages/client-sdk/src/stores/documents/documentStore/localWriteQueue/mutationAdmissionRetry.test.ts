@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createMutationAdmissionFixture } from "../../../../../test/helpers/mutationAdmission";
+import { createMutationAdmissionFixture } from "../../../../../test/helpers/stores/mutationAdmission";
 
 for (const operation of ["row retry", "empty structured flush"] as const) {
   test(`expired ${operation} cannot flush a failed predecessor's pending delta`, async () => {

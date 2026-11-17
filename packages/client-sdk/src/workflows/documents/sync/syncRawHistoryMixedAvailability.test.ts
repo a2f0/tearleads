@@ -14,7 +14,7 @@ import {
   createSignedSyncResponseUpdate,
   createSyncResponse,
 } from "../../../../test/helpers/data/documentFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { targetEnvelopeReference } from "../../../data/documents/shared/readers";
 import {
   isDocumentSyncUpdateIsolationError,

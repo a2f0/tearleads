@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { ContainerMutationRequestSchema } from "@tearleads/validators/request";
-import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/currentShareMetadata";
 import { createMutationResponseFromRequest } from "../../../../../test/helpers/data/containerFixtures";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../../../test/helpers/data/principalPolicyFixtures";
+import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/workflows/currentShareMetadata";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyBundles } from "../../../../data/sqlite/schema/principalPolicySchema";
 import { shareRemoteContainerWithGroup } from "../remote";

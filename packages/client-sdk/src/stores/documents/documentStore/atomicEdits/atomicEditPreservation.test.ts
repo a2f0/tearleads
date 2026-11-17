@@ -7,12 +7,12 @@ import {
   importSnapshot,
   importUpdates,
 } from "@tearleads/loro";
+import { openFileBackedSql } from "../../../../../test/helpers/data/fileBackedSql";
 import {
   createAtomicEditFixture,
   ensureAtomicEditStoreReady,
   prepareAtomicCoverage,
-} from "../../../../../test/helpers/atomicEditCoverage";
-import { openFileBackedSql } from "../../../../../test/helpers/data/fileBackedSql";
+} from "../../../../../test/helpers/stores/atomicEditCoverage";
 import { readStoredDocumentState } from "../../../../data/documents/documentKinds";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import { sqlDocumentsPersistence as documents } from "../../../../data/persistence/documents/documentsPersistence";

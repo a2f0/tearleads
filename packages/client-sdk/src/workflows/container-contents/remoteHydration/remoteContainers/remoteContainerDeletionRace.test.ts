@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/cachedContainerHydrationRuntime";
+import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/stores/cachedContainerHydrationRuntime";
 import type {
   ContainerState,
   RemoteContainer,

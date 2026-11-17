@@ -10,7 +10,7 @@ import { organizationReadModelDirectoryUser as directoryUser } from "../../../te
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
+} from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { createTestTrustedUserIdentity } from "../../data/trustedUserIdentity/testFixtures";
 import type { ContainerContents } from "../containerContents";
 import { createOrganizations } from ".";

@@ -11,7 +11,7 @@ import {
   createAtomicEditFixture,
   prepareAtomicCoverage,
   reopenAtomicEdit,
-} from "../../../../../test/helpers/atomicEditCoverage";
+} from "../../../../../test/helpers/stores/atomicEditCoverage";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
 import { readStoredDocumentState } from "../../../../data/documents/documentKinds";

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createAdoptionScenario,
   runListedCreateAdoption,
-} from "../../../../../test/helpers/containerCreateAdoption";
+} from "../../../../../test/helpers/client/containerCreateAdoption";
 import { tamperFirstProjectionEventSignature } from "../../../../../test/helpers/data/containerFixtures";
 import { CONTAINER_CREATE_ADOPTION_REFUSED } from "./createAdoption";
 

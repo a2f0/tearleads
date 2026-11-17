@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
-import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
+import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import {
   createBlobBytesResponse,
   createFixtureBinding,
-} from "../../../../test/helpers/blobHydrationFixture";
-import { createPagedAttachmentFixture } from "../../../../test/helpers/blobProjectionHistory";
+} from "../../../../test/helpers/workflows/blobHydrationFixture";
+import { createPagedAttachmentFixture } from "../../../../test/helpers/workflows/blobProjectionHistory";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
 import { prepareDocumentLinkBlobRewraps } from "../../documents/linkSet/linkSetBlobRewraps";
 import { verifyRetainedAttachment } from "../verification/retainedAttachmentVerification";

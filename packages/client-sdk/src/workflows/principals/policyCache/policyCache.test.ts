@@ -10,7 +10,7 @@ import {
   referencedPrincipalStateFromBundle,
   referencedPrincipalStateFromPolicyState,
 } from "../../../../test/helpers/data/principalPolicyBundles";
-import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
+import { cacheReferencedPolicies } from "../../../../test/helpers/workflows/policyCacheFixtures";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("principal policy sync caches a verified referenced principal bundle and skips refetching unchanged state", async () => {

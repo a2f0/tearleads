@@ -5,13 +5,13 @@ import {
   createPendingUpdateRecord,
   writerKeyResolver,
 } from "../../../../test/helpers/data/documentFixtures";
-import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
 import {
   createReadOnlyResponseFixture,
   persistedStateFromProjection,
   readOnlySyncApi,
-} from "../../../../test/helpers/documentSyncFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+} from "../../../../test/helpers/workflows/documentSyncFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 
 test.each(["rollback", "invalid_shape"] as const)(
   "persisted read-only sync refetches once after a cached %s failure",

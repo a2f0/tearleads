@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
-import { createBlobAttachmentServiceFixture } from "../../../test/helpers/blobAttachmentServiceFixture";
-import { createMaterializedSyncFixture } from "../../../test/helpers/materializedSyncFixture";
+import { createBlobAttachmentServiceFixture } from "../../../test/helpers/workflows/blobAttachmentServiceFixture";
+import { createMaterializedSyncFixture } from "../../../test/helpers/workflows/materializedSyncFixture";
 import { BlobAttachmentService } from "./blobAttachmentService";
 
 // A host can call any method of this root-exported class. An upload that

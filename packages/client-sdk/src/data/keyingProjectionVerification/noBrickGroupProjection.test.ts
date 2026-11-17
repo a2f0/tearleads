@@ -9,7 +9,7 @@ import {
   grantBy,
   manifestBundle,
 } from "../../../test/helpers/data/ancestorCitationScenario";
-import { createGroupHistoricalSignerScenario } from "../../../test/helpers/groupHistoricalSignerScenario";
+import { createGroupHistoricalSignerScenario } from "../../../test/helpers/workflows/groupHistoricalSignerScenario";
 import { KeyingCheckpointRepository } from "../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "./checkpoints/checkpointContext";

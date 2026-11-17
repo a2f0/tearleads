@@ -14,13 +14,13 @@ import {
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/data/documentFixtures";
-import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
-import { createLoroPendingUpdate } from "../../../../test/helpers/documentSyncFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
+import { createLoroPendingUpdate } from "../../../../test/helpers/workflows/documentSyncFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import {
   createFullHistoryRotationSnapshot,
   createStaleBundleSyncFixture,
-} from "../../../../test/helpers/staleBundleSyncFixture";
+} from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

@@ -4,7 +4,7 @@ import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyF
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../test/helpers/principalAuthorityRecovery";
+} from "../../../test/helpers/workflows/principalAuthorityRecovery";
 import { assertCurrentMatchesVerifiedPolicy } from "../../data/persistence/principalPolicy/verifiedPrincipalPolicyCurrent";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";

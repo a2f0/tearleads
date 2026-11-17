@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createDocument, getTextValue, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
-import { settleWithin } from "../../../../../test/helpers/remoteSyncWait";
+import { settleWithin } from "../../../../../test/helpers/workflows/remoteSyncWait";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import {
   createRemoteHistoryFixture,

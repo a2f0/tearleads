@@ -10,9 +10,9 @@ import {
   echoMutation,
   mutationObjectIds,
   stubRekeyRequest,
-} from "../../../../test/helpers/groupRemovalCarryFixture";
-import { createAuthorityRecoveryFixture } from "../../../../test/helpers/principalAuthorityRecovery";
-import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
+} from "../../../../test/helpers/workflows/groupRemovalCarryFixture";
+import { createAuthorityRecoveryFixture } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
+import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import { createRuntimeCurrentGroupMutation } from "../principalMutations/runtimeCurrentGroupMutation";
 import { commitCurrentGroupPolicyMutation } from "./commitCurrentGroupPolicyMutation";

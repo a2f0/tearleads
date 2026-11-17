@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeHistoricalPolicy";
+import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/workflows/documentPurgeHistoricalPolicy";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
 import { upsertAccessManifestCheckpointInTransaction } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";

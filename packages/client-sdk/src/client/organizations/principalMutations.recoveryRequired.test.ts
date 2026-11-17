@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { missingPrincipalRecoveryFixture } from "../../../test/helpers/missingPrincipalRecovery";
+import { missingPrincipalRecoveryFixture } from "../../../test/helpers/workflows/missingPrincipalRecovery";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import type { ContainerContents } from "../containerContents";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";

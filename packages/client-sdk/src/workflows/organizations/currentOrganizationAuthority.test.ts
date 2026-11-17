@@ -3,7 +3,7 @@ import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyF
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../test/helpers/principalAuthorityRecovery";
+} from "../../../test/helpers/workflows/principalAuthorityRecovery";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
 import { PrincipalPolicyService } from "../principals/principalPolicyService";

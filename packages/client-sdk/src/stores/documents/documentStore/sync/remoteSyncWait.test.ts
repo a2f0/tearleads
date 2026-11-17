@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
 import {
   createProbeRuntime,
   createUnavailableRuntime,
   settleCoordinator,
   settleWithin,
-} from "../../../../../test/helpers/remoteSyncWait";
+} from "../../../../../test/helpers/workflows/remoteSyncWait";
 import { disposeDomainSyncCoordinator } from "../../../../data/sync/syncCoordinator";
 import {
   type DocumentsPersistence,

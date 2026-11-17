@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createReservedGroupAdvance } from "../../../../test/helpers/reservedGroupAdvance";
+import { createReservedGroupAdvance } from "../../../../test/helpers/workflows/reservedGroupAdvance";
 import { MetadataRootBehindDirectoryError } from "./groupMetadataErrors";
 
 // The metadata root and the signed directory are separate reads. A reserved-

@@ -3,7 +3,7 @@ import { createNativeTestExecSql } from "@tearleads/test-utils";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type { ListContainersResponse } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../../test/helpers/data/signedContainerDirectory";
-import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
+import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";

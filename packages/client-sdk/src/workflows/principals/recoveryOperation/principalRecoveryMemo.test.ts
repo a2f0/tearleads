@@ -3,7 +3,7 @@ import { principalPolicyHead } from "../../../../test/helpers/data/principalPoli
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../../test/helpers/principalAuthorityRecovery";
+} from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { recoverScopedPrincipalPolicyHistory } from "../historyRecovery/recoverScopedPrincipalPolicyHistory";
 import {
   createPrincipalRecoveryReader,

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { createPublicProjectionHistoryFixture } from "../../../test/helpers/data/publicProjectionHistory";
-import { signedAuthorityRecoveryHistory } from "../../../test/helpers/principalAuthorityRecovery";
+import { signedAuthorityRecoveryHistory } from "../../../test/helpers/workflows/principalAuthorityRecovery";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";

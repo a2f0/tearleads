@@ -7,9 +7,9 @@ import {
 import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
 import { writerKeyResolver } from "../../../../test/helpers/data/documentFixtures";
 import { createPendingUpdateRecord } from "../../../../test/helpers/data/documentResponseFixtures";
-import { prepareDeepDocumentRepairFixture } from "../../../../test/helpers/deepDocumentRepairFixture";
-import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
-import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
+import { prepareDeepDocumentRepairFixture } from "../../../../test/helpers/workflows/deepDocumentRepairFixture";
+import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
+import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import { prepareAutomaticContainerRekeys } from "./syncContainerRekeyPreparation";
 
 let createFixture: Awaited<ReturnType<typeof prepareDeepDocumentRepairFixture>>;

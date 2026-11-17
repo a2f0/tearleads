@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createMutationAdmissionFixture } from "../../../../../test/helpers/mutationAdmission";
+import { createMutationAdmissionFixture } from "../../../../../test/helpers/stores/mutationAdmission";
 
 for (const guarded of [false, true]) {
   test(`a refused guarded patch cannot supersede an earlier ${guarded ? "guarded" : "coalescible"} write`, async () => {

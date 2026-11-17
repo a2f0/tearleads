@@ -4,7 +4,7 @@ import {
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { createStaleBundleSyncFixture } from "../../../../../test/helpers/staleBundleSyncFixture";
+import { createStaleBundleSyncFixture } from "../../../../../test/helpers/workflows/staleBundleSyncFixture";
 import { verifiedBlobWrapTargetsFromDocumentProjection } from "../../../blobs/attachments/projection";
 import { targetEnvelopeReference, uniqueSortedStrings } from "../readers";
 import {

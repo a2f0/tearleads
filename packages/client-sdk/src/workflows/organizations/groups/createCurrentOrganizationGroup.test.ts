@@ -9,8 +9,8 @@ import {
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../../test/helpers/principalAuthorityRecovery";
-import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
+} from "../../../../test/helpers/workflows/principalAuthorityRecovery";
+import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createRuntimeCurrentOrganizationMutation } from "../principalMutations/runtimeCurrentOrganizationMutation";
 import { createCurrentOrganizationGroup } from "./createCurrentOrganizationGroup";

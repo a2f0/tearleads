@@ -9,7 +9,6 @@ import type {
   BlobAttachmentSummary,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { createBlobAttachmentServiceFixture } from "../../../../../test/helpers/blobAttachmentServiceFixture";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
@@ -19,13 +18,14 @@ import {
   type DocumentCreateFixture,
 } from "../../../../../test/helpers/data/documentFixtures";
 import { waitFor } from "../../../../../test/helpers/data/waitFor";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
+import { createBlobAttachmentServiceFixture } from "../../../../../test/helpers/workflows/blobAttachmentServiceFixture";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
 import {
   attachmentSummaryFromBind,
   createEchoDocumentSyncResponse,
   createOnlineDocumentsRuntime,
   createStoredDocumentWriterProjection,
-} from "../../../../../test/helpers/onlineDocumentStoreFixtures";
+} from "../../../../../test/helpers/workflows/onlineDocumentStoreFixtures";
 import { defaultDocumentsPersistence } from "../../../../workflows/documents";
 import { createDocumentStore } from "../index";
 

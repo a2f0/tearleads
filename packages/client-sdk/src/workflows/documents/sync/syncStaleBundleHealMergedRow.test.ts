@@ -7,7 +7,7 @@ import {
   exportUpdatesSince,
   satisfiesVersionVector,
 } from "@tearleads/loro";
-import { createStaleBundleSyncFixture } from "../../../../test/helpers/staleBundleSyncFixture";
+import { createStaleBundleSyncFixture } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import { planQueuedUpdateMerge } from "../../../stores/documents/documentStore/sync/syncQueueMergePlan";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";

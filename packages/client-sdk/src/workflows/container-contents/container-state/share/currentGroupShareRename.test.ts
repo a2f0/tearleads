@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/currentShareMetadata";
-import { prepareCurrentShareRename } from "../../../../../test/helpers/currentShareRename";
+import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/workflows/currentShareMetadata";
+import { prepareCurrentShareRename } from "../../../../../test/helpers/workflows/currentShareRename";
 import { shareRemoteContainerWithGroup } from "../remote";
 
 test("Current grant mint rechecks the chosen name after a concurrent signed rename", async () => {

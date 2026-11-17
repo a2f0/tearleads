@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { encodeVersionVector } from "@tearleads/loro";
+import { openFileBackedSql } from "../../../../../test/helpers/data/fileBackedSql";
 import {
   createAtomicEditFixture,
   ensureAtomicEditStoreReady,
-} from "../../../../../test/helpers/atomicEditCoverage";
-import { openFileBackedSql } from "../../../../../test/helpers/data/fileBackedSql";
+} from "../../../../../test/helpers/stores/atomicEditCoverage";
 import { sqlDocumentsPersistence as documents } from "../../../../data/persistence/documents/documentsPersistence";
 import { createExecSql } from "../../../../data/sqlite/sqlSchema";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";

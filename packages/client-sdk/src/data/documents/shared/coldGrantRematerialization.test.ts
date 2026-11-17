@@ -5,14 +5,6 @@ import {
 } from "@tearleads/crypto";
 import { createDocument, getTextValue, importUpdates } from "@tearleads/loro";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { loadColdRecoveredDocumentInfo } from "../../../../test/helpers/coldDocumentInfo";
-import {
-  createMultiEpochDocumentFixture,
-  DOCUMENT_ID,
-  ORGANIZATION_ID,
-  rootOnlyProjection,
-  USER_ID,
-} from "../../../../test/helpers/coldGrantDocumentFixture";
 import {
   createManagedContainerWrap,
   createRotatedGroupPolicy,
@@ -26,7 +18,15 @@ import {
   trustedUserIdentityFromResponse,
 } from "../../../../test/helpers/data/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/data/withTestExecSql";
-import { createRepairWarmer } from "../../../../test/helpers/principalPolicyRepair";
+import { loadColdRecoveredDocumentInfo } from "../../../../test/helpers/workflows/coldDocumentInfo";
+import {
+  createMultiEpochDocumentFixture,
+  DOCUMENT_ID,
+  ORGANIZATION_ID,
+  rootOnlyProjection,
+  USER_ID,
+} from "../../../../test/helpers/workflows/coldGrantDocumentFixture";
+import { createRepairWarmer } from "../../../../test/helpers/workflows/principalPolicyRepair";
 import { unwrapDocumentSyncResponseContentKeys } from "../../../workflows/documents/syncPlan/syncContentKeys";
 
 import { createProjectionCheckpointContext } from "../../keyingProjectionVerification/checkpoints/checkpointContext";

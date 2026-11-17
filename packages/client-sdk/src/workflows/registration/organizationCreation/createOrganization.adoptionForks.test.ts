@@ -4,7 +4,7 @@ import {
   acknowledgePolicy,
   adoptionAccessHeads,
   organizationAdoptionFixture,
-} from "../../../../test/helpers/organizationAdoption";
+} from "../../../../test/helpers/workflows/organizationAdoption";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 

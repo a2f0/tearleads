@@ -16,18 +16,18 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
-  createBlobBytesResponse,
-  createFixtureBinding,
-  createUploadedAttachmentFixture,
-} from "../../../../test/helpers/blobHydration";
-import {
   createAuthor,
   createLinkSetResponseFromRequest,
   createResponse,
   writerProjectionEvidence,
 } from "../../../../test/helpers/data/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
-import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
+import {
+  createBlobBytesResponse,
+  createFixtureBinding,
+  createUploadedAttachmentFixture,
+} from "../../../../test/helpers/workflows/blobHydration";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { contentKeyTargetReference } from "../../../data/blobs/attachments/readers";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
 import type { DocumentLinkSetMutationFailure } from "../../../data/documents/shared/types";

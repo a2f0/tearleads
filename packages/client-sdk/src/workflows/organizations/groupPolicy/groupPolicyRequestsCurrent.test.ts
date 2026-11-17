@@ -8,7 +8,7 @@ import {
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../../test/helpers/principalAuthorityRecovery";
+} from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { recoverScopedPrincipalPolicyHistory } from "../../principals/historyRecovery/recoverScopedPrincipalPolicyHistory";
 import { withVerifiedGroupMutation } from "./groupPolicyMutationEvidence";
 import { buildSetGroupContainerGrantPolicyRequest } from "./groupPolicyRequests";

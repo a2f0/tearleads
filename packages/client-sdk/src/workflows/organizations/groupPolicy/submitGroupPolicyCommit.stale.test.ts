@@ -3,7 +3,7 @@ import { createMockRequestFailure } from "@tearleads/test-utils";
 import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { principalMutationJournalFixture } from "../../../../test/helpers/data/principalMutationJournalFixture";
-import { stubRekeyRequest } from "../../../../test/helpers/groupRemovalCarryFixture";
+import { stubRekeyRequest } from "../../../../test/helpers/workflows/groupRemovalCarryFixture";
 import { submitGroupPolicyCommit } from "./submitGroupPolicyCommit";
 
 type Input = Parameters<typeof submitGroupPolicyCommit>[0];

@@ -4,7 +4,7 @@ import { waitFor } from "../../../../../test/helpers/data/waitFor";
 import {
   createProbeRuntime,
   settleWithin,
-} from "../../../../../test/helpers/remoteSyncWait";
+} from "../../../../../test/helpers/workflows/remoteSyncWait";
 import {
   disposeDomainSyncCoordinator,
   getDomainSyncCoordinatorSnapshot,

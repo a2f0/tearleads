@@ -1,6 +1,6 @@
 import { beforeAll, expect, test } from "bun:test";
-import { setUpAdminGroupRoot } from "../../../test/helpers/adminGroupRoot";
-import { missingPrincipalRecoveryFixture } from "../../../test/helpers/missingPrincipalRecovery";
+import { setUpAdminGroupRoot } from "../../../test/helpers/workflows/adminGroupRoot";
+import { missingPrincipalRecoveryFixture } from "../../../test/helpers/workflows/missingPrincipalRecovery";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import type { ContainerContents } from "../containerContents";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
