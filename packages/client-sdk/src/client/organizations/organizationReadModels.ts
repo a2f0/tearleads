@@ -361,20 +361,29 @@ class OrganizationReadModelCoordinatorImpl
     active: ActiveOrganizationDataRuntime,
     offer: CommittedReadModelOffer,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
-    const held = await loadHeldOrganizationReadModelCursor(
-      committedScope(active),
-    );
-    if (held !== offer.heldCursor) return undefined;
-    return this.presentReconciliation(active, () =>
-      applyCommittedOrganizationReadModel({
-        currentUserId: active.userId,
-        execSql: active.runtime.infra.execSql,
-        logError: active.runtime.util.logError,
-        organizationId: active.organizationId,
-        requestedCursor: offer.heldCursor,
-        response: offer.delta,
-      }),
-    );
+    // A failure here only forgoes the delta: the caller reads the feed.
+    try {
+      const held = await loadHeldOrganizationReadModelCursor(
+        committedScope(active),
+      );
+      if (held !== offer.heldCursor) return undefined;
+      return await this.presentReconciliation(active, () =>
+        applyCommittedOrganizationReadModel({
+          currentUserId: active.userId,
+          execSql: active.runtime.infra.execSql,
+          logError: active.runtime.util.logError,
+          organizationId: active.organizationId,
+          requestedCursor: offer.heldCursor,
+          response: offer.delta,
+        }),
+      );
+    } catch (error) {
+      active.runtime.util.logError(
+        "Failed to apply a committed organization read-model delta",
+        error,
+      );
+      return undefined;
+    }
   }
 
   async reconcileAfterOwnMutation(

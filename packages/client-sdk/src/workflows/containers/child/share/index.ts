@@ -5,6 +5,7 @@ import {
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerMutationResponse,
+  ContainerRotationResponse,
   ContainerWriterProjectionResponse,
   OrganizationReadModelDeltaResponse,
 } from "@tearleads/validators/response";
@@ -74,6 +75,16 @@ export type SharedRemoteContainer = {
   response: ContainerMutationResponse;
 };
 
+/** A share's outcome, whose acknowledgement may carry a read-model delta. */
+type ContainerShareSubmitResult =
+  | {
+      readonly ok: true;
+      readonly data: ContainerRotationResponse & {
+        readonly readModel?: OrganizationReadModelDeltaResponse | undefined;
+      };
+    }
+  | Extract<ContainerRotationResult, { ok: false }>;
+
 /** A path a head advanced under, which a share plans once more (#2647). */
 const STALE_PATH = Symbol("stale-path");
 
@@ -86,7 +97,8 @@ async function submitShare(
   input: ShareRemoteContainerInput,
   request: ContainerMutationRequest,
   retriesStalePath: boolean,
-): Promise<ContainerRotationResult> {
+  readModelCursor: string | undefined,
+): Promise<ContainerShareSubmitResult> {
   const options = {
     expectedPaymentRequiredOrganizationId: input.author.organizationId,
   };
@@ -96,29 +108,20 @@ async function submitShare(
       input.apiClient.shareContainer(input.containerId, request, options),
     );
   }
-  const lease = await input.committedReadModel?.begin();
-  let delta: OrganizationReadModelDeltaResponse | undefined;
-  try {
-    const result = await shareContainerResult.call(
-      input.apiClient,
-      input.containerId,
-      request,
-      {
-        ...options,
-        ...(lease?.heldCursor ? { readModelCursor: lease.heldCursor } : {}),
-        reportErrors: false,
-      },
-    );
-    if (result.ok) {
-      delta = result.data.readModel;
-      return { ok: true, data: result.data };
-    }
-    return retriesStalePath && isStaleParentContainerPathFailure(result)
-      ? { ok: false, code: result.code, status: result.status }
-      : result;
-  } finally {
-    lease?.settle(delta);
-  }
+  const result = await shareContainerResult.call(
+    input.apiClient,
+    input.containerId,
+    request,
+    {
+      ...options,
+      ...(readModelCursor ? { readModelCursor } : {}),
+      reportErrors: false,
+    },
+  );
+  if (result.ok) return { ok: true, data: result.data };
+  return retriesStalePath && isStaleParentContainerPathFailure(result)
+    ? { ok: false, code: result.code, status: result.status }
+    : result;
 }
 
 function planShare(
@@ -180,28 +183,39 @@ async function shareRemoteContainerOnce(
   }
   if (!materializedPlan) return null;
   let stalePath = false;
-  const shared = await submitAcknowledgedContainerMutation({
-    reportSecurityIncident: input.reportSecurityIncident,
-    recitationPolicies: [],
-    apiClient: input.apiClient,
-    author: input.author,
-    containerKey: materializedPlan.containerKey,
-    execSql: input.execSql,
-    plan: materializedPlan.plan,
-    stillCurrent: input.stillCurrent,
-    submit: async () => {
-      const result = await submitShare(
-        input,
-        materializedPlan.plan.request,
-        retriesStalePath,
-      );
-      stalePath =
-        !result.ok &&
-        retriesStalePath &&
-        isStaleParentContainerPathFailure(result);
-      return result;
-    },
-  });
+  // The acknowledged submit rechecks currency after this lookup, and the
+  // delta is offered only once the share's acknowledgement verified.
+  const lease = await input.committedReadModel?.begin();
+  let delta: OrganizationReadModelDeltaResponse | undefined;
+  let shared: SharedRemoteContainer | null = null;
+  try {
+    shared = await submitAcknowledgedContainerMutation({
+      reportSecurityIncident: input.reportSecurityIncident,
+      recitationPolicies: [],
+      apiClient: input.apiClient,
+      author: input.author,
+      containerKey: materializedPlan.containerKey,
+      execSql: input.execSql,
+      plan: materializedPlan.plan,
+      stillCurrent: input.stillCurrent,
+      submit: async () => {
+        const result = await submitShare(
+          input,
+          materializedPlan.plan.request,
+          retriesStalePath,
+          lease?.heldCursor,
+        );
+        if (result.ok) delta = result.data.readModel;
+        stalePath =
+          !result.ok &&
+          retriesStalePath &&
+          isStaleParentContainerPathFailure(result);
+        return result;
+      },
+    });
+  } finally {
+    lease?.settle(shared ? delta : undefined);
+  }
   return shared ?? (stalePath ? STALE_PATH : null);
 }
 

@@ -231,8 +231,9 @@ another organization, a cursor behind that head, a replay that stamped
 nothing, and an access decision the feed would refuse all leave the field out;
 a refusal reaches the client through its own feed read instead.
 
-The client applies a committed delta through the ordinary apply path, and only
-while its projection still holds the cursor it sent. A group create and the
+The client applies a committed delta through the ordinary apply path, only once
+the mutation's acknowledgement verified and only while its projection still
+holds the cursor it sent; a failed apply forgoes it. A group create and the
 membership and revocation commits use it as their post-commit read; a realtime
 hint's cursor check first waits, for at most ten seconds, for this device's own
 mutations in flight and applies the deltas they carried, so the hint naming

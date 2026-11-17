@@ -158,3 +158,19 @@ test("a mutation without a delta settles its lease and changes nothing", async (
     f.close();
   }
 });
+
+test("a delta that fails to apply resolves undefined, leaving the feed read", async () => {
+  const f = await committedFixture("committed-read-model-failure-test");
+  const lease = await beginCommittedReadModel(f.scope);
+  const delta = organizationReadModelGroupsDelta({
+    cursor: "cursor-2",
+    groupName: "Operators",
+  });
+  lease.settle(delta);
+  f.close();
+
+  await expect(
+    f.coordinator.applyCommittedReadModel(organizationId, delta),
+  ).resolves.toBeUndefined();
+  expect(f.requestedCursors).toEqual([]);
+});
