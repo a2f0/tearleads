@@ -105,7 +105,9 @@ async function signGroupSuccessor(actor: TestUser, groupId: string) {
 // reusing roster sync's Members reachability for seats and publishing the
 // history progress rows in one upsert: 86 and 105. PostgreSQL keeps its two /
 // four transaction-control allowances; admission reads remain at every
-// original guard.
+// original guard. A commit whose organization directory keeps its key
+// measures the same 105 as one that rotates it, and sends the same bytes; the
+// one statement it drops is the test helper's recipient read.
 test("group create and group policy commit stay within their statement budgets", async () => {
   const actor = createTestUser();
   await registerUser(actor);
@@ -132,10 +134,23 @@ test("group create and group policy commit stay within their statement budgets",
     }),
   );
 
+  const nextGroupPolicy = await signGroupSuccessor(actor, groupId);
+  const keptKeyCommit = await countStatements(() =>
+    submitOrganizationGroupPolicyCommit({
+      actor,
+      groupId,
+      groupPolicy: nextGroupPolicy,
+      keepKeyWith: actor.kem.secretKey,
+      organizationId,
+      request: (path, init) => routeApp.request(path, init),
+    }),
+  );
+
   expect(create).toBeLessThanOrEqual(
     86 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
-  expect(commit).toBeLessThanOrEqual(
-    105 + (getDefaultApiDatabaseKind() === "postgres" ? 4 : 0),
-  );
+  for (const statements of [commit, keptKeyCommit])
+    expect(statements).toBeLessThanOrEqual(
+      105 + (getDefaultApiDatabaseKind() === "postgres" ? 4 : 0),
+    );
 });

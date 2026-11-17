@@ -70,9 +70,10 @@ stale replans and that a requested change commits. See the
 
 [`container-keying/OrganizationDirectoryKey.tla`](./container-keying/OrganizationDirectoryKey.tla)
 checks the organization directory key: a directory write keeps the key while
-the admins are unchanged or only grow (wrapping it for added admins), and
-rotates on any removal, so a removed admin never holds the current key. See
-the [mapping and negative control](./container-keying/OrganizationDirectoryKey.md).
+the admins are unchanged or only grow (wrapping it for added admins) and the
+writer can verify it, and rotates on any removal, so a removed admin never
+holds the current key. See the
+[mapping and negative controls](./container-keying/OrganizationDirectoryKey.md).
 
 ### Container Tombstone Recovery
 
