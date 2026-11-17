@@ -8,7 +8,7 @@ import {
   principalHistoryProgress,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
-import { eq, inArray, notInArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray, or } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -49,7 +49,7 @@ async function organizationWithDeletedGroup() {
   return { deletedGroupId: groupId, organizationId };
 }
 
-test("organization purge removes the history progress of its principals, deleted groups included, and nothing else", async () => {
+test("organization purge removes the history progress of its principals, deleted groups included, and nothing else, even under a reused id", async () => {
   const { deletedGroupId, organizationId } =
     await organizationWithDeletedGroup();
   const untouchedOrganizationId = await registerOrganization();
@@ -67,16 +67,53 @@ test("organization purge removes the history progress of its principals, deleted
     organization.memberGroupId,
     deletedGroupId,
   ];
+  // Hints of other principals that reuse a purged UUID under the other
+  // principal type: an organization with a purged group's id, and a group with
+  // the purged organization's id. Purge matches type and id, so they stay.
+  const [template] = await db
+    .select()
+    .from(principalHistoryProgress)
+    .where(eq(principalHistoryProgress.principalId, untouchedOrganizationId))
+    .limit(1);
+  invariant(template, "expected another organization's hint");
+  const sameIds = await db
+    .insert(principalHistoryProgress)
+    .values([
+      {
+        ...template,
+        id: crypto.randomUUID(),
+        principalId: organization.adminGroupId,
+        principalType: "organization",
+      },
+      {
+        ...template,
+        id: crypto.randomUUID(),
+        principalId: organizationId,
+        principalType: "group",
+      },
+    ])
+    .returning({ id: principalHistoryProgress.id });
+  const sameIdRows = sameIds.map(({ id }) => id);
   const purgedProgress = () =>
     db
       .select()
       .from(principalHistoryProgress)
-      .where(inArray(principalHistoryProgress.principalId, principalIds));
+      .where(
+        and(
+          inArray(principalHistoryProgress.principalId, principalIds),
+          notInArray(principalHistoryProgress.id, sameIdRows),
+        ),
+      );
   const otherProgress = () =>
     db
       .select()
       .from(principalHistoryProgress)
-      .where(notInArray(principalHistoryProgress.principalId, principalIds))
+      .where(
+        or(
+          notInArray(principalHistoryProgress.principalId, principalIds),
+          inArray(principalHistoryProgress.id, sameIdRows),
+        ),
+      )
       .orderBy(principalHistoryProgress.id);
   const before = await purgedProgress();
   expect(new Set(before.map(({ principalId }) => principalId))).toEqual(
@@ -106,6 +143,9 @@ test("organization purge removes the history progress of its principals, deleted
 
   expect(await purgedProgress()).toEqual([]);
   expect(await otherProgress()).toEqual(otherBefore);
+  expect(otherBefore.filter(({ id }) => sameIdRows.includes(id))).toHaveLength(
+    2,
+  );
   // Hash-addressed proof nodes and every group's tombstone stay.
   expect(await db.select().from(principalHistoryIndexNodes)).toEqual(
     expect.arrayContaining(indexNodes),

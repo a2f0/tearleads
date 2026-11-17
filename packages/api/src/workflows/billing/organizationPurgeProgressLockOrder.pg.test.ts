@@ -202,3 +202,79 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   },
   30_000,
 );
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "organization purge and a batched hint upsert both commit",
+  async () => {
+    const { claim, now, principalIds, rows } = await claimedOrganizationHints();
+    const last = rows.at(-1);
+    invariant(last && rows.length > 1, "expected several hint rows");
+    // A gate holds the key-last row, so the publisher's one batched upsert
+    // locks every earlier row and then waits there, mid-statement.
+    let gateHeld!: (backendPid: number) => void;
+    let gateFailed!: (error: unknown) => void;
+    const gatePidReady = new Promise<number>((resolve, reject) => {
+      gateHeld = resolve;
+      gateFailed = reject;
+    });
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const gate = db.transaction(async (tx) => {
+      const pid = await tx.execute(sql`select pg_backend_pid() as pid`);
+      await tx
+        .select({ id: principalHistoryProgress.id })
+        .from(principalHistoryProgress)
+        .where(eq(principalHistoryProgress.id, last.id))
+        .for("update");
+      gateHeld(Number(Reflect.get(pid.rows[0] ?? {}, "pid")));
+      await released;
+    });
+    void gate.catch(gateFailed);
+    let publisherStarted!: (backendPid: number) => void;
+    let publisherFailed!: (error: unknown) => void;
+    const publisherPidReady = new Promise<number>((resolve, reject) => {
+      publisherStarted = resolve;
+      publisherFailed = reject;
+    });
+    let publisher: Promise<void> | undefined;
+    let purge: Promise<unknown> | undefined;
+    try {
+      const gatePid = await gatePidReady;
+      publisher = db.transaction(async (tx) => {
+        const pid = await tx.execute(sql`select pg_backend_pid() as pid`);
+        publisherStarted(Number(Reflect.get(pid.rows[0] ?? {}, "pid")));
+        // Out of key order: the publisher's own sort must order the batch.
+        await upsertPrincipalHistoryProgress(tx, rows.toReversed());
+      });
+      void publisher.catch(publisherFailed);
+      const publisherPid = await publisherPidReady;
+      await waitForPostgresLockWait({
+        blockerPid: gatePid,
+        queryFragment: "principal_history_progress",
+      });
+      purge = purgeClaimedOrganizationRemoteData({ claim, db, now });
+      await waitForPostgresLockWait({
+        blockerPid: publisherPid,
+        queryFragment: "principal_history_progress",
+      });
+    } finally {
+      release();
+      const settled = await Promise.allSettled([gate, publisher, purge]);
+      // Neither the publisher nor the purge is chosen as a deadlock victim.
+      expect(settled.map(({ status }) => status)).toEqual([
+        "fulfilled",
+        "fulfilled",
+        "fulfilled",
+      ]);
+    }
+    expect(
+      await db
+        .select()
+        .from(principalHistoryProgress)
+        .where(inArray(principalHistoryProgress.principalId, principalIds)),
+    ).toEqual([]);
+  },
+  30_000,
+);
