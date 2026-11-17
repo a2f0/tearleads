@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.208",
+      "version": "0.1.209",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -235,7 +235,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.213",
+      "version": "0.1.214",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -252,7 +252,7 @@
     },
     "packages/crypto": {
       "name": "@tearleads/crypto",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@noble/post-quantum": "0.7.1",
@@ -363,7 +363,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.70",
+      "version": "0.1.71",
       "dependencies": {
         "@a2f0/agent-tool": "0.1.59",
         "@a2f0/ct-client": "0.1.6",
