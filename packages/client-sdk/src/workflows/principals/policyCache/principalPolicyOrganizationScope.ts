@@ -7,7 +7,7 @@ import {
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { principalPolicyHeadMeetsCheckpoint } from "../../../data/keyingProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
@@ -52,7 +52,7 @@ export function directoryBindsGroupReference(
   );
 }
 
-type StoredPolicyBundle = Awaited<ReturnType<typeof loadPrincipalPolicyBundle>>;
+type StoredPolicyBundle = PrincipalPolicyBundleResponse | null;
 
 function bundleMeetingCheckpoint(
   bundle: StoredPolicyBundle,
@@ -88,11 +88,9 @@ export function createPolicyDirectoryLoader(input: {
     ).loadPrincipalPolicyCheckpoint("organization", input.organizationId);
     let bundle = remote
       ? null
-      : await loadPrincipalPolicyBundle(
+      : await new PrincipalPolicyBundleRepository(
           input.execSql,
-          "organization",
-          input.organizationId,
-        );
+        ).loadPrincipalPolicyBundle("organization", input.organizationId);
     bundle = bundleMeetingCheckpoint(bundle, checkpoint);
     bundle ??= await input.currentPolicyReader.getCurrentPrincipalPolicy(
       "organization",

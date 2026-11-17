@@ -24,7 +24,7 @@ import type {
   RemoveOrganizationGroupUserInput,
 } from "../../../client/organizations";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import { addOrganizationGroupUser, removeOrganizationGroupUser } from "./index";
 
@@ -415,11 +415,9 @@ test("a verified Admins member can mutate another group after the signed directo
     ]);
     // Production omits afterPolicyCommitBeforeCache entirely; the mutated
     // bundle must still land in the local cache without it.
-    const cachedPolicy = await loadPrincipalPolicyBundle(
+    const cachedPolicy = await new PrincipalPolicyBundleRepository(
       execSql,
-      "group",
-      groupId,
-    );
+    ).loadPrincipalPolicyBundle("group", groupId);
     expect(cachedPolicy?.currentState.stateHash).toBe(
       result.currentState.stateHash,
     );

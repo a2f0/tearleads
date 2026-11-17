@@ -8,7 +8,7 @@ import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   createExecSql,
   runSerializedSqlMutation,
@@ -102,8 +102,7 @@ test("registration persists nothing when the identity goes stale in-flight", asy
       ),
     ).resolves.toBe(false);
     await expect(
-      loadPrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
         "organization",
         capturedOrganizationId,
       ),
@@ -172,8 +171,7 @@ test("a mid-sequence identity switch rolls the whole bootstrap back", async () =
       ),
     ).resolves.toBe(false);
     await expect(
-      loadPrincipalPolicyBundle(
-        execSql,
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
         "organization",
         capturedOrganizationId,
       ),

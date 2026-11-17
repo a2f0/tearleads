@@ -18,12 +18,12 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { tamperSealedKeyring } from "../../../../../test/helpers/keyringRotationFixtures";
 import {
   rebuildKeyringEntriesFromLog,
   recoverKeyringEntryFromWraps,
 } from "../../../../data/documents/shared/containerKek/keyringRebuild";
-import { rekeyRemoteContainer } from "./rekeyRemote";
 
 test("a poisoned keyring is rebuilt from the log and repaired by rekey", async () => {
   const parent = await createParentProjection();
@@ -34,9 +34,9 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
 
   // An honest explicit rotation: epoch 1 -> 2 with the keyring sealed from
   // the retiring key.
-  const rekeyed = await rekeyRemoteContainer({
+  const rekeyed = await createContainerMutationServiceFixture({
     reportSecurityIncident: async () => {},
-    apiClient: {
+    api: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => parent.projection,
       rekeyContainer: async (_containerId, request) => {
@@ -44,11 +44,12 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
         return createMutationResponseFromRequest(request, parent.projection);
       },
     },
+    execSql: database.execSql,
+    encapsulationSecretKey: parent.secretKey,
+  }).rekeyRemoteContainer({
     author,
     containerId,
-    execSql: database.execSql,
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    targetSecretKey: parent.secretKey,
   });
   if (!rekeyed) {
     throw new Error("Expected the initial rekey to succeed");
@@ -117,9 +118,9 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
   expect(rebuilt.missingEpochIds).toEqual([]);
 
   // Repair is an ordinary rekey sealing the rebuilt entries.
-  const repaired = await rekeyRemoteContainer({
+  const repaired = await createContainerMutationServiceFixture({
     reportSecurityIncident: async () => {},
-    apiClient: {
+    api: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => epoch2Projection,
       rekeyContainer: async (_containerId, request) => {
@@ -127,12 +128,13 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
         return createMutationResponseFromRequest(request, epoch2Projection);
       },
     },
+    execSql: database.execSql,
+    encapsulationSecretKey: parent.secretKey,
+  }).rekeyRemoteContainer({
     author,
     containerId,
-    execSql: database.execSql,
     keyringEntriesOverride: rebuilt.entries,
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    targetSecretKey: parent.secretKey,
   });
   if (!repaired) {
     throw new Error("Expected the repair rekey to succeed");
@@ -194,9 +196,9 @@ test("a severed bridge is recovered through the retained historical wrap", async
   const submitted: ContainerMutationRequest[] = [];
 
   // An honest rotation to epoch 2 writes the real epoch-2 bridge.
-  const rekeyed = await rekeyRemoteContainer({
+  const rekeyed = await createContainerMutationServiceFixture({
     reportSecurityIncident: async () => {},
-    apiClient: {
+    api: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => parent.projection,
       rekeyContainer: async (_containerId, request) => {
@@ -204,11 +206,12 @@ test("a severed bridge is recovered through the retained historical wrap", async
         return createMutationResponseFromRequest(request, parent.projection);
       },
     },
+    execSql: database.execSql,
+    encapsulationSecretKey: parent.secretKey,
+  }).rekeyRemoteContainer({
     author: parent.author,
     containerId: parent.projection.containerId,
-    execSql: database.execSql,
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    targetSecretKey: parent.secretKey,
   });
   if (
     !rekeyed ||
@@ -281,20 +284,21 @@ test("a severed bridge is recovered through the retained historical wrap", async
       },
     ],
   };
-  const repaired = await rekeyRemoteContainer({
+  const repaired = await createContainerMutationServiceFixture({
     reportSecurityIncident: async () => {},
-    apiClient: {
+    api: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => epoch2Projection,
       rekeyContainer: async (_containerId, request) =>
         createMutationResponseFromRequest(request, epoch2Projection),
     },
+    execSql: database.execSql,
+    encapsulationSecretKey: parent.secretKey,
+  }).rekeyRemoteContainer({
     author: parent.author,
     containerId: parent.projection.containerId,
-    execSql: database.execSql,
     keyringEntriesOverride: [recovered],
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    targetSecretKey: parent.secretKey,
   });
   if (
     !repaired ||
@@ -321,9 +325,9 @@ test("a substituted keyring is rejected at acknowledgement", async () => {
   const database = await createTestExecSql("keyring-ack-tamper");
 
   await expect(
-    rekeyRemoteContainer({
+    createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         rekeyContainer: async (_containerId, request) => {
@@ -350,11 +354,12 @@ test("a substituted keyring is rejected at acknowledgement", async () => {
           };
         },
       },
+      execSql: database.execSql,
+      encapsulationSecretKey: parent.secretKey,
+    }).rekeyRemoteContainer({
       author: parent.author,
       containerId: parent.projection.containerId,
-      execSql: database.execSql,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow("keyring does not match its signed event");
 });

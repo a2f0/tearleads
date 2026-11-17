@@ -11,7 +11,7 @@ import {
   PrincipalAuthorizationCheckpointUnavailableError,
   validatePrincipalAuthorizationCheckpoints,
 } from "../../persistence/keyingCheckpoints/principalAuthorizationCheckpoints";
-import { ensurePrincipalPolicyTables } from "../../persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { registerClientSQLiteCommitGuard } from "../../sqlite/sqliteCommitGuards";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
@@ -97,7 +97,9 @@ async function checkPurgeCheckpointCurrency(
           verifiedManifests: input.context.verifiedManifests,
         });
         if (input.currencyPolicies.length) {
-          await ensurePrincipalPolicyTables(execSql);
+          await new PrincipalPolicyBundleRepository(
+            execSql,
+          ).ensurePrincipalPolicyTables();
           await validatePrincipalAuthorizationCheckpoints(
             transaction,
             input.currencyPolicies,

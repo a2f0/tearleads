@@ -2,11 +2,10 @@ import { beforeAll, expect, test } from "bun:test";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
 import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
-import {
-  ensurePrincipalPolicyTables,
-  writePrincipalPolicyBundleInTransaction,
-} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import { writePrincipalPolicyBundleInTransaction } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { recoverPublicPrincipalHistory } from "./recoverPublicPrincipalHistory";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;
@@ -16,12 +15,14 @@ beforeAll(async () => {
 
 async function holdBundle(
   options: {
-    execSql: Parameters<typeof ensurePrincipalPolicyTables>[0];
+    execSql: ExecSql;
     organizationId: string;
   },
   bundle: PrincipalPolicyBundleResponse,
 ) {
-  await ensurePrincipalPolicyTables(options.execSql);
+  await new PrincipalPolicyBundleRepository(
+    options.execSql,
+  ).ensurePrincipalPolicyTables();
   await getClientSQLitePersistenceRuntime(options.execSql).transaction((tx) =>
     writePrincipalPolicyBundleInTransaction(
       tx,

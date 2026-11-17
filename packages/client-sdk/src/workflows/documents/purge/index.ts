@@ -36,31 +36,29 @@ import {
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type {
+  DocumentPurgeApi,
+  RemoteDocumentCollaborators,
+} from "../remote/remoteDocumentCollaborators";
 import {
   assertSubtreePurgePath,
   type SubtreePurgeRoot,
 } from "./subtreePurgeScope";
 
-interface DocumentPurgeApi {
-  getDocumentPurgeProof(
-    documentId: string,
-    options?: {
-      readonly documentCheckpointManifestHash?: string;
-    },
-    requestOptions?: {
-      readonly expectedPaymentRequiredOrganizationId?: string;
-    },
-  ): Promise<DocumentPurgeProofResponse | null>;
-  getDocumentWriterProjectionResult: NonNullable<
-    DocumentSyncApi["getDocumentWriterProjectionResult"]
-  >;
-  purgeDocument(
-    documentId: string,
-    request: DocumentPurgeRequest,
-    options?: {
-      readonly expectedPaymentRequiredOrganizationId?: string;
-    },
-  ): Promise<DocumentPurgeResponse | null>;
+/** What varies per purge; the collaborators bind the rest. */
+export interface PurgeRemoteDocumentRequest {
+  readonly beforeSubmit?: (() => Promise<boolean>) | undefined;
+  readonly author: DocumentCreateAuthor;
+  readonly documentId: string;
+  readonly expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
+  readonly onVerifiedPurge: (input: {
+    readonly commitPurgeProof: (transactionExecSql: ExecSql) => Promise<void>;
+  }) => Promise<void> | void;
+  readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }
 
 const REMOTE_DOCUMENT_ALREADY_PURGED = Symbol("remoteDocumentAlreadyPurged");
@@ -254,22 +252,15 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
   };
 }
 
-export async function purgeRemoteDocument(input: {
-  readonly beforeSubmit?: (() => Promise<boolean>) | undefined;
-  readonly apiClient: DocumentPurgeApi;
-  readonly author: DocumentCreateAuthor;
-  readonly documentId: string;
-  readonly expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
-  readonly execSql: ExecSql;
-  readonly onVerifiedPurge: (input: {
-    readonly commitPurgeProof: (transactionExecSql: ExecSql) => Promise<void>;
-  }) => Promise<void> | void;
-  readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
-  readonly stillCurrent?: (() => boolean) | undefined;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
-}): Promise<DocumentPurgeResponse | null> {
+export async function purgeRemoteDocument(
+  remote: RemoteDocumentCollaborators,
+  purge: PurgeRemoteDocumentRequest,
+): Promise<DocumentPurgeResponse | null> {
+  const input = {
+    ...purge,
+    apiClient: remote.api,
+    execSql: remote.execSql,
+  };
   const writerProjection = await resolveDocumentPurgeWriterProjection({
     apiClient: input.apiClient,
     documentId: input.documentId,

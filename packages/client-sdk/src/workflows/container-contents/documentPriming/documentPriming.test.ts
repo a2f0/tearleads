@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { holdContainerDocumentTombstones } from "../../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
+import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import {
@@ -391,7 +391,9 @@ test("priming recovers an all-held document without deleting its retained link",
       updatedAt: "2026-09-23T00:00:00.000Z",
     });
     await links.replaceDocumentLinks(execSql, "doc", ["held"]);
-    await holdContainerDocumentTombstones(execSql, [
+    await new ContainerDocumentTombstoneHoldRepository(
+      execSql,
+    ).holdContainerDocumentTombstones([
       {
         containerId: "held",
         documentId: "doc",

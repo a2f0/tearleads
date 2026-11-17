@@ -12,6 +12,7 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../test/helpers/containerMutationServiceFixture";
 import {
   createMaterializedSyncFixture,
   createSignedSyncResponseUpdate,
@@ -26,7 +27,6 @@ import {
 } from "../../../data/documents/shared/projection";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { readContainerKeyEpoch } from "../../../data/keyingProjectionVerification/readers";
-import { rekeyRemoteContainer } from "../../containers/child/rekey/rekeyRemote";
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
@@ -208,19 +208,20 @@ test("authenticated raw history reports a retained epoch with no predecessor key
     const fixture = await createMaterializedSyncFixture();
     const previousKek = fixture.projection.containerKeks.at(-1);
     if (!previousKek) throw new Error("Expected a container KEK fixture");
-    const rekeyed = await rekeyRemoteContainer({
+    const rekeyed = await createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => fixture.projection,
         rekeyContainer: async (_containerId, request) =>
           createMutationResponseFromRequest(request, previousKek),
       },
+      execSql,
+      encapsulationSecretKey: fixture.secretKey,
+    }).rekeyRemoteContainer({
       author: fixture.author,
       containerId: fixture.projection.containerId,
-      execSql,
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-      targetSecretKey: fixture.secretKey,
     });
     if (!rekeyed) throw new Error("Expected the container rekey to succeed");
     const projection = {

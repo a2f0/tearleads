@@ -24,11 +24,7 @@ import {
   createTestTrustedUserIdentity,
 } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import {
-  loadAllPrincipalPolicyBundles,
-  loadPrincipalPolicyBundle,
-  savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import { buildAddGroupUserPolicyRequest } from "../groupPolicy/groupPolicyRequests";
 import { addOrganizationGroupUser, removeOrganizationGroupUser } from "./index";
@@ -189,12 +185,9 @@ test("remove group user bridges committed policy writes before caching the rotat
   };
 
   try {
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      previousPolicy,
-      "2026-07-11T12:00:00.000Z",
-      organizationId,
-    );
+    ).savePrincipalPolicyBundle(previousPolicy, organizationId);
 
     const returnedPolicy = await removeOrganizationGroupUser({
       readEncryptedName: readTestGroupName,
@@ -217,11 +210,9 @@ test("remove group user bridges committed policy writes before caching the rotat
           stateHash: currentPolicy.currentState.stateHash,
           keyFingerprint: currentPolicy.currentState.keyFingerprint,
         });
-        const cachedDuringBridge = await loadPrincipalPolicyBundle(
+        const cachedDuringBridge = await new PrincipalPolicyBundleRepository(
           execSql,
-          "group",
-          groupId,
-        );
+        ).loadPrincipalPolicyBundle("group", groupId);
         expect(cachedDuringBridge?.currentState.stateHash).toBe(
           previousPolicy.currentState.stateHash,
         );
@@ -236,16 +227,22 @@ test("remove group user bridges committed policy writes before caching the rotat
           stateHash: currentPolicy.currentState.stateHash,
         });
         expect(
-          (await loadAllPrincipalPolicyBundles(execSql)).map(
-            (bundle) => bundle.currentState.stateHash,
-          ),
+          (
+            await new PrincipalPolicyBundleRepository(
+              execSql,
+            ).loadAllPrincipalPolicyBundles()
+          ).map((bundle) => bundle.currentState.stateHash),
         ).toEqual(
           expect.arrayContaining([
             previousPolicy.currentState.stateHash,
             currentPolicy.currentState.stateHash,
           ]),
         );
-        const retained = (await loadAllPrincipalPolicyBundles(execSql)).find(
+        const retained = (
+          await new PrincipalPolicyBundleRepository(
+            execSql,
+          ).loadAllPrincipalPolicyBundles()
+        ).find(
           (bundle) =>
             bundle.currentState.stateHash ===
             currentPolicy.currentState.stateHash,
@@ -302,11 +299,9 @@ test("remove group user bridges committed policy writes before caching the rotat
     expect(returnedPolicy.currentState.stateHash).toBe(
       currentPolicy.currentState.stateHash,
     );
-    const cachedAfterBridge = await loadPrincipalPolicyBundle(
+    const cachedAfterBridge = await new PrincipalPolicyBundleRepository(
       execSql,
-      "group",
-      groupId,
-    );
+    ).loadPrincipalPolicyBundle("group", groupId);
     expect(cachedAfterBridge?.currentState.stateHash).toBe(
       currentPolicy.currentState.stateHash,
     );
@@ -324,12 +319,9 @@ test("remove group user bridges committed policy writes before caching the rotat
       addOrganizationGroupUser({
         readEncryptedName: readTestGroupName,
         afterPolicyCommitBeforeCache: async () => {
-          await savePrincipalPolicyBundle(
+          await new PrincipalPolicyBundleRepository(
             execSql,
-            currentPolicy,
-            "2026-07-11T12:01:00.000Z",
-            organizationId,
-          );
+          ).savePrincipalPolicyBundle(currentPolicy, organizationId);
           const concurrentMutation = await buildAddGroupUserPolicyRequest({
             currentPolicy,
             currentPolicySignerPublicKeys: signerPublicKeys({
@@ -367,11 +359,10 @@ test("remove group user bridges committed policy writes before caching the rotat
       }),
     ).rejects.toThrow("Updated group policy advanced during root re-wrap");
 
-    const cachedAfterConcurrentAdvance = await loadPrincipalPolicyBundle(
-      execSql,
-      "group",
-      groupId,
-    );
+    const cachedAfterConcurrentAdvance =
+      await new PrincipalPolicyBundleRepository(
+        execSql,
+      ).loadPrincipalPolicyBundle("group", groupId);
     const boundAddHead = expectedAddHead.current;
     expect(boundAddHead).not.toBeNull();
     if (!boundAddHead) {

@@ -11,7 +11,7 @@ import {
   getDocumentTypeDefinition,
 } from "./registry";
 
-test("only registered document kinds opt into container views", () => {
+test("only registered document kinds opt into specialized container views", () => {
   expect(getDocumentTypeDefinition("contact").ContainerView).toBeDefined();
   expect(getDocumentTypeDefinition("note").ContainerView).toBeUndefined();
   expect(

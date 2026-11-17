@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
-import { purgeRemoteDocument } from "./index";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 
 for (const scenario of ["outside", "restored-root", "inside", "late-refusal"]) {
   const inside = scenario === "inside" || scenario === "late-refusal";
@@ -19,8 +19,8 @@ for (const scenario of ["outside", "restored-root", "inside", "late-refusal"]) {
     let submissionChecks = 0;
     let commits = 0;
     try {
-      const result = purgeRemoteDocument({
-        apiClient: {
+      const result = createRemoteDocumentServiceFixture({
+        api: {
           getDocumentPurgeProof: async () => null,
           getDocumentWriterProjectionResult: async () => ({
             ok: true,
@@ -31,6 +31,8 @@ for (const scenario of ["outside", "restored-root", "inside", "late-refusal"]) {
             return { ...proof, reclaimedBlobStorageKeys: [] };
           },
         },
+        execSql,
+      }).purgeRemoteDocument({
         author,
         beforeSubmit: async () => {
           submissionChecks += 1;
@@ -43,7 +45,6 @@ for (const scenario of ["outside", "restored-root", "inside", "late-refusal"]) {
           id: scenario === "outside" ? crypto.randomUUID() : containerId,
           parentId: scenario === "restored-root" ? "trash" : null,
         },
-        execSql,
         onVerifiedPurge: async ({ commitPurgeProof }) => {
           await commitPurgeProof(execSql);
           commits += 1;

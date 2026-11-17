@@ -1,16 +1,13 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createPin } from "../../../test/helpers/trustedUserIdentityPin";
-import { createExecSql } from "../sqlite/sqlSchema";
+import { createPin } from "../../../../test/helpers/trustedUserIdentityPin";
+import { createExecSql } from "../../sqlite/sqlSchema";
 import {
   TrustedUserIdentityPinCorruptError,
   TrustedUserIdentityPinInputError,
   TrustedUserIdentityPinMismatchError,
-} from "./identity/trustedUserIdentityPinModel";
-import {
-  compareOrInsertTrustedUserIdentityPin,
-  loadTrustedUserIdentityPin,
-} from "./trustedUserIdentityPinPersistence";
+} from "./trustedUserIdentityPinModel";
+import { TrustedUserIdentityPinRepository } from "./trustedUserIdentityPinRepository";
 
 test("trusted identity pins are inserted once and loaded by trust domain", async () => {
   const { close, execSql } = await createTestExecSql("trusted-identity-insert");
@@ -18,19 +15,19 @@ test("trusted identity pins are inserted once and loaded by trust domain", async
 
   try {
     await expect(
-      loadTrustedUserIdentityPin({
-        execSql,
+      new TrustedUserIdentityPinRepository(execSql).loadTrustedUserIdentityPin({
         identityTrustDomain: pin.identityTrustDomain,
         userId: pin.userId,
       }),
     ).resolves.toBeNull();
 
     await expect(
-      compareOrInsertTrustedUserIdentityPin({ execSql, pin }),
+      new TrustedUserIdentityPinRepository(
+        execSql,
+      ).compareOrInsertTrustedUserIdentityPin({ pin }),
     ).resolves.toEqual(pin);
     await expect(
-      loadTrustedUserIdentityPin({
-        execSql,
+      new TrustedUserIdentityPinRepository(execSql).loadTrustedUserIdentityPin({
         identityTrustDomain: pin.identityTrustDomain,
         userId: pin.userId,
       }),
@@ -46,10 +43,14 @@ test("matching observations preserve the original first-seen timestamp", async (
   const repeated = createPin({ firstSeenAt: "2026-07-16T12:00:00.000Z" });
 
   try {
-    await compareOrInsertTrustedUserIdentityPin({ execSql, pin: first });
+    await new TrustedUserIdentityPinRepository(
+      execSql,
+    ).compareOrInsertTrustedUserIdentityPin({ pin: first });
 
     await expect(
-      compareOrInsertTrustedUserIdentityPin({ execSql, pin: repeated }),
+      new TrustedUserIdentityPinRepository(
+        execSql,
+      ).compareOrInsertTrustedUserIdentityPin({ pin: repeated }),
     ).resolves.toEqual(first);
   } finally {
     close();
@@ -74,14 +75,15 @@ test("every identity field is immutable after first contact", async () => {
         signingKeyFingerprint: `fingerprint-${index}`,
       });
       const candidate = { ...first, [field]: value };
-      await compareOrInsertTrustedUserIdentityPin({ execSql, pin: first });
+      await new TrustedUserIdentityPinRepository(
+        execSql,
+      ).compareOrInsertTrustedUserIdentityPin({ pin: first });
 
       let thrown: unknown;
       try {
-        await compareOrInsertTrustedUserIdentityPin({
+        await new TrustedUserIdentityPinRepository(
           execSql,
-          pin: candidate,
-        });
+        ).compareOrInsertTrustedUserIdentityPin({ pin: candidate });
       } catch (error) {
         thrown = error;
       }
@@ -97,8 +99,9 @@ test("every identity field is immutable after first contact", async () => {
         first.encapsulationPublicKey,
       );
       await expect(
-        loadTrustedUserIdentityPin({
+        new TrustedUserIdentityPinRepository(
           execSql,
+        ).loadTrustedUserIdentityPin({
           identityTrustDomain: first.identityTrustDomain,
           userId: first.userId,
         }),
@@ -126,12 +129,15 @@ test("pins are independently scoped by trust domain and user", async () => {
 
   try {
     for (const pin of pins) {
-      await compareOrInsertTrustedUserIdentityPin({ execSql, pin });
+      await new TrustedUserIdentityPinRepository(
+        execSql,
+      ).compareOrInsertTrustedUserIdentityPin({ pin });
     }
     for (const pin of pins) {
       await expect(
-        loadTrustedUserIdentityPin({
+        new TrustedUserIdentityPinRepository(
           execSql,
+        ).loadTrustedUserIdentityPin({
           identityTrustDomain: pin.identityTrustDomain,
           userId: pin.userId,
         }),
@@ -154,7 +160,9 @@ test("concurrent divergent first contacts leave exactly one durable pin", async 
   try {
     const settled = await Promise.allSettled(
       candidates.map((pin) =>
-        compareOrInsertTrustedUserIdentityPin({ execSql, pin }),
+        new TrustedUserIdentityPinRepository(
+          execSql,
+        ).compareOrInsertTrustedUserIdentityPin({ pin }),
       ),
     );
     const fulfilled = settled.filter((result) => result.status === "fulfilled");
@@ -172,8 +180,7 @@ test("concurrent divergent first contacts leave exactly one durable pin", async 
       throw new Error("Expected one winning first-contact candidate");
     }
     await expect(
-      loadTrustedUserIdentityPin({
-        execSql,
+      new TrustedUserIdentityPinRepository(execSql).loadTrustedUserIdentityPin({
         identityTrustDomain: winner.value.identityTrustDomain,
         userId: winner.value.userId,
       }),
@@ -205,10 +212,9 @@ test("distinct adapters racing first schema creation yield one typed concurrent 
   try {
     const settled = await Promise.allSettled(
       candidates.map((pin) =>
-        compareOrInsertTrustedUserIdentityPin({
-          execSql: createAdapter(),
-          pin,
-        }),
+        new TrustedUserIdentityPinRepository(
+          createAdapter(),
+        ).compareOrInsertTrustedUserIdentityPin({ pin }),
       ),
     );
 
@@ -232,7 +238,9 @@ test("malformed persisted rows fail closed", async () => {
   const pin = createPin();
 
   try {
-    await compareOrInsertTrustedUserIdentityPin({ execSql, pin });
+    await new TrustedUserIdentityPinRepository(
+      execSql,
+    ).compareOrInsertTrustedUserIdentityPin({ pin });
     await execSql(
       `UPDATE trusted_user_identity_pins
        SET signing_public_key = ''
@@ -241,14 +249,15 @@ test("malformed persisted rows fail closed", async () => {
     );
 
     await expect(
-      loadTrustedUserIdentityPin({
-        execSql,
+      new TrustedUserIdentityPinRepository(execSql).loadTrustedUserIdentityPin({
         identityTrustDomain: pin.identityTrustDomain,
         userId: pin.userId,
       }),
     ).rejects.toBeInstanceOf(TrustedUserIdentityPinCorruptError);
     await expect(
-      compareOrInsertTrustedUserIdentityPin({ execSql, pin }),
+      new TrustedUserIdentityPinRepository(
+        execSql,
+      ).compareOrInsertTrustedUserIdentityPin({ pin }),
     ).rejects.toMatchObject({ code: "trusted_user_identity_pin_corrupt" });
   } finally {
     close();
@@ -263,11 +272,12 @@ test("invalid candidates fail before creating a durable row", async () => {
 
   try {
     await expect(
-      compareOrInsertTrustedUserIdentityPin({ execSql, pin }),
+      new TrustedUserIdentityPinRepository(
+        execSql,
+      ).compareOrInsertTrustedUserIdentityPin({ pin }),
     ).rejects.toBeInstanceOf(TrustedUserIdentityPinInputError);
     await expect(
-      loadTrustedUserIdentityPin({
-        execSql,
+      new TrustedUserIdentityPinRepository(execSql).loadTrustedUserIdentityPin({
         identityTrustDomain: pin.identityTrustDomain,
         userId: pin.userId,
       }),
@@ -297,14 +307,17 @@ test("candidate pins require the current format version and suites", async () =>
       const candidate = { ...pin, [field]: value };
 
       await expect(
-        compareOrInsertTrustedUserIdentityPin({ execSql, pin: candidate }),
+        new TrustedUserIdentityPinRepository(
+          execSql,
+        ).compareOrInsertTrustedUserIdentityPin({ pin: candidate }),
       ).rejects.toMatchObject({
         code: "trusted_user_identity_pin_invalid_input",
         reason,
       });
       await expect(
-        loadTrustedUserIdentityPin({
+        new TrustedUserIdentityPinRepository(
           execSql,
+        ).loadTrustedUserIdentityPin({
           identityTrustDomain: pin.identityTrustDomain,
           userId: pin.userId,
         }),
@@ -335,7 +348,9 @@ test("stored pins require the current format version and suites", async () => {
         userId: `stored-format-user-${index}`,
         signingKeyFingerprint: `stored-fingerprint-${index}`,
       });
-      await compareOrInsertTrustedUserIdentityPin({ execSql, pin });
+      await new TrustedUserIdentityPinRepository(
+        execSql,
+      ).compareOrInsertTrustedUserIdentityPin({ pin });
       await execSql(
         `UPDATE trusted_user_identity_pins
          SET ${column} = ?
@@ -344,8 +359,9 @@ test("stored pins require the current format version and suites", async () => {
       );
 
       await expect(
-        loadTrustedUserIdentityPin({
+        new TrustedUserIdentityPinRepository(
           execSql,
+        ).loadTrustedUserIdentityPin({
           identityTrustDomain: pin.identityTrustDomain,
           userId: pin.userId,
         }),
@@ -376,10 +392,9 @@ test("compare-or-insert uses an immediate transaction", async () => {
   });
 
   try {
-    await compareOrInsertTrustedUserIdentityPin({
-      execSql: tracingExecSql,
-      pin: createPin(),
-    });
+    await new TrustedUserIdentityPinRepository(
+      tracingExecSql,
+    ).compareOrInsertTrustedUserIdentityPin({ pin: createPin() });
     expect(statements.map((sql) => sql.toLowerCase())).toContain(
       "begin immediate",
     );

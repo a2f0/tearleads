@@ -2,16 +2,17 @@ import "./ContainerDocumentView.css";
 import type {
   ContainerDocumentQueries,
   ContainerNode,
+  DocumentSummary,
   DomainScope,
 } from "@tearleads/client-sdk";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import {
   MiniAppButton,
   MiniAppStatus,
-} from "../../../components/mini-app/MiniAppLayout";
-import { getDocumentTypeDefinition } from "../../registry";
-import { ContainerNotes } from "./ContainerNotes";
-import { useContainerViewResource } from "./useContainerViewResource";
+} from "../../components/mini-app/MiniAppLayout";
+import { getDocumentTypeDefinition } from "../registry";
+import { DefaultContainerView } from "./default/DefaultContainerView";
+import { useContainerViewResource } from "./shared/useContainerViewResource";
 
 interface ContainerDocumentViewProps {
   children: ReactNode;
@@ -52,6 +53,17 @@ function usePrimaryDocument({
   return useContainerViewResource(load, identity);
 }
 
+/** A kind's specialized container view, or the default notes view. */
+function resolveContainerView(document: DocumentSummary) {
+  const definition = getDocumentTypeDefinition(document.documentKind ?? "note");
+  return definition.ContainerView
+    ? {
+        label: `${definition.createLabel} view`,
+        View: definition.ContainerView,
+      }
+    : { label: "Notes view", View: DefaultContainerView };
+}
+
 function ContainerViewSession(props: ContainerDocumentViewProps) {
   const { node, documentQueries, revision } = props;
   const [showContents, setShowContents] = useState(false);
@@ -60,10 +72,7 @@ function ContainerViewSession(props: ContainerDocumentViewProps) {
     primary.status === "ready" || primary.status === "refreshing"
       ? primary.value
       : null;
-  const definition = document
-    ? getDocumentTypeDefinition(document.documentKind ?? "note")
-    : null;
-  const View = definition?.ContainerView;
+  const view = document ? resolveContainerView(document) : null;
   return (
     <>
       {node.primaryDocumentId && primary.status === "ready" && !document ? (
@@ -71,18 +80,13 @@ function ContainerViewSession(props: ContainerDocumentViewProps) {
           Primary document is unavailable on this device. Showing contents.
         </MiniAppStatus>
       ) : null}
-      {document && !View ? (
-        <MiniAppStatus>
-          No specialized view for this document type. Showing contents.
-        </MiniAppStatus>
-      ) : null}
-      {View ? (
+      {view ? (
         <nav aria-label="Container view" className="container-view-actions">
           <MiniAppButton
             aria-pressed={!showContents}
             onClick={() => setShowContents(false)}
           >
-            {definition.createLabel} view
+            {view.label}
           </MiniAppButton>
           <MiniAppButton
             aria-pressed={showContents}
@@ -95,22 +99,19 @@ function ContainerViewSession(props: ContainerDocumentViewProps) {
       {primary.status === "failed" ? (
         <MiniAppStatus tone="error">{primary.error}</MiniAppStatus>
       ) : null}
-      {View && document && !showContents ? (
+      {view && document && !showContents ? (
         <div className="container-document-view">
           <header>
             <h2>{document.title}</h2>
             <p>{node.name}</p>
           </header>
-          <View
+          <view.View
             key={document.id}
             containerId={node.id}
             localId={document.id}
             documentId={document.documentId}
-            readOnly={props.readOnly}
-          />
-          <ContainerNotes
-            containerId={node.id}
             documentQueries={documentQueries}
+            readOnly={props.readOnly}
             revision={revision}
             onOpenDocument={props.onOpenDocument}
           />

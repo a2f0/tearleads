@@ -9,9 +9,9 @@ import {
 } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
-  markContainerSyncLaneChecked,
 } from "../../../workflows/container-contents/containerPersistence";
 import {
   saveTestDocument,
@@ -80,8 +80,7 @@ test("startup restores a fresh durable root-lane hydration marker", async () => 
     "startup-restores-root-lane-hydration",
   );
   try {
-    await markContainerSyncLaneChecked(
-      execSql,
+    await new ContainerSyncWatermarkRepository(execSql).markChecked(
       createContainerParentSyncLane(null),
     );
     let hydrationRequestCount = 0;
@@ -130,8 +129,7 @@ test("startup schedules stale-root recovery with no durable sync work", async ()
     "startup-schedules-stale-root-recovery",
   );
   try {
-    await markContainerSyncLaneChecked(
-      execSql,
+    await new ContainerSyncWatermarkRepository(execSql).markChecked(
       createContainerParentSyncLane(null),
     );
     let hydrationRequestCount = 0;

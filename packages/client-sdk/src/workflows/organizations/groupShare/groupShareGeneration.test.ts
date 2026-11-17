@@ -15,7 +15,7 @@ import {
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
@@ -141,8 +141,11 @@ test("a group share does not acknowledge a policy after its generation expires d
       version: initialGroupPolicy.currentState.version,
     });
     expect(
-      (await loadPrincipalPolicyBundle(database.execSql, "group", groupId))
-        ?.currentState.stateHash,
+      (
+        await new PrincipalPolicyBundleRepository(
+          database.execSql,
+        ).loadPrincipalPolicyBundle("group", groupId)
+      )?.currentState.stateHash,
     ).toBe(initialGroupPolicy.currentState.stateHash);
   } finally {
     database.close();

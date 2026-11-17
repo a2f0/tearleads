@@ -19,7 +19,7 @@ import {
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
 } from "../../../../../test/helpers/containerFixtures";
-import { shareRemoteContainer } from "./index";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 
 test("shareRemoteContainer rejects tampered projected container state before sending", async () => {
   const parent = await createParentProjection();
@@ -31,10 +31,9 @@ test("shareRemoteContainer rejects tampered projected container state before sen
   const database = await createTestExecSql("container-share-tampered-state");
   let shareCalled = false;
   await expect(
-    shareRemoteContainer({
+    createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      accessLevel: "read",
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => ({
           ...parent.projection,
@@ -51,17 +50,19 @@ test("shareRemoteContainer rejects tampered projected container state before sen
           throw new Error("Unexpected share call");
         },
       },
-      author,
-      containerId: parent.projection.containerId,
       execSql: database.execSql,
-      recipientUserId: "user-2",
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createRecipientIdentityResolver({
         encapsulationPublicKey: recipientKeyPair.publicKey,
         signingKeyFingerprint: author.signerKeyFingerprint,
         signingPublicKey: parent.signingPublicKey,
       }),
-      targetSecretKey: parent.secretKey,
+      encapsulationSecretKey: parent.secretKey,
+    }).shareRemoteContainer({
+      accessLevel: "read",
+      author,
+      containerId: parent.projection.containerId,
+      recipientUserId: "user-2",
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     }),
   ).rejects.toThrow("Container writer projection path[0] state mismatch");
   database.close();
@@ -83,10 +84,9 @@ test("shareRemoteContainer rejects bad previous projection signatures before sen
   );
   let shareCalled = false;
   await expect(
-    shareRemoteContainer({
+    createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      accessLevel: "read",
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => tamperedProjection,
         shareContainer: async () => {
@@ -94,17 +94,19 @@ test("shareRemoteContainer rejects bad previous projection signatures before sen
           throw new Error("Unexpected share call");
         },
       },
-      author,
-      containerId: parent.projection.containerId,
       execSql: database.execSql,
-      recipientUserId: "user-2",
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createRecipientIdentityResolver({
         encapsulationPublicKey: recipientKeyPair.publicKey,
         signingKeyFingerprint: author.signerKeyFingerprint,
         signingPublicKey: parent.signingPublicKey,
       }),
-      targetSecretKey: parent.secretKey,
+      encapsulationSecretKey: parent.secretKey,
+    }).shareRemoteContainer({
+      accessLevel: "read",
+      author,
+      containerId: parent.projection.containerId,
+      recipientUserId: "user-2",
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     }),
   ).rejects.toMatchObject({ code: "signature_mismatch" });
   database.close();
@@ -120,10 +122,9 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
   const recipientKeyPair = generateKemSeedAndKeyPair();
   const database = await createTestExecSql("container-share-user");
   const submittedRequests: ContainerMutationRequest[] = [];
-  const shared = await shareRemoteContainer({
+  const shared = await createContainerMutationServiceFixture({
     reportSecurityIncident: async () => {},
-    accessLevel: "write",
-    apiClient: {
+    api: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => parent.projection,
       shareContainer: async (_containerId, request) => {
@@ -139,18 +140,20 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
         };
       },
     },
-    author,
-    containerId: parent.projection.containerId,
     execSql: database.execSql,
-    recipientUserId: "user-2",
-    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     resolveTrustedUserIdentity: createRecipientIdentityResolver({
       encapsulationPublicKey: recipientKeyPair.publicKey,
       signingKeyFingerprint: author.signerKeyFingerprint,
       signingPublicKey: parent.signingPublicKey,
     }),
+    encapsulationSecretKey: parent.secretKey,
+  }).shareRemoteContainer({
+    accessLevel: "write",
+    author,
+    containerId: parent.projection.containerId,
+    recipientUserId: "user-2",
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     signedAt: SIGNED_AT,
-    targetSecretKey: parent.secretKey,
   });
   database.close();
   expect(shared).not.toBeNull();

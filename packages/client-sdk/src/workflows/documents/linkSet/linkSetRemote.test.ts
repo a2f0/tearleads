@@ -14,6 +14,7 @@ import {
   createResponse,
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import {
   acknowledgedDocumentLinkSetMutation,
@@ -23,7 +24,6 @@ import { KeyingCheckpointRepository } from "../../../data/persistence/keyingChec
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentCreatePlan } from "../create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";
-import { relinkRemoteDocument } from "./linkSetRemote";
 
 test("relinkRemoteDocument rejects unlink without reading projections when its rotation snapshot is missing", async () => {
   const { author } = await createAuthor();
@@ -31,8 +31,8 @@ test("relinkRemoteDocument rejects unlink without reading projections when its r
   const { close, execSql } = await createTestExecSql("missing-unlink-rotation");
 
   await expect(
-    relinkRemoteDocument({
-      apiClient: createMockApiClient({
+    createRemoteDocumentServiceFixture({
+      api: createMockApiClient({
         listDocumentAttachments: async () => [],
         getContainerWriterProjection: async () => {
           projectionReads += 1;
@@ -50,13 +50,14 @@ test("relinkRemoteDocument rejects unlink without reading projections when its r
           throw new Error("Unexpected unlink call");
         },
       }),
+      encapsulationSecretKey: crypto.getRandomValues(new Uint8Array(32)),
+      execSql,
+    }).relinkRemoteDocument({
       author,
       documentId: "document-without-rotation-snapshot",
-      execSql,
       operation: "unlink",
       resolveProjectionUserKey: async () => null,
       targetContainerId: "target-container",
-      targetSecretKey: crypto.getRandomValues(new Uint8Array(32)),
     }),
   ).rejects.toThrow(
     "Document unlink requires a proven full-history rotation snapshot",
@@ -121,8 +122,8 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
   }> = [];
   const { close, execSql } = await createTestExecSql("remote-document-link");
 
-  const linked = await relinkRemoteDocument({
-    apiClient: createMockApiClient({
+  const linked = await createRemoteDocumentServiceFixture({
+    api: createMockApiClient({
       listDocumentAttachments: async () => [],
       getContainerWriterProjection: async (containerId) =>
         containerId === siblingProjection.containerId
@@ -143,13 +144,14 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
         throw new Error("Unexpected unlink call");
       },
     }),
+    encapsulationSecretKey: keyPair.secretKey,
+    execSql,
+  }).relinkRemoteDocument({
     author,
     documentId: writerProjection.documentId,
-    execSql,
     operation: "link",
     resolveProjectionUserKey,
     targetContainerId: siblingProjection.containerId,
-    targetSecretKey: keyPair.secretKey,
   });
 
   expect(submittedRequests).toHaveLength(1);
@@ -269,8 +271,8 @@ test("link planning rolls back checkpoints after generation expiry", async () =>
   }) as ExecSql;
 
   try {
-    const linked = await relinkRemoteDocument({
-      apiClient: createMockApiClient({
+    const linked = await createRemoteDocumentServiceFixture({
+      api: createMockApiClient({
         listDocumentAttachments: async () => [],
         getContainerWriterProjection: async () => siblingProjection,
         getDocumentWriterProjection: async () => writerProjection,
@@ -283,9 +285,11 @@ test("link planning rolls back checkpoints after generation expiry", async () =>
           throw new Error("unexpected unlink");
         },
       }),
+      encapsulationSecretKey: keyPair.secretKey,
+      execSql: guardedExecSql,
+    }).relinkRemoteDocument({
       author,
       documentId: writerProjection.documentId,
-      execSql: guardedExecSql,
       operation: "link",
       resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
         encapsulationPublicKey: keyPair.publicKey,
@@ -295,7 +299,6 @@ test("link planning rolls back checkpoints after generation expiry", async () =>
       }),
       stillCurrent: () => !transactionStarted,
       targetContainerId: siblingProjection.containerId,
-      targetSecretKey: keyPair.secretKey,
     });
 
     expect(linked).toBeNull();
@@ -419,8 +422,8 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
   );
 
   await expect(
-    relinkRemoteDocument({
-      apiClient: createMockApiClient({
+    createRemoteDocumentServiceFixture({
+      api: createMockApiClient({
         listDocumentAttachments: async () => [],
         getContainerWriterProjection: async (containerId) =>
           containerId === projection.containerId
@@ -439,14 +442,15 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
           throw new Error("Unexpected unlink call");
         },
       }),
+      encapsulationSecretKey: keyPair.secretKey,
+      execSql,
+    }).relinkRemoteDocument({
       author,
       documentId: linkedWriterProjection.documentId,
-      execSql,
       operation: "unlink",
       resolveProjectionUserKey,
       rotationSnapshot: exportFullHistorySnapshot(rotationDocument),
       targetContainerId: projection.containerId,
-      targetSecretKey: keyPair.secretKey,
     }),
   ).rejects.toMatchObject({ code: "signature_mismatch" });
   expect(unlinkCalled).toBe(false);

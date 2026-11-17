@@ -7,8 +7,8 @@ import type {
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
-  loadContainerSyncWatermark,
   defaultContainerContentsPersistence as persistence,
 } from "../containerPersistence";
 import { hydrateRemoteContainers } from "./index";
@@ -140,15 +140,12 @@ test.each([false, true])(
         child.id,
       ]);
       expect(await persistence.containerExists(execSql, child.id)).toBe(true);
+      const watermarks = new ContainerSyncWatermarkRepository(execSql);
       expect(
-        await loadContainerSyncWatermark(
-          execSql,
-          createContainerParentSyncLane(null),
-        ),
+        await watermarks.loadWatermark(createContainerParentSyncLane(null)),
       ).toBeNull();
       expect(
-        await loadContainerSyncWatermark(
-          execSql,
+        await watermarks.loadWatermark(
           createContainerParentSyncLane(discovered.id),
         ),
       ).toEqual(watermark);

@@ -35,6 +35,7 @@ import {
 } from "../../../../data/containers/shared/projection";
 import type {
   BuildContainerCreatePlanInput,
+  ContainerCreateApi,
   ContainerCreatePlan,
   ContainerCreatePlanContext,
   ContainerMutationAuthor,
@@ -59,11 +60,13 @@ import {
 import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principals/principalPolicyEvidence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { PrincipalPolicyRepairBudget } from "../../../principals/policyRepairBudget";
+import type { ContainerMutationCollaborators } from "../../containerMutationCollaborators";
 import { containerMutationRequestCore } from "../mutationRequestCore";
 import { requireUnwrappedKek } from "../rotation/rotationContext";
 import {
   type ContainerCreateRepairState,
   type RemoteContainerCreateInput,
+  type RemoteContainerCreateRequest,
   repairContainerCreateFailure,
   submitRemoteContainerCreate,
 } from "./createSubmission";
@@ -477,8 +480,18 @@ async function createRemoteContainerOutcome(
 }
 
 export async function createRemoteContainer(
-  input: RemoteContainerCreateInput,
+  collaborators: Pick<
+    ContainerMutationCollaborators<ContainerCreateApi>,
+    "api" | "encapsulationSecretKey" | "execSql"
+  >,
+  request: RemoteContainerCreateRequest,
 ): Promise<CreateRemoteContainerResult | null> {
+  const input: RemoteContainerCreateInput = {
+    ...request,
+    apiClient: collaborators.api,
+    execSql: collaborators.execSql,
+    parentSecretKey: collaborators.encapsulationSecretKey,
+  };
   const outcome = await createRemoteContainerOutcome(input);
   return outcome?.acknowledged && input.stillCurrent?.() !== false
     ? outcome.result
