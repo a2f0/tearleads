@@ -25,8 +25,8 @@ export type ExplorerSelectionFollowUp = (id: string) => void;
  * must not be pulled back when it settles, and one who leaves the Explorer
  * must not have it reopened (in the routed shell, selecting navigates to the
  * Explorer's route). Call the returned function as the action begins: the
- * follow-up it hands back selects only while the Explorer is mounted and its
- * selection and full route are still the ones it captured.
+ * follow-up it hands back selects only while the Explorer is still mounted at
+ * the position it captured, never after any move, even one back to it.
  */
 export function useExplorerSelectionFollowUp(params: {
   route: ExplorerRoute;
@@ -40,10 +40,12 @@ export function useExplorerSelectionFollowUp(params: {
     selectedId,
     formatExplorerRouteSegments(route, selectedId),
   ]);
-  // Null once the Explorer unmounts, so no follow-up can still select.
-  const positionRef = useRef<string | null>(position);
+  // A fresh object on every position change, compared by identity, so moving
+  // away and back still retires a pending follow-up; null while the Explorer
+  // is not mounted.
+  const positionRef = useRef<{ readonly position: string } | null>(null);
   useLayoutEffect(() => {
-    positionRef.current = position;
+    positionRef.current = { position };
     return () => {
       positionRef.current = null;
     };

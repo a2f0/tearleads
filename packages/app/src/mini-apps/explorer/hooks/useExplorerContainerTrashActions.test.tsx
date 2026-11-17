@@ -273,6 +273,19 @@ test("a follow-up yields to the same linked document opened elsewhere", () => {
   expect(selected).toEqual([]);
 });
 
+test("a follow-up yields to a move away and back to where it began", () => {
+  const { selected, view } = renderFollowUp();
+  const followUp = view.result.current();
+
+  // Opening the Trash and then the note again is a fresh choice of the note,
+  // which the stale follow-up must not override.
+  view.rerender({ route: { view: "selection" }, selectedId: "trash" });
+  view.rerender(openNote());
+  followUp("source");
+
+  expect(selected).toEqual([]);
+});
+
 test("a follow-up begun after a move compares against the new position", () => {
   const { selected, view } = renderFollowUp();
   view.rerender({ route: { view: "selection" }, selectedId: "trash" });
