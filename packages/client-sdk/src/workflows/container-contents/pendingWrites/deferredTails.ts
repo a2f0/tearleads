@@ -54,6 +54,10 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
     ON stored.app_kind = 'container-metadata'
     AND metadata_container.id = stored.local_id
   WHERE stored.snapshot_end_version <> ''
+    -- A marker equal to the content frontier covers it, so a settled record
+    -- is never a candidate. With the term above this matches
+    -- documents_deferred_tail_idx, so the scan reads only unsettled records.
+    AND stored.pending_base_version IS NOT stored.snapshot_end_version
     -- Dormant retained metadata (row 4, access_revoked) has no containers
     -- row; keep it out of deferred-tail candidates until re-attach, matching
     -- the pending-write sources guard.

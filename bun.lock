@@ -5,7 +5,7 @@
     "": {
       "name": "tearleads",
       "devDependencies": {
-        "@a2f0/agent-tool": "0.1.59",
+        "@a2f0/agent-tool": "0.1.62",
         "@azure/storage-blob": "12.34.0",
         "@biomejs/biome": "2.5.15",
         "@commitlint/cli": "21.2.4",
@@ -27,7 +27,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.155",
+      "version": "0.1.156",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1161.0",
         "@aws-sdk/s3-request-presigner": "3.1161.0",
@@ -67,7 +67,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.61",
+      "version": "0.1.60",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -81,7 +81,7 @@
     },
     "packages/api-shared": {
       "name": "@tearleads/api-shared",
-      "version": "0.1.37",
+      "version": "0.1.38",
       "dependencies": {
         "@electric-sql/pglite": "0.5.15",
         "@tearleads/crypto": "workspace:*",
@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.220",
+      "version": "0.1.219",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -252,7 +252,7 @@
     },
     "packages/crypto": {
       "name": "@tearleads/crypto",
-      "version": "0.1.37",
+      "version": "0.1.36",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@noble/post-quantum": "0.7.1",
@@ -351,7 +351,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.66",
+      "version": "0.1.65",
       "dependencies": {
         "zod": "catalog:",
       },
@@ -363,9 +363,9 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.71",
+      "version": "0.1.72",
       "dependencies": {
-        "@a2f0/agent-tool": "0.1.59",
+        "@a2f0/agent-tool": "0.1.62",
         "@a2f0/ct-client": "0.1.6",
         "@astrojs/markdown-satteri": "0.4.6",
         "@astrojs/react": "7.1.2",
@@ -442,7 +442,7 @@
     },
   },
   "packages": {
-    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.59", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-440GyauSfeqSMlcGHiOPMc3VJ+G8bbOEK8SlwjpAJAChWo/IAoNvYo8Xcid8XiyJirKA9kAHRwpkjnmU+R64ZQ=="],
+    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.62", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-xhNT54KGImMQXueuyin7Xpowxf98mn1iRz7pIF8vyO0C4OwU2sgYvzoMzI90R1rC68ZVivupUWk4Wq2AVrtpMQ=="],
 
     "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#ccec49f", {}, "a2f0-continuity-ccec49f", "sha512-SwQMufS2JVURyMbhehQMLvNnvuJsqDQihxvsLGnFjeVWwsweJTRy9esLA4dnJziHq2u36qlSG0uzAsQOk0hAbQ=="],
 
