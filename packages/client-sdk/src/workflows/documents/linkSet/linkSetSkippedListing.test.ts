@@ -284,20 +284,19 @@ test("a retry refused after the operation stopped being current is dropped", asy
   expect(run.result).toBeNull();
 });
 
-test("an uncoded refusal of a skipped listing lists and retries once", async () => {
-  // A server without the code refuses an uncovered binding uncoded.
+test("an uncoded refusal of a skipped listing keeps its own recovery path", async () => {
   const uncoded = { code: undefined, message: "Conflict", status: 409 };
   const run = await runLinkLeg("skipped-listing-uncoded-refusal", {
     refusals: [uncoded],
     view: "empty",
   });
   expect(run).toMatchObject({
-    failures: [],
-    hostReports: 0,
-    listings: 1,
-    submissions: 2,
+    failures: [uncoded],
+    hostReports: 1,
+    listings: 0,
+    submissions: 1,
   });
-  expect(run.result).not.toBeNull();
+  expect(run.result).toBeNull();
 });
 
 test("a coded refusal of a skipped listing keeps its own recovery path", async () => {

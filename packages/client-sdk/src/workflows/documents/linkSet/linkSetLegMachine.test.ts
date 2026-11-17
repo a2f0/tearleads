@@ -73,9 +73,10 @@ test("a refused skipped or reused attempt retries once with a fresh listing", ()
 });
 
 test("only the binding check's refusals of uncited attachments retry", () => {
-  // An uncoded conflict may be a server's refusal of an uncovered binding.
+  // A skipped attempt cites no blob, so an uncoded conflict is not about it.
   expect(fail(INITIAL_LINK_SET_LEG_STATE, "skipped", [EPOCH_CHANGED])).toEqual({
-    status: "fresh",
+    status: "failed",
+    unreported: [EPOCH_CHANGED],
   });
   expect(fail(INITIAL_LINK_SET_LEG_STATE, "skipped", [UNAVAILABLE])).toEqual({
     status: "failed",
