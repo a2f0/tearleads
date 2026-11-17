@@ -154,7 +154,7 @@ export function useExplorerPanelState(params: {
     setSelectedId: selection.setSelectedId,
   });
   const beginSelectionFollowUp = useExplorerSelectionFollowUp({
-    routeView: routeState.route.view,
+    route: routeState.route,
     selectedId: selection.selectedId,
     selectExplorerItem: routeState.selectExplorerItem,
   });

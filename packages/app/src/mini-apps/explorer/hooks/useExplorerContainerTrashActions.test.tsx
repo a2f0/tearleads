@@ -7,6 +7,7 @@ import {
 import { act, cleanup, renderHook } from "@testing-library/react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { TrashUnavailableError } from "../../../stores/systemContainerTrash";
+import type { ExplorerRoute } from "../routes";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
 import {
   resolveExplorerTrashDestination,
@@ -174,7 +175,7 @@ function renderPendingFolderMove() {
       useExplorerContainerTrashActions({
         appData,
         beginSelectionFollowUp: useExplorerSelectionFollowUp({
-          routeView: "selection",
+          route: { view: "selection" },
           selectedId: props.selectedId,
           selectExplorerItem: (id) => {
             selected.push(id);
@@ -212,17 +213,30 @@ test("a folder move that settles after the user navigated keeps their selection"
   expect(selected).toEqual([]);
 });
 
+interface FollowUpPosition {
+  route: ExplorerRoute;
+  selectedId: string | null;
+}
+
+// A note opened from the Notes container.
+function openNote(containerId = "notes"): FollowUpPosition {
+  return {
+    route: { containerId, localId: "note", view: "document-selection" },
+    selectedId: "note",
+  };
+}
+
 function renderFollowUp() {
   const selected: Array<string | null> = [];
   const view = renderHook(
-    (props: { routeView: string; selectedId: string | null }) =>
+    (props: FollowUpPosition) =>
       useExplorerSelectionFollowUp({
         ...props,
         selectExplorerItem: (id) => {
           selected.push(id);
         },
       }),
-    { initialProps: { routeView: "selection", selectedId: "note" } },
+    { initialProps: openNote() },
   );
   return { selected, view };
 }
@@ -231,8 +245,8 @@ test("a follow-up selects while the Explorer has not moved", () => {
   const { selected, view } = renderFollowUp();
   const followUp = view.result.current();
 
-  // A re-render that keeps the same position is not a move.
-  view.rerender({ routeView: "selection", selectedId: "note" });
+  // An equal route parsed again is not a move.
+  view.rerender(openNote());
   followUp("source");
 
   expect(selected).toEqual(["source"]);
@@ -242,7 +256,18 @@ test("a follow-up yields to another detail view opened after it began", () => {
   const { selected, view } = renderFollowUp();
   const followUp = view.result.current();
 
-  view.rerender({ routeView: "sync-lanes", selectedId: "note" });
+  view.rerender({ route: { view: "sync-lanes" }, selectedId: "note" });
+  followUp("source");
+
+  expect(selected).toEqual([]);
+});
+
+test("a follow-up yields to the same linked document opened elsewhere", () => {
+  const { selected, view } = renderFollowUp();
+  const followUp = view.result.current();
+
+  // A linked document keeps its local id in every container it is linked to.
+  view.rerender(openNote("shared"));
   followUp("source");
 
   expect(selected).toEqual([]);
@@ -250,7 +275,7 @@ test("a follow-up yields to another detail view opened after it began", () => {
 
 test("a follow-up begun after a move compares against the new position", () => {
   const { selected, view } = renderFollowUp();
-  view.rerender({ routeView: "selection", selectedId: "trash" });
+  view.rerender({ route: { view: "selection" }, selectedId: "trash" });
 
   view.result.current()("source");
 

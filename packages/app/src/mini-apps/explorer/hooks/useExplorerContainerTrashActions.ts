@@ -11,13 +11,8 @@ import {
   type ExplorerPurgeRun,
   useExplorerPurgeRun,
 } from "../purge-progress/useExplorerPurgeRun";
+import { type ExplorerRoute, formatExplorerRouteSegments } from "../routes";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
-
-/** Where the Explorer points: the selected item and the detail view. */
-interface ExplorerSelectionPosition {
-  readonly routeView: string;
-  readonly selectedId: string | null;
-}
 
 /** Selects `id` only if the Explorer has not moved since it was begun. */
 export type ExplorerSelectionFollowUp = (id: string) => void;
@@ -26,41 +21,38 @@ export type ExplorerSelectionFollowUp = (id: string) => void;
  * Moving to Trash and purging re-select the source container once the mutation
  * settles, so the detail pane does not linger on what was removed. Those
  * actions start from a context menu and leave the Explorer usable while the
- * mutation runs, so a user who opens another container meanwhile must not be
- * pulled back when it settles, and one who leaves the Explorer must not have
- * it reopened (in the routed shell, selecting navigates to the Explorer's
- * route). Call the returned function as the action begins: the follow-up it
- * hands back selects only while the Explorer is mounted and the selection and
- * the detail view are still the ones it captured.
+ * mutation runs, so a user who opens another container or document meanwhile
+ * must not be pulled back when it settles, and one who leaves the Explorer
+ * must not have it reopened (in the routed shell, selecting navigates to the
+ * Explorer's route). Call the returned function as the action begins: the
+ * follow-up it hands back selects only while the Explorer is mounted and its
+ * selection and full route are still the ones it captured.
  */
 export function useExplorerSelectionFollowUp(params: {
-  routeView: string;
+  route: ExplorerRoute;
   selectedId: string | null;
   selectExplorerItem: (id: string | null) => void;
 }): () => ExplorerSelectionFollowUp {
-  const { routeView, selectedId, selectExplorerItem } = params;
-  // Null once the Explorer unmounts, so no follow-up can still select.
-  const positionRef = useRef<ExplorerSelectionPosition | null>({
-    routeView,
+  const { route, selectedId, selectExplorerItem } = params;
+  // Every id the route carries, so the same document opened through another
+  // container (a linked document keeps its local id) still counts as a move.
+  const position = JSON.stringify([
     selectedId,
-  });
+    formatExplorerRouteSegments(route, selectedId),
+  ]);
+  // Null once the Explorer unmounts, so no follow-up can still select.
+  const positionRef = useRef<string | null>(position);
   useLayoutEffect(() => {
-    positionRef.current = { routeView, selectedId };
+    positionRef.current = position;
     return () => {
       positionRef.current = null;
     };
-  }, [routeView, selectedId]);
+  }, [position]);
 
   return useCallback(() => {
     const begun = positionRef.current;
     return (id: string) => {
-      const current = positionRef.current;
-      if (
-        begun !== null &&
-        current !== null &&
-        current.selectedId === begun.selectedId &&
-        current.routeView === begun.routeView
-      ) {
+      if (begun !== null && positionRef.current === begun) {
         selectExplorerItem(id);
       }
     };
