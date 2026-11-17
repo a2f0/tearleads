@@ -1,15 +1,21 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { blobs } from "@tearleads/api-shared/schema";
+import { compareCanonicalStrings } from "@tearleads/crypto";
 import { asc, inArray } from "drizzle-orm";
 
+/**
+ * Unique ids in code-unit order, which for canonical lowercase UUIDs is the
+ * database's UUID order, so consecutive slices of the plan lock in one global
+ * order.
+ */
 export function planBlobMutationLockIds(blobIds: readonly string[]): string[] {
-  return [...new Set(blobIds)].sort((left, right) => left.localeCompare(right));
+  return [...new Set(blobIds)].sort(compareCanonicalStrings);
 }
 
 /**
  * Blob attachment mutations lock every involved existing blob before changing
- * a binding. The UUID order is shared by bind, replacement, and detach, so two
- * transactions cannot form a blob-row/binding-row lock cycle.
+ * a binding. The UUID order is shared by bind, replacement, detach, purges, and
+ * the reclaim sweep, so two transactions cannot form a blob-row lock cycle.
  */
 export async function lockBlobMutationRows(input: {
   readonly blobIds: readonly string[];
