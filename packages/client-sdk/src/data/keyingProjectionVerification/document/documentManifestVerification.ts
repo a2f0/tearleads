@@ -21,7 +21,11 @@ import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
 } from "../checkpoints/manifestCheckpointVerification";
-import { recordVerifiedBundleBytes } from "../checkpoints/verifiedBundleBytes";
+import {
+  assertUnchangedSinceVerification,
+  matchesVerifiedBundleBytes,
+  recordVerifiedBundleBytes,
+} from "../checkpoints/verifiedBundleBytes";
 import { readAccessManifest, readDocumentAccessEventBody } from "../readers";
 import type {
   PrincipalPolicyCache,
@@ -37,6 +41,20 @@ import {
 import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecessor";
 
 type PolicyWarmer = ReferencedPrincipalPolicyWarmer | undefined;
+
+function assertVerifiedState(
+  input: {
+    readonly bundle: AccessManifestBundleWireResponse;
+    readonly label: string;
+  },
+  verified: VerifiedDocumentLinkSetManifest,
+): void {
+  assertCanonicalEqual({
+    actual: input.bundle.state,
+    expected: readKeyingCanonicalJson(verified.state, `${input.label} state`),
+    label: `${input.label} state`,
+  });
+}
 
 export async function verifyDocumentManifestBundle(input: {
   readonly authorizationMembership?: "current" | "referenced" | undefined;
@@ -63,7 +81,10 @@ export async function verifyDocumentManifestBundle(input: {
   readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
-  if (cached) {
+  // A cache hit vouches for the bytes it verified; a copy that differs is
+  // verified afresh.
+  if (cached && matchesVerifiedBundleBytes(cached, input.bundle)) {
+    assertVerifiedState(input, cached);
     if (input.enforceLocalCheckpoint) {
       await verifyCachedManifestCheckpoint({
         current: cached,
@@ -71,10 +92,32 @@ export async function verifyDocumentManifestBundle(input: {
         localCheckpoints: input.checkpointContext.localCheckpoints,
         verifiedManifests: input.verifiedByHash,
       });
+      // The caller reads this bundle on return, after the checkpoint read.
+      assertUnchangedSinceVerification(cached, input.bundle, input.label);
+      assertVerifiedState(input, cached);
     }
     return cached;
   }
+  // Verify and record one copy taken before the first await, so the bytes
+  // recorded as verified are exactly the bytes verified.
+  const snapshot = structuredClone(input.bundle);
+  const verified = await verifyFreshDocumentManifestBundle({
+    ...input,
+    bundle: snapshot,
+  });
+  assertUnchangedSinceVerification(
+    verified,
+    input.bundle,
+    input.label,
+    snapshot,
+  );
+  assertVerifiedState(input, verified);
+  return verified;
+}
 
+async function verifyFreshDocumentManifestBundle(
+  input: Parameters<typeof verifyDocumentManifestBundle>[0],
+): Promise<VerifiedDocumentLinkSetManifest> {
   const event = await verifyAccessEventBundle(input);
   const manifest = readAccessManifest(
     input.bundle.manifest,
@@ -139,14 +182,7 @@ export async function verifyDocumentManifestBundle(input: {
     paths: [...dependencyContainerPaths, targetContainerPath],
     used: input.usedContainerManifests,
   });
-  assertCanonicalEqual({
-    actual: input.bundle.state,
-    expected: readKeyingCanonicalJson(
-      verified.value.state,
-      `${input.label} state`,
-    ),
-    label: `${input.label} state`,
-  });
+  assertVerifiedState(input, verified.value);
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
   recordVerifiedBundleBytes(verified.value, input.bundle);
 

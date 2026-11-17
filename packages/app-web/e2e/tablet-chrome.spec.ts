@@ -50,6 +50,7 @@ test("tablet Explorer rows draw centered touch-size glyphs", async ({
 }) => {
   await page.setViewportSize({ width: 900, height: 1000 });
   await page.goto("/app/explorer");
+  await page.getByRole("button", { name: "Show Sidebar" }).click();
 
   const treeRow = page
     .locator(".explorer-sidebar-row")
@@ -149,6 +150,7 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
 
   const pane = page.locator(".routed-pane--tablet");
   await expect(pane).toBeVisible();
+  await expect(pane).toHaveAttribute("data-sidebar", "closed");
   await expect(pane).toHaveAttribute("data-launcher-placement", "side");
   const rail = pane.locator(".routed-pane-rail");
   const moveToBottom = rail.getByRole("button", {
@@ -172,6 +174,7 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   await pane.evaluate((element) => {
     (element as HTMLElement).style.setProperty("--safe-area-left", "24px");
   });
+  await page.getByRole("button", { name: "Show Sidebar" }).click();
   await expect(page.locator(".routed-pane-sidebar")).toHaveCSS(
     "padding-left",
     "24px",
@@ -212,6 +215,7 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
 test("routed internal sidebar has its own surface color", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/app/explorer");
+  await page.getByRole("button", { name: "Show Sidebar" }).click();
 
   const pane = page.locator(".routed-pane--tablet");
   await expect(pane.locator(".routed-pane-sidebar")).toBeVisible({

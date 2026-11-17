@@ -5,8 +5,9 @@ import {
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { readCanonicalRecord } from "../../keying/canonicalJson";
+import { matchesVerifiedBundleBytes } from "../checkpoints/verifiedBundleBytes";
 import { readKeyingVerificationShape } from "../error";
-import { readRecordNullableString } from "../readers";
+import { readRecordString } from "../readers";
 
 /**
  * A container manifest pins the parent manifest it was created or moved
@@ -45,17 +46,22 @@ interface CitedAncestorResolutionInput {
   ) => Promise<VerifiedContainerAccessManifest>;
 }
 
+/**
+ * The container a served bundle's manifest names, before it verifies. The
+ * manifest hash commits to it, and verification binds it to the signed event
+ * and the derived state, so a selection made here is checked there.
+ */
 function bundleContainerId(
   bundle: AccessManifestBundleWireResponse,
   label: string,
 ): string | null {
-  return readKeyingVerificationShape(() =>
-    readRecordNullableString(
-      readCanonicalRecord(bundle.state, `${label} state`),
-      "containerId",
-      `${label} state`,
-    ),
-  );
+  return readKeyingVerificationShape(() => {
+    const manifest = readCanonicalRecord(bundle.manifest, `${label} manifest`);
+    return readRecordString(manifest, "objectKind", `${label} manifest`) ===
+      "container"
+      ? readRecordString(manifest, "objectId", `${label} manifest`)
+      : null;
+  });
 }
 
 function citedContainerId(
@@ -97,9 +103,14 @@ async function resolveCitedManifest(
   manifestHash: string,
   containerId: string,
 ): Promise<VerifiedContainerAccessManifest> {
+  // The cache answers only for the bytes it verified (a match is frozen, so
+  // each ancestor is serialized once however many descendants cite it); a
+  // served ancestor that differs is verified as a cold device would.
   const verified = input.verifiedByHash.get(manifestHash);
-  if (verified) return verified;
   const bundle = input.bundlesByHash.get(manifestHash);
+  if (verified && (!bundle || matchesVerifiedBundleBytes(verified, bundle))) {
+    return verified;
+  }
   if (!bundle) {
     throw new KeyingVerificationError(
       "missing_dependency",

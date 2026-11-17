@@ -3,6 +3,7 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { ContainerKekWireLevel } from "@tearleads/validators/response";
+import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 import { KeyingCheckpointRepository } from "../../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { VerifiedManifestBundle } from "../../../src/data/persistence/verifiedManifestBundlePersistence";
 import {
@@ -34,12 +35,14 @@ export function entry(
   organizationId = ORGANIZATION,
 ) {
   return {
-    bundle: {
+    // Stored as served; these test bundles name no object kind, so serving
+    // leaves their state as is.
+    bundle: toServedAccessManifestBundle({
       event: { body: { epoch }, event: { objectId }, eventHash: `e${epoch}` },
       manifest: { objectId, epoch },
       manifestHash: hash(index),
       state: { epoch },
-    },
+    }),
     checkpoint: { objectKind, organizationId, objectId, epoch },
   };
 }

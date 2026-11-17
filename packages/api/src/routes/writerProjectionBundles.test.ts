@@ -49,13 +49,16 @@ test("a document projection serves each manifest once and cites it by hash", asy
     [rootHash, created.manifestHash].sort(),
   );
 
+  // A served state leaves off what the bundle's signed bytes name (the
+  // container public key among them); decoding fills the stored state back.
+  const servedRoot = wire.bundles[rootHash];
+  if (!servedRoot) throw new Error("root bundle not served");
+  expect(servedRoot.state).not.toHaveProperty("containerKeyPublicKey");
+  expect(servedRoot.state).not.toHaveProperty("containerId");
+  const rebuilt = { ...servedRoot, state: root.bundle.state };
   const decoded = decodeServedDocumentProjection(body);
-  expect(decoded.documentManifestContainerPaths[0]?.[0]).toEqual(
-    wire.bundles[rootHash],
-  );
-  expect(decoded.authorizingContainerPaths[0]?.path[0]).toEqual(
-    wire.bundles[rootHash],
-  );
+  expect(decoded.documentManifestContainerPaths[0]?.[0]).toEqual(rebuilt);
+  expect(decoded.authorizingContainerPaths[0]?.path[0]).toEqual(rebuilt);
 });
 
 test("a container projection cites its path and KEK history by hash", async () => {

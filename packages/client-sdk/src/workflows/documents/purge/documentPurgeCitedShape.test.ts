@@ -10,6 +10,7 @@ import {
 } from "@tearleads/test-utils";
 import { fixtureHash } from "../../../../test/helpers/data/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/workflows/documentPurge";
+import { createPurgeChainFixture } from "../../../../test/helpers/workflows/documentPurgeChain";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { verifyDocumentPurgeProof } from "../../../data/keyingProjectionVerification/documentPurge/documentPurgeProofVerification";
 import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
@@ -56,6 +57,9 @@ test("a malformed unverified purge citation records one integrity incident", asy
       },
     },
   ];
+  // The served state names no container, but citations are matched by the
+  // hash-committed manifest: this one names the root again, so the leaf cites
+  // two heads of one container.
   proof.documentContainerManifestHistory.push({
     ...root,
     manifestHash: citedHash,
@@ -82,6 +86,61 @@ test("a malformed unverified purge citation records one integrity incident", asy
             expectedOrganizationId: fixture.author.organizationId,
             proof,
             resolveUserKey: fixture.resolveProjectionUserKey,
+          }),
+      ),
+    ).rejects.toMatchObject({
+      name: "KeyingVerificationError",
+      code: "duplicate_entry",
+    });
+    expect(incidents).toHaveLength(1);
+  } finally {
+    database.close();
+  }
+});
+
+test("a pinned purge head served with compact state records one integrity incident", async () => {
+  const fixture = await createPurgeChainFixture();
+  const database = await createTestExecSql("purge-compact-head");
+  const input = {
+    execSql: database.execSql,
+    openPrincipalPolicyBundleReader,
+    expectedDocumentId: fixture.proof.documentId,
+    expectedOrganizationId: fixture.author.organizationId,
+    resolveUserKey: fixture.resolveProjectionUserKey,
+  };
+  const incidents: unknown[] = [];
+  try {
+    // Pin the head, so a retry verifies it as a hash-only snapshot of its
+    // served state.
+    const pinned = await verifyDocumentPurgeProof({
+      ...input,
+      proof: fixture.proof,
+    });
+    await pinned.commitCheckpoints(database.execSql);
+    const retry = { ...fixture.proof, documentManifestPredecessors: [] };
+    await expect(
+      verifyDocumentPurgeProof({ ...input, proof: retry }),
+    ).resolves.toBeDefined();
+    // The compact state a writer projection serves (a document's linked
+    // containers alone) cannot stand in for the full stored state a snapshot
+    // is verified from.
+    const head = fixture.proof.documentManifest;
+    const { linkedContainerIds } = head.state;
+    const compactHead = { ...head, state: { linkedContainerIds } };
+    await expect(
+      runWithSecurityIncidentReporting(
+        async (error) => {
+          incidents.push(error);
+        },
+        {
+          operation: "document.purge",
+          objectKind: "document",
+          objectId: fixture.proof.documentId,
+        },
+        () =>
+          verifyDocumentPurgeProof({
+            ...input,
+            proof: { ...retry, documentManifest: compactHead },
           }),
       ),
     ).rejects.toMatchObject({

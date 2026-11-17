@@ -113,7 +113,9 @@ private lease, checkpoint and availability contracts.
 Writer projections carry each [access-manifest](./glossary/access.md#access-manifest)
 bundle once, cited by hash (see the
 [protocol specification](protocol-specification/container-access.md#container-access-and-kek-protocol)).
-After a projection verifies, the SDK stores its verified bundles in the local
+After a projection verifies, the SDK stores its verified bundles, as served
+(with the state fields their signed bytes name left off, which a refill fills
+back), in the local
 `verified_access_manifest_bundles` table, keyed by manifest hash, and each
 verified container KEK level as a typed row keyed by the domain-separated hash
 of its canonical wire bytes (one level per container, its latest). A later
