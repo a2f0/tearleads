@@ -15,13 +15,13 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { manifestHistoryEpochIds } from "../../../../data/documents/shared/containerKek/containerKekPathHistory";
 import {
   HistoricalWrapUnavailableError,
   recoverKeyringEntryFromWraps,
 } from "../../../../data/documents/shared/containerKek/keyringRebuild";
 import { sealRotationKeyring } from "../move/moveRotation";
-import { rekeyRemoteContainer } from "./rekeyRemote";
 
 /** Variable-key read: the index-signature rule and the literal-key lint
  * disagree about `record.field`, and a variable key satisfies both. */
@@ -128,19 +128,20 @@ test("a keyring entry claiming an uncommitted epoch id is rejected", async () =>
   }
   const database = await createTestExecSql("keyring-forged-epoch");
 
-  const rekeyed = await rekeyRemoteContainer({
+  const rekeyed = await createContainerMutationServiceFixture({
     reportSecurityIncident: async () => {},
-    apiClient: {
+    api: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => parent.projection,
       rekeyContainer: async (_containerId, request) =>
         createMutationResponseFromRequest(request, parent.projection),
     },
+    execSql: database.execSql,
+    encapsulationSecretKey: parent.secretKey,
+  }).rekeyRemoteContainer({
     author: parent.author,
     containerId: parent.projection.containerId,
-    execSql: database.execSql,
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    targetSecretKey: parent.secretKey,
   });
   if (!rekeyed) {
     throw new Error("Expected the rotation to succeed");
@@ -419,20 +420,21 @@ test("a repair override inventing a predecessor epoch is rejected", async () => 
   };
 
   await expect(
-    rekeyRemoteContainer({
+    createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         rekeyContainer: async (_containerId, request) =>
           createMutationResponseFromRequest(request, parent.projection),
       },
+      execSql: database.execSql,
+      encapsulationSecretKey: parent.secretKey,
+    }).rekeyRemoteContainer({
       author: parent.author,
       containerId: parent.projection.containerId,
-      execSql: database.execSql,
       keyringEntriesOverride: [forgedEntry],
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow("outside the container's signed lineage");
 });

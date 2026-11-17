@@ -30,8 +30,12 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../../data/keyingProjectionVerification";
-import type { SecurityIncidentReporter } from "../../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+import {
+  type ContainerRotationBag,
+  type ContainerRotationCollaborators,
+  containerRotationBag,
+} from "../../containerMutationCollaborators";
 import {
   submitAcknowledgedContainerMutation,
   submitContainerRotation,
@@ -289,23 +293,25 @@ async function buildMaterializedContainerMovePlan(
   });
 }
 
-interface MoveRemoteContainerInput {
-  reportSecurityIncident: SecurityIncidentReporter;
-  apiClient: ContainerMoveApi;
+export interface MoveRemoteContainerRequest {
   author: ContainerMutationAuthor;
   containerId: string;
   destinationParentContainerId: string;
   eventId?: string | undefined;
-  execSql: ExecSql;
   onAccepted?: (() => void) | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
-  targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }
 
-interface SubmittedContainerMove {
+type MoveRemoteContainerInput = MoveRemoteContainerRequest &
+  ContainerRotationBag<ContainerMoveApi>;
+
+type ContainerMoveCollaborators =
+  ContainerRotationCollaborators<ContainerMoveApi>;
+
+export interface SubmittedContainerMove {
   containerKey: Uint8Array;
   plan: ContainerMovePlan;
   response: ContainerRotationResponse;
@@ -313,9 +319,13 @@ interface SubmittedContainerMove {
 
 /** Signs and submits a move; `null` when it was refused or abandoned. */
 export async function moveRemoteContainer(
-  input: MoveRemoteContainerInput,
+  collaborators: ContainerMoveCollaborators,
+  request: MoveRemoteContainerRequest,
 ): Promise<SubmittedContainerMove | null> {
-  const moved = await submitRemoteContainerMove(input, false);
+  const moved = await submitRemoteContainerMove(
+    { ...request, ...containerRotationBag(collaborators) },
+    false,
+  );
   if (moved && "applied" in moved)
     throw new Error("A move that adopts nothing cannot report one applied");
   return moved;
@@ -327,9 +337,13 @@ export async function moveRemoteContainer(
  * settles without a second rotation.
  */
 export function replayRemoteContainerMove(
-  input: MoveRemoteContainerInput,
+  collaborators: ContainerMoveCollaborators,
+  request: MoveRemoteContainerRequest,
 ): Promise<SubmittedContainerMove | { applied: AppliedContainerMove } | null> {
-  return submitRemoteContainerMove(input, true);
+  return submitRemoteContainerMove(
+    { ...request, ...containerRotationBag(collaborators) },
+    true,
+  );
 }
 
 async function submitRemoteContainerMove(

@@ -10,8 +10,8 @@ import {
   createMaterializedSyncFixture,
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";
-import { relinkRemoteDocument } from "./linkSetRemote";
 
 async function createLinkedFixture() {
   const source = await createMaterializedSyncFixture();
@@ -69,8 +69,8 @@ for (const scenario of ["outside", "restored-root", "inside", "late-refusal"]) {
     let submissions = 0;
     let submissionChecks = 0;
     try {
-      const result = relinkRemoteDocument({
-        apiClient: createMockApiClient({
+      const result = createRemoteDocumentServiceFixture({
+        api: createMockApiClient({
           getContainerWriterProjection: async () => fixture.child,
           getDocumentWriterProjection: async () => fixture.writerProjection,
           listDocumentAttachments: async () => [],
@@ -80,6 +80,9 @@ for (const scenario of ["outside", "restored-root", "inside", "late-refusal"]) {
             return createLinkSetResponseFromRequest(documentId, request);
           },
         }),
+        encapsulationSecretKey: fixture.secretKey,
+        execSql,
+      }).relinkRemoteDocument({
         author: fixture.author,
         beforeSubmit: async () => {
           submissionChecks += 1;
@@ -93,14 +96,12 @@ for (const scenario of ["outside", "restored-root", "inside", "late-refusal"]) {
               : fixture.parent.containerId,
           parentId: scenario === "restored-root" ? "trash" : null,
         },
-        execSql,
         operation: "unlink",
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
         rotationSnapshot: exportFullHistorySnapshot(
           await createDocument("subtree-unlink"),
         ),
         targetContainerId: fixture.child.containerId,
-        targetSecretKey: fixture.secretKey,
       });
       if (allowed)
         expect((await result)?.linkedContainerIds).toEqual([

@@ -1,9 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  buildMaterializedContainerRekeyPlan,
-  createRemoteContainer,
-  shareRemoteContainer,
-} from "@tearleads/client-sdk";
+import { buildMaterializedContainerRekeyPlan } from "@tearleads/client-sdk";
 import { createTestUser } from "@tearleads/test-utils";
 import {
   createAncestorSdkContext,
@@ -62,13 +58,10 @@ test.each([
       const descendantIds: string[] = [];
       let parentProjection = initialProjection;
       for (let index = 0; index < depth; index += 1) {
-        const child = await createRemoteContainer({
-          ...context.common,
+        const child = await context.containers.createRemoteContainer({
+          ...context.mutation,
           parentContainerId: parentProjection.containerId,
           parentProjection,
-          parentSecretKey: owner.kem.secretKey,
-          reportSecurityIncident: async () => undefined,
-          resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
         });
         if (!child) throw new Error("Expected child");
         descendantIds.push(child.containerId);
@@ -98,13 +91,11 @@ test.each([
         owner,
       });
       if (writer !== owner) {
-        const shared = await shareRemoteContainer({
-          ...context.common,
+        const shared = await context.containers.shareRemoteContainer({
+          ...context.mutation,
           accessLevel: "write",
           containerId: leafId,
           recipientUserId: writer.userId,
-          reportSecurityIncident: async () => undefined,
-          resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
         });
         expect(shared).not.toBeNull();
         const parentRead = await routeApp.request(

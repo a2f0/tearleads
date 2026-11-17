@@ -3,13 +3,18 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { captureStatements } from "../../../../test/helpers/statementCapture";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
 import { SQLITE_BOUND_VARIABLE_BUDGET } from "../../sqlite/sqliteBindBudget";
-import {
-  type HeldContainerDocumentTombstone,
-  holdContainerDocumentTombstones,
-  listContainerDocumentTombstoneHolds,
-  refuteContainerDocumentTombstoneHolds,
-} from "./containerDocumentTombstoneHoldsPersistence";
+import type { ExecSql } from "../../sqlite/sqlSchema";
+import { ContainerDocumentTombstoneHoldRepository } from "./containerDocumentTombstoneHoldRepository";
+import type { HeldContainerDocumentTombstone } from "./containerDocumentTombstoneHoldsPersistence";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
+
+const repository = (execSql: ExecSql) =>
+  new ContainerDocumentTombstoneHoldRepository(execSql);
+const repositoryAt = (execSql: ExecSql, instant: string | Date) =>
+  new ContainerDocumentTombstoneHoldRepository(
+    execSql,
+    () => new Date(instant),
+  );
 
 const now = "2026-01-01T00:00:00.000Z";
 const later = "2026-01-02T00:00:00.000Z";
@@ -26,7 +31,9 @@ for (const size of [166, 167, 1001]) {
       // Keep schema setup outside the measured operation.
       await sqlDocumentsPersistence.ensureSchema(execSql);
       statements.length = 0;
-      await holdContainerDocumentTombstones(execSql, inputs, later);
+      await repositoryAt(execSql, later).holdContainerDocumentTombstones(
+        inputs,
+      );
       const writes = statements.filter(({ sql }) =>
         /^insert into "container_document_tombstone_holds"/i.test(sql),
       );
@@ -49,7 +56,9 @@ for (const size of [166, 167, 1001]) {
         1,
       );
       expect(
-        await listContainerDocumentTombstoneHolds(db.execSql, ["container"]),
+        await repository(db.execSql).listContainerDocumentTombstoneHolds([
+          "container",
+        ]),
       ).toEqual(
         inputs.map((row) => ({
           ...row,
@@ -77,18 +86,20 @@ test("hold writes use one bounded statement per attempt mode", async () => {
   try {
     await sqlDocumentsPersistence.ensureSchema(counted.execSql);
     // Warm the projection-table ensure separately from the measured operation.
-    await holdContainerDocumentTombstones(
-      counted.execSql,
+    await repositoryAt(counted.execSql, now).holdContainerDocumentTombstones(
       holds.slice(0, 1),
-      now,
     );
     expect(
       await counted.count(() =>
-        holdContainerDocumentTombstones(counted.execSql, holds, now),
+        repositoryAt(counted.execSql, now).holdContainerDocumentTombstones(
+          holds,
+        ),
       ),
     ).toBe(4);
     expect(
-      await listContainerDocumentTombstoneHolds(db.execSql, ["container"]),
+      await repository(db.execSql).listContainerDocumentTombstoneHolds([
+        "container",
+      ]),
     ).toHaveLength(32);
   } finally {
     await db.close();
@@ -110,18 +121,20 @@ test("refuting holds updates only the named pairs in bounded batches", async () 
   };
   try {
     await sqlDocumentsPersistence.ensureSchema(counted.execSql);
-    await holdContainerDocumentTombstones(
-      counted.execSql,
-      [...placements, untouched],
-      now,
-    );
+    await repositoryAt(counted.execSql, now).holdContainerDocumentTombstones([
+      ...placements,
+      untouched,
+    ]);
     expect(
       await counted.count(() =>
-        refuteContainerDocumentTombstoneHolds(counted.execSql, placements),
+        repository(counted.execSql).refuteContainerDocumentTombstoneHolds(
+          placements,
+        ),
       ),
     ).toBe(4);
-    const rows = await listContainerDocumentTombstoneHolds(
+    const rows = await repository(
       db.execSql,
+    ).listContainerDocumentTombstoneHolds(
       placements.map((row) => row.containerId),
     );
     expect(rows.filter((row) => row.hidden)).toEqual([
@@ -129,7 +142,7 @@ test("refuting holds updates only the named pairs in bounded batches", async () 
     ]);
     expect(
       await counted.count(() =>
-        refuteContainerDocumentTombstoneHolds(counted.execSql, []),
+        repository(counted.execSql).refuteContainerDocumentTombstoneHolds([]),
       ),
     ).toBe(0);
   } finally {
@@ -152,14 +165,20 @@ test("mixed deferred holds preserve sequential conflict semantics", async () => 
   try {
     for (const db of [batched, single])
       await sqlDocumentsPersistence.ensureSchema(db.execSql);
-    await holdContainerDocumentTombstones(batched.execSql, mixed, later);
+    await repositoryAt(batched.execSql, later).holdContainerDocumentTombstones(
+      mixed,
+    );
     for (const hold of mixed)
-      await holdContainerDocumentTombstones(single.execSql, [hold], later);
-    const rows = await listContainerDocumentTombstoneHolds(batched.execSql, [
-      "container",
-    ]);
+      await repositoryAt(single.execSql, later).holdContainerDocumentTombstones(
+        [hold],
+      );
+    const rows = await repository(
+      batched.execSql,
+    ).listContainerDocumentTombstoneHolds(["container"]);
     expect(rows).toEqual(
-      await listContainerDocumentTombstoneHolds(single.execSql, ["container"]),
+      await repository(single.execSql).listContainerDocumentTombstoneHolds([
+        "container",
+      ]),
     );
     expect(
       rows.find((row) => row.documentId === first.documentId),

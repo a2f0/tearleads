@@ -2,9 +2,12 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence as metadata } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { loadLocalDocumentAccessEpoch } from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
-
+import { ContainerDocumentTombstoneHoldRepository } from "../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { hydrateStoredContainerState } from "./storedContainerState";
+
+const holds = (execSql: ExecSql) =>
+  new ContainerDocumentTombstoneHoldRepository(execSql);
 
 const at = "2026-09-28T00:00:00.000Z";
 const container = {
@@ -32,9 +35,9 @@ test.each(["metadata-first", "document-first"] as const)(
       await metadata.ensureSchema(execSql);
       if (order === "metadata-first") {
         await metadata.saveContainer(execSql, container, record);
-        expect(await loadLocalDocumentAccessEpoch(execSql, "document-1")).toBe(
-          0,
-        );
+        expect(
+          await holds(execSql).loadLocalDocumentAccessEpoch("document-1"),
+        ).toBe(0);
       }
       await execSql(
         "INSERT INTO documents (app_kind, local_id, document_id, access_epoch, updated_at) VALUES (?, ?, ?, ?, ?)",
@@ -43,7 +46,9 @@ test.each(["metadata-first", "document-first"] as const)(
       if (order === "document-first") {
         await metadata.saveContainer(execSql, container, record);
       }
-      expect(await loadLocalDocumentAccessEpoch(execSql, "document-1")).toBe(2);
+      expect(
+        await holds(execSql).loadLocalDocumentAccessEpoch("document-1"),
+      ).toBe(2);
       await links.replaceDocumentLinksBatch(execSql, [
         {
           documentId: "document-1",
@@ -96,7 +101,9 @@ test("metadata saved before an ordinary document remains readable at startup", a
       storedContainer,
     });
     expect(restored.container.id).toBe(container.id);
-    expect(await loadLocalDocumentAccessEpoch(execSql, "document-1")).toBe(2);
+    expect(
+      await holds(execSql).loadLocalDocumentAccessEpoch("document-1"),
+    ).toBe(2);
   } finally {
     await close();
   }

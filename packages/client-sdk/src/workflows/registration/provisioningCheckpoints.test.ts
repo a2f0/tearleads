@@ -17,7 +17,7 @@ import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createOrganization } from "../organizations/provisioning/createOrganization";
 
@@ -160,11 +160,9 @@ async function expectStoredOrganizationPolicy(
     request.initialOrganizationPolicy.state,
   );
   expect(
-    await loadPrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      "organization",
-      request.organizationId,
-    ),
+    ).loadPrincipalPolicyBundle("organization", request.organizationId),
   ).toEqual(
     expect.objectContaining({
       currentProjection: request.initialOrganizationPolicy.projection,
@@ -252,8 +250,9 @@ test("an incomplete provisioning acknowledgement persists no bootstrap state", a
       ),
     ).toBeNull();
     expect(
-      await loadPrincipalPolicyBundle(
+      await new PrincipalPolicyBundleRepository(
         execSql,
+      ).loadPrincipalPolicyBundle(
         "organization",
         capturedRequest.organizationId,
       ),

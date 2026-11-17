@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import invariant from "invariant";
 import { principalMutationJournalFixture } from "../../../../test/helpers/principalMutationJournalFixture";
-import { loadPrincipalMutationJournal } from "../../../data/persistence/principalMutationJournalPersistence";
+import { PrincipalMutationJournalRepository } from "../../../data/persistence/principalMutationJournalPersistence";
 import { principalMutationJournalScopeId } from "../../../data/principals/principalMutationJournal";
 import {
   recoverJournaledPrincipalMutation,
@@ -36,18 +36,24 @@ test.each(["missing", "changed"])(
         }),
       ).rejects.toThrow(error);
       const scopeId = await principalMutationJournalScopeId(fixture.scope);
-      const saved = await loadPrincipalMutationJournal(sqlite.execSql, scopeId);
+      const saved = await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).loadPrincipalMutationJournal(scopeId);
       expect(saved).not.toBeNull();
       await expect(recoverJournaledPrincipalMutation(context)).rejects.toThrow(
         error,
       );
       expect(
-        await loadPrincipalMutationJournal(sqlite.execSql, scopeId),
+        await new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).loadPrincipalMutationJournal(scopeId),
       ).toEqual(saved);
       context.submit = async () => ({ ok: true, data: fixture.response });
       await recoverJournaledPrincipalMutation(context);
       expect(
-        await loadPrincipalMutationJournal(sqlite.execSql, scopeId),
+        await new PrincipalMutationJournalRepository(
+          sqlite.execSql,
+        ).loadPrincipalMutationJournal(scopeId),
       ).toBeNull();
     } finally {
       sqlite.close();

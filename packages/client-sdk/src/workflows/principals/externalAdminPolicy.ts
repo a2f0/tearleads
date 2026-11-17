@@ -6,7 +6,7 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/principalPolicy/verifiedPrincipalPolicyBundlePersistence";
+import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
@@ -279,12 +279,12 @@ async function loadExternalAdminPolicyOnce(
     policy,
     signerUserIds: organizationAdminSignerUserIds(admin.policy),
   };
-  await persistVerifiedPrincipalPolicyBundlesAtomically({
+  await new PrincipalPolicyBundleRepository(
+    input.execSql,
+  ).persistVerifiedPrincipalPolicyBundlesAtomically({
     entries: externalAdminPolicyPersistenceEntries(verified),
-    execSql: input.execSql,
     organizationId,
     stillCurrent: input.stillCurrent,
-    updatedAt: new Date().toISOString(),
   });
   return verified;
 }

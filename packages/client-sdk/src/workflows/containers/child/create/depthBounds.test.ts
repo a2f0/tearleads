@@ -8,10 +8,10 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { createAuthor } from "../../../../../test/helpers/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
 import { ContainerPathTooDeepError } from "../../../../data/containers/shared/containerPathLimits";
-import { moveRemoteContainer } from "../move";
 import { buildMaterializedContainerCreatePlan } from "./index";
 
 async function depthFixture() {
@@ -103,15 +103,11 @@ test("move refuses an over-depth destination before submitting a mutation", asyn
   let submitted = false;
   try {
     await expect(
-      moveRemoteContainer({
-        author: fixture.author,
-        containerId: fixture.source.containerId,
-        destinationParentContainerId: fixture.deep.containerId,
+      createContainerMutationServiceFixture({
         execSql: database.execSql,
         reportSecurityIncident: async () => {},
-        resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-        targetSecretKey: fixture.kem.secretKey,
-        apiClient: {
+        encapsulationSecretKey: fixture.kem.secretKey,
+        api: {
           getContainerWriterProjection: async (id) =>
             id === fixture.source.containerId ? fixture.source : fixture.deep,
           moveContainer: async () => {
@@ -120,6 +116,11 @@ test("move refuses an over-depth destination before submitting a mutation", asyn
           },
           reciteContainer: async () => null,
         },
+      }).moveRemoteContainer({
+        author: fixture.author,
+        containerId: fixture.source.containerId,
+        destinationParentContainerId: fixture.deep.containerId,
+        resolveProjectionUserKey: fixture.resolveProjectionUserKey,
       }),
     ).rejects.toBeInstanceOf(ContainerPathTooDeepError);
     expect(submitted).toBe(false);
@@ -133,15 +134,11 @@ test("a padded unverified destination path fails verification, not the depth che
   let submitted = false;
   try {
     const destination = padded(fixture.root);
-    const refused = await moveRemoteContainer({
-      author: fixture.author,
-      containerId: fixture.source.containerId,
-      destinationParentContainerId: destination.containerId,
+    const refused = await createContainerMutationServiceFixture({
       execSql: database.execSql,
       reportSecurityIncident: async () => {},
-      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-      targetSecretKey: fixture.kem.secretKey,
-      apiClient: {
+      encapsulationSecretKey: fixture.kem.secretKey,
+      api: {
         getContainerWriterProjection: async (id) =>
           id === fixture.source.containerId ? fixture.source : destination,
         moveContainer: async () => {
@@ -150,7 +147,14 @@ test("a padded unverified destination path fails verification, not the depth che
         },
         reciteContainer: async () => null,
       },
-    }).catch((error: unknown) => error);
+    })
+      .moveRemoteContainer({
+        author: fixture.author,
+        containerId: fixture.source.containerId,
+        destinationParentContainerId: destination.containerId,
+        resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+      })
+      .catch((error: unknown) => error);
     expect(refused).toBeInstanceOf(KeyingVerificationError);
     expect(refused).not.toBeInstanceOf(ContainerPathTooDeepError);
     expect(submitted).toBe(false);

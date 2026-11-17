@@ -31,6 +31,23 @@
   font-size: var(--font-size-md);
 }
 
+/* A ringed, filled chip rather than weight: :root sets `font-synthesis: none`,
+   and the monospace face on Android ships no bold, so `font-weight` alone
+   renders as regular text there. The ring takes the foreground color because
+   Dark's emphasis fill sits only one step above the panel. Clone the padding,
+   fill, and ring onto each line a long name wraps across. */
+.mini-app-modal-highlight {
+  padding: 0 var(--space-xs);
+  border: var(--border-width) solid var(--color-dark);
+  border-radius: var(--app-radius-control);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
 .mini-app-modal-busy {
   position: absolute;
   inset: 0;

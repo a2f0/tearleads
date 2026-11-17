@@ -14,7 +14,7 @@ import { principalKeyEnvelopeArchive } from "../../sqlite/schema/principalHistor
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import { principalPolicyCheckpoints } from "../../sqlite/schema/principalPolicySchema";
 import { createExecSql } from "../../sqlite/sqlSchema";
-import { loadPrincipalKeyEnvelopeCandidates } from "../principalKeys/principalKeyEnvelopeCandidates";
+import { PrincipalPolicyBundleRepository } from "../principalPolicy/principalPolicyBundleRepository";
 
 test("invalid current artifacts cannot accumulate completed attempts or erase published offline evidence and old keys", async () => {
   const { history, bundles, keys, latest } = await rotatingCompletedHistory(12);
@@ -65,10 +65,9 @@ test("invalid current artifacts cannot accumulate completed attempts or erase pu
         ).policy.stateHash,
       ).toBe(bundle.currentState.stateHash);
     expect(f.requests).toHaveLength(before);
-    const candidates = await loadPrincipalKeyEnvelopeCandidates(
+    const candidates = await new PrincipalPolicyBundleRepository(
       f.options.execSql,
-      [old.currentState.keyFingerprint],
-    );
+    ).loadPrincipalKeyEnvelopeCandidates([old.currentState.keyFingerprint]);
     expect(candidates).toHaveLength(1);
     const restored = await unwrapDek(
       candidates.flatMap((candidate) =>

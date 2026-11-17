@@ -6,7 +6,7 @@ import type {
 import { loadContainerDisplayNamesByIds } from "../../../data/persistence/container-contents/containerPersistence";
 import { loadOrganizationGroupDisplayNames } from "../../../data/persistence/organizations/organizationGroupNamePersistence";
 import { loadOrganizationReadModelProjection } from "../../../data/persistence/organizations/organizationReadModelPersistence";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { loadVerifiedOrganizationGroupRoles } from "../../../data/principals/organizationGroupRoles";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -207,11 +207,9 @@ export async function loadLocalOrganizationGroupPolicyHistory(
         return null;
       }
 
-      const bundle = await loadPrincipalPolicyBundle(
+      const bundle = await new PrincipalPolicyBundleRepository(
         input.execSql,
-        "group",
-        input.groupId,
-      );
+      ).loadPrincipalPolicyBundle("group", input.groupId);
       return policyBundleMatchesProjectedHead(bundle, projectedHead)
         ? buildOrganizationGroupPolicyHistory(bundle, input.organizationId)
         : null;
@@ -267,11 +265,9 @@ export async function loadLocalOrganizationPolicyHistory(
       if (!projectedHead) {
         return null;
       }
-      const bundle = await loadPrincipalPolicyBundle(
+      const bundle = await new PrincipalPolicyBundleRepository(
         input.execSql,
-        "organization",
-        input.organizationId,
-      );
+      ).loadPrincipalPolicyBundle("organization", input.organizationId);
       return policyBundleMatchesProjectedHead(bundle, projectedHead)
         ? buildOrganizationPolicyHistory(bundle)
         : null;

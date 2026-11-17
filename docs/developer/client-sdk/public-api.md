@@ -39,7 +39,7 @@ Supported package entry points:
 
 | Entry point | Use for |
 | --- | --- |
-| `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, purchase capabilities, [`BlobAttachmentService`](configuration.md#blob-attachment-service) (which replaced the free `uploadDocumentAttachment`, `hydrateDocumentAttachmentBlobs`, and `decryptDocumentAttachmentBlob` exports), `ContainerSyncWatermarkRepository` (which replaced `loadContainerSyncWatermark(execSql, lane)` and `saveContainerSyncWatermark(execSql, lane, watermark)` with `new ContainerSyncWatermarkRepository(execSql, now?)` and its `loadWatermark(lane)`, `saveWatermark(lane, watermark, { stillCurrent }?)` returning whether it committed, `loadWatermarkRecords`, `loadCheckRecords`, `markChecked`, and `recordLaneFetch`), and public workflow symbols |
+| `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, purchase capabilities, [`BlobAttachmentService`](configuration.md#blob-attachment-service) (which replaced the free `uploadDocumentAttachment`, `hydrateDocumentAttachmentBlobs`, and `decryptDocumentAttachmentBlob` exports), [`ContainerMutationService`](configuration.md#container-mutation-service) (which replaced the free `createRemoteContainer`, `shareRemoteContainer`, `moveRemoteContainer`, `rekeyRemoteContainer`, and `revokeRemoteContainer` exports), `ContainerSyncWatermarkRepository` (which replaced `loadContainerSyncWatermark(execSql, lane)` and `saveContainerSyncWatermark(execSql, lane, watermark)` with `new ContainerSyncWatermarkRepository(execSql, now?)` and its `loadWatermark(lane)`, `saveWatermark(lane, watermark, { stillCurrent }?)` returning whether it committed, `loadWatermarkRecords`, `loadCheckRecords`, `markChecked`, and `recordLaneFetch`), and public workflow symbols |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, adapter helpers, and [local schema migration](../../../packages/client-sdk/src/data/sqlite/migrations/README.md) (`ensureLocalSchemaMigrated` at boot; `withLocalSchemaMigrationLock`, `migrateLocalSchema`, and the ledger check in a backup restore) |
 | `@tearleads/client-sdk/sqlite/worker.js` | The SQLite worker module a host serves for `createSQLiteRuntime` |
 | `@tearleads/client-sdk/sqlite/sqlite3.wasm` | The SQLite WebAssembly the host serves beside `worker.js` |
@@ -65,9 +65,9 @@ example, root `ContainerDocumentLinkInput` is the high-level client
 document-link input, while the lower-level container query link input is
 `ContainerDocumentQueriesLinkInput`.
 
-Container KEK-history recovery is public workflow surface: `rekeyRemoteContainer`
-performs an explicit rotation (and, with `keyringEntriesOverride`, the repair
-that replaces a poisoned
+Container KEK-history recovery is public workflow surface:
+`ContainerMutationService.rekeyRemoteContainer` performs an explicit rotation
+(and, with `keyringEntriesOverride`, the repair that replaces a poisoned
 [keyring snapshot](../../glossary/keys.md#container-kek-keyring)),
 `rebuildKeyringEntriesFromLog` reconstructs history from the
 `GET /containers/:id/kek-log`
@@ -97,10 +97,11 @@ ancestor member. Such a writer must never wait on another device, so a rotation
 may not leave those levels stale. The API refuses a rekey, revoke, or move that
 would leave a descendant above a directly granted container pinned to a retired
 epoch, with `container_descendant_rekeys_required` and the `requiredContainerIds`
-it must carry, parent-first. `rekeyRemoteContainer`, `revokeRemoteContainer`,
-`moveRemoteContainer`, and document sync's standalone repairs answer it
-themselves: they sign those rekeys against the path the batch leaves behind,
-resubmit once with `containerRekeys` carried, and pin the whole batch together.
+it must carry, parent-first. `ContainerMutationService`'s `rekeyRemoteContainer`,
+`revokeRemoteContainer`, and `moveRemoteContainer`, and document sync's
+standalone repairs answer it themselves: they sign those rekeys against the path
+the batch leaves behind, resubmit once with `containerRekeys` carried, and pin
+the whole batch together.
 Access and keys inherit downward only while the rotator retains authority.
 A self-revoke that removes write access on an owed level is refused atomically
 with `container_descendant_rekeys_inaccessible`; another authorized member must
@@ -196,13 +197,13 @@ commits only grants, which rotate nothing, so it has nothing to carry. A
 container that already carries a grant has had its chain kept current by every
 rotation above it, so further grants and group rematerialization refreshes owe
 nothing more.
-`shareRemoteContainer` and `shareRemoteContainerWithGroup` re-key a lazily stale
-path first, the container included, because a grant cites the parent's current
-epoch and the container's key epoch must pin it. An adapter without
-`rekeyContainer` cannot make that repair and gets a plain error, not one that
-names another member; a sharer who cannot reach a stale level gets
-`ContainerKekRepairInaccessibleError`. Under this
-rule a stale container is never above a granted one, so an honest inline repair
+`ContainerMutationService.shareRemoteContainer` and
+`shareRemoteContainerWithGroup` re-key a lazily stale path first, the container
+included, because a grant cites the parent's current epoch and the container's
+key epoch must pin it. An adapter without `rekeyContainer` cannot make that
+repair and gets a plain error, not one that names another member; a sharer who
+cannot reach a stale level gets `ContainerKekRepairInaccessibleError`. Under
+this rule a stale container is never above a granted one, so an honest inline repair
 never strands anything. The API still checks: a document write refused that way
 fails with `document_sync_descendant_rekeys_required`, and the sync pass retries
 with its repairs committed standalone, where each carries its own descendants.

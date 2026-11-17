@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { ApiClient, type RequestFailure } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { principalMutationJournalFixture } from "../../../test/helpers/principalMutationJournalFixture";
-import { loadPrincipalMutationJournal } from "../../data/persistence/principalMutationJournalPersistence";
+import { PrincipalMutationJournalRepository } from "../../data/persistence/principalMutationJournalPersistence";
 import { principalMutationJournalScopeId } from "../../data/principals/principalMutationJournal";
 import type { PrincipalPolicyReadApi } from "../../workflows/organizations/groupPolicy/groupPolicyMutationContext";
 import { clearRemoteSyncState } from "../../workflows/sync/remoteReset";
@@ -65,14 +65,18 @@ test("runtime API custody resumes saved bytes after generation replacement and c
     ).rejects.toThrow("may have committed");
     expect(calls).toHaveLength(1);
     const scopeId = await principalMutationJournalScopeId(fixture.scope);
-    const pending = await loadPrincipalMutationJournal(sqlite.execSql, scopeId);
+    const pending = await new PrincipalMutationJournalRepository(
+      sqlite.execSql,
+    ).loadPrincipalMutationJournal(scopeId);
     expect(pending).not.toBeNull();
     await clearRemoteSyncState(sqlite.execSql, {
       organizationId: fixture.scope.organizationId,
     });
-    expect(await loadPrincipalMutationJournal(sqlite.execSql, scopeId)).toEqual(
-      pending,
-    );
+    expect(
+      await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).loadPrincipalMutationJournal(scopeId),
+    ).toEqual(pending);
     runtime = { ...runtime, generation: 2 };
     await expect(
       first.commitOrganizationGroupPolicyResult(
@@ -91,7 +95,9 @@ test("runtime API custody resumes saved bytes after generation replacement and c
     expect(calls).toHaveLength(2);
     expect(calls[1]).toEqual(calls[0]);
     expect(
-      await loadPrincipalMutationJournal(sqlite.execSql, scopeId),
+      await new PrincipalMutationJournalRepository(
+        sqlite.execSql,
+      ).loadPrincipalMutationJournal(scopeId),
     ).toBeNull();
   } finally {
     sqlite.close();

@@ -4,11 +4,11 @@ import {
   createMockRequestFailure,
 } from "@tearleads/test-utils";
 import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import type {
   DocumentLinkSetMutationApi,
   DocumentLinkSetMutationFailure,
 } from "../../../data/documents/shared/types";
-import { relinkRemoteDocument } from "./linkSetRemote";
 
 async function relinkWithProjectionFailures(input: {
   containerFailure: Parameters<typeof createMockRequestFailure>[0];
@@ -27,19 +27,20 @@ async function relinkWithProjectionFailures(input: {
     unlinkDocument: async () => null,
   }) satisfies DocumentLinkSetMutationApi;
 
-  const result = await relinkRemoteDocument({
-    apiClient,
+  const result = await createRemoteDocumentServiceFixture({
+    api: apiClient,
+    encapsulationSecretKey: new Uint8Array(),
+    execSql: (async () => []) as never,
+  }).relinkRemoteDocument({
     author: null as never,
     contentKey: new Uint8Array(),
     documentId: "dual-failure-document",
-    execSql: (async () => []) as never,
     onFailure: (failure) => {
       failures.push(failure);
     },
     operation: "link",
     resolveProjectionUserKey: async () => null,
     targetContainerId: "dual-failure-container",
-    targetSecretKey: new Uint8Array(),
   });
   expect(result).toBeNull();
   return failures;

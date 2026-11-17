@@ -19,6 +19,7 @@ import {
   MiniAppHeaderCopy,
   MiniAppModalBackdrop,
   MiniAppModalForm,
+  MiniAppModalHighlight,
   MiniAppModalPanel,
   MiniAppPanel,
   MiniAppStatus,
@@ -102,7 +103,9 @@ function WriteQueueDiscardConfirmDialog(params: {
         >
           <h2 id={titleId}>{EXPLORER_LABELS.writeQueueDiscardConfirmTitle}</h2>
           <MiniAppStatus>
-            <strong>{getWriteQueueItemName(params.item)}</strong>
+            <MiniAppModalHighlight>
+              {getWriteQueueItemName(params.item)}
+            </MiniAppModalHighlight>
             {" — "}
             {EXPLORER_LABELS.writeQueueDiscardConfirmBody}
           </MiniAppStatus>

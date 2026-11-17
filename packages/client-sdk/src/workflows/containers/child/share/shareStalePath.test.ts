@@ -14,9 +14,9 @@ import {
   createRecipientIdentityResolver,
   SIGNED_AT,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { containerWriterProjectionFromSharePlan } from "../rekey/rekeyProjection";
-import { shareRemoteContainer } from "./index";
 
 // A head on the signed path can advance while a share is in flight, most often
 // under this device's own background re-citation after a share above it
@@ -44,10 +44,9 @@ async function shareAgainst(
   const counts = { evicted: 0, projections: 0, reported: 0 };
   const resolveOwnerKey = createParentProjectionUserKeyResolver(parent);
   try {
-    const shared = await shareRemoteContainer({
+    const shared = await createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      accessLevel: "write",
-      apiClient: {
+      api: {
         evictContainerWriterProjection: () => {
           counts.evicted += 1;
         },
@@ -78,9 +77,17 @@ async function shareAgainst(
           };
         },
       },
+      execSql: database.execSql,
+      resolveTrustedUserIdentity: createRecipientIdentityResolver({
+        encapsulationPublicKey: generateKemSeedAndKeyPair().publicKey,
+        signingKeyFingerprint: author.signerKeyFingerprint,
+        signingPublicKey: parent.signingPublicKey,
+      }),
+      encapsulationSecretKey: parent.secretKey,
+    }).shareRemoteContainer({
+      accessLevel: "write",
       author,
       containerId: parent.projection.containerId,
-      execSql: database.execSql,
       recipientUserId: "user-2",
       resolveProjectionUserKey: async (userId) => {
         // Planning a projection whose history stops short of a checkpoint
@@ -91,13 +98,7 @@ async function shareAgainst(
           );
         return resolveOwnerKey(userId);
       },
-      resolveTrustedUserIdentity: createRecipientIdentityResolver({
-        encapsulationPublicKey: generateKemSeedAndKeyPair().publicKey,
-        signingKeyFingerprint: author.signerKeyFingerprint,
-        signingPublicKey: parent.signingPublicKey,
-      }),
       signedAt: SIGNED_AT,
-      targetSecretKey: parent.secretKey,
     });
     return { counts, shared, submitted };
   } finally {
@@ -174,10 +175,9 @@ async function shareBehindLocalPin(
     recipientUserId: string,
     project: () => ContainerWriterProjectionResponse,
   ) =>
-    shareRemoteContainer({
+    createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      accessLevel: "write",
-      apiClient: {
+      api: {
         evictContainerWriterProjection: () => {
           counts.evicted += 1;
         },
@@ -197,14 +197,16 @@ async function shareBehindLocalPin(
           };
         },
       },
+      execSql: database.execSql,
+      resolveTrustedUserIdentity: recipients,
+      encapsulationSecretKey: parent.secretKey,
+    }).shareRemoteContainer({
+      accessLevel: "write",
       author,
       containerId: parent.projection.containerId,
-      execSql: database.execSql,
       recipientUserId,
       resolveProjectionUserKey,
-      resolveTrustedUserIdentity: recipients,
       signedAt: SIGNED_AT,
-      targetSecretKey: parent.secretKey,
     });
   try {
     // A first share advances and pins the head, as a re-citation would.

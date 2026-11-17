@@ -5,7 +5,7 @@ import {
   isCreateOrganizationRequest,
 } from "@tearleads/validators/request";
 import { isOrganizationReplacementAuthorization } from "@tearleads/validators/util";
-import { sqlOrganizationProvisioningAttemptPersistence } from "../../../data/persistence/organizations/organizationProvisioningAttemptPersistence";
+import { OrganizationProvisioningAttemptRepository } from "../../../data/persistence/organizations/organizationProvisioningAttemptRepository";
 import type {
   ExecSql,
   ExecSqlClientLike,
@@ -69,10 +69,9 @@ export async function loadOrganizationReplacementFinalizationRequest(input: {
   replacedOrganizationId: string;
   userId: string;
 }): Promise<CreateOrganizationRequest> {
-  const stored = await sqlOrganizationProvisioningAttemptPersistence.load(
+  const stored = await new OrganizationProvisioningAttemptRepository(
     input.execSql,
-    input.replacedOrganizationId,
-  );
+  ).load(input.replacedOrganizationId);
   if (!stored) {
     throw new Error("Organization replacement attempt is unavailable");
   }
@@ -226,8 +225,9 @@ export async function makeOrganizationProvisioningAttemptDurable(input: {
     (input.nativeSubscriptionRestore
       ? `native-subscription-restore:${input.userId}`
       : input.artifacts.organizationId);
-  const stored = await sqlOrganizationProvisioningAttemptPersistence.loadOrSave(
+  const stored = await new OrganizationProvisioningAttemptRepository(
     createExecSql(input.dbClient),
+  ).loadOrSave(
     {
       replacedOrganizationId: attemptKey,
       userId: input.userId,
@@ -271,10 +271,9 @@ export async function removeNativeSubscriptionRestoreProvisioningAttempt(input: 
 }): Promise<boolean> {
   const attemptKey = `native-subscription-restore:${input.userId}`;
   const execSql = createExecSql(input.dbClient);
-  const stored = await sqlOrganizationProvisioningAttemptPersistence.load(
+  const stored = await new OrganizationProvisioningAttemptRepository(
     execSql,
-    attemptKey,
-  );
+  ).load(attemptKey);
   if (!stored) return true;
   if (
     stored.userId !== input.userId ||
@@ -300,8 +299,7 @@ export async function removeOrganizationProvisioningAttempt(input: {
   replacedOrganizationId: string;
   userId: string;
 }): Promise<boolean> {
-  return sqlOrganizationProvisioningAttemptPersistence.remove(
-    input.execSql,
+  return new OrganizationProvisioningAttemptRepository(input.execSql).remove(
     input,
     input.canCommit,
   );

@@ -1,8 +1,10 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { loadTrustedUserIdentityPins } from "../persistence/identity/trustedUserIdentityPinBatch";
-import { TrustedUserIdentityPinCorruptError } from "../persistence/identity/trustedUserIdentityPinModel";
-import type { TrustedUserIdentityPin } from "../persistence/trustedUserIdentityPinPersistence";
-import { TrustedUserIdentityPinContentionError } from "../persistence/trustedUserIdentityPinTransaction";
+import {
+  type TrustedUserIdentityPin,
+  TrustedUserIdentityPinCorruptError,
+} from "../persistence/identity/trustedUserIdentityPinModel";
+import { TrustedUserIdentityPinRepository } from "../persistence/identity/trustedUserIdentityPinRepository";
+import { TrustedUserIdentityPinContentionError } from "../persistence/identity/trustedUserIdentityPinTransaction";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import type {
@@ -188,8 +190,9 @@ export function withPinnedIdentityResolution(
       let published = false;
       let completed = false;
       try {
-        const pins = await loadTrustedUserIdentityPins({
-          execSql: scope.execSql,
+        const pins = await new TrustedUserIdentityPinRepository(
+          scope.execSql,
+        ).loadTrustedUserIdentityPins({
           identityTrustDomain: scope.identityTrustDomain,
           // Self always rechecks the authoritative local keys and provenance.
           userIds: userIds.filter((userId) => userId !== scope.localUserId),

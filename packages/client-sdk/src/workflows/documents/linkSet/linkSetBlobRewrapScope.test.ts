@@ -14,11 +14,11 @@ import {
 } from "../../../../test/helpers/blobHydrationFixture";
 import { createLinkSetResponseFromRequest } from "../../../../test/helpers/documentFixtures";
 import { createRelinkScopeFixture } from "../../../../test/helpers/linkSetBlobRewrapScope";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import {
   deriveDocumentTargetFromProjection,
   unwrapContainerKekPath,
 } from "../../../data/documents/shared/projection";
-import { relinkRemoteDocument } from "./linkSetRemote";
 
 for (const steer of [false, true]) {
   test(
@@ -86,8 +86,8 @@ for (const steer of [false, true]) {
           throw new Error(
             "Expected destination history to contain B's retired key",
           );
-        const operation = relinkRemoteDocument({
-          apiClient: createMockApiClient({
+        const operation = createRemoteDocumentServiceFixture({
+          api: createMockApiClient({
             getContainerWriterProjection: async () => fixture.destination,
             getDocumentWriterProjection: async () => projection,
             listDocumentAttachments: async () => [binding],
@@ -136,13 +136,14 @@ for (const steer of [false, true]) {
               return createLinkSetResponseFromRequest(documentId, request);
             },
           }),
+          encapsulationSecretKey: fixture.secretKey,
+          execSql: fixture.execSql,
+        }).relinkRemoteDocument({
           author: fixture.author,
           documentId: projection.documentId,
-          execSql: fixture.execSql,
           operation: "link",
           resolveProjectionUserKey: fixture.resolveProjectionUserKey,
           targetContainerId: fixture.destination.containerId,
-          targetSecretKey: fixture.secretKey,
         });
         if (steer) {
           await expect(operation).rejects.toThrow(

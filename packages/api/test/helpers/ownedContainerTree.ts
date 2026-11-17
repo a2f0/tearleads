@@ -1,10 +1,4 @@
-import {
-  buildMaterializedContainerRekeyPlan,
-  createRemoteContainer,
-  moveRemoteContainer,
-  rekeyRemoteContainer,
-  shareRemoteContainer,
-} from "@tearleads/client-sdk";
+import { buildMaterializedContainerRekeyPlan } from "@tearleads/client-sdk";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { createAncestorSdkContext } from "./ancestorSdkRepair";
@@ -85,11 +79,6 @@ export async function createOwnedTree(
     organizationId,
     ...members,
   );
-  const sdk = {
-    ...context.common,
-    reportSecurityIncident: async () => undefined,
-    resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
-  };
   const carriedIds = (
     result: {
       response: { containerRekeys?: { containerId: string }[] | undefined };
@@ -137,10 +126,9 @@ export async function createOwnedTree(
     bareRootRekeyRequest: () => bareRekeyRequest(rootId),
     close: context.close,
     createChild: async (parentContainerId) => {
-      const child = await createRemoteContainer({
-        ...sdk,
+      const child = await context.containers.createRemoteContainer({
+        ...context.mutation,
         parentContainerId,
-        parentSecretKey: owner.kem.secretKey,
       });
       if (!child) throw new Error("Expected child");
       return child.containerId;
@@ -151,8 +139,8 @@ export async function createOwnedTree(
     members,
     move: async (containerId, destinationParentContainerId) =>
       carriedIds(
-        await moveRemoteContainer({
-          ...sdk,
+        await context.containers.moveRemoteContainer({
+          ...context.mutation,
           containerId,
           destinationParentContainerId,
         }),
@@ -161,10 +149,15 @@ export async function createOwnedTree(
     owner,
     rootId,
     rotateRoot: async () =>
-      carriedIds(await rekeyRemoteContainer({ ...sdk, containerId: rootId })),
+      carriedIds(
+        await context.containers.rekeyRemoteContainer({
+          ...context.mutation,
+          containerId: rootId,
+        }),
+      ),
     share: async (containerId, userId) => {
-      const shared = await shareRemoteContainer({
-        ...sdk,
+      const shared = await context.containers.shareRemoteContainer({
+        ...context.mutation,
         accessLevel: "write",
         containerId,
         recipientUserId: userId,
