@@ -260,6 +260,7 @@ export async function loadVerifiedManifestCitations(
 ): Promise<HeldProjectionCitation[]> {
   const limit = Math.min(KNOWN_MANIFEST_HINT_LIMIT, Math.floor(requestedLimit));
   if (!(limit > 0)) return [];
+  const loadGeneration = evictionGeneration;
   await ensureSqlTables(execSql, [
     ...verifiedManifestBundleTables,
     ...containerTables,
@@ -280,19 +281,26 @@ export async function loadVerifiedManifestCitations(
   );
   if (damaged.length > 0)
     await dropVerifiedManifestBundles(execSql, damaged).catch(() => undefined);
-  return cited.filter(citable);
+  return cited.filter((citation) => citable(citation, loadGeneration));
 }
 
 // Manifest hashes whose held rows a refused read is dropping: no read cites
-// them meanwhile, so none can be rebuilt from the bytes being dropped.
+// them meanwhile, so none can be rebuilt from the bytes being dropped. Each
+// eviction also advances a generation, so a citation load that started
+// before it never returns the rows it read: they may already be gone.
 const suppressedCitations = new Map<string, number>();
+const evictedInGeneration = new Map<string, number>();
+let evictionGeneration = 0;
 
 /** Keeps these held bundles out of citations until the release runs. */
 export function suppressHeldCitations(
   manifestHashes: readonly string[],
 ): () => void {
-  for (const hash of manifestHashes)
+  evictionGeneration += 1;
+  for (const hash of manifestHashes) {
     suppressedCitations.set(hash, (suppressedCitations.get(hash) ?? 0) + 1);
+    evictedInGeneration.set(hash, evictionGeneration);
+  }
   return () => {
     for (const hash of manifestHashes) {
       const count = (suppressedCitations.get(hash) ?? 1) - 1;
@@ -302,10 +310,15 @@ export function suppressHeldCitations(
   };
 }
 
-function citable(citation: HeldProjectionCitation): boolean {
+function citable(
+  citation: HeldProjectionCitation,
+  loadGeneration: number,
+): boolean {
+  if (!("manifestHash" in citation)) return true;
+  const { manifestHash } = citation;
   return (
-    !("manifestHash" in citation) ||
-    !suppressedCitations.has(citation.manifestHash)
+    !suppressedCitations.has(manifestHash) &&
+    (evictedInGeneration.get(manifestHash) ?? 0) <= loadGeneration
   );
 }
 

@@ -406,3 +406,30 @@ test("a consistency check that refuses a cited projection drops its held bundles
     database.close();
   }
 });
+
+test("a citation load overlapping an eviction does not return the evicted row", async () => {
+  const fixture = await seededFixture();
+  const database = await createTestExecSql("held-bundle-overlap");
+  const wrong = toServedAccessManifestBundle({
+    ...fixture.leaf,
+    state: { ...fixture.leaf.state, directGrants: [] },
+  });
+  try {
+    await seedWrongRow(database.execSql, fixture, wrong);
+    let evicted = false;
+    // The eviction starts and finishes while the load is reading.
+    const execSql = new Proxy(database.execSql, {
+      apply(target, thisArg, args: unknown[]) {
+        if (!evicted) {
+          evicted = true;
+          suppressHeldCitations([fixture.leaf.manifestHash])();
+        }
+        return Reflect.apply(target, thisArg, args);
+      },
+    });
+    expect(await loadVerifiedManifestCitations(execSql, target)).toEqual([]);
+    expect(evicted).toBe(true);
+  } finally {
+    database.close();
+  }
+});
