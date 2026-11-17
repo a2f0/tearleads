@@ -15,6 +15,7 @@ import {
 } from "../../../../../test/helpers/ancestorCitationScenario";
 import { verifyDocumentWriterProjectionAuthorization } from "../../../keyingProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { documentWriteAuthorizationForHeader } from "./syncResponseAuthorization";
 
 test("a new-to-device document head and its historical write retain cited ancestor authority", async () => {
@@ -109,6 +110,7 @@ test("a new-to-device document head and its historical write retain cited ancest
   try {
     const source = await verifyDocumentWriterProjectionAuthorization({
       execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
       projection,
       resolveUserKey: scenario.resolveUserKey,
     });

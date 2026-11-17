@@ -7,8 +7,8 @@ import {
 } from "../persistence/identity/trustedUserIdentityPinModel";
 import { TrustedUserIdentityPinRepository } from "../persistence/identity/trustedUserIdentityPinRepository";
 import { TrustedUserIdentityPinContentionError } from "../persistence/identity/trustedUserIdentityPinTransaction";
+import { DatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import type { ExecSql } from "../sqlite/sqlSchema";
-import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "./admission";
 import {
   assertIdentityLinkMatches,

@@ -4,6 +4,7 @@ import type {
   BlobAttachmentSummary,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { attachmentContentSha256 } from "../../../data/blobs/attachmentContentIdentity";
 import {
   type BlobAttachmentCollaborators,
   requireEncapsulationSecretKey,
@@ -12,7 +13,6 @@ import type { DocumentAttachmentHydrationApi } from "../../../data/blobs/attachm
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { runBlobTransfer } from "../../../data/blobs/transferPool";
 import type { DocumentAttachment } from "../../../data/documents";
-import { attachmentContentSha256 } from "../../../data/documents/attachmentContentIdentity";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,

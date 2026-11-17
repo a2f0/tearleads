@@ -6,7 +6,10 @@ import { principalIdentityPinFixture } from "../../../../test/helpers/principalI
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { buildInitialOrganizationPolicyRequest } from "../../../workflows/registration/organizationProvisioning";
-import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import {
+  openPrincipalPolicyBundleReader,
+  PrincipalPolicyBundleRepository,
+} from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { ProjectionVerificationCancelledError } from "../types";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
@@ -67,6 +70,7 @@ async function externallyAuthorizedVerification(cancelOnHit: number) {
       collectReferencedPrincipalPolicies({
         checkpointContext: createProjectionCheckpointContext({
           execSql: database.execSql,
+          openPrincipalPolicyBundleReader,
         }),
         organizationId,
         principalPolicyCache: new Map(),

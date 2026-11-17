@@ -34,6 +34,7 @@ import {
   verifyDocumentWriterProjection,
 } from "../../../data/keyingProjectionVerification";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type {
@@ -94,6 +95,7 @@ async function loadAuthenticatedDocumentPurgeProof(input: {
   }
   await verifyDocumentPurgeProofBaseline({
     execSql: input.execSql,
+    openPrincipalPolicyBundleReader,
     expectedDocumentId: input.documentId,
     expectedOrganizationId: input.expectedOrganizationId,
     proof: initialProof,
@@ -238,6 +240,7 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
     }
     const verified = await verifyDocumentPurgeProof({
       execSql: input.execSql,
+      openPrincipalPolicyBundleReader,
       expectedDocumentId: documentId,
       expectedOrganizationId: input.expectedOrganizationId,
       proof,
@@ -285,6 +288,7 @@ export async function purgeRemoteDocument(
     }
     const verified = await verifyDocumentPurgeProof({
       execSql: input.execSql,
+      openPrincipalPolicyBundleReader,
       expectedDocumentId: input.documentId,
       expectedOrganizationId: input.author.organizationId,
       proof,
@@ -299,6 +303,7 @@ export async function purgeRemoteDocument(
   }
   await verifyDocumentWriterProjection({
     execSql: input.execSql,
+    openPrincipalPolicyBundleReader,
     projection: writerProjection,
     resolveUserKey: input.resolveProjectionUserKey,
     stillCurrent: input.stillCurrent,
@@ -323,6 +328,7 @@ export async function purgeRemoteDocument(
   }
   const verified = await verifyDocumentPurgeProof({
     execSql: input.execSql,
+    openPrincipalPolicyBundleReader,
     expectedDocumentId: input.documentId,
     expectedOrganizationId: input.author.organizationId,
     proof: response,

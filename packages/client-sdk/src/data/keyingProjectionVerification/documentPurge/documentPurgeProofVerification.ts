@@ -23,6 +23,7 @@ import { observeProjectionLifetime } from "../projectionLifetimes";
 import { readAccessManifest } from "../readers";
 import {
   assertProjectionVerificationCurrent,
+  type OpenPrincipalPolicyBundleReader,
   type PrincipalPolicyCache,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
@@ -40,6 +41,7 @@ interface VerifyDocumentPurgeProofInput {
     | ReferencedPrincipalPolicyWarmer
     | undefined;
   readonly execSql: ExecSql;
+  readonly openPrincipalPolicyBundleReader: OpenPrincipalPolicyBundleReader;
   readonly expectedDocumentId: string;
   readonly expectedOrganizationId: string;
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
@@ -234,12 +236,7 @@ function purgePrincipalSourceHeads(proof: DocumentPurgeProofResponse) {
   ].flatMap((source) => (source ? [source.head] : []));
 }
 
-async function verifyDocumentPurgeProofWithMode(
-  input: VerifyDocumentPurgeProofInput,
-  enforceLocalCheckpoints: boolean,
-): Promise<VerifiedDocumentPurgeProofCommit> {
-  requirePurgeProofShape(input.proof);
-  input = { ...input, proof: structuredClone(input.proof) };
+function requirePurgeProofTarget(input: VerifyDocumentPurgeProofInput): void {
   if (
     input.proof.documentId !== input.expectedDocumentId ||
     input.proof.documentManifest.manifestHash.length === 0
@@ -249,8 +246,18 @@ async function verifyDocumentPurgeProofWithMode(
       "Document purge proof targets the wrong document",
     );
   }
+}
+
+async function verifyDocumentPurgeProofWithMode(
+  input: VerifyDocumentPurgeProofInput,
+  enforceLocalCheckpoints: boolean,
+): Promise<VerifiedDocumentPurgeProofCommit> {
+  requirePurgeProofShape(input.proof);
+  input = { ...input, proof: structuredClone(input.proof) };
+  requirePurgeProofTarget(input);
   const checkpointContext = createProjectionCheckpointContext({
     execSql: input.execSql,
+    openPrincipalPolicyBundleReader: input.openPrincipalPolicyBundleReader,
     organizationId: input.expectedOrganizationId,
   });
   const principalPolicyCache =

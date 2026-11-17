@@ -7,6 +7,7 @@ import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/pr
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
@@ -21,6 +22,7 @@ async function fixture() {
   const database = createNativeTestExecSql();
   const context = createProjectionCheckpointContext({
     execSql: database.execSql,
+    openPrincipalPolicyBundleReader,
     organizationId: data.organizationId,
   });
   const manifest = await createContainerManifestFixture({

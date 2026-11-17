@@ -18,6 +18,7 @@ import type { DocumentSyncApi } from "../../../data/documents/shared/sync/docume
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../../data/keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("syncRemoteDocument notifies when submit returns coded document 404", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
@@ -75,6 +76,7 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
   await expect(
     verifyDocumentWriterProjection({
       execSql,
+      openPrincipalPolicyBundleReader,
       projection: writerProjection,
       resolveUserKey: resolveProjectionUserKey,
     }),

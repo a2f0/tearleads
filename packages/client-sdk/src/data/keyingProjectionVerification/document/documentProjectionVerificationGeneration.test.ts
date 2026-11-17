@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { ProjectionVerificationCancelledError } from "../types";
 import {
@@ -34,6 +35,7 @@ for (const [entry, verify] of verificationEntries) {
       await expect(
         verify({
           execSql: guardedExecSql,
+          openPrincipalPolicyBundleReader,
           projection: fixture.writerProjection,
           resolveUserKey: fixture.resolveProjectionUserKey,
           stillCurrent: () => !transactionStarted,

@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import {
+  deleteContainerDocumentTombstonePlacementRows,
+  DocumentContainerProjectionRepository as Links,
+} from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import {
   applyContainerDocumentTombstones,
@@ -64,13 +67,17 @@ test("applying a verified tombstone repoints only to a local row the head links"
       hold("folder"),
     ]);
 
-    await applyContainerDocumentTombstones(execSql, [
-      {
-        ...hold("folder"),
-        accessEpoch: 1,
-        linkedContainerIds: ["elsewhere", "verified-row"],
-      },
-    ]);
+    await applyContainerDocumentTombstones(
+      execSql,
+      [
+        {
+          ...hold("folder"),
+          accessEpoch: 1,
+          linkedContainerIds: ["elsewhere", "verified-row"],
+        },
+      ],
+      deleteContainerDocumentTombstonePlacementRows,
+    );
 
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
       containerId: "verified-row",
@@ -99,13 +106,17 @@ test("a verified removal with no head-linked local row unplaces the document", a
       "server-chosen",
     ]);
 
-    await applyContainerDocumentTombstones(execSql, [
-      {
-        ...hold("folder"),
-        accessEpoch: 1,
-        linkedContainerIds: ["real-destination"],
-      },
-    ]);
+    await applyContainerDocumentTombstones(
+      execSql,
+      [
+        {
+          ...hold("folder"),
+          accessEpoch: 1,
+          linkedContainerIds: ["real-destination"],
+        },
+      ],
+      deleteContainerDocumentTombstonePlacementRows,
+    );
 
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
       containerId: null,
@@ -134,9 +145,11 @@ test("a primary at a listing-seeded row is repointed even when it is not tombsto
       localId: "doc-local",
     });
 
-    await applyContainerDocumentTombstones(execSql, [
-      { ...hold("folder"), accessEpoch: 1, linkedContainerIds: ["moved-to"] },
-    ]);
+    await applyContainerDocumentTombstones(
+      execSql,
+      [{ ...hold("folder"), accessEpoch: 1, linkedContainerIds: ["moved-to"] }],
+      deleteContainerDocumentTombstonePlacementRows,
+    );
 
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
       containerId: null,
@@ -158,9 +171,11 @@ test("a verified head older than the local document epoch is not applied", async
       localId: "doc-local",
     });
 
-    await applyContainerDocumentTombstones(execSql, [
-      { ...hold("folder"), accessEpoch: 4, linkedContainerIds: [] },
-    ]);
+    await applyContainerDocumentTombstones(
+      execSql,
+      [{ ...hold("folder"), accessEpoch: 4, linkedContainerIds: [] }],
+      deleteContainerDocumentTombstonePlacementRows,
+    );
 
     expect(await new Links(execSql).listLinkedContainerIds("doc")).toEqual([
       "folder",

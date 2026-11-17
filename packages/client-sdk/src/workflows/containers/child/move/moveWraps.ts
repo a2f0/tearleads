@@ -11,6 +11,7 @@ import {
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../../../data/keyingProjectionVerification";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principals/principalPolicyEvidence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { buildContainerRotationWraps } from "../rotation/rotationWraps";
@@ -26,6 +27,7 @@ export async function collectContainerMovePrincipalPolicies(input: {
   const [sourcePolicies, destinationParentPolicies] = await Promise.all([
     collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,
+      openPrincipalPolicyBundleReader,
       projection: input.previousProjection,
       resolveUserKey: input.resolveUserKey,
       stillCurrent: input.stillCurrent,
@@ -33,6 +35,7 @@ export async function collectContainerMovePrincipalPolicies(input: {
     }),
     collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,
+      openPrincipalPolicyBundleReader,
       projection: input.destinationParentProjection,
       resolveUserKey: input.resolveUserKey,
       stillCurrent: input.stillCurrent,

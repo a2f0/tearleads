@@ -5,7 +5,7 @@ import type {
   SecurityIncidentContext,
   SecurityIncidentReporter,
 } from "../shared/securityIncidents";
-import { isDatabaseUnavailableError } from "../sync/databaseUnavailable";
+import { isDatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import { rethrowProjectionVerificationCancelled } from "./types";
 
 const KEYING_VERIFICATION_CONTEXT_LIMIT = 16;

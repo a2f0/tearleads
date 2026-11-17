@@ -16,7 +16,7 @@ import {
   requestAllDomainSyncLanes,
   subscribeToDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
-} from "../../workflows/sync";
+} from "../../workflows/sync/coordination";
 import type { ContainerContents } from "../containerContents";
 import type {
   InternalRuntime,

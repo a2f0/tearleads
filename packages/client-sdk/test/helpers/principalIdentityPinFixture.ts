@@ -13,6 +13,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createProjectionCheckpointContext } from "../../src/data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { principalPolicyCacheForVerifiedPolicies } from "../../src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { collectReferencedPrincipalPolicies } from "../../src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
+import { openPrincipalPolicyBundleReader } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { trustedUserIdentityPinTables } from "../../src/data/sqlite/schema/trustedUserIdentityPinSchema";
 import {
   createExecSql,
@@ -170,7 +171,10 @@ export async function principalIdentityPinFixture(
   const { api, service } = startService();
   await ensureSqlTables(execSql, trustedUserIdentityPinTables);
   const cache = principalPolicyCacheForVerifiedPolicies([verified.value]);
-  const checkpointContext = createProjectionCheckpointContext({ execSql });
+  const checkpointContext = createProjectionCheckpointContext({
+    execSql,
+    openPrincipalPolicyBundleReader,
+  });
   const verify = (
     resolveUserKey: TrustedUserIdentityResolver = service.resolve,
   ) =>

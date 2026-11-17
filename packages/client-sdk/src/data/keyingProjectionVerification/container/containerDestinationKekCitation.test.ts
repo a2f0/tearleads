@@ -15,6 +15,7 @@ import {
 import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { loadVerifiedManifestCitations } from "../../persistence/verifiedManifestBundlePersistence";
 import { containerTables } from "../../sqlite/schema";
 import { containers } from "../../sqlite/schema/containerSchema";
@@ -76,6 +77,7 @@ test("levels a destination check served become citable; a forged held level is r
   try {
     await verifyContainerDestinationProjection({
       execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
       projection,
       resolveUserKey: fixture.resolveUserKey,
     });
@@ -144,6 +146,7 @@ test("levels a destination check served become citable; a forged held level is r
     await expect(
       verifyContainerWriterProjection({
         execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
         projection: refilled,
         resolveUserKey: fixture.resolveUserKey,
       }),

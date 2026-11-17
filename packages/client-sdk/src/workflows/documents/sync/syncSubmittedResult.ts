@@ -13,6 +13,7 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import { isKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { refreshSyncAttemptWriterProjection } from "../syncFailures";
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 import {
@@ -137,6 +138,7 @@ async function retrySubmittedResponseWithFreshProjection(
           documentWriterAuthorization:
             await verifyDocumentWriterProjectionAuthorization({
               execSql: input.sync.execSql,
+              openPrincipalPolicyBundleReader,
               projection: writerProjection,
               resolveUserKey: input.resolveProjectionUserKey,
               stillCurrent: input.sync.stillCurrent,

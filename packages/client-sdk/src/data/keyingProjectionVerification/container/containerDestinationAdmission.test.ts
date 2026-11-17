@@ -13,6 +13,7 @@ import {
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { isProjectionVerificationCancelledError } from "../types";
 import { verifyContainerDestinationProjection } from "./containerDestinationVerification";
 
@@ -55,6 +56,7 @@ for (const change of ["none", "caller", "lease", "fork", "newer"] as const) {
       let leaseCurrent = true;
       const result = await verifyContainerDestinationProjection({
         execSql: cold.execSql,
+        openPrincipalPolicyBundleReader,
         projection,
         stillCurrent: () => callerCurrent,
         warmReferencedPrincipalPolicies: Object.assign(async () => {}, {

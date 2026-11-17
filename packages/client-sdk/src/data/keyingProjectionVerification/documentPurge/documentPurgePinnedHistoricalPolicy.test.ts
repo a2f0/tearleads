@@ -4,6 +4,7 @@ import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/doc
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
 import { upsertAccessManifestCheckpointInTransaction } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { verifyDocumentPurgeProofBaseline } from "./documentPurgeProofVerification";
 
@@ -16,6 +17,7 @@ test("a pinned purge head still verifies policy evidence used only by earlier li
     // baseline verification does not admit document or policy checkpoints.
     const baseline = await verifyDocumentPurgeProofBaseline({
       execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
       warmReferencedPrincipalPolicies: fixture.warmer(database.execSql),
       expectedDocumentId: fixture.proof.documentId,
       expectedOrganizationId: "organization-1",

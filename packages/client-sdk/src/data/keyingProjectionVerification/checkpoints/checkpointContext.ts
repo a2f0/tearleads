@@ -18,7 +18,10 @@ import type { PrincipalPolicyCheckpointEvidence } from "../../principals/princip
 import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { projectionLifetimeGuard } from "../projectionLifetimes";
-import { assertProjectionVerificationCurrent } from "../types";
+import {
+  assertProjectionVerificationCurrent,
+  type OpenPrincipalPolicyBundleReader,
+} from "../types";
 import {
   enforceAccessManifestCheckpoints,
   validateAccessManifestCheckpoints,
@@ -28,6 +31,8 @@ import { matchesVerifiedBundleBytes } from "./verifiedBundleBytes";
 export interface ProjectionCheckpointContext {
   readonly heldContainerHeads: VerifiedContainerAccessManifest[];
   readonly execSql: ExecSql;
+  // The caller's principal policy bundle store, opened per executor.
+  readonly openPrincipalPolicyBundleReader: OpenPrincipalPolicyBundleReader;
   // Local checkpoints read during this verification, one read per object.
   readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
   organizationId?: string | undefined;
@@ -42,6 +47,7 @@ export interface ProjectionCheckpointContext {
 
 export function createProjectionCheckpointContext(input: {
   readonly execSql: ExecSql;
+  readonly openPrincipalPolicyBundleReader: OpenPrincipalPolicyBundleReader;
   readonly organizationId?: string | undefined;
 }): ProjectionCheckpointContext {
   if (typeof input.execSql !== "function") {
@@ -54,6 +60,7 @@ export function createProjectionCheckpointContext(input: {
   return {
     heldContainerHeads: [],
     execSql: input.execSql,
+    openPrincipalPolicyBundleReader: input.openPrincipalPolicyBundleReader,
     localCheckpoints: new Map(),
     organizationId: input.organizationId,
     policies: [],

@@ -8,6 +8,7 @@ import {
   isDocumentContentKeyBundleResponse,
   isDocumentKekTargetsResponse,
 } from "@tearleads/validators/response";
+import { projectionIntegrityErrorCode } from "../../../data/documents/shared/projection/freshProjectionRetry";
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import {
   isRetryableDocumentSyncConflict,
@@ -43,7 +44,6 @@ import {
 } from "../syncFailures";
 import {
   handleUpstreamDeletedDocumentSyncFailure,
-  projectionIntegrityErrorCode,
   type RemoteDocumentDeletionHandler,
   type TerminalSubmitFailureHandler,
 } from "../syncFailures/syncFailureClassification";

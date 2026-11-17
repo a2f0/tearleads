@@ -5,6 +5,7 @@ import {
   containerContentsSurface,
   containerDataSurface,
   deviceFirstClientSurface,
+  documentProjectionContractsSurface,
   documentStoreClientSurface,
   documentStoreSurface,
   identitySessionClientSurface,
@@ -20,6 +21,7 @@ import {
   runtimeRootSurface,
   securityIncidentClientSurface,
   securityIncidentSurface,
+  syncCoordinationSurface,
   syncEngineSurface,
 } from "./clientSdkSurfaces";
 import {
@@ -32,7 +34,7 @@ import {
   organizationReadModelTables,
   principalPolicyTables,
   securityIncidentTables,
-  syncEngineTables,
+  syncCoordinationTables,
 } from "./clientSdkTables";
 import { packageSourcePath } from "./dependencySourceRoots";
 import type { Subsystem } from "./subsystemTypes";
@@ -42,6 +44,15 @@ const sdk = packageSourcePath.clientSdk;
 /** The `packages/client-sdk` rows of the subsystem manifest in `subsystems.ts`. */
 export const clientSdkSubsystems: readonly Subsystem[] = [
   {
+    name: "Document Projection Contracts",
+    package: "client-sdk",
+    responsibility:
+      "Verified document projection reads, container KEK path resolution and wrapping, content-record keys and crypto, document readers and response decoding, and the document sync wire contracts that container, blob, and document workflows share.",
+    seam: "data/documents/shared/projection; data/documents/shared/containerKek",
+    paths: [`${sdk}/data/documents/shared/`],
+    surface: documentProjectionContractsSurface,
+  },
+  {
     name: "Document Store & Sync",
     package: "client-sdk",
     responsibility:
@@ -49,7 +60,19 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     seam: "workflows/documents",
     paths: [
       `${sdk}/workflows/documents/`,
-      `${sdk}/data/documents/`,
+      `${sdk}/data/documents/attachmentContentIdentity.ts`,
+      `${sdk}/data/documents/documentConstants.ts`,
+      `${sdk}/data/documents/documentContent.ts`,
+      `${sdk}/data/documents/documentKinds.ts`,
+      `${sdk}/data/documents/documentRestore.ts`,
+      `${sdk}/data/documents/documentRowList.ts`,
+      `${sdk}/data/documents/documentSummary.ts`,
+      `${sdk}/data/documents/documentSync.ts`,
+      `${sdk}/data/documents/editAttribution.ts`,
+      `${sdk}/data/documents/editAttributionBlame.ts`,
+      `${sdk}/data/documents/editAttributionTypes.ts`,
+      `${sdk}/data/documents/envFile.ts`,
+      `${sdk}/data/documents/index.ts`,
       `${sdk}/data/persistence/documents/`,
       `${sdk}/stores/documents/`,
     ],
@@ -206,17 +229,16 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     name: "Sync Engine",
     package: "client-sdk",
     responsibility:
-      "The per-DomainScope sync coordinator (lanes, phases, coalescing), device-first local projection + background reconciliation, and the scope/peer-seed primitives that drive cache invalidation.",
+      "Device-first local projection, background reconciliation, and the remote sync-state reset, built on the Sync Coordination primitives.",
     seam: "sync workflow facade snapshots",
     paths: [
-      `${sdk}/workflows/sync/`,
-      `${sdk}/data/sync/`,
-      `${sdk}/data/shared/domainScope.ts`,
+      `${sdk}/workflows/sync/index.ts`,
+      `${sdk}/workflows/sync/remoteReset.ts`,
+      `${sdk}/workflows/sync/remoteResetScope.ts`,
       `${sdk}/sync/`,
       `${sdk}/stores/local-projection/`,
     ],
     surface: syncEngineSurface,
-    tables: syncEngineTables,
   },
   {
     name: "Identity & Session",
@@ -256,6 +278,20 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       "The local SQLite executor, Drizzle schema, transaction serialization, and the @tearleads/client-sdk/sqlite public worker-runtime entry point.",
     seam: "@tearleads/client-sdk/sqlite subpath; data/sqlite",
     paths: [`${sdk}/data/sqlite/`, `${sdk}/sqlite/`],
+  },
+  {
+    name: "Sync Coordination",
+    package: "client-sdk",
+    responsibility:
+      "The per-DomainScope sync coordinator (lanes, phases, coalescing), the scope/peer-seed primitives that drive cache invalidation, outgoing-update settlement, database-unavailable classification, and organization sync pauses with their SQLite persistence.",
+    seam: "workflows/sync/coordination facade (re-exported by the workflows/sync facade); data/sync contract modules",
+    paths: [
+      `${sdk}/workflows/sync/coordination.ts`,
+      `${sdk}/data/sync/`,
+      `${sdk}/data/shared/domainScope.ts`,
+    ],
+    surface: syncCoordinationSurface,
+    tables: syncCoordinationTables,
   },
   {
     name: "Keying Verification",

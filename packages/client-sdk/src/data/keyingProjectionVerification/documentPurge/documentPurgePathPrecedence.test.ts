@@ -4,6 +4,7 @@ import {
   createScenario,
   manifestBundle,
 } from "../../../../test/helpers/ancestorCitationScenario";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { verifyPurgeContainerPaths } from "./documentPurgeProofVerification";
 
@@ -16,6 +17,7 @@ test("a purge dependency path cannot replace its authorization path for the same
       authorizationEvidence: [],
       checkpointContext: createProjectionCheckpointContext({
         execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
       }),
       principalPolicyCache: new Map(),
       proof: {

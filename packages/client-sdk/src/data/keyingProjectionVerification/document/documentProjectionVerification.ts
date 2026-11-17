@@ -29,6 +29,7 @@ import { throwKeyingVerificationShapeFailure } from "../error";
 import { verifyProjectionAuthorizationEvidence } from "../principalPolicy/projectionAuthorizationEvidence";
 import { readAccessManifest } from "../readers";
 import type {
+  OpenPrincipalPolicyBundleReader,
   PrincipalPolicyCache,
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
@@ -176,6 +177,7 @@ async function verifyProjectionContainerPaths(input: {
 
 interface DocumentWriterProjectionVerificationInput {
   readonly execSql: ExecSql;
+  readonly openPrincipalPolicyBundleReader: OpenPrincipalPolicyBundleReader;
   readonly persistVerificationCheckpoints?: boolean | undefined;
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: DocumentWriterProjectionResponse;
@@ -298,6 +300,7 @@ export async function verifyDocumentWriterProjection(
 ): Promise<VerifiedDocumentLinkSetManifest> {
   const checkpointContext = createProjectionCheckpointContext({
     execSql: input.execSql,
+    openPrincipalPolicyBundleReader: input.openPrincipalPolicyBundleReader,
   });
   const verified = await verifyDocumentWriterProjectionWithContext(
     withGenerationGuardedPolicyWarmer(input),
@@ -318,6 +321,7 @@ export async function verifyDocumentWriterProjectionAuthorization(
   try {
     const checkpointContext = createProjectionCheckpointContext({
       execSql: input.execSql,
+      openPrincipalPolicyBundleReader: input.openPrincipalPolicyBundleReader,
     });
     const verified = await verifyDocumentWriterProjectionWithContext(
       withGenerationGuardedPolicyWarmer(input),

@@ -1,6 +1,7 @@
 import { verifyContainerWriterProjection } from "../../src/data/keyingProjectionVerification/container/containerProjectionVerification";
 import { verifyDocumentPurgeProofBaseline } from "../../src/data/keyingProjectionVerification/documentPurge/documentPurgeProofVerification";
 import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { grantBy, verifyPath } from "./ancestorCitationScenario";
 import { createMaterializedSyncFixture } from "./documentFixtures";
@@ -19,6 +20,7 @@ export async function createPurgeCurrencyFixture(
   );
   const verification = {
     execSql,
+    openPrincipalPolicyBundleReader,
     expectedDocumentId: proof.documentId,
     expectedOrganizationId: fixture.author.organizationId,
     proof,
@@ -27,6 +29,7 @@ export async function createPurgeCurrencyFixture(
   await verifyDocumentPurgeProofBaseline(verification);
   const originalPath = await verifyContainerWriterProjection({
     execSql,
+    openPrincipalPolicyBundleReader,
     persistVerificationCheckpoints: false,
     projection: fixture.projection,
     resolveUserKey: fixture.resolveProjectionUserKey,
