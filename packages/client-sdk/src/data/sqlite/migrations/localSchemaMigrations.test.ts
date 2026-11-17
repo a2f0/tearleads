@@ -1,8 +1,13 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { organizationReadModelTables } from "../schema";
+import { documentTables } from "../schema/documentRecordSchema";
 import { ensureSqlTables } from "../sqlSchema";
-import { migrateLocalSchema } from "./migrateLocalSchema";
+import { localSchemaMigrations } from "./localSchemaMigrations";
+import {
+  LOCAL_SCHEMA_MIGRATIONS_TABLE,
+  migrateLocalSchema,
+} from "./migrateLocalSchema";
 
 const CREATED_AT = "2026-11-01T00:00:00.000Z";
 
@@ -91,36 +96,64 @@ test("step 2 skips a database that never created the directory table", async () 
   }
 });
 
-test("step 3 drops the documents' unread sync failure status", async () => {
+test("step 3 drops the sync failure status from a version-2 database and keeps the failure", async () => {
   const { close, execSql } = await createTestExecSql(
     "local-schema-sync-failure-status",
   );
   try {
+    // A version-2 database: its ledger, and the documents table and indexes
+    // as the previous build created them, with a recorded failure.
+    await migrateLocalSchema(execSql, {
+      migrations: localSchemaMigrations.slice(0, 1),
+    });
+    const [documents] = documentTables;
+    if (!documents) throw new Error("Documents table schema is missing");
     await execSql(
-      `CREATE TABLE "documents" ("app_kind" TEXT NOT NULL, "local_id" TEXT NOT NULL,
-        "sync_failure_status" INTEGER, "sync_failure_message" TEXT,
-        PRIMARY KEY ("app_kind", "local_id"))`,
+      documents.createSql.replace(
+        '  "sync_failure_message" TEXT,\n',
+        '  "sync_failure_status" INTEGER,\n  "sync_failure_message" TEXT,\n',
+      ),
     );
+    for (const index of documents.indexes ?? []) await execSql(index);
     await execSql(
-      `INSERT INTO documents VALUES ('documents', 'note', 409, 'refused')`,
+      `INSERT INTO documents (app_kind, local_id, updated_at,
+         sync_failure_status, sync_failure_message, sync_failure_attempted_at)
+       VALUES ('documents', 'note', ?, 409, 'refused', ?)`,
+      [CREATED_AT, CREATED_AT],
     );
-    expect((await migrateLocalSchema(execSql)).status).toBe("legacy");
+
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+
+    const columns = (
+      await execSql("SELECT name FROM pragma_table_info('documents')")
+    ).map(({ name }) => String(name));
+    expect(columns).not.toContain("sync_failure_status");
     expect(
       await execSql(
-        "SELECT name FROM pragma_table_info('documents') ORDER BY cid",
+        "SELECT sync_failure_message, sync_failure_attempted_at FROM documents",
       ),
     ).toEqual([
-      { name: "app_kind" },
-      { name: "local_id" },
-      { name: "sync_failure_message" },
-    ]);
-    expect(await execSql("SELECT * FROM documents")).toEqual([
       {
-        app_kind: "documents",
-        local_id: "note",
+        sync_failure_attempted_at: CREATED_AT,
         sync_failure_message: "refused",
       },
     ]);
+    expect(
+      (
+        await execSql(
+          "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'documents' AND sql IS NOT NULL ORDER BY name",
+        )
+      ).map(({ name }) => String(name)),
+    ).toEqual(["documents_app_document_idx", "documents_deferred_tail_idx"]);
+    expect(
+      (
+        await execSql(
+          `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
+        )
+      ).map(({ version }) => Number(version)),
+    ).toEqual([1, 2, 3]);
+    // The migrated table is the shape the current definition checks.
+    await ensureSqlTables(execSql, documentTables);
   } finally {
     close();
   }
