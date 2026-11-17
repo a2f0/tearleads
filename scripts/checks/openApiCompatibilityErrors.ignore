@@ -1,0 +1,27 @@
+# #2903 P24: group members carry only user id and role (flag day).
+# Remove this entry once main includes the #2903 directory-keys change.
+GET /organizations/{organizationId}/groups/{groupId}/members removed the required property `members/items/encapsulationKeyFingerprint` from the response with the `200` status
+
+# #2903 P24: group members carry only user id and role (flag day).
+# Remove this entry once main includes the #2903 directory-keys change.
+GET /organizations/{organizationId}/groups/{groupId}/members removed the required property `members/items/encapsulationPublicKey` from the response with the `200` status
+
+# #2903 P24: group members carry only user id and role (flag day).
+# Remove this entry once main includes the #2903 directory-keys change.
+GET /organizations/{organizationId}/groups/{groupId}/members removed the required property `members/items/signingKeyFingerprint` from the response with the `200` status
+
+# #2903 P24: group members carry only user id and role (flag day).
+# Remove this entry once main includes the #2903 directory-keys change.
+GET /organizations/{organizationId}/groups/{groupId}/members removed the required property `members/items/signingPublicKey` from the response with the `200` status
+
+# #2903 P2: directory rows carry key fingerprints, not public keys (flag day).
+# Remove this entry once main includes the #2903 directory-keys change.
+GET /organizations/{organizationId}/read-model added `subschema #1, subschema #2` to the response body `oneOf` list for the response status `200`
+
+# #2903 P2: directory rows carry key fingerprints, not public keys (flag day).
+# Remove this entry once main includes the #2903 directory-keys change.
+PUT /organizations/{organizationId}/roster/{userId} removed the required property `encapsulationPublicKey` from the response with the `200` status
+
+# #2903 P2: directory rows carry key fingerprints, not public keys (flag day).
+# Remove this entry once main includes the #2903 directory-keys change.
+PUT /organizations/{organizationId}/roster/{userId} removed the required property `signingPublicKey` from the response with the `200` status

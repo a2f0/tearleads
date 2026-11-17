@@ -67,7 +67,9 @@ test("warm policy, group member, and billing reads stay within their statement b
   // 19 / 21 once current heads, the group tombstone and organization lookup,
   // the stored progress hint, and immutable organization rows were each read
   // once per request. Single-entry/artifact and proof-node batching now use
-  // 7 / 9, 8 / 10, 13 / 15 and 13 / 15 respectively.
+  // 7 / 9, 8 / 10, 13 / 15 and 13 / 15 respectively. Group members read the
+  // group, its current head and that head's members in one statement and no
+  // longer load users: 10 / 12.
   expect(organizationPolicy).toBeLessThanOrEqual(
     7 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
@@ -75,7 +77,7 @@ test("warm policy, group member, and billing reads stay within their statement b
     8 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
   expect(groupMembers).toBeLessThanOrEqual(
-    13 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    10 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
   expect(billing).toBeLessThanOrEqual(
     13 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),

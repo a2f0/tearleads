@@ -12,7 +12,7 @@ type ExplorerValue = ReturnType<typeof useExplorer>;
 /**
  * A peer pane's published link provides direct recipient admission. Verify it
  * when available; otherwise leave admission through signed Members history to
- * the SDK, as for any roster selection. Neither path trusts directory keys.
+ * the SDK, as for any roster selection. The directory carries no keys.
  */
 export function usePeerShareAdmission(explorer: ExplorerValue): ExplorerValue {
   const peerUserId = usePeerUserId();

@@ -289,8 +289,6 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         isPersonalOrganizationOwner: false,
         sortOrder: 0,
         signingKeyFingerprint: "signing-fingerprint",
-        signingPublicKey: "signing-public-key",
-        encapsulationPublicKey: "encapsulation-public-key",
         encapsulationKeyFingerprint: "encapsulation-fingerprint",
         createdAt: stale,
         status: "active",

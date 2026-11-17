@@ -86,8 +86,6 @@ for (const pointer of ["organization", "roster"] as const) {
           isPersonalOrganizationOwner: true,
           sortOrder: 0,
           signingKeyFingerprint: "fingerprint",
-          signingPublicKey: "key",
-          encapsulationPublicKey: "key",
           encapsulationKeyFingerprint: "fingerprint",
           createdAt: NOW,
           status: "active",

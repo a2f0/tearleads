@@ -11,9 +11,7 @@ const user = {
   disabledByUserId: null,
   profileDocumentId: null,
   signingKeyFingerprint: "signing-fingerprint",
-  signingPublicKey: "signing-key",
   encapsulationKeyFingerprint: "kem-fingerprint",
-  encapsulationPublicKey: "kem-key",
   isSelf: false,
   status: "active",
 };

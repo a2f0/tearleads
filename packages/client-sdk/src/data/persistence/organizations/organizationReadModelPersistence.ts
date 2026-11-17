@@ -1,12 +1,10 @@
 import type {
   ListOrganizationGroupsResponse,
   OrganizationGroupCurrentStateResponse,
-  OrganizationReadModelDirectoryResponse,
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
-  organizationReadModelDirectoryUsers,
   organizationReadModelGroups,
   organizationReadModelRequesters,
   organizationReadModelState,
@@ -14,6 +12,7 @@ import {
 import { sqliteInsertBatchSize } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { clearOrganizationPresentationDenialInTransaction } from "./organizationPresentationDenialPersistence";
+import { applyDirectoryLane } from "./organizationReadModelDirectoryPersistence";
 import { applyOrganizationReadModelGrantsLane } from "./organizationReadModelGrantPersistence";
 import {
   applyGroupMembershipsLane,
@@ -24,9 +23,6 @@ import { pruneInactiveOrganizationRequestersInTransaction } from "./organization
 
 export type { OrganizationReadModelProjection } from "./organizationReadModelProjection";
 
-const DIRECTORY_INSERT_BATCH_SIZE = sqliteInsertBatchSize(
-  organizationReadModelDirectoryUsers,
-);
 const GROUP_INSERT_BATCH_SIZE = sqliteInsertBatchSize(
   organizationReadModelGroups,
 );
@@ -42,68 +38,6 @@ interface CurrentOrganizationReadModelState {
   readonly memberGroupStateHash: string;
   readonly organizationHead: OrganizationGroupCurrentStateResponse;
   readonly profileDocumentId: string | null;
-}
-
-/**
- * The member's leave request as stored JSON, kept only when it names this
- * organization and member. Its signature is checked when read, against the
- * member's trusted identity rather than the key served beside it.
- */
-function storedLeaveRequestJson(
-  organizationId: string,
-  user: OrganizationReadModelDirectoryResponse["users"][number],
-): string | null {
-  const request = user.leaveRequest;
-  return request &&
-    request.organizationId === organizationId &&
-    request.userId === user.userId
-    ? JSON.stringify(request)
-    : null;
-}
-
-async function replaceDirectoryLane(input: {
-  readonly directory: OrganizationReadModelDirectoryResponse;
-  readonly organizationId: string;
-  readonly tx: ClientSQLiteTransactionScope;
-}): Promise<void> {
-  await input.tx
-    .delete(organizationReadModelDirectoryUsers)
-    .where(
-      eq(
-        organizationReadModelDirectoryUsers.organizationId,
-        input.organizationId,
-      ),
-    )
-    .run();
-
-  const rows = input.directory.users.map((user, sortOrder) => ({
-    organizationId: input.organizationId,
-    userId: user.userId,
-    sortOrder,
-    signingKeyFingerprint: user.signingKeyFingerprint,
-    signingPublicKey: user.signingPublicKey,
-    encapsulationPublicKey: user.encapsulationPublicKey,
-    encapsulationKeyFingerprint: user.encapsulationKeyFingerprint,
-    isPersonalOrganizationOwner: user.isPersonalOrganizationOwner,
-    createdAt: user.createdAt,
-    status: user.status,
-    profileDocumentId: user.profileDocumentId,
-    joinedAt: user.joinedAt,
-    updatedAt: user.updatedAt,
-    disabledAt: user.disabledAt,
-    disabledByUserId: user.disabledByUserId,
-    leaveRequest: storedLeaveRequestJson(input.organizationId, user),
-  }));
-  for (
-    let index = 0;
-    index < rows.length;
-    index += DIRECTORY_INSERT_BATCH_SIZE
-  ) {
-    await input.tx
-      .insert(organizationReadModelDirectoryUsers)
-      .values(rows.slice(index, index + DIRECTORY_INSERT_BATCH_SIZE))
-      .run();
-  }
 }
 
 async function upsertRequester(input: {
@@ -260,7 +194,12 @@ async function replaceResponseLanes(
   const { organizationId } = input.response;
   const directory = input.response.lanes.directory;
   if (directory) {
-    await replaceDirectoryLane({ directory, organizationId, tx: input.tx });
+    await applyDirectoryLane({
+      directory,
+      organizationId,
+      replaceAll: input.response.mode === "snapshot",
+      tx: input.tx,
+    });
   }
   const groups = input.response.lanes.groups;
   if (groups) {
