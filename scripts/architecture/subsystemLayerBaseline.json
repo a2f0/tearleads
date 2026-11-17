@@ -20,17 +20,7 @@
     "packages/client-sdk/src/client/session/sessionRootAuthority.ts"
   ],
   "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts": [
-    "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstones.ts",
     "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/container-contents/documentPlacement.ts": [
-    "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstoneHolds.ts",
-    "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstones.ts",
-    "packages/client-sdk/src/data/persistence/documents/internal/discoveredDocumentPlacement.ts",
-    "packages/client-sdk/src/data/persistence/documents/internal/discoveredDocumentUpsert.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/container-contents/pendingContainerCreate.ts": [
-    "packages/client-sdk/src/workflows/documents/create/index.ts"
   ],
   "packages/client-sdk/src/data/persistence/principalKeys/principalGrantRetirementPersistence.ts": [
     "packages/client-sdk/src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence.ts",

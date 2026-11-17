@@ -23,6 +23,13 @@ export type LocalIntentLane =
   (typeof LOCAL_INTENT_LANES)[keyof typeof LOCAL_INTENT_LANES];
 
 /**
+ * The intent type of every `containerCreate` lane row. Container Contents
+ * writes and settles it; Document Store reads it to hold a document create
+ * until its folder's create settles.
+ */
+export const CONTAINER_CREATE_INTENT_TYPE = "container.create";
+
+/**
  * Device-first structural writes waiting for remote replay: container creates,
  * container moves, and document placement (move and link) intents.
  *

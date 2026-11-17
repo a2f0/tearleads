@@ -3,7 +3,7 @@ import {
   type DocumentMoveIntentRecord,
   DocumentMoveIntentRepository,
 } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
-import { loadDocumentMovePlacement } from "../../../data/persistence/container-contents/documentPlacement";
+import { loadDocumentMovePlacement } from "../../../data/persistence/documents/documentPlacement";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
