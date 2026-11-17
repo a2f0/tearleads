@@ -94,7 +94,8 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // and KEK targets the request named, and policy acknowledgements carry
   // heads, not policies (the commit 73 KB -> 3.5 KB): 0.58 MB received. Public
   // history reads naming a held head receive no current state: 0.54 MB
-  // received; keep about 10% headroom.
+  // received. Served bundles leave off the state their signed bytes name:
+  // 0.51 MB received; keep about 3% headroom.
   bodyBytes: { request: 160_000, response: 530_000 },
   byRequest: {
     "GET /principals/history": 7,

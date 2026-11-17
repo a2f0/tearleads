@@ -102,13 +102,16 @@ test("a cached hash never stores a later projection's different bytes", async ()
     // Same manifest hash, different served bytes: the shared cache
     // recognizes the hash, but these bytes were never verified.
     const tampered = { ...leaf, event: { ...leaf.event, extra: true } };
-    await verifyContainerWriterProjection({
-      execSql: second.execSql,
-      openPrincipalPolicyBundleReader,
-      projection: { ...fixture.projection, path: [tampered] },
-      resolveUserKey: fixture.resolveUserKey,
-      verifiedByHash,
-    }).catch(() => undefined);
+    // The cached hash verifies; only the byte comparison keeps it out.
+    expect(
+      await verifyContainerWriterProjection({
+        execSql: second.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [tampered] },
+        resolveUserKey: fixture.resolveUserKey,
+        verifiedByHash,
+      }),
+    ).toHaveLength(1);
     expect(
       await loadVerifiedManifestCitations(second.execSql, target),
     ).not.toContainEqual(toServedAccessManifestBundle(tampered));

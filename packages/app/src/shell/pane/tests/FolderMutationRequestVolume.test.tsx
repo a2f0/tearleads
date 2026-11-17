@@ -280,7 +280,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // recorded, so the unlink leg reuses it: no sync and no document
       // projection. Measured 5 (main 8; the reused proof saves the sync, the
       // document projection and a policy read). 27.3 KB sent and 22.4 KB
-      // received; keep about 10% headroom.
+      // received; served bundles leave off the state their signed bytes
+      // name (the container key copy among it): 19.9 KB received; keep about
+      // 8% headroom.
       total: 5,
       bodyBytes: { request: 30_000, response: 21_500 },
       byRequest: {
@@ -322,8 +324,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       total: 10,
       // The move cites the destination parent's KEK state instead of carrying
       // it: 16.6 KB sent (34.3 KB before). Syncs no longer echo the bundle and
-      // KEK targets the request named: 40.7 KB received (44.3 KB before); keep
-      // about 10% headroom.
+      // KEK targets the request named: 40.7 KB received (44.3 KB before).
+      // Served bundles leave off the state their signed bytes name: 38.0 KB
+      // received; keep about 5% headroom.
       bodyBytes: { request: 18_500, response: 40_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 4,
@@ -361,8 +364,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       total: 11,
       // Projection reads cite the KEK levels the device holds by digest, and
       // syncs no longer echo the bundle and KEK targets the request named:
-      // 53.2 KB received (56.7 KB before); keep about 10% headroom. The move
-      // cites its parent KEK state: 16.8 KB sent (20.6 KB before).
+      // 53.2 KB received (56.7 KB before). Served bundles leave off the state
+      // their signed bytes name: 46.5 KB received; keep about 4% headroom.
+      // The move cites its parent KEK state: 16.8 KB sent (20.6 KB before).
       bodyBytes: { request: 18_500, response: 48_500 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 3,

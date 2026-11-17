@@ -100,6 +100,20 @@ async function fetchDocumentProjection(
   return new ApiClient(apiBaseUrl).getDocumentWriterProjection(REQUESTED);
 }
 
+/** Serves exactly these wire bytes and reads them back through `read`. */
+async function fetchServed<T>(
+  route: "containers" | "documents",
+  wire: Parameters<typeof HttpResponse.json>[0],
+  read: () => Promise<T>,
+): Promise<T> {
+  server.use(
+    http.get(`${apiBaseUrl}/${route}/:id/writer-projection`, () =>
+      HttpResponse.json(wire),
+    ),
+  );
+  return read();
+}
+
 testApiClient(
   "each container projection id binding rejects on its own",
   async () => {
@@ -142,12 +156,17 @@ testApiClient(
     for (const [binding, served] of Object.entries(variants)) {
       expect(await fetchContainerProjection(served), binding).toBeNull();
     }
-    // A served state cannot name another container: the decoded state takes
-    // its id from the hash-committed manifest.
-    const restated = await fetchContainerProjection({
-      ...relabeled,
-      path: [{ ...leaf, state: substituted.path[0]?.state ?? {} }],
-    });
+    // A served state that names another container is overridden: the
+    // decoded state takes its id from the hash-committed manifest.
+    const forged = Object(encodeContainerWriterProjection(relabeled));
+    Reflect.set(
+      forged.bundles[leaf.manifestHash].state,
+      "containerId",
+      substituted.containerId,
+    );
+    const restated = await fetchServed("containers", forged, () =>
+      new ApiClient(apiBaseUrl).getContainerWriterProjection(REQUESTED),
+    );
     expect(restated?.path.at(-1)?.state).toMatchObject({
       containerId: REQUESTED,
     });
@@ -232,13 +251,15 @@ testApiClient(
     for (const [binding, served] of Object.entries(variants)) {
       expect(await fetchDocumentProjection(served), binding).toBeNull();
     }
-    const restated = await fetchDocumentProjection({
-      ...relabeled,
-      documentManifest: {
-        ...relabeled.documentManifest,
-        state: substituted.documentManifest.state,
-      },
-    });
+    const forged = Object(encodeDocumentWriterProjection(relabeled));
+    Reflect.set(
+      forged.bundles[relabeled.documentManifest.manifestHash].state,
+      "documentId",
+      substituted.documentId,
+    );
+    const restated = await fetchServed("documents", forged, () =>
+      new ApiClient(apiBaseUrl).getDocumentWriterProjection(REQUESTED),
+    );
     expect(restated?.documentManifest.state).toMatchObject({
       documentId: REQUESTED,
     });
