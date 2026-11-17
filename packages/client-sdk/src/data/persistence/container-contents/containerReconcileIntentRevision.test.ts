@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
-import { sqlDocumentMoveIntentPersistence } from "./documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "./documentMoveIntentPersistence";
+
+const moveIntents = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 const SAME_UPDATED_AT = "2026-09-01T12:00:00.000Z";
 
@@ -65,14 +68,14 @@ test("same-timestamp document reassignment rotates every affected intent revisio
   );
   try {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "source-document",
       id: "stale-source-revision",
       localId: "source-local",
       sourceContainerId: "local-root",
       targetContainerId: "other-container",
     });
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "target-document",
       id: "stale-target-revision",
       localId: "target-local",
@@ -83,8 +86,7 @@ test("same-timestamp document reassignment rotates every affected intent revisio
       `UPDATE local_intents SET updated_at = ? WHERE lane = 'document.placement'`,
       [SAME_UPDATED_AT],
     );
-    const before =
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    const before = await moveIntents(execSql).listPendingMoveIntents();
 
     await sqlContainerContentsPersistence.reassignContainerDocuments(execSql, {
       fromContainerId: "local-root",
@@ -92,8 +94,7 @@ test("same-timestamp document reassignment rotates every affected intent revisio
       updatedAt: SAME_UPDATED_AT,
     });
 
-    const after =
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    const after = await moveIntents(execSql).listPendingMoveIntents();
     expect(after).toHaveLength(2);
     expect(new Set(after.map((intent) => intent.id)).size).toBe(2);
     for (const previous of before) {
@@ -103,7 +104,7 @@ test("same-timestamp document reassignment rotates every affected intent revisio
       expect(current?.id).not.toBe(previous.id);
       expect(current?.updatedAt).toBe(previous.updatedAt);
       expect(
-        await sqlDocumentMoveIntentPersistence.markMoveIntentSynced(execSql, {
+        await moveIntents(execSql).markMoveIntentSynced({
           documentId: previous.documentId,
           expectedIntentId: previous.id,
           expectedUpdatedAt: previous.updatedAt,

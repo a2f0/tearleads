@@ -22,7 +22,7 @@ import {
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
 
-interface PlacementIntentInput {
+export interface PlacementIntentInput {
   id?: string | undefined;
   documentId: string;
   localId: string;
@@ -166,6 +166,7 @@ async function enqueuePlacementIntentRows(
   tx: ClientSQLiteTransactionScope,
   input: PlacementIntentInput,
   operation: "move" | "link" | "unlink",
+  now: () => Date,
 ): Promise<void> {
   const [previous] = await tx
     .select()
@@ -187,7 +188,7 @@ async function enqueuePlacementIntentRows(
     operation === "move" ? await loadSurvivingMoveTarget(tx, previous) : null,
   );
   const id = input.id ?? crypto.randomUUID();
-  const updatedAt = new Date().toISOString();
+  const updatedAt = now().toISOString();
   // An additive intent retains the active placement and any pending move.
   // Its targets are separate from the discovery projection: only explicit
   // user additions may be replayed, never stale server-discovered links.
@@ -234,39 +235,21 @@ export async function enqueueDocumentPlacementIntentInTransaction(
     getClientSQLitePersistenceRuntime(transactionExecSql).db,
     input,
     operation,
+    () => new Date(),
   );
 }
 
-async function enqueuePlacementIntent(
+/** Serialized standalone enqueue: one plain transaction under the lock. */
+export async function enqueueDocumentPlacementIntent(
   execSql: ExecSql,
   input: PlacementIntentInput,
   operation: "move" | "link" | "unlink",
+  now: () => Date,
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await ensurePlacementIntentSchema(lockedExecSql);
     await getClientSQLitePersistenceRuntime(lockedExecSql).transaction((tx) =>
-      enqueuePlacementIntentRows(tx, input, operation),
+      enqueuePlacementIntentRows(tx, input, operation, now),
     );
   });
-}
-
-export function enqueueDocumentMoveIntent(
-  execSql: ExecSql,
-  input: PlacementIntentInput,
-): Promise<void> {
-  return enqueuePlacementIntent(execSql, input, "move");
-}
-
-export function enqueueDocumentLinkIntent(
-  execSql: ExecSql,
-  input: PlacementIntentInput & { sourceContainerId: string },
-): Promise<void> {
-  return enqueuePlacementIntent(execSql, input, "link");
-}
-
-export function enqueueDocumentUnlinkIntent(
-  execSql: ExecSql,
-  input: PlacementIntentInput & { removedContainerId: string },
-): Promise<void> {
-  return enqueuePlacementIntent(execSql, input, "unlink");
 }
