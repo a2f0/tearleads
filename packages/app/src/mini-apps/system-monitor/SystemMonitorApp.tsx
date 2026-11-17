@@ -5,7 +5,7 @@ import {
   useWindowTitleBarAction,
   useWindowViewMenuItem,
 } from "@tearleads/windowing";
-import { useCallback, useId, useMemo, useState } from "react";
+import { useCallback, useId, useLayoutEffect, useMemo, useState } from "react";
 import {
   MiniAppRoot,
   type MiniAppTabDescriptor,
@@ -193,7 +193,25 @@ function SystemMonitorContent() {
   );
 }
 
+// The pinned monitor is the pane's one monitor. The Start menu unpins it
+// before opening a window; a window opened any other way, such as for the
+// app's URL, finds the monitor already on the desktop and closes. Closing in a
+// layout effect keeps the window from being painted.
+function useCloseWindowWhilePinned(): boolean {
+  const { isPinned } = useSystemMonitor();
+  const closeWindow = useCurrentWindow()?.close;
+  const closing = isPinned && closeWindow !== undefined;
+
+  useLayoutEffect(() => {
+    if (closing) closeWindow();
+  }, [closeWindow, closing]);
+
+  return closing;
+}
+
 export function SystemMonitorApp() {
+  if (useCloseWindowWhilePinned()) return null;
+
   return (
     <LocalKeyringUnlockGate
       appName="System Monitor"

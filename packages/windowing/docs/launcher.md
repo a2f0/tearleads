@@ -89,6 +89,15 @@ workspaces). Hiding and showing an already initialized desktop preserves it,
 even if empty. Omit the list to manage startup yourself; `homeAppId` only sets
 the routed home.
 
+Entering windowed mode also opens the app the browser's URL names
+(`/app/<app id>/…`), in front of the default windows, so a link to an app, or
+a switch from the routed shell, shows that app in either mode. An app that is
+already open is raised, and routed to the URL's path if it has one. While
+windowed, a browser history step to another app's URL opens that app too.
+Windowed mode never changes the URL. Where several launchers share a page,
+pass `routeWindowEnabled` to one: a launcher with it false at the entry skips
+that URL, and does not open it when enabled later.
+
 A new window opens at the request's `position`, or `DEFAULT_MINI_APP_POSITION`,
 at the app's `windowSize`. A host that places its apps itself passes the
 provider a `placeWindow` callback. It receives each request that opens a new
