@@ -6,6 +6,7 @@ import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyS
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { createDomainScope } from "../../../data/shared/domainScope";
+import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import {
   ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
@@ -77,6 +78,7 @@ for (const failure of ["withheld", "tampered", "expired", "runtime"] as const) {
           containersById: new Map(),
           persistence,
           runtime: withPrincipalPolicies({
+            organizations: containerContentsOrganizationHost,
             resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
             apiClient: {
               evictContainerWriterProjection: () => {},

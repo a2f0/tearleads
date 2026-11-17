@@ -7,6 +7,7 @@ import type {
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
+import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import {
   ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
@@ -72,6 +73,7 @@ function createState(input: {
     containersById: new Map(),
     persistence: defaultContainerContentsPersistence,
     runtime: withPrincipalPolicies({
+      organizations: containerContentsOrganizationHost,
       resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: {
         getContainerWriterProjection:

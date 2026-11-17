@@ -359,7 +359,7 @@ export function createDeviceFirstWorkflowRuntime(
 ): ContainerContentsStoreWorkflowRuntime {
   const input = runtimeService.workflowInput();
   return createContainerContentsStoreWorkflowRuntimeFromSnapshot(
-    input,
+    { ...input, organizations: runtimeService.containerContentsOrganizations },
     runtimeService.adoptRootContainer,
     // Admit against the trust store of the database this runtime writes.
     (userId, accessLevel) =>

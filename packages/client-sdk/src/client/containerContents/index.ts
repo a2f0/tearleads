@@ -457,7 +457,10 @@ class ContainerContentsService implements ContainerContents {
   workflowRuntime(): ContainerContentsStoreWorkflowRuntime {
     const input = this.runtimeService.workflowInput();
     return createContainerContentsStoreWorkflowRuntimeFromSnapshot(
-      input,
+      {
+        ...input,
+        organizations: this.runtimeService.containerContentsOrganizations,
+      },
       this.runtimeService.adoptRootContainer,
       // Admit against the trust store of the database this runtime writes.
       (userId, accessLevel) =>

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
+import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../../data/shared/domainScope";
@@ -8,7 +9,6 @@ import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,
 } from "../../containerPersistence";
-import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { createTestContainerState } from "../containerState.testFixtures";
 import type { ContainerCreateIntentSyncState } from "../types";
 import { syncPendingContainerCreateIntents } from "./createIntentSync";

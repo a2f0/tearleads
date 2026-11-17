@@ -36,7 +36,10 @@ test("signed-out runtime reads and network notifications preserve local write cu
     });
     const read = () =>
       createContainerContentsStoreWorkflowRuntimeFromSnapshot(
-        runtime.workflowInput(),
+        {
+          ...runtime.workflowInput(),
+          organizations: runtime.containerContentsOrganizations,
+        },
         runtime.adoptRootContainer,
         async () => undefined,
       );

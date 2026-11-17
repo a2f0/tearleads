@@ -7,6 +7,7 @@ import { DocumentContainerProjectionRepository as Links } from "../../../data/pe
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { defaultDocumentsPersistence } from "../../documents";
+import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import {
   type DocumentStructuralMutationHost,
   type DocumentStructuralMutationRelinkInput,
@@ -63,6 +64,7 @@ test("a remote orphan moves from null scope into a writable container", async ()
     };
     const linkedContainers = new Map<string, ReadonlyArray<string>>();
     const runtime: DocumentStructuralMutationRuntime = withPrincipalPolicies({
+      organizations: containerContentsOrganizationHost,
       apiClient: {} as DocumentStructuralMutationRuntime["apiClient"],
       auth: {
         isAuthenticated: true,

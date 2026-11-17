@@ -7,6 +7,7 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
+import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../../data/shared/domainScope";
@@ -15,11 +16,11 @@ import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
 } from "../../../containers/child/create";
+import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,
 } from "../../containerPersistence";
-import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { createTestContainerState } from "../containerState.testFixtures";
 import type { ContainerCreateIntentSyncState } from "../types";
 import { syncPendingContainerCreateIntents } from "./createIntentSync";
@@ -80,6 +81,7 @@ test("stale container create identity failures do not report into a replacement"
     persistence,
     resolveProjectionUserKey: async () => null,
     runtime: withPrincipalPolicies({
+      organizations: containerContentsOrganizationHost,
       apiClient: createMockApiClient({
         getContainerWriterProjection: async () => {
           projectionRequests += 1;
@@ -390,6 +392,7 @@ test("container create sync keeps an intent pending while the container row lack
     persistence,
     resolveProjectionUserKey: async () => null,
     runtime: withPrincipalPolicies({
+      organizations: containerContentsOrganizationHost,
       apiClient: {} as ContainerCreateIntentSyncState["runtime"]["apiClient"],
       auth: {
         isAuthenticated: true,

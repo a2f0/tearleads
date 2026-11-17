@@ -14,6 +14,7 @@ import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
 } from "../../../containers/child/create";
+import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import { upsertRemoteContainerState } from "../../remoteHydration/remoteContainers/remoteContainerState";
 import type {
@@ -68,6 +69,7 @@ for (const scenario of [
         containersById: new Map(),
         persistence: sqlContainerContentsPersistence,
         runtime: withPrincipalPolicies({
+          organizations: containerContentsOrganizationHost,
           apiClient: {
             getContainerWriterProjection: async () => {
               if (purging && scenario === "unavailable")

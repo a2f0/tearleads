@@ -16,6 +16,7 @@ import {
 } from "../../../../data/containers/shared/containerPathLimits";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,
@@ -50,6 +51,7 @@ function syncState(input: {
     persistence: input.persistence,
     resolveProjectionUserKey: async () => null,
     runtime: withPrincipalPolicies({
+      organizations: containerContentsOrganizationHost,
       apiClient: createMockApiClient({
         getContainerWriterProjection: async () => {
           input.onProjectionRequest();

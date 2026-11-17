@@ -8,6 +8,7 @@ import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyS
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import {
   ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
@@ -89,6 +90,7 @@ test("a failed page upsert does not checkpoint or skip trailing containers", asy
       containersById: new Map([[existingState.container.id, existingState]]),
       persistence: defaultContainerContentsPersistence,
       runtime: withPrincipalPolicies({
+        organizations: containerContentsOrganizationHost,
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: createMockApiClient({
           getContainerWriterProjection:
@@ -159,6 +161,7 @@ test("a fetched page cannot resurrect a container deleted before apply", async (
       containersById: new Map([[existingState.container.id, existingState]]),
       persistence: defaultContainerContentsPersistence,
       runtime: withPrincipalPolicies({
+        organizations: containerContentsOrganizationHost,
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: createMockApiClient({
           getContainerWriterProjection:
@@ -229,6 +232,7 @@ test("a fetched page cannot overwrite a container mutated in place during fetch"
       containersById: new Map([[existingState.container.id, existingState]]),
       persistence: defaultContainerContentsPersistence,
       runtime: withPrincipalPolicies({
+        organizations: containerContentsOrganizationHost,
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: createMockApiClient({
           getContainerWriterProjection:
@@ -296,6 +300,7 @@ test("a stale page item does not starve an independent new container", async () 
       containersById: new Map([[existingState.container.id, existingState]]),
       persistence: defaultContainerContentsPersistence,
       runtime: withPrincipalPolicies({
+        organizations: containerContentsOrganizationHost,
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: createMockApiClient({
           getContainerWriterProjection:
@@ -370,6 +375,7 @@ test("a stale tombstone cannot delete a container restored during fetch", async 
       containersById: new Map<string, ContainerState>(),
       persistence: defaultContainerContentsPersistence,
       runtime: withPrincipalPolicies({
+        organizations: containerContentsOrganizationHost,
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: createMockApiClient({
           getContainerWriterProjection:

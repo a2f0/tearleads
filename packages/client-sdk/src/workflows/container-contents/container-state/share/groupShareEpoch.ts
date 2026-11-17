@@ -1,5 +1,4 @@
 import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
-import { createRuntimeCurrentSharePrincipalPolicy } from "../../../organizations/groupShare";
 import type { ContainerWorkflowRuntime } from "../types";
 
 export async function resolveCurrentGroupKeyEpoch(input: {
@@ -12,7 +11,8 @@ export async function resolveCurrentGroupKeyEpoch(input: {
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<number | null> {
   if (input.stillCurrent?.() === false) return null;
-  const readCurrent = createRuntimeCurrentSharePrincipalPolicy(input.runtime);
+  const readCurrent =
+    input.runtime.organizations.createCurrentGroupPolicyReader(input.runtime);
   if (!readCurrent)
     throw new ProjectionDependencyUnavailableError(
       "Group sharing requires private paged recovery",
