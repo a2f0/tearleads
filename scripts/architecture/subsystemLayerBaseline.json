@@ -13,9 +13,6 @@
   "packages/client-sdk/src/data/containers/shared/heldContainerHeads.ts": [
     "packages/client-sdk/src/data/keyingProjectionVerification/checkpoints/checkpointContext.ts"
   ],
-  "packages/client-sdk/src/data/documents/attachmentContentIdentity.ts": [
-    "packages/client-sdk/src/workflows/blobs/hydration/hydrate.ts"
-  ],
   "packages/client-sdk/src/data/documents/shared/containerKek/index.ts": [
     "packages/client-sdk/src/data/blobs/attachments/projection.ts",
     "packages/client-sdk/src/workflows/containers/child/create/index.ts",
@@ -151,9 +148,6 @@
     "packages/client-sdk/src/workflows/documents/index.ts",
     "packages/client-sdk/src/workflows/documents/sync/syncLane.ts"
   ],
-  "packages/client-sdk/src/workflows/documents/syncFailures/syncFailureClassification.ts": [
-    "packages/client-sdk/src/workflows/blobs/upload/index.ts"
-  ],
   "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataErrors.ts": [
     "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/destinationRootReload.ts"
   ],
@@ -171,21 +165,10 @@
   "packages/client-sdk/src/workflows/organizations/index.ts": [
     "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
   ],
-  "packages/client-sdk/src/workflows/organizations/provisioning/createOrganization.ts": [
-    "packages/client-sdk/src/client/session/index.ts",
-    "packages/client-sdk/src/client/session/sessionOrganizationCreation.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/provisioning/organizationProvisioningAttempt.ts": [
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/provisioning/organizationReplacementVerification.ts": [
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
-  ],
   "packages/client-sdk/src/workflows/registration/index.ts": [
-    "packages/client-sdk/src/client/session/index.ts"
-  ],
-  "packages/client-sdk/src/workflows/registration/organizationProvisioning.ts": [
-    "packages/client-sdk/src/workflows/organizations/provisioning/createOrganization.ts"
+    "packages/client-sdk/src/client/session/index.ts",
+    "packages/client-sdk/src/client/session/sessionOrganizationCreation.ts",
+    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
   ],
   "packages/client-sdk/src/workflows/sync/index.ts": [
     "packages/client-sdk/src/client/organizations/organizationMemberships.ts",

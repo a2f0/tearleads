@@ -1,4 +1,6 @@
 // Document stores snapshot an attachment's source before queueing its upload.
+
+export { attachmentContentSha256 } from "../../data/blobs/attachmentContentIdentity";
 export {
   type BlobSourceSnapshot,
   inspectBlobSource,

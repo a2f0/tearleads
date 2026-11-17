@@ -7,6 +7,7 @@ import {
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
 import { buildDocumentCreatePlan } from "../../../data/documents/shared/events";
 import { wrapDocumentContentKeyForCreate } from "../../../data/documents/shared/projection";
+import { shouldRetryWithFreshProjection } from "../../../data/documents/shared/projection/freshProjectionRetry";
 import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import type {
@@ -32,10 +33,7 @@ import {
   buildDocumentCreateSeedRequest,
   documentCreateSeedFits,
 } from "../sync/initialSync";
-import {
-  isDocumentManifestAlreadyExistsConflict,
-  shouldRetryWithFreshProjection,
-} from "../syncFailures/syncFailureClassification";
+import { isDocumentManifestAlreadyExistsConflict } from "../syncFailures/syncFailureClassification";
 import { adoptExistingRemoteDocument } from "./createAdoption";
 import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
 import { fetchContainerWriterProjectionForCreate } from "./createProjectionFetch";
