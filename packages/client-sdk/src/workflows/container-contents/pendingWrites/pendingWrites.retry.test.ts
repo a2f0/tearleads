@@ -43,7 +43,6 @@ test("manual retry resets the re-key budget and clears the failure row", async (
       {
         attemptedAt: new Date().toISOString(),
         message: "Update conflict recovery gave up after 5 re-key attempts",
-        status: null,
       },
     );
 
@@ -91,7 +90,6 @@ test("container retry resets the metadata scope's budget and failure row", async
       {
         attemptedAt: new Date().toISOString(),
         message: "Write access denied by the server (403)",
-        status: 403,
       },
     );
 
@@ -189,7 +187,6 @@ test("a deferred-tail-only scope counts as queued work on retry", async () => {
         {
           attemptedAt: new Date().toISOString(),
           message: "Write access denied by the server (403)",
-          status: 403,
         },
       );
       await resetPendingWriteRetryState(execSql, {

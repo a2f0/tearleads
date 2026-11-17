@@ -7,14 +7,12 @@ import type { DocumentScope } from "./documentPersistenceTypes";
 export interface DocumentSyncFailureFields {
   readonly attemptedAt: string;
   readonly message: string;
-  readonly status: number | null;
 }
 
 /** The `documents` column values of a scope with no recorded failure. */
 export const CLEARED_DOCUMENT_SYNC_FAILURE = {
   syncFailureAttemptedAt: null,
   syncFailureMessage: null,
-  syncFailureStatus: null,
 } as const;
 
 function scopeWhere(scope: DocumentScope) {
@@ -41,7 +39,6 @@ export async function recordDocumentSyncFailureInTransaction(
     .set({
       syncFailureAttemptedAt: failure.attemptedAt,
       syncFailureMessage: failure.message,
-      syncFailureStatus: failure.status,
     })
     .where(scopeWhere(scope))
     .run();

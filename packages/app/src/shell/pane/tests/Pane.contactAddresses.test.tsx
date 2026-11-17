@@ -100,11 +100,12 @@ test(
     );
     expect(explorer.getByText("99 Queen Street")).toBeTruthy();
     expect(explorer.getAllByText("00123")).toHaveLength(2);
-    fireEvent.click(explorer.getByRole("button", { name: "Edit" }));
-    const home = within(explorer.getByRole("group", { name: "Home" }));
-    fireEvent.click(home.getByRole("button", { name: "Edit address" }));
+    // The detail can show the address before its edit controls mount.
+    fireEvent.click(await explorer.findByRole("button", { name: "Edit" }));
+    const home = within(await explorer.findByRole("group", { name: "Home" }));
+    fireEvent.click(await home.findByRole("button", { name: "Edit address" }));
     const editor = within(
-      explorer.getByRole("form", { name: "Address editor" }),
+      await explorer.findByRole("form", { name: "Address editor" }),
     );
     fireEvent.change(editor.getByLabelText("City / locality"), {
       target: { value: "London" },
