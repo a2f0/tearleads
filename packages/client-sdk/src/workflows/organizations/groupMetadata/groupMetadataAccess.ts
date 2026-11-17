@@ -18,8 +18,8 @@ import type {
 } from "../../../data/keyingProjectionVerification";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { loadContainers } from "../../../data/persistence/container-contents/containerPersistence";
+import type { GroupPolicyNameReader } from "../../../data/principals/principalPolicyRequest";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import type { GroupPolicyNameReader } from "../principalPolicy/principalPolicyRequest";
 import { withMetadataRootReload } from "./groupMetadataErrors";
 
 export interface GroupMetadataAccessInput {

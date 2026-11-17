@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
@@ -12,6 +11,7 @@ import {
   persistedStateFromProjection,
   readOnlySyncApi,
 } from "../../../../test/helpers/documentSyncFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 
 test.each(["rollback", "invalid_shape"] as const)(
   "persisted read-only sync refetches once after a cached %s failure",

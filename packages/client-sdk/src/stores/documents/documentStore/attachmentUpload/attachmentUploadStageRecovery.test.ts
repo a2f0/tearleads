@@ -6,7 +6,7 @@ import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../../test/helpers/blobUploadFixtures";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import type { PendingAttachmentRecord } from "../../../../workflows/documents";
 import type { DocumentAttachmentBinding, DocumentStoreState } from "../state";
 import { captureDocumentStoreSyncGeneration } from "../sync/syncGeneration";

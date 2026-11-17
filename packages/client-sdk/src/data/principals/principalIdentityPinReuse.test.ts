@@ -5,8 +5,8 @@ import {
   createFixtureUserIdentity,
   fixtureProjectionMember,
 } from "../../../test/helpers/trustedUserIdentity";
-import { collectPrincipalPolicySignerPublicKeys } from "../../workflows/principals/policyVerification";
 import { createProjectionUserKeyResolver } from "../keyingProjectionVerification/userKeyResolver";
+import { collectPrincipalPolicySignerPublicKeys } from "./principalPolicyVerification";
 
 type Fixture = Awaited<ReturnType<typeof principalIdentityPinFixture>>;
 

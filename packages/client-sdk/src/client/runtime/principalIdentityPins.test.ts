@@ -6,9 +6,9 @@ import {
 import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { collectPrincipalPolicySignerPublicKeys } from "../../data/principals/principalPolicyVerification";
 import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { Tearleads } from "../../Tearleads";
-import { collectPrincipalPolicySignerPublicKeys } from "../../workflows/principals/policyVerification";
 import { createRuntime } from "./workflowRuntime";
 
 async function runtimeFixture() {

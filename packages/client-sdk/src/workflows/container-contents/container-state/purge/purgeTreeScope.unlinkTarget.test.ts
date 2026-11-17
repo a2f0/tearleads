@@ -7,9 +7,9 @@ import {
 } from "@tearleads/test-utils";
 import {
   createLinkSetResponseFromRequest,
-  createMaterializedSyncFixture,
   writerProjectionEvidence,
 } from "../../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";

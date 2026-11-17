@@ -2,7 +2,7 @@ import { signWriteHeader, type WriteHeader } from "@tearleads/crypto";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { buildMaterializedContainerRekeyPlan } from "../../src/workflows/containers/child/rekey";
-import type { createMaterializedSyncFixture } from "./documentResponseFixtures";
+import type { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 type Fixture = Pick<
   Awaited<ReturnType<typeof createMaterializedSyncFixture>>,

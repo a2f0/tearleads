@@ -8,11 +8,9 @@ import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import {
-  createMaterializedSyncFixture,
-  fixtureHash,
-} from "../../../../test/helpers/documentFixtures";
+import { fixtureHash } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";

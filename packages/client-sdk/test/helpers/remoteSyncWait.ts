@@ -9,7 +9,7 @@ import {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntimeInput,
 } from "../../src/workflows/documents";
-import type { createMaterializedSyncFixture } from "./documentFixtures";
+import type { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 type MaterializedSyncFixture = Awaited<
   ReturnType<typeof createMaterializedSyncFixture>

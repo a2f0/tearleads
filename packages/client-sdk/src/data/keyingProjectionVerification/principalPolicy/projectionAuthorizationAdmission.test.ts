@@ -5,7 +5,7 @@ import { manifestBundle } from "../../../../test/helpers/ancestorCitationScenari
 import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
+import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import {

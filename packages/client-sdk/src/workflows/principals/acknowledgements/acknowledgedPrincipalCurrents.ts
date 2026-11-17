@@ -14,16 +14,16 @@ import {
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  publishVerifiedCurrent,
+} from "../../../data/principals/principalPolicyVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { RecoverPrincipalPolicyHistoryOptions } from "../historyRecovery/principalHistoryRecoveryTypes";
 import {
   assertPrincipalHistoryVerificationMode,
   principalHistoryVerificationContext,
 } from "../historyRecovery/principalHistoryRecoveryVerification";
-import {
-  collectPrincipalPolicySignerPublicKeys,
-  publishVerifiedCurrent,
-} from "../policyVerification";
 import {
   type AcknowledgedPrincipalPredecessor,
   restoreAcknowledgedPrincipalPredecessor,

@@ -5,8 +5,8 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { buildInitialGroupPolicyRequest } from "../../../data/principals/principalPolicyRequest";
 import { buildOrganizationProvisioningArtifacts } from "../../registration/organizationProvisioning";
-import { buildInitialGroupPolicyRequest } from "./principalPolicyRequest";
 
 const identityTrustDomain = "https://identity.example.test";
 

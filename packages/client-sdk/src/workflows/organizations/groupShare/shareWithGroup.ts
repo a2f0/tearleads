@@ -22,6 +22,7 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import type { GroupPolicyNameReader } from "../../../data/principals/principalPolicyRequest";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
@@ -35,7 +36,6 @@ import { preparePrincipalContainerRematerializationBatch } from "../../container
 import { createGroupMetadataAccess } from "../groupMetadata/groupMetadataAccess";
 import { createGroupMetadataContainerVerifier } from "../groupMetadata/groupMetadataContainerAuthority";
 import { setOrganizationGroupContainerGrant } from "../principalPolicy";
-import type { GroupPolicyNameReader } from "../principalPolicy/principalPolicyRequest";
 import { shareWithGroupReplanningOnce } from "./groupShareReplan";
 import {
   advanceVerifiedSharePolicies,

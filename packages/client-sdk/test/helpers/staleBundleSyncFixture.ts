@@ -2,10 +2,8 @@ import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
 import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import {
-  createMaterializedSyncFixture,
-  getOnlyTarget,
-} from "./documentFixtures";
+import { getOnlyTarget } from "./documentFixtures";
+import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 /**
  * Simulates a linked container KEK rotating beneath a stored content-key

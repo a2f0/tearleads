@@ -11,13 +11,13 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../../data/principalContracts/principalPolicyAdminSigners";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
   publishVerifiedPrincipalPolicy,
-} from "../../principals/policyVerification";
+} from "../../../data/principals/principalPolicyVerification";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 
 function signerPublicKeyLoadErrorMessage(
   code: PrincipalPolicySignerPublicKeyLoadErrorCode,

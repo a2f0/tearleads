@@ -4,16 +4,16 @@ import {
   type PrincipalProjectionMember,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
+import { assertProjectionVerificationCurrent } from "../keyingProjectionVerification/types";
 import {
   publishVerifiedPolicyBundle,
   withUnauthenticatedPolicyIdentities,
-} from "../../data/principalContracts/principalIdentityCommitments";
+} from "../principalContracts/principalIdentityCommitments";
 import {
   requireTrustedUserIdentityResolver,
   type StagedUserIdentityResolver,
   type TrustedUserIdentityResolver,
-} from "../../data/trustedUserIdentity";
+} from "../trustedUserIdentity";
 
 export type PrincipalPolicySignerPublicKeyLoadErrorCode =
   | "fingerprint-mismatch"

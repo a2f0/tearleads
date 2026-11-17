@@ -7,7 +7,7 @@ import { assertProjectionVerificationCurrent } from "../../../data/keyingProject
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
-import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
+import { collectPrincipalPolicySignerPublicKeys } from "../../../data/principals/principalPolicyVerification";
 import {
   loadPublicHistoryAuthority,
   publicHistoryAuthorityJson,

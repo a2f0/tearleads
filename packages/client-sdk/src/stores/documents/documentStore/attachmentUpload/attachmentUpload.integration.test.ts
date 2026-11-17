@@ -15,10 +15,10 @@ import {
   createMultipartBlobStageFixture,
 } from "../../../../../test/helpers/blobUploadFixtures";
 import {
-  createMaterializedSyncFixture,
   createResponseFromRequest,
   type DocumentCreateFixture,
 } from "../../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import {
   attachmentSummaryFromBind,
   createEchoDocumentSyncResponse,

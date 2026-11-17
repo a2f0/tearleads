@@ -9,7 +9,7 @@ import {
   projectionDirectoryPayload,
   projectionHistoryPages,
   projectionPolicySource,
-} from "../../../../../test/helpers/projectionPolicyHistory";
+} from "../../../../../test/helpers/projectionPolicyPages";
 import { createReservedGroupAdvance } from "../../../../../test/helpers/reservedGroupAdvance";
 import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";

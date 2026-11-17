@@ -1,10 +1,10 @@
 import { expect } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { buildInitialOrganizationPolicyRequest } from "../../src/data/principals/organizationPolicyRequest";
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
 } from "../../src/workflows/containers/root/create";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import { createAuthor, SIGNED_AT } from "./containerFixtures";
 import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
@@ -16,7 +16,7 @@ import {
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "./projectionPolicyHistory";
+} from "./projectionPolicyPages";
 import { createTestTrustedUserIdentityResolver } from "./trustedUserIdentity";
 
 export const ADMIN_GROUP_ID = "admins-group";

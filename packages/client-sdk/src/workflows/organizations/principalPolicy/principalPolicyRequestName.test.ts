@@ -10,7 +10,7 @@ import {
   readGroupPolicyPayloadName,
 } from "../../../../test/helpers/groupMetadata";
 import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
-import { canonicalGroupNameKey } from "./principalPolicyRequest";
+import { canonicalGroupNameKey } from "../../../data/principals/principalPolicyRequest";
 
 test("look-alike group names share one canonical key", () => {
   const key = canonicalGroupNameKey("Operators");

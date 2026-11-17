@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
 import {
   createPrincipalPolicyBundle,
   referencedPrincipalStateFromBundle,
-} from "../../../../test/helpers/policyCacheFixtures";
-import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
+} from "../../../../test/helpers/principalPolicyBundles";
 import { signedPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyFixtures";
 import { trustedUserIdentityFromResponse } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";

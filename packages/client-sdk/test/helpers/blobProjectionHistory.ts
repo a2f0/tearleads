@@ -1,9 +1,9 @@
 import { createUploadedAttachmentFixture } from "./blobHydrationFixture";
-import { createMaterializedSyncFixture } from "./documentFixtures";
 import { buildInitialGroupPolicyRequest } from "./groupMetadata";
+import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 import { policyBundleFromInitialRequest } from "./principalPolicyFixtures";
 import { createProjectionPolicyEvidence } from "./projectionPolicyEvidence";
-import { projectionPolicyWarmer } from "./projectionPolicyHistory";
+import { projectionPolicyWarmer } from "./projectionPolicyWarmer";
 
 export async function createPagedAttachmentFixture() {
   const documentFixture = await createMaterializedSyncFixture({

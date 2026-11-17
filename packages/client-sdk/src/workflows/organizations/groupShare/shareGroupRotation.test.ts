@@ -22,10 +22,8 @@ import {
   repairProtectionLease,
 } from "../../../../test/helpers/principalPolicyRepair";
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
-import {
-  projectionHistoryPages,
-  projectionPolicyWarmer,
-} from "../../../../test/helpers/projectionPolicyHistory";
+import { projectionHistoryPages } from "../../../../test/helpers/projectionPolicyPages";
+import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import { heldContainerSnapshot } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";

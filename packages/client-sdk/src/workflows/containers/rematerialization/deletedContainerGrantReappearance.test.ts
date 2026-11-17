@@ -10,7 +10,7 @@ import {
 import {
   projectionHistoryPages,
   projectionPolicySource,
-} from "../../../../test/helpers/projectionPolicyHistory";
+} from "../../../../test/helpers/projectionPolicyPages";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
 import {
   openPrincipalPolicyBundleReader,

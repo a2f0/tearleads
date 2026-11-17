@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers/policyCacheFixtures";
 import { principalIdentityPinFixture } from "../../../../test/helpers/principalIdentityPinFixture";
+import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers/principalPolicyBundles";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
+import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";
 import { cachePrincipalPolicyBundles } from ".";
 
 type PinFixture = Awaited<ReturnType<typeof principalIdentityPinFixture>>;

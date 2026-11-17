@@ -24,9 +24,9 @@ import { createContainerContentsWorkflowRuntime } from "../../../../client/runti
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { buildInitialOrganizationPolicyRequest } from "../../../../data/principals/organizationPolicyRequest";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
-import { buildInitialOrganizationPolicyRequest } from "../../../registration/organizationProvisioning";
 import { createRemoteContainer } from "../remote";
 import {
   CONTAINER_ALREADY_COMMITTED,

@@ -3,7 +3,7 @@ import type { AccessEvent } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
 import { createMultipartBlobStageFixture } from "../../../../test/helpers/blobUploadFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import type { UploadDocumentAttachmentRequest } from "../../../data/blobs/attachments/types";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

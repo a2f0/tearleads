@@ -10,15 +10,15 @@ import type { AcknowledgedPrincipalCurrentPublication } from "../../../data/pers
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { principalHistoryEvidenceScopeId } from "../../../data/principals/principalHistoryPrefixProtection";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  publishVerifiedCurrent,
+} from "../../../data/principals/principalPolicyVerification";
 import type { RecoverPrincipalPolicyHistoryOptions } from "../historyRecovery/principalHistoryRecoveryTypes";
 import {
   assertPrincipalHistoryVerificationMode,
   principalHistoryVerificationContext,
 } from "../historyRecovery/principalHistoryRecoveryVerification";
-import {
-  collectPrincipalPolicySignerPublicKeys,
-  publishVerifiedCurrent,
-} from "../policyVerification";
 import type { AcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
 import type { PrincipalAcknowledgementChecks } from "./principalAcknowledgementChecks";
 import { sealPrincipalCurrentPublication } from "./principalCurrentPublicationSeal";

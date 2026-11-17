@@ -2,6 +2,10 @@ import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyReferenceFromBundle } from "../../../data/principalContracts/principalPolicyAdminSigners";
+import {
+  buildInitialGroupPolicyRequest,
+  canonicalGroupNameKey,
+} from "../../../data/principals/principalPolicyRequest";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
@@ -12,10 +16,6 @@ import { acknowledgeInitialGroupPolicy } from "../groupPolicy/groupPolicyMutatio
 import type { OrganizationPrincipalPolicyApi } from "../groupPolicy/groupPolicyMutationContext";
 import { groupPolicyMutationHead } from "../groupPolicy/groupPolicyMutationHead";
 import type { CurrentOrganizationMutationContext } from "../principalMutations/runtimeCurrentOrganizationMutation";
-import {
-  buildInitialGroupPolicyRequest,
-  canonicalGroupNameKey,
-} from "../principalPolicy/principalPolicyRequest";
 import type { OrganizationGroupSummary } from "../readModel";
 import {
   projectionUserIds,

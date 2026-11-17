@@ -3,8 +3,8 @@ import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createWorkflowInputFixture } from "../../../../test/helpers/internalRuntimeFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { createQueuedDocumentMoveRemote } from "../../../../test/helpers/queuedDocumentMoveRemote";
 import { createContainerContentsWorkflowRuntime } from "../../../client/runtime/containerContentsRuntime";
 import {

@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
-import { collectPrincipalPolicySignerPublicKeys } from "../../workflows/principals/policyVerification";
 import { runWithSecurityIncidentReporting } from "../shared/securityIncidents";
 import { DatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import {
@@ -8,6 +7,7 @@ import {
   createTrustedUserIdentityService,
   requireTrustedUserIdentityResolver,
 } from "../trustedUserIdentity";
+import { collectPrincipalPolicySignerPublicKeys } from "./principalPolicyVerification";
 
 for (const column of [
   "signing_public_key",

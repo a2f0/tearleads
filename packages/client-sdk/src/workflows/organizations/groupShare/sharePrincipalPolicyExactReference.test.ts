@@ -16,9 +16,8 @@ import {
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-
-import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import {
   GroupShareNameMismatchError,
   loadVerifiedGroupSharePrincipalPolicy,

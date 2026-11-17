@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../../test/helpers/documentPurge";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";

@@ -11,11 +11,11 @@ import {
   readContainerKeyEpoch,
   readContainerKeyWrap,
 } from "../../src/data/keyingProjectionVerification/readers";
+import { buildInitialOrganizationPolicyRequest } from "../../src/data/principals/organizationPolicyRequest";
 import {
   buildAddGroupUserPolicyRequest,
   buildSetGroupContainerGrantPolicyRequest,
 } from "../../src/workflows/organizations/groupPolicy/groupPolicyRequests";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import {
   buildInitialGroupPolicyRequest,
   testGroupMetadataKey,

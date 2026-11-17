@@ -1,15 +1,15 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createParentProjection } from "../../../../test/helpers/containerFixtures";
-import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers/policyCacheFixtures";
+import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers/principalPolicyBundles";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { buildInitialOrganizationPolicyRequest } from "../../../workflows/registration/organizationProvisioning";
 import {
   openPrincipalPolicyBundleReader,
   PrincipalPolicyBundleRepository,
 } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import { buildInitialOrganizationPolicyRequest } from "../../principals/organizationPolicyRequest";
 import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { verifyContainerWriterProjection } from "../container/containerProjectionVerification";

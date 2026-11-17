@@ -5,11 +5,11 @@ import type {
 } from "@tearleads/validators/response";
 import { sealNextContentKeyEpoch } from "../../../../test/helpers/contentKeyBundleSealing";
 import {
-  createMaterializedSyncFixture,
   createSignedSyncResponseUpdate,
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { persistedDocumentSyncStateFromResponse } from "../../../data/documents/shared/responses";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { unwrapDocumentSyncResponseContentKeys } from "../syncPlan/syncContentKeys";

@@ -28,7 +28,7 @@ import {
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 
-import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
+import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";
 import { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 test("shareRemoteContainerWithGroup grants a managed principal with the selected access", async () => {

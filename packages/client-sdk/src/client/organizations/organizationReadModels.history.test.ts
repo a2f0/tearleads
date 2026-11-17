@@ -10,7 +10,7 @@ import { createOrganizationHistoryFixture } from "../../../test/helpers/organiza
 import { organizationReadModelSnapshot } from "../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createAuthorityRecoveryFixture } from "../../../test/helpers/principalAuthorityRecovery";
 import { withPrincipalPolicies } from "../../../test/helpers/principalPolicyServiceFixture";
-import { projectionHistoryPages } from "../../../test/helpers/projectionPolicyHistory";
+import { projectionHistoryPages } from "../../../test/helpers/projectionPolicyPages";
 import { OrganizationReadModelRepository } from "../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";

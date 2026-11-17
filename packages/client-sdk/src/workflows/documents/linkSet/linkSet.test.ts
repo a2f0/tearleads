@@ -5,7 +5,6 @@ import type { DocumentWriterProjectionResponse } from "@tearleads/validators/res
 import {
   createAuthor,
   createLinkSetResponseFromRequest,
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createResponse,
   createSiblingProjection,
@@ -14,6 +13,7 @@ import {
   getOnlyTarget,
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { unwrapDocumentContentKeyTarget } from "../../../data/documents/shared/projection";
 import { buildMaterializedDocumentCreatePlan } from "../create";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";

@@ -1,5 +1,6 @@
 import type { MaterializedContainerSharePlan } from "../../../data/containers/shared/types";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
+import { groupPolicyNameMismatch } from "../../../data/principals/principalPolicyRequest";
 import {
   type PreparedPrincipalContainerRematerializationBatch,
   preparePrincipalContainerRematerializationBatch,
@@ -11,7 +12,6 @@ import type {
   createRuntimeCurrentGroupMutation,
   RuntimeCurrentGroupMutationContext,
 } from "../principalMutations/runtimeCurrentGroupMutation";
-import { groupPolicyNameMismatch } from "../principalPolicy/principalPolicyRequest";
 import type { createRuntimeCurrentSharePrincipalPolicy } from "./currentSharePrincipalPolicy";
 import { GroupShareNameMismatchError } from "./sharePrincipalPolicy";
 import type { shareRemoteContainerWithGroup } from "./shareWithGroup";

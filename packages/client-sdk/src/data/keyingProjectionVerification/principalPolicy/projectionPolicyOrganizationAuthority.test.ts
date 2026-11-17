@@ -9,8 +9,8 @@ import {
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-  projectionPolicyWarmer,
-} from "../../../../test/helpers/projectionPolicyHistory";
+} from "../../../../test/helpers/projectionPolicyPages";
+import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   encodeOrganizationAuthorityDescriptor,

@@ -18,7 +18,7 @@ import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
 import { policyBundleFromInitialRequest } from "./principalPolicyFixtures";
 import { createProjectionPolicyEvidence } from "./projectionPolicyEvidence";
-import { projectionPolicyWarmer } from "./projectionPolicyHistory";
+import { projectionPolicyWarmer } from "./projectionPolicyWarmer";
 import {
   createFixtureUserIdentity,
   createTestTrustedUserIdentity,

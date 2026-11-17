@@ -20,7 +20,7 @@ import {
 } from "./principalPolicyFixtures";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "./principalPolicySnapshots";
 import { createProjectionPolicyEvidence } from "./projectionPolicyEvidence";
-import { projectionPolicyWarmer } from "./projectionPolicyHistory";
+import { projectionPolicyWarmer } from "./projectionPolicyWarmer";
 
 type Policies = Awaited<
   ReturnType<typeof createExternallyAuthorizedPrincipalPolicySnapshots>

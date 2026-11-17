@@ -12,9 +12,9 @@ import { buildMaterializedDocumentLinkSetMutationPlan } from "../../src/workflow
 import { createUploadedAttachmentFixture } from "./blobHydrationFixture";
 import {
   createLinkSetResponseFromRequest,
-  createMaterializedSyncFixture,
   writerProjectionEvidence,
 } from "./documentFixtures";
+import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 export async function createRelinkScopeFixture() {
   const source = await createMaterializedSyncFixture();

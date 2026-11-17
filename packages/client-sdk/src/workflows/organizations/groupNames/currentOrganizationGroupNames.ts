@@ -2,14 +2,14 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
+import {
+  type GroupPolicyNameReader,
+  readGroupPolicyPayloadName,
+} from "../../../data/principals/principalPolicyRequest";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
 import { assertGroupMetadataBinding } from "../groupMetadata/groupMetadataBinding";
-import {
-  type GroupPolicyNameReader,
-  readGroupPolicyPayloadName,
-} from "../principalPolicy/principalPolicyRequest";
 import type { OrganizationDirectoryAndGroups } from "../readModel";
 
 type Input = Parameters<typeof loadCurrentOrganizationAuthority>[0] & {

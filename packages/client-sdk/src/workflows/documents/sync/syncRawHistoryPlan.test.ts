@@ -7,13 +7,13 @@ import {
 import { isDocumentSyncRequest } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
-  createMaterializedSyncFixture,
   createPreparedUpdate,
   createSyncFixture,
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { InvalidDocumentSyncPullContinuationError } from "../../../data/documents/shared/sync/syncPagination";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";

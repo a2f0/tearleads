@@ -3,7 +3,6 @@ import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { sealNextContentKeyEpoch } from "../../../../test/helpers/contentKeyBundleSealing";
 import {
   createAuthor,
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createProjection,
   createResponse,
@@ -13,6 +12,7 @@ import {
   getOnlyTarget,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlan/syncPlanMaterial";
 import { DatabaseUnavailableError } from "../../sqlite/availability/databaseUnavailable";
 import { buildDocumentCreatePlan } from "./events";

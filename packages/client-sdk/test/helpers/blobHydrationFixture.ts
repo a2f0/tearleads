@@ -13,7 +13,7 @@ import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "./blobUploadFixtures";
-import { createMaterializedSyncFixture } from "./documentFixtures";
+import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 export function createBlobBytesResponse(input: {
   readonly blobId: string;

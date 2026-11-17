@@ -24,6 +24,10 @@ import {
   type OrganizationAuthorityDescriptor,
   type OrganizationGroupHead,
 } from "../../../data/principalContracts/organizationAuthorityDescriptor";
+import type {
+  buildInitialGroupPolicyRequest,
+  GroupPolicyNameReader,
+} from "../../../data/principals/principalPolicyRequest";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type {
@@ -39,10 +43,6 @@ import {
 import type { OrganizationPrincipalPolicyApi } from "../groupPolicy/groupPolicyMutationContext";
 import { groupPolicyMutationHead } from "../groupPolicy/groupPolicyMutationHead";
 import { rewrapProjectionMemberEnvelopes } from "../principalPolicy/principalPolicyRecipients";
-import type {
-  buildInitialGroupPolicyRequest,
-  GroupPolicyNameReader,
-} from "../principalPolicy/principalPolicyRequest";
 import {
   projectionUserIds,
   resolveRequiredUserIdentities,

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { createPrincipalPolicyBundle } from "../../../../test/helpers/policyCacheFixtures";
+import { createPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyBundles";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
 import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 

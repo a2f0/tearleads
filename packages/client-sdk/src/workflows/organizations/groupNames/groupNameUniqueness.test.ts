@@ -4,10 +4,10 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { readTestGroupName } from "../../../../test/helpers/groupMetadata";
 import { createGroupNameDirectory } from "../../../../test/helpers/groupNameDirectory";
 import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import type { GroupPolicyNameReader } from "../../../data/principals/principalPolicyRequest";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
 import { loadOrganizationExternalAdminPolicy } from "../../principals/externalAdminPolicy";
 import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
-import type { GroupPolicyNameReader } from "../principalPolicy/principalPolicyRequest";
 import { assertGroupNameUniqueInDirectory } from "./groupNameUniqueness";
 
 // Signed group names are unique per organization by construction: before an

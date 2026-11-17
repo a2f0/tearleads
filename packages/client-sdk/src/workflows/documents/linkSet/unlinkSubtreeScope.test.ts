@@ -7,9 +7,9 @@ import {
 } from "@tearleads/test-utils";
 import {
   createLinkSetResponseFromRequest,
-  createMaterializedSyncFixture,
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";
 

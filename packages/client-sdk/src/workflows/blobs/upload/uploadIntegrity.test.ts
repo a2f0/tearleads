@@ -10,7 +10,7 @@ import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/blobUploadFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { parseBlobEncryptedBytes } from "../../../data/blobs/attachments/readers";
 import type {
   BlobAttachmentApi,

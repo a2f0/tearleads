@@ -29,7 +29,7 @@ import {
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
 import { createProjectionPolicyEvidence } from "../../../../test/helpers/projectionPolicyEvidence";
-import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
+import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";

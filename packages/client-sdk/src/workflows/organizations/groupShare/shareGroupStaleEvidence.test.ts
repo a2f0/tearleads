@@ -15,8 +15,8 @@ import {
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
+import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
-import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 // Another workflow can pin a principal checkpoint past the history a group

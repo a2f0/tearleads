@@ -9,12 +9,12 @@ import {
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { sealNextContentKeyEpoch } from "../../../../test/helpers/contentKeyBundleSealing";
 import {
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSignedSyncResponseUpdate,
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";

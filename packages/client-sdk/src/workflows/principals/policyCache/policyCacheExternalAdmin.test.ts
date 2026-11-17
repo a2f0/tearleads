@@ -8,11 +8,11 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
+import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
 import {
-  cacheReferencedPolicies,
   principalPolicyBundleFromInitialPolicy,
   referencedPrincipalStateFromBundle,
-} from "../../../../test/helpers/policyCacheFixtures";
+} from "../../../../test/helpers/principalPolicyBundles";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("principal policy sync authorizes empty group bundles from verified organization admins", async () => {

@@ -4,8 +4,8 @@ import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingChe
 import { openPrincipalPolicyBundleReader } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { grantBy, verifyPath } from "./ancestorCitationScenario";
-import { createMaterializedSyncFixture } from "./documentFixtures";
 import { createDocumentPurgeProof } from "./documentPurge";
+import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 export async function createPurgeCurrencyFixture(
   execSql: ExecSql,

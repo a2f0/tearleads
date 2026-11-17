@@ -11,7 +11,6 @@ import {
 } from "@tearleads/validators/response";
 import { sealNextContentKeyEpoch } from "../../../../test/helpers/contentKeyBundleSealing";
 import {
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
@@ -21,6 +20,7 @@ import {
   createLoroPendingUpdate,
   decryptedUpdateText,
 } from "../../../../test/helpers/documentSyncFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";

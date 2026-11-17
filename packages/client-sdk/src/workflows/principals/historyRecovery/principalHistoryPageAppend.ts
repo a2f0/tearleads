@@ -1,6 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
-import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
+import { collectPrincipalPolicySignerPublicKeys } from "../../../data/principals/principalPolicyVerification";
 import type { PrincipalHistoryRecoveryStage } from "./principalHistoryRecoveryStage";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 

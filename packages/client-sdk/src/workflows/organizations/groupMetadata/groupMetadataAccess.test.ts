@@ -13,9 +13,9 @@ import {
   ensureContainerTables,
   saveContainer,
 } from "../../../data/persistence/container-contents/containerPersistence";
+import { buildInitialGroupPolicyRequest } from "../../../data/principals/principalPolicyRequest";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import { containerWriterProjectionFromRekeyPlan } from "../../containers/child/rekey/rekeyProjection";
-import { buildInitialGroupPolicyRequest } from "../principalPolicy/principalPolicyRequest";
 import {
   createGroupMetadataAccess,
   GroupMetadataUnreadableError,

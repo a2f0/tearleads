@@ -8,12 +8,12 @@ import {
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { createContainerRevokeManifestFixture } from "../../../../test/helpers/containerFixtures";
 import {
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   fixtureHash,
 } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import type { DocumentSyncApi } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../../data/keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";

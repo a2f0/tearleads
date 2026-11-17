@@ -8,11 +8,9 @@ import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_PROJECTION_ERROR_CODES,
 } from "@tearleads/validators/response";
-import {
-  createMaterializedSyncFixture,
-  createPendingUpdateRecord,
-} from "../../../../test/helpers/documentFixtures";
+import { createPendingUpdateRecord } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { describeDocumentRevalidationFailure } from "../syncFailures/syncFailureClassification";
 
 // Edge-case row 13: a read-only pass whose writer-projection read is refused
