@@ -104,6 +104,14 @@ async function submitPlannedSyncAttempt(args: {
       onTerminalSubmitFailure: args.sync.onTerminalSubmitFailure,
       pendingUpdates: args.pendingUpdates,
       plan: args.materializedPlan.plan,
+      pull: {
+        historyMode: args.sync.historyMode,
+        minLsn: args.sync.minLsn,
+        // The cursor the pass started with: one invalidated during this pass
+        // still marks a pull under way, which must be allowed to restart.
+        pullContinuation: args.sync.pullContinuation ?? args.pullContinuation,
+        pullRecoveryRequired: args.sync.pullRecoveryRequired,
+      },
       failureBlocksQueuedWrites: args.failureBlocksQueuedWrites,
       stillCurrent: args.sync.stillCurrent,
       warmReferencedPrincipalPolicies:

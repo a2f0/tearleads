@@ -9,7 +9,6 @@ const NO_SYNC_CHOICES = {
   leavableOrganizationIds: new Set<string>(),
   leaveRequestedOrganizationIds: new Set<string>(),
   pausedOrganizationIds: new Set<string>(),
-  personalOrganizationIds: new Set<string>(),
 };
 
 function node(
@@ -82,7 +81,6 @@ test("lists the root of a workspace and the topmost shared folders elsewhere", (
     {
       active: true,
       canAskToLeave: false,
-      canChangeSync: false,
       folders: [
         {
           accessLevel: "admin",
@@ -100,7 +98,6 @@ test("lists the root of a workspace and the topmost shared folders elsewhere", (
     {
       active: false,
       canAskToLeave: false,
-      canChangeSync: true,
       folders: [
         {
           accessLevel: "write",
@@ -154,7 +151,6 @@ test("keeps an organization known only through its metadata root", () => {
     {
       active: false,
       canAskToLeave: false,
-      canChangeSync: true,
       folders: [],
       leaveRequested: false,
       name: null,
@@ -225,13 +221,14 @@ test("orders the active organization, then workspaces, then named organizations"
   ]);
 });
 
-test("marks paused organizations and keeps personal organizations unpausable", () => {
+test("marks the organizations paused on this device, active and personal included", () => {
   const cards = buildOrganizationDashboardCards({
     activeOrganizationId: "active",
     namesById: new Map(),
     nodes: [
       node({ id: "active", organizationId: "active", parentId: null }),
       node({ id: "personal", organizationId: "personal", parentId: null }),
+      node({ id: "live", organizationId: "live", parentId: null }),
       node({
         id: "paused-metadata",
         organizationId: "paused",
@@ -240,38 +237,20 @@ test("marks paused organizations and keeps personal organizations unpausable", (
       }),
     ],
     ...NO_SYNC_CHOICES,
-    pausedOrganizationIds: new Set(["paused"]),
-    personalOrganizationIds: new Set(["personal"]),
+    pausedOrganizationIds: new Set(["active", "paused", "personal"]),
   });
 
   expect(
-    cards.map(({ canChangeSync, organizationId, syncPaused }) => ({
-      canChangeSync,
+    cards.map(({ organizationId, syncPaused }) => ({
       organizationId,
       syncPaused,
     })),
   ).toEqual([
-    { canChangeSync: false, organizationId: "active", syncPaused: false },
-    { canChangeSync: false, organizationId: "personal", syncPaused: false },
-    { canChangeSync: true, organizationId: "paused", syncPaused: true },
+    { organizationId: "active", syncPaused: true },
+    { organizationId: "live", syncPaused: false },
+    { organizationId: "personal", syncPaused: true },
+    { organizationId: "paused", syncPaused: true },
   ]);
-});
-
-test("offers only Resume for an active organization another device paused", () => {
-  const build = (paused: string[]) =>
-    buildOrganizationDashboardCards({
-      activeOrganizationId: "active",
-      namesById: new Map(),
-      nodes: [node({ id: "active", organizationId: "active", parentId: null })],
-      ...NO_SYNC_CHOICES,
-      pausedOrganizationIds: new Set(paused),
-    })[0];
-
-  expect(build([])?.canChangeSync).toBe(false);
-  expect(build(["active"])).toMatchObject({
-    canChangeSync: true,
-    syncPaused: true,
-  });
 });
 
 test("offers a leave request only for listed, non-personal memberships", () => {

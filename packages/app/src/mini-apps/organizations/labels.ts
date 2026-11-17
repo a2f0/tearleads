@@ -12,8 +12,6 @@ export const ORGANIZATIONS_LABELS = {
   loading: "Loading your organizations",
   memberBadge: "Member",
   noFolders: "Nothing in this organization is shared with you yet.",
-  pauseBlockedByUnsyncedWrites:
-    "This organization has changes that have not uploaded yet. Try again once they finish syncing.",
   pauseSync: "Pause sync",
   pausingSync: "Pausing...",
   permission: "Your effective permission",
@@ -25,7 +23,7 @@ export const ORGANIZATIONS_LABELS = {
   syncChangeFailed: "Sync could not be changed for this organization.",
   syncPausedBadge: "Sync paused",
   syncPausedStatus:
-    "Sync is paused on your devices, so this organization's folders are not kept here.",
+    "Sync is paused. Nothing uploads or downloads for this organization, and changes you make stay on this device until you resume.",
   title: "Organizations",
   unnamedOrganization: "Untitled organization",
   withdrawLeaveRequest: "Withdraw request",

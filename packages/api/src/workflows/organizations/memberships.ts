@@ -140,10 +140,9 @@ async function updateActiveMembership(
 
 /**
  * Records the session user's choice to pause or resume one organization's
- * content syncing to their devices. Pausing changes no grant, key, or policy:
- * each device applies it by no longer pulling that organization's containers.
- * A personal organization cannot be paused, because every device keeps its
- * owner's own root, Contacts, and Trash there.
+ * content sync. Pausing changes no grant, key, or policy: each device applies
+ * it by holding that organization's uploads and downloads and keeping its
+ * local copy. Any organization can be paused, the personal one included.
  */
 export async function runUpdateOrganizationMembershipWorkflow(
   db: ApiDatabase,
@@ -155,12 +154,6 @@ export async function runUpdateOrganizationMembershipWorkflow(
 ): Promise<OrganizationMembershipResponse> {
   return db.transaction(async (tx) => {
     const { personalOrganizationId } = await loadMemberUser(tx, input.userId);
-    if (input.syncPaused && input.organizationId === personalOrganizationId) {
-      throw new OrganizationManagerError(
-        "A personal organization cannot be paused",
-        409,
-      );
-    }
     const row = await updateActiveMembership(tx, {
       organizationId: input.organizationId,
       userId: input.userId,

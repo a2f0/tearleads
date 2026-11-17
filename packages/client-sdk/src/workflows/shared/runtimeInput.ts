@@ -64,9 +64,20 @@ export interface WorkflowRuntimeInfraInput {
   readonly execSql: ExecSql;
 }
 
+/**
+ * Which half of an organization's sync a caller is about to run: `push` sends
+ * local writes, `pull` fetches updates to a document the device already holds.
+ */
+export type RemoteSyncDirection = "push" | "pull";
+
 export interface WorkflowRuntimeUtilInput {
+  /**
+   * Whether the organization's remote sync is held in `direction`, `push`
+   * unless given. A billing block holds only pushes; a sync pause the user
+   * chose holds both. Held writes stay queued.
+   */
   readonly isRemoteSyncBlocked?:
-    | ((organizationId: string) => boolean)
+    | ((organizationId: string, direction?: RemoteSyncDirection) => boolean)
     | undefined;
   readonly log: (message: string) => void;
   readonly logError: (message: string | Error, cause?: unknown) => void;

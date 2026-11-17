@@ -57,13 +57,12 @@ export function OrganizationFolders({
   name: string;
   onOpenFolder: (folderId: string) => void;
 }) {
-  if (card.syncPaused) {
-    return (
-      <MiniAppStatus>{ORGANIZATIONS_LABELS.syncPausedStatus}</MiniAppStatus>
-    );
-  }
   if (card.folders.length === 0) {
-    return <MiniAppStatus>{ORGANIZATIONS_LABELS.noFolders}</MiniAppStatus>;
+    // A device that first met the organization paused has not listed its
+    // folders, so it cannot say that none are shared.
+    return card.syncPaused ? null : (
+      <MiniAppStatus>{ORGANIZATIONS_LABELS.noFolders}</MiniAppStatus>
+    );
   }
   return (
     <ul
