@@ -42,6 +42,11 @@ export interface SyncRemoteDocumentRequest {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
+  /**
+   * The document's last pull lost its cursor part way and has to start over,
+   * so this pass finishes a pull already under way.
+   */
+  pullRecoveryRequired?: boolean | undefined;
   /** Atomically commits the verified purge proof with matching local teardown. */
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncAbandoned?: ((reason: string) => void) | undefined;

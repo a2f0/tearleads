@@ -274,7 +274,18 @@ test("summarizePendingWrites counts failed items and captures the first error", 
     count: 6,
     failedCount: 2,
     firstError: "Write access denied by the server (403)",
+    organizationIds: [],
   });
+});
+
+test("summarizePendingWrites names each organization with queued writes once", () => {
+  const summary = summarizePendingWrites([
+    { ...item(op(1)), organizationId: "org-b" },
+    { ...item(op(1)), organizationId: "org-a" },
+    { ...item(op(1)), organizationId: "org-b" },
+    item(op(1)),
+  ]);
+  expect(summary.organizationIds).toEqual(["org-a", "org-b"]);
 });
 
 test("resolveSyncStatus surfaces error over a merely pending queue", () => {

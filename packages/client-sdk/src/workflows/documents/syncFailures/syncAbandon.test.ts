@@ -40,6 +40,13 @@ test("a pull that has fetched a page runs to its end while paused", () => {
   ).toBe(false);
 });
 
+test("a pull that lost its cursor part way starts over while paused", () => {
+  // The next pass after the cursor expired carries only the recovery marker.
+  expect(
+    isRoutinePullHeld({ ...routinePull, pullRecoveryRequired: true }, "paused"),
+  ).toBe(false);
+});
+
 test("an explicit read of raw history runs while paused", () => {
   expect(
     isRoutinePullHeld({ ...routinePull, historyMode: "raw" }, "paused"),

@@ -10,6 +10,11 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../sqlite/sqlSchema";
+import {
+  organizationSyncPausesUnreadable,
+  transitionOrganizationSyncPauseRead,
+  UNREAD_ORGANIZATION_SYNC_PAUSES,
+} from "./organizationSyncPauseReadMachine";
 import { requestAllDomainSyncLanes } from "./syncCoordinator";
 
 /** The container fields the pause rule reads. */
@@ -123,8 +128,7 @@ function createOrganizationSyncPauses(
   domainScope: DomainScope,
 ): OrganizationSyncPauses {
   let paused: ReadonlySet<string> = new Set();
-  let loading: Promise<void> | null = null;
-  let unreadable = false;
+  let read = UNREAD_ORGANIZATION_SYNC_PAUSES;
   let replacing: Promise<void> = Promise.resolve();
   let exclusive: Promise<void> = Promise.resolve();
   const listeners = new Set<() => void>();
@@ -134,30 +138,35 @@ function createOrganizationSyncPauses(
 
   const pauses: OrganizationSyncPauses = {
     load(execSql) {
-      loading ??= new OrganizationSyncPauseRepository(execSql)
+      if (read.status === "reading" || read.status === "read") return read.read;
+      const reading = new OrganizationSyncPauseRepository(execSql)
         .readPausedOrganizationIds()
         .then(
           (stored) => {
             paused = stored;
-            if (unreadable) {
-              // Writes held while the set could not be read left their lanes
-              // idle, so every lane is re-driven.
-              unreadable = false;
-              requestAllDomainSyncLanes(domainScope);
-            }
+            const recovered = organizationSyncPausesUnreadable(read);
+            read = transitionOrganizationSyncPauseRead(read, {
+              type: "succeed",
+            });
+            // Writes held while the set could not be read left their lanes
+            // idle, so every lane is re-driven.
+            if (recovered) requestAllDomainSyncLanes(domainScope);
             if (stored.size > 0) notify();
           },
           (error: unknown) => {
-            // Let a later call retry a failed read.
-            loading = null;
-            unreadable = true;
+            read = transitionOrganizationSyncPauseRead(read, { type: "fail" });
             throw error;
           },
         );
-      return loading;
+      read = transitionOrganizationSyncPauseRead(read, {
+        read: reading,
+        type: "start",
+      });
+      return reading;
     },
     isOrganizationPaused: (organizationId) => paused.has(organizationId),
-    holdsSync: (organizationId) => unreadable || paused.has(organizationId),
+    holdsSync: (organizationId) =>
+      organizationSyncPausesUnreadable(read) || paused.has(organizationId),
     isContainerPaused: (container) =>
       paused.has(container.organizationId) &&
       !syncsWhileOrganizationPaused(container),

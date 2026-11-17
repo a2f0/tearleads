@@ -137,6 +137,8 @@ export async function syncRemoteContainerMetadata(
       pendingUpdates: input.pendingUpdates,
       persistedState: input.persistedState,
       pullContinuation: input.pullContinuation ?? undefined,
+      pullRecoveryRequired:
+        input.persistedState.pullContinuationRecoveryRequired === true,
       rekeyPendingUpdate: (rekeyExecSql, updateId) =>
         isCurrent()
           ? input.rekeyPendingUpdate(rekeyExecSql, updateId)

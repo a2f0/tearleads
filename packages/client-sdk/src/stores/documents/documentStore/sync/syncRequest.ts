@@ -129,6 +129,18 @@ interface RequestRemoteDocumentSyncInput {
   unavailableWriterLogMessage: string;
 }
 
+/** Where the document's pull stands, which decides whether a pause holds it. */
+function pullPosition(
+  record: RequestRemoteDocumentSyncInput["currentRecord"],
+  continuation: DocumentStoreState["pullContinuation"],
+) {
+  return {
+    minLsn: record.lastCommitLsn ?? undefined,
+    pullContinuation: continuation ?? undefined,
+    pullRecoveryRequired: record.pullContinuationRecoveryRequired === true,
+  };
+}
+
 function runRemoteDocumentSync(
   input: RequestRemoteDocumentSyncInput,
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>,
@@ -159,7 +171,7 @@ function runRemoteDocumentSync(
         }),
     documentId,
     localVersionVector: encodeVersionVector(currentDoc),
-    minLsn: currentRecord.lastCommitLsn ?? undefined,
+    ...pullPosition(currentRecord, requestedPullContinuation),
     onRemoteDocumentDeleted: ({ commitPurgeProof, documentId }) =>
       deleteUpstreamDeletedDocument(
         state,
@@ -198,7 +210,6 @@ function runRemoteDocumentSync(
     ),
     pendingUpdates,
     persistedState: currentRecord,
-    pullContinuation: requestedPullContinuation ?? undefined,
     rekeyPendingUpdate: state.persistence.rekeyPendingUpdate,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({

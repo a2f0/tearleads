@@ -58,7 +58,10 @@ export function useSyncStatus(): SyncStatusResult {
       organizations.loadBillingForOrganization(organizationId),
     [organizations],
   );
-  const syncPaused = usePausedOrganizationIds().size > 0;
+  const pausedOrganizationIds = usePausedOrganizationIds();
+  const syncPaused = queue.organizationIds.some((organizationId) =>
+    pausedOrganizationIds.has(organizationId),
+  );
   const billingNeedsAttention = billing.view?.needsAttention ?? false;
   const otherOrganizationBillingBlocked = useOtherOrganizationBillingBlocked({
     activeOrganizationId: appData.auth.organizationId,

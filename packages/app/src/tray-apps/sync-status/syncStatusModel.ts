@@ -47,6 +47,8 @@ export interface PendingWriteQueueSummary {
   readonly failedCount: number;
   /** The first failed item's recorded error, for the tooltip/popover. */
   readonly firstError: string | null;
+  /** The organizations the queued items belong to, where known. */
+  readonly organizationIds: ReadonlyArray<string>;
 }
 
 export function summarizePendingWrites(
@@ -65,6 +67,13 @@ export function summarizePendingWrites(
     count: countPendingWrites(items),
     failedCount: failedItems.length,
     firstError,
+    organizationIds: [
+      ...new Set(
+        items.flatMap((item) =>
+          item.organizationId === null ? [] : [item.organizationId],
+        ),
+      ),
+    ].sort(),
   };
 }
 
@@ -158,9 +167,9 @@ interface SyncStatusDescriptionInput {
   readonly queueReadError: string | null;
   readonly online: boolean;
   /**
-   * The user paused an organization's sync on this device. Its writes wait in
-   * the same identity-wide queue, so a pending count names the pause rather
-   * than reading as a stall.
+   * Some queued write belongs to an organization whose sync the user paused
+   * on this device. It waits in the same identity-wide queue, so a pending
+   * count names the pause rather than reading as a stall.
    */
   readonly syncPaused: boolean;
   readonly billingStatus: BillingStatus | null;
