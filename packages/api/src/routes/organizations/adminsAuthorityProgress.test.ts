@@ -7,6 +7,7 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import { prepareUserForAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { createGroupRequest } from "../../../test/helpers/organizationGroup";
 import {
+  buildOrganizationGroupPolicyCommitRequest,
   getDefaultOrganizationId,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
@@ -97,19 +98,30 @@ test("a lost Admins authority hint costs the successor one preparation round", a
         eq(principalHistoryProgress.verificationKind, "authority"),
       ),
     );
-  const statuses: number[] = [];
-  const commit = () =>
-    submitOrganizationGroupPolicyCommit({
+  // One signed body, resent byte for byte as the client's 202 loop does.
+  const body = JSON.stringify(
+    await buildOrganizationGroupPolicyCommitRequest({
       actor,
-      groupId: prepared.adminGroupId,
       groupPolicy: prepared.request,
       organizationId,
-      request: async (path, init) => {
-        const response = await routeApp.request(path, init);
-        statuses.push(response.status);
-        return response;
+    }),
+  );
+  const statuses: number[] = [];
+  const commit = async () => {
+    const response = await routeApp.request(
+      `/organizations/${organizationId}/groups/${prepared.adminGroupId}/policy-commit`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${actor.token}`,
+        },
+        body,
       },
-    });
+    );
+    statuses.push(response.status);
+    return response;
+  };
   // The rolled-back attempt prepares the committed predecessor only.
   expect((await commit()).status).toBe(202);
   expect(
