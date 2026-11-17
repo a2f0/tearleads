@@ -9,6 +9,7 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/document
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { clearRemoteSyncState } from "../../../workflows/sync/remoteReset";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { accessManifestCheckpoints } from "../../sqlite/schema/keyingCheckpointSchema";
 import { verifiedAccessManifestBundles } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
@@ -88,6 +89,7 @@ for (const [entry, verify] of containerVerifiers) {
       await expect(
         verify({
           execSql: database.execSql,
+          openPrincipalPolicyBundleReader,
           projection: fixture.projection,
           resolveUserKey: fixture.resolveUserKey,
           stillCurrent: database.stillCurrent,
@@ -118,6 +120,7 @@ for (const [entry, verify] of documentVerifiers) {
       await expect(
         verify({
           execSql: database.execSql,
+          openPrincipalPolicyBundleReader,
           projection: fixture.writerProjection,
           resolveUserKey: fixture.resolveProjectionUserKey,
           stillCurrent: database.stillCurrent,
@@ -156,6 +159,7 @@ test("a stalled bundle write holds only its own verification", async () => {
     let settled = false;
     const verification = verifyContainerWriterProjection({
       execSql,
+      openPrincipalPolicyBundleReader,
       projection: fixture.projection,
       resolveUserKey: fixture.resolveUserKey,
     }).finally(() => {

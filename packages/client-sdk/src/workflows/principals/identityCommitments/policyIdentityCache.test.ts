@@ -7,6 +7,7 @@ import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedU
 import { createProjectionCheckpointContext } from "../../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { referencedPrincipalPolicyKey } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { collectReferencedPrincipalPolicies } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { runWithSecurityIncidentReporting } from "../../../data/shared/securityIncidents";
 import { identityPolicyFixture } from "./policyIdentity.testFixtures";
 
@@ -29,6 +30,7 @@ test("cached policy admission rechecks pinned bundles before recording a checkpo
   });
   const checkpointContext = createProjectionCheckpointContext({
     execSql: async () => [],
+    openPrincipalPolicyBundleReader,
   });
   const reference = bundle.currentState;
   await expect(
@@ -60,6 +62,7 @@ test("a missing cached member identity defers without reporting tampering or adv
   if (!verified.ok) throw verified.error;
   const checkpointContext = createProjectionCheckpointContext({
     execSql: async () => [],
+    openPrincipalPolicyBundleReader,
   });
   const incidents: unknown[] = [];
   await expect(

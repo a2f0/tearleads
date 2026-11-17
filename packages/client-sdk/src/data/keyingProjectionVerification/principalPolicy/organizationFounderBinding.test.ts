@@ -21,6 +21,7 @@ import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";
 import { buildInitialOrganizationPolicyRequest } from "../../../workflows/registration/organizationProvisioning";
 import { loadOrganizationFounder } from "../../persistence/organizationFounderPersistence";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { verifyContainerDestinationProjection } from "../container/containerDestinationVerification";
 
 test.each([1, 2])(
@@ -77,6 +78,7 @@ test.each([1, 2])(
       await expect(
         verifyContainerDestinationProjection({
           execSql: cold.execSql,
+          openPrincipalPolicyBundleReader,
           warmReferencedPrincipalPolicies: projectionPolicyWarmer({
             execSql: cold.execSql,
             bundles: [impostor, ...groups],
@@ -120,6 +122,7 @@ test.each([1, 2])(
             });
       await verifyContainerDestinationProjection({
         execSql: cold.execSql,
+        openPrincipalPolicyBundleReader,
         warmReferencedPrincipalPolicies: projectionPolicyWarmer({
           execSql: cold.execSql,
           bundles: [genuine, ...groups],

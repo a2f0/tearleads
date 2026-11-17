@@ -10,13 +10,13 @@ import type {
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import {
-  type DocumentMovePlacement,
-  loadDocumentMovePlacements,
-} from "../../container-contents/documentPlacement";
-import {
   hasDocumentPurgeCheckpointInTransaction,
   listPurgedDocumentIdsInTransaction,
 } from "../../keyingCheckpoints/documentPurgeCheckpointPersistence";
+import {
+  type DocumentMovePlacement,
+  loadDocumentMovePlacements,
+} from "../documentPlacement";
 import { DocumentRecordRepository } from "../records";
 import type { StoredDocumentRecord } from "../types";
 import {

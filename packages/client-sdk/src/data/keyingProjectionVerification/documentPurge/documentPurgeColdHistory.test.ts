@@ -3,6 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeChain";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   verifyDocumentPurgeProof,
   verifyDocumentPurgeProofBaseline,
@@ -13,6 +14,7 @@ test("a fresh device verifies purge history from signed genesis without pinning 
   const database = await createTestExecSql("purge-cold-history");
   const input = {
     execSql: database.execSql,
+    openPrincipalPolicyBundleReader,
     expectedDocumentId: fixture.proof.documentId,
     expectedOrganizationId: fixture.author.organizationId,
     proof: fixture.proof,
@@ -89,6 +91,7 @@ test("a fresh device refuses a purge chain with a forged genesis signature", asy
     await expect(
       verifyDocumentPurgeProof({
         execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
         expectedDocumentId: proof.documentId,
         expectedOrganizationId: fixture.author.organizationId,
         proof,

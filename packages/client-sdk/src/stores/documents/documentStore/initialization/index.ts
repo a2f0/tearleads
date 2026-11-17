@@ -21,7 +21,7 @@ import {
   isDatabaseUnavailableError,
   loadPersistedDocumentStoreState,
 } from "../../../../workflows/documents";
-import { OrganizationSyncPauseRepository } from "../../../../workflows/sync";
+import { OrganizationSyncPauseRepository } from "../../../../workflows/sync/coordination";
 import type { DocumentStoreRelinkInput } from "../../types";
 import { chainIdentityWrite } from "../identityWriteChain";
 import type { DocumentRelinkCommitSideEffect } from "../internalRelink";

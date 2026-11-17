@@ -79,6 +79,7 @@ export {
   documentPendingAttachments,
 } from "./documentAttachmentSchema";
 export {
+  CONTAINER_CREATE_INTENT_TYPE,
   inContainerIntentLanes,
   inLocalIntentLane,
   LOCAL_INTENT_LANES,

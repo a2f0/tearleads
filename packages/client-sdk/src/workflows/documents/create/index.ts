@@ -7,6 +7,7 @@ import {
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
 import { buildDocumentCreatePlan } from "../../../data/documents/shared/events";
 import { wrapDocumentContentKeyForCreate } from "../../../data/documents/shared/projection";
+import { shouldRetryWithFreshProjection } from "../../../data/documents/shared/projection/freshProjectionRetry";
 import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import type {
@@ -24,7 +25,8 @@ import {
   nullOnProjectionVerificationCancellation,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
-import { isContainerCreatePending } from "../../../data/persistence/container-contents/pendingContainerCreate";
+import { isContainerCreatePending } from "../../../data/persistence/documents/pendingContainerCreate";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { recordDocumentAuthorAccessFailure } from "../authorAccessFailure";
 import type { RemoteDocumentCollaborators } from "../remote/remoteDocumentCollaborators";
@@ -32,10 +34,7 @@ import {
   buildDocumentCreateSeedRequest,
   documentCreateSeedFits,
 } from "../sync/initialSync";
-import {
-  isDocumentManifestAlreadyExistsConflict,
-  shouldRetryWithFreshProjection,
-} from "../syncFailures/syncFailureClassification";
+import { isDocumentManifestAlreadyExistsConflict } from "../syncFailures/syncFailureClassification";
 import { adoptExistingRemoteDocument } from "./createAdoption";
 import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
 import { fetchContainerWriterProjectionForCreate } from "./createProjectionFetch";
@@ -85,6 +84,7 @@ export async function buildMaterializedDocumentCreatePlan(
       await collectContainerWriterProjectionPrincipalPolicies({
         ...projectionVerificationOptions(input),
         execSql: input.execSql,
+        openPrincipalPolicyBundleReader,
         projection: input.containerProjection,
         resolveUserKey: input.resolveProjectionUserKey,
       });

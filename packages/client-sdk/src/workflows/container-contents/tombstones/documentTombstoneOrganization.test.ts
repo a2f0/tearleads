@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import {
+  deleteContainerDocumentTombstonePlacementRows,
+  DocumentContainerProjectionRepository as Links,
+} from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence as documents,
@@ -42,7 +45,11 @@ for (const foreignLinks of [[], ["container"]]) {
       ]);
       for (const verdict of verdicts) {
         if (verdict.kind === "verified")
-          await applyContainerDocumentTombstones(execSql, [verdict.tombstone]);
+          await applyContainerDocumentTombstones(
+            execSql,
+            [verdict.tombstone],
+            deleteContainerDocumentTombstonePlacementRows,
+          );
       }
       expect(
         await execSql(

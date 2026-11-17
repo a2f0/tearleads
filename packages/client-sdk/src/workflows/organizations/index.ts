@@ -89,11 +89,6 @@ export {
   rotateOrganizationGroupForAccessSetShrink,
 } from "./principalPolicy";
 export {
-  type CreateOrganizationApi,
-  type CreateOrganizationInput,
-  createOrganization,
-} from "./provisioning/createOrganization";
-export {
   buildOrganizationGroupPolicyHistory,
   type OrganizationContainerGrant,
   type OrganizationContainerGrants,

@@ -25,6 +25,7 @@ import {
   documentWriterProjectionFromCreateResponse,
 } from "../../../workflows/documents/create";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
@@ -134,6 +135,7 @@ test("purge commit atomically pins first-seen policy snapshots", async () => {
     const fixture = await createGroupAuthorizedPurge({ execSql });
     const verified = await verifyDocumentPurgeProof({
       execSql,
+      openPrincipalPolicyBundleReader,
       expectedDocumentId: fixture.writerProjection.documentId,
       expectedOrganizationId: fixture.organizationId,
       proof: fixture.proof,
@@ -167,6 +169,7 @@ for (const supersededPath of [false, true]) {
       const fixture = await createGroupAuthorizedPurge({ execSql });
       const verification = {
         execSql,
+        openPrincipalPolicyBundleReader,
         expectedDocumentId: fixture.writerProjection.documentId,
         expectedOrganizationId: fixture.organizationId,
         proof: fixture.proof,

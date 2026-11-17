@@ -13,6 +13,7 @@ import {
   type HeldContainerBinding,
   listingRepeatsHeldOrdinaryBinding,
 } from "../../../../data/persistence/container-contents/containerBinding";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   isKeyingVerificationError,
   reportKeyingVerificationErrorInCauseChain,
@@ -173,6 +174,7 @@ async function verifyDestinationRole(input: {
   assertDestinationProjectionIdentity(projection, listed);
   const verificationInput = {
     execSql: runtime.infra.execSql,
+    openPrincipalPolicyBundleReader,
     projection,
     resolveUserKey: runtime.resolveTrustedUserIdentity,
     stillCurrent: isCurrent,

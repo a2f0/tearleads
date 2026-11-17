@@ -4,6 +4,7 @@ import {
   createContainerManifestFixture,
   createPrincipalPolicyFixture,
 } from "@tearleads/crypto/container-access-test-fixtures";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { clientSqlTables } from "../../sqlite/schema";
 import {
   createExecSql,
@@ -290,6 +291,7 @@ test("validate-only projection completion does not populate the held-head cache"
   const execSql = executor();
   const context = createProjectionCheckpointContext({
     execSql,
+    openPrincipalPolicyBundleReader,
     organizationId: "cache-org",
   });
   context.heldContainerHeads.push(await seed);
@@ -303,6 +305,7 @@ test("an optional cache-fill failure cannot reject completed checkpoint finaliza
   const execSql = executor();
   const context = createProjectionCheckpointContext({
     execSql,
+    openPrincipalPolicyBundleReader,
     organizationId: "cache-org",
   });
   context.heldContainerHeads.push(head(await seed, "foreign", 1, "other-org"));

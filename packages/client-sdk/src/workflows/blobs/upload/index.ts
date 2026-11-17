@@ -40,7 +40,10 @@ import {
   type BlobByteSource,
   createBlobByteSource,
 } from "../../../data/blobs/blobContracts";
-import { authorizingContainerPathRefs } from "../../../data/documents/shared/projection";
+import {
+  authorizingContainerPathRefs,
+  shouldRetryWithFreshProjection,
+} from "../../../data/documents/shared/projection";
 import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
@@ -50,7 +53,6 @@ import type { DocumentCreateAuthor } from "../../../data/documents/shared/types"
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import { requireProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { shouldRetryWithFreshProjection } from "../../documents/syncFailures/syncFailureClassification";
 import { resolveBlobMutationWriterProjection } from "../verification/writerProjection";
 import { resolveMultipartUploadOptions } from "./automaticMultipartUpload";
 import { stageMultipartBlobAttachment } from "./multipartUpload";

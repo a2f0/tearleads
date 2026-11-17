@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeChain";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { verifyDocumentWriterProjection } from "../document/documentProjectionVerification";
 import { verifyDocumentPurgeProofBaseline } from "./documentPurgeProofVerification";
@@ -13,6 +14,7 @@ test("initial purge history must reach genesis before reading local pins", async
       execSql: async () => {
         throw new Error("Unexpected local checkpoint read");
       },
+      openPrincipalPolicyBundleReader,
       expectedDocumentId: fixture.proof.documentId,
       expectedOrganizationId: fixture.author.organizationId,
       proof: {
@@ -76,6 +78,7 @@ test("an initial purge chain containing the local pin needs no bounded refetch",
   try {
     await verifyDocumentWriterProjection({
       execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
       projection: fixture.linkedProjection,
       resolveUserKey: fixture.resolveProjectionUserKey,
     });

@@ -19,7 +19,7 @@ import { sqlContainerContentsPersistence } from "../../data/persistence/containe
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { createOrganization } from "../organizations/provisioning/createOrganization";
+import { createOrganization } from "./organizationCreation/createOrganization";
 
 const SYSTEM_CONTAINER = {
   icon: "trash",

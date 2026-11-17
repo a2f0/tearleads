@@ -6,7 +6,10 @@ import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFix
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { buildInitialOrganizationPolicyRequest } from "../../../workflows/registration/organizationProvisioning";
-import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import {
+  openPrincipalPolicyBundleReader,
+  PrincipalPolicyBundleRepository,
+} from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { verifyContainerWriterProjection } from "../container/containerProjectionVerification";
@@ -46,7 +49,10 @@ test("an unavailable organization signer defers external authorization without a
       ).savePrincipalPolicyBundle(bundle, organizationId);
     }
     const input = {
-      checkpointContext: createProjectionCheckpointContext({ execSql }),
+      checkpointContext: createProjectionCheckpointContext({
+        execSql,
+        openPrincipalPolicyBundleReader,
+      }),
       organizationId,
       principalPolicyCache: new Map(),
       references: [principalPolicyHead(fixture.subjectBundle)],
@@ -108,6 +114,7 @@ for (const unavailableAt of [1, 2]) {
           () =>
             verifyContainerWriterProjection({
               execSql,
+              openPrincipalPolicyBundleReader,
               projection: fixture.projection,
               resolveUserKey: async () =>
                 ++reads === unavailableAt

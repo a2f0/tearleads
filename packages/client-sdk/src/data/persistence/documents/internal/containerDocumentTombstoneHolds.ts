@@ -10,7 +10,7 @@ import {
   sqliteRowsPerStatement,
 } from "../../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
-import { filterWritableDocumentPlacements } from "../../container-contents/documentPlacement";
+import { filterWritableDocumentPlacements } from "../documentPlacement";
 import type { ContainerDocumentTombstoneInput } from "../types";
 
 export interface ContainerDocumentPlacementKey {

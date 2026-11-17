@@ -12,6 +12,7 @@ import {
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("remote deletion cannot commit its purge proof without atomic teardown", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
@@ -58,6 +59,7 @@ test("remote deletion cannot commit its purge proof without atomic teardown", as
     await expect(
       verifyDocumentWriterProjection({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection: writerProjection,
         resolveUserKey: resolveProjectionUserKey,
       }),

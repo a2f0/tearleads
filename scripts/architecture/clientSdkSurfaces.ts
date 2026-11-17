@@ -56,6 +56,7 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/contentRecordKeys.ts`,
   `${sdk}/data/documents/shared/crypto.ts`,
   `${sdk}/data/documents/shared/events.ts`,
+  `${sdk}/data/documents/shared/projection/freshProjectionRetry.ts`,
   `${sdk}/data/documents/shared/projection/projectionVerificationOptions.ts`,
   `${sdk}/data/documents/shared/readers.ts`,
   `${sdk}/data/documents/shared/responses.ts`,
@@ -77,7 +78,6 @@ export const documentStoreSurface = [
   `${sdk}/data/persistence/documents/records/index.ts`,
   `${sdk}/stores/documents/index.ts`,
   `${sdk}/workflows/documents/index.ts`,
-  `${sdk}/data/documents/attachmentContentIdentity.ts`,
   `${sdk}/data/documents/documentConstants.ts`,
   `${sdk}/data/documents/documentKinds.ts`,
   `${sdk}/data/documents/documentSummary.ts`,
@@ -86,6 +86,7 @@ export const documentStoreSurface = [
   `${sdk}/data/persistence/documents/containerDocumentTombstoneHoldRepository.ts`,
   `${sdk}/data/persistence/documents/containerDocumentTombstoneHoldsPersistence.ts`,
   `${sdk}/data/persistence/documents/documentDiscoveryEvidencePersistence.ts`,
+  `${sdk}/data/persistence/documents/documentPlacement.ts`,
   `${sdk}/data/persistence/documents/documentProjectionContainers.ts`,
   `${sdk}/data/persistence/documents/documentsPersistence.ts`,
   `${sdk}/data/persistence/documents/records/documentRowsInTransaction.ts`,
@@ -110,8 +111,6 @@ export const containerContentsSurface = [
   `${sdk}/data/persistence/container-contents/containerContentsPersistence.ts`,
   `${sdk}/data/persistence/container-contents/containerPersistence.ts`,
   `${sdk}/data/persistence/container-contents/documentContainerProjectionPersistence.ts`,
-  `${sdk}/data/persistence/container-contents/documentPlacement.ts`,
-  `${sdk}/data/persistence/container-contents/pendingContainerCreate.ts`,
   `${sdk}/stores/container-contents/types.ts`,
   `${sdk}/workflows/container-contents/documentDiscovery/containerDocumentListing.ts`,
   `${sdk}/workflows/container-contents/documentPriming/documentHydrationProbe.ts`,
@@ -155,15 +154,13 @@ export const organizationReadModelSurface = [
   `${sdk}/workflows/organizations/readModel/index.ts`,
   `${sdk}/client/organizations/organizationReadModels.ts`,
   `${sdk}/client/organizations/recipientAdmission.ts`,
+  `${sdk}/data/persistence/organizations/organizationProvisioningAttemptRepository.ts`,
   `${sdk}/workflows/organizations/groupMetadata/groupMetadataErrors.ts`,
   `${sdk}/workflows/organizations/groupMetadata/groupMetadataRuntime.ts`,
   `${sdk}/workflows/organizations/groupMetadata/runtimeGroupMetadataAuthority.ts`,
   `${sdk}/workflows/organizations/groupPolicy/groupPolicyMutationHead.ts`,
   `${sdk}/workflows/organizations/organizationProfile.ts`,
   `${sdk}/workflows/organizations/principalMutations/principalMutationJournalManagement.ts`,
-  `${sdk}/workflows/organizations/provisioning/createOrganization.ts`,
-  `${sdk}/workflows/organizations/provisioning/organizationProvisioningAttempt.ts`,
-  `${sdk}/workflows/organizations/provisioning/organizationReplacementVerification.ts`,
   `${sdk}/workflows/organizations/readModel/organizationRemoteReset.ts`,
   `${sdk}/workflows/organizations/rosterProfileContainer.ts`,
 ];
@@ -196,12 +193,18 @@ export const syncEngineSurface = [
   `${sdk}/stores/local-projection/index.ts`,
   `${sdk}/sync/reconciliation/index.ts`,
   `${sdk}/workflows/sync/index.ts`,
+];
+
+export const syncCoordinationSurface = [
+  `${sdk}/workflows/sync/coordination.ts`,
   `${sdk}/data/shared/domainScope.ts`,
   `${sdk}/data/sync/crdtPeerSeed.ts`,
   `${sdk}/data/sync/organizationSyncPauses.ts`,
+  `${sdk}/data/sync/originatedDocuments.ts`,
   `${sdk}/data/sync/outgoingUpdateSettlement.ts`,
   `${sdk}/data/sync/sequence.ts`,
   `${sdk}/data/sync/syncCoordinator.ts`,
+  `${sdk}/data/sync/syncLaneConfig.ts`,
 ];
 
 export const identitySurface = [

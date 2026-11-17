@@ -4,6 +4,7 @@ import type { DocumentPurgeProofResponse } from "@tearleads/validators/response"
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { ProjectionVerificationCancelledError } from "../types";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
@@ -21,6 +22,7 @@ test("a malformed purge proof is still recorded as integrity evidence", async ()
         () =>
           verifyDocumentPurgeProof({
             execSql: database.execSql,
+            openPrincipalPolicyBundleReader,
             expectedDocumentId: "document",
             expectedOrganizationId: "organization",
             proof: {} as DocumentPurgeProofResponse,
@@ -60,6 +62,7 @@ for (const failure of [
           () =>
             verifyDocumentPurgeProof({
               execSql: database.execSql,
+              openPrincipalPolicyBundleReader,
               expectedDocumentId: proof.documentId,
               expectedOrganizationId: fixture.author.organizationId,
               proof,
@@ -94,6 +97,7 @@ test("an unavailable purge signer is retryable", async () => {
         () =>
           verifyDocumentPurgeProof({
             execSql: database.execSql,
+            openPrincipalPolicyBundleReader,
             expectedDocumentId: proof.documentId,
             expectedOrganizationId: fixture.author.organizationId,
             proof,
@@ -167,6 +171,7 @@ for (const field of ["state", "body"] as const) {
           () =>
             verifyDocumentPurgeProof({
               execSql,
+              openPrincipalPolicyBundleReader,
               expectedDocumentId: proof.documentId,
               expectedOrganizationId: fixture.author.organizationId,
               proof,

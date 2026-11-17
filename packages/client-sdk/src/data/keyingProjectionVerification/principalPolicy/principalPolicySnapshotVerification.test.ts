@@ -9,7 +9,10 @@ import {
   verifyPrincipalPolicySnapshots,
 } from "../../../../test/helpers/principalPolicySnapshotVerification";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import {
+  openPrincipalPolicyBundleReader,
+  PrincipalPolicyBundleRepository,
+} from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   commitProjectionCheckpoints,
   createProjectionCheckpointContext,
@@ -43,6 +46,7 @@ test("cached bundle signer mismatch remains typed through projection verificatio
       collectReferencedPrincipalPolicies({
         checkpointContext: createProjectionCheckpointContext({
           execSql: database.execSql,
+          openPrincipalPolicyBundleReader,
         }),
         organizationId: "organization",
         principalPolicyCache: new Map(),
@@ -128,6 +132,7 @@ test("atomically pins first-seen purge policy snapshots", async () => {
   try {
     const context = createProjectionCheckpointContext({
       execSql,
+      openPrincipalPolicyBundleReader,
       organizationId: "snapshot-test-org",
     });
     for (const policy of policies) observePrincipalPolicy(context, policy);
@@ -159,7 +164,10 @@ test("atomic purge policy pinning rejects a checkpoint race", async () => {
     "principal-policy-snapshot-race",
   );
   try {
-    const context = createProjectionCheckpointContext({ execSql });
+    const context = createProjectionCheckpointContext({
+      execSql,
+      openPrincipalPolicyBundleReader,
+    });
     for (const policy of policies) observePrincipalPolicy(context, policy);
     const raced = policies[0];
     if (!raced) throw new Error("Expected a policy snapshot");

@@ -10,6 +10,7 @@ import {
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
 import { heldContainerSnapshot } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildMaterializedContainerCreatePlan } from "../child/create";
 import { childContainerWriterProjectionFromCreatePlan } from "../child/create/createProjection";
 import {
@@ -51,6 +52,7 @@ test.each([false, true])(
       });
       await verifyContainerWriterProjection({
         execSql: fixture.database.execSql,
+        openPrincipalPolicyBundleReader,
         projection: childContainerWriterProjectionFromCreatePlan({
           materializedPlan,
           parentProjection,

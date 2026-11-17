@@ -9,7 +9,7 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   getOrCreateOrganizationSyncPauses,
   type OrganizationSyncPauses,
-} from "../../sync";
+} from "../../sync/coordination";
 
 /** One organization the user belongs to, with their own choices for it. */
 export type OrganizationMembership = OrganizationMembershipResponse;

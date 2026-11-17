@@ -11,7 +11,7 @@ import type {
   ExecSqlClientLike,
 } from "../../../data/sqlite/sqlSchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
-import type { OrganizationProvisioningArtifacts } from "../../registration/organizationProvisioning";
+import type { OrganizationProvisioningArtifacts } from "../organizationProvisioning";
 
 const BYTE_MARKER = "__tearleadsProvisioningBytes";
 

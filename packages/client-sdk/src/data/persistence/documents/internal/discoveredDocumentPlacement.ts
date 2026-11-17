@@ -4,7 +4,7 @@ import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersist
 import {
   type DocumentMovePlacement,
   loadDocumentMovePlacement,
-} from "../../container-contents/documentPlacement";
+} from "../documentPlacement";
 import type { StoredDocumentRecord } from "../types";
 import { resolvePersistedAccessStateHash } from "./documentRuntimeState";
 

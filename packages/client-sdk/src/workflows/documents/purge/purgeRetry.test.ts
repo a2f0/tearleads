@@ -5,6 +5,7 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/document
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { runWithSecurityIncidentReporting } from "../../../data/shared/securityIncidents";
 
 test("a retry after a lost successful purge response verifies the retained proof and completes", async () => {
@@ -55,6 +56,7 @@ test("a retry after a lost successful purge response verifies the retained proof
     await expect(
       verifyDocumentWriterProjection({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection: writerProjection,
         resolveUserKey: resolveProjectionUserKey,
       }),
