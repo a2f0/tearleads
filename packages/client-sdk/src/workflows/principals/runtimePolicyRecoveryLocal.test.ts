@@ -9,7 +9,7 @@ import { createProjectionCheckpointContext } from "../../data/keyingProjectionVe
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { cachePrincipalPolicyBundles } from "./policyCache";
-import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
+import { PrincipalPolicyService } from "./principalPolicyService";
 
 test("offline runtime verification requires protected evidence even with a held full bundle", async () => {
   const history = await signedAuthorityRecoveryHistory();
@@ -33,7 +33,7 @@ test("offline runtime verification requires protected evidence even with a held 
       ).loadPrincipalPolicyBundleForReference(reference, null),
     ).not.toBeNull();
     let fullReads = 0;
-    const warmer = createRuntimePrincipalPolicyWarmer({
+    const warmer = new PrincipalPolicyService({
       apiClient: createMockApiClient({
         getPrincipalPolicyPages: f.apiClient.getPrincipalPolicyPages.bind(
           f.apiClient,
@@ -54,7 +54,7 @@ test("offline runtime verification requires protected evidence even with a held 
       util: {
         reportSecurityIncident: async () => undefined,
       },
-    });
+    }).createWarmer();
     await expect(
       collectReferencedPrincipalPolicies({
         checkpointContext: createProjectionCheckpointContext(f.options),

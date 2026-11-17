@@ -8,7 +8,7 @@ import { hasUnsettledDocumentPlacement } from "../../../../data/persistence/cont
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { errorMessage } from "../../../../data/shared/errorMessage";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
-import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
+
 import type { ContainerContentsPersistence } from "../../containerPersistence";
 import type { ContainerState } from "../../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../../runtime";
@@ -59,7 +59,7 @@ async function verifiedRemoteScope(
         resolveUserKey: input.resolveProjectionUserKey,
         stillCurrent: input.stillCurrent,
         warmReferencedPrincipalPolicies:
-          createRuntimePrincipalPolicyWarmer(runtime),
+          runtime.principalPolicies.createWarmer(),
       });
       const rootIndex = path.findIndex(
         (head) => head.state.containerId === rootContainerId,

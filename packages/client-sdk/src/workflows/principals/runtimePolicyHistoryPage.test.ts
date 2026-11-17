@@ -8,7 +8,7 @@ import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/principalPol
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { principalHistoryEntries } from "../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
-import { createRuntimePrincipalPolicyCurrentResolver } from "./runtimePolicyRecovery";
+import { PrincipalPolicyService } from "./principalPolicyService";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
@@ -19,7 +19,7 @@ async function fixture() {
   const f = await createAuthorityRecoveryFixture(history);
   const state = { online: true, current: true };
   const keys: Uint8Array[] = [];
-  const resolve = createRuntimePrincipalPolicyCurrentResolver({
+  const resolve = new PrincipalPolicyService({
     apiClient: f.apiClient,
     infra: { execSql: f.options.execSql },
     state,
@@ -37,7 +37,7 @@ async function fixture() {
         localKey.fill(0);
       }
     },
-  });
+  }).createCurrentPolicyResolver();
   if (!resolve) throw new Error("Missing runtime recovery capability");
   return { ...f, resolve, state, keys };
 }

@@ -10,7 +10,7 @@ import { clearDocumentSyncFailure } from "../../../../data/persistence/documents
 import { hasRecordedTerminalSyncFailures } from "../../../../data/persistence/documents/records/documentSyncFailurePersistence";
 import { runSerializedSqlMutation } from "../../../../data/sqlite/sqlExec";
 import type { DocumentRecord } from "../../../../workflows/documents/persistence";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import type {
   DocumentState,
   DocumentStoreState,

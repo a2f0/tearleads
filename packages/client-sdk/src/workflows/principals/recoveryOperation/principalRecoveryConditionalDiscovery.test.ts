@@ -11,7 +11,7 @@ import {
 } from "../../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { createRuntimePrincipalPolicyWarmer } from "../runtimePolicyWarmer";
+import { PrincipalPolicyService } from "../principalPolicyService";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
@@ -30,7 +30,7 @@ async function fixture() {
   const incidents: unknown[] = [];
   // Each warmer is one operation and discovers the directory once.
   const operation = () =>
-    createRuntimePrincipalPolicyWarmer({
+    new PrincipalPolicyService({
       apiClient: source.apiClient,
       infra: { execSql: source.options.execSql },
       state: { online: true },
@@ -45,7 +45,7 @@ async function fixture() {
           incidents.push(error);
         },
       },
-    });
+    }).createWarmer();
   const collect = async () => {
     const context = createProjectionCheckpointContext(source.options);
     await collectReferencedPrincipalPolicies({

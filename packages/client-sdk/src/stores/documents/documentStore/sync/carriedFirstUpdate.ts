@@ -6,7 +6,7 @@ import {
   documentCreateSeedCandidate,
   type PendingUpdateRecord,
 } from "../../../../workflows/documents";
-import type { PrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { chainIdentityWrite } from "../identityWriteChain";
 import { listPendingUpdates } from "../persistence";
 import type {

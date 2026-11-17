@@ -8,7 +8,7 @@ import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/
 import { createCurrentOrganizationGroup } from "../../workflows/organizations/groups/createCurrentOrganizationGroup";
 import { deleteCurrentOrganizationGroup } from "../../workflows/organizations/groups/deleteCurrentOrganizationGroup";
 import { createRuntimeCurrentOrganizationMutation } from "../../workflows/organizations/principalMutations/runtimeCurrentOrganizationMutation";
-import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
+
 import type { ContainerContents } from "../containerContents";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { createCurrentPrincipalMutation } from "./currentPrincipalMutations";
@@ -327,9 +327,8 @@ export async function revokeOrganizationGrant(
             subjectType: input.subjectType,
           },
           resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
-          warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-            input.runtime,
-          ),
+          warmReferencedPrincipalPolicies:
+            input.runtime.principalPolicies.createWarmer(),
           ...signingContext,
         });
       };

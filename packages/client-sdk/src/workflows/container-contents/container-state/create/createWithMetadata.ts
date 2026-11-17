@@ -36,7 +36,7 @@ import {
   documentCreateSeedFits,
 } from "../../../documents/sync/initialSync";
 import { PrincipalPolicyRepairBudget } from "../../../principals/policyRepairBudget";
-import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
+
 import type {
   ContainerWorkflowRuntime,
   CreatedRemoteContainerState,
@@ -385,9 +385,8 @@ async function createContainerWithMetadataWithRepairs(
       parentContainerId: input.parentContainerId,
       parentProjection,
       state: repairState,
-      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-        input.runtime,
-      ),
+      warmReferencedPrincipalPolicies:
+        input.runtime.principalPolicies.createWarmer(),
       stillCurrent: input.stillCurrent,
     });
     if (repair.kind === "retry") {

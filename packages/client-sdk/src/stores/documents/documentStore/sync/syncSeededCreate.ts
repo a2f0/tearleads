@@ -4,7 +4,7 @@ import {
   documentCreateSeedCandidate,
   type PendingUpdateRecord,
 } from "../../../../workflows/documents";
-import type { PrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { listPendingUpdates } from "../persistence";
 import type {
   DocumentState,

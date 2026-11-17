@@ -13,13 +13,9 @@ import {
 } from "../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type {
-  createRuntimePrincipalPolicyCurrentResolver,
+  PrincipalPolicyCurrentResolver as CurrentPolicyResolver,
   ResolvedPrincipalPolicyCurrent,
 } from "../principals/runtimePolicyRecovery";
-
-type CurrentPolicyResolver = NonNullable<
-  ReturnType<typeof createRuntimePrincipalPolicyCurrentResolver>
->;
 
 interface CurrentOrganizationAuthorityInput {
   readonly execSql: ExecSql;

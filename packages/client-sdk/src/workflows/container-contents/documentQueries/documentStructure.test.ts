@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
@@ -23,7 +24,7 @@ function createRuntime(
   execSql: ExecSql = async () => [],
   apiClient: DocumentStructuralMutationRuntime["apiClient"] = {} as DocumentStructuralMutationRuntime["apiClient"],
 ): DocumentStructuralMutationRuntime {
-  return {
+  return withPrincipalPolicies({
     apiClient,
     auth: {
       isAuthenticated: true,
@@ -48,14 +49,14 @@ function createRuntime(
       online: true,
     },
     util: {
-      log: (message) => {
+      log: (message: string) => {
         logs.push(message);
       },
       reportSecurityIncident: async () => undefined,
     },
     resolveProjectionUserKey: async () => null,
     resolveTrustedUserIdentity: async () => null,
-  };
+  });
 }
 
 function createNote(overrides: Partial<DocumentSummary> = {}): DocumentSummary {

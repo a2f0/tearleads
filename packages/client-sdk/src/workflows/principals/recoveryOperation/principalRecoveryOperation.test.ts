@@ -20,7 +20,7 @@ import {
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../../data/principals/principalPolicyCoordinator";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
-import { createRuntimePrincipalPolicyWarmer } from "../runtimePolicyWarmer";
+import { PrincipalPolicyService } from "../principalPolicyService";
 import {
   createPrincipalRecoveryReader,
   type PrincipalRecoveryMemo,
@@ -43,7 +43,7 @@ async function fixture() {
   const incidents: unknown[] = [];
   // One warmer is one workflow operation.
   const operation = () =>
-    createRuntimePrincipalPolicyWarmer({
+    new PrincipalPolicyService({
       apiClient: createMockApiClient({
         getPrincipalPolicyPages: source.apiClient.getPrincipalPolicyPages.bind(
           source.apiClient,
@@ -62,7 +62,7 @@ async function fixture() {
           incidents.push(error);
         },
       },
-    });
+    }).createWarmer();
   const collect = async (
     warmer: ReferencedPrincipalPolicyWarmer,
     principalPolicyCache: PrincipalPolicyCache = new Map(),

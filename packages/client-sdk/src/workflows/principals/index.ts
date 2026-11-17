@@ -20,6 +20,7 @@ export {
   cachePrincipalPolicyBundles,
   cacheReferencedPrincipalPolicies,
 } from "./policyCache";
+export type { PrincipalPolicyService } from "./principalPolicyService";
 export {
   type ProjectionPolicyHistoryRecoveryOptions,
   recoverProjectionPolicyHistory,

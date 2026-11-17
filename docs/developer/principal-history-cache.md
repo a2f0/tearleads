@@ -83,7 +83,7 @@ can resume from a surviving authenticated prefix or genesis. The built-in runtim
 serializes recovery within an organization, but an acknowledged publication
 (`persistAcknowledgedPrincipalCurrents`) writes the private stage of its head
 outside that queue, so the queued current-policy resolver
-(`createRuntimePrincipalPolicyCurrentResolver`) starts that recovery itself,
+(`PrincipalPolicyService.createCurrentPolicyResolver`) starts that recovery itself,
 once, in the same queue turn (`resumeAfterSupersededStage`). The same single
 resume covers another verifier admitting exactly that head to the local
 checkpoint while recovery reads history, such as

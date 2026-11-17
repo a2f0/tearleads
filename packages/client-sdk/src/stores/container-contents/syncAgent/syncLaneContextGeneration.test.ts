@@ -7,7 +7,7 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../../workflows/container-contents/containerPersistence";
-import { createPrincipalPolicyOperation } from "../../../workflows/principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../../workflows/principals/principalPolicyService";
 import { createContainerContentsTestRuntime } from "../runtime.testFixtures";
 import {
   createContainerContentsStoreState,

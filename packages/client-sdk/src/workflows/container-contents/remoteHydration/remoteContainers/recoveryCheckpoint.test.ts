@@ -6,6 +6,7 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
 import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification/container/containerProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
@@ -109,7 +110,7 @@ test.each(["before verification", "before insertion"])(
             return persistence.loadContainerMetadataRecord(...args);
           },
         },
-        runtime: {
+        runtime: withPrincipalPolicies({
           apiClient: {
             getContainerWriterProjection: async () => served,
             evictContainerWriterProjection: () => {},
@@ -123,7 +124,7 @@ test.each(["before verification", "before insertion"])(
           infra: { execSql },
           resolveTrustedUserIdentity: resolveUserKey,
           util: { log: () => {}, reportSecurityIncident: async () => {} },
-        },
+        }),
       } as unknown as RemoteContainerHydrationState;
       const listed: RemoteContainer = {
         id: original.containerId,

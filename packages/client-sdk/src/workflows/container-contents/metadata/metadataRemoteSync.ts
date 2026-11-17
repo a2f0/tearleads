@@ -9,10 +9,7 @@ import {
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../../documents";
-import {
-  createRuntimePrincipalPolicyWarmer,
-  type PrincipalPolicyOperation,
-} from "../../principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import {
   metadataIncomingUpdateIsolation,
@@ -23,11 +20,7 @@ import type { ContainerMetadataState } from "./metadataTypes";
 
 type ContainerMetadataSyncApi = Parameters<
   typeof syncRemoteDocument
->[0]["apiClient"] &
-  Pick<
-    ContainerContentsWorkflowRuntime["apiClient"],
-    "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
-  >;
+>[0]["apiClient"];
 
 export interface ContainerMetadataSyncRuntime
   extends Pick<
@@ -35,6 +28,7 @@ export interface ContainerMetadataSyncRuntime
     | "auth"
     | "crypto"
     | "infra"
+    | "principalPolicies"
     | "resolveTrustedUserIdentity"
     | "state"
     | "util"
@@ -158,10 +152,9 @@ export async function syncRemoteContainerMetadata(
     }),
     stillCurrent: isCurrent,
     targetSecretKey: input.targetSecretKey,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      runtime,
-      { operation: input.policyOperation },
-    ),
+    warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
+      operation: input.policyOperation,
+    }),
     writerProjection: input.writerProjection,
   }).catch((error: unknown) =>
     deferRecoverableMetadataSyncError({

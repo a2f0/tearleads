@@ -13,6 +13,7 @@ import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../test/helpers/principalPolicyFixtures";
+import { withPrincipalPolicies } from "../../../test/helpers/principalPolicyServiceFixture";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalGrantRetirements } from "../../data/sqlite/schema/principalGrantRetirementSchema";
 import { createCurrentPrincipalMutation } from "./currentPrincipalMutations";
@@ -91,14 +92,16 @@ async function fixture() {
       userId: history.signerUserId,
     },
   });
-  const runtime = {
-    ...base,
-    crypto: {
-      signingFingerprint,
-      signingKeyPair: history.signingKeyPair,
-      encapsulationKeyPair: history.creatorEncapsulationKeyPair,
+  const runtime = withPrincipalPolicies(
+    {
+      ...base,
+      crypto: {
+        signingFingerprint,
+        signingKeyPair: history.signingKeyPair,
+        encapsulationKeyPair: history.creatorEncapsulationKeyPair,
+      },
     },
-    withPrincipalHistoryProtection: async <T>(
+    async <T>(
       work: (lease: {
         protection: typeof f.options.protection;
         stillCurrent: () => boolean;
@@ -108,7 +111,7 @@ async function fixture() {
         protection: f.options.protection,
         stillCurrent: () => state.current,
       }),
-  };
+  );
   const mutate = createCurrentPrincipalMutation({
     runtime,
     organizationId: history.organizationId,

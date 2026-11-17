@@ -1,3 +1,4 @@
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import type { ContainerMoveIntentRecord } from "../../containerPersistence";
@@ -21,7 +22,7 @@ export function createMoveIntentSyncState(input: {
     containersById: input.containersById,
     persistence: input.persistence,
     resolveProjectionUserKey: async () => null,
-    runtime: {
+    runtime: withPrincipalPolicies({
       apiClient: {
         getContainerWriterProjection: () => {
           input.onProjectionRequest?.();
@@ -62,11 +63,11 @@ export function createMoveIntentSyncState(input: {
       },
       util: {
         log: () => {},
-        reportSecurityIncident: async (error) => {
+        reportSecurityIncident: async (error: unknown) => {
           input.incidents?.push(error);
         },
       },
-    },
+    }),
   };
 }
 

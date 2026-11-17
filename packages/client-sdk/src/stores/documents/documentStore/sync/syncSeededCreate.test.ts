@@ -20,7 +20,7 @@ import {
   documentWriterProjectionFromCreateResponse,
   type PendingUpdateRecord,
 } from "../../../../workflows/documents";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import {
   createDocumentStoreState,

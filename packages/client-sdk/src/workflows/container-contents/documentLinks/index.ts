@@ -13,10 +13,7 @@ import {
   resolveDocumentCreateAuthor,
 } from "../../documents";
 import type { SubtreePurgeRoot } from "../../documents/purge/subtreePurgeScope";
-import {
-  createRuntimePrincipalPolicyWarmer,
-  type PrincipalPolicyOperation,
-} from "../../principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 
 export type ContainerDocumentLinkApi = RemoteDocumentServiceApi;
@@ -32,15 +29,12 @@ export interface ContainerDocumentLinkRuntime
     | "auth"
     | "crypto"
     | "infra"
+    | "principalPolicies"
     | "resolveTrustedUserIdentity"
     | "state"
     | "util"
   > {
-  apiClient: ContainerDocumentLinkApi &
-    Pick<
-      ContainerContentsWorkflowRuntime["apiClient"],
-      "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
-    >;
+  apiClient: ContainerDocumentLinkApi;
 }
 
 export type { RemoteDocumentPersistedState };
@@ -154,10 +148,9 @@ export async function relinkRemoteContainerDocument(input: {
       rotationSnapshot: input.rotationSnapshot,
       stillCurrent: input.isCurrent,
       targetContainerId,
-      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-        runtime,
-        { operation: input.policyOperation },
-      ),
+      warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
+        operation: input.policyOperation,
+      }),
     });
     if (!result) {
       runtime.util.log(

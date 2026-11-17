@@ -9,6 +9,7 @@ import {
   createContainerRevokeManifestFixture,
   createParentProjection,
 } from "../../../../../test/helpers/containerFixtures";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
@@ -47,7 +48,7 @@ for (const [signedSlot, listedSlot] of [
       const state = {
         containersById: new Map(),
         persistence: sqlContainerContentsPersistence,
-        runtime: {
+        runtime: withPrincipalPolicies({
           apiClient: {
             getContainerWriterProjection: async () => {
               projectionReads += 1;
@@ -70,7 +71,7 @@ for (const [signedSlot, listedSlot] of [
             encapsulationPublicKey: parent.encapsulationPublicKey,
           }),
           util: { log: () => {}, reportSecurityIncident: async () => {} },
-        },
+        }),
       } as unknown as RemoteContainerHydrationState;
       const listed: RemoteContainer = {
         id: projection.containerId,
@@ -147,7 +148,7 @@ test("an acknowledged root created by another identity is never the merge target
     const state = {
       containersById: new Map([[localRoot.container.id, localRoot]]),
       persistence: sqlContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         apiClient: {
           getContainerWriterProjection: async () => {
             projectionReads += 1;
@@ -176,7 +177,7 @@ test("an acknowledged root created by another identity is never the merge target
             });
           },
         },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
     const listed: RemoteContainer = {
       id: forgedRootId,
@@ -290,7 +291,7 @@ test("a root head at a later epoch binds the epoch-1 creator through its served 
     const state = {
       containersById: new Map(),
       persistence: sqlContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         apiClient: {
           getContainerWriterProjection: async () => projection,
           getCurrentPrincipalPolicy: async () => null,
@@ -304,7 +305,7 @@ test("a root head at a later epoch binds the epoch-1 creator through its served 
           encapsulationPublicKey: owner.encapsulationPublicKey,
         }),
         util: { log: () => {}, reportSecurityIncident: async () => {} },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
     const listed: RemoteContainer = {
       id: owner.projection.containerId,

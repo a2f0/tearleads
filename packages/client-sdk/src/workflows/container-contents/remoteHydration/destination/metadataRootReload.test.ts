@@ -4,6 +4,7 @@ import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/valida
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "../../../../../test/helpers/containerFixtures";
 import { repairPolicyPages } from "../../../../../test/helpers/principalPolicyRepair";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import {
   projectionDirectoryPayload,
   projectionHistoryPages,
@@ -65,12 +66,52 @@ test("a stale prefetched metadata root is read once more, then reported", async 
     let reads = 0;
     const state = {
       containersById: new Map(),
-      runtime: {
-        withPrincipalHistoryProtection: async (
+      runtime: withPrincipalPolicies(
+        {
+          apiClient: {
+            ...projectionHistoryPages([
+              scenario.admin,
+              scenario.advanced,
+              scenario.advancedDirectory,
+            ]),
+            evictContainerWriterProjection: (containerId: string) => {
+              evicted.push(containerId);
+            },
+            getContainerWriterProjection: async () => {
+              reads += 1;
+              return projection;
+            },
+            getPrincipalPolicyPages: repairPolicyPages([
+              scenario.admin,
+              scenario.advanced,
+              scenario.advancedDirectory,
+            ]),
+            getCurrentPrincipalPolicy: async () => {
+              throw new Error("Unexpected full history read");
+            },
+          },
+          auth: {
+            organizationId: listed.organizationId,
+            rootContainerId: "personal-root",
+            userId: "founder",
+          },
+          infra: { execSql },
+          resolveTrustedUserIdentity: scenario.resolveTrustedUserIdentity,
+          util: {
+            log: () => {},
+            reportSecurityIncident: async (
+              _error: unknown,
+              context: { operation: string },
+            ) => {
+              incidents.push(context.operation);
+            },
+          },
+        },
+        async <T>(
           operation: (lease: {
             protection: { localKey: Uint8Array; context: string };
             stillCurrent: () => boolean;
-          }) => Promise<unknown>,
+          }) => Promise<T>,
         ) =>
           operation({
             protection: {
@@ -79,45 +120,7 @@ test("a stale prefetched metadata root is read once more, then reported", async 
             },
             stillCurrent: () => true,
           }),
-        apiClient: {
-          ...projectionHistoryPages([
-            scenario.admin,
-            scenario.advanced,
-            scenario.advancedDirectory,
-          ]),
-          evictContainerWriterProjection: (containerId: string) => {
-            evicted.push(containerId);
-          },
-          getContainerWriterProjection: async () => {
-            reads += 1;
-            return projection;
-          },
-          getPrincipalPolicyPages: repairPolicyPages([
-            scenario.admin,
-            scenario.advanced,
-            scenario.advancedDirectory,
-          ]),
-          getCurrentPrincipalPolicy: async () => {
-            throw new Error("Unexpected full history read");
-          },
-        },
-        auth: {
-          organizationId: listed.organizationId,
-          rootContainerId: "personal-root",
-          userId: "founder",
-        },
-        infra: { execSql },
-        resolveTrustedUserIdentity: scenario.resolveTrustedUserIdentity,
-        util: {
-          log: () => {},
-          reportSecurityIncident: async (
-            _error: unknown,
-            context: { operation: string },
-          ) => {
-            incidents.push(context.operation);
-          },
-        },
-      },
+      ),
     } as unknown as RemoteContainerHydrationState;
 
     await expect(

@@ -1,6 +1,5 @@
 import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { DocumentSummary } from "../../data/documents/documentSummary";
-import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import {
   type ContainerContentsStore,
   type ContainerContentsStoreOptions,
@@ -43,7 +42,7 @@ import { createContainerContentsDocumentProjectionUserKeyResolver } from "../../
 import {
   type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
-  createContainerContentsStoreWorkflowRuntime,
+  createContainerContentsStoreWorkflowRuntimeFromSnapshot,
 } from "../../workflows/container-contents/runtime";
 import { createContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import {
@@ -346,7 +345,7 @@ class ContainerContentsService implements ContainerContents {
         }),
     };
 
-    return inheritPrincipalHistoryProtection(runtime, documentLinks);
+    return documentLinks;
   }
 
   discoverContainerDocuments(
@@ -457,7 +456,7 @@ class ContainerContentsService implements ContainerContents {
 
   workflowRuntime(): ContainerContentsStoreWorkflowRuntime {
     const input = this.runtimeService.workflowInput();
-    return createContainerContentsStoreWorkflowRuntime(
+    return createContainerContentsStoreWorkflowRuntimeFromSnapshot(
       input,
       this.runtimeService.adoptRootContainer,
       // Admit against the trust store of the database this runtime writes.

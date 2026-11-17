@@ -115,11 +115,14 @@ export {
   type ContainerContentsWorkflowRuntimeInfra,
   type ContainerContentsWorkflowRuntimeInput,
   type ContainerContentsWorkflowRuntimeInputGroups,
+  type ContainerContentsWorkflowRuntimeSnapshot,
   type ContainerContentsWorkflowRuntimeState,
   type ContainerContentsWorkflowRuntimeUtil,
   createContainerContentsDocumentsRuntime,
   createContainerContentsStoreWorkflowRuntime,
+  createContainerContentsStoreWorkflowRuntimeFromSnapshot,
   createContainerContentsWorkflowRuntime,
+  createContainerContentsWorkflowRuntimeFromSnapshot,
 } from "./runtime";
 export type {
   ContainerDocumentObjectSyncState,

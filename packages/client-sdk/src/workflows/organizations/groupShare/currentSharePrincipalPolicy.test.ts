@@ -3,6 +3,7 @@ import { readTestGroupName } from "../../../../test/helpers/groupMetadata";
 import { createLocalAuthorityRecoveryFixture } from "../../../../test/helpers/principalAuthorityLocal";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { PrincipalHistoryProtectionLease } from "../../../data/principals/principalHistoryProtection";
 import {
@@ -37,20 +38,22 @@ async function fixture() {
         localKey.fill(0);
       }
     };
-  const runtime = {
-    apiClient: Object.assign(f.options.apiClient, {
-      recoverPendingPrincipalMutation: async () => {
-        state.recoveries += 1;
-        expect(f.requests).toHaveLength(0);
-      },
-    }),
-    crypto: { encapsulationKeyPair: null },
-    infra: { execSql: f.options.execSql },
-    resolveTrustedUserIdentity: history.resolveTrustedUserIdentity,
-    state,
-    util: { log: () => {}, reportSecurityIncident: async () => {} },
+  const runtime = withPrincipalPolicies(
+    {
+      apiClient: Object.assign(f.options.apiClient, {
+        recoverPendingPrincipalMutation: async () => {
+          state.recoveries += 1;
+          expect(f.requests).toHaveLength(0);
+        },
+      }),
+      crypto: { encapsulationKeyPair: null },
+      infra: { execSql: f.options.execSql },
+      resolveTrustedUserIdentity: history.resolveTrustedUserIdentity,
+      state,
+      util: { log: () => {}, reportSecurityIncident: async () => {} },
+    },
     withPrincipalHistoryProtection,
-  };
+  );
   const readCurrent = createRuntimeCurrentSharePrincipalPolicy(runtime);
   if (!readCurrent) throw new Error("Missing current share reader");
   return {

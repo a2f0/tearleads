@@ -20,9 +20,8 @@ const principalsWorkflowSurface = [
   "policyVerification",
   "recoveryOperation/principalCurrentRecoveryBatch",
   "principalPolicyHistoryReader",
+  "principalPolicyService",
   "runtimePolicyRecovery",
-  "runtimePolicyWarmer",
-  "runtimeProjectionPolicyRecovery",
 ].map((module) => `${sdk}/workflows/principals/${module}.ts`);
 
 // The data/principals modules the rest of the SDK may import. Organization
@@ -33,7 +32,6 @@ const principalsDataSurface = [
   "organizationAuthorityDescriptor",
   "organizationGroupRoles",
   "principalHistoryProtection",
-  "principalHistoryRuntime",
   "principalHistoryScopeProtection",
   "principalIdentityCommitments",
   "principalKeyValidation",

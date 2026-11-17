@@ -11,10 +11,7 @@ import {
   type PendingAttachmentRecord,
   resolveDocumentCreateAuthor,
 } from "../../../../workflows/documents";
-import {
-  createRuntimePrincipalPolicyWarmer,
-  type PrincipalPolicyOperation,
-} from "../../../../workflows/principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { markOriginatedDocuments } from "../../../../workflows/sync";
 import { requestDocumentStoreSync } from "../../registry";
 import {
@@ -318,10 +315,10 @@ function createAttachmentBaseUploadInput(input: {
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: pendingAttachment.slotId,
     sourceSnapshot: input.sourceSnapshot,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      state.runtime,
-      { operation: input.pendingUpload.policyOperation },
-    ),
+    warmReferencedPrincipalPolicies:
+      state.runtime.principalPolicies.createWarmer({
+        operation: input.pendingUpload.policyOperation,
+      }),
   };
 }
 

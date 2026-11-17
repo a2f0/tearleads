@@ -5,6 +5,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { createParentProjection } from "../../../../test/helpers/containerFixtures";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
@@ -77,7 +78,7 @@ test("a persisted shared root created by another user never absorbs local conten
           rootMerges.push(input.localRootContainerId);
         },
       } as unknown as ContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         apiClient: {
           getContainerWriterProjection: async () => {
             projectionReads += 1;
@@ -106,7 +107,7 @@ test("a persisted shared root created by another user never absorbs local conten
             });
           },
         },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
     const listed: RemoteContainer = {
       id: sharedRootId,

@@ -4,6 +4,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import {
@@ -78,7 +79,7 @@ test.each([false, true])(
       const state = {
         containersById: new Map([[stale.id, existing]]),
         persistence,
-        runtime: {
+        runtime: withPrincipalPolicies({
           resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
           apiClient: {
             getContainerWriterProjection:
@@ -113,7 +114,7 @@ test.each([false, true])(
           infra: { dbStatus: "ready", execSql },
           state: { domainScope: createDomainScope(), online: true },
           util: { log: () => {} },
-        },
+        }),
       } as unknown as RemoteContainerHydrationState;
       let completed = false;
       await hydrateRemoteContainers({

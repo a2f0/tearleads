@@ -544,6 +544,7 @@ export type {
   AcknowledgedPrincipalPredecessor,
   CacheReferencedPrincipalPoliciesOptions,
   PrincipalHistoryProtectionLease,
+  PrincipalPolicyService,
   ProjectionPolicyHistoryRecoveryOptions,
   RecoveredPrincipalPolicyHistory,
   RecoveredScopedPrincipalPolicyHistory,

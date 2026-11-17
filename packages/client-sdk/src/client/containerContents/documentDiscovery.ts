@@ -15,7 +15,7 @@ import { ContainerDocumentListingUnavailableError } from "../../workflows/contai
 import { createContainerDocumentQueriesFromRuntime } from "../../workflows/container-contents/documentQueries";
 import {
   type ContainerContentsWorkflowRuntime,
-  createContainerContentsWorkflowRuntime,
+  createContainerContentsWorkflowRuntimeFromSnapshot,
 } from "../../workflows/container-contents/runtime";
 import { guardDocumentDiscoveryWrites } from "../../workflows/container-contents/syncPause/discoveryGuard";
 import {
@@ -24,9 +24,8 @@ import {
 } from "../../workflows/container-contents/tombstones/documentTombstoneEvidence";
 import {
   createPrincipalPolicyOperation,
-  createRuntimePrincipalPolicyWarmer,
   type PrincipalPolicyOperation,
-} from "../../workflows/principals/runtimePolicyWarmer";
+} from "../../workflows/principals/principalPolicyService";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 
 export type { ContainerDocumentDiscoveryOutcome } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryLanes";
@@ -60,10 +59,10 @@ function createDiscoveryLane(input: {
 }): ContainerDocumentDiscoveryLane {
   const { containerOrganizationId, execSql, holdRepository, request, runtime } =
     input;
-  const warmReferencedPrincipalPolicies = createRuntimePrincipalPolicyWarmer(
-    runtime,
-    { operation: input.policyOperation },
-  );
+  const warmReferencedPrincipalPolicies =
+    runtime.principalPolicies.createWarmer({
+      operation: input.policyOperation,
+    });
   const loadHead = createDocumentHeadLinkSetLoader(
     runtime,
     undefined,
@@ -134,7 +133,7 @@ export async function discoverContainerDocumentLanesForRuntime({
   if (input.infra.dbStatus !== "ready") {
     return requests.map(({ containerId }) => unlisted(containerId));
   }
-  const runtime = createContainerContentsWorkflowRuntime(input);
+  const runtime = createContainerContentsWorkflowRuntimeFromSnapshot(input);
   const execSql = input.infra.execSql;
   const evidenceStore = createDocumentDiscoveryEvidenceStore(execSql);
   const holdRepository = new ContainerDocumentTombstoneHoldRepository(execSql);

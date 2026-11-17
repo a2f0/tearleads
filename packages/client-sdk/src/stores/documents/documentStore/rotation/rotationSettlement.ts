@@ -1,6 +1,6 @@
 import { encodeVersionVector, satisfiesVersionVector } from "@tearleads/loro";
 import type { PendingUpdateRecord } from "../../../../workflows/documents";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { chainIdentityWrite } from "../identityWriteChain";
 import { listPendingUpdates, persistDocument } from "../persistence";
 import type {

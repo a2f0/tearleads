@@ -5,7 +5,6 @@ import {
   assertProjectionVerificationCurrent,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
-import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
 import { PrincipalPolicyHistoryReadError } from "./historyRecovery/principalHistoryRecoveryTypes";
 import { apiProjectionPolicyHistoryReader } from "./principalPolicyHistoryReader";
@@ -14,7 +13,7 @@ import {
   recoverProjectionPolicyHistory,
 } from "./publicHistory/recoverProjectionPolicyHistory";
 import { isPrincipalRecoveryOutage } from "./recoveryOperation/principalRecoveryOutage";
-import type { PrincipalPolicyRecoveryRuntime } from "./runtimePolicyRecovery";
+import type { PrincipalPolicyCollaborators } from "./runtimePolicyRecovery";
 
 async function recoverWithOutageFallback(
   options: ProjectionPolicyHistoryRecoveryOptions,
@@ -28,52 +27,54 @@ async function recoverWithOutageFallback(
   }
 }
 
-export function createRuntimeProjectionPolicyResolver(
-  runtime: PrincipalPolicyRecoveryRuntime,
+export function createProjectionPolicyHistoryResolver(
+  collaborators: PrincipalPolicyCollaborators,
 ): ReferencedPrincipalPolicyWarmer["resolveProjectionHistory"] {
-  const lease = readPrincipalHistoryProtection(runtime);
-  const historyReader = apiProjectionPolicyHistoryReader(runtime.apiClient);
+  const lease = collaborators.withPrincipalHistoryProtection;
+  const historyReader = apiProjectionPolicyHistoryReader(
+    collaborators.apiClient,
+  );
   if (!lease || !historyReader) return undefined;
   return (input) =>
-    getOrCreatePrincipalPolicyCoordinator(runtime.infra.execSql).queueRecovery(
-      input.organizationId,
-      () =>
-        runWithSecurityIncidentReporting(
-          runtime.util.reportSecurityIncident,
-          {
-            objectId: input.organizationId,
-            objectKind: "principal",
-            operation: "principal.projection.recover",
-            organizationId: input.organizationId,
-          },
-          () =>
-            lease(async ({ protection, stillCurrent: leaseCurrent }) => {
-              const stillCurrent = () =>
-                leaseCurrent() && input.stillCurrent?.() !== false;
+    getOrCreatePrincipalPolicyCoordinator(
+      collaborators.infra.execSql,
+    ).queueRecovery(input.organizationId, () =>
+      runWithSecurityIncidentReporting(
+        collaborators.util.reportSecurityIncident,
+        {
+          objectId: input.organizationId,
+          objectKind: "principal",
+          operation: "principal.projection.recover",
+          organizationId: input.organizationId,
+        },
+        () =>
+          lease(async ({ protection, stillCurrent: leaseCurrent }) => {
+            const stillCurrent = () =>
+              leaseCurrent() && input.stillCurrent?.() !== false;
+            assertProjectionVerificationCurrent(stillCurrent);
+            try {
+              const policies = await recoverWithOutageFallback({
+                ...input,
+                historyReader,
+                execSql: collaborators.infra.execSql,
+                protection,
+                stillCurrent,
+                offline: collaborators.state?.online === false,
+                resolveTrustedUserIdentity:
+                  collaborators.resolveTrustedUserIdentity,
+              });
+              return { policies, stillCurrent };
+            } catch (error) {
               assertProjectionVerificationCurrent(stillCurrent);
-              try {
-                const policies = await recoverWithOutageFallback({
-                  ...input,
-                  historyReader,
-                  execSql: runtime.infra.execSql,
-                  protection,
-                  stillCurrent,
-                  offline: runtime.state?.online === false,
-                  resolveTrustedUserIdentity:
-                    runtime.resolveTrustedUserIdentity,
-                });
-                return { policies, stillCurrent };
-              } catch (error) {
-                assertProjectionVerificationCurrent(stillCurrent);
-                if (
-                  error instanceof PrincipalPolicyHistoryReadError ||
-                  (error instanceof KeyingVerificationError &&
-                    error.code === "missing_dependency")
-                )
-                  throw new ProjectionDependencyUnavailableError(error.message);
-                throw error;
-              }
-            }),
-        ),
+              if (
+                error instanceof PrincipalPolicyHistoryReadError ||
+                (error instanceof KeyingVerificationError &&
+                  error.code === "missing_dependency")
+              )
+                throw new ProjectionDependencyUnavailableError(error.message);
+              throw error;
+            }
+          }),
+      ),
     );
 }

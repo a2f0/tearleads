@@ -25,8 +25,8 @@ provider, a private ephemeral key permits same-runtime reuse; a restart safely
 requires replay. Refreshing a session token expires outstanding leases while
 retaining that key for the same database, signing identity and API trust domain.
 Provider failures propagate instead of silently changing keys. Container and
-document workflow adapters retain the same lease in a private weak registry;
-their public runtime views do not expose custody callbacks.
+document workflow views keep the same lease inside their `principalPolicies`
+service's private field and do not expose custody callbacks.
 
 Standalone hosts can pass `withPrincipalHistoryProtection` to the public
 document or container workflow constructor, including the container store
@@ -34,9 +34,10 @@ constructor. The exported `PrincipalHistoryProtectionLease` callback must supply
 a private 32-byte key and trust context, keep them usable until its operation
 settles, then clear its owned key bytes. Its `stillCurrent` predicate must
 remain false after the owning database, identity, session authority or host
-lifetime changes. Derived document runtimes inherit this custody through the
-private registry. Custody callbacks must support nested leases: sharing may
-verify a projection or enter a mutation context inside an existing read lease.
+lifetime changes. Derived document runtimes share their parent's
+`principalPolicies` service. Custody callbacks must support nested leases:
+sharing may verify a projection or enter a mutation context inside an
+existing read lease.
 Each lease owns its key buffer and keeps its lifetime valid until its callback
 settles; see [sharing custody](principal-current-sharing.md). Omitting custody
 leaves compact projection recovery unavailable; hosts using these constructors

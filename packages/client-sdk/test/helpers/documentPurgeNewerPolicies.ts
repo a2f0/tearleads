@@ -9,7 +9,7 @@ import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
 } from "../../src/data/principals/organizationAuthorityDescriptor";
-import { createRuntimePrincipalPolicyWarmer } from "../../src/workflows/principals/runtimePolicyWarmer";
+import { PrincipalPolicyService } from "../../src/workflows/principals/principalPolicyService";
 import { createHistoricalPolicyPurgeFixture } from "./documentPurgeHistoricalPolicy";
 import { createAuthorityRecoveryFixture } from "./principalAuthorityRecovery";
 import {
@@ -78,7 +78,7 @@ export async function createNewerPolicyPurgeFixture() {
     resolveTrustedUserIdentity: fixture.resolveUserKey,
   });
   const incidents: unknown[] = [];
-  const warmer = createRuntimePrincipalPolicyWarmer({
+  const warmer = new PrincipalPolicyService({
     apiClient: createMockApiClient({
       getPrincipalPolicyPages: f.apiClient.getPrincipalPolicyPages.bind(
         f.apiClient,
@@ -98,7 +98,7 @@ export async function createNewerPolicyPurgeFixture() {
     },
     withPrincipalHistoryProtection: (operation) =>
       operation({ protection: f.options.protection, stillCurrent: () => true }),
-  });
+  }).createWarmer();
   try {
     const resolved = await warmer.resolveReference?.({
       organizationId,

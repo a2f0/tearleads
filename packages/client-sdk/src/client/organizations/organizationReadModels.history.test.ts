@@ -9,11 +9,11 @@ import {
 import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
 import { organizationReadModelSnapshot } from "../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createAuthorityRecoveryFixture } from "../../../test/helpers/principalAuthorityRecovery";
+import { withPrincipalPolicies } from "../../../test/helpers/principalPolicyServiceFixture";
 import { projectionHistoryPages } from "../../../test/helpers/projectionPolicyHistory";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
-import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 
@@ -129,15 +129,13 @@ test("organization history enriches online and preserves verified local entries 
       }) => Promise<T>,
     ) => work({ protection: f.options.protection, stillCurrent: () => true }),
   };
-  let input = inheritPrincipalHistoryProtection(
-    lease,
-    createWorkflowInputFixture({
-      apiClient,
-      auth: { organizationId: data.organizationId, userId: data.signerUserId },
-      execSql: sql.execSql,
-      resolveTrustedUserIdentity: data.resolveTrustedUserIdentity,
-    }),
-  );
+  let input = createWorkflowInputFixture({
+    ...lease,
+    apiClient,
+    auth: { organizationId: data.organizationId, userId: data.signerUserId },
+    execSql: sql.execSql,
+    resolveTrustedUserIdentity: data.resolveTrustedUserIdentity,
+  });
   const runtime = createInternalRuntimeFixture(() => input);
   const coordinator = createOrganizationReadModelCoordinator(runtime);
   try {
@@ -162,10 +160,11 @@ test("organization history enriches online and preserves verified local entries 
     ]);
     expect(await coordinator.loadOrganizationPolicyHistory()).toEqual(online);
     expect(requests).toBe(1);
-    input = inheritPrincipalHistoryProtection(input, {
-      ...input,
-      state: { ...input.state, online: false },
-    });
+    // The offline snapshot binds its own service over its own state.
+    input = withPrincipalPolicies(
+      { ...input, state: { ...input.state, online: false } },
+      lease.withPrincipalHistoryProtection,
+    );
     const offline = await coordinator.loadOrganizationPolicyHistory();
     expect(offline?.entries[0]?.stateHash).toBe(online?.entries[0]?.stateHash);
     expect(offline).toEqual(online);

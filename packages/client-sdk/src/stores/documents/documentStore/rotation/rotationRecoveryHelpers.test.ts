@@ -8,6 +8,7 @@ import {
 import { createMockApiClient } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
@@ -125,7 +126,7 @@ export function createRotationRecoveryRuntime(input: {
     reportSecurityIncident: async () => undefined,
   };
 
-  return {
+  return withPrincipalPolicies({
     apiClient,
     blobAttachments: new BlobAttachmentService({
       api: apiClient,
@@ -153,7 +154,7 @@ export function createRotationRecoveryRuntime(input: {
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: input.execSql,
     },
-    resolveTrustedUserIdentity: async (userId) =>
+    resolveTrustedUserIdentity: async (userId: string) =>
       userId === author.signerUserId
         ? createTestTrustedUserIdentity({
             encapsulationPublicKey: publicKey,
@@ -170,5 +171,5 @@ export function createRotationRecoveryRuntime(input: {
       peerScope: "rotation-recovery-restart",
     },
     util,
-  };
+  });
 }

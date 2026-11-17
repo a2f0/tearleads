@@ -13,6 +13,7 @@ import {
   createResponse,
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
@@ -102,7 +103,7 @@ async function runMoveRemoteContainerDocumentFixture(input: {
 
     const runtime: Parameters<
       typeof moveRemoteContainerDocument
-    >[0]["runtime"] = {
+    >[0]["runtime"] = withPrincipalPolicies({
       apiClient: createMockApiClient({
         listDocumentAttachments: async () => [],
         getContainerWriterProjection: async (containerId) => {
@@ -233,7 +234,7 @@ async function runMoveRemoteContainerDocumentFixture(input: {
         log: () => undefined,
         reportSecurityIncident: async () => undefined,
       },
-    };
+    });
     const move = () =>
       moveRemoteContainerDocument({
         currentContainerId: rootProjection.containerId,

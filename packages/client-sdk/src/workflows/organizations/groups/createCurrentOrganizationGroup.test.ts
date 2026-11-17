@@ -10,6 +10,7 @@ import {
   policyBundleFromInitialRequest,
   policyReceiptFromBundle,
 } from "../../../../test/helpers/principalPolicyFixtures";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createRuntimeCurrentOrganizationMutation } from "../principalMutations/runtimeCurrentOrganizationMutation";
 import { createCurrentOrganizationGroup } from "./createCurrentOrganizationGroup";
@@ -65,19 +66,23 @@ async function fixture(fallback = false) {
       organizationPolicy,
     };
   };
-  const mutate = createRuntimeCurrentOrganizationMutation({
-    apiClient: Object.assign(f.apiClient, {
-      recoverPendingPrincipalMutation: async () => {},
-    }),
-    infra: { execSql: f.options.execSql },
-    resolveTrustedUserIdentity: history.resolveTrustedUserIdentity,
-    util: { reportSecurityIncident: async () => {} },
-    withPrincipalHistoryProtection: async (work) =>
-      work({
-        protection: f.options.protection,
-        stillCurrent: () => state.current,
-      }),
-  });
+  const mutate = createRuntimeCurrentOrganizationMutation(
+    withPrincipalPolicies(
+      {
+        apiClient: Object.assign(f.apiClient, {
+          recoverPendingPrincipalMutation: async () => {},
+        }),
+        infra: { execSql: f.options.execSql },
+        resolveTrustedUserIdentity: history.resolveTrustedUserIdentity,
+        util: { reportSecurityIncident: async () => {} },
+      },
+      async (work) =>
+        work({
+          protection: f.options.protection,
+          stillCurrent: () => state.current,
+        }),
+    ),
+  );
   if (!mutate) throw new Error("Missing mutation custody");
   const signingFingerprint = await toFingerprint(
     history.signingKeyPair.signingPublicKey,

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { RemoteContainerHydrationHost } from "../../../workflows/container-contents/remoteHydration";
 import { resumeRemoteContainerRecoveryWork } from "../remoteEvents/remoteContainerIngestion";
@@ -74,7 +75,7 @@ function createRequestState(input: {
     remoteHydrationGeneration: null,
     remoteHydrationStructuralGeneration: null,
     rootLaneHydrated: false,
-    runtime: {
+    runtime: withPrincipalPolicies({
       apiClient: {
         listContainerParentLanes: input.listContainerParentLanes,
       },
@@ -82,7 +83,7 @@ function createRequestState(input: {
       infra: { dbStatus: "ready", execSql: input.execSql },
       state: { domainScope: createDomainScope(), online: input.online ?? true },
       util: { log: () => {} },
-    },
+    }),
     snapshot: { ready: true },
     structuralGeneration: 0,
   } as unknown as RequestState;

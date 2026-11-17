@@ -5,6 +5,7 @@ import {
 } from "@tearleads/crypto";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../test/helpers/documentFixtures";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -31,7 +32,7 @@ async function purgeWithFailingProjectionFetch(
     noteId: "note",
     persistence,
     resolveProjectionUserKey: async () => null,
-    runtime: {
+    runtime: withPrincipalPolicies({
       apiClient: createMockApiClient({
         getPrincipalPolicyPages: () => {
           throw new Error("Unexpected principal page read");
@@ -74,10 +75,10 @@ async function purgeWithFailingProjectionFetch(
         online: true,
       },
       util: {
-        log: (message) => logs.push(message),
+        log: (message: string) => logs.push(message),
         reportSecurityIncident: async () => undefined,
       },
-    },
+    }),
   });
   return { logs, localDeletes: () => localDeletes, purge };
 }

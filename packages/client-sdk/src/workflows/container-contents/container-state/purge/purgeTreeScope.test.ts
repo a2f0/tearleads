@@ -3,6 +3,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
@@ -66,7 +67,7 @@ for (const scenario of [
       const state = {
         containersById: new Map(),
         persistence: sqlContainerContentsPersistence,
-        runtime: {
+        runtime: withPrincipalPolicies({
           apiClient: {
             getContainerWriterProjection: async () => {
               if (purging && scenario === "unavailable")
@@ -120,7 +121,7 @@ for (const scenario of [
             encapsulationPublicKey: parent.encapsulationPublicKey,
           }),
           util: { log: () => {}, reportSecurityIncident: async () => {} },
-        },
+        }),
       } as unknown as RemoteContainerHydrationState;
       expect(
         Reflect.get(projection.path.at(-1)?.state ?? {}, "parentContainerId"),

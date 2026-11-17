@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { createPrincipalPolicyOperation } from "../../principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import { invalidateContainerProjections } from "../container-state/projectionCache";
 import type { ContainerState } from "../remoteHydration";
 import { createContainerMetadataDocument } from "./containerMetadataDocument";

@@ -5,11 +5,9 @@ import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVer
 import {
   assertProjectionVerificationCurrent,
   type PrincipalPolicyResolveRequest,
-  type ReferencedPrincipalPolicyWarmer,
   type ResolvedPrincipalPolicyEvidence,
 } from "../../data/keyingProjectionVerification/types";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
-import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import {
   getOrCreatePrincipalPolicyCoordinator,
   type PrincipalPolicyCoordinator,
@@ -31,27 +29,24 @@ import { createPrincipalCurrentRecoveryBatch } from "./recoveryOperation/princip
 import { recoverWithPrincipalLocalPreference } from "./recoveryOperation/principalRecoveryLocalPreference";
 import { resumeAfterSupersededStage } from "./recoveryOperation/supersededStageResume";
 
-export interface PrincipalPolicyRecoveryRuntime {
+/**
+ * The slices of one runtime snapshot a `PrincipalPolicyService` reads. Each
+ * service method reads them when it is called and its resolvers per request,
+ * as the snapshot's other consumers do. The lease is the snapshot's bound
+ * history custody; the service never binds one itself.
+ */
+export interface PrincipalPolicyCollaborators {
   readonly apiClient: Partial<PrincipalPolicyHistoryReader>;
   readonly infra: { readonly execSql: ExecSql };
   readonly state?: { readonly online: boolean } | undefined;
-  readonly util: { readonly reportSecurityIncident: SecurityIncidentReporter };
+  readonly util: {
+    readonly reportSecurityIncident: SecurityIncidentReporter;
+    readonly log?: ((message: string) => void) | undefined;
+  };
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly withPrincipalHistoryProtection?:
     | PrincipalHistoryProtectionLease
     | undefined;
-}
-
-/** Keep the private recovery key inside its runtime lease while resolving cited evidence. */
-export function createRuntimePrincipalPolicyResolver(
-  runtime: PrincipalPolicyRecoveryRuntime,
-  options: { readonly preferLocalCurrent?: boolean } = {},
-): ReferencedPrincipalPolicyWarmer["resolveReference"] {
-  const resolve = createRuntimePrincipalPolicyCurrentResolver(runtime);
-  return resolve
-    ? (input) =>
-        resolve({ ...input, preferLocalCurrent: options.preferLocalCurrent })
-    : undefined;
 }
 
 export interface ResolvedPrincipalPolicyCurrent
@@ -61,13 +56,17 @@ export interface ResolvedPrincipalPolicyCurrent
   readonly historyPage?: RecoveredPrincipalHistoryPage | undefined;
 }
 
-interface PrincipalPolicyCurrentRequest
+export interface PrincipalPolicyCurrentRequest
   extends Omit<PrincipalPolicyResolveRequest, "reference"> {
   readonly reference?: PrincipalPolicyResolveRequest["reference"] | undefined;
   /** A read-model caller has selected this exact signed head; not a freshness read. */
   readonly preferLocalCurrent?: boolean | undefined;
   readonly historyPage?: { readonly beforeVersion?: number } | undefined;
 }
+
+export type PrincipalPolicyCurrentResolver = (
+  input: PrincipalPolicyCurrentRequest,
+) => Promise<ResolvedPrincipalPolicyCurrent>;
 
 type PrincipalCurrentRecoveryBatch = ReturnType<
   typeof createPrincipalCurrentRecoveryBatch
@@ -124,24 +123,20 @@ function recoverPolicyCurrent(
     : batch.discover(options);
 }
 
-/** Keep current artifacts with their verified evidence and private runtime lifetime. */
-export function createRuntimePrincipalPolicyCurrentResolver(
-  runtime: PrincipalPolicyRecoveryRuntime,
-):
-  | ((
-      input: PrincipalPolicyCurrentRequest,
-    ) => Promise<ResolvedPrincipalPolicyCurrent>)
-  | undefined {
-  const lease = readPrincipalHistoryProtection(runtime);
-  const historyReader = apiPrincipalPolicyPageReader(runtime.apiClient);
+/** Keep current artifacts with their verified evidence and private snapshot lifetime. */
+export function createPrincipalPolicyCurrentResolver(
+  policies: PrincipalPolicyCollaborators,
+): PrincipalPolicyCurrentResolver | undefined {
+  const lease = policies.withPrincipalHistoryProtection;
+  const historyReader = apiPrincipalPolicyPageReader(policies.apiClient);
   if (!lease || !historyReader) return undefined;
   const coordinator = getOrCreatePrincipalPolicyCoordinator(
-    runtime.infra.execSql,
+    policies.infra.execSql,
   );
   return (input) =>
     coordinator.queueRecovery(input.organizationId, () =>
       runWithSecurityIncidentReporting(
-        runtime.util.reportSecurityIncident,
+        policies.util.reportSecurityIncident,
         {
           objectId: input.reference?.principalId ?? input.organizationId,
           objectKind: "principal",
@@ -154,15 +149,15 @@ export function createRuntimePrincipalPolicyCurrentResolver(
               leaseCurrent() && input.stillCurrent?.() !== false;
             assertProjectionVerificationCurrent(stillCurrent);
             assertHistoryPageRequest(input);
-            const offline = runtime.state?.online === false;
+            const offline = policies.state?.online === false;
             try {
               const options = {
                 historyReader,
-                execSql: runtime.infra.execSql,
+                execSql: policies.infra.execSql,
                 offline,
                 organizationId: input.organizationId,
                 protection,
-                resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+                resolveTrustedUserIdentity: policies.resolveTrustedUserIdentity,
                 stillCurrent,
               };
               const result = await resumeAfterSupersededStage(

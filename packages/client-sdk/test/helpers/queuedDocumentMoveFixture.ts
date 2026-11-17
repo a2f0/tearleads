@@ -23,8 +23,8 @@ import type { ContainerContentsWorkflowRuntime } from "../../src/workflows/conta
 import { defaultDocumentsPersistence } from "../../src/workflows/documents";
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
 import { RemoteDocumentService } from "../../src/workflows/documents/remote/remoteDocumentService";
-import { createRuntimePrincipalPolicyWarmer } from "../../src/workflows/principals/runtimePolicyWarmer";
 import { createAuthor, createResponse } from "./documentFixtures";
+import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
 import { queuedDocumentMoveLocalState } from "./queuedDocumentMoveLocalState";
 import {
   createQueuedDocumentMoveRemote,
@@ -207,7 +207,7 @@ export async function runQueuedDocumentMoveFixture(input: {
       loseUnlinkResponseOnce: input.loseUnlinkResponseOnce,
       writerProjection: initialWriterProjection,
     });
-    const runtime: ContainerContentsWorkflowRuntime = {
+    const runtime: ContainerContentsWorkflowRuntime = withPrincipalPolicies({
       apiClient: createMockApiClient({
         listDocumentAttachments: async () => {
           remoteRequests.push("attachments");
@@ -358,7 +358,7 @@ export async function runQueuedDocumentMoveFixture(input: {
         log: () => undefined,
         reportSecurityIncident: async () => undefined,
       },
-    };
+    });
 
     if (extraProjection && input.remoteOnlySourceContainer) {
       // Link into "extra" through the real signed link-set path so the
@@ -394,7 +394,7 @@ export async function runQueuedDocumentMoveFixture(input: {
               ? extraProjection.containerId
               : rootProjection.containerId,
           warmReferencedPrincipalPolicies:
-            createRuntimePrincipalPolicyWarmer(runtime),
+            runtime.principalPolicies.createWarmer(),
         });
         if (!linked) {
           throw new Error(

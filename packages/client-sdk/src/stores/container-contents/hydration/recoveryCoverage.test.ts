@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ListContainerParentLanesResponse } from "@tearleads/validators/response";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { RemoteContainerHydrationHost } from "../../../workflows/container-contents/remoteHydration";
 import {
@@ -52,7 +53,7 @@ test("requests queued across a reset settle with the recovery crawl", async () =
       remoteHydrationGeneration: null,
       remoteHydrationStructuralGeneration: null,
       rootLaneHydrated: false,
-      runtime: {
+      runtime: withPrincipalPolicies({
         apiClient: {
           listContainerParentLanes: () => {
             const listing =
@@ -66,7 +67,7 @@ test("requests queued across a reset settle with the recovery crawl", async () =
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
-      },
+      }),
       snapshot: { ready: true },
       structuralGeneration: 0,
     } as unknown as RequestState;

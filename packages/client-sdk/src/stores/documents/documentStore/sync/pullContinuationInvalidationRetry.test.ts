@@ -21,7 +21,7 @@ import {
   defaultDocumentsPersistence,
 } from "../../../../workflows/documents";
 import { buildMaterializedDocumentSyncPlan } from "../../../../workflows/documents/syncPlan/syncPlanMaterial";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { createDocumentStoreState, setReadySnapshot } from "../state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";

@@ -10,6 +10,7 @@ import {
   createMaterializedSyncFixture,
   writerProjectionEvidence,
 } from "../../../../../test/helpers/documentFixtures";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
@@ -163,7 +164,7 @@ for (const restoreDuringPreparation of [false, true]) {
           return exportFullHistorySnapshot(await createDocument("unlink"));
         },
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-        runtime: {
+        runtime: withPrincipalPolicies({
           apiClient: createMockApiClient({
             getContainerWriterProjection: async (containerId) =>
               containerId === fixture.child.containerId
@@ -229,7 +230,7 @@ for (const restoreDuringPreparation of [false, true]) {
           },
           resolveTrustedUserIdentity: async () => null,
           util: { log: () => {}, reportSecurityIncident: async () => {} },
-        } as unknown as ContainerContentsWorkflowRuntime,
+        }) as unknown as ContainerContentsWorkflowRuntime,
       });
       expect(unlinks).toBe(restoreDuringPreparation ? 0 : 1);
       // The emptied descendant's DELETE stays bound to the selected root.

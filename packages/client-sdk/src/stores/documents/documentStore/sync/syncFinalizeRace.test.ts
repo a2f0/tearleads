@@ -7,7 +7,7 @@ import {
   recordDocumentSyncFailure,
 } from "../../../../data/persistence/documents/records";
 import type { DocumentsPersistence } from "../../../../workflows/documents";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,

@@ -1,15 +1,21 @@
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import type { PrincipalPolicyRecoveryRuntime } from "../../principals/runtimePolicyRecovery";
+import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
+import {
+  createCurrentPrincipalMutationLease,
+  type PrincipalPolicyRuntime,
+} from "../../principals/principalPolicyService";
 import type { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { loadCurrentOrganizationMutationAuthority } from "./currentOrganizationMutationAuthority";
 import { createCurrentOrganizationMutationRetention } from "./currentOrganizationMutationRetention";
-import { createCurrentPrincipalMutationLease } from "./currentPrincipalMutationLease";
 import type { PrincipalMutationRecoveryApi } from "./principalMutationJournalManagement";
 
-type Runtime = PrincipalPolicyRecoveryRuntime & {
-  readonly apiClient: PrincipalPolicyRecoveryRuntime["apiClient"] &
-    Pick<PrincipalMutationRecoveryApi, "recoverPendingPrincipalMutation">;
+type Runtime = PrincipalPolicyRuntime & {
+  readonly apiClient: Pick<
+    PrincipalMutationRecoveryApi,
+    "recoverPendingPrincipalMutation"
+  >;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 };
 
 interface Input {
@@ -25,7 +31,7 @@ export type CurrentOrganizationMutationContext = Authority &
 
 /** Keep directory authoring and exact acknowledgement inside one private lease. */
 export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
-  const lease = createCurrentPrincipalMutationLease(runtime);
+  const lease = createCurrentPrincipalMutationLease(runtime.principalPolicies);
   if (!lease) return undefined;
   return async <T>(
     input: Input,

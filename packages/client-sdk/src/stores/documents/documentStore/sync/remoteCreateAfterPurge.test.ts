@@ -8,7 +8,7 @@ import {
   type DocumentRecord,
   defaultDocumentsPersistence,
 } from "../../../../workflows/documents";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { createDocumentStoreState } from "../state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { PrincipalHistoryProtectionLease } from "../../../data/principals/principalHistoryProtection";
 import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
@@ -30,7 +31,7 @@ test("runtime mutation custody retains exact receipts and expires escaped acknow
       }
     };
   try {
-    const mutate = createRuntimeCurrentGroupMutation({
+    const collaborators = {
       apiClient: {
         getPrincipalPolicyPages: f.apiClient.getPrincipalPolicyPages.bind(
           f.apiClient,
@@ -42,8 +43,12 @@ test("runtime mutation custody retains exact receipts and expires escaped acknow
       infra: { execSql: f.options.execSql },
       resolveTrustedUserIdentity: history.resolveTrustedUserIdentity,
       util: { reportSecurityIncident: async () => {} },
+    };
+    const runtime = withPrincipalPolicies(
+      collaborators,
       withPrincipalHistoryProtection,
-    });
+    );
+    const mutate = createRuntimeCurrentGroupMutation(runtime);
     if (!mutate) throw new Error("Missing current mutation runtime");
     const [group, directory] = f.publication.entries;
     if (!group || !directory) throw new Error("Missing compound receipt");

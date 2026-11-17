@@ -4,6 +4,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import { hydrateRemoteContainers } from "./index";
@@ -25,7 +26,7 @@ test("restoration cleanup callback runs only after a complete hydration", async 
     const state = {
       containersById: new Map<string, ContainerState>(),
       persistence: defaultContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         apiClient: {
           async listContainerParentLanes(request: {
             lanes: ReadonlyArray<{ laneId: string }>;
@@ -46,7 +47,7 @@ test("restoration cleanup callback runs only after a complete hydration", async 
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
     const host = {
       persistContainerState: async () => {

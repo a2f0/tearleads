@@ -8,6 +8,7 @@ import {
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { createAuthor } from "../../../../../test/helpers/documentFixturePrimitives";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
 import {
   CONTAINER_PATH_TOO_DEEP_MESSAGE,
@@ -48,7 +49,7 @@ function syncState(input: {
     containersById: input.containersById,
     persistence: input.persistence,
     resolveProjectionUserKey: async () => null,
-    runtime: {
+    runtime: withPrincipalPolicies({
       apiClient: createMockApiClient({
         getContainerWriterProjection: async () => {
           input.onProjectionRequest();
@@ -85,7 +86,7 @@ function syncState(input: {
         online: true,
       },
       util: { log: () => {}, reportSecurityIncident: async () => {} },
-    },
+    }),
   };
 }
 

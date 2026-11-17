@@ -6,6 +6,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/queuedUpdateRows";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
@@ -91,7 +92,7 @@ test.each(["listing", "ingest"] as const)(
       const state = {
         containersById: new Map<string, ContainerState>(),
         persistence: defaultContainerContentsPersistence,
-        runtime: {
+        runtime: withPrincipalPolicies({
           resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
           adoptRootContainer: () => {},
           apiClient: {
@@ -116,7 +117,7 @@ test.each(["listing", "ingest"] as const)(
           infra: { dbStatus: "ready", execSql },
           state: { domainScope: createDomainScope(), online: true },
           util: { log: () => {} },
-        },
+        }),
       } as unknown as RemoteContainerHydrationState;
       let primingRequests = 0;
       const host = {
@@ -251,7 +252,7 @@ test("an unsigned metadata replacement cannot purge the dormant scope", async ()
     const state = {
       containersById: new Map<string, ContainerState>(),
       persistence: defaultContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
         adoptRootContainer: () => {},
         apiClient: {
@@ -275,7 +276,7 @@ test("an unsigned metadata replacement cannot purge the dormant scope", async ()
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
     const host = {
       persistContainerState: async () => {
@@ -357,7 +358,7 @@ test("a never-bound dormant record re-attaches instead of purging", async () => 
     const state = {
       containersById: new Map<string, ContainerState>(),
       persistence: defaultContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
         adoptRootContainer: () => {},
         apiClient: {
@@ -382,7 +383,7 @@ test("a never-bound dormant record re-attaches instead of purging", async () => 
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
     const host = {
       persistContainerState: async () => {

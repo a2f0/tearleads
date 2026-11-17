@@ -8,7 +8,7 @@ import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtur
 import { assertCurrentMatchesVerifiedPolicy } from "../../data/persistence/principalPolicy/verifiedPrincipalPolicyCurrent";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
-import { createRuntimePrincipalPolicyCurrentResolver } from "./runtimePolicyRecovery";
+import { PrincipalPolicyService } from "./principalPolicyService";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
@@ -32,7 +32,7 @@ async function fixture() {
       localKey.fill(0);
     }
   };
-  const resolve = createRuntimePrincipalPolicyCurrentResolver({
+  const resolve = new PrincipalPolicyService({
     apiClient: {
       getPrincipalPolicyPages: source.apiClient.getPrincipalPolicyPages.bind(
         source.apiClient,
@@ -47,7 +47,7 @@ async function fixture() {
         incidents.push(error);
       },
     },
-  });
+  }).createCurrentPolicyResolver();
   if (!resolve) throw new Error("Expected current policy recovery");
   const read = (
     preferLocalCurrent = false,

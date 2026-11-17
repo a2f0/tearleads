@@ -33,7 +33,7 @@ import {
   defaultDocumentsPersistence,
   reclaimDocumentOrphanBlobs,
 } from "../../../../workflows/documents";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { removeAttachmentFromDocumentStore } from "../attachments/attachmentRemoval";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "../initialization";

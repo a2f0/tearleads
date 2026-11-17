@@ -16,6 +16,7 @@ import {
   createResponse,
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
@@ -93,7 +94,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
       noteId: "containerContents-note-1",
       operation: "link",
       resolveProjectionUserKey,
-      runtime: {
+      runtime: withPrincipalPolicies({
         apiClient: createMockApiClient({
           listDocumentAttachments: async () => [],
           getContainerWriterProjection: async (containerId) =>
@@ -144,7 +145,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
           log: () => undefined,
           reportSecurityIncident: async () => undefined,
         },
-      },
+      }),
       targetContainerId: siblingProjection.containerId,
     });
 
@@ -231,7 +232,7 @@ test("relinkRemoteContainerDocument propagates identity failures without soft-fa
         noteId: "note",
         operation: "link",
         resolveProjectionUserKey: async () => null,
-        runtime: {
+        runtime: withPrincipalPolicies({
           apiClient: createMockApiClient({
             listDocumentAttachments: async () => [],
             getContainerWriterProjection: async () => null,
@@ -269,7 +270,7 @@ test("relinkRemoteContainerDocument propagates identity failures without soft-fa
           util: {
             log: (message: string) => logs.push(message),
           },
-        } as unknown as Parameters<
+        }) as unknown as Parameters<
           typeof relinkRemoteContainerDocument
         >[0]["runtime"],
         targetContainerId: "target",

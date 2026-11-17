@@ -1,5 +1,4 @@
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import { inheritPrincipalHistoryProtection } from "../../src/data/principals/principalHistoryRuntime";
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
@@ -14,6 +13,7 @@ import {
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "./principalPolicyFixtures";
+import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
 import {
   projectionDirectoryPayload,
   projectionHistoryPages,
@@ -98,15 +98,7 @@ export async function createCurrentGrantConfirmationFixture() {
     directory,
     admin,
   ]).getProjectionPolicyHistoryPages;
-  const runtime = inheritPrincipalHistoryProtection(
-    {
-      withPrincipalHistoryProtection: async <T>(
-        work: (input: {
-          protection: typeof f.options.protection;
-          stillCurrent: () => boolean;
-        }) => Promise<T>,
-      ) => work({ protection: f.options.protection, stillCurrent: () => true }),
-    },
+  const runtime = withPrincipalPolicies(
     createShareTestRuntime({
       apiClient: f.options.apiClient,
       author,
@@ -114,6 +106,12 @@ export async function createCurrentGrantConfirmationFixture() {
       logs: [],
       resolveTrustedUserIdentity: resolveUser,
     }),
+    async <T>(
+      work: (input: {
+        protection: typeof f.options.protection;
+        stillCurrent: () => boolean;
+      }) => Promise<T>,
+    ) => work({ protection: f.options.protection, stillCurrent: () => true }),
   );
   return {
     ...f,

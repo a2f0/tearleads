@@ -36,7 +36,7 @@ import {
   type PendingUpdateInsert,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
-import type { PrincipalPolicyOperation } from "../../../workflows/principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../../workflows/principals/principalPolicyService";
 import type {
   DocumentSnapshot,
   DocumentStoreOpenOptions,

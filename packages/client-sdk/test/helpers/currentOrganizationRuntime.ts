@@ -1,5 +1,5 @@
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { inheritPrincipalHistoryProtection } from "../../src/data/principals/principalHistoryRuntime";
+import type { PrincipalHistoryProtectionLease } from "../../src/data/principals/principalHistoryProtection";
 import { createMutationResponseFromRequest } from "./containerFixtures";
 import { createWorkflowInputFixture } from "./internalRuntimeFixtures";
 import { createAuthorityRecoveryFixture } from "./principalAuthorityRecovery";
@@ -75,34 +75,34 @@ export async function createCurrentOrganizationRuntimeFixture(
     return f.policies.get(id) ?? null;
   };
   f.apiClient.getContainerWriterProjection = async () => projection;
+  const lease: PrincipalHistoryProtectionLease | undefined =
+    options.withLease === false
+      ? undefined
+      : async (work) =>
+          work({
+            protection: f.options.protection,
+            stillCurrent: () => true,
+          });
   const input = createWorkflowInputFixture({
     apiClient: f.apiClient,
     auth: { organizationId, userId: "founder" },
     execSql: f.options.execSql,
     resolveTrustedUserIdentity: signed.resolveTrustedUserIdentity,
+    withPrincipalHistoryProtection: lease,
   });
-  const runtime = inheritPrincipalHistoryProtection(
-    options.withLease === false
-      ? {}
-      : {
-          withPrincipalHistoryProtection: async <T>(
-            work: (lease: {
-              protection: typeof f.options.protection;
-              stillCurrent: () => boolean;
-            }) => Promise<T>,
-          ) =>
-            work({
-              protection: f.options.protection,
-              stillCurrent: () => true,
-            }),
-        },
-    {
-      ...input,
-      crypto: {
-        ...input.crypto,
-        encapsulationKeyPair: signed.identity,
-      },
+  const runtime = {
+    ...input,
+    crypto: {
+      ...input.crypto,
+      encapsulationKeyPair: signed.identity,
     },
-  );
-  return { ...f, runtime, signed, projection, fullReads: () => fullReads };
+  };
+  return {
+    ...f,
+    runtime,
+    lease,
+    signed,
+    projection,
+    fullReads: () => fullReads,
+  };
 }

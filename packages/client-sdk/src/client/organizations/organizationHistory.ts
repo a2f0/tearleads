@@ -3,8 +3,7 @@ import { assertProjectionVerificationCurrent } from "../../data/keyingProjection
 import { loadLocalOrganizationPolicyReference } from "../../workflows/organizations";
 import { buildOrganizationGroupPolicyHistoryPage } from "../../workflows/organizations/policyHistory/groupPolicyHistoryPage";
 import { loadPolicyHistoryDetails } from "../../workflows/organizations/policyHistory/loadPolicyHistoryDetails";
-import { createRuntimePrincipalPolicyCurrentResolver } from "../../workflows/principals/runtimePolicyRecovery";
-import { createRuntimeProjectionPolicyResolver } from "../../workflows/principals/runtimeProjectionPolicyRecovery";
+
 import type { ActiveOrganizationDataRuntime } from "./organizationWorkflowRuntime";
 
 export async function loadBoundedOrganizationHistory(input: {
@@ -14,8 +13,9 @@ export async function loadBoundedOrganizationHistory(input: {
 }) {
   const { active, stillCurrent } = input;
   const { runtime } = active;
-  const resolve = createRuntimePrincipalPolicyCurrentResolver(runtime);
-  const resolveHistory = createRuntimeProjectionPolicyResolver(runtime);
+  const resolve = runtime.principalPolicies.createCurrentPolicyResolver();
+  const resolveHistory =
+    runtime.principalPolicies.createProjectionHistoryResolver();
   if (!resolve || !resolveHistory)
     throw new ProjectionDependencyUnavailableError(
       "Organization history requires private paged recovery",

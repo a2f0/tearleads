@@ -1,5 +1,5 @@
 import type { DocumentRecord } from "../../../../workflows/documents";
-import type { PrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { requestDocumentStoreSync } from "../../registry";
 import type {
   DocumentState,

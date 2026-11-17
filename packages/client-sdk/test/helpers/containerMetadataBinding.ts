@@ -17,6 +17,7 @@ import {
   childContainerWriterProjectionFromCreatePlan,
 } from "../../src/workflows/containers/child/create";
 import { createParentProjection } from "./containerFixtures";
+import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "./trustedUserIdentity";
 
 export async function createMetadataBindingFixture(execSql: ExecSql) {
@@ -39,7 +40,7 @@ export async function createMetadataBindingFixture(execSql: ExecSql) {
   const state = {
     containersById: new Map(),
     persistence: sqlContainerContentsPersistence,
-    runtime: {
+    runtime: withPrincipalPolicies({
       apiClient: {
         evictContainerWriterProjection: () => {
           projectionEvictions += 1;
@@ -68,7 +69,7 @@ export async function createMetadataBindingFixture(execSql: ExecSql) {
           incidents.push(error);
         },
       },
-    },
+    }),
   } as unknown as RemoteContainerHydrationState;
   const listed: RemoteContainer = {
     id: projection.containerId,

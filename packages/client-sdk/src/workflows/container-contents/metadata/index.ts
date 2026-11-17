@@ -11,7 +11,7 @@ import {
   readPullContinuation,
   shouldClearDocumentSyncFailureAfterPass,
 } from "../../documents";
-import type { PrincipalPolicyOperation } from "../../principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
 import {
   currentMetadataPullContinuation,

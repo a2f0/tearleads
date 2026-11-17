@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../../test/helpers/documentPurge";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
@@ -90,7 +91,7 @@ for (const capturedParentId of ["materialized-sync-parent", "trash"]) {
         persistence,
         prepareDocumentRotationSnapshot: async () => null,
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-        runtime: {
+        runtime: withPrincipalPolicies({
           apiClient: {
             evictContainerWriterProjection: () => undefined,
             getContainerWriterProjection: async () => fixture.projection,
@@ -136,7 +137,7 @@ for (const capturedParentId of ["materialized-sync-parent", "trash"]) {
           },
           resolveTrustedUserIdentity: async () => null,
           util: { log: () => {}, reportSecurityIncident: async () => {} },
-        } as unknown as ContainerContentsWorkflowRuntime,
+        }) as unknown as ContainerContentsWorkflowRuntime,
       });
       const restored = capturedParentId === "trash";
       expect(purges).toBe(restored ? 0 : 1);

@@ -3,10 +3,7 @@ import {
   type DocumentRecord,
   resolveDocumentCreateAuthor,
 } from "../../../../workflows/documents";
-import {
-  createRuntimePrincipalPolicyWarmer,
-  type PrincipalPolicyOperation,
-} from "../../../../workflows/principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { deleteLocalAttachmentRecord } from "../attachments/attachmentPersistence";
 import { runDocumentOrphanMaintenance } from "../orphanMaintenance";
 import type {
@@ -216,10 +213,10 @@ async function syncDetachedAttachmentBinding(input: {
     resolveProjectionUserKey: generation.resolveProjectionUserKey,
     slotId: binding.slotId,
     stillCurrent: contextIsCurrent,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      state.runtime,
-      { operation: input.policyOperation },
-    ),
+    warmReferencedPrincipalPolicies:
+      state.runtime.principalPolicies.createWarmer({
+        operation: input.policyOperation,
+      }),
   };
   let detached = await blobAttachments.detachDocumentAttachment({
     ...baseDetachInput,
