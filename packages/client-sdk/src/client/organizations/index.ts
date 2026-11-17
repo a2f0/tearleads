@@ -141,7 +141,6 @@ class OrganizationsService implements Organizations {
     );
     this.memberships = createOrganizationMemberships(
       this.runtimeService,
-      this.containerContents,
       openReconciler,
     );
   }

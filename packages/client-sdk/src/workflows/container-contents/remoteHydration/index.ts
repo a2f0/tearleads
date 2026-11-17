@@ -156,7 +156,7 @@ async function upsertQueuedRemoteContainer(input: {
     return false;
   }
 
-  // A paused organization's container is acknowledged without being stored,
+  // A paused organization's container is acknowledged without being applied,
   // including when the pause lands while the commit is in flight.
   const isPaused = await loadPausedContainerFilter(state);
   if (isPaused(queuedRemoteContainer)) return true;

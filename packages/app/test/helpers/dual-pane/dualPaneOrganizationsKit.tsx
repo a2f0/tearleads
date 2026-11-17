@@ -54,3 +54,18 @@ export function memberCardShowsFolder(
       .some((row) => within(row).queryByText(folderName) !== null)
   );
 }
+
+/** The card of the organization the pane's session is working in. */
+export function activeOrganizationCard(pane: HTMLElement): HTMLElement | null {
+  const dashboard = within(pane).getByRole("list", {
+    name: ORGANIZATIONS_LABELS.title,
+  });
+  return (
+    within(dashboard)
+      .queryAllByRole("region")
+      .find(
+        (card) =>
+          within(card).queryByText(ORGANIZATIONS_LABELS.activeBadge) !== null,
+      ) ?? null
+  );
+}
