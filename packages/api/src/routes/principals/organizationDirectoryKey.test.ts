@@ -8,8 +8,11 @@ import {
   prepareUserForAdminGroup,
   prepareUserRemovalFromAdminGroup,
 } from "../../../test/helpers/organizationAdmin";
+import { createGroupRequest } from "../../../test/helpers/organizationGroup";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
+import { requestPreparedPrincipalPolicy } from "../../../test/helpers/principalHistoryRequest";
 import {
+  buildOrganizationGroupDeletionRequest,
   runGetCurrentPrincipalPolicyWorkflow,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
@@ -179,4 +182,64 @@ test("an Admins removal that keeps the organization key is refused whole", async
     ),
   ).toBe(false);
   await expect(unwrapDek(envelopes, f.admin.kem.secretKey)).rejects.toThrow();
+});
+
+test("group create and delete commit directory successors that keep the organization key", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const organizationId = await getDefaultOrganizationId(owner.userId);
+  const directory = () =>
+    runGetCurrentPrincipalPolicyWorkflow(db, "organization", organizationId);
+  const expectKept = (
+    before: Awaited<ReturnType<typeof directory>>,
+    after: Awaited<ReturnType<typeof directory>>,
+  ) => {
+    expect(after.currentState.version).toBe(before.currentState.version + 1);
+    expect(after.currentState).toMatchObject({
+      encapsulationPublicKey: before.currentState.encapsulationPublicKey,
+      keyEpoch: before.currentState.keyEpoch,
+      keyFingerprint: before.currentState.keyFingerprint,
+      memberEnvelopesRoot: before.currentState.memberEnvelopesRoot,
+    });
+  };
+  const path = `/organizations/${organizationId}/groups`;
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${owner.token}`,
+  };
+  const groupId = crypto.randomUUID();
+  const beforeCreate = await directory();
+  const created = await requestPreparedPrincipalPolicy(path, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(
+      await createGroupRequest({
+        actor: owner,
+        groupId,
+        keepKeyWith: owner.kem.secretKey,
+        name: "Operators",
+      }),
+    ),
+  });
+  expect(created.status).toBe(200);
+  await created.arrayBuffer();
+  const afterCreate = await directory();
+  expectKept(beforeCreate, afterCreate);
+
+  const deleted = await requestPreparedPrincipalPolicy(`${path}/${groupId}`, {
+    method: "DELETE",
+    headers,
+    body: JSON.stringify(
+      await buildOrganizationGroupDeletionRequest({
+        actor: owner,
+        groupId,
+        keepKeyWith: owner.kem.secretKey,
+        organizationId,
+      }),
+    ),
+  });
+  expect(deleted.status).toBe(200);
+  await deleted.arrayBuffer();
+  expectKept(afterCreate, await directory());
 });

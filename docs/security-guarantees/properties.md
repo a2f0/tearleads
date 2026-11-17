@@ -167,14 +167,14 @@ The organization policy follows the same rule for its directory key. A
 directory write (group create, group policy commit, group delete) keeps the
 key, epoch and envelopes while the Admins projection is unchanged, and wraps
 the held key only for added admins. Verifiers refuse a removal that keeps the
-key, and the SDK rotates to a freshly generated key for the remaining admins,
-so a removed admin never holds a current key the SDK wrote unless it holds a
-remaining admin's own KEM secret
-([model](../../formal/container-keying/OrganizationDirectoryKey.md)); as for
-every principal, verifiers compare key material only with the predecessor.
-The SDK also rotates when the signer's own envelope does not open the signed
-key, the writer lacks its encapsulation key, or retained envelopes share an
-encapsulation key. Verifiers refuse a changed identity for a continuing admin.
+key, and the SDK rotates to a freshly generated key for the remaining admins
+([model](../../formal/container-keying/OrganizationDirectoryKey.md)). This
+covers histories whose rotations the SDK generated: verifiers compare key
+material only with the predecessor, so a key an admin rotated back to an old
+one is kept until the next removal, and a removed admin holding a remaining
+admin's KEM secret opens that admin's envelope. The SDK also rotates when its
+own envelope does not open the signed key, it lacks its encapsulation key, or
+retained envelopes share one. Verifiers refuse a changed continuing identity.
 
 ### Managed Grants Fail Closed
 

@@ -348,11 +348,13 @@ async function buildOrganizationPolicyForGroupCommit(input: {
 export async function buildOrganizationGroupDeletionRequest(input: {
   actor: Parameters<typeof buildOrganizationPolicyForGroupCommit>[0]["actor"];
   groupId: string;
+  keepKeyWith?: Uint8Array | undefined;
   organizationId: string;
 }): Promise<DeleteOrganizationGroupRequest> {
   return {
     organizationPolicy: await buildOrganizationPolicyForGroupCommit({
       actor: input.actor,
+      keepKeyWith: input.keepKeyWith,
       organizationId: input.organizationId,
       removedGroupId: input.groupId,
     }),
@@ -361,6 +363,7 @@ export async function buildOrganizationGroupDeletionRequest(input: {
 
 export async function withOrganizationGroupDirectoryPolicy(input: {
   actor: Parameters<typeof buildOrganizationPolicyForGroupCommit>[0]["actor"];
+  keepKeyWith?: Uint8Array | undefined;
   organizationId: string;
   request: CreateOrganizationGroupRequest;
 }) {
@@ -368,6 +371,7 @@ export async function withOrganizationGroupDirectoryPolicy(input: {
     ...input.request,
     organizationPolicy: await buildOrganizationPolicyForGroupCommit({
       actor: input.actor,
+      keepKeyWith: input.keepKeyWith,
       groupPolicy: input.request.initialGroupPolicy,
       organizationId: input.organizationId,
     }),

@@ -286,6 +286,12 @@ export async function addOrganizationGroupUser(input: {
   });
 }
 
+/**
+ * Removes a user from a group and commits the group's rotated policy with the
+ * organization directory successor. With `currentUserSecretKey` the directory
+ * keeps its key while the Admins projection is unchanged; without it the
+ * directory rotates to a fresh key.
+ */
 export async function removeOrganizationGroupUser(input: {
   readonly afterPolicyCommitBeforeCache?: (() => Promise<void>) | undefined;
   /** The signer's KEM secret; without it the organization directory rotates. */
