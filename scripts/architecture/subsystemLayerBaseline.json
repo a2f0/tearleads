@@ -13,60 +13,6 @@
   "packages/client-sdk/src/data/containers/shared/heldContainerHeads.ts": [
     "packages/client-sdk/src/data/keyingProjectionVerification/checkpoints/checkpointContext.ts"
   ],
-  "packages/client-sdk/src/data/documents/attachmentContentIdentity.ts": [
-    "packages/client-sdk/src/workflows/blobs/hydration/hydrate.ts"
-  ],
-  "packages/client-sdk/src/data/documents/shared/containerKek/index.ts": [
-    "packages/client-sdk/src/data/blobs/attachments/projection.ts",
-    "packages/client-sdk/src/workflows/containers/child/create/index.ts",
-    "packages/client-sdk/src/workflows/containers/child/move/moveRotation.ts",
-    "packages/client-sdk/src/workflows/containers/child/move/moveWraps.ts",
-    "packages/client-sdk/src/workflows/containers/child/rotation/rotationContext.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/shareAncestorRepair.ts",
-    "packages/client-sdk/src/workflows/containers/index.ts",
-    "packages/client-sdk/src/workflows/containers/writeRefusal.ts"
-  ],
-  "packages/client-sdk/src/data/documents/shared/contentRecordKeys.ts": [
-    "packages/client-sdk/src/data/blobs/attachments/chunkedBlobCrypto.ts",
-    "packages/client-sdk/src/workflows/blobs/hydration/decrypt.ts"
-  ],
-  "packages/client-sdk/src/data/documents/shared/projection/index.ts": [
-    "packages/client-sdk/src/data/blobs/attachments/projection.ts",
-    "packages/client-sdk/src/workflows/blobs/blobAttachmentService.ts",
-    "packages/client-sdk/src/workflows/blobs/hydration/decrypt.ts",
-    "packages/client-sdk/src/workflows/blobs/upload/index.ts",
-    "packages/client-sdk/src/workflows/blobs/verification/retainedAttachmentVerification.ts",
-    "packages/client-sdk/src/workflows/blobs/verification/writerProjection.ts",
-    "packages/client-sdk/src/workflows/containers/child/create/index.ts",
-    "packages/client-sdk/src/workflows/containers/child/move/index.ts",
-    "packages/client-sdk/src/workflows/containers/child/rotation/rotationContext.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/shareMaterialization.ts"
-  ],
-  "packages/client-sdk/src/data/documents/shared/projection/projectionVerificationOptions.ts": [
-    "packages/client-sdk/src/data/blobs/attachments/projection.ts",
-    "packages/client-sdk/src/workflows/blobs/hydration/decrypt.ts",
-    "packages/client-sdk/src/workflows/blobs/upload/index.ts",
-    "packages/client-sdk/src/workflows/blobs/verification/retainedAttachmentVerification.ts",
-    "packages/client-sdk/src/workflows/blobs/verification/writerProjection.ts",
-    "packages/client-sdk/src/workflows/containers/child/create/index.ts",
-    "packages/client-sdk/src/workflows/containers/child/move/index.ts",
-    "packages/client-sdk/src/workflows/containers/child/rotation/rotationContext.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/shareMaterialization.ts"
-  ],
-  "packages/client-sdk/src/data/documents/shared/readers.ts": [
-    "packages/client-sdk/src/data/blobs/attachments/blobSourceSnapshot.ts",
-    "packages/client-sdk/src/data/blobs/attachments/events.ts",
-    "packages/client-sdk/src/data/blobs/attachments/projection.ts",
-    "packages/client-sdk/src/data/blobs/attachments/readers.ts",
-    "packages/client-sdk/src/data/containers/shared/projection.ts",
-    "packages/client-sdk/src/workflows/blobs/hydration/blobChunkDecryption.ts",
-    "packages/client-sdk/src/workflows/blobs/hydration/decrypt.ts",
-    "packages/client-sdk/src/workflows/blobs/upload/index.ts",
-    "packages/client-sdk/src/workflows/blobs/verification/attachmentKeyAuthenticator.ts"
-  ],
-  "packages/client-sdk/src/data/keyingProjectionVerification/dependencyUnavailable.ts": [
-    "packages/client-sdk/src/data/trustedUserIdentity/apiAdapter.ts"
-  ],
   "packages/client-sdk/src/data/keyingProjectionVerification/error.ts": [
     "packages/client-sdk/src/client/identity/userIdentities.ts",
     "packages/client-sdk/src/client/securityIncidents/index.ts",
@@ -114,14 +60,6 @@
     "packages/client-sdk/src/workflows/organizations/rosterProfileContainer.ts",
     "packages/client-sdk/src/workflows/registration/persistRegistrationBootstrap.ts"
   ],
-  "packages/client-sdk/src/data/sync/databaseUnavailable.ts": [
-    "packages/client-sdk/src/client/organizations/recipientAdmission.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/error.ts",
-    "packages/client-sdk/src/data/trustedUserIdentity/pinnedResolution.ts",
-    "packages/client-sdk/src/data/trustedUserIdentity/service.ts",
-    "packages/client-sdk/src/workflows/container-contents/documentLinks/index.ts",
-    "packages/client-sdk/src/workflows/documents/writerKeys.ts"
-  ],
   "packages/client-sdk/src/data/sync/organizationSyncPauses.ts": [
     "packages/client-sdk/src/client/containerContents/documentDiscovery.ts",
     "packages/client-sdk/src/workflows/container-contents/remoteHydration/remoteContainers/organizationSyncPauseFilter.ts"
@@ -141,9 +79,6 @@
     "packages/client-sdk/src/workflows/documents/index.ts",
     "packages/client-sdk/src/workflows/documents/sync/syncLane.ts"
   ],
-  "packages/client-sdk/src/workflows/documents/syncFailures/syncFailureClassification.ts": [
-    "packages/client-sdk/src/workflows/blobs/upload/index.ts"
-  ],
   "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataErrors.ts": [
     "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/destinationRootReload.ts"
   ],
@@ -161,21 +96,10 @@
   "packages/client-sdk/src/workflows/organizations/index.ts": [
     "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
   ],
-  "packages/client-sdk/src/workflows/organizations/provisioning/createOrganization.ts": [
-    "packages/client-sdk/src/client/session/index.ts",
-    "packages/client-sdk/src/client/session/sessionOrganizationCreation.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/provisioning/organizationProvisioningAttempt.ts": [
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/provisioning/organizationReplacementVerification.ts": [
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
-  ],
   "packages/client-sdk/src/workflows/registration/index.ts": [
-    "packages/client-sdk/src/client/session/index.ts"
-  ],
-  "packages/client-sdk/src/workflows/registration/organizationProvisioning.ts": [
-    "packages/client-sdk/src/workflows/organizations/provisioning/createOrganization.ts"
+    "packages/client-sdk/src/client/session/index.ts",
+    "packages/client-sdk/src/client/session/sessionOrganizationCreation.ts",
+    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
   ],
   "packages/client-sdk/src/workflows/sync/index.ts": [
     "packages/client-sdk/src/client/organizations/organizationMemberships.ts",

@@ -9,7 +9,7 @@ import {
   canonicalKeyingJsonString,
   readCanonicalRecord,
 } from "../../keying/canonicalJson";
-import { ProjectionDependencyUnavailableError } from "../dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import { readKeyingVerificationShape } from "../error";
 import {
   readAccessEvent,

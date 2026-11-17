@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createDomainScope } from "../../data/shared/domainScope";
-import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
+import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { getDomainSyncCoordinatorSnapshot } from "../../data/sync/syncCoordinator";
 import { registerContainerContentsSyncLane } from "./syncLane";
 

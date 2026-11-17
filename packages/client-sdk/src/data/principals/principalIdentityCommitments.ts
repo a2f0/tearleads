@@ -5,7 +5,7 @@ import {
   type PrincipalProjectionMember,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { ProjectionDependencyUnavailableError } from "../keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../shared/dependencyUnavailable";
 import type {
   StagedUserIdentityOptions,
   StagedUserIdentityResolver,

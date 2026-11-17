@@ -1,6 +1,8 @@
-import { attachmentContentSha256 } from "../../../../data/documents/attachmentContentIdentity";
 import type { DocumentAttachment } from "../../../../data/documents/documentContent";
-import { blobByteSourceInputLength } from "../../../../workflows/blobs";
+import {
+  attachmentContentSha256,
+  blobByteSourceInputLength,
+} from "../../../../workflows/blobs";
 import type { PendingAttachmentRecord } from "../../../../workflows/documents";
 import type { DocumentAttachmentUpload } from "../../types";
 

@@ -11,8 +11,8 @@ import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/blobUploadFixtures";
+import { attachmentContentSha256 } from "../../../data/blobs/attachmentContentIdentity";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
-import { attachmentContentSha256 } from "../../../data/documents/attachmentContentIdentity";
 import type { DocumentAttachment } from "../../../data/documents/documentContent";
 
 test("hydrateDocumentAttachmentBlobs downloads and decrypts remote attachment bytes", async () => {

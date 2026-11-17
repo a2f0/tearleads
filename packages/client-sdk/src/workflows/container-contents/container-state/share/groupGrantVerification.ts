@@ -8,8 +8,8 @@ import {
   type ProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../../../data/keyingProjectionVerification";
-import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
+import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import { referencedPrincipalHeadFromPolicy } from "../../../containers";
 import { createRuntimeCurrentSharePrincipalPolicy } from "../../../organizations/groupShare";
 

@@ -14,7 +14,7 @@ import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives
 import { createResponseFromRequest } from "../../../../test/helpers/documentResponseFixtures";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { isStaleDocumentCreateTargetConflict } from "./index";
 
 test("document create replan requires the exact stale-state code", () => {

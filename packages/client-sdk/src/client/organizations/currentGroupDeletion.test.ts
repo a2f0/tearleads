@@ -9,9 +9,9 @@ import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../test/helpers/principalPolicyFixtures";
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { deleteGroupForOrganization } from "./principalMutations";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
