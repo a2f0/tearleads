@@ -6,7 +6,6 @@ import {
 import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { isProjectionVerificationCancelledError } from "../../../data/keyingProjectionVerification/types";
 import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
-import { clearRemoteSyncState } from "../../sync/remoteReset";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;
@@ -121,31 +120,6 @@ test("shared progress authenticates each new citation without multiplying stages
     expect(await fixture.db.select().from(principalHistoryStages)).toHaveLength(
       1,
     );
-  } finally {
-    fixture.close();
-  }
-});
-
-test("reset invalidates an in-flight recovery through its lifetime guard", async () => {
-  const fixture = await createRecoveryFixture(history);
-  try {
-    let current = true;
-    await expect(
-      recoverPrincipalPolicyHistory({
-        ...fixture.options,
-        stillCurrent: () => current,
-        resolveTrustedUserIdentity: async (userId) => {
-          if (current) {
-            current = false;
-            await clearRemoteSyncState(fixture.options.execSql, {
-              organizationId: "org-1",
-            });
-          }
-          return history.resolveTrustedUserIdentity(userId);
-        },
-      }).catch(isProjectionVerificationCancelledError),
-    ).resolves.toBe(true);
-    expect(await fixture.db.select().from(principalHistoryStages)).toEqual([]);
   } finally {
     fixture.close();
   }

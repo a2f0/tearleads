@@ -1,5 +1,10 @@
-import { expect, test } from "bun:test";
+import { beforeAll, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createRecoveryFixture,
+  signedRecoveryHistory,
+} from "../../../test/helpers/data/principalHistoryRecovery";
+import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";
 import { clientSqlTables } from "../../data/sqlite/schema";
 import {
   principalHistoryEntries,
@@ -10,7 +15,13 @@ import { principalKeyEnvelopeArchive } from "../../data/sqlite/schema/principalH
 import { principalHistoryStages } from "../../data/sqlite/schema/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
+import { recoverPrincipalPolicyHistory } from "../principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { clearRemoteSyncState } from "./remoteReset";
+
+let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;
+beforeAll(async () => {
+  history = await signedRecoveryHistory();
+});
 
 test("organization reset discards only its principal history stages and evidence", async () => {
   const { execSql, close } = await createTestExecSql("reset-principal-history");
@@ -90,5 +101,30 @@ test("organization reset discards only its principal history stages and evidence
       ).toEqual([{ organizationId: "org-2" }]);
   } finally {
     close();
+  }
+});
+
+test("reset invalidates an in-flight recovery through its lifetime guard", async () => {
+  const fixture = await createRecoveryFixture(history);
+  try {
+    let current = true;
+    await expect(
+      recoverPrincipalPolicyHistory({
+        ...fixture.options,
+        stillCurrent: () => current,
+        resolveTrustedUserIdentity: async (userId) => {
+          if (current) {
+            current = false;
+            await clearRemoteSyncState(fixture.options.execSql, {
+              organizationId: "org-1",
+            });
+          }
+          return history.resolveTrustedUserIdentity(userId);
+        },
+      }).catch(isProjectionVerificationCancelledError),
+    ).resolves.toBe(true);
+    expect(await fixture.db.select().from(principalHistoryStages)).toEqual([]);
+  } finally {
+    fixture.close();
   }
 });
