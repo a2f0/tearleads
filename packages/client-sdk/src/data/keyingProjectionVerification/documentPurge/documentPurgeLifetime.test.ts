@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeHistoricalPolicy";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
@@ -30,6 +31,7 @@ test("purge rolls back terminal pins and teardown when its lease expires before 
     await database.execSql("INSERT INTO purge_teardown_probe VALUES (1)");
     const verified = await verifyDocumentPurgeProof({
       execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
       expectedDocumentId: fixture.proof.documentId,
       expectedOrganizationId: "organization-1",
       proof: fixture.proof,

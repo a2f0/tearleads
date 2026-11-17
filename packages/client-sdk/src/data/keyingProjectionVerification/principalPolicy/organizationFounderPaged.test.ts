@@ -14,6 +14,7 @@ import { sharedReplacementBindingFixture } from "../../../../test/helpers/shared
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";
 import { recoverPrincipalPolicyHistory } from "../../../workflows/principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { loadOrganizationFounder } from "../../persistence/organizationFounderPersistence";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { verifyContainerDestinationProjection } from "../container/containerDestinationVerification";
 import { rememberRootBoundOrganizationFounder } from "./organizationFounderBinding";
 
@@ -34,6 +35,7 @@ test("paged organization evidence pins the genuine root's founder", async () => 
     );
     const verified = await verifyContainerDestinationProjection({
       execSql: setup.execSql,
+      openPrincipalPolicyBundleReader,
       warmReferencedPrincipalPolicies: projectionPolicyWarmer({
         execSql: setup.execSql,
         bundles: [organization, ...groups],

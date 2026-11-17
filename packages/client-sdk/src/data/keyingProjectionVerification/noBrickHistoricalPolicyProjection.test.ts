@@ -15,6 +15,7 @@ import {
 import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { projectionPolicyWarmer } from "../../../test/helpers/projectionPolicyHistory";
+import { openPrincipalPolicyBundleReader } from "../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "./checkpoints/checkpointContext";
 import { verifyContainerManifestPath } from "./container/containerPathVerification";
 import { verifyProjectionPolicyEvidence } from "./principalPolicy/projectionPolicyEvidence";
@@ -111,6 +112,7 @@ test("fresh devices receive verifiable authority after its citation becomes hist
         ),
         checkpointContext: createProjectionCheckpointContext({
           execSql: database.execSql,
+          openPrincipalPolicyBundleReader,
           organizationId: data.organizationId,
         }),
         enforceLocalCheckpoints: true,

@@ -1,13 +1,13 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   type PrincipalPolicyCurrentEvidence,
   principalPolicyEvidenceEntries,
 } from "../../principals/principalPolicyEvidence";
 import { principalStateMatchesReference } from "../../principals/principalPolicyStates";
 import type { ExecSql } from "../../sqlite/sqlSchema";
+import type { OpenPrincipalPolicyBundleReader } from "../types";
 import { verifiedPrincipalPolicyMeetsCheckpoint } from "./principalPolicyCheckpointSelection";
 
 /**
@@ -86,6 +86,7 @@ export function verifiedPrincipalPolicyContainsReference(
 // and local storage, so the warmer fetches only what is genuinely missing.
 export async function filterUncachedPrincipalPolicyReferences(input: {
   execSql: ExecSql;
+  openPrincipalPolicyBundleReader: OpenPrincipalPolicyBundleReader;
   principalPolicyCache: ReadonlyMap<string, PrincipalPolicyCurrentEvidence>;
   references: readonly ReferencedPrincipalHead[];
 }): Promise<ReferencedPrincipalHead[]> {
@@ -113,9 +114,9 @@ export async function filterUncachedPrincipalPolicyReferences(input: {
           return null;
         }
       }
-      const bundle = await new PrincipalPolicyBundleRepository(
-        input.execSql,
-      ).loadPrincipalPolicyBundleForReference(reference, checkpoint);
+      const bundle = await input
+        .openPrincipalPolicyBundleReader(input.execSql)
+        .loadPrincipalPolicyBundleForReference(reference, checkpoint);
       return bundle ? null : reference;
     }),
   );

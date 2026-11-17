@@ -9,6 +9,7 @@ import {
   linkDocument,
 } from "../../../../test/helpers/groupHistoricalSignerScenario";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
   verifyDocumentWriterProjection,
@@ -51,6 +52,7 @@ test("the container writer projection accepts a head signed by a since-removed g
     const path = await verifyContainerWriterProjection({
       ...verificationInput(scenario, execSql),
       execSql,
+      openPrincipalPolicyBundleReader,
       projection: await childWriterProjection(scenario),
     });
     expect(path.map((head) => head.manifestHash)).toEqual([
@@ -69,6 +71,7 @@ test("the container writer projection accepts a head signed by a since-removed g
       verifyContainerWriterProjection({
         ...verificationInput(scenario, execSql),
         execSql,
+        openPrincipalPolicyBundleReader,
         projection: await childWriterProjection(scenario, {
           head: forged,
           history: [scenario.child1, scenario.child2],
@@ -96,12 +99,14 @@ test("a document head linked by a since-removed group admin verifies on a cold d
     const head = await verifyDocumentWriterProjection({
       ...verificationInput(scenario, execSql),
       execSql,
+      openPrincipalPolicyBundleReader,
       projection,
     });
     expect(head.manifestHash).toBe(link.manifestHash);
     const authorization = await verifyDocumentWriterProjectionAuthorization({
       ...verificationInput(scenario, execSql),
       execSql,
+      openPrincipalPolicyBundleReader,
       projection,
     });
     expect([...authorization.documentManifestByHash.keys()]).toEqual([
@@ -134,6 +139,7 @@ test("document history signed by a since-removed group admin verifies beneath a 
     const head = await verifyDocumentWriterProjection({
       ...verificationInput(scenario, honest.execSql),
       execSql: honest.execSql,
+      openPrincipalPolicyBundleReader,
       projection: await documentWriterProjection(scenario, [created, linked]),
     });
     expect(head.manifestHash).toBe(linked.manifestHash);
@@ -155,6 +161,7 @@ test("document history signed by a since-removed group admin verifies beneath a 
       verifyDocumentWriterProjection({
         ...verificationInput(scenario, cold.execSql),
         execSql: cold.execSql,
+        openPrincipalPolicyBundleReader,
         projection: await documentWriterProjection(scenario, [created, forged]),
       }),
     ).rejects.toMatchObject({ code: "unauthorized" });

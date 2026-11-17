@@ -42,6 +42,7 @@ import {
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../../../data/keyingProjectionVerification";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principals/principalPolicyEvidence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
@@ -391,6 +392,7 @@ export async function collectContainerSharePrincipalPolicies(input: {
   const previousPolicies =
     await collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,
+      openPrincipalPolicyBundleReader,
       persistVerificationCheckpoints: input.persistVerificationCheckpoints,
       principalPolicyCache: input.principalPolicyCache,
       projection: input.previousProjection,

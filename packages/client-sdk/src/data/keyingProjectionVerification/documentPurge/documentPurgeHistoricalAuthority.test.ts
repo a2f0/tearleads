@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeHistoricalPolicy";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
@@ -16,6 +17,7 @@ test("purge uses authority already verified during paging when the directory bin
   try {
     const verified = await verifyDocumentPurgeProof({
       execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
       expectedDocumentId: fixture.proof.documentId,
       expectedOrganizationId: "organization-1",
       proof: fixture.proof,
@@ -44,6 +46,7 @@ test("an unsigned directory payload cannot add an unrelated Admins identity to p
   const fixture = await createHistoricalPolicyPurgeFixture();
   const input = {
     execSql: database.execSql,
+    openPrincipalPolicyBundleReader,
     expectedDocumentId: fixture.proof.documentId,
     expectedOrganizationId: "organization-1",
     proof: fixture.proof,

@@ -25,6 +25,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import { isContainerCreatePending } from "../../../data/persistence/container-contents/pendingContainerCreate";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { recordDocumentAuthorAccessFailure } from "../authorAccessFailure";
 import type { RemoteDocumentCollaborators } from "../remote/remoteDocumentCollaborators";
@@ -85,6 +86,7 @@ export async function buildMaterializedDocumentCreatePlan(
       await collectContainerWriterProjectionPrincipalPolicies({
         ...projectionVerificationOptions(input),
         execSql: input.execSql,
+        openPrincipalPolicyBundleReader,
         projection: input.containerProjection,
         resolveUserKey: input.resolveProjectionUserKey,
       });

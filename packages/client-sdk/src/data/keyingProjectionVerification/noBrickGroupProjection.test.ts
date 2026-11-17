@@ -11,6 +11,7 @@ import {
 } from "../../../test/helpers/ancestorCitationScenario";
 import { createGroupHistoricalSignerScenario } from "../../../test/helpers/groupHistoricalSignerScenario";
 import { KeyingCheckpointRepository } from "../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "./checkpoints/checkpointContext";
 import { verifyContainerManifestPath } from "./container/containerPathVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "./principalPolicy/principalPolicyCache";
@@ -34,7 +35,10 @@ test("a cold device accepts a child signed by a since-removed group admin", asyn
       bundlesByHash: new Map(
         bundles.map((bundle) => [bundle.manifestHash, bundle]),
       ),
-      checkpointContext: createProjectionCheckpointContext({ execSql }),
+      checkpointContext: createProjectionCheckpointContext({
+        execSql,
+        openPrincipalPolicyBundleReader,
+      }),
       enforceLocalCheckpoints: true,
       label: "Late group-authored child",
       path: [root2, child2].map(manifestBundle),

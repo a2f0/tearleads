@@ -7,6 +7,7 @@ import {
 import { containerKekWireLevel } from "@tearleads/validators/response";
 import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { loadVerifiedManifestCitations } from "../../persistence/verifiedManifestBundlePersistence";
 import { verifyContainerWriterProjection } from "./containerProjectionVerification";
 
@@ -40,6 +41,7 @@ test("a verified projection's bundles and KEK levels become citable", async () =
   try {
     await verifyContainerWriterProjection({
       execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
       projection: fixture.projection,
       resolveUserKey: fixture.resolveUserKey,
     });
@@ -64,6 +66,7 @@ test("a refused projection leaves nothing to cite", async () => {
     await expect(
       verifyContainerWriterProjection({
         execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
         projection: {
           ...fixture.projection,
           path: [{ ...leaf, state: { ...leaf.state, epoch: 99 } }],
@@ -89,6 +92,7 @@ test("a cached hash never stores a later projection's different bytes", async ()
   try {
     await verifyContainerWriterProjection({
       execSql: first.execSql,
+      openPrincipalPolicyBundleReader,
       projection: fixture.projection,
       resolveUserKey: fixture.resolveUserKey,
       verifiedByHash,
@@ -98,6 +102,7 @@ test("a cached hash never stores a later projection's different bytes", async ()
     const tampered = { ...leaf, state: { ...leaf.state, epoch: 99 } };
     await verifyContainerWriterProjection({
       execSql: second.execSql,
+      openPrincipalPolicyBundleReader,
       projection: { ...fixture.projection, path: [tampered] },
       resolveUserKey: fixture.resolveUserKey,
       verifiedByHash,
