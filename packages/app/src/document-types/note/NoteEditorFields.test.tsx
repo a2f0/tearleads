@@ -339,27 +339,91 @@ test("focuses the editor body when a ready note mounts", () => {
   expect(document.activeElement).toBe(editor);
 });
 
-test("does not focus a read-only note", () => {
+test("a read-only note shows its text without an editor", () => {
+  const view = renderNoteEditorFields({
+    readOnly: true,
+    text: "first line\nsecond line",
+  });
+
+  // No textbox at all: a read-only <textarea> would still take focus and show
+  // a caret, reading as an editor that ignores typing.
+  expect(view.queryByRole("textbox")).toBeNull();
+  expect(view.container.querySelector("textarea")).toBeNull();
+  const body = view.getByRole("article", { name: "Note (read only)" });
+  expect(body.textContent).toBe("first line\nsecond line");
+  // The body cannot take focus, so clicking it leaves no caret behind.
+  expect(body.tabIndex).toBe(-1);
+  expect(body.isContentEditable).toBe(false);
+  fireEvent.click(body);
+  expect(document.activeElement).toBe(document.body);
+});
+
+test("a read-only note keeps the editor's box", () => {
+  const view = renderNoteEditorFields({ readOnly: true, text: "kept" });
+
+  // Sharing the editor's class is what keeps the text where the editor draws
+  // it when a note changes between read-only and writable.
+  const scrollArea = view.container.querySelector(".note-document-scroll");
+  expect(
+    scrollArea?.querySelector(
+      "article.note-document-editor.note-document-editor--read-only",
+    ),
+  ).toBeTruthy();
+});
+
+test("a read-only note says it is loading until it is ready", () => {
   const view = renderNoteEditorFields({ ready: false, readOnly: true });
-  const editor = view.container.querySelector(
-    ".note-document-editor",
-  ) as HTMLTextAreaElement;
+  const body = view.getByRole("article", { name: "Note (read only)" });
+  expect(body.textContent).toBe("Loading notes...");
 
-  view.rerender(buildNoteEditorFields({ ready: true, readOnly: true }));
+  view.rerender(
+    buildNoteEditorFields({ ready: true, readOnly: true, text: "loaded" }),
+  );
 
-  expect(document.activeElement).not.toBe(editor);
+  expect(body.textContent).toBe("loaded");
+  expect(document.activeElement).toBe(document.body);
+});
+
+test("an empty read-only note says so instead of inviting typing", () => {
+  const view = renderNoteEditorFields({ readOnly: true, text: "" });
+
+  expect(view.getByText("This note is empty.")).toBeTruthy();
+  expect(view.queryByPlaceholderText("Type your notes here...")).toBeNull();
+});
+
+test("a note that becomes read-only swaps its editor for plain text", () => {
+  const view = renderNoteEditorFields({ text: "shared note" });
+  expect(document.activeElement).toBe(view.getByLabelText("Notes editor"));
+
+  view.rerender(buildNoteEditorFields({ readOnly: true, text: "shared note" }));
+
+  expect(view.queryByRole("textbox")).toBeNull();
+  expect(
+    view.getByRole("article", { name: "Note (read only)" }).textContent,
+  ).toBe("shared note");
+  expect(document.activeElement).toBe(document.body);
 });
 
 test("focuses when a ready note becomes writable", () => {
-  const view = renderNoteEditorFields({ ready: true, readOnly: true });
-  const editor = view.getByLabelText(
-    "Notes editor read only",
-  ) as HTMLTextAreaElement;
-  expect(document.activeElement).not.toBe(editor);
+  const view = renderNoteEditorFields({
+    ready: true,
+    readOnly: true,
+    text: "now writable",
+  });
+  expect(view.queryByRole("textbox")).toBeNull();
 
-  view.rerender(buildNoteEditorFields({ ready: true, readOnly: false }));
+  view.rerender(
+    buildNoteEditorFields({
+      ready: true,
+      readOnly: false,
+      text: "now writable",
+    }),
+  );
 
+  const editor = view.getByLabelText("Notes editor") as HTMLTextAreaElement;
+  expect(view.queryByRole("article", { name: "Note (read only)" })).toBeNull();
   expect(document.activeElement).toBe(editor);
+  expect(editor.selectionStart).toBe("now writable".length);
 });
 
 test("preserves the caret when text changes externally before it", () => {

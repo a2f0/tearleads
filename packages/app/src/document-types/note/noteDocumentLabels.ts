@@ -21,8 +21,11 @@ export const NOTE_DOCUMENT_LABELS = {
   editor: "Notes editor",
   editorLoadingPlaceholder: "Loading notes...",
   editorReadyPlaceholder: "Type your notes here...",
-  editorReadOnly: "Notes editor read only",
   editorSyncing: "Notes editor syncing",
+  // A note that cannot be edited (in the Trash, shared read-only, or a past
+  // version) shows its body as plain text instead of the editor.
+  readOnlyBody: "Note (read only)",
+  readOnlyEmpty: "This note is empty.",
   downloadAttachment: (name: string) => `Download ${name}`,
   openAttachment: (name: string) => `Open ${name}`,
   removeAttachment: (name: string) => `Remove attachment ${name}`,

@@ -4,11 +4,8 @@ import {
   type DragEvent,
   type ReactNode,
   type RefObject,
-  type SyntheticEvent,
   useCallback,
   useEffect,
-  useLayoutEffect,
-  useRef,
   useState,
 } from "react";
 import { classNames } from "../../components/shared/classNames";
@@ -19,241 +16,11 @@ import {
   NoteAttachmentsPanel,
   type NoteDropzoneElement,
 } from "./NoteAttachmentsPanel";
+import { NoteBody } from "./NoteBody";
 import "./NoteDocument.css";
-import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
 import { RemoveAttachmentConfirmationDialog } from "./RemoveAttachmentConfirmationDialog";
 
 type NoteHandleSelectedFiles = (fileList: FileList | null) => void;
-
-interface CaretSelection {
-  start: number;
-  end: number;
-}
-
-// Map a caret offset from `oldValue` coordinates into `newValue` coordinates by
-// diffing the common prefix and suffix. A single-region edit (the overwhelmingly
-// common case for a CRDT merge) maps exactly: a caret before the change stays
-// put, a caret after it shifts by the length delta, and a caret inside the
-// replaced span clamps to the end of the unchanged prefix. Never worse than the
-// browser's default (snap-to-end).
-function remapCaret(oldValue: string, newValue: string, caret: number): number {
-  const maxPrefix = Math.min(oldValue.length, newValue.length);
-  let prefix = 0;
-  while (prefix < maxPrefix && oldValue[prefix] === newValue[prefix]) {
-    prefix += 1;
-  }
-  if (caret <= prefix) {
-    return caret;
-  }
-
-  let suffix = 0;
-  const maxSuffix = Math.min(
-    oldValue.length - prefix,
-    newValue.length - prefix,
-  );
-  while (
-    suffix < maxSuffix &&
-    oldValue[oldValue.length - 1 - suffix] ===
-      newValue[newValue.length - 1 - suffix]
-  ) {
-    suffix += 1;
-  }
-  if (caret >= oldValue.length - suffix) {
-    return caret + (newValue.length - oldValue.length);
-  }
-
-  return Math.min(prefix, newValue.length);
-}
-
-// Drives the note textarea: keeps it autosized AND preserves the caret when the
-// `text` value changes from a NON-local source (a remote CRDT merge or a sync
-// republish). A controlled <textarea> whose value is rewritten by React snaps
-// the caret to the end; for the user's own keystrokes that is invisible (the
-// optimistic value already matches the DOM), but an external change mid-edit
-// would otherwise jump the caret and scramble subsequent input. We distinguish
-// the two by flagging local edits and only remapping the caret for external
-// ones, skipping entirely during IME composition.
-function useNoteEditorTextarea(
-  text: string,
-  setText: (value: string) => void,
-  ready: boolean,
-  readOnly: boolean,
-) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const lastValueRef = useRef(text);
-  const selectionRef = useRef<CaretSelection>({
-    start: text.length,
-    end: text.length,
-  });
-  const localEditRef = useRef(false);
-  const composingRef = useRef(false);
-
-  const captureSelection = useCallback((target: HTMLTextAreaElement) => {
-    selectionRef.current = {
-      start: target.selectionStart ?? target.value.length,
-      end: target.selectionEnd ?? target.value.length,
-    };
-  }, []);
-
-  const handleChange = useCallback(
-    (event: ChangeEvent<HTMLTextAreaElement>) => {
-      captureSelection(event.currentTarget);
-      localEditRef.current = true;
-      setText(event.currentTarget.value);
-    },
-    [captureSelection, setText],
-  );
-
-  const handleSelect = useCallback(
-    (event: SyntheticEvent<HTMLTextAreaElement>) => {
-      if (composingRef.current) {
-        return;
-      }
-      captureSelection(event.currentTarget);
-    },
-    [captureSelection],
-  );
-
-  const handleCompositionStart = useCallback(() => {
-    composingRef.current = true;
-  }, []);
-
-  const handleCompositionEnd = useCallback(
-    (event: SyntheticEvent<HTMLTextAreaElement>) => {
-      composingRef.current = false;
-      captureSelection(event.currentTarget);
-    },
-    [captureSelection],
-  );
-
-  useLayoutEffect(() => {
-    const editor = ref.current;
-    if (!editor) {
-      return;
-    }
-
-    if (
-      !localEditRef.current &&
-      !composingRef.current &&
-      text !== lastValueRef.current &&
-      document.activeElement === editor
-    ) {
-      const start = remapCaret(
-        lastValueRef.current,
-        text,
-        selectionRef.current.start,
-      );
-      const end = remapCaret(
-        lastValueRef.current,
-        text,
-        selectionRef.current.end,
-      );
-      editor.setSelectionRange(start, end);
-      selectionRef.current = { start, end };
-    }
-
-    localEditRef.current = false;
-    lastValueRef.current = text;
-
-    editor.style.height = "auto";
-    editor.style.height = `${editor.scrollHeight}px`;
-  }, [text]);
-
-  useAutoFocusEditorOnReady(ref, ready, readOnly);
-
-  return {
-    ref,
-    handleChange,
-    handleSelect,
-    handleCompositionStart,
-    handleCompositionEnd,
-  };
-}
-
-// Move focus into the editor body the moment a note becomes editable — whether
-// it was just created, loaded from storage, or had write access resolve in — so
-// the user can start typing without first clicking it. Each note is backed by a
-// fresh documents-store snapshot that starts not-ready and flips to ready once
-// loaded, so this focusable false→true edge fires for new notes, opened notes,
-// and in-place switches between notes (the shared editor stays mounted while
-// only the store swaps). The caret lands at the end of any existing text — a
-// no-op for an empty new note — matching the "keep writing" expectation of a
-// notes editor. We track the combined focusable state rather than `ready` alone
-// so a note that loads read-only and later becomes writable still gets focused;
-// a note that never becomes writable is left untouched.
-function useAutoFocusEditorOnReady(
-  ref: RefObject<HTMLTextAreaElement | null>,
-  ready: boolean,
-  readOnly: boolean,
-) {
-  const wasFocusableRef = useRef(false);
-
-  useEffect(() => {
-    const focusable = ready && !readOnly;
-    const becameFocusable = focusable && !wasFocusableRef.current;
-    wasFocusableRef.current = focusable;
-
-    const editor = ref.current;
-    if (!editor || !becameFocusable) {
-      return;
-    }
-
-    editor.focus();
-    const caret = editor.value.length;
-    editor.setSelectionRange(caret, caret);
-  }, [ready, readOnly, ref]);
-}
-
-// The note body itself: an autosizing, caret-preserving textarea. Owns its
-// editor hook so the parent only threads the text/state props through, keeping
-// NoteEditorFields focused on composing the body with the attachments panel.
-function NoteEditorTextarea({
-  ready,
-  readOnly,
-  setText,
-  syncing,
-  text,
-}: {
-  ready: boolean;
-  readOnly: boolean;
-  setText: (text: string) => void;
-  syncing: boolean;
-  text: string;
-}) {
-  const {
-    ref,
-    handleChange,
-    handleSelect,
-    handleCompositionStart,
-    handleCompositionEnd,
-  } = useNoteEditorTextarea(text, setText, ready, readOnly);
-
-  return (
-    <textarea
-      ref={ref}
-      className="note-document-editor"
-      value={text}
-      onChange={readOnly ? undefined : handleChange}
-      onSelect={handleSelect}
-      onCompositionStart={handleCompositionStart}
-      onCompositionEnd={handleCompositionEnd}
-      placeholder={
-        ready
-          ? NOTE_DOCUMENT_LABELS.editorReadyPlaceholder
-          : NOTE_DOCUMENT_LABELS.editorLoadingPlaceholder
-      }
-      disabled={!ready}
-      readOnly={readOnly}
-      aria-label={
-        readOnly
-          ? NOTE_DOCUMENT_LABELS.editorReadOnly
-          : syncing
-            ? NOTE_DOCUMENT_LABELS.editorSyncing
-            : NOTE_DOCUMENT_LABELS.editor
-      }
-    />
-  );
-}
 
 // Gates attachment removal behind a confirm dialog: the trash buttons only
 // stage a pending slot, and the destructive store edit runs on confirm. The
@@ -443,7 +210,7 @@ export function NoteEditorFields({
     <>
       {toolbar}
       <div className="note-document-scroll">
-        <NoteEditorTextarea
+        <NoteBody
           ready={ready}
           readOnly={readOnly}
           setText={setText}
