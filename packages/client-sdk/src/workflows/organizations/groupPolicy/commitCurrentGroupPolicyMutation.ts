@@ -3,9 +3,10 @@ import type {
   VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import type {
-  OrganizationReadModelDeltaResponse,
-  PrincipalPolicyMutationResponse,
+import {
+  committedReadModelDelta,
+  type OrganizationReadModelDeltaResponse,
+  type PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import {
@@ -136,8 +137,12 @@ export async function commitCurrentGroupPolicyMutation(
     context.stillCurrent,
   );
   assertProjectionVerificationCurrent(context.stillCurrent);
-  return response.readModel
-    ? { ...response.groupPolicy, readModel: response.readModel }
+  const readModel = committedReadModelDelta(
+    response.readModel,
+    input.organizationId,
+  );
+  return readModel
+    ? { ...response.groupPolicy, readModel }
     : response.groupPolicy;
 }
 

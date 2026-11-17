@@ -235,7 +235,9 @@ as before.
 
 The client applies a committed delta through the ordinary apply path, only once
 the mutation's acknowledgement verified and only while its projection still
-holds the cursor it sent; a failed apply forgoes it. A group create and the
+holds the cursor it sent. The acknowledgement validates without the delta: a
+malformed delta, one for another organization, or a failed apply is only
+forgone. A group create and the
 membership and revocation commits use it as their post-commit read; a realtime
 hint's cursor check first waits, for at most ten seconds, for this device's own
 mutations in flight and applies the deltas they carried, so the hint naming

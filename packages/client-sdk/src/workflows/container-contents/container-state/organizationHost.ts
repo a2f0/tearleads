@@ -49,6 +49,7 @@ export type ContainerContentsCurrentGroupPolicyReader = <Result>(
 export interface ContainerContentsOrganizationHost {
   /** Sends a share's held read-model cursor and keeps the delta it carries. */
   readonly committedReadModel: (scope: {
+    readonly domainScope: object;
     readonly execSql: ExecSql;
     readonly organizationId: string;
     readonly userId: string;

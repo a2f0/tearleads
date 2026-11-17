@@ -1,5 +1,8 @@
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
-import type { OrganizationReadModelDeltaResponse } from "@tearleads/validators/response";
+import {
+  committedReadModelDelta,
+  type OrganizationReadModelDeltaResponse,
+} from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyReferenceFromBundle } from "../../../data/principalContracts/principalPolicyAdminSigners";
@@ -141,7 +144,9 @@ export async function createCurrentOrganizationGroup(input: {
     name: input.name.trim(),
     nameUnreadable: false,
   };
-  return stored.readModel
-    ? { ...created, readModel: stored.readModel }
-    : created;
+  const readModel = committedReadModelDelta(
+    stored.readModel,
+    input.organizationId,
+  );
+  return readModel ? { ...created, readModel } : created;
 }

@@ -3,11 +3,12 @@ import {
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import type {
-  ContainerMutationResponse,
-  ContainerRotationResponse,
-  ContainerWriterProjectionResponse,
-  OrganizationReadModelDeltaResponse,
+import {
+  type ContainerMutationResponse,
+  type ContainerRotationResponse,
+  type ContainerWriterProjectionResponse,
+  committedReadModelDelta,
+  type OrganizationReadModelDeltaResponse,
 } from "@tearleads/validators/response";
 import { isStaleParentContainerPathFailure } from "../../../../data/containers/shared/mutationFailures";
 import type {
@@ -80,7 +81,7 @@ type ContainerShareSubmitResult =
   | {
       readonly ok: true;
       readonly data: ContainerRotationResponse & {
-        readonly readModel?: OrganizationReadModelDeltaResponse | undefined;
+        readonly readModel?: unknown;
       };
     }
   | Extract<ContainerRotationResult, { ok: false }>;
@@ -205,7 +206,11 @@ async function shareRemoteContainerOnce(
           retriesStalePath,
           lease?.heldCursor,
         );
-        if (result.ok) delta = result.data.readModel;
+        if (result.ok)
+          delta = committedReadModelDelta(
+            result.data.readModel,
+            input.author.organizationId,
+          );
         stalePath =
           !result.ok &&
           retriesStalePath &&

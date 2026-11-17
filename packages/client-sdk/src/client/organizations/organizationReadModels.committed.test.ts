@@ -11,7 +11,10 @@ import {
   createWorkflowInputFixture,
 } from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { OrganizationReadModelRepository } from "../../data/persistence/organizations/organizationReadModelRepository";
-import { beginCommittedReadModel } from "../../workflows/organizations/readModel/committedReadModel";
+import {
+  beginCommittedReadModel,
+  takeCommittedReadModelOffer,
+} from "../../workflows/organizations/readModel/committedReadModel";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 
 const organizationId = organizationReadModelOrganizationId;
@@ -47,7 +50,12 @@ async function committedFixture(name: string) {
   const coordinator = createOrganizationReadModelCoordinator(
     createInternalRuntimeFixture(() => workflowInput),
   );
-  const scope = { execSql, organizationId, userId };
+  const scope = {
+    domainScope: workflowInput.state.domainScope,
+    execSql,
+    organizationId,
+    userId,
+  };
   // A logout or identity switch hands the runtime a new domain scope.
   const switchDomainScope = () => {
     workflowInput = createWorkflowInputFixture({
@@ -55,6 +63,7 @@ async function committedFixture(name: string) {
       auth: { organizationId, userId },
       execSql,
     });
+    return { ...scope, domainScope: workflowInput.state.domainScope };
   };
   return {
     close,
@@ -196,7 +205,13 @@ test("a hint check overtaken by a scope switch applies nothing", async () => {
     const lease = await beginCommittedReadModel(f.scope);
     const checked = f.coordinator.loadAppliedCursor();
     await Promise.resolve();
-    f.switchDomainScope();
+    const nextScope = f.switchDomainScope();
+    const nextLease = await beginCommittedReadModel(nextScope);
+    const nextDelta = organizationReadModelGroupsDelta({
+      cursor: "cursor-3",
+      groupName: "Operators",
+    });
+    nextLease.settle(nextDelta);
     lease.settle(
       organizationReadModelGroupsDelta({
         cursor: "cursor-2",
@@ -204,6 +219,13 @@ test("a hint check overtaken by a scope switch applies nothing", async () => {
       }),
     );
     await checked;
+
+    // The overtaken check neither applied its own scope's delta nor drained
+    // the new scope's.
+    expect(takeCommittedReadModelOffer(nextScope, nextDelta)).toEqual({
+      delta: nextDelta,
+      heldCursor: "cursor-1",
+    });
 
     await expect(
       new OrganizationReadModelRepository(

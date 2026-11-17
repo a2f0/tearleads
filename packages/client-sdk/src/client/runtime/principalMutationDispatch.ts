@@ -4,6 +4,7 @@ import type {
   RequestResultOptions,
 } from "@tearleads/api-client";
 import {
+  committedReadModelDelta,
   isCommitOrganizationGroupPolicyResponse,
   isCreateOrganizationGroupResponse,
   isDeleteOrganizationGroupResponse,
@@ -76,9 +77,13 @@ function unsupportedMutation(_mutation: never): never {
   throw new Error("Unsupported principal mutation operation");
 }
 
-type JournalContext = (
-  organizationId: string,
-) => Omit<PrincipalMutationJournalContext, "submit">;
+type JournalContext = (organizationId: string) => Omit<
+  PrincipalMutationJournalContext,
+  "submit"
+> & {
+  /** The runtime's domain scope, which keys committed read-model offers. */
+  readonly domainScope: object;
+};
 
 interface JournaledSubmission<T extends PrincipalMutationResponse> {
   readonly api: ApiClient;
@@ -88,10 +93,8 @@ interface JournaledSubmission<T extends PrincipalMutationResponse> {
   readonly options: RequestResultOptions | undefined;
   readonly organizationId: string;
   readonly validator: (value: unknown) => value is T;
-  /** Reads the read-model delta a response carries; set to send a cursor. */
-  readonly committedReadModel?:
-    | ((response: T) => OrganizationReadModelDeltaResponse | undefined)
-    | undefined;
+  /** Reads the read-model delta field a response carries; set to send a cursor. */
+  readonly committedReadModel?: ((response: T) => unknown) | undefined;
 }
 
 async function submitJournaled<T extends PrincipalMutationResponse>(
@@ -103,6 +106,7 @@ async function submitJournaled<T extends PrincipalMutationResponse>(
   // holds, so the response can carry the delta from it.
   const lease = input.committedReadModel
     ? await beginCommittedReadModel({
+        domainScope: journal.domainScope,
         execSql: journal.execSql,
         organizationId,
         userId: journal.scope.userId,
@@ -131,7 +135,10 @@ async function submitJournaled<T extends PrincipalMutationResponse>(
     // This check narrows the union for each existing public API signature.
     if (!input.validator(result.data))
       throw new Error("Unexpected principal receipt operation");
-    delta = input.committedReadModel?.(result.data);
+    delta = committedReadModelDelta(
+      input.committedReadModel?.(result.data),
+      organizationId,
+    );
     return { ok: true, data: result.data };
   } finally {
     lease?.settle(delta);
@@ -148,9 +155,7 @@ export function createJournaledPrincipalMutations(
     mutation: AuthoredPrincipalMutation,
     validator: (value: unknown) => value is T,
     options: RequestResultOptions | undefined,
-    committedReadModel?: (
-      response: T,
-    ) => OrganizationReadModelDeltaResponse | undefined,
+    committedReadModel?: (response: T) => unknown,
   ) =>
     submitJournaled({
       api,

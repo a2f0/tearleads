@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
+  committedReadModelDelta,
   isCommitOrganizationGroupPolicyResponse,
   isContainerShareResponse,
   isCreateOrganizationGroupResponse,
@@ -119,11 +120,15 @@ test("a group create and a member add carry the feed's own delta", async () => {
 
   // A group write stamps the cursor twice; the delta reaches the last stamp.
   const created = await createGroup(actor, organizationId, snapshot.nextCursor);
-  invariant(created.readModel, "expected the committer's delta");
-  expect(created.readModel).toEqual(
+  const createdDelta = committedReadModelDelta(
+    created.readModel,
+    organizationId,
+  );
+  invariant(createdDelta, "expected the committer's delta");
+  expect(createdDelta).toEqual(
     await readFeed(actor, organizationId, snapshot.nextCursor),
   );
-  expect(Object.keys(created.readModel.lanes).sort()).toEqual([
+  expect(Object.keys(createdDelta.lanes).sort()).toEqual([
     "groupMemberships",
     "groups",
     "organizationPolicy",
@@ -131,19 +136,21 @@ test("a group create and a member add carry the feed's own delta", async () => {
 
   const [added, replayed] = await addMember({
     actor,
-    heldCursor: created.readModel.nextCursor,
+    heldCursor: createdDelta.nextCursor,
     member,
     organizationId,
     replay: true,
   });
-  invariant(added?.readModel, "expected the committer's delta");
-  expect(added.readModel).toEqual(
-    await readFeed(actor, organizationId, created.readModel.nextCursor),
+  const addedDelta = committedReadModelDelta(added?.readModel, organizationId);
+  invariant(addedDelta, "expected the committer's delta");
+  expect(addedDelta).toEqual(
+    await readFeed(actor, organizationId, createdDelta.nextCursor),
   );
-  expect(
-    added.readModel.lanes.directory?.users.map((user) => user.userId),
-  ).toEqual(expect.arrayContaining([actor.userId, member.userId]));
+  expect(addedDelta.lanes.directory?.users.map((user) => user.userId)).toEqual(
+    expect.arrayContaining([actor.userId, member.userId]),
+  );
   // A replay stamps nothing, so it carries no delta.
+  invariant(added, "expected the add's own response");
   expect(replayed).toEqual({ ...added, readModel: undefined });
   expect(replayed && "readModel" in replayed).toBe(false);
 });
@@ -225,13 +232,14 @@ test("a share that stamps grants carries the sharer's delta", async () => {
   expect(response.status).toBe(200);
   const shared: unknown = await response.json();
   invariant(isContainerShareResponse(shared), "expected share response");
-  invariant(shared.readModel, "expected the sharer's delta");
-  expect(shared.readModel).toEqual(
+  const sharedDelta = committedReadModelDelta(shared.readModel, organizationId);
+  invariant(sharedDelta, "expected the sharer's delta");
+  expect(sharedDelta).toEqual(
     await readFeed(owner, organizationId, snapshot.nextCursor),
   );
-  expect(Object.keys(shared.readModel.lanes)).toEqual(["grants"]);
+  expect(Object.keys(sharedDelta.lanes)).toEqual(["grants"]);
   expect(
-    shared.readModel.lanes.grants?.grants.some(
+    sharedDelta.lanes.grants?.grants.some(
       (grant) =>
         grant.containerId === childKek.containerId &&
         grant.subjectId === member.userId,

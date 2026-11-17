@@ -1,5 +1,8 @@
 import { expect } from "bun:test";
-import type { OrganizationReadModelDeltaResponse } from "@tearleads/validators/response";
+import {
+  committedReadModelDelta,
+  type OrganizationReadModelDeltaResponse,
+} from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createContainerMutationRequest,
@@ -66,7 +69,7 @@ testApiClient(
 );
 
 testApiClient(
-  "a share response whose delta breaks the feed contract is refused",
+  "a share acknowledgement stands without the delta it carries",
   async () => {
     server.use(
       http.post(`${apiBaseUrl}/containers/:containerId/share`, () =>
@@ -83,6 +86,14 @@ testApiClient(
       { readModelCursor: "cursor-1", reportErrors: false },
     );
 
-    expect(result.ok).toBe(false);
+    // The receipt validates on its own; the malformed delta is refused only
+    // where a client would apply it.
+    expect(result.ok).toBe(true);
+    expect(
+      result.ok &&
+        committedReadModelDelta(result.data.readModel, organizationId),
+    ).toBeUndefined();
+    expect(committedReadModelDelta(readModel, organizationId)).toBe(readModel);
+    expect(committedReadModelDelta(readModel, containerId)).toBeUndefined();
   },
 );

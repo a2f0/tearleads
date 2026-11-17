@@ -22,6 +22,8 @@ interface ScopeOffers {
 }
 
 interface CommittedReadModelScope {
+  /** The runtime's domain scope; a logout or identity switch replaces it. */
+  readonly domainScope: object;
   readonly execSql: ExecSql;
   readonly organizationId: string;
   readonly userId: string;
@@ -32,13 +34,15 @@ const MAX_SETTLED_OFFERS = 4;
 /** A hint's cursor check waits no longer than this for mutations in flight. */
 const MAX_PENDING_WAIT_MS = 10_000;
 
-const offersByDatabase = new WeakMap<ExecSql, Map<string, ScopeOffers>>();
+// Keyed by domain scope, so a mutation and a hint check of one scope never
+// meet those of a scope that replaced it on the same database.
+const offersByDomainScope = new WeakMap<object, Map<string, ScopeOffers>>();
 
 function scopeOffers(scope: CommittedReadModelScope): ScopeOffers {
-  let byScope = offersByDatabase.get(scope.execSql);
+  let byScope = offersByDomainScope.get(scope.domainScope);
   if (!byScope) {
     byScope = new Map();
-    offersByDatabase.set(scope.execSql, byScope);
+    offersByDomainScope.set(scope.domainScope, byScope);
   }
   const key = organizationAccessScopeKey(scope.organizationId, scope.userId);
   let offers = byScope.get(key);

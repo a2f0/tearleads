@@ -130,6 +130,7 @@ export async function shareRemoteContainer(input: {
     accessLevel: input.accessLevel,
     author: writer.author,
     committedReadModel: input.runtime.organizations.committedReadModel({
+      domainScope: input.runtime.state.domainScope,
       execSql: input.runtime.infra.execSql,
       organizationId: writer.author.organizationId,
       userId: writer.author.signerUserId,

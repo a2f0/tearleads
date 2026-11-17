@@ -1,17 +1,44 @@
-import type { z } from "zod";
+import { z } from "zod";
+import { registerJsonSchemaView } from "../jsonSchema";
 import { loosePlainObject } from "../schema";
 import { ContainerMutationResponseShape } from "./container";
 import { OrganizationGroupSummaryResponseSchema } from "./organization";
-import { OrganizationReadModelDeltaSchema } from "./organizationReadModel";
+import {
+  type OrganizationReadModelDeltaResponse,
+  OrganizationReadModelDeltaSchema,
+} from "./organizationReadModel";
 import { PrincipalPolicyMutationResponseSchema } from "./principal";
 
 /**
  * The read-model delta a mutation response may carry for the cursor its
  * caller held (`readModelCursor`). Present only when that cursor was the head
  * the commit advanced from and the caller may read the feed; otherwise the
- * caller reads the feed as before.
+ * caller reads the feed as before. The receipt does not depend on it: a
+ * response validates whatever this field holds, and a client applies it only
+ * after `committedReadModelDelta` accepts it, so a malformed delta costs a
+ * feed read, never the acknowledgement.
  */
-const committedReadModel = OrganizationReadModelDeltaSchema.optional();
+const committedReadModel = registerJsonSchemaView(
+  z.unknown().optional(),
+  OrganizationReadModelDeltaSchema.optional(),
+);
+
+function isOrganizationReadModelDelta(
+  value: unknown,
+): value is OrganizationReadModelDeltaResponse {
+  return OrganizationReadModelDeltaSchema.safeParse(value).success;
+}
+
+/** The delta a mutation response carried, if well formed for `organizationId`. */
+export function committedReadModelDelta(
+  value: unknown,
+  organizationId: string,
+): OrganizationReadModelDeltaResponse | undefined {
+  return isOrganizationReadModelDelta(value) &&
+    value.organizationId === organizationId
+    ? value
+    : undefined;
+}
 
 export const CreateOrganizationGroupResponseSchema = loosePlainObject({
   group: OrganizationGroupSummaryResponseSchema,

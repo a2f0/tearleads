@@ -32,6 +32,7 @@ function delta(organizationId: string): OrganizationReadModelDeltaResponse {
 /** A share through the status-bearing endpoint, holding `cursor-1`. */
 async function shareHolding(input: {
   readonly cancelDuringLookup?: boolean;
+  readonly foreignDelta?: boolean;
   readonly tamper?: (
     response: ContainerMutationResponse,
   ) => ContainerMutationResponse;
@@ -46,7 +47,11 @@ async function shareHolding(input: {
   const sentCursors: Array<string | undefined> = [];
   const settled: Array<OrganizationReadModelDeltaResponse | undefined> = [];
   let current = true;
-  const readModel = delta(parent.projection.organizationId);
+  const readModel = delta(
+    input.foreignDelta
+      ? "other-organization"
+      : parent.projection.organizationId,
+  );
   try {
     const outcome = await createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
@@ -124,5 +129,14 @@ test("a share overtaken during the cursor lookup sends nothing", async () => {
 
   expect(outcome).toBeNull();
   expect(sentCursors).toEqual([]);
+  expect(settled).toEqual([undefined]);
+});
+
+test("a share whose delta names another organization offers none", async () => {
+  const { outcome, readModel, settled } = await shareHolding({
+    foreignDelta: true,
+  });
+
+  expect(outcome).toMatchObject({ response: { readModel } });
   expect(settled).toEqual([undefined]);
 });

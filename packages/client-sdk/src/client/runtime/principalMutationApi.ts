@@ -61,6 +61,7 @@ function mutationContext(
       "Principal mutations require an authenticated signing identity, a trusted API origin and durable local storage",
     );
   return {
+    domainScope: scope.database,
     execSql: scope.execSql,
     signingKeyPair: scope.signingKeyPair,
     scope: {

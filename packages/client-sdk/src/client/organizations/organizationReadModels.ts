@@ -447,6 +447,7 @@ class OrganizationReadModelCoordinatorImpl
 
 function committedScope(active: ActiveOrganizationDataRuntime) {
   return {
+    domainScope: active.runtime.state.domainScope,
     execSql: active.runtime.infra.execSql,
     organizationId: active.organizationId,
     userId: active.userId,

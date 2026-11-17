@@ -5,6 +5,7 @@ export {
   ContainerShareResponseSchema,
   type CreateOrganizationGroupResponse,
   CreateOrganizationGroupResponseSchema,
+  committedReadModelDelta,
   isCommitOrganizationGroupPolicyResponse,
   isContainerShareResponse,
   isCreateOrganizationGroupResponse,
