@@ -3,22 +3,21 @@ import type {
   OrganizationMembership,
   OrganizationSyncPauseResult,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../../providers/sdk/TearleadsProvider";
+import { usePausedOrganizationIds } from "../../../providers/sdk/usePausedOrganizationIds";
 import { ORGANIZATIONS_LABELS } from "../labels";
-
-const EMPTY_IDS: ReadonlySet<string> = new Set();
 
 export interface OrganizationSyncChoices {
   readonly changingOrganizationId: string | null;
   readonly error: string | null;
   /** The user's memberships as the server last reported them, or null. */
   readonly memberships: ReadonlyMap<string, OrganizationMembership> | null;
+  /** The organizations whose sync is paused on this device. */
   readonly pausedOrganizationIds: ReadonlySet<string>;
-  readonly personalOrganizationIds: ReadonlySet<string>;
   setLeaveRequested(organizationId: string, requested: boolean): Promise<void>;
   setSyncPaused(organizationId: string, paused: boolean): Promise<void>;
 }
@@ -32,14 +31,9 @@ function byOrganizationId(
 }
 
 function pauseErrorMessage(result: OrganizationSyncPauseResult): string | null {
-  switch (result.status) {
-    case "updated":
-      return null;
-    case "unsynced-writes":
-      return ORGANIZATIONS_LABELS.pauseBlockedByUnsyncedWrites;
-    case "failed":
-      return result.message || ORGANIZATIONS_LABELS.syncChangeFailed;
-  }
+  return result.status === "updated"
+    ? null
+    : result.message || ORGANIZATIONS_LABELS.syncChangeFailed;
 }
 
 function leaveErrorMessage(
@@ -54,8 +48,7 @@ function leaveErrorMessage(
 function useMembershipState() {
   const tearleads = useTearleads();
   const scopeKey = useTearleadsRuntime().state.domainScope;
-  const [pausedOrganizationIds, setPausedOrganizationIds] =
-    useState<ReadonlySet<string>>(EMPTY_IDS);
+  const pausedOrganizationIds = usePausedOrganizationIds();
   const [memberships, setMemberships] = useState<ReadonlyMap<
     string,
     OrganizationMembership
@@ -64,12 +57,6 @@ function useMembershipState() {
   useEffect(() => {
     let active = true;
     const membershipConduit = tearleads.organizations.memberships;
-    const reloadPaused = () => {
-      void membershipConduit.loadPausedOrganizationIds().then((ids) => {
-        if (active) setPausedOrganizationIds(new Set(ids));
-      });
-    };
-    const unsubscribe = membershipConduit.subscribeToSyncPauses(reloadPaused);
     // Every refresh, including one a memberships hint triggers after a change
     // on another device, replaces the list shown here.
     const unsubscribeMemberships = membershipConduit.subscribeToMemberships(
@@ -77,12 +64,10 @@ function useMembershipState() {
         if (active) setMemberships(byOrganizationId(list));
       },
     );
-    reloadPaused();
     setMemberships(null);
     void membershipConduit.refresh();
     return () => {
       active = false;
-      unsubscribe();
       unsubscribeMemberships();
     };
   }, [scopeKey, tearleads]);
@@ -185,24 +170,11 @@ export function useOrganizationSyncChoices(): OrganizationSyncChoices {
     [runChange, setMemberships, tearleads],
   );
 
-  const personalOrganizationIds = useMemo(
-    () =>
-      new Set(
-        [...(memberships?.values() ?? [])].flatMap((membership) =>
-          membership.isPersonalOrganizationOwner
-            ? [membership.organizationId]
-            : [],
-        ),
-      ),
-    [memberships],
-  );
-
   return {
     changingOrganizationId,
     error,
     memberships,
     pausedOrganizationIds,
-    personalOrganizationIds,
     setLeaveRequested,
     setSyncPaused,
   };

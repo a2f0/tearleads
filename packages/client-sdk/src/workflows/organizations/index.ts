@@ -47,7 +47,6 @@ export {
   withVerifiedUserLeaveRequest,
 } from "./memberships/leaveRequestVerification";
 export {
-  forgetPausedOrganizationContent,
   type OrganizationContentHost,
   type OrganizationMembership,
   type OrganizationMembershipApi,

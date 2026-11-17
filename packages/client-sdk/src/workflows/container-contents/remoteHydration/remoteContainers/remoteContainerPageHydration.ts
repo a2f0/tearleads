@@ -229,9 +229,9 @@ async function applyContainerParentLanePage(input: {
     host.requestDocumentPriming?.();
   }
 
-  // A paused organization's containers stay off the device. Skipping them
-  // here, after tombstones saw the full page, still lets the lane complete
-  // and its watermark advance; their children are never queued.
+  // A paused organization's containers stay as the device last saw them.
+  // Skipping them here, after tombstones saw the full page, still lets the
+  // lane complete and its watermark advance; their children are never queued.
   const isPaused = await loadPausedContainerFilter(state);
   const appliedPage = await applyRemoteContainerPage({
     childIdsByParentId,

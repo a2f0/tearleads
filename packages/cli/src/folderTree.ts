@@ -77,9 +77,10 @@ function selectOrganization(
   if (!membership) {
     throw new Error(`You are not a member of organization ${organizationId}.`);
   }
-  // The SDK exempts the active organization from sync pauses, so switching to
-  // a paused one would download what the user paused.
-  if (membership.syncPaused) {
+  // A paused organization's sync is held and this run starts from an empty
+  // database, so there would be nothing to list. A pause on the personal
+  // organization holds only the devices it was chosen on, never this run.
+  if (membership.syncPaused && !membership.isPersonalOrganizationOwner) {
     throw new Error(
       `Sync of organization ${organizationId} is paused for your devices; resume it in the app to list it here.`,
     );

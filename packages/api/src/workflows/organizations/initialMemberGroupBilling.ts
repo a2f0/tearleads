@@ -34,7 +34,7 @@ export async function syncInitialRosterAndBillingSeats(input: {
   readonly provisioning: OrganizationProvisioningRequest;
   readonly tx: DatabaseTransaction;
 }): Promise<void> {
-  await syncOrganizationRosterFromMemberReachability({
+  const { activeUserIds } = await syncOrganizationRosterFromMemberReachability({
     disabledByUserId: null,
     executor: input.tx,
     memberGroupId: input.provisioning.initialMemberGroup.groupId,
@@ -43,6 +43,7 @@ export async function syncInitialRosterAndBillingSeats(input: {
   const trialSourceId = input.initialBilling.sourceId;
   await reconcileOrganizationBillingSeats({
     executor: input.tx,
+    memberReachableUserIds: activeUserIds,
     now: input.initialBilling.createdAt,
     organizationId: input.organizationId,
     source:

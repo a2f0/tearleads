@@ -61,6 +61,7 @@ export interface PutPrincipalPolicyResult {
 interface RosterSyncResult {
   readonly changedRosterUserIds: string[];
   readonly memberGroupId: string;
+  readonly memberReachableUserIds: readonly string[];
   readonly organizationId: string;
 }
 
@@ -76,13 +77,15 @@ async function syncRosterForStoredPrincipalState(input: {
     return null;
   }
 
-  const { changedUserIds: changedRosterUserIds } =
-    await syncOrganizationRosterFromMemberReachability({
-      disabledByUserId: input.request.state.signerUserId,
-      executor: input.tx,
-      memberGroupId: rosterSyncTarget.memberGroupId,
-      organizationId: rosterSyncTarget.organizationId,
-    });
+  const {
+    activeUserIds: memberReachableUserIds,
+    changedUserIds: changedRosterUserIds,
+  } = await syncOrganizationRosterFromMemberReachability({
+    disabledByUserId: input.request.state.signerUserId,
+    executor: input.tx,
+    memberGroupId: rosterSyncTarget.memberGroupId,
+    organizationId: rosterSyncTarget.organizationId,
+  });
   if (
     input.request.expectedPrincipalType === "organization" ||
     input.request.expectedPrincipalId !== rosterSyncTarget.memberGroupId
@@ -104,6 +107,7 @@ async function syncRosterForStoredPrincipalState(input: {
   return {
     ...rosterSyncTarget,
     changedRosterUserIds,
+    memberReachableUserIds,
   };
 }
 
@@ -404,6 +408,7 @@ async function applyPrincipalPolicyTransitionEffects(input: {
   if (rosterSyncTarget) {
     await reconcileOrganizationBillingSeats({
       executor: input.tx,
+      memberReachableUserIds: rosterSyncTarget.memberReachableUserIds,
       organizationId: rosterSyncTarget.organizationId,
       source: {
         sourceId: input.nextState.stateHash,

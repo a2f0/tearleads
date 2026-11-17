@@ -20,11 +20,13 @@ import {
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import type { ReferencedPrincipalPolicyWarmer } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
+import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import {
   type DocumentSyncTraceEmitter,
   traceProjectionFailed,
   traceSubmitFailed,
 } from "../sync/syncTrace";
+import { isRoutinePullHeld } from "./syncAbandon";
 import {
   canRecoverDocumentUpdateIdConflict,
   canRetryDocumentSyncConflict,
@@ -230,7 +232,9 @@ async function submitDocumentSyncAttempt(input: {
 
 export async function submitDocumentSyncAttemptIfAllowed(
   input: Parameters<typeof submitDocumentSyncAttempt>[0] & {
-    isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
+    isRemoteSyncBlocked?: WorkflowRuntimeUtilInput["isRemoteSyncBlocked"];
+    /** The pass's pull position, which decides whether a pause holds it. */
+    pull?: Parameters<typeof isRoutinePullHeld>[0] | undefined;
     onOutgoingUpdatesMaterialized?:
       | ((updateIds: readonly string[]) => void)
       | undefined;
@@ -240,15 +244,20 @@ export async function submitDocumentSyncAttemptIfAllowed(
   const {
     failureBlocksQueuedWrites,
     isRemoteSyncBlocked,
+    pull,
     onOutgoingUpdatesMaterialized,
     ...submissionInput
   } = input;
   const hasRemoteWrites =
     input.plan.request.outgoingUpdates.length > 0 ||
     (input.plan.request.containerRekeys?.length ?? 0) > 0;
-  if (hasRemoteWrites && isRemoteSyncBlocked?.(input.plan.organizationId)) {
-    return "blocked";
-  }
+  const blocked = hasRemoteWrites
+    ? isRemoteSyncBlocked?.(input.plan.organizationId)
+    : isRoutinePullHeld(
+        { ...pull, isRemoteSyncBlocked },
+        input.plan.organizationId,
+      );
+  if (blocked) return "blocked";
   if (input.stillCurrent?.() === false) return "cancelled";
 
   onOutgoingUpdatesMaterialized?.(

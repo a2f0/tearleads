@@ -13,6 +13,7 @@ import {
   abandonBlockedSync,
   abandonInaccessibleAncestorRepair,
   abandonOversizedSyncPlan,
+  isPullUnderWay,
 } from "../syncFailures/syncAbandon";
 import type { TerminalSubmitFailureHandler } from "../syncFailures/syncFailureClassification";
 import {
@@ -41,6 +42,31 @@ export function projectionFailureHandler(
     ? input.onTerminalSubmitFailure
     : input.onReadOnlyProjectionFailure;
 }
+/**
+ * The queued writes this attempt sends, or null when their organization is
+ * held and the attempt has to stop. A cursor continuation sends none. Nor
+ * does the restart of a pull whose cursor expired while its organization is
+ * held: a held organization sends nothing, but a pull that already fetched a
+ * page still has to finish, so the writes stay queued behind it.
+ */
+async function plannedPendingUpdates(input: {
+  pendingUpdates: readonly PendingUpdateRecord[];
+  pullContinuation?: DocumentSyncPullContinuation | undefined;
+  sync: RemoteDocumentSyncPass;
+  writerProjection: DocumentWriterProjectionResponse;
+}): Promise<readonly PendingUpdateRecord[] | null> {
+  if (input.pullContinuation !== undefined) return [];
+  if (input.pendingUpdates.length === 0) return input.pendingUpdates;
+  const { organizationId } = await assertDocumentManifestBundleConsistent({
+    bundle: input.writerProjection.documentManifest,
+    label: "Document sync manifest",
+  });
+  if (!input.sync.isRemoteSyncBlocked?.(organizationId)) {
+    return input.pendingUpdates;
+  }
+  return isPullUnderWay(input.sync) ? [] : null;
+}
+
 export async function planDocumentSyncAttempt(input: {
   /** The version the request advertises; defaults to the sync's live one. */
   localVersionVector?: string | null | undefined;
@@ -52,21 +78,8 @@ export async function planDocumentSyncAttempt(input: {
   writerProjection: DocumentWriterProjectionResponse;
 }) {
   try {
-    const pendingUpdates =
-      input.pullContinuation === undefined ? input.pendingUpdates : [];
-    if (
-      pendingUpdates.length &&
-      input.sync.isRemoteSyncBlocked?.(
-        (
-          await assertDocumentManifestBundleConsistent({
-            bundle: input.writerProjection.documentManifest,
-            label: "Document sync manifest",
-          })
-        ).organizationId,
-      )
-    ) {
-      return abandonBlockedSync(input.sync);
-    }
+    const pendingUpdates = await plannedPendingUpdates(input);
+    if (!pendingUpdates) return abandonBlockedSync(input.sync);
     // Durable repair happens once at this explicit attempt boundary. The
     // retryable builder below may only sign inline plans against its projection.
     const prepared =
