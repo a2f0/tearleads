@@ -131,7 +131,6 @@ function documentSyncFailureHandler(input: {
           {
             attemptedAt: new Date().toISOString(),
             message: input.describeFailure(failure),
-            status: failure.status,
           },
         );
       },

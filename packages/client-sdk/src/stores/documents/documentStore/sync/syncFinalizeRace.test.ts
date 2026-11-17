@@ -123,7 +123,6 @@ test("a superseded finalize keeps its signal and requests another pass", async (
       {
         attemptedAt: "2026-08-25T00:00:00.000Z",
         message: "quarantined before losing finalize",
-        status: null,
       },
     );
 

@@ -50,7 +50,6 @@ export function reportAttachmentUploadFailure(input: {
         {
           attemptedAt: new Date().toISOString(),
           message: error.message,
-          status: null,
         },
       );
     },
