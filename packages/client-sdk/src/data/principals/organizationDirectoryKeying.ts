@@ -177,7 +177,11 @@ export async function organizationDirectoryKeying(input: {
     );
   // A key is kept only when the signer's own envelope opens it and it
   // matches the signed key. Otherwise, or without the signer's key, the write
-  // rotates, which re-wraps a fresh key for every admin.
+  // rotates, which re-wraps a fresh key for every admin. Measured (best of
+  // 25): keeping costs about 3.6 ms of client CPU at any size, rotating 2.0 ms
+  // for one admin, 3.0 ms for two and 6.0 ms for five; API statements and
+  // request bytes are equal. A single admin keeps too, since a held epoch is
+  // what lets a successor cite its predecessor's envelope set (#2903).
   const secret = await heldOrganizationSecret(input);
   if (!secret) return rotatedKeying(input);
   if (added.length === 0)

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { unwrapDek } from "@tearleads/crypto";
+import { unwrapDek, wrapDekForRecipients } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -128,4 +128,55 @@ test("an Admins removal that keeps the organization key is refused whole", async
       )
     ).currentState.stateHash,
   ).toBe(admins.currentState.stateHash);
+
+  // The same Admins removal with a rotated directory commits: the refusal
+  // above is the kept key, not the removal.
+  const retried = await submitOrganizationGroupPolicyCommit({
+    actor: f.owner,
+    groupId: removal.adminGroupId,
+    groupPolicy: removal.request,
+    organizationId: f.organizationId,
+  });
+  expect(retried.status).toBe(200);
+  const rotated = await runGetCurrentPrincipalPolicyWorkflow(
+    db,
+    "organization",
+    f.organizationId,
+  );
+  expect(rotated.currentState.version).toBe(directory.currentState.version + 1);
+  expect(rotated.currentState.keyEpoch).toBe(
+    directory.currentState.keyEpoch + 1,
+  );
+  expect(
+    (
+      await runGetCurrentPrincipalPolicyWorkflow(
+        db,
+        "group",
+        removal.adminGroupId,
+      )
+    ).currentState.version,
+  ).toBe(admins.currentState.version + 1);
+  const envelopes = rotated.currentMemberEnvelopes.envelopes.map(
+    (envelope) => ({
+      keyFingerprint: envelope.memberKeyFingerprint,
+      kemCipherText: base64ToBytes(envelope.kemCipherText),
+      wrappedKey: base64ToBytes(envelope.wrappedKey),
+    }),
+  );
+  const successorKey = await unwrapDek(envelopes, f.owner.kem.secretKey);
+  const challenge = crypto.getRandomValues(new Uint8Array(32));
+  expect(
+    await unwrapDek(
+      await wrapDekForRecipients(challenge, [
+        base64ToBytes(rotated.currentState.encapsulationPublicKey),
+      ]),
+      successorKey,
+    ),
+  ).toEqual(challenge);
+  expect(
+    rotated.currentMemberEnvelopes.envelopes.some(
+      (envelope) => envelope.userId === f.admin.userId,
+    ),
+  ).toBe(false);
+  await expect(unwrapDek(envelopes, f.admin.kem.secretKey)).rejects.toThrow();
 });
