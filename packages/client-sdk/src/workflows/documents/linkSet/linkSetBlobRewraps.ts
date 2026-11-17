@@ -121,7 +121,6 @@ export async function prepareDocumentLinkBlobRewraps(
 ): Promise<DocumentLinkAccessEventBody["blobRewraps"]> {
   const documentId = input.writerProjection.documentId;
   const bindings = await listRelinkBindings(input, documentId);
-  assertProjectionVerificationCurrent(input.stillCurrent);
   if (bindings.length === 0) return [];
   const keks = await collectRelinkKeks(input);
   const authenticateKey = createAttachmentKeyAuthenticator(
@@ -199,7 +198,7 @@ export async function prepareDocumentLinkBlobRewraps(
 async function listRelinkBindings(
   input: Pick<
     Parameters<typeof prepareDocumentLinkBlobRewraps>[0],
-    "apiClient" | "refreshListing"
+    "apiClient" | "refreshListing" | "stillCurrent"
   >,
   documentId: string,
 ): Promise<BlobAttachmentSummary[]> {
@@ -207,6 +206,8 @@ async function listRelinkBindings(
     documentId,
     input.refreshListing ? { refresh: true } : undefined,
   );
+  // An operation that ended while listing cancels instead of failing.
+  assertProjectionVerificationCurrent(input.stillCurrent);
   // The API refuses the link unless every active binding is rewrapped, so an
   // unavailable listing (offline, or a 409 while a bind is mid-flight) is a
   // retryable availability failure of this mutation, not integrity evidence.

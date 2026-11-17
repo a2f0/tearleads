@@ -40,10 +40,14 @@ import {
   reuseCommittedBlobRewraps,
 } from "./linkSetBlobRewraps";
 import {
+  holdsLinkSetRefusals,
   INITIAL_LINK_SET_LEG_STATE,
-  isSpeculativeRewrapSource,
-  type LinkSetRewrapSource,
+  type LinkSetLegAttempt,
   type LinkSetSubmitFailure,
+  linkSetAttemptEvent,
+  type PreparedLinkSetRewraps,
+  recordLinkSetLegRewraps,
+  startLinkSetLegAttempt,
   transitionLinkSetLeg,
 } from "./linkSetLegMachine";
 import { seedLinkSetWriterProjection } from "./linkSetProjectionSeed";
@@ -228,17 +232,6 @@ interface RelinkRemoteDocumentInput extends RelinkRemoteDocumentRequest {
 }
 
 /**
- * What one attempt signed, so the workflow can reuse or retry it. A
- * speculative attempt may cite rewraps without a fresh listing; a fresh one
- * lists, bypassing any cached listing.
- */
-interface LinkSetLegAttempt {
-  readonly listing: "speculative" | "fresh";
-  rewraps: DocumentLinkAccessEventBody["blobRewraps"] | null;
-  source: LinkSetRewrapSource | null;
-}
-
-/**
  * A leg that cited rewraps without listing and was refused because the
  * attachment set (or a re-cited key epoch) moved lists and retries once, as a
  * leg that listed would have; that first refusal is neither reported nor
@@ -263,32 +256,26 @@ export async function relinkRemoteDocument(
   let leg = INITIAL_LINK_SET_LEG_STATE;
   let result: RelinkRemoteDocumentResult | null = null;
   while (leg.status === "speculative" || leg.status === "fresh") {
-    const attempt: LinkSetLegAttempt = {
-      listing: leg.status,
-      rewraps: null,
-      source: null,
-    };
+    const attempt = { current: startLinkSetLegAttempt(leg) };
     const heldFailures: LinkSetSubmitFailure[] = [];
     result = await relinkRemoteDocumentOnce(input, attempt, (failure) => {
-      if (isSpeculativeRewrapSource(attempt.source)) heldFailures.push(failure);
+      if (holdsLinkSetRefusals(attempt.current)) heldFailures.push(failure);
       else reportLinkSetFailure(input, failure);
     }).catch((error: unknown) => {
       // A leg that threw may have committed before failing: list again next.
       if (reuse) reuse.committed = null;
       throw error;
     });
-    if (reuse) reuse.committed = result ? attempt.rewraps : null;
-    leg = transitionLinkSetLeg(
-      leg,
-      result
-        ? { rewraps: attempt.rewraps, type: "attemptCommitted" }
-        : {
-            heldFailures,
-            source: attempt.source,
-            stillCurrent: input.stillCurrent?.() !== false,
-            type: "attemptFailed",
-          },
-    );
+    const event = linkSetAttemptEvent({
+      attempt: attempt.current,
+      committed: result !== null,
+      heldFailures,
+      stillCurrent: input.stillCurrent?.() !== false,
+    });
+    if (reuse)
+      reuse.committed =
+        event.type === "attemptCommitted" ? event.rewraps : null;
+    leg = transitionLinkSetLeg(leg, event);
   }
   if (leg.status === "failed") {
     for (const failure of leg.unreported) reportLinkSetFailure(input, failure);
@@ -296,9 +283,14 @@ export async function relinkRemoteDocument(
   return result;
 }
 
+/** The attempt in flight; preparation replaces it with what it signed. */
+interface LinkSetAttemptSlot {
+  current: LinkSetLegAttempt;
+}
+
 async function relinkRemoteDocumentOnce(
   input: RelinkRemoteDocumentInput,
-  attempt: LinkSetLegAttempt,
+  attempt: LinkSetAttemptSlot,
   onSubmitFailure: (failure: LinkSetSubmitFailure) => void,
 ): Promise<RelinkRemoteDocumentResult | null> {
   if (input.operation === "unlink" && !input.rotationSnapshot) {
@@ -428,29 +420,26 @@ function prepareRemoteLinkSetMutation(
   },
   writerProjection: DocumentWriterProjectionResponse,
   targetContainerProjection: ContainerWriterProjectionResponse,
-  attempt: LinkSetLegAttempt,
+  attempt: LinkSetAttemptSlot,
 ) {
   const prepareBlobRewraps = async (
     targets: readonly DocumentContentKeyTarget[],
   ) => {
-    const speculative =
-      attempt.listing === "speculative"
-        ? await speculativeBlobRewraps(input, writerProjection, targets)
-        : null;
-    if (speculative) {
-      attempt.source = speculative.source;
-      attempt.rewraps = speculative.rewraps;
-      return attempt.rewraps;
-    }
-    attempt.source = "listed";
-    attempt.rewraps = await prepareDocumentLinkBlobRewraps({
-      ...input,
-      refreshListing: attempt.listing === "fresh",
-      targets,
-      targetContainerProjection,
-      writerProjection,
-    });
-    return attempt.rewraps;
+    const prepared: PreparedLinkSetRewraps = (attempt.current.listing ===
+    "speculative"
+      ? await speculativeBlobRewraps(input, writerProjection, targets)
+      : null) ?? {
+      rewraps: await prepareDocumentLinkBlobRewraps({
+        ...input,
+        refreshListing: attempt.current.listing === "fresh",
+        targets,
+        targetContainerProjection,
+        writerProjection,
+      }),
+      source: "listed",
+    };
+    attempt.current = recordLinkSetLegRewraps(attempt.current, prepared);
+    return prepared.rewraps;
   };
   return recordDocumentAuthorAccessFailure(
     () =>

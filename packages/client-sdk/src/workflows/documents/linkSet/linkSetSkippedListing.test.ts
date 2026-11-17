@@ -106,6 +106,8 @@ async function runLinkLeg(
     readonly refusals: readonly DocumentLinkSetMutationFailure[];
     /** Envelopes a previous leg of the same move committed. */
     readonly committed?: DocumentLinkAccessEventBody["blobRewraps"];
+    /** The retry's attachment listing fails as the operation ends. */
+    readonly retryListingFailsAndEnds?: boolean;
     /** The retry's document projection read fails as the operation ends. */
     readonly retryProjectionFailsAndEnds?: boolean;
     /** The 1-based submission during which the operation stops being current. */
@@ -132,7 +134,9 @@ async function runLinkLeg(
         listDocumentAttachments: async (_documentId, options) => {
           counts.listings += 1;
           if (options?.refresh) counts.refreshedListings += 1;
-          return [];
+          if (!input.retryListingFailsAndEnds) return [];
+          current = false;
+          return null;
         },
         getContainerWriterProjection: async () => leg.sibling,
         getDocumentWriterProjection: async () => leg.writerProjection,
@@ -325,6 +329,21 @@ test("a retry whose projection read fails after the operation ended is dropped",
     failures: [],
     hostReports: 0,
     listings: 0,
+    submissions: 1,
+  });
+  expect(run.result).toBeNull();
+});
+
+test("a retry whose listing fails after the operation ended is dropped", async () => {
+  const run = await runLinkLeg("skipped-listing-retry-listing-stale", {
+    refusals: [ATTACHMENTS_CHANGED],
+    retryListingFailsAndEnds: true,
+    view: "empty",
+  });
+  expect(run).toMatchObject({
+    failures: [],
+    hostReports: 0,
+    listings: 1,
     submissions: 1,
   });
   expect(run.result).toBeNull();

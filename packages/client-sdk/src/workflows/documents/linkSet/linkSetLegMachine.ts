@@ -46,6 +46,85 @@ export const INITIAL_LINK_SET_LEG_STATE: LinkSetLegState = {
   status: "speculative",
 };
 
+/**
+ * One attempt of a leg: what it may cite before it prepares, then the source
+ * and rewraps it signed. Only a speculative attempt can skip or reuse; a fresh
+ * one always lists.
+ */
+export type LinkSetLegAttempt =
+  | {
+      readonly listing: "speculative" | "fresh";
+      readonly status: "unprepared";
+    }
+  | {
+      readonly listing: "speculative";
+      readonly rewraps: BlobRewraps;
+      readonly source: LinkSetRewrapSource;
+      readonly status: "prepared";
+    }
+  | {
+      readonly listing: "fresh";
+      readonly rewraps: BlobRewraps;
+      readonly source: "listed";
+      readonly status: "prepared";
+    };
+
+export type PreparedLinkSetRewraps =
+  | { readonly rewraps: BlobRewraps; readonly source: "listed" }
+  | {
+      readonly rewraps: BlobRewraps;
+      readonly source: "reused" | "skipped";
+    };
+
+export function startLinkSetLegAttempt(
+  state: Extract<LinkSetLegState, { status: "speculative" | "fresh" }>,
+): LinkSetLegAttempt {
+  return { listing: state.status, status: "unprepared" };
+}
+
+/**
+ * Record what an attempt signed, replacing an earlier preparation; a fresh
+ * attempt can only have listed.
+ */
+export function recordLinkSetLegRewraps(
+  attempt: LinkSetLegAttempt,
+  prepared: PreparedLinkSetRewraps,
+): LinkSetLegAttempt {
+  if (attempt.listing === "speculative")
+    return { ...prepared, listing: "speculative", status: "prepared" };
+  if (prepared.source !== "listed")
+    throw new Error("A fresh link-set attempt must list its attachments");
+  return { ...prepared, listing: "fresh", status: "prepared" };
+}
+
+function attemptSource(attempt: LinkSetLegAttempt): LinkSetRewrapSource | null {
+  return attempt.status === "prepared" ? attempt.source : null;
+}
+
+/** Whether a refusal of this attempt is held back until the leg decides. */
+export function holdsLinkSetRefusals(attempt: LinkSetLegAttempt): boolean {
+  return isSpeculativeRewrapSource(attemptSource(attempt));
+}
+
+/** The event an attempt's result raises. */
+export function linkSetAttemptEvent(input: {
+  readonly attempt: LinkSetLegAttempt;
+  readonly committed: boolean;
+  readonly heldFailures: readonly LinkSetSubmitFailure[];
+  readonly stillCurrent: boolean;
+}): LinkSetLegEvent {
+  const rewraps =
+    input.attempt.status === "prepared" ? input.attempt.rewraps : null;
+  return input.committed
+    ? { rewraps, type: "attemptCommitted" }
+    : {
+        heldFailures: input.heldFailures,
+        source: attemptSource(input.attempt),
+        stillCurrent: input.stillCurrent,
+        type: "attemptFailed",
+      };
+}
+
 export function isSpeculativeRewrapSource(
   source: LinkSetRewrapSource | null,
 ): boolean {

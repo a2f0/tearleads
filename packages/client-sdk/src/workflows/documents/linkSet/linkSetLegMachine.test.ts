@@ -1,10 +1,14 @@
 import { expect, test } from "bun:test";
 import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
+  holdsLinkSetRefusals,
   INITIAL_LINK_SET_LEG_STATE,
   type LinkSetLegState,
   type LinkSetRewrapSource,
   type LinkSetSubmitFailure,
+  linkSetAttemptEvent,
+  recordLinkSetLegRewraps,
+  startLinkSetLegAttempt,
   transitionLinkSetLeg,
 } from "./linkSetLegMachine";
 
@@ -111,4 +115,74 @@ test("a finished leg ignores later events", () => {
   ] satisfies LinkSetLegState[]) {
     expect(fail(state, "skipped", [ATTACHMENTS_CHANGED])).toBe(state);
   }
+});
+
+test("an attempt records what it signed and only a fresh one must list", () => {
+  const speculative = startLinkSetLegAttempt({ status: "speculative" });
+  expect(holdsLinkSetRefusals(speculative)).toBe(false);
+  const skipped = recordLinkSetLegRewraps(speculative, {
+    rewraps: [],
+    source: "skipped",
+  });
+  expect(skipped).toEqual({
+    listing: "speculative",
+    rewraps: [],
+    source: "skipped",
+    status: "prepared",
+  });
+  expect(holdsLinkSetRefusals(skipped)).toBe(true);
+  expect(
+    holdsLinkSetRefusals(
+      recordLinkSetLegRewraps(speculative, { rewraps: [], source: "listed" }),
+    ),
+  ).toBe(false);
+  const fresh = startLinkSetLegAttempt({ status: "fresh" });
+  expect(() =>
+    recordLinkSetLegRewraps(fresh, { rewraps: [], source: "reused" }),
+  ).toThrow("A fresh link-set attempt must list its attachments");
+  expect(
+    recordLinkSetLegRewraps(fresh, { rewraps: [], source: "listed" }),
+  ).toEqual({
+    listing: "fresh",
+    rewraps: [],
+    source: "listed",
+    status: "prepared",
+  });
+});
+
+test("an attempt's result raises the event the leg transitions on", () => {
+  const skipped = recordLinkSetLegRewraps(
+    startLinkSetLegAttempt({ status: "speculative" }),
+    { rewraps: [], source: "skipped" },
+  );
+  expect(
+    linkSetAttemptEvent({
+      attempt: skipped,
+      committed: true,
+      heldFailures: [],
+      stillCurrent: true,
+    }),
+  ).toEqual({ rewraps: [], type: "attemptCommitted" });
+  expect(
+    linkSetAttemptEvent({
+      attempt: skipped,
+      committed: false,
+      heldFailures: [ATTACHMENTS_CHANGED],
+      stillCurrent: true,
+    }),
+  ).toEqual({
+    heldFailures: [ATTACHMENTS_CHANGED],
+    source: "skipped",
+    stillCurrent: true,
+    type: "attemptFailed",
+  });
+  // An attempt that failed before preparing (a projection read) has no source.
+  expect(
+    linkSetAttemptEvent({
+      attempt: startLinkSetLegAttempt({ status: "speculative" }),
+      committed: false,
+      heldFailures: [],
+      stillCurrent: true,
+    }),
+  ).toMatchObject({ source: null, type: "attemptFailed" });
 });
