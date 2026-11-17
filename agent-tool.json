@@ -146,10 +146,6 @@
       {
         "label": "knip-production",
         "command": ["bun", "run", "lint:knip:production"]
-      },
-      {
-        "label": "architecture",
-        "command": ["bun", "run", "lint:architecture"]
       }
     ],
     "budgetSeconds": 120

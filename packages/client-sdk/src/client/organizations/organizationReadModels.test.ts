@@ -13,7 +13,7 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../test/helpers/organizationReadModelProjectionFixtures";
-import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "../../data/persistence/organizations/organizationReadModelRepository";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 
@@ -242,9 +242,10 @@ test("policy history cold misses single-flight through private paged persistence
   };
 
   try {
-    await applyOrganizationReadModelResponse({
+    await new OrganizationReadModelRepository(
+      f.options.execSql,
+    ).applyOrganizationReadModelResponse({
       currentUserId: "founder",
-      execSql: f.options.execSql,
       requestedCursor: null,
       response,
     });

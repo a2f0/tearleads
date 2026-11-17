@@ -12,10 +12,7 @@ import {
   organizationReadModelDirectoryUser as directoryUser,
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
-import {
-  applyOrganizationReadModelResponse,
-  loadOrganizationReadModelProjection,
-} from "./organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 const ORGANIZATION_ID = "6a1f3c2e-8d4b-4f6a-9c1e-2b3d4e5f6a7b";
 const MEMBER_ID = "1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e";
@@ -38,6 +35,7 @@ test("a directory keeps only leave requests addressed to their row", async () =>
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-leave-requests",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
     const member = generateSigningSeedAndKeyPair();
     const server = generateSigningSeedAndKeyPair();
@@ -45,9 +43,8 @@ test("a directory keeps only leave requests addressed to their row", async () =>
     const genuine = leaveRequest(MEMBER_ID, member);
     const forged = leaveRequest(FORGED_ID, server);
     const base = snapshot(ORGANIZATION_ID, "cursor-1");
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: "user-1",
-      execSql,
       requestedCursor: null,
       response: {
         ...base,
@@ -77,8 +74,7 @@ test("a directory keeps only leave requests addressed to their row", async () =>
       },
     });
 
-    const projection = await loadOrganizationReadModelProjection(
-      execSql,
+    const projection = await repository.loadOrganizationReadModelProjection(
       ORGANIZATION_ID,
       "user-1",
     );

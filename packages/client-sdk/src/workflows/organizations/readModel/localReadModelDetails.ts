@@ -4,8 +4,7 @@ import type {
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { loadContainerDisplayNamesByIds } from "../../../data/persistence/container-contents/containerPersistence";
-import { loadOrganizationGroupDisplayNames } from "../../../data/persistence/organizations/organizationGroupNamePersistence";
-import { loadOrganizationReadModelProjection } from "../../../data/persistence/organizations/organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { loadVerifiedOrganizationGroupRoles } from "../../../data/principals/organizationGroupRoles";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -46,10 +45,9 @@ async function enrichGrants(
   organizationId: string,
 ): Promise<OrganizationContainerGrant[]> {
   const containerIds = uniqueContainerIds(grants);
-  const groupNames = await loadOrganizationGroupDisplayNames(
+  const groupNames = await new OrganizationReadModelRepository(
     execSql,
-    organizationId,
-  );
+  ).loadOrganizationGroupDisplayNames(organizationId);
   const groupRoles = await loadVerifiedOrganizationGroupRoles(
     execSql,
     organizationId,
@@ -125,8 +123,9 @@ export async function loadLocalOrganizationContainerGrants(
     { ...input, requesterUserId: input.currentUserId },
     "readModel",
     async () => {
-      const projection = await loadOrganizationReadModelProjection(
+      const projection = await new OrganizationReadModelRepository(
         input.execSql,
+      ).loadOrganizationReadModelProjection(
         input.organizationId,
         input.currentUserId,
       );
@@ -152,8 +151,9 @@ export async function loadLocalOrganizationGroupContainers(
     { ...input, requesterUserId: input.currentUserId },
     "readModel",
     async () => {
-      const projection = await loadOrganizationReadModelProjection(
+      const projection = await new OrganizationReadModelRepository(
         input.execSql,
+      ).loadOrganizationReadModelProjection(
         input.organizationId,
         input.currentUserId,
       );
@@ -190,8 +190,9 @@ export async function loadLocalOrganizationGroupPolicyHistory(
     { ...input, requesterUserId: input.currentUserId },
     "readModel",
     async () => {
-      const projection = await loadOrganizationReadModelProjection(
+      const projection = await new OrganizationReadModelRepository(
         input.execSql,
+      ).loadOrganizationReadModelProjection(
         input.organizationId,
         input.currentUserId,
       );
@@ -249,8 +250,9 @@ export async function loadLocalOrganizationPolicyHistory(
     { ...input, requesterUserId: input.currentUserId },
     "readModel",
     async () => {
-      const projection = await loadOrganizationReadModelProjection(
+      const projection = await new OrganizationReadModelRepository(
         input.execSql,
+      ).loadOrganizationReadModelProjection(
         input.organizationId,
         input.currentUserId,
       );
@@ -285,8 +287,9 @@ export async function loadLocalOrganizationPolicyReference(
     { ...input, requesterUserId: input.currentUserId },
     "readModel",
     async () => {
-      const projection = await loadOrganizationReadModelProjection(
+      const projection = await new OrganizationReadModelRepository(
         input.execSql,
+      ).loadOrganizationReadModelProjection(
         input.organizationId,
         input.currentUserId,
       );
@@ -319,8 +322,9 @@ export async function loadLocalOrganizationUserDetail(
     { ...input, requesterUserId: input.currentUserId },
     "readModel",
     async () => {
-      const projection = await loadOrganizationReadModelProjection(
+      const projection = await new OrganizationReadModelRepository(
         input.execSql,
+      ).loadOrganizationReadModelProjection(
         input.organizationId,
         input.currentUserId,
       );

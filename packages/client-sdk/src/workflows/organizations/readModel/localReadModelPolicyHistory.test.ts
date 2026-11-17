@@ -9,7 +9,7 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
-import { applyOrganizationReadModelResponse } from "../../../data/persistence/organizations/organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildOrganizationPolicyHistory } from "../policyHistory/policyHistoryReadModel";
 import {
@@ -48,13 +48,13 @@ test("local organization policy history is bound to the projected verified head"
   const { close, execSql } = await createTestExecSql(
     "organization-local-policy-history",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
     const bundle = organizationPrincipalPolicy;
     const initial = policySnapshot(bundle);
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: organizationReadModelUserId,
-        execSql,
         requestedCursor: null,
         response: initial,
       }),
@@ -87,9 +87,8 @@ test("local organization policy history is bound to the projected verified head"
     });
 
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: organizationReadModelUserId,
-        execSql,
         requestedCursor: initial.nextCursor,
         response: {
           version: 6,

@@ -25,18 +25,25 @@ adds. It then runs the steps that the `pushGate` section of
 [`agent-tool.json`](../../agent-tool.json) declares, in order, stopping at the
 first failure: the quick static checks from `check:fast` (Biome formatting and
 lint, the TypeScript check of [`scripts/`](../../scripts/) and root configs
-(`typecheck:tools`), Knip, architecture, file names, skill placeholders,
-package assertions, canonical ordering, OpenAPI generation and compatibility,
-API migration history, formal maps, infrastructure parity, Ruby, ShellCheck,
+(`typecheck:tools`), Knip, file names, skill placeholders, package
+assertions, canonical ordering, OpenAPI generation and compatibility, API
+migration history, formal maps, infrastructure parity, Ruby, ShellCheck,
 Markdown, and document links) and a source-shape check of each pushed range
 ([`lintPushedSourceShape.ts`](../../scripts/checks/lintPushedSourceShape.ts),
 which reads the push data agent-tool gives each step). A step finishes in
 seconds without building anything; `bun run agent-tool push-gate check` fails
-on a step that reaches a test runner or a dependency install, and on a hook
-that differs from the canonical one. Tests, the workspace TypeScript build
-(which needs a fresh SDK build), the SDK-backed promise lint, protocol models
-and projections, browser tests, and Terraform run in CI only. Every check the
-gate runs also runs in `check:fast`, which
+on a step that reaches a test runner, a build, or a dependency install, and on
+a hook that differs from the canonical one. Tests, the workspace TypeScript
+build (which needs a fresh SDK build), the SDK-backed promise lint, protocol
+models and projections, browser tests, and Terraform run in CI only. So does
+`lint:architecture`, which parses and resolves every workspace module with
+dependency-cruiser and type-checks the subsystem table uses, which took about
+35 s, half the gate's time. Its graph rules (cycles, orphans, reachability,
+subsystem coverage) depend on files a push leaves unchanged, and a cache keyed
+on its inputs would miss on almost every push, since each one carries new
+source or manifests. CI's required `Lint` job runs it through `check:fast`; run
+it yourself after import changes. Every check the gate runs also runs in
+`check:fast`, which
 [`pushGate.test.ts`](../../scripts/checks/staticAnalysis/pushGate.test.ts)
 asserts. Each push leaves a report with per-step durations in
 `bun run agent-tool runs list`, and the gate warns when it takes longer than

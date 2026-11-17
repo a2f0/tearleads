@@ -1,7 +1,7 @@
+import { OrganizationReadModelRepository } from "../../data/persistence/organizations/organizationReadModelRepository";
 import type { DomainScope } from "../../data/shared/domainScope";
 import { recoverOrganizationAccess } from "../../workflows/container-contents/recovery/accessRestoration";
 import {
-  loadAppliedOrganizationReadModelCursor,
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationDirectoryAndGroups,
   loadLocalOrganizationGroupContainers,
@@ -392,8 +392,9 @@ class OrganizationReadModelCoordinatorImpl
       return null;
     }
     await this.settleInFlightReconcile(active);
-    const applied = await loadAppliedOrganizationReadModelCursor({
-      execSql: active.runtime.infra.execSql,
+    const applied = await new OrganizationReadModelRepository(
+      active.runtime.infra.execSql,
+    ).loadAppliedOrganizationReadModelCursor({
       organizationId: active.organizationId,
       requesterUserId: active.userId,
     });
