@@ -127,7 +127,9 @@ manifest's hash before any position that cites it is trusted, resolves a
 container's parent path from the parent pin its signed bodies name rather than
 the served state, and selects cited ancestors by the manifest's object id.
 Document purge proofs carry the full stored state: a purge may verify the
-document head as a hash-only snapshot.
+document head as a hash-only snapshot. Clients built before this served shape
+cannot decode it; it ships as a greenfield flag day with no compatibility path
+(#2903).
 
 A projection GET may send `x-known-manifests`: up to 48 unique typed digests of
 bytes the device durably holds verified. `m:<hash>` names a manifest bundle by

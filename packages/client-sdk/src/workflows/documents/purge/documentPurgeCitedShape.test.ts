@@ -56,10 +56,13 @@ test("a malformed unverified purge citation records one integrity incident", asy
       },
     },
   ];
+  // The served state names no container, but citations are matched by the
+  // hash-committed manifest: this one names the root again, so the leaf cites
+  // two heads of one container.
   proof.documentContainerManifestHistory.push({
     ...root,
-    manifest: { ...root.manifest, objectId: 47 },
     manifestHash: citedHash,
+    state: { ...(root.state as object), containerId: 47 },
   });
   const database = await createTestExecSql("purge-unverified-citation");
   const incidents: unknown[] = [];
@@ -86,7 +89,7 @@ test("a malformed unverified purge citation records one integrity incident", asy
       ),
     ).rejects.toMatchObject({
       name: "KeyingVerificationError",
-      code: "invalid_shape",
+      code: "duplicate_entry",
     });
     expect(incidents).toHaveLength(1);
   } finally {
