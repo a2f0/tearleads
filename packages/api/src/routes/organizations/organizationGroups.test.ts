@@ -4,8 +4,6 @@ import {
   groups as groupsTable,
   organizations,
 } from "@tearleads/api-shared/schema";
-import { toFingerprint } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestUser } from "@tearleads/test-utils";
 import {
   isCreateOrganizationGroupResponse,
@@ -179,14 +177,7 @@ test("org manager routes create and list groups with members", async () => {
     "expected organization group members response",
   );
   expect(membersBody.members).toEqual([
-    {
-      userId: actor.userId,
-      role: "admin",
-      signingKeyFingerprint: actor.fingerprint,
-      signingPublicKey: bytesToBase64(actor.signing.signingPublicKey),
-      encapsulationPublicKey: bytesToBase64(actor.kem.publicKey),
-      encapsulationKeyFingerprint: await toFingerprint(actor.kem.publicKey),
-    },
+    { userId: actor.userId, role: "admin" },
   ]);
 
   const builtinDeleteResponse = await deleteGroupRequest({

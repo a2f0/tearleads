@@ -94,8 +94,10 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // and KEK targets the request named, and policy acknowledgements carry
   // heads, not policies (the commit 73 KB -> 3.5 KB): 0.58 MB received. Public
   // history reads naming a held head receive no current state: 0.54 MB
-  // received; keep about 10% headroom.
-  bodyBytes: { request: 160_000, response: 595_000 },
+  // received. Directory rows and group members carry key fingerprints, not
+  // public keys: 530,053 bytes received (541,249 with keys), so this ceiling
+  // refuses their return.
+  bodyBytes: { request: 160_000, response: 540_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,

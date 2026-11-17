@@ -4,7 +4,6 @@ import {
   type SigningKeyPair,
   signOrganizationLeaveRequest,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import { TEST_LEAVE_REQUEST_MEMBERS_HEAD } from "../../../../test/helpers/data/leaveRequestFixtures";
 import {
   organizationReadModelDirectory as directory,
@@ -32,7 +31,6 @@ function leaveRequest(keys: SigningKeyPair) {
 
 function directoryWith(
   request: ReturnType<typeof leaveRequest>,
-  servedKey: SigningKeyPair,
 ): OrganizationDirectoryAndGroups {
   return {
     directory: {
@@ -40,7 +38,6 @@ function directoryWith(
         users: [
           directoryUser(MEMBER_ID, {
             leaveRequest: request,
-            signingPublicKey: bytesToBase64(servedKey.signingPublicKey),
           }),
         ],
       }),
@@ -74,24 +71,19 @@ async function shownRequest(
 
 test("a request the member signed is shown", async () => {
   const genuine = leaveRequest(member);
-  expect(await shownRequest(directoryWith(genuine, member))).toEqual(genuine);
+  expect(await shownRequest(directoryWith(genuine))).toEqual(genuine);
 });
 
-test("a server that swaps the served key and the signature cannot forge one", async () => {
+test("a request the server signed itself is not shown", async () => {
   const server = generateSigningSeedAndKeyPair();
-  // The forged request verifies against the key served beside it, but not
+  // The forged request verifies against the server's own key, but not
   // against the member's trusted identity.
-  expect(
-    await shownRequest(directoryWith(leaveRequest(server), server)),
-  ).toBeNull();
+  expect(await shownRequest(directoryWith(leaveRequest(server)))).toBeNull();
 });
 
 test("a request whose member cannot be trusted yet is not shown", async () => {
   expect(
-    await shownRequest(
-      directoryWith(leaveRequest(member), member),
-      async () => null,
-    ),
+    await shownRequest(directoryWith(leaveRequest(member)), async () => null),
   ).toBeNull();
 });
 
@@ -99,7 +91,7 @@ test("a signed request from a membership that has since ended is not shown", asy
   const genuine = leaveRequest(member);
   expect(
     await shownRequest(
-      directoryWith(genuine, member),
+      directoryWith(genuine),
       trustedMember,
       async (request) => request !== genuine,
     ),

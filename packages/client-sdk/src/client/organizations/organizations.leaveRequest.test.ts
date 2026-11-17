@@ -3,7 +3,6 @@ import {
   generateSigningSeedAndKeyPair,
   signOrganizationLeaveRequest,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { TEST_LEAVE_REQUEST_MEMBERS_HEAD } from "../../../test/helpers/data/leaveRequestFixtures";
 import { organizationReadModelDirectoryUser as directoryUser } from "../../../test/helpers/data/organizationReadModelPersistenceFixtures";
@@ -26,8 +25,7 @@ test("a roster update response cannot carry a forged leave request", async () =>
   try {
     const member = generateSigningSeedAndKeyPair();
     const server = generateSigningSeedAndKeyPair();
-    // The server answers a profile update with a request it signed itself,
-    // beside its own key in place of the member's.
+    // The server answers a profile update with a request it signed itself.
     const forged = signOrganizationLeaveRequest(
       {
         membersHead: TEST_LEAVE_REQUEST_MEMBERS_HEAD,
@@ -41,7 +39,6 @@ test("a roster update response cannot carry a forged leave request", async () =>
       updateOrganizationRosterEntry: async () =>
         directoryUser(MEMBER_ID, {
           leaveRequest: forged,
-          signingPublicKey: bytesToBase64(server.signingPublicKey),
         }),
     });
     const runtime = createInternalRuntimeFixture(() =>

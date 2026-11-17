@@ -94,8 +94,6 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
         users: [CURRENT_USER_ID, TARGET_USER_ID].map((userId) => ({
           userId,
           signingKeyFingerprint: `signing-fingerprint-${userId}`,
-          signingPublicKey: `signing-key-${userId}`,
-          encapsulationPublicKey: `encapsulation-key-${userId}`,
           encapsulationKeyFingerprint: `encapsulation-fingerprint-${userId}`,
           createdAt: CREATED_AT,
           isPersonalOrganizationOwner: false,

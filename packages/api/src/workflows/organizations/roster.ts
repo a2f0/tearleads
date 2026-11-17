@@ -18,20 +18,18 @@ import { readStoredLeaveRequest } from "./leaveRequest";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
 import { recordOrganizationReadModelChangeAudience } from "./readModelChanges";
 import { listValidRosterProfileDocumentIds } from "./rosterProfileDocumentValidity";
-import type { UserKeyRow } from "./users";
+import type { UserDirectoryRow } from "./users";
 
 type OrganizationRosterEntryRow = typeof organizationRosterEntries.$inferSelect;
 
 export function toOrganizationDirectoryUser(input: {
   readonly rosterEntry: OrganizationRosterEntryRow;
   readonly sessionUserId: string;
-  readonly user: UserKeyRow;
+  readonly user: UserDirectoryRow;
 }): OrganizationDirectoryUserResponse {
   return {
     userId: input.user.userId,
     signingKeyFingerprint: input.user.signingKeyFingerprint,
-    signingPublicKey: input.user.signingPublicKey,
-    encapsulationPublicKey: input.user.encapsulationPublicKey,
     encapsulationKeyFingerprint: input.user.encapsulationKeyFingerprint,
     createdAt: input.user.createdAt.toISOString(),
     isPersonalOrganizationOwner:
