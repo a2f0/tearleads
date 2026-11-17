@@ -125,3 +125,38 @@ test("replaceDocumentLinksBatch keeps a page of multi-link documents within the 
     close();
   }
 });
+
+test("link rows carry the repository clock for single and batch replacements", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-container-projection-clock",
+  );
+  const updatedAt = async (documentId: string) =>
+    (
+      await execSql(
+        "SELECT updated_at FROM document_container_projection WHERE document_id = ? ORDER BY container_id",
+        [documentId],
+      )
+    ).map(({ updated_at: stamp }) => stamp);
+
+  try {
+    const single = new Date("2026-01-02T03:04:05.000Z");
+    await new Links(execSql, () => single).replaceDocumentLinks("document-1", [
+      "container-a",
+      "container-b",
+    ]);
+    expect(await updatedAt("document-1")).toEqual([
+      single.toISOString(),
+      single.toISOString(),
+    ]);
+
+    const batch = new Date("2026-02-03T04:05:06.000Z");
+    await new Links(execSql, () => batch).replaceDocumentLinksBatch([
+      { containerIds: ["container-a"], documentId: "document-1" },
+      { containerIds: ["container-c"], documentId: "document-2" },
+    ]);
+    expect(await updatedAt("document-1")).toEqual([batch.toISOString()]);
+    expect(await updatedAt("document-2")).toEqual([batch.toISOString()]);
+  } finally {
+    close();
+  }
+});
