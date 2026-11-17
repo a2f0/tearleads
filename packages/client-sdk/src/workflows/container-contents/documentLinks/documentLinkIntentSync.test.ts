@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { runQueuedDocumentMoveFixture } from "../../../../test/helpers/queuedDocumentMoveFixture";
 import { sqlContainerContentsPersistence as containers } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+
+const intents = (execSql: ExecSql) => new DocumentMoveIntentRepository(execSql);
 
 test("queued links replay signed additions without unlinking or rotating the source", async () => {
   const fixture = await runQueuedDocumentMoveFixture({
@@ -66,7 +69,7 @@ test("moving a different link preserves an earlier queued move destination", asy
     unlinkAvailable: true,
     replaceLinkedContainers: false,
     beforeReplay: async (execSql) => {
-      await intents.enqueueMoveIntent(execSql, {
+      await intents(execSql).enqueueMoveIntent({
         id: "other-link-move",
         documentId: "queued-move-document",
         localId: "queued-move-local",
@@ -106,7 +109,7 @@ test("recovering an orphan does not restore its deleted queued destination", asy
       await containers.deleteContainer(execSql, "queued-move-trash-container", {
         updatedAt: new Date().toISOString(),
       });
-      await intents.enqueueMoveIntent(execSql, {
+      await intents(execSql).enqueueMoveIntent({
         id: "orphan-recovery",
         documentId: "queued-move-document",
         localId: "queued-move-local",
@@ -141,7 +144,7 @@ test.each([false, true])(
       unlinkAvailable: true,
       replaceLinkedContainers: false,
       beforeReplay: async (execSql) => {
-        const [intent] = await intents.listPendingMoveIntents(execSql);
+        const [intent] = await intents(execSql).listPendingMoveIntents();
         if (!intent) throw new Error("Missing move intent");
         await links.replaceDocumentLinks(
           execSql,
@@ -203,7 +206,7 @@ test("unlinking another container after activating a link preserves the queued m
         "UPDATE document_projection SET container_id = ? WHERE local_id = ?",
         ["queued-move-extra-container", "queued-move-local"],
       );
-      await intents.enqueueUnlinkIntent(execSql, {
+      await intents(execSql).enqueueUnlinkIntent({
         documentId: "queued-move-document",
         localId: "queued-move-local",
         targetContainerId: "queued-move-extra-container",
@@ -230,7 +233,7 @@ test("an older link response cannot settle a newer local move", async () => {
     beforeLink: async (execSql) => {
       if (superseded) return;
       superseded = true;
-      await intents.enqueueMoveIntent(execSql, {
+      await intents(execSql).enqueueMoveIntent({
         id: "new-move",
         documentId: "queued-move-document",
         localId: "queued-move-local",
@@ -285,7 +288,7 @@ test("recovered additions preserve another activated link without an implicit un
       await containers.deleteContainer(execSql, "queued-move-root-container", {
         updatedAt: new Date().toISOString(),
       });
-      const [intent] = await intents.listPendingMoveIntents(execSql);
+      const [intent] = await intents(execSql).listPendingMoveIntents();
       if (!intent) throw new Error("Missing recovered intent");
       await links.replaceDocumentLinks(
         execSql,
@@ -344,7 +347,7 @@ test("an in-flight addition cannot acknowledge a newer unlink", async () => {
     beforeLink: async (execSql) => {
       if (removed) return;
       removed = true;
-      await intents.enqueueUnlinkIntent(execSql, {
+      await intents(execSql).enqueueUnlinkIntent({
         id: "new-unlink",
         documentId: "queued-move-document",
         localId: "queued-move-local",
@@ -376,7 +379,7 @@ test("a coalesced round-trip move restores its target after the first replay unl
     beforeUnlink: async (execSql) => {
       if (returned) return;
       returned = true;
-      await intents.enqueueMoveIntent(execSql, {
+      await intents(execSql).enqueueMoveIntent({
         id: "return-move",
         documentId: "queued-move-document",
         localId: "queued-move-local",

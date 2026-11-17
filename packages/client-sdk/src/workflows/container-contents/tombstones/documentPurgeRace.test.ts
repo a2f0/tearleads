@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import {
@@ -56,7 +56,7 @@ test("purge retry refuses a document recreated before the absence transaction", 
         persistence,
         resolveProjectionUserKey,
         runtime: {
-          apiClient: {
+          apiClient: createMockApiClient({
             getPrincipalPolicyPages: () => {
               throw new Error("Unexpected principal page read");
             },
@@ -74,7 +74,7 @@ test("purge retry refuses a document recreated before the absence transaction", 
               ...proof,
               reclaimedBlobStorageKeys: [],
             }),
-          },
+          }),
           auth: {
             isAuthenticated: true,
             organizationId: author.organizationId,
@@ -182,7 +182,7 @@ test("purge retry deletes an absent custom document projection with its proof", 
         persistence,
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
         runtime: {
-          apiClient: {
+          apiClient: createMockApiClient({
             getPrincipalPolicyPages: () => {
               throw new Error("Unexpected principal page read");
             },
@@ -200,7 +200,7 @@ test("purge retry deletes an absent custom document projection with its proof", 
               ...proof,
               reclaimedBlobStorageKeys: [],
             }),
-          },
+          }),
           auth: {
             isAuthenticated: true,
             organizationId: fixture.author.organizationId,

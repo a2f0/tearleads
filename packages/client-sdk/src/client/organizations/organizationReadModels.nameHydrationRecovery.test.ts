@@ -15,7 +15,7 @@ import {
   repairPolicyPages,
   repairProtectionLease,
 } from "../../../test/helpers/principalPolicyRepair";
-import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   DocumentRecordRepository,
   ensureDocumentTables,
@@ -33,6 +33,9 @@ import {
   wasOrganizationPresentationAccessDeniedByServer,
 } from "../../workflows/organizations/readModel/organizationPresentationAccessState";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
+
+const moveIntents = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 async function signedReadModelFixture() {
   const fixture = await createGroupNameDirectory();
@@ -111,7 +114,7 @@ async function parkDeniedWritesAndMoves(
       status: 403,
     },
   );
-  await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+  await moveIntents(execSql).ensureSchema();
   await ensureSqlTables(execSql, containerTables);
   for (const [id, org] of [
     ["restored", organizationId],
@@ -122,12 +125,12 @@ async function parkDeniedWritesAndMoves(
       VALUES (?, ?, '2026-09-17T00:00:00.000Z', '2026-09-17T00:00:00.000Z')`,
       [id, org],
     );
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: `${id}-remote`,
       localId: `${id}-local`,
       targetContainerId: id,
     });
-    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+    await moveIntents(execSql).recordMoveIntentError({
       denied: true,
       documentId: `${id}-remote`,
       message: "permission denied",
@@ -223,12 +226,12 @@ test("name hydration failure cannot consume the denied-access write recovery edg
     await waitForDomainSyncCoordinatorToSettle(domainScope);
     expect(laneRuns).toBe(1);
     expect(
-      (
-        await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql)
-      ).map((move) => move.documentId),
+      (await moveIntents(execSql).listPendingMoveIntents()).map(
+        (move) => move.documentId,
+      ),
     ).toEqual(["restored-remote"]);
     expect(
-      await sqlDocumentMoveIntentPersistence.hasDeniedMoveIntents(execSql, {
+      await moveIntents(execSql).hasDeniedMoveIntents({
         organizationId: "other-org",
       }),
     ).toBe(true);
@@ -241,9 +244,9 @@ test("name hydration failure cannot consume the denied-access write recovery edg
     await waitForDomainSyncCoordinatorToSettle(domainScope);
     expect(laneRuns).toBe(1);
     expect(
-      (
-        await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql)
-      ).map((move) => move.documentId),
+      (await moveIntents(execSql).listPendingMoveIntents()).map(
+        (move) => move.documentId,
+      ),
     ).toEqual(["restored-remote"]);
   } finally {
     disposeDomainSyncCoordinator(domainScope);

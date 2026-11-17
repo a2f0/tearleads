@@ -21,7 +21,10 @@ import {
   type RosterAdmissionPin,
 } from "../../workflows/organizations/memberships/rosterVouchedAdmission";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
-import { currentOrganizationMutation } from "./principalMutationScope";
+import {
+  currentOrganizationMutation,
+  currentOrganizationSigningMutation,
+} from "./principalMutationScope";
 import { createRosterAdmissionEvidence } from "./rosterAdmissionEvidence";
 
 export { loadServedStateEnvelopes } from "./rosterAdmissionEvidence";
@@ -233,10 +236,11 @@ export async function requireGroupMemberAdmission(
 
 /** Capture the mutation scope before obtaining its head-bound admission proof. */
 export async function admitGroupMutation(
-  service: AdmissionRuntimeService,
+  service: AdmissionRuntimeService &
+    Pick<InternalRuntime, "identityTrustDomain">,
   userId: string,
 ) {
-  const mutation = currentOrganizationMutation(service);
+  const mutation = currentOrganizationSigningMutation(service);
   const admission = await requireGroupMemberAdmission(
     service,
     mutation.runtime.infra.execSql,

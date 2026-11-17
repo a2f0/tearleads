@@ -12,6 +12,7 @@ import {
   createMutationResponseFromRequest,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   CHILD_ID,
   forgedEpoch1Entry,
@@ -26,16 +27,15 @@ import { verifyContainerDestinationProjection } from "../../../../data/keyingPro
 import { verifyKeyringEntriesForSeal } from "../move/moveRotation";
 import { resolveRotationContext } from "../rotation/rotationContext";
 import { ContainerKeyringOverrideStaleError } from "./keyringOverrideLineage";
-import { rekeyRemoteContainer } from "./rekeyRemote";
 
 async function repairWithOverride(
   scenario: RelocatedChildHistory,
   keyringEntriesOverride: readonly ContainerKekKeyringEntry[],
 ) {
   const submitted: ContainerMutationRequest[] = [];
-  const repair = rekeyRemoteContainer({
+  const repair = createContainerMutationServiceFixture({
     reportSecurityIncident: async () => {},
-    apiClient: {
+    api: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => scenario.projection,
       rekeyContainer: async (_containerId, request) => {
@@ -43,14 +43,15 @@ async function repairWithOverride(
         return createMutationResponseFromRequest(request, scenario.projection);
       },
     },
+    execSql: scenario.database.execSql,
+    encapsulationSecretKey: scenario.parent.secretKey,
+  }).rekeyRemoteContainer({
     author: scenario.parent.author,
     containerId: CHILD_ID,
-    execSql: scenario.database.execSql,
     keyringEntriesOverride,
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(
       scenario.parent,
     ),
-    targetSecretKey: scenario.parent.secretKey,
   });
   return { repair, submitted };
 }

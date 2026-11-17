@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentMoveIntentPersistence as placementIntents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence as persistence } from "../containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "../documentQueries";
 import {
@@ -9,6 +10,9 @@ import {
   saveTestSyncedContainer,
 } from "../documentQueries/documentQueries.testFixtures";
 import { createInitializedContainerMetadataDocument } from "../metadata/containerMetadataDocument";
+
+const placementIntents = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 async function fixture(queued = true) {
   const database = await createTestExecSql("folder-recovery");
@@ -218,7 +222,7 @@ test.each([
         sourceContainerId: "source",
         targetContainerId: "folder",
       };
-      await placementIntents.enqueueMoveIntent(f.execSql, {
+      await placementIntents(f.execSql).enqueueMoveIntent({
         ...input,
         id: "move-document",
         replaceLinkedContainers,
@@ -227,11 +231,11 @@ test.each([
         "INSERT INTO document_container_projection (document_id, container_id, updated_at) VALUES ('remote-doc', 'folder', 'before')",
       );
       if (extra) {
-        await placementIntents.enqueueLinkIntent(f.execSql, {
+        await placementIntents(f.execSql).enqueueLinkIntent({
           ...input,
           targetContainerId: "other-folder",
         });
-        await placementIntents.enqueueUnlinkIntent(f.execSql, {
+        await placementIntents(f.execSql).enqueueUnlinkIntent({
           ...input,
           removedContainerId: "unrelated-folder",
         });

@@ -28,8 +28,8 @@ import {
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { shareRemoteContainer } from "./index";
 
 test("repeated shares submit every same-container manifest needed by retained wraps", async () => {
   const parent = await createParentProjection();
@@ -130,19 +130,20 @@ test("repeated shares submit every same-container manifest needed by retained wr
         encapsulationPublicKey: recipient.publicKey,
         signingPublicKey: generateSigningSeedAndKeyPair().signingPublicKey,
       });
-      const shared = await shareRemoteContainer({
+      const shared = await createContainerMutationServiceFixture({
         reportSecurityIncident: async () => {},
+        api: apiClient,
+        execSql,
+        resolveTrustedUserIdentity: resolveProjectionUserKey,
+        encapsulationSecretKey: parent.secretKey,
+      }).shareRemoteContainer({
         accessLevel: "read",
-        apiClient,
         author: parent.author,
         containerId: parent.projection.containerId,
-        execSql,
         previousProjection: projection,
         recipientUserId,
         resolveProjectionUserKey,
-        resolveTrustedUserIdentity: resolveProjectionUserKey,
         signedAt: SIGNED_AT,
-        targetSecretKey: parent.secretKey,
       });
       if (!shared) {
         throw new Error(`Expected share result ${index + 1}`);

@@ -31,6 +31,14 @@ export {
   type VersionVectorSpan,
   versionVectorsEqual,
 } from "./document";
+export {
+  createReadOnlyDocument,
+  type HistoryStop,
+  type HistoryVersionEntry,
+  type HistoryViewer,
+  openHistoryViewer,
+  orderHistoryStops,
+} from "./historyTimeline";
 export * from "./shared";
 export { updateMatchesDocumentHistory } from "./updateIdentity";
 export {

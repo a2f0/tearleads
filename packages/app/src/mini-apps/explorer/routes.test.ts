@@ -48,6 +48,44 @@ test("explorer document-info route is unavailable when its container is gone", (
   ).toBe(false);
 });
 
+test("explorer document-history route follows its container like document-info", () => {
+  const route = {
+    localId: "local-document-1",
+    view: "document-history",
+  } as const;
+
+  expect(
+    isExplorerRouteAvailable({ ...route, containerId: "container-1" }, nodes),
+  ).toBe(true);
+  expect(
+    isExplorerRouteAvailable(
+      { ...route, containerId: "missing-container" },
+      nodes,
+    ),
+  ).toBe(false);
+});
+
+test("explorer document-history route round-trips through its path", () => {
+  const segments = [
+    "containers",
+    "container-1",
+    "documents",
+    "document-1",
+    "history",
+  ];
+  const parsed = parseExplorerRouteSegments(segments);
+
+  // Like document-info, it names the document without selecting it.
+  expect(parsed).toEqual({
+    route: {
+      containerId: "container-1",
+      localId: "document-1",
+      view: "document-history",
+    },
+  });
+  expect(formatExplorerRouteSegments(parsed.route)).toEqual(segments);
+});
+
 test("recovery document route remains available while its virtual node loads", () => {
   expect(
     isExplorerRouteAvailable(

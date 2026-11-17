@@ -51,7 +51,7 @@ import {
   readPendingOrganizationPolicyMutation,
   retryPendingOrganizationPolicyMutation,
 } from "./principalMutationRecovery";
-import { currentOrganizationMutation } from "./principalMutationScope";
+import { currentOrganizationSigningMutation } from "./principalMutationScope";
 import {
   type AddOrganizationGroupUserInput,
   addUserToOrganizationGroup,
@@ -196,14 +196,14 @@ class OrganizationsService implements Organizations {
   createGroup(name: string) {
     return createGroupForOrganization({
       name,
-      ...currentOrganizationMutation(this.runtimeService),
+      ...currentOrganizationSigningMutation(this.runtimeService),
     });
   }
 
   deleteGroup(groupId: string) {
     return deleteGroupForOrganization({
       groupId,
-      ...currentOrganizationMutation(this.runtimeService),
+      ...currentOrganizationSigningMutation(this.runtimeService),
     });
   }
 
@@ -476,7 +476,7 @@ class OrganizationsService implements Organizations {
       ...input,
       containerContents: this.containerContents,
       readModelCoordinator: this.readModelCoordinator,
-      ...currentOrganizationMutation(this.runtimeService),
+      ...currentOrganizationSigningMutation(this.runtimeService),
     });
   }
 
@@ -485,7 +485,7 @@ class OrganizationsService implements Organizations {
       ...grant,
       containerContents: this.containerContents,
       readModelCoordinator: this.readModelCoordinator,
-      ...currentOrganizationMutation(this.runtimeService),
+      ...currentOrganizationSigningMutation(this.runtimeService),
     });
   }
 

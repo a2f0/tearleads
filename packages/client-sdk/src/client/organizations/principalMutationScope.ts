@@ -17,7 +17,6 @@ export function currentOrganizationMutation(
         (allowTokenRenewal
           ? current.apiClient === runtime.apiClient
           : service.sessionGeneration === sessionGeneration) &&
-        current.identityTrustDomain === runtime.identityTrustDomain &&
         current.infra.dbStatus === "ready" &&
         current.infra.execSql === runtime.infra.execSql &&
         current.state.domainScope === runtime.state.domainScope &&
@@ -27,5 +26,18 @@ export function currentOrganizationMutation(
         current.crypto.signingFingerprint === runtime.crypto.signingFingerprint
       );
     },
+  };
+}
+
+/** A signed mutation's scope: the client's fixed trust domain and its lifetime. */
+export function currentOrganizationSigningMutation(
+  service: Pick<
+    InternalRuntime,
+    "identityTrustDomain" | "workflowInput" | "sessionGeneration"
+  >,
+) {
+  return {
+    identityTrustDomain: service.identityTrustDomain,
+    ...currentOrganizationMutation(service),
   };
 }

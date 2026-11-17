@@ -79,9 +79,28 @@ export function useDocumentRowWriters(enabled: boolean): RowWriterResolver {
   return useRowWritersForDocument({ documentId, syncing, enabled });
 }
 
+// The open document's complete edit-attribution segments, for callers that
+// resolve an exact operation rather than a peer. Empty while they load or when
+// attribution is unavailable (offline, unsynced, unauthenticated, truncated).
+export function useDocumentAttributionSegments(
+  enabled: boolean,
+): AttributionSegments {
+  const { documentId, syncing } = useDocument();
+  return useAttributionSegmentsForDocument({ documentId, syncing, enabled });
+}
+
 // Contacts and other hosts can request attribution without a DocumentProvider.
 // Both entry points share the same policy and exact request-scope lifetime.
-export function useRowWritersForDocument({
+export function useRowWritersForDocument(input: {
+  documentId: string | null;
+  syncing: boolean;
+  enabled: boolean;
+}): RowWriterResolver {
+  const segments = useAttributionSegmentsForDocument(input);
+  return useMemo(() => createRowWriterResolver(segments), [segments]);
+}
+
+function useAttributionSegmentsForDocument({
   documentId,
   syncing,
   enabled,
@@ -89,7 +108,7 @@ export function useRowWritersForDocument({
   documentId: string | null;
   syncing: boolean;
   enabled: boolean;
-}): RowWriterResolver {
+}): AttributionSegments {
   const { containerContents } = useTearleads();
   const runtime = useTearleadsRuntime();
   const { isAuthenticated, organizationId, userId, authToken } = runtime.auth;
@@ -141,8 +160,7 @@ export function useRowWritersForDocument({
       domainScope,
     ],
   );
-  const segments = useRowWriterSegments(request, containerContents);
-  return useMemo(() => createRowWriterResolver(segments), [segments]);
+  return useRowWriterSegments(request, containerContents);
 }
 
 function useRowWriterSegments(

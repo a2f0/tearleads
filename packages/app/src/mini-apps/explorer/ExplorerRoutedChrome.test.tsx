@@ -305,6 +305,85 @@ test("document-info back action returns to the document", async () => {
   expect(selectedDocuments).toEqual([["you-contact", "contacts-container"]]);
 });
 
+test("the History toolbar action opens the selected document's history", async () => {
+  const openedHistory: Array<[string, string]> = [];
+  const baseModel = createExplorerModel();
+  const view = render(
+    <WindowMenuProvider>
+      <ExplorerRoutedChromeHarness
+        model={createExplorerModel({
+          isActiveContactsContainer: false,
+          routeState: {
+            ...baseModel.routeState,
+            route: {
+              containerId: "folder-1",
+              localId: "note-1",
+              view: "document-selection",
+            },
+            openDocumentHistoryRoute: (localId, containerId) => {
+              openedHistory.push([localId, containerId]);
+            },
+          },
+          selection: {
+            ...baseModel.selection,
+            activeContainerId: "folder-1",
+            selectedDocument: undefined,
+          },
+        })}
+      />
+    </WindowMenuProvider>,
+  );
+
+  const history = await view.findByRole("button", {
+    name: EXPLORER_LABELS.documentHistoryAction,
+  });
+  // Enabled from the route alone, before the summary loads.
+  expect((history as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(history);
+
+  expect(openedHistory).toEqual([["note-1", "folder-1"]]);
+});
+
+test("the history route hides the document toolbar and backs out to the document", async () => {
+  const selectedDocuments: Array<[string, string]> = [];
+  const baseModel = createExplorerModel();
+  const view = render(
+    <WindowMenuProvider>
+      <ExplorerRoutedChromeHarness
+        model={createExplorerModel({
+          routeState: {
+            ...baseModel.routeState,
+            route: {
+              containerId: "folder-1",
+              localId: "note-1",
+              view: "document-history",
+            },
+          },
+          selectDocumentProjection: (localId, containerId) => {
+            selectedDocuments.push([localId, containerId]);
+          },
+        })}
+      />
+    </WindowMenuProvider>,
+  );
+
+  fireEvent.click(
+    await view.findByRole("button", {
+      name: EXPLORER_LABELS.documentHistoryBackAction,
+    }),
+  );
+
+  expect(selectedDocuments).toEqual([["note-1", "folder-1"]]);
+  expect(
+    view.queryByRole("button", { name: EXPLORER_LABELS.documentHistoryAction }),
+  ).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.documentInfoGetInfoAction,
+    }),
+  ).toBeNull();
+});
+
 test("the Sync toolbar action opens the Explorer diagnostics hub", async () => {
   const openedSyncLanes: number[] = [];
   const baseModel = createExplorerModel();

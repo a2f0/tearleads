@@ -13,11 +13,9 @@ import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/shared/domainScope";
 import {
   type ContainerContentsPersistence,
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
-  loadContainerSyncLaneCheckRecords,
-  markContainerSyncLaneChecked,
-  saveContainerSyncWatermark,
 } from "../../workflows/container-contents/containerPersistence";
 import {
   createContainerContentsStore,
@@ -146,8 +144,7 @@ test("container contents store publishes cached containers before startup hydrat
 
   try {
     await seedLocalRootContainer(execSql, { rootContainerId: "cached-root" });
-    await markContainerSyncLaneChecked(
-      execSql,
+    await new ContainerSyncWatermarkRepository(execSql).markChecked(
       createContainerParentSyncLane(null),
     );
     await execSql(
@@ -195,9 +192,9 @@ test("container contents store publishes cached containers before startup hydrat
       "Startup hydration did not settle.",
     );
     await waitFor(async () => {
-      const checks = await loadContainerSyncLaneCheckRecords(execSql, [
-        createContainerParentSyncLane(null),
-      ]);
+      const checks = await new ContainerSyncWatermarkRepository(
+        execSql,
+      ).loadCheckRecords([createContainerParentSyncLane(null)]);
       return checks.every((check) => check !== null);
     }, "Startup hydration did not save lane check markers.");
   } finally {
@@ -268,15 +265,12 @@ test("root-lane refresh follows a newly discovered shared root into its children
     // checked, watermarked root lane — the same cache-first startup posture as the
     // sibling test above.
     await seedLocalRootContainer(execSql, { rootContainerId: "peer-root" });
-    await markContainerSyncLaneChecked(
-      execSql,
-      createContainerParentSyncLane(null),
-    );
-    await saveContainerSyncWatermark(
-      execSql,
-      createContainerParentSyncLane(null),
-      { id: "peer-root", updatedAt: "2026-06-20T00:00:00.000Z" },
-    );
+    const watermarks = new ContainerSyncWatermarkRepository(execSql);
+    await watermarks.markChecked(createContainerParentSyncLane(null));
+    await watermarks.saveWatermark(createContainerParentSyncLane(null), {
+      id: "peer-root",
+      updatedAt: "2026-06-20T00:00:00.000Z",
+    });
 
     const childLaneParentIds: Array<string | null | undefined> = [];
     const signedDirectory = await createSignedContainerDirectory([
@@ -346,17 +340,14 @@ test("refresh re-lists the root lane unwatermarked to surface a newly shared roo
     // root lane is marked freshly checked, and it carries a persisted watermark
     // from a prior sync. Startup stays cache-first and does not auto-probe.
     await seedLocalRootContainer(execSql, { rootContainerId: "peer-root" });
-    await markContainerSyncLaneChecked(
-      execSql,
-      createContainerParentSyncLane(null),
-    );
+    const watermarks = new ContainerSyncWatermarkRepository(execSql);
+    await watermarks.markChecked(createContainerParentSyncLane(null));
     // The shared root's updatedAt predates this watermark (joining a group does
     // not bump it), so a watermarked resume would filter it out forever.
-    await saveContainerSyncWatermark(
-      execSql,
-      createContainerParentSyncLane(null),
-      { id: "peer-root", updatedAt: "2026-06-20T00:00:00.000Z" },
-    );
+    await watermarks.saveWatermark(createContainerParentSyncLane(null), {
+      id: "peer-root",
+      updatedAt: "2026-06-20T00:00:00.000Z",
+    });
 
     // The server grants the peer access to the owner's root container, but only
     // returns it when the root lane is probed WITHOUT the stale watermark.

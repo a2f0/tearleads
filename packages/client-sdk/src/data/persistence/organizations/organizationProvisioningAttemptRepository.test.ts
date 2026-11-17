@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { organizationProvisioningAttempts } from "../../sqlite/schema/organizationProvisioningAttemptSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { createExecSql } from "../../sqlite/sqlSchema";
-import { sqlOrganizationProvisioningAttemptPersistence } from "./organizationProvisioningAttemptPersistence";
+import { OrganizationProvisioningAttemptRepository } from "./organizationProvisioningAttemptRepository";
 
 test("obsolete provisioning storage requires reset without altering pending artifacts", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -24,7 +24,7 @@ test("obsolete provisioning storage requires reset without altering pending arti
       ["source", "user", "organization", "root", "pending-artifacts", "now"],
     );
     await expect(
-      sqlOrganizationProvisioningAttemptPersistence.load(execSql, "source"),
+      new OrganizationProvisioningAttemptRepository(execSql).load("source"),
     ).rejects.toThrow(
       "Local database schema for organization_provisioning_attempts is obsolete; reset the local database before continuing",
     );
@@ -51,7 +51,8 @@ test("restore completion cannot delete a newer organization attempt", async () =
   const attemptKey = "native-subscription-restore:user";
   const newerOrganizationId = crypto.randomUUID();
   try {
-    await sqlOrganizationProvisioningAttemptPersistence.loadOrSave(execSql, {
+    const attempts = new OrganizationProvisioningAttemptRepository(execSql);
+    await attempts.loadOrSave({
       organizationId: newerOrganizationId,
       replacedOrganizationId: attemptKey,
       rootContainerId: crypto.randomUUID(),
@@ -59,7 +60,7 @@ test("restore completion cannot delete a newer organization attempt", async () =
       userId: "user",
     });
 
-    await sqlOrganizationProvisioningAttemptPersistence.remove(execSql, {
+    await attempts.remove({
       organizationId: crypto.randomUUID(),
       replacedOrganizationId: attemptKey,
       userId: "user",
@@ -100,12 +101,10 @@ test("independent clients claim one pending creation intent atomically", async (
   };
   try {
     const [left, right] = await Promise.all([
-      sqlOrganizationProvisioningAttemptPersistence.loadOrSave(
-        connection(),
+      new OrganizationProvisioningAttemptRepository(connection()).loadOrSave(
         candidate(),
       ),
-      sqlOrganizationProvisioningAttemptPersistence.loadOrSave(
-        connection(),
+      new OrganizationProvisioningAttemptRepository(connection()).loadOrSave(
         candidate(),
       ),
     ]);

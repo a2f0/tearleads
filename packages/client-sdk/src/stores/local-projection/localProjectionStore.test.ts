@@ -6,9 +6,9 @@ import { upsertDiscoveredDocuments } from "../../data/persistence/documents/docu
 import type { DomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
-  markContainerSyncLaneChecked,
 } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "../container-contents/containerContentsStore";
 import { createContainerContentsTestRuntime } from "../container-contents/runtime.testFixtures";
@@ -87,12 +87,9 @@ async function seedContainerWithDocument(
     null,
   );
   // Mark the root lane fresh so startup hydration stays cache-first (no network).
-  await markContainerSyncLaneChecked(
-    execSql,
-    createContainerParentSyncLane(null),
-  );
-  await markContainerSyncLaneChecked(
-    execSql,
+  const watermarks = new ContainerSyncWatermarkRepository(execSql);
+  await watermarks.markChecked(createContainerParentSyncLane(null));
+  await watermarks.markChecked(
     createContainerParentSyncLane(input.containerId),
   );
 

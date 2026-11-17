@@ -3,7 +3,7 @@ import type {
   DocumentInfo,
   DocumentSummary,
 } from "@tearleads/client-sdk";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   MiniAppHeader,
   MiniAppHeaderCopy,
@@ -14,7 +14,6 @@ import {
   MiniAppTabPanel,
 } from "../../../../components/mini-app/MiniAppLayout";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../../stores/explorer/documentInfo";
-import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 import type { ExplorerAttributionProfileHydrationRequester } from "../../hooks/explorerAttributionReadModel";
 import { EXPLORER_LABELS } from "../../labels";
 import { canWriteDocumentSummary } from "../../model/containerRules";
@@ -40,6 +39,7 @@ import {
 import { ExplorerDocumentInfoSecurityTab } from "./ExplorerDocumentInfoSecuritySections";
 import { ExplorerLinkedContainerSection } from "./ExplorerLinkedContainers";
 import { useExplorerDocumentInfo } from "./useExplorerDocumentInfo";
+import { useExplorerDocumentSummary } from "./useExplorerDocumentSummary";
 
 type DocumentInfoTabId =
   | "general"
@@ -87,63 +87,6 @@ interface Props {
     documentId: string,
     removedContainerId: string,
   ) => Promise<DocumentSummary | null>;
-}
-
-function useExplorerDocumentSummary(params: {
-  fallbackDocumentSummary: DocumentSummary | null;
-  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
-  localId: string;
-}) {
-  const { fallbackDocumentSummary, loadDocumentSummary, localId } = params;
-  const requestIdRef = useRef(0);
-  const [documentSummary, setDocumentSummary] =
-    useState<DocumentSummary | null>(
-      fallbackDocumentSummary?.id === localId ? fallbackDocumentSummary : null,
-    );
-  const [documentSummaryError, setDocumentSummaryError] = useState<
-    string | null
-  >(null);
-  const [isLoadingDocumentSummary, setIsLoadingDocumentSummary] =
-    useState(false);
-
-  useEffect(() => {
-    const fallback =
-      fallbackDocumentSummary?.id === localId ? fallbackDocumentSummary : null;
-    setDocumentSummary(fallback);
-    setDocumentSummaryError(null);
-    if (fallback) {
-      setIsLoadingDocumentSummary(false);
-      return;
-    }
-
-    let cancelled = false;
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    setIsLoadingDocumentSummary(true);
-
-    void loadDocumentSummary(localId)
-      .then((summary) => {
-        if (!cancelled && requestIdRef.current === requestId) {
-          setDocumentSummary(summary);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled && requestIdRef.current === requestId) {
-          setDocumentSummaryError(unknownErrorMessage(error));
-        }
-      })
-      .finally(() => {
-        if (!cancelled && requestIdRef.current === requestId) {
-          setIsLoadingDocumentSummary(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [fallbackDocumentSummary, loadDocumentSummary, localId]);
-
-  return { documentSummary, documentSummaryError, isLoadingDocumentSummary };
 }
 
 function getDocumentInfoLinkedContainerIds(input: {

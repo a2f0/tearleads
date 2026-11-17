@@ -28,6 +28,7 @@ export {
   type ValidatedDocumentFields,
   writeStoredDocumentFields,
 } from "./documentKinds";
+export type { DocumentRestoreContent } from "./documentRestore";
 export type {
   DocumentRow,
   DocumentRowSummary,

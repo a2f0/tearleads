@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
-  markContainerSyncLaneChecked,
 } from "../../../workflows/container-contents/containerPersistence";
 import {
   saveTestDocument,
@@ -25,7 +25,7 @@ async function createStartupWorkFixture(testDbName: string) {
   const { close, execSql } = await createTestExecSql(testDbName);
   await defaultContainerContentsPersistence.ensureSchema(execSql);
   await sqlDocumentsPersistence.ensureSchema(execSql);
-  await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+  await new DocumentMoveIntentRepository(execSql).ensureSchema();
   const state = {
     containersById: new Map([["root-container", {}]]),
     persistence: defaultContainerContentsPersistence,
@@ -77,8 +77,7 @@ test("startup restores a fresh durable root-lane hydration marker", async () => 
     "startup-restores-root-lane-hydration",
   );
   try {
-    await markContainerSyncLaneChecked(
-      execSql,
+    await new ContainerSyncWatermarkRepository(execSql).markChecked(
       createContainerParentSyncLane(null),
     );
     let hydrationRequestCount = 0;
@@ -127,8 +126,7 @@ test("startup schedules stale-root recovery with no durable sync work", async ()
     "startup-schedules-stale-root-recovery",
   );
   try {
-    await markContainerSyncLaneChecked(
-      execSql,
+    await new ContainerSyncWatermarkRepository(execSql).markChecked(
       createContainerParentSyncLane(null),
     );
     let hydrationRequestCount = 0;
@@ -317,7 +315,7 @@ test("hasStartupContainerSyncWork detects a pending document move intent", async
   );
   try {
     await saveSettledTestDocument({ execSql, id: "moved-doc", seed: "s3" });
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await new DocumentMoveIntentRepository(execSql).enqueueMoveIntent({
       documentId: "remote-moved-doc",
       localId: "moved-doc",
       sourceContainerId: "root-container",

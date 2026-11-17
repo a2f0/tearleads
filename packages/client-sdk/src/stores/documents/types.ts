@@ -4,6 +4,7 @@ import type {
   DocumentFieldValidationIssue,
   StoredDocumentKind,
 } from "../../data/documents/documentKinds";
+import type { DocumentRestoreContent } from "../../data/documents/documentRestore";
 import type { DocumentRow } from "../../data/documents/documentRowList";
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import type { BlobByteSourceInput } from "../../workflows/blobs";
@@ -91,6 +92,7 @@ export type DocumentContextValue = DocumentSnapshot &
     | "removeRow"
     | "replaceAttachment"
     | "requestSync"
+    | "restoreContent"
     | "setStructuredFields"
     | "setText"
     | "updateRowFields"
@@ -147,6 +149,17 @@ export interface DocumentStore {
     slotId: string,
     file: DocumentAttachmentUpload,
   ) => Promise<void>;
+  /**
+   * Write a past version's text, structured fields, and rows back as one
+   * ordinary local edit; attachments are left as they are. Nothing is rewound:
+   * the restore is new operations that sync and merge like any other write.
+   * Resolves true when the document durably holds the content, false when
+   * the restore was refused or did not persist.
+   */
+  restoreContent: (
+    content: DocumentRestoreContent,
+    options?: DocumentMutationGuard | undefined,
+  ) => Promise<boolean>;
   /** Pull remote document updates even when no websocket event marked it dirty. */
   requestRemoteSync: () => void;
   /** Pull remote updates and report whether the requested sync pass completed. */

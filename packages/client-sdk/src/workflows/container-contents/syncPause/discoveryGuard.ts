@@ -1,6 +1,6 @@
 import {
+  ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
-  sqlContainerSyncWatermarkPersistence,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { upsertDiscoveredDocuments } from "../../../data/persistence/documents/documentsPersistence";
@@ -54,11 +54,9 @@ export function guardDocumentDiscoveryWrites(input: {
       whileCurrent(
         undefined,
         async (lockedExecSql) => {
-          await sqlContainerSyncWatermarkPersistence.saveWatermark(
+          await new ContainerSyncWatermarkRepository(
             lockedExecSql,
-            containerContentsSyncLane(containerId),
-            watermark,
-          );
+          ).saveWatermark(containerContentsSyncLane(containerId), watermark);
         },
         stillCurrent,
       ),

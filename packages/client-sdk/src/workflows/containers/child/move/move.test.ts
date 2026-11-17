@@ -6,9 +6,9 @@ import {
   createParentProjectionUserKeyResolver,
   tamperFirstProjectionEventSignature,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
-import { moveRemoteContainer } from "./index";
 
 test("moveRemoteContainer rejects bad source projection signatures before sending", async () => {
   const parent = await createParentProjection();
@@ -23,9 +23,9 @@ test("moveRemoteContainer rejects bad source projection signatures before sendin
   const database = await createTestExecSql("move-bad-source-signature");
 
   await expect(
-    moveRemoteContainer({
+    createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async (containerId) =>
           containerId === parent.projection.containerId
@@ -36,12 +36,13 @@ test("moveRemoteContainer rejects bad source projection signatures before sendin
           throw new Error("Unexpected move call");
         },
       },
+      execSql: database.execSql,
+      encapsulationSecretKey: parent.secretKey,
+    }).moveRemoteContainer({
       author,
       containerId: parent.projection.containerId,
       destinationParentContainerId: "destination-parent",
-      execSql: database.execSql,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      targetSecretKey: parent.secretKey,
     }),
   ).rejects.toMatchObject({ code: "signature_mismatch" });
   expect(moveCalled).toBe(false);
@@ -61,9 +62,9 @@ test("moveRemoteContainer rejects bad destination projection signatures before s
   const database = await createTestExecSql("move-bad-destination-signature");
 
   await expect(
-    moveRemoteContainer({
+    createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async (containerId) =>
           containerId === parent.projection.containerId
@@ -74,12 +75,13 @@ test("moveRemoteContainer rejects bad destination projection signatures before s
           throw new Error("Unexpected move call");
         },
       },
+      execSql: database.execSql,
+      encapsulationSecretKey: parent.secretKey,
+    }).moveRemoteContainer({
       author,
       containerId: parent.projection.containerId,
       destinationParentContainerId: "tampered-destination-parent",
-      execSql: database.execSql,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      targetSecretKey: parent.secretKey,
     }),
   ).rejects.toMatchObject({ code: "signature_mismatch" });
   expect(moveCalled).toBe(false);
@@ -104,9 +106,9 @@ test("move planning rolls back checkpoints after its generation expires", async 
   }) as ExecSql;
 
   try {
-    const moved = await moveRemoteContainer({
+    const moved = await createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         moveContainer: async () => {
@@ -114,13 +116,14 @@ test("move planning rolls back checkpoints after its generation expires", async 
           throw new Error("Unexpected move call");
         },
       },
+      execSql: guardedExecSql,
+      encapsulationSecretKey: parent.secretKey,
+    }).moveRemoteContainer({
       author,
       containerId: parent.projection.containerId,
       destinationParentContainerId: "destination-parent",
-      execSql: guardedExecSql,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       stillCurrent: () => !transactionStarted,
-      targetSecretKey: parent.secretKey,
     });
 
     expect(moved).toBeNull();
