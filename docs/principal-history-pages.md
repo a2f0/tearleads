@@ -197,9 +197,10 @@ Lookup columns are untrusted hints; restoration authenticates the exact saved
 head and rechecks its final stored state, projection, grants, and signer
 identity. Changed rules or keys start verification again. Different protection
 generations have separate unique rows, so processes using different keys do not
-overwrite each other's progress. Transactions buffer hints and publish each row
-in its own autocommit after success, so readers cannot deadlock by locking hint
-rows in opposite orders. Publication failures are reported without changing the
+overwrite each other's progress. Transactions buffer hints and publish them
+after success in autocommit upserts of at most 100 rows, written in key order,
+so concurrent publishers lock shared hint rows in the same order and cannot
+deadlock. Publication failures are reported without changing the
 transaction result. Rolled-back hints are discarded; conditional deletion of an
 invalid hint can run after rollback. Savepoint effects wait for the outer
 transaction to finish. Index nodes are published before progress that uses them.

@@ -10,6 +10,10 @@ import {
   organizationRosterEntries,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, type SQL, sql } from "drizzle-orm";
+import {
+  recordTransactionLock,
+  transactionHoldsLock,
+} from "../../utils/transactionLocks";
 
 export interface ObservedOrganizationReadModelChange {
   readonly affectedUserIds: readonly string[];
@@ -250,22 +254,34 @@ export async function lockOrganizationReadModelHeadInTransaction(
   return { cursor, laneCursors };
 }
 
+function organizationReadModelHeadLockKey(organizationId: string): string {
+  return `organization-read-model-head:${organizationId}`;
+}
+
 /**
  * Serialize an organization mutation before it authorizes. This prevents a
  * writer that was concurrently revoked from committing after the revocation's
  * cursor, and makes domain commit order agree with read-model cursor order.
+ * A head this transaction already locked is not locked again: re-locking a
+ * held row never waits, so lock order is unchanged. Only a head that exists
+ * is recorded, so a missing one is read again; organization purge, its only
+ * deleter, deletes it last and locks nothing after.
  */
 export async function lockOrganizationReadModelHeadForUpdateInTransaction(
   tx: DatabaseTransaction,
   organizationId: string,
 ): Promise<boolean> {
+  const lockKey = organizationReadModelHeadLockKey(organizationId);
+  if (transactionHoldsLock(tx, lockKey, "exclusive")) return true;
   const lockQuery = tx
     .select({ organizationId: organizationReadModelHeads.organizationId })
     .from(organizationReadModelHeads)
     .where(eq(organizationReadModelHeads.organizationId, organizationId))
     .limit(1);
   const [head] = await lockQuery.for("update");
-  return head !== undefined;
+  if (head === undefined) return false;
+  recordTransactionLock(tx, lockKey, "exclusive");
+  return true;
 }
 
 const laneStampColumns = {

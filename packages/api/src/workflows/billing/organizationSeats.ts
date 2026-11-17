@@ -391,6 +391,13 @@ export async function reconcileOrganizationBillingSeats(input: {
   readonly executor: DatabaseSession;
   /** Newly paid capacity, such as a Stripe upgrade, recorded as its own event. */
   readonly licensedSeatCount?: number;
+  /**
+   * The Members group's reachable users as roster sync just read them in this
+   * transaction, which holds the organization's write lock and has not
+   * written principal states since, so a second read would return the same
+   * set. Read here when absent.
+   */
+  readonly memberReachableUserIds?: readonly string[];
   readonly now?: Date;
   readonly organizationId: string;
   readonly source: BillingSeatSource;
@@ -404,10 +411,12 @@ export async function reconcileOrganizationBillingSeats(input: {
     return;
   }
 
-  const activeUserIds = await listUsersReachableFromCurrentGroup({
-    executor: input.executor,
-    groupId: billing.memberGroupId,
-  });
+  const activeUserIds =
+    input.memberReachableUserIds ??
+    (await listUsersReachableFromCurrentGroup({
+      executor: input.executor,
+      groupId: billing.memberGroupId,
+    }));
   const activeAdminUserIds = await listUsersReachableFromCurrentGroup({
     executor: input.executor,
     groupId: billing.adminGroupId,

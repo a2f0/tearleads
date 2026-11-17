@@ -14,6 +14,7 @@ import {
   appendOrganizationReadModelChangeInTransaction,
   collectOrganizationReadModelChanges,
   listCommittedOrganizationReadModelChanges,
+  lockOrganizationReadModelHeadForUpdateInTransaction,
   recordOrganizationReadModelChangeAudience,
 } from "./readModelChanges";
 
@@ -275,6 +276,51 @@ test("organization read-model changes reject a missing cursor head", async () =>
       }),
     ),
   ).rejects.toThrow("Organization read-model cursor head is missing");
+});
+
+test("a transaction locks a read-model head once and re-reads a missing one", async () => {
+  const organizationId = crypto.randomUUID();
+  const missingOrganizationId = crypto.randomUUID();
+  await createOrganizationReadModelHead(organizationId);
+  async function lockStatements(
+    tx: Parameters<
+      typeof lockOrganizationReadModelHeadForUpdateInTransaction
+    >[0],
+    id: string,
+  ) {
+    const counter = { statements: 0 };
+    const locked = await withDatabaseStatementCounter(counter, () =>
+      lockOrganizationReadModelHeadForUpdateInTransaction(tx, id),
+    );
+    return { locked, statements: counter.statements };
+  }
+  await db.transaction(async (tx) => {
+    expect(await lockStatements(tx, organizationId)).toEqual({
+      locked: true,
+      statements: 1,
+    });
+    await appendOrganizationReadModelChangeInTransaction(tx, {
+      organizationId,
+      lanes: ["groups"],
+    });
+    expect(await lockStatements(tx, organizationId)).toEqual({
+      locked: true,
+      statements: 0,
+    });
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      expect(await lockStatements(tx, missingOrganizationId)).toEqual({
+        locked: false,
+        statements: 1,
+      });
+    }
+  });
+  // A new transaction locks the head again.
+  await db.transaction(async (tx) => {
+    expect(await lockStatements(tx, organizationId)).toEqual({
+      locked: true,
+      statements: 1,
+    });
+  });
 });
 
 test("one change stamps several lanes, member groups, and tombstones with one cursor", async () => {
