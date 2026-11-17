@@ -39,6 +39,7 @@ export function verifyWithHeldBundleRecovery<T>(
     (error) =>
       error instanceof KeyingVerificationError ||
       error instanceof ProjectionDependencyUnavailableError,
+    true,
   );
 }
 
@@ -51,18 +52,21 @@ export function checkWithHeldBundleRecovery<T>(
   input: HeldBundleRecoveryInput,
   check: () => Promise<T>,
 ): Promise<T> {
-  return runWithHeldBundleRecovery(input, check, () => true);
+  return runWithHeldBundleRecovery(input, check, () => true, false);
 }
 
 async function runWithHeldBundleRecovery<T>(
   input: HeldBundleRecoveryInput,
   run: () => Promise<T>,
   recovers: (error: unknown) => boolean,
+  verifies: boolean,
 ): Promise<T> {
   try {
     const result = await run();
-    // Held bytes this projection verified with are good for other reads.
-    acceptDecodedProjection(input.projection);
+    // Only a full, current verification vouches for every held byte it used;
+    // a consistency check covers one bundle and accepts nothing.
+    if (verifies && input.stillCurrent?.() !== false)
+      acceptDecodedProjection(input.projection);
     return result;
   } catch (error) {
     const held = heldBundlesUsedBy(input.projection);

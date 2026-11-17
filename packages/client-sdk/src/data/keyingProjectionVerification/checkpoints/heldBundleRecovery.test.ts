@@ -8,6 +8,7 @@ import {
   decodeContainerWriterProjection,
   encodeContainerWriterProjection,
   isRejectedDecodedProjection,
+  rejectDecodedProjection,
 } from "@tearleads/validators/response";
 import {
   isServedAccessManifestBundleWireResponse,
@@ -457,6 +458,28 @@ test("a citation load that starts during an eviction does not return the evicted
     });
     expect(await loadVerifiedManifestCitations(execSql, target)).toEqual([]);
     expect(released).toBe(true);
+  } finally {
+    database.close();
+  }
+});
+
+test("a passing consistency check does not clear another read's refusal", async () => {
+  const fixture = await seededFixture();
+  const database = await createTestExecSql("held-bundle-check-accepts-nothing");
+  const wrong = toServedAccessManifestBundle({
+    ...fixture.leaf,
+    state: { ...fixture.leaf.state, directGrants: [] },
+  });
+  try {
+    const refused = await seedWrongRow(database.execSql, fixture, wrong);
+    const checked = await seedWrongRow(database.execSql, fixture, wrong);
+    rejectDecodedProjection(refused);
+    expect(isRejectedDecodedProjection(checked)).toBe(true);
+    await checkWithHeldBundleRecovery(
+      { execSql: database.execSql, projection: checked },
+      async () => undefined,
+    );
+    expect(isRejectedDecodedProjection(checked)).toBe(true);
   } finally {
     database.close();
   }
