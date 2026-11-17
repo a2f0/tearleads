@@ -213,6 +213,33 @@ from the organization's committed history; it receives reset semantics, and the
 client atomically replaces the organization's projection from a new full
 snapshot. Applying the same response more than once is a no-op.
 
+### Committed deltas
+
+A group create, a group policy commit, and a share also send the cursor the
+client's projection holds, as the `readModelCursor` query parameter. It stays
+out of the body, which a stored receipt binds, so a retry holding a newer
+cursor still replays. Inside the mutation's transaction, after its last write,
+the server serves that request's delta only when the transaction stamped the
+organization and the held cursor is the head its first stamp advanced from.
+It then runs the feed's own screen, head read (the writer's exclusive head
+lock already covers it), verified access decision, and lane reloads, so the
+response carries in `readModel` exactly the page a feed read from that cursor
+returns once the mutation commits. A group write stamps the head twice, so the
+delta is built after the second stamp and its `nextCursor` is that final
+cursor, the one the request's hint names. An unreadable cursor or one for
+another organization, a cursor behind that head, a replay that stamped
+nothing, and an access decision the feed would refuse all leave the field out;
+a refusal reaches the client through its own feed read instead.
+
+The client applies a committed delta through the ordinary apply path, and only
+while its projection still holds the cursor it sent. A group create and the
+membership and revocation commits use it as their post-commit read; a realtime
+hint's cursor check first waits, for at most ten seconds, for this device's own
+mutations in flight and applies the deltas they carried, so the hint naming
+such a commit costs no read. A missing, omitted, or no longer applicable delta
+leaves today's path: the post-commit or hint read requests the feed, and a lost
+response leaves the cursor behind so the hint still reads.
+
 Network, server, and response-shape failures retain the last-known-good local
 snapshot, but reconciliation returns `undefined`, not that cached snapshot.
 Local loaders can still present the retained data; a failed pass must not count
@@ -318,8 +345,9 @@ A forged low cursor could only suppress a read, which withholding the hint
 already can; a lost hint is recovered as before.
 
 While Org Manager itself is mutating, hints for its scope are held and released
-when the mutation ends, after its explicit post-mutation reconciliation; the
-release reads only if the held cursor is still ahead. A synchronous burst
+when the mutation ends, after its explicit post-mutation reconciliation, which
+applies the mutation's [committed delta](#committed-deltas) when it carried one;
+the release reads only if the held cursor is still ahead. A synchronous burst
 collapses before I/O. Hints arriving during I/O raise one pending maximum
 cursor, and the pass runs one sequential follow-up only if that cursor is ahead
 of the cursor the read returned. Parallel organization feed requests are never

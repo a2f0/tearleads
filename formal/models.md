@@ -405,7 +405,10 @@ organization's new cursor, so a
 [delta](../docs/organization-read-model-sync.md#snapshot-and-delta-contract)
 from any cursor reloads every changed entity and never skips a change. A change
 to Admins also stamps the directory, whose pending leave requests depend on the
-reader's role, so a new administrator's next delta carries them. See the
+reader's role, so a new administrator's next delta carries them. A mutation
+that advances the head twice can hand its client the delta from the cursor it
+held, built in its own transaction after its last stamp, without letting that
+client skip a change. See the
 [mapping and negative controls](./realtime/OrganizationReadModelStamps.md).
 
 ## Blob Attachments

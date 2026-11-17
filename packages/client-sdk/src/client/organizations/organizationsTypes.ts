@@ -75,7 +75,17 @@ export interface Organizations {
   addUserToGroup: (
     input: AddOrganizationGroupUserInput,
   ) => Promise<OrganizationGroupMutationResult>;
-  createGroup: (name: string) => ReturnType<typeof createOrganizationGroup>;
+  /**
+   * The created group, plus the read model the SDK applied from the create's
+   * own response (`undefined` when it carried none or no longer applied, so
+   * the caller reads after the mutation as before).
+   */
+  createGroup: (
+    name: string,
+  ) => Promise<
+    Awaited<ReturnType<typeof createOrganizationGroup>> &
+      Pick<OrganizationGroupMutationResult, "directoryAndGroups">
+  >;
   deleteGroup: (
     groupId: string,
   ) => ReturnType<typeof deleteGroupForOrganization>;

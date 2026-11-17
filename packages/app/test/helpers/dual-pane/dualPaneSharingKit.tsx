@@ -86,7 +86,7 @@ export async function shareContainerWithPeer(pane: HTMLElement, name: string) {
           (request) =>
             request.method === "POST" &&
             request.status === 200 &&
-            request.url.endsWith("/share"),
+            new URL(request.url).pathname.endsWith("/share"),
         ),
     () =>
       `Container share did not finish.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,

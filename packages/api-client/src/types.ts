@@ -32,6 +32,12 @@ export interface RequestResultOptions {
    * changes which hashes the read cites, never what the read accepts.
    */
   readonly projectionListing?: WriterProjectionListing | undefined;
+  /**
+   * Group creates, group policy commits and shares only: the organization
+   * read-model cursor the caller holds. The response then carries the
+   * read-model delta from it when the commit advanced from that cursor.
+   */
+  readonly readModelCursor?: string | undefined;
 }
 
 export type OperationRequestFn = <T>(

@@ -26,6 +26,7 @@ import {
   type OrganizationDataUsageCoordinator,
 } from "./organizationDataUsage";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
+import { leaveRequestVerifier } from "./organizationLeaveRequestVerifier";
 import {
   createOrganizationMemberships,
   type OrganizationContentReconciler,
@@ -33,7 +34,6 @@ import {
 } from "./organizationMemberships";
 import {
   createOrganizationReadModelCoordinator,
-  leaveRequestVerifier,
   type OrganizationReadModelCoordinator,
 } from "./organizationReadModels";
 import type { Organizations } from "./organizationsTypes";
@@ -195,6 +195,7 @@ class OrganizationsService implements Organizations {
   createGroup(name: string) {
     return createGroupForOrganization({
       name,
+      readModelCoordinator: this.readModelCoordinator,
       ...currentOrganizationSigningMutation(this.runtimeService),
     });
   }

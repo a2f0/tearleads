@@ -21,6 +21,7 @@ import {
   ContainerNotFoundErrorResponseSchema,
   ContainerReciteResponseSchema,
   ContainerRotationResponseSchema,
+  ContainerShareResponseSchema,
   ContainerSummaryResponseSchema,
   ContainerSyncTombstoneResponseSchema,
   ContainerWriterProjectionErrorResponseSchema,
@@ -81,6 +82,15 @@ describeSchema(
     previousManifestRef: "The container's current manifest head.",
     principalPolicyRefs:
       "Heads of the principal policies the re-citation was planned against.",
+  },
+);
+
+describeSchema(
+  ContainerShareResponseSchema,
+  "Acknowledges a share by hash, as for any container mutation, and may carry the sharer's read-model delta.",
+  {
+    readModel:
+      "The read-model delta a feed read from `readModelCursor` returns once the share lands. Present only when the share stamped the grants lane, that cursor was the head it advanced from, and the caller may read the feed.",
   },
 );
 

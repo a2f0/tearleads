@@ -279,3 +279,18 @@ export function isOrganizationReadModelResponse(
 ): value is OrganizationReadModelResponse {
   return OrganizationReadModelResponseSchema.safeParse(value).success;
 }
+
+/**
+ * A delta page on its own. A mutation response carries one: the page a feed
+ * read from the cursor the caller held returns once the mutation commits.
+ */
+export const OrganizationReadModelDeltaSchema =
+  registerJsonSchemaRuntimeRefinements(
+    registerJsonSchemaView(
+      OrganizationReadModelDeltaResponseSchema.refine(
+        hasValidReadModelSemantics,
+      ),
+      OrganizationReadModelDeltaResponseSchema,
+    ),
+    organizationReadModelResponseRuntimeRefinements,
+  );

@@ -18,6 +18,7 @@ export const putPrincipalPolicy = createIdentityBoundDatabaseWorkflowService<
 interface CommitOrganizationGroupPolicyServiceInput {
   readonly groupId: string;
   readonly organizationId: string;
+  readonly readModelCursor?: string | undefined;
   readonly request: CommitOrganizationGroupPolicyRequest;
   readonly requesterUserId: string;
 }

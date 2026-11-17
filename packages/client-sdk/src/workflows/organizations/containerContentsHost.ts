@@ -6,10 +6,14 @@ import {
   createRuntimeCurrentGroupShare,
   createRuntimeCurrentSharePrincipalPolicy,
 } from "./groupShare";
+import { beginCommittedReadModel } from "./readModel/committedReadModel";
 
 /** The organization operations the composition root hands container contents. */
 export const containerContentsOrganizationHost: ContainerContentsOrganizationHost =
   {
+    committedReadModel: (scope) => ({
+      begin: () => beginCommittedReadModel(scope),
+    }),
     createCurrentGroupShare: createRuntimeCurrentGroupShare,
     createCurrentGroupPolicyReader: createRuntimeCurrentSharePrincipalPolicy,
     groupMetadataNameReader: (runtime, organizationId, stillCurrent) =>

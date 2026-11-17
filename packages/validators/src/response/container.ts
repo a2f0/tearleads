@@ -230,13 +230,13 @@ const ContainerMutationKekAcknowledgementSchema =
     [organizationProvisioningContainerKeyringRefinement],
   );
 
-const containerMutationResponseShape = {
+export const ContainerMutationResponseShape = {
   ...ContainerManifestMutationResponseShape,
   containerKek: ContainerMutationKekAcknowledgementSchema,
 };
 
 export const ContainerMutationResponseSchema = loosePlainObject(
-  containerMutationResponseShape,
+  ContainerMutationResponseShape,
 );
 
 export type ContainerMutationResponse = z.infer<
@@ -245,7 +245,7 @@ export type ContainerMutationResponse = z.infer<
 
 /** A rotation's acknowledgement, plus one per carried rekey in request order. */
 export const ContainerRotationResponseSchema = loosePlainObject({
-  ...containerMutationResponseShape,
+  ...ContainerMutationResponseShape,
   containerRekeys: arraySchema(ContainerMutationResponseSchema).optional(),
 });
 

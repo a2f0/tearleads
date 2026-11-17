@@ -82,7 +82,10 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
           return;
         }
         sendDialogEvent({ dialog: "createGroup", type: "close" });
-        await refreshDirectoryAndGroups({ afterMutation: true });
+        await refreshDirectoryAndGroups({
+          afterMutation: true,
+          mutationResult: createdGroup,
+        });
         if (!isOperationActive(operationOrganizationId)) {
           return;
         }

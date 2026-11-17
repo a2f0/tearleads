@@ -79,7 +79,9 @@ test("Peer 2 cannot remove Peer 1 from the personal org after becoming an admin"
   });
   const rejectedCommit = listProxiedApiRequests()
     .slice(requestStart)
-    .find((request) => request.url.endsWith("/policy-commit"));
+    .find((request) =>
+      new URL(request.url).pathname.endsWith("/policy-commit"),
+    );
   expect(rejectedCommit?.status).toBe(409);
   expect(JSON.parse(rejectedCommit?.responseBody ?? "null")).toEqual({
     error: "Personal organization owner must remain an active member and admin",

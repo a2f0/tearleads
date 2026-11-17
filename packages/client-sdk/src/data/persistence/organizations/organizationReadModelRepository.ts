@@ -230,6 +230,22 @@ export class OrganizationReadModelRepository {
   }
 
   /**
+   * The organization's stored projection cursor, shared by every requester on
+   * this device: the cursor a reconcile requests from. Null without one.
+   */
+  async loadOrganizationReadModelCursor(
+    organizationId: string,
+  ): Promise<string | null> {
+    await ensureSqlTables(this.execSql, organizationReadModelTables);
+    const [row] = await getClientSQLitePersistenceRuntime(this.execSql)
+      .db.select({ cursor: organizationReadModelState.cursor })
+      .from(organizationReadModelState)
+      .where(eq(organizationReadModelState.organizationId, organizationId))
+      .limit(1);
+    return row?.cursor ?? null;
+  }
+
+  /**
    * The cursor this requester has applied, or null when it holds none. The
    * organization row's cursor is shared: another identity on this device may
    * have advanced it while this requester's own fields (for example

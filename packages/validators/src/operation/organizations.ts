@@ -15,6 +15,7 @@ import {
   isCreateOrganizationRequest,
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
+  OrganizationReadModelHeldCursorQuerySchema,
   OrganizationReadModelQuerySchema,
   UpdateOrganizationProfileRequestSchema,
   UpdateOrganizationRosterEntryRequestSchema,
@@ -171,10 +172,11 @@ export const createOrganizationGroupOperation = defineJsonOperation({
   id: "organizations.groups.create",
   summary: "Create an organization group and advance its signed directory",
   description:
-    "Creates a group with its initial signed principal policy and, in the same transaction, the organization policy successor that adds it to the signed group directory. Only organization administrators may call it. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.",
+    "Creates a group with its initial signed principal policy and, in the same transaction, the organization policy successor that adds it to the signed group directory. Only organization administrators may call it. When `readModelCursor` names the read-model head the commit advanced from, the response carries the read-model delta a feed read from that cursor returns. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.",
   method: "POST",
   params: OrganizationPathParamsSchema,
   path: "/organizations/{organizationId}/groups",
+  query: OrganizationReadModelHeldCursorQuerySchema,
   responseDescriptions: {
     202: "The attempted operation rolled back. Retry the identical request to continue verification preparation.",
   },
@@ -185,6 +187,7 @@ export const createOrganizationGroupOperation = defineJsonOperation({
   runtimeRefinements: [
     organizationProvisioningContainerKeyringRefinement,
     principalHistoryRollbackRefinement,
+    ...organizationReadModelResponseRuntimeRefinements,
   ],
 });
 

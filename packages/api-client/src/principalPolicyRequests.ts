@@ -156,15 +156,16 @@ export class PrincipalPolicyRequests {
     input: CreateOrganizationGroupWithPolicyRequest,
     options: RequestResultOptions = {},
   ) {
+    const { readModelCursor, ...requestOptions } = options;
     return this.groupMutation(organizationId, input.groupId, () =>
       principalHistoryRequest(this.runtime, {
-        path: createOrganizationGroup.path(organizationId),
+        path: createOrganizationGroup.path(organizationId, readModelCursor),
         validator: createOrganizationGroup.isResponse,
         method: createOrganizationGroup.method,
         body: JSON.stringify(input),
         options: {
           expectedPaymentRequiredOrganizationId: organizationId,
-          ...options,
+          ...requestOptions,
         },
         operation: createOrganizationGroupOperation,
       }),
@@ -218,17 +219,22 @@ export class PrincipalPolicyRequests {
   ) {
     const groupKey = JSON.stringify(["group", groupId]);
     const organizationKey = JSON.stringify(["organization", organizationId]);
+    const { readModelCursor, ...requestOptions } = options;
     this.cache.delete(groupKey);
     this.cache.delete(organizationKey);
     try {
       return await principalHistoryRequest(this.runtime, {
-        path: commitOrganizationGroupPolicy.path(organizationId, groupId),
+        path: commitOrganizationGroupPolicy.path(
+          organizationId,
+          groupId,
+          readModelCursor,
+        ),
         validator: commitOrganizationGroupPolicy.isResponse,
         method: commitOrganizationGroupPolicy.method,
         body: JSON.stringify(input),
         options: {
           expectedPaymentRequiredOrganizationId: organizationId,
-          ...options,
+          ...requestOptions,
         },
         operation: commitOrganizationGroupPolicyOperation,
       });

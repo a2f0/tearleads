@@ -13,7 +13,7 @@ import {
 import { createTestTrustedUserIdentity } from "../../data/trustedUserIdentity/testFixtures";
 import type { ContainerContents } from "../containerContents";
 import { createOrganizations } from ".";
-import { leaveRequestVerifier } from "./organizationReadModels";
+import { leaveRequestVerifier } from "./organizationLeaveRequestVerifier";
 
 const ORGANIZATION_ID = "6a1f3c2e-8d4b-4f6a-9c1e-2b3d4e5f6a7b";
 const MEMBER_ID = "1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e";

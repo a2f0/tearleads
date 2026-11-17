@@ -88,6 +88,12 @@ function coordinatorWithMembers(
     async reconcileAfterMutation() {
       return null;
     },
+    async applyCommittedReadModel() {
+      return undefined;
+    },
+    async reconcileAfterOwnMutation() {
+      return null;
+    },
     async loadAppliedCursor() {
       return null;
     },

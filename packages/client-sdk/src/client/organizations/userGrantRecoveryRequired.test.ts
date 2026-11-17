@@ -67,10 +67,14 @@ for (const missing of ["custody", "pages"] as const) {
         stillCurrent: () => true,
         containerContents: {} as ContainerContents,
         readModelCoordinator: {
-          reconcileAfterMutation: async () => {
-            f.calls.push("host:reconcileAfterMutation");
+          reconcileAfterOwnMutation: async () => {
+            f.calls.push("host:reconcileAfterOwnMutation");
+            return undefined;
           },
-        } as OrganizationReadModelCoordinator,
+        } as Pick<
+          OrganizationReadModelCoordinator,
+          "reconcileAfterOwnMutation"
+        > as OrganizationReadModelCoordinator,
       }).catch((error: unknown) => error);
       // A missing dependency gets the revoke's one bounded refresh (evict and
       // refetch the projection) and then fails the same way, still before any

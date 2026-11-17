@@ -1,7 +1,10 @@
+import type { OrganizationReadModelDeltaResponse } from "@tearleads/validators/response";
 import { OrganizationReadModelRepository } from "../../data/persistence/organizations/organizationReadModelRepository";
 import type { DomainScope } from "../../data/shared/domainScope";
-import { recoverOrganizationAccess } from "../../workflows/container-contents/recovery/accessRestoration";
 import {
+  applyCommittedOrganizationReadModel,
+  type CommittedReadModelOffer,
+  loadHeldOrganizationReadModelCursor,
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationDirectoryAndGroups,
   loadLocalOrganizationGroupContainers,
@@ -15,22 +18,17 @@ import {
   type OrganizationPolicyHistory,
   type OrganizationUserDetail,
   reconcileOrganizationDirectoryAndGroups,
+  takeCommittedReadModelOffer,
+  takeCommittedReadModelOffers,
   withVerifiedLeaveRequests,
   withVerifiedUserLeaveRequest,
 } from "../../workflows/organizations";
-import { createRuntimeLeaveRequestMembershipCheck } from "../../workflows/organizations/memberships/leaveRequestMembersEvidence";
-import type { LeaveRequestVerifier } from "../../workflows/organizations/memberships/leaveRequestVerification";
-import {
-  organizationAccessScopeKey,
-  wasOrganizationPresentationAccessDeniedByServer,
-} from "../../workflows/organizations/readModel/organizationPresentationAccessState";
-import type {
-  InternalRuntime,
-  InternalWorkflowRuntimeInput,
-} from "../runtime/workflowRuntime";
+import { organizationAccessScopeKey } from "../../workflows/organizations/readModel/organizationPresentationAccessState";
+import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { loadBoundedOrganizationGroupHistory } from "./organizationGroupHistory";
-import { hydrateOrganizationGroupNamesForRuntime } from "./organizationGroupNameHydration";
 import { loadBoundedOrganizationHistory } from "./organizationHistory";
+import { leaveRequestVerifier } from "./organizationLeaveRequestVerifier";
+import { presentOrganizationReadModelPass } from "./organizationReadModelPresentation";
 import {
   type ActiveOrganizationDataRuntime,
   activeOrganizationDataRuntime,
@@ -41,32 +39,6 @@ const coordinatorsByRuntime = new WeakMap<
   InternalRuntime,
   OrganizationReadModelCoordinator
 >();
-
-/**
- * What one view's leave requests are checked against. The signer comes from
- * the device's durable pin first, so a request already stored still verifies
- * offline, then a trusted remote resolution for a member not pinned yet. The
- * membership comes from this device's verified organization policy.
- */
-export function leaveRequestVerifier(
-  runtimeService: InternalRuntime,
-  runtime: InternalWorkflowRuntimeInput,
-  organization: { readonly organizationId: string; readonly userId: string },
-): LeaveRequestVerifier {
-  const { domainScope } = runtime.state;
-  return {
-    resolveTrustedUserIdentity: async (userId) =>
-      (await runtimeService.identityLinks.resolvePinned(userId)) ??
-      runtime.resolveTrustedUserIdentity(userId),
-    membershipIsCurrent: createRuntimeLeaveRequestMembershipCheck({
-      currentUserId: organization.userId,
-      organizationId: organization.organizationId,
-      runtime,
-      stillCurrent: () =>
-        runtimeService.workflowInput().state.domainScope === domainScope,
-    }),
-  };
-}
 
 export interface OrganizationReadModelCoordinator {
   loadLocal(
@@ -109,6 +81,23 @@ export interface OrganizationReadModelCoordinator {
   ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
   reconcileAfterMutation(
     organizationId?: string | undefined,
+  ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
+  /**
+   * Apply the read-model delta this device's own mutation response carried,
+   * with no request. Resolves `undefined` when it is not applied (no delta,
+   * another scope, or the projection moved past the cursor the mutation held).
+   */
+  applyCommittedReadModel(
+    organizationId: string,
+    delta: OrganizationReadModelDeltaResponse | undefined,
+  ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
+  /**
+   * The post-commit read of this device's own mutation: its response's delta
+   * when that applies and presents, otherwise `reconcileAfterMutation`.
+   */
+  reconcileAfterOwnMutation(
+    organizationId: string,
+    delta: OrganizationReadModelDeltaResponse | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
   /** The applied cursor once this scope's in-flight reconcile settles. */
   loadAppliedCursor(
@@ -280,7 +269,22 @@ class OrganizationReadModelCoordinatorImpl
     if (!active?.runtime.state.online) {
       return Promise.resolve(undefined);
     }
+    return this.presentReconciliation(active, () =>
+      reconcileOrganizationDirectoryAndGroups({
+        apiClient: active.runtime.apiClient,
+        currentUserId: active.userId,
+        execSql: active.runtime.infra.execSql,
+        logError: active.runtime.util.logError,
+        organizationId: active.organizationId,
+      }),
+    );
+  }
 
+  /** Run one projection pass for the scope, then present what it applied. */
+  private presentReconciliation(
+    active: ActiveOrganizationDataRuntime,
+    pass: () => Promise<OrganizationDirectoryAndGroups | null | undefined>,
+  ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
     const byKey = this.reconciliationMap(active);
     const key = organizationAccessScopeKey(
       active.organizationId,
@@ -292,63 +296,11 @@ class OrganizationReadModelCoordinatorImpl
     }
     const presentedCursors = scopedMap(this.presentedCursorsByScope, active);
 
-    // Snapshot the server-denied flag before reconciling. A reconcile that
-    // flips it back to readable means org access was just restored (e.g. the
-    // user was re-added to a group), and any write lanes idled by
-    // permission-denied submissions have no self re-arm — regaining access is
-    // their retry signal, mirroring how billing recovery re-requests all
-    // lanes. Only a genuine server denial counts: a local session reset also
-    // marks scopes denied, and re-arming on its first reconcile would race the
-    // startup sync passes (e.g. pending-create adoption between panes).
-    const accessWasDenied = wasOrganizationPresentationAccessDeniedByServer(
-      {
-        execSql: active.runtime.infra.execSql,
-        organizationId: active.organizationId,
-        requesterUserId: active.userId,
-      },
-      "readModel",
-    );
-    const domainScope = active.runtime.state.domainScope;
-    const stillCurrent = () =>
-      isOrganizationDataRuntimeCurrent(
-        this.runtimeService,
-        active,
-        domainScope,
-      );
-
-    const reconciliation = reconcileOrganizationDirectoryAndGroups({
-      apiClient: active.runtime.apiClient,
-      currentUserId: active.userId,
-      execSql: active.runtime.infra.execSql,
-      logError: active.runtime.util.logError,
-      organizationId: active.organizationId,
-    })
-      .then(async (directoryAndGroups) => {
-        if (!stillCurrent()) return null;
-        // Feed success restores retry eligibility even if name decryption fails.
-        const accessWasRestored =
-          accessWasDenied &&
-          directoryAndGroups !== null &&
-          directoryAndGroups !== undefined;
-        if (accessWasRestored)
-          await recoverOrganizationAccess({
-            domainScope,
-            execSql: active.runtime.infra.execSql,
-            organizationId: active.organizationId,
-            stillCurrent,
-            userId: active.userId,
-          });
-        if (!stillCurrent()) return null;
-        return withVerifiedLeaveRequests(
-          await hydrateOrganizationGroupNamesForRuntime(
-            this.runtimeService,
-            active,
-            domainScope,
-            directoryAndGroups,
-          ),
-          leaveRequestVerifier(this.runtimeService, active.runtime, active),
-        );
-      })
+    const reconciliation = presentOrganizationReadModelPass(
+      this.runtimeService,
+      active,
+      pass,
+    )
       .then(
         (presented) => {
           if (presented) presentedCursors.set(key, presented.readModelCursor);
@@ -383,6 +335,58 @@ class OrganizationReadModelCoordinatorImpl
     return this.reconcile(active.organizationId);
   }
 
+  async applyCommittedReadModel(
+    organizationId: string,
+    delta: OrganizationReadModelDeltaResponse | undefined,
+  ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
+    const offer =
+      active && delta
+        ? takeCommittedReadModelOffer(committedScope(active), delta)
+        : undefined;
+    if (!active || !offer) return undefined;
+    await this.settleInFlightReconcile(active);
+    return this.applyCommittedOffer(active, offer);
+  }
+
+  /**
+   * Present an offer only while the projection still holds the cursor its
+   * mutation sent; a pass that started since joins instead, having read after
+   * that commit.
+   */
+  private async applyCommittedOffer(
+    active: ActiveOrganizationDataRuntime,
+    offer: CommittedReadModelOffer,
+  ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
+    const held = await loadHeldOrganizationReadModelCursor(
+      committedScope(active),
+    );
+    if (held !== offer.heldCursor) return undefined;
+    return this.presentReconciliation(active, () =>
+      applyCommittedOrganizationReadModel({
+        currentUserId: active.userId,
+        execSql: active.runtime.infra.execSql,
+        logError: active.runtime.util.logError,
+        organizationId: active.organizationId,
+        requestedCursor: offer.heldCursor,
+        response: offer.delta,
+      }),
+    );
+  }
+
+  async reconcileAfterOwnMutation(
+    organizationId: string,
+    delta: OrganizationReadModelDeltaResponse | undefined,
+  ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
+    return (
+      (await this.applyCommittedReadModel(organizationId, delta)) ??
+      this.reconcileAfterMutation(organizationId)
+    );
+  }
+
   async loadAppliedCursor(organizationId?: string): Promise<string | null> {
     const active = activeOrganizationDataRuntime(
       this.runtimeService,
@@ -390,6 +394,15 @@ class OrganizationReadModelCoordinatorImpl
     );
     if (!active) {
       return null;
+    }
+    // A hint's cursor check: this scope's own mutations in flight settle
+    // first, and the deltas they carried apply, so a hint naming one of those
+    // commits needs no read.
+    for (const offer of await takeCommittedReadModelOffers(
+      committedScope(active),
+    )) {
+      await this.settleInFlightReconcile(active);
+      await this.applyCommittedOffer(active, offer);
     }
     await this.settleInFlightReconcile(active);
     const applied = await new OrganizationReadModelRepository(
@@ -411,6 +424,14 @@ class OrganizationReadModelCoordinatorImpl
       .get(organizationAccessScopeKey(active.organizationId, active.userId))
       ?.catch(() => null);
   }
+}
+
+function committedScope(active: ActiveOrganizationDataRuntime) {
+  return {
+    execSql: active.runtime.infra.execSql,
+    organizationId: active.organizationId,
+    userId: active.userId,
+  };
 }
 
 function scopedMap<T>(

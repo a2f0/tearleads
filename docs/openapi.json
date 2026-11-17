@@ -853,6 +853,10 @@
           },
           "organizationPolicy": {
             "$ref": "#/components/schemas/PrincipalPolicyMutationResponse"
+          },
+          "readModel": {
+            "$ref": "#/components/schemas/OrganizationReadModelDelta",
+            "description": "The read-model delta a feed read from `readModelCursor` returns once the commit lands. Present only when that cursor was the head the commit advanced from and the caller may read the feed."
           }
         },
         "required": [
@@ -2000,6 +2004,134 @@
         "additionalProperties": {},
         "description": "Acknowledges a rotation, plus one acknowledgement per carried descendant rekey in request order."
       },
+      "ContainerShareResponse": {
+        "type": "object",
+        "properties": {
+          "containerId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "eventHash": {
+            "type": "string",
+            "minLength": 1
+          },
+          "manifestHead": {
+            "type": "object",
+            "properties": {
+              "epoch": {
+                "type": "number",
+                "minimum": -1.7976931348623157e+308,
+                "maximum": 1.7976931348623157e+308
+              },
+              "manifestHash": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "epoch",
+              "manifestHash"
+            ],
+            "additionalProperties": {}
+          },
+          "organizationId": {
+            "type": "string"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "systemSlot": {
+            "anyOf": [
+              {
+                "pattern": "^sys_v1_[A-Za-z0-9_-]{43}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "containerKek": {
+            "type": "object",
+            "properties": {
+              "containerKeyEpoch": {
+                "exclusiveMinimum": 0,
+                "maximum": 1.7976931348623157e+308,
+                "type": "integer"
+              },
+              "containerKeyEpochId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "keyEpochHash": {
+                "type": "string",
+                "minLength": 1
+              },
+              "keyringHash": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "keyTargetHash": {
+                "type": "string",
+                "minLength": 1
+              },
+              "parentContainerKeyEpochId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "containerKeyEpoch",
+              "containerKeyEpochId",
+              "keyEpochHash",
+              "keyringHash",
+              "keyTargetHash",
+              "parentContainerKeyEpochId"
+            ],
+            "additionalProperties": {}
+          },
+          "readModel": {
+            "$ref": "#/components/schemas/OrganizationReadModelDelta",
+            "description": "The read-model delta a feed read from `readModelCursor` returns once the share lands. Present only when the share stamped the grants lane, that cursor was the head it advanced from, and the caller may read the feed."
+          }
+        },
+        "required": [
+          "containerId",
+          "createdAt",
+          "eventHash",
+          "manifestHead",
+          "organizationId",
+          "parentId",
+          "updatedAt",
+          "containerKek"
+        ],
+        "additionalProperties": {},
+        "description": "Acknowledges a share by hash, as for any container mutation, and may carry the sharer's read-model delta."
+      },
       "ContainerSummaryResponse": {
         "type": "object",
         "properties": {
@@ -2336,6 +2468,10 @@
           },
           "organizationPolicy": {
             "$ref": "#/components/schemas/PrincipalPolicyMutationResponse"
+          },
+          "readModel": {
+            "$ref": "#/components/schemas/OrganizationReadModelDelta",
+            "description": "The read-model delta a feed read from `readModelCursor` returns once the group exists. Present only when that cursor was the head the create advanced from and the caller may read the feed."
           }
         },
         "required": [
@@ -6326,6 +6462,511 @@
         ],
         "additionalProperties": {},
         "description": "The organization's encrypted profile document binding."
+      },
+      "OrganizationReadModelDelta": {
+        "type": "object",
+        "properties": {
+          "currentUser": {
+            "type": "object",
+            "properties": {
+              "isOrgAdmin": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "isOrgAdmin"
+            ],
+            "additionalProperties": false
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "nextCursor": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number",
+            "const": 6
+          },
+          "lanes": {
+            "type": "object",
+            "properties": {
+              "directory": {
+                "type": "object",
+                "properties": {
+                  "organizationId": {
+                    "type": "string"
+                  },
+                  "profileDocumentId": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "users": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "disabledAt": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "disabledByUserId": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "encapsulationKeyFingerprint": {
+                          "type": "string"
+                        },
+                        "isPersonalOrganizationOwner": {
+                          "type": "boolean"
+                        },
+                        "isSelf": {
+                          "type": "boolean"
+                        },
+                        "joinedAt": {
+                          "type": "string"
+                        },
+                        "leaveRequest": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/OrganizationLeaveRequest"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "profileDocumentId": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "signingKeyFingerprint": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "disabled"
+                          ]
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "userId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "createdAt",
+                        "disabledAt",
+                        "disabledByUserId",
+                        "encapsulationKeyFingerprint",
+                        "isPersonalOrganizationOwner",
+                        "isSelf",
+                        "joinedAt",
+                        "leaveRequest",
+                        "profileDocumentId",
+                        "signingKeyFingerprint",
+                        "status",
+                        "updatedAt",
+                        "userId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "organizationId",
+                  "profileDocumentId",
+                  "users"
+                ],
+                "additionalProperties": false
+              },
+              "grants": {
+                "type": "object",
+                "properties": {
+                  "grants": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "accessLevel": {
+                          "type": "string",
+                          "enum": [
+                            "admin",
+                            "read",
+                            "write"
+                          ]
+                        },
+                        "containerId": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "depth": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "isBuiltin": {
+                          "type": "boolean"
+                        },
+                        "metadataAccessEpoch": {
+                          "exclusiveMinimum": 0,
+                          "maximum": 1.7976931348623157e+308,
+                          "type": "integer"
+                        },
+                        "metadataAccessStateHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "metadataDocumentId": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "parentId": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "groupId": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "signingKeyFingerprint": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "subjectId": {
+                          "type": "string"
+                        },
+                        "subjectType": {
+                          "type": "string",
+                          "enum": [
+                            "group",
+                            "user"
+                          ]
+                        },
+                        "userId": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "accessLevel",
+                        "containerId",
+                        "createdAt",
+                        "depth",
+                        "isBuiltin",
+                        "metadataAccessEpoch",
+                        "metadataAccessStateHash",
+                        "metadataDocumentId",
+                        "parentId",
+                        "updatedAt",
+                        "groupId",
+                        "signingKeyFingerprint",
+                        "subjectId",
+                        "subjectType",
+                        "userId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "organizationId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "grants",
+                  "organizationId"
+                ],
+                "additionalProperties": false
+              },
+              "groupMemberships": {
+                "type": "object",
+                "properties": {
+                  "deletedGroupIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "groups": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "groupId": {
+                          "type": "string"
+                        },
+                        "members": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "role": {
+                                "type": "string",
+                                "enum": [
+                                  "member",
+                                  "admin"
+                                ]
+                              },
+                              "userId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "role",
+                              "userId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "stateHash": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "groupId",
+                        "members",
+                        "stateHash"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "organizationId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "deletedGroupIds",
+                  "groups",
+                  "organizationId"
+                ],
+                "additionalProperties": false
+              },
+              "groups": {
+                "type": "object",
+                "properties": {
+                  "groups": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "currentState": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "keyEpoch": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
+                                },
+                                "keyFingerprint": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "memberCount": {
+                                  "maximum": 1.7976931348623157e+308,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "stateHash": {
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "keyEpoch",
+                                "keyFingerprint",
+                                "memberCount",
+                                "stateHash",
+                                "version"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "groupId": {
+                          "type": "string"
+                        },
+                        "isBuiltin": {
+                          "type": "boolean"
+                        },
+                        "organizationId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "createdAt",
+                        "currentState",
+                        "groupId",
+                        "isBuiltin",
+                        "organizationId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "memberGroupId": {
+                    "type": "string"
+                  },
+                  "organizationId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "groups",
+                  "memberGroupId",
+                  "organizationId"
+                ],
+                "additionalProperties": false
+              },
+              "organizationPolicy": {
+                "type": "object",
+                "properties": {
+                  "currentState": {
+                    "type": "object",
+                    "properties": {
+                      "keyEpoch": {
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "keyFingerprint": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "memberCount": {
+                        "maximum": 1.7976931348623157e+308,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "stateHash": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "version": {
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "keyEpoch",
+                      "keyFingerprint",
+                      "memberCount",
+                      "stateHash",
+                      "version"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "organizationId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "currentState",
+                  "organizationId"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "mode": {
+            "type": "string",
+            "const": "delta"
+          }
+        },
+        "required": [
+          "currentUser",
+          "hasMore",
+          "nextCursor",
+          "organizationId",
+          "version",
+          "lanes",
+          "mode"
+        ],
+        "additionalProperties": false,
+        "description": "A read-model delta page carried by a mutation response: exactly the page a feed read from the caller's held cursor returns once the mutation commits. Display data only, never authority."
       },
       "OrganizationReadModelFailureResponse": {
         "type": "object",
@@ -15159,7 +15800,7 @@
       "post": {
         "operationId": "containers.share",
         "summary": "Share a container",
-        "description": "Adds or changes a user or group grant on a container through a signed `container.grant` event, wrapping the current container KEK to the new recipients. Requires admin access through the container's path. Cited heads must be current: a stale container head returns 409 `container_mutation_state_stale`, and a stale principal policy returns 409 `principal_policy_stale` with the current heads.",
+        "description": "Adds or changes a user or group grant on a container through a signed `container.grant` event, wrapping the current container KEK to the new recipients. Requires admin access through the container's path. Cited heads must be current: a stale container head returns 409 `container_mutation_state_stale`, and a stale principal policy returns 409 `principal_policy_stale` with the current heads. When `readModelCursor` names the read-model head the share's grants stamp advanced from, the response carries the read-model delta a feed read from that cursor returns.",
         "tags": [
           "Containers"
         ],
@@ -15173,6 +15814,16 @@
               "type": "string"
             },
             "style": "simple"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "readModelCursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
           }
         ],
         "requestBody": {
@@ -15190,7 +15841,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContainerMutationResponse"
+                  "$ref": "#/components/schemas/ContainerShareResponse"
                 }
               }
             },
@@ -15286,6 +15937,10 @@
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
+          },
+          {
+            "description": "read-model lanes match the response organization; grants and memberships are unambiguous; snapshot lanes are complete and contain no deletions",
+            "id": "response.organization-read-model-consistency"
           }
         ]
       }
@@ -19392,7 +20047,7 @@
       "put": {
         "operationId": "organizations.groups.policy.commit",
         "summary": "Advance a group policy and its signed directory head",
-        "description": "Commits a group's next signed principal policy, its member envelopes, the matching organization policy successor, and the container grant updates the change requires, all in one transaction. Only organization administrators may call it; a stale head returns 409. A 202 asks for the identical request to be retried after preparation, and only a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.",
+        "description": "Commits a group's next signed principal policy, its member envelopes, the matching organization policy successor, and the container grant updates the change requires, all in one transaction. Only organization administrators may call it; a stale head returns 409. When `readModelCursor` names the read-model head the commit advanced from, the response carries the read-model delta a feed read from that cursor returns. A 202 asks for the identical request to be retried after preparation, and only a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.",
         "tags": [
           "Organizations"
         ],
@@ -19418,6 +20073,16 @@
               "type": "string"
             },
             "style": "simple"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "readModelCursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
           }
         ],
         "requestBody": {
@@ -19545,6 +20210,10 @@
           {
             "id": "response.principal-history-preparation-rollback",
             "description": "A 503 with code principal_history_preparation_unavailable requires committed:false; other 503 responses do not guarantee rollback."
+          },
+          {
+            "description": "read-model lanes match the response organization; grants and memberships are unambiguous; snapshot lanes are complete and contain no deletions",
+            "id": "response.organization-read-model-consistency"
           }
         ]
       }
@@ -19714,7 +20383,7 @@
       "post": {
         "operationId": "organizations.groups.create",
         "summary": "Create an organization group and advance its signed directory",
-        "description": "Creates a group with its initial signed principal policy and, in the same transaction, the organization policy successor that adds it to the signed group directory. Only organization administrators may call it. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.",
+        "description": "Creates a group with its initial signed principal policy and, in the same transaction, the organization policy successor that adds it to the signed group directory. Only organization administrators may call it. When `readModelCursor` names the read-model head the commit advanced from, the response carries the read-model delta a feed read from that cursor returns. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.",
         "tags": [
           "Organizations"
         ],
@@ -19729,6 +20398,16 @@
               "type": "string"
             },
             "style": "simple"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "readModelCursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
           }
         ],
         "requestBody": {
@@ -19856,6 +20535,10 @@
           {
             "id": "response.principal-history-preparation-rollback",
             "description": "A 503 with code principal_history_preparation_unavailable requires committed:false; other 503 responses do not guarantee rollback."
+          },
+          {
+            "description": "read-model lanes match the response organization; grants and memberships are unambiguous; snapshot lanes are complete and contain no deletions",
+            "id": "response.organization-read-model-consistency"
           }
         ]
       }

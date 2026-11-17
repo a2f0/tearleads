@@ -70,12 +70,13 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // reconciliation pass's lanes in one request. Provisioning seeds the roster
   // profile container's role, which moves the founder's first read of its
   // projection and Admins history here from bootstrap. Measured completed
-  // calls are 48 (50 before read-model hints carried their cursor and
-  // recites of ungranted containers stopped stamping grants; 55 before
-  // drain-scoped sync operations, 56 before pass-scoped discovery, 70–73
-  // before #2537); allow three more bounded reads.
+  // calls are 47 (48 before the commit's response carried its read-model
+  // delta, 50 before read-model hints carried their cursor and recites of
+  // ungranted containers stopped stamping grants; 55 before drain-scoped
+  // sync operations, 56 before pass-scoped discovery, 70–73 before #2537);
+  // allow three more bounded reads.
   // Preparation continuations are counted below.
-  total: 51,
+  total: 50,
   // Container mutations cite stored manifests by hash and principal policies
   // by head: 134 KB sent with one descendant recitation (193 KB when they
   // carried each ~9.8 KB policy, 389.5 KB when they also echoed path
@@ -107,8 +108,10 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
     "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 12,
     "GET /auth/user-identity/:userId": 2,
-    // Measured 1 (4 before cursor-carrying hints and conditional grant stamps).
-    "GET /organizations/:organizationId/read-model": 3,
+    // None: the commit's response carries the actor's delta and the peer
+    // keeps no read-model demand (measured 1 before the response carried it,
+    // 4 before cursor-carrying hints and conditional grant stamps).
+    "GET /organizations/:organizationId/read-model": 0,
     "GET /organizations/:organizationId/groups/:groupId/containers": 0,
     "GET /organizations/:organizationId/groups/:groupId/members": 1,
     // Includes first classification of all newly visible system slots, roots,

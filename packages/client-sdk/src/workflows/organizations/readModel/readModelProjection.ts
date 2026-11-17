@@ -45,12 +45,16 @@ interface OrganizationReadModelProjectionInput {
   readonly organizationId: string;
 }
 
-export interface ReconcileOrganizationDirectoryAndGroupsInput
-  extends OrganizationReadModelProjectionInput {
-  readonly apiClient: OrganizationReadModelApi;
+/** What applying a page needs: no API, so a committed delta can use it. */
+interface ApplyReadModelPageInput extends OrganizationReadModelProjectionInput {
   readonly logError?:
     | ((message: string | Error, cause?: unknown) => void)
     | undefined;
+}
+
+export interface ReconcileOrganizationDirectoryAndGroupsInput
+  extends ApplyReadModelPageInput {
+  readonly apiClient: OrganizationReadModelApi;
 }
 
 function toDirectoryAndGroups(
@@ -133,7 +137,7 @@ type PageRequestStep =
     };
 
 function localResult(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
   outcome: { readonly failed: boolean },
 ): ReconciliationStep {
@@ -162,7 +166,7 @@ function resetRequestCursor(state: ReconciliationState): void {
 
 /** Replays a page that applied stale, up to the retry budget. */
 function retryStaleApply(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
 ): ReconciliationStep {
   if (state.staleRetries >= MAX_STALE_RETRIES) {
@@ -239,7 +243,7 @@ async function requestReadModelPage(
 }
 
 function responseMatchesRequest(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
   response: OrganizationReadModelResponse,
 ): boolean {
@@ -257,7 +261,7 @@ function responseMatchesRequest(
 }
 
 function reconciliationIsCurrent(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
 ): boolean {
   return isOrganizationPresentationAccessAttemptCurrent(
@@ -274,7 +278,7 @@ type ApplyResponseStep =
     };
 
 async function applyResponse(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
   response: OrganizationReadModelResponse,
 ): Promise<ApplyResponseStep> {
@@ -308,7 +312,7 @@ async function applyResponse(
 }
 
 async function prepareDeniedProjectionForApply(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
 ): Promise<ReconciliationStep | null> {
   if (state.preparedDeniedProjection) {
@@ -338,7 +342,7 @@ async function prepareDeniedProjectionForApply(
 
 /** The last page settles only if presentation access is still restorable. */
 function finalPageStep(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
   accessInput: OrganizationPresentationAccessInput,
 ): ReconciliationStep {
@@ -348,7 +352,7 @@ function finalPageStep(
 }
 
 async function applyReadModelPage(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
   response: OrganizationReadModelResponse,
 ): Promise<ReconciliationStep> {
@@ -409,6 +413,42 @@ export async function loadLocalOrganizationGroupMembers(
         input.currentUserId,
       ),
   );
+}
+
+/**
+ * Apply the read-model delta a mutation's response carried as the page a feed
+ * read from `requestedCursor` returns, with no request. Resolves `undefined`
+ * when it is not applied, because the projection no longer holds that cursor
+ * or the page applied stale; the caller then reads the feed as before.
+ */
+export async function applyCommittedOrganizationReadModel(
+  input: ApplyReadModelPageInput & {
+    readonly requestedCursor: string;
+    readonly response: OrganizationReadModelResponse;
+  },
+): Promise<OrganizationDirectoryAndGroups | null | undefined> {
+  const accessAttempt = captureOrganizationPresentationAccessAttempt(
+    organizationPresentationAccessInput(input),
+    "readModel",
+  );
+  const projection = await loadProjection(input);
+  if (projection?.cursor !== input.requestedCursor) return undefined;
+  // One page, never retried: a stale or unbound apply falls back to the feed.
+  const applied = await applyReadModelPage(
+    input,
+    {
+      accessAttempt,
+      expectedLocalCursor: projection.cursor,
+      preparedDeniedProjection: true,
+      projection,
+      requestCursor: projection.cursor,
+      retriedBindingFailure: true,
+      retriedInvalidCursor: true,
+      staleRetries: MAX_STALE_RETRIES,
+    },
+    input.response,
+  );
+  return applied.kind === "done" ? applied.value : undefined;
 }
 
 /**

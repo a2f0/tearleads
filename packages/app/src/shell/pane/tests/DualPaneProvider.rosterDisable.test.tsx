@@ -95,8 +95,15 @@ test.each(["none", "read", "commit"] as const)(
             path.includes(directory.memberGroupId) &&
             path.endsWith("/policy-commit") &&
             response.ok
-          )
+          ) {
             committed = true;
+            // Without its committed delta the post-commit read falls back to
+            // the feed, whose first read fails here.
+            if (failure === "read") {
+              const { readModel: _omitted, ...body } = await response.json();
+              return Response.json(body, { status: response.status });
+            }
+          }
           return response;
         },
         { preconnect: originalFetch.preconnect },

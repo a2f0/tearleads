@@ -6,12 +6,14 @@ import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
+  OrganizationReadModelDeltaResponse,
 } from "@tearleads/validators/response";
 import { isStaleParentContainerPathFailure } from "../../../../data/containers/shared/mutationFailures";
 import type {
   ContainerMutationAuthor,
   ContainerRotationResult,
   ContainerShareApi,
+  ContainerShareCommittedReadModel,
   ContainerSharePlan,
   MaterializedContainerSharePlan,
 } from "../../../../data/containers/shared/types";
@@ -49,6 +51,8 @@ async function buildCurrentContainerSharePlan(
 export interface ShareRemoteContainerRequest {
   accessLevel: ContainerAccessLevel;
   author: ContainerMutationAuthor;
+  /** Sends the read-model cursor the sharer holds; none without it. */
+  committedReadModel?: ContainerShareCommittedReadModel | undefined;
   containerId: string;
   eventId?: string | undefined;
   previousProjection?: ContainerWriterProjectionResponse | undefined;
@@ -92,16 +96,29 @@ async function submitShare(
       input.apiClient.shareContainer(input.containerId, request, options),
     );
   }
-  const result = await shareContainerResult.call(
-    input.apiClient,
-    input.containerId,
-    request,
-    { ...options, reportErrors: false },
-  );
-  if (result.ok) return { ok: true, data: result.data };
-  return retriesStalePath && isStaleParentContainerPathFailure(result)
-    ? { ok: false, code: result.code, status: result.status }
-    : result;
+  const lease = await input.committedReadModel?.begin();
+  let delta: OrganizationReadModelDeltaResponse | undefined;
+  try {
+    const result = await shareContainerResult.call(
+      input.apiClient,
+      input.containerId,
+      request,
+      {
+        ...options,
+        ...(lease?.heldCursor ? { readModelCursor: lease.heldCursor } : {}),
+        reportErrors: false,
+      },
+    );
+    if (result.ok) {
+      delta = result.data.readModel;
+      return { ok: true, data: result.data };
+    }
+    return retriesStalePath && isStaleParentContainerPathFailure(result)
+      ? { ok: false, code: result.code, status: result.status }
+      : result;
+  } finally {
+    lease?.settle(delta);
+  }
 }
 
 function planShare(

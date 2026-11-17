@@ -3,15 +3,18 @@ import Ajv2020 from "ajv/dist/2020";
 import { containerCreateMetadataSeedRefinement } from "../documentCreateSeedRefinements";
 import { documentSyncRequestRuntimeRefinements } from "../documentSyncRefinements";
 import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
+import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
   ContainerCreateWithMetadataDocumentRequestSchema,
   ContainerMutationRequestSchema,
+  OrganizationReadModelHeldCursorQuerySchema,
 } from "../request";
 import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
   ContainerCreateWithMetadataDocumentResponseSchema,
   ContainerDeleteResponseSchema,
   ContainerMutationResponseSchema,
+  ContainerShareResponseSchema,
 } from "../response";
 import {
   ContainerMutationPathParamsSchema,
@@ -44,7 +47,6 @@ const mutationOperations = [
   moveContainerOperation,
   rekeyContainerOperation,
   revokeContainerOperation,
-  shareContainerOperation,
 ] as const;
 
 test("container mutation operations own their complete wire metadata", () => {
@@ -56,6 +58,18 @@ test("container mutation operations own their complete wire metadata", () => {
       runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
     });
   }
+  // A share may also carry the sharer's read-model delta.
+  expect(shareContainerOperation).toMatchObject({
+    auth: "session",
+    failureStatuses: standardFailureStatuses,
+    method: "POST",
+    query: OrganizationReadModelHeldCursorQuerySchema,
+    responses: { 200: ContainerShareResponseSchema },
+    runtimeRefinements: [
+      organizationProvisioningContainerKeyringRefinement,
+      ...organizationReadModelResponseRuntimeRefinements,
+    ],
+  });
   expect(createContainerWithMetadataDocumentOperation).toMatchObject({
     auth: "session",
     failureStatuses: standardFailureStatuses,
@@ -150,12 +164,19 @@ test("OpenAPI declares the container keyring runtime-only invariant", () => {
     openApiDocument.paths["/containers/{containerId}/move"]?.post,
     openApiDocument.paths["/containers/{containerId}/rekey"]?.post,
     openApiDocument.paths["/containers/{containerId}/revoke"]?.post,
-    openApiDocument.paths["/containers/{containerId}/share"]?.post,
   ]) {
     expect(operation?.["x-tearleads-runtime-refinements"]).toEqual(
       runtimeRefinements,
     );
   }
+  expect(
+    openApiDocument.paths["/containers/{containerId}/share"]?.post?.[
+      "x-tearleads-runtime-refinements"
+    ],
+  ).toEqual([
+    ...runtimeRefinements,
+    ...organizationReadModelResponseRuntimeRefinements,
+  ]);
   // The metadata seed adds its own rule and the nested sync request's.
   expect(
     openApiDocument.paths["/containers/with-metadata-document"]?.post?.[
