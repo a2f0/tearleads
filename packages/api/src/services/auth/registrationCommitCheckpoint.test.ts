@@ -12,27 +12,25 @@ import { runCreateOrganizationWorkflow } from "../../workflows/organizations/cre
 import { registerUser } from "./registration";
 
 /**
- * The database, recording whether each root-level raw query ran while a
- * transaction was open. Registration issues one: the commit position read.
+ * The database, recording in order each transaction's start and successful
+ * commit and each root-level raw query. Registration issues one such query:
+ * the commit position read.
  */
 function observedDatabase(options: { readonly failRootReads?: boolean }) {
-  const rootReads: { readonly duringTransaction: boolean }[] = [];
-  let openTransactions = 0;
+  const events: ("begin" | "commit" | "read")[] = [];
   const observed: ApiDatabase = new Proxy(db, {
     get(target, property) {
       if (property === "transaction") {
         return async (...args: Parameters<ApiDatabase["transaction"]>) => {
-          openTransactions += 1;
-          try {
-            return await target.transaction(...args);
-          } finally {
-            openTransactions -= 1;
-          }
+          events.push("begin");
+          const result = await target.transaction(...args);
+          events.push("commit");
+          return result;
         };
       }
       if (property === "execute") {
         return async (...args: Parameters<ApiDatabase["execute"]>) => {
-          rootReads.push({ duringTransaction: openTransactions > 0 });
+          events.push("read");
           if (options.failRootReads)
             throw new Error("WAL position unavailable");
           return target.execute(...args);
@@ -42,7 +40,7 @@ function observedDatabase(options: { readonly failRootReads?: boolean }) {
       return typeof value === "function" ? value.bind(target) : value;
     },
   });
-  return { observed, rootReads };
+  return { events, observed };
 }
 
 async function registrationRequest() {
@@ -55,12 +53,12 @@ async function registrationRequest() {
 }
 
 test("registration reads its commit position after the transaction commits", async () => {
-  const { observed, rootReads } = observedDatabase({});
+  const { events, observed } = observedDatabase({});
   const response = await registerUser(
     createServiceTestRuntime(observed),
     await registrationRequest(),
   );
-  expect(rootReads).toEqual([{ duringTransaction: false }]);
+  expect(events).toEqual(["begin", "commit", "read"]);
   expect(response.commitLsnMode).toBe("tracked");
   expect(response.commitLsn).toMatch(/^[0-9A-F]+\/[0-9A-F]+$/u);
 });
@@ -68,7 +66,7 @@ test("registration reads its commit position after the transaction commits", asy
 test("organization creation reports no commit position", async () => {
   const user = createTestUser();
   await registerTestUser(user);
-  const { observed, rootReads } = observedDatabase({});
+  const { events, observed } = observedDatabase({});
   const response = await runCreateOrganizationWorkflow(
     observed,
     await createOrganizationRequestBody(user),
@@ -76,19 +74,19 @@ test("organization creation reports no commit position", async () => {
   );
   // Another session of the creator could edit the new seeded documents
   // before this device subscribes, so no position lets it skip a read.
-  expect(rootReads).toEqual([]);
+  expect(events).toEqual(["begin", "commit"]);
   expect(response).not.toHaveProperty("commitLsn");
   expect(response).not.toHaveProperty("commitLsnMode");
 });
 
 test("a failed commit position read still acknowledges the committed registration", async () => {
-  const { observed, rootReads } = observedDatabase({ failRootReads: true });
+  const { events, observed } = observedDatabase({ failRootReads: true });
   const request = await registrationRequest();
   const response = await registerUser(
     createServiceTestRuntime(observed),
     request,
   );
-  expect(rootReads).toEqual([{ duringTransaction: false }]);
+  expect(events).toEqual(["begin", "commit", "read"]);
   expect(response).toMatchObject({
     commitLsn: null,
     commitLsnMode: "tracked",
