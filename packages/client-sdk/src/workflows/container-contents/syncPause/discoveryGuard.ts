@@ -17,12 +17,13 @@ type PauseGuardedDiscovery = Pick<
 >;
 
 /**
- * Binds a discovery lane's writes to its generation and its organization staying
- * unpaused. Access changes and pauses invalidate in-flight listings, so the
- * apply stops at its next check. Each write already started rechecks under
- * the SQLite mutation lock held by the reset or pause cleanup. A stale listing therefore never restores documents, links, or the
- * watermark the cleanup removed; a watermark saved after the cleanup would
- * otherwise make the listing after a resume skip every unchanged document.
+ * Binds a discovery lane's writes to its generation and its organization
+ * staying unpaused. Access changes and pauses invalidate in-flight listings,
+ * so the apply stops at its next check, and each write already started
+ * rechecks under the SQLite mutation lock. A listing that verified before
+ * its organization paused therefore saves no watermark: a watermark saved
+ * past documents it did not apply would let the listing after a resume skip
+ * them.
  */
 export function guardDocumentDiscoveryWrites(input: {
   readonly execSql: ExecSql;

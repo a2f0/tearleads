@@ -401,7 +401,7 @@ describeSchema(
   "The caller's own setting for one organization they belong to.",
   {
     syncPaused:
-      "True to stop this organization's content syncing to the caller's devices; access and keys are unchanged.",
+      "True to hold this organization's content sync on the caller's devices, which keep their local copy; access and keys are unchanged.",
   },
 );
 
@@ -410,10 +410,9 @@ describeSchema(
   "One organization the caller belongs to, as the caller's own settings for it; it grants nothing.",
   {
     isPersonalOrganizationOwner:
-      "True for the caller's personal organization, which can be neither paused nor left.",
+      "True for the caller's personal organization, which cannot be left.",
     leaveRequestedAt: "When the caller asked to leave, or null.",
-    syncPaused:
-      "True when the caller paused this organization's sync to their devices.",
+    syncPaused: "True when the caller paused this organization's sync.",
   },
 );
 

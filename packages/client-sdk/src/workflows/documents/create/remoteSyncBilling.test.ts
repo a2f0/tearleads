@@ -169,3 +169,133 @@ test("syncRemoteDocument still submits clean read-only probes for a blocked orga
   expect(synced).not.toBeNull();
   close();
 });
+
+async function pullAlreadySyncedDocument(
+  isRemoteSyncBlocked: (
+    organizationId: string,
+    direction?: "push" | "pull",
+  ) => boolean,
+) {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql("held-document-pull");
+  let submissionCount = 0;
+  const synced = await syncRemoteDocument({
+    apiClient: createMockApiClient({
+      getDocumentWriterProjection: async () => writerProjection,
+      syncDocument: async (documentId, request) => {
+        submissionCount += 1;
+        const plan = await buildDocumentSyncPlan({
+          author,
+          contentKeyBundle: writerProjection.contentKeyBundle,
+          documentId,
+          documentKekTargets: writerProjection.documentKekTargets,
+          documentManifest: writerProjection.documentManifest,
+          localVersionVector: null,
+        });
+        return createSyncResponse({ ...plan, request });
+      },
+    }),
+    author,
+    documentId: writerProjection.documentId,
+    execSql,
+    isRemoteSyncBlocked,
+    localVersionVector: null,
+    // The device has pulled this document before.
+    minLsn: "0/1",
+    pendingUpdates: [],
+    persistedState: {
+      contentKeyBundle: JSON.stringify(writerProjection.contentKeyBundle),
+      documentId: writerProjection.documentId,
+      documentKekTargets: JSON.stringify(writerProjection.documentKekTargets),
+      documentManifestBundle: JSON.stringify(writerProjection.documentManifest),
+    },
+    resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
+    targetSecretKey: secretKey,
+  });
+  close();
+  return { organizationId: author.organizationId, submissionCount, synced };
+}
+
+test("a paused organization holds the pull of a document the device already has", async () => {
+  const checked: Array<[string, string | undefined]> = [];
+
+  const held = await pullAlreadySyncedDocument((organizationId, direction) => {
+    checked.push([organizationId, direction]);
+    return true;
+  });
+
+  expect(checked).toEqual([[held.organizationId, "pull"]]);
+  expect(held.submissionCount).toBe(0);
+  expect(held.synced).toBeNull();
+});
+
+test("a block on writes alone still pulls a document the device already has", async () => {
+  const pulled = await pullAlreadySyncedDocument(
+    (_organizationId, direction) => direction !== "pull",
+  );
+
+  expect(pulled.submissionCount).toBe(1);
+  expect(pulled.synced).not.toBeNull();
+});
+
+test("an interrupted pull restarts while paused and leaves queued writes held", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql("held-pull-recovery");
+  const outgoingUpdateCounts: number[] = [];
+  const materializedUpdateIds: string[][] = [];
+
+  const synced = await syncRemoteDocument({
+    apiClient: createMockApiClient({
+      getDocumentWriterProjection: async () => writerProjection,
+      syncDocument: async (documentId, request) => {
+        outgoingUpdateCounts.push(request.outgoingUpdates.length);
+        const plan = await buildDocumentSyncPlan({
+          author,
+          contentKeyBundle: writerProjection.contentKeyBundle,
+          documentId,
+          documentKekTargets: writerProjection.documentKekTargets,
+          documentManifest: writerProjection.documentManifest,
+          localVersionVector: null,
+        });
+        return createSyncResponse({ ...plan, request });
+      },
+    }),
+    author,
+    documentId: writerProjection.documentId,
+    execSql,
+    // Paused: writes and routine pulls are both held.
+    isRemoteSyncBlocked: () => true,
+    localVersionVector: null,
+    minLsn: "0/1",
+    onOutgoingUpdatesMaterialized: (updateIds) => {
+      materializedUpdateIds.push([...updateIds]);
+    },
+    pendingUpdates: [createPendingUpdateRecord()],
+    // The pull's cursor expired part way, so it has to start over.
+    pullRecoveryRequired: true,
+    resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  close();
+
+  // The pull ran, read-only: the queued write was neither sent nor settled.
+  expect(outgoingUpdateCounts).toEqual([0]);
+  expect(materializedUpdateIds.flat()).toEqual([]);
+  expect(synced).not.toBeNull();
+  expect(synced?.settledPendingUpdateIds).toEqual([]);
+});

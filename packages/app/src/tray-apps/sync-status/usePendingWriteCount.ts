@@ -34,6 +34,7 @@ const EMPTY_PENDING_WRITE_COUNT: PendingWriteCount = {
   count: 0,
   failedCount: 0,
   firstError: null,
+  organizationIds: [],
   readError: null,
 };
 
