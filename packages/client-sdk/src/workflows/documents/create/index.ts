@@ -24,7 +24,7 @@ import {
   nullOnProjectionVerificationCancellation,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
-import { isContainerCreatePending } from "../../../data/persistence/container-contents/pendingContainerCreate";
+import { isContainerCreatePending } from "../../../data/persistence/documents/pendingContainerCreate";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { recordDocumentAuthorAccessFailure } from "../authorAccessFailure";
 import type { RemoteDocumentCollaborators } from "../remote/remoteDocumentCollaborators";

@@ -1,5 +1,6 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
 import type { DocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
+import type { CONTAINER_CREATE_INTENT_TYPE } from "../../sqlite/schema";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import type {
   DocumentRecord,
@@ -10,7 +11,6 @@ import type { HeldContainerBinding } from "./containerBinding";
 import type { ContainerRecord } from "./containerPersistence";
 import type { DormantMetadataSweepPersistence } from "./dormantMetadataSweep";
 
-export const CONTAINER_CREATE_INTENT_TYPE = "container.create";
 export const CONTAINER_MOVE_INTENT_TYPE = "container.move";
 
 export type ContainerCreateIntentSyncStatus = "pending" | "synced";
