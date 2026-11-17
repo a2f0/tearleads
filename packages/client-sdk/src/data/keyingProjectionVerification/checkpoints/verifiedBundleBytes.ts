@@ -86,8 +86,12 @@ export function assertUnchangedSinceVerification(
   label: string,
 ): void {
   // Bytes that could not be serialized were never recorded (nor stored for
-  // citation); the completed state check still covers such a bundle.
-  if (!verifiedBundleBytes.has(verified)) return;
+  // citation): the completed state check covers such a bundle, and it is
+  // frozen all the same, so it stays the copy verification accepted.
+  if (!verifiedBundleBytes.has(verified)) {
+    if (isPlainData(bundle)) deepFreeze(bundle);
+    return;
+  }
   if (!matchesVerifiedBundleBytes(verified, bundle)) {
     throw new KeyingVerificationError(
       "hash_mismatch",

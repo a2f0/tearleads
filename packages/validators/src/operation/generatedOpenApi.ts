@@ -4689,7 +4689,7 @@ export type components = {
             };
             /** @description Hash of the canonical manifest; other responses cite the manifest by this value. */
             manifestHash: string;
-            /** @description Derived state fields the bundle's signed bytes do not name: parent pin, metadata document, system slot and grants for a container; linked containers for a document. */
+            /** @description The derived state without the fields the hash-committed manifest and, for a container, the signed body name in full (version, object id, organization, epoch, predecessor, event hash, key epoch and public key). It keeps a container's parent pin, metadata document, system slot, direct grants and referenced principal heads, and a document's linked containers. */
             state: {
                 [key: string]: unknown;
             };

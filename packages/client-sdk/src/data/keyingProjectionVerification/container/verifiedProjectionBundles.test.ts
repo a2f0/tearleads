@@ -295,6 +295,11 @@ test("a bundle whose ignored fields cannot be serialized still verifies", async 
         resolveUserKey: fixture.resolveUserKey,
       }),
     ).toHaveLength(1);
+    // Unrecorded, but still frozen as the copy verification accepted: the
+    // key a child would wrap to cannot change afterwards.
+    expect(Reflect.set(noted.state, "containerKeyPublicKey", "other")).toBe(
+      false,
+    );
   } finally {
     database.close();
   }
