@@ -1824,8 +1824,22 @@ export type components = {
             /** @description Binding this one replaced, or null. */
             previousBindingId: string | null;
             slotId: string;
-            /** @description Key targets the blob's write was authorized against. */
-            writeAuthorization: components["schemas"]["BlobKekTargetsResponse"];
+            /** @description Key targets the blob's write was authorized against. Its `targets` are omitted when its `blobKeyTargetHash` equals `blobKekTargets.blobKeyTargetHash`; the reader refills them from `blobKekTargets.targets` and re-hashes them. */
+            writeAuthorization: {
+                activeBindingIds: string[];
+                blobAccessManifestHash: string;
+                blobId: string;
+                blobKeyTargetHash: string;
+                documentManifestHashes: string[];
+                linkedContainerKeyEpochIds: string[];
+                linkedContainerManifestHashes: string[];
+                organizationId: string;
+                targets?: {
+                    [key: string]: unknown;
+                }[];
+            } & {
+                [key: string]: unknown;
+            };
             /** @description The blob's signed write header. */
             writeHeader: {
                 [key: string]: unknown;
@@ -2946,8 +2960,8 @@ export type components = {
             accessEpoch: number;
             /** @description Signing key fingerprint of the writer. */
             authorFingerprint: string;
-            /** @description Container KEK targets the write was authorized against. */
-            authorizationTargets: ({
+            /** @description Container KEK targets the write was authorized against. Omitted when the write header's `targetHash` equals the request's `expectedTargetHash`; the client refills them from the content-key bundle it holds and re-hashes them against the signed hash. */
+            authorizationTargets?: ({
                 containerId: string;
                 containerKeyEpoch: number;
                 containerKeyEpochId: string;

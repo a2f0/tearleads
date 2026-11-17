@@ -1,75 +1,10 @@
-# Issue #2903 (P7, greenfield flag day): a link or unlink whose blob rewraps
-# do not name exactly the active bindings now returns the
-# `document_link_attachments_changed` code, a new member of
-# DocumentMutationErrorCode shared by every document and container mutation
-# 409. Remove these exact diagnostics as soon as main contains the new
-# contract.
-POST /containers added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
-
-# Issue #2903 P7: see above.
+# Issue #2903 (P22, greenfield flag day): a pulled update omits
+# `authorizationTargets` when its signed header's `targetHash` equals the
+# request's `expectedTargetHash`, and the client refills the set it holds.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/with-metadata-document added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
+POST /documents/{documentId}/sync the response property `updates/items/authorizationTargets` became optional for the status `200`
 
-# Issue #2903 P7: see above.
+# Issue #2903 P22: an attachment row's write authorization omits `targets`
+# when its hash equals the row's current `blobKekTargets` hash.
 # Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /containers/{containerId} added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/recite added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/share added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents added `subschema #5` to the `code` response property `anyOf` list for the response status `404`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents added `subschema #5` to the `code` response property `anyOf` list for the response status `409`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/link added `subschema #5` to the `code` response property `anyOf` list for the response status `404`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/link added `subschema #5` to the `code` response property `anyOf` list for the response status `409`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/purge added `subschema #5` to the `code` response property `anyOf` list for the response status `404`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/purge added `subschema #5` to the `code` response property `anyOf` list for the response status `409`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/purge added `subschema #5` to the `code` response property `anyOf` list for the response status `404`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/purge added `subschema #5` to the `code` response property `anyOf` list for the response status `409`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/unlink added `subschema #5` to the `code` response property `anyOf` list for the response status `404`
-
-# Issue #2903 P7: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/unlink added `subschema #5` to the `code` response property `anyOf` list for the response status `409`
+GET /documents/{documentId}/attachments the response property `items/writeAuthorization/targets` became optional for the status `200`

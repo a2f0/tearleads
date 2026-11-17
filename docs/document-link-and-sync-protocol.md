@@ -139,10 +139,15 @@ and its outgoing write replay-safe as one transaction; unmarked batches and
 markers without a batch are rejected.
 
 Document sync updates carry encrypted bytes, partial version vectors, and a
-signed write header. Checkpoint fields are either all absent or the tuple
-`rotate_baseline`, `full_history_snapshot`, and a non-empty source vector.
-Writes require path refs; the API requires an active path. Reads may omit refs
-and carry no rekeys or bundle. `expectedLinkSetManifestHash` pins the
+signed write header. A served update also carries `authorizationTargets`, the
+container KEK target set its header's `targetHash` commits to, unless that hash
+equals the request's `expectedTargetHash`: the client then refills the set from
+the content-key bundle it planned against and re-hashes it against the signed
+`targetHash`, so a set omitted under any other hash fails closed. The stored
+write header keeps its target set. Checkpoint fields are either all absent or
+the tuple `rotate_baseline`, `full_history_snapshot`, and a non-empty source
+vector. Writes require path refs; the API requires an active path. Reads may
+omit refs and carry no rekeys or bundle. `expectedLinkSetManifestHash` pins the
 server-resolved document head instead of echoing the full manifest.
 
 For accepted writes, the API verifies:

@@ -52,6 +52,20 @@ interface BlobContentKeyBundleEntry {
   };
 }
 
+/**
+ * The write's authorization, without its target set when the signed header
+ * commits to the same target hash as the current set in this listing entry:
+ * the reader refills it from `blobKekTargets` and re-hashes it.
+ */
+function toListedWriteAuthorization(blobKeying: BlobContentKeyBundleEntry) {
+  const { authorization, header } = blobKeying.writeHeader;
+  const { targets, ...rest } = toBlobKekTargetsResponse(authorization);
+  return header.targetHash === authorization.blobKeyTargetHash &&
+    header.targetHash === blobKeying.currentTargets.blobKeyTargetHash
+    ? rest
+    : { ...rest, targets };
+}
+
 export class ListDocumentAttachmentsError extends Error {
   constructor(
     message: string,
@@ -201,9 +215,7 @@ export async function runListDocumentAttachmentsWorkflow(
       previousBindingId: row.previousBindingId,
       slotId: row.slotId,
       writeHeader: { ...blobKeying.writeHeader.header },
-      writeAuthorization: toBlobKekTargetsResponse(
-        blobKeying.writeHeader.authorization,
-      ),
+      writeAuthorization: toListedWriteAuthorization(blobKeying),
     };
   });
 }

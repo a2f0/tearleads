@@ -87,8 +87,10 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // discovery read and destination checks record the KEK levels they served;
   // syncs no longer echo the bundle and KEK targets the request named, the
   // bind acknowledges its KEK targets by hash, and recites of ungranted
-  // containers stamp no grants: 0.40 MB received; keep about 10% headroom.
-  bodyBytes: { request: 128_000, response: 440_000 },
+  // containers stamp no grants: 0.40 MB received. Pulled updates and
+  // attachment rows omit target sets the client holds (398.3 KB to 397.7 KB
+  // received); keep about 10% headroom.
+  bodyBytes: { request: 128_000, response: 438_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,
