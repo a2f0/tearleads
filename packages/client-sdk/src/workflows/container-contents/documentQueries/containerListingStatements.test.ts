@@ -4,8 +4,11 @@ import { countingExecSql } from "../../../../test/helpers/statementCounting";
 import { sqlContainerContentsPersistence as containers } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { selectContainerMetadataRecord } from "../../../data/persistence/container-contents/containerMetadataRows";
 import { loadContainers } from "../../../data/persistence/container-contents/containerPersistence";
-import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { saveTestSyncedContainer } from "./documentQueries.testFixtures";
+
+const intents = (execSql: ExecSql) => new DocumentMoveIntentRepository(execSql);
 
 test("the container listing reads every container and its metadata in one statement", async () => {
   const { close, execSql } = await createTestExecSql("container-listing-count");
@@ -60,25 +63,27 @@ test("pending placement intents load their link targets in one read", async () =
         sourceContainerId: "source",
       };
       for (const targetContainerId of ["one", "two"])
-        await intents.enqueueLinkIntent(execSql, {
+        await intents(execSql).enqueueLinkIntent({
           ...base,
           targetContainerId,
         });
       if (index % 4 === 0)
-        await intents.enqueueUnlinkIntent(execSql, {
+        await intents(execSql).enqueueUnlinkIntent({
           ...base,
           removedContainerId: "one",
           targetContainerId: "source",
         });
     }
     const counted = countingExecSql(execSql);
-    await intents.listPendingMoveIntents(counted.execSql);
-    let listed: Awaited<ReturnType<typeof intents.listPendingMoveIntents>> = [];
+    await intents(counted.execSql).listPendingMoveIntents();
+    let listed: Awaited<
+      ReturnType<DocumentMoveIntentRepository["listPendingMoveIntents"]>
+    > = [];
     // BEGIN, the intent read, one link-target read, COMMIT (was 3 + N: 20 at
     // 17 intents).
     expect(
       await counted.count(async () => {
-        listed = await intents.listPendingMoveIntents(counted.execSql);
+        listed = await intents(counted.execSql).listPendingMoveIntents();
       }),
     ).toBe(4);
     expect(listed).toHaveLength(17);

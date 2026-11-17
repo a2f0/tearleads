@@ -7,7 +7,7 @@ import {
 } from "../../../../test/helpers/documentDiscard";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import {
   hasRecordedTerminalSyncFailures,
@@ -215,7 +215,7 @@ test("discard refuses a document with a queued move intent", async () => {
     // The local containerId is now the move's optimistic placement, not
     // server truth — reseeding it would silently commit the move locally
     // while discarding the intent that was meant to perform it.
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await new DocumentMoveIntentRepository(execSql).enqueueMoveIntent({
       documentId: "remote-doc",
       localId,
       sourceContainerId: "folder-server",
