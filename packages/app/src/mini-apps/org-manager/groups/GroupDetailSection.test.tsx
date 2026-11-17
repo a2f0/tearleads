@@ -49,9 +49,7 @@ const owner: OrganizationDirectoryUser = {
   disabledAt: null,
   disabledByUserId: null,
   signingKeyFingerprint: "signing-fingerprint",
-  signingPublicKey: "signing-key",
   encapsulationKeyFingerprint: "kem-fingerprint",
-  encapsulationPublicKey: "kem-key",
 };
 
 const memberControlProps = {
@@ -71,10 +69,6 @@ const memberControlProps = {
     groupId: group.groupId,
     organizationId: group.organizationId,
     members: ["owner", "peer"].map((userId) => ({
-      signingKeyFingerprint: owner.signingKeyFingerprint,
-      signingPublicKey: owner.signingPublicKey,
-      encapsulationKeyFingerprint: owner.encapsulationKeyFingerprint,
-      encapsulationPublicKey: owner.encapsulationPublicKey,
       userId,
       role: "admin" as const,
     })),

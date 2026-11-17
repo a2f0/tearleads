@@ -125,18 +125,15 @@ async function createBlobContentKeyBundle(input: { blobId: string }) {
     writerUserId: crypto.randomUUID(),
   };
   await db.insert(blobContentWriteHeaders).values({
-    accessManifestHash: writeHeader.accessManifestHash,
     authorization: currentTargets,
     blobId: input.blobId,
     contentKeyEpoch: writeHeader.contentKeyEpoch,
     contentRecordId: writeHeader.contentRecordId,
-    encryptionSuite: writeHeader.encryptionSuite,
     header: writeHeader,
     headerHash: randomHash(),
     nonceDomainHash: writeHeader.nonceDomainHash,
     organizationId: writeHeader.organizationId,
     recordId: input.blobId,
-    targetHash: writeHeader.targetHash,
   });
 
   return {

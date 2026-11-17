@@ -139,3 +139,29 @@ test("group create and group policy commit stay within their statement budgets",
     105 + (getDefaultApiDatabaseKind() === "postgres" ? 4 : 0),
   );
 });
+
+// An Admins-governed create cites the current Admins head as its external
+// authority. Registration publishes that head's strict Admins progress beside
+// its policy progress, so the first such create commits without a 202
+// preparation round (which re-ran the whole transaction: 142 statements).
+test("the first Admins-governed group create stays within its statement budget", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
+  const groupId = crypto.randomUUID();
+  const createBody = await createGroupRequest({
+    actor,
+    groupId,
+    includeActorAsAdmin: false,
+    name: "Governed",
+  });
+
+  const create = await countStatements(async () =>
+    postGroup(actor, organizationId, createBody),
+  );
+
+  expect(create).toBeLessThanOrEqual(
+    90 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+  );
+});

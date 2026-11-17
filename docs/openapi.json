@@ -5605,9 +5605,6 @@
           "encapsulationKeyFingerprint": {
             "type": "string"
           },
-          "encapsulationPublicKey": {
-            "type": "string"
-          },
           "isPersonalOrganizationOwner": {
             "type": "boolean",
             "description": "True for the user whose personal organization this is; they cannot be removed from it."
@@ -5644,9 +5641,6 @@
           "signingKeyFingerprint": {
             "type": "string"
           },
-          "signingPublicKey": {
-            "type": "string"
-          },
           "status": {
             "type": "string",
             "enum": [
@@ -5667,20 +5661,18 @@
           "disabledAt",
           "disabledByUserId",
           "encapsulationKeyFingerprint",
-          "encapsulationPublicKey",
           "isPersonalOrganizationOwner",
           "isSelf",
           "joinedAt",
           "leaveRequest",
           "profileDocumentId",
           "signingKeyFingerprint",
-          "signingPublicKey",
           "status",
           "updatedAt",
           "userId"
         ],
         "additionalProperties": {},
-        "description": "One organization roster entry with the user's registered keys. Display names live in the encrypted profile document."
+        "description": "One organization roster entry with the fingerprints of the user's registered keys. Display names live in the encrypted profile document."
       },
       "OrganizationGroupCurrentStateResponse": {
         "type": "object",
@@ -5721,26 +5713,6 @@
       "OrganizationGroupMemberResponse": {
         "type": "object",
         "properties": {
-          "encapsulationKeyFingerprint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "encapsulationPublicKey": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "role": {
             "type": "string",
             "enum": [
@@ -5748,40 +5720,16 @@
               "admin"
             ]
           },
-          "signingKeyFingerprint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "signingPublicKey": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "userId": {
             "type": "string"
           }
         },
         "required": [
-          "encapsulationKeyFingerprint",
-          "encapsulationPublicKey",
           "role",
-          "signingKeyFingerprint",
-          "signingPublicKey",
           "userId"
         ],
         "additionalProperties": {},
-        "description": "One member of a group, with their registered keys when known."
+        "description": "One member of a group and their role."
       },
       "OrganizationGroupMembersResponse": {
         "type": "object",
@@ -6456,9 +6404,6 @@
                             "encapsulationKeyFingerprint": {
                               "type": "string"
                             },
-                            "encapsulationPublicKey": {
-                              "type": "string"
-                            },
                             "isPersonalOrganizationOwner": {
                               "type": "boolean"
                             },
@@ -6491,9 +6436,6 @@
                             "signingKeyFingerprint": {
                               "type": "string"
                             },
-                            "signingPublicKey": {
-                              "type": "string"
-                            },
                             "status": {
                               "type": "string",
                               "enum": [
@@ -6513,14 +6455,12 @@
                             "disabledAt",
                             "disabledByUserId",
                             "encapsulationKeyFingerprint",
-                            "encapsulationPublicKey",
                             "isPersonalOrganizationOwner",
                             "isSelf",
                             "joinedAt",
                             "leaveRequest",
                             "profileDocumentId",
                             "signingKeyFingerprint",
-                            "signingPublicKey",
                             "status",
                             "updatedAt",
                             "userId"
@@ -6969,9 +6909,6 @@
                             "encapsulationKeyFingerprint": {
                               "type": "string"
                             },
-                            "encapsulationPublicKey": {
-                              "type": "string"
-                            },
                             "isPersonalOrganizationOwner": {
                               "type": "boolean"
                             },
@@ -7004,9 +6941,6 @@
                             "signingKeyFingerprint": {
                               "type": "string"
                             },
-                            "signingPublicKey": {
-                              "type": "string"
-                            },
                             "status": {
                               "type": "string",
                               "enum": [
@@ -7026,14 +6960,12 @@
                             "disabledAt",
                             "disabledByUserId",
                             "encapsulationKeyFingerprint",
-                            "encapsulationPublicKey",
                             "isPersonalOrganizationOwner",
                             "isSelf",
                             "joinedAt",
                             "leaveRequest",
                             "profileDocumentId",
                             "signingKeyFingerprint",
-                            "signingPublicKey",
                             "status",
                             "updatedAt",
                             "userId"

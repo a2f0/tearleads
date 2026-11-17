@@ -150,6 +150,7 @@ async function storeInitialPolicy(
   tx: DatabaseTransaction,
   bundle: PutPrincipalPolicyRequest,
   identityTrustDomain: string,
+  reservedAdmins = false,
 ): Promise<void> {
   await storeVerifiedPrincipalPolicyInTransaction(
     {
@@ -160,7 +161,7 @@ async function storeInitialPolicy(
       memberEnvelopes: bundle.memberEnvelopes,
     },
     tx,
-    { identityTrustDomain },
+    { identityTrustDomain, reservedAdmins },
   );
 }
 
@@ -334,6 +335,7 @@ async function provisionOrganizationAuthorityAndBilling(
     tx,
     input.initialAdminGroup.initialGroupPolicy,
     options.identityTrustDomain,
+    true,
   );
   const initialMemberGroupStateHash = await storeInitialMemberGroupPolicy(
     tx,

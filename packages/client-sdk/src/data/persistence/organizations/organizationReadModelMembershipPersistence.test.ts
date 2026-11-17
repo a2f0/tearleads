@@ -23,8 +23,6 @@ function directoryUser(userId: string): OrganizationDirectoryUserResponse {
   return {
     userId,
     signingKeyFingerprint: `signing-fingerprint-${userId}`,
-    signingPublicKey: `signing-public-key-${userId}`,
-    encapsulationPublicKey: `encapsulation-public-key-${userId}`,
     encapsulationKeyFingerprint: `encapsulation-fingerprint-${userId}`,
     createdAt: CREATED_AT,
     isSelf: userId === "user-1",

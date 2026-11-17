@@ -293,7 +293,6 @@ async function refreshExistingBundleMetadata(input: {
       .update(blobContentKeyEpochs)
       .set({
         targetHash: input.nextBundle.targetHash,
-        updatedAt: new Date(),
       })
       .where(
         and(

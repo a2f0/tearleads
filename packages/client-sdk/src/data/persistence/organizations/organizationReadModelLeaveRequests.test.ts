@@ -4,7 +4,6 @@ import {
   type SigningKeyPair,
   signOrganizationLeaveRequest,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { TEST_LEAVE_REQUEST_MEMBERS_HEAD } from "../../../../test/helpers/data/leaveRequestFixtures";
 import {
@@ -39,7 +38,6 @@ test("a directory keeps only leave requests addressed to their row", async () =>
   try {
     const member = generateSigningSeedAndKeyPair();
     const server = generateSigningSeedAndKeyPair();
-    const publishedKey = bytesToBase64(member.signingPublicKey);
     const genuine = leaveRequest(MEMBER_ID, member);
     const forged = leaveRequest(FORGED_ID, server);
     const base = snapshot(ORGANIZATION_ID, "cursor-1");
@@ -55,18 +53,15 @@ test("a directory keeps only leave requests addressed to their row", async () =>
               directoryUser("user-1", { isSelf: true }),
               directoryUser(MEMBER_ID, {
                 leaveRequest: genuine,
-                signingPublicKey: publishedKey,
               }),
               // Its signature is checked when read, against the member's
               // trusted identity, so storing it trusts nothing.
               directoryUser(FORGED_ID, {
                 leaveRequest: forged,
-                signingPublicKey: publishedKey,
               }),
               // The member's genuine request, served on another member's row.
               directoryUser(MISADDRESSED_ID, {
                 leaveRequest: genuine,
-                signingPublicKey: publishedKey,
               }),
             ],
           }),
