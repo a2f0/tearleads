@@ -5,6 +5,11 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { waitFor } from "../../../test/helpers/data/waitFor";
+import {
+  createContainerContentsTestRuntime,
+  emptyListContainersResponse,
+  seedLocalRootContainer,
+} from "../../../test/helpers/workflows/containerContentsTestRuntime";
 import { createDomainScope } from "../../data/shared/domainScope";
 import {
   disposeDomainSyncCoordinator,
@@ -15,11 +20,6 @@ import {
   createContainerParentSyncLane,
 } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
-import {
-  createContainerContentsTestRuntime,
-  emptyListContainersResponse,
-  seedLocalRootContainer,
-} from "./runtime.testFixtures";
 
 test("reconnect preserves child watermarks while an explicit refresh resets them", async () => {
   const { execSql, close } = await createTestExecSql("refresh-watermarks");

@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { createDocument } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import {
   createRemoteHistoryFixture,
@@ -11,10 +15,6 @@ import { setDocumentText } from "../mutations";
 import { listPendingUpdates } from "../persistence";
 import { createDocumentStoreState } from "../state";
 import { assertDocumentStoreCanRotateContentKey } from "./index";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "./rotationRecoveryHelpers.test";
 
 test("rotation never settles an edit authored on a forged baseline", async () => {
   const { close, execSql } = await createTestExecSql(

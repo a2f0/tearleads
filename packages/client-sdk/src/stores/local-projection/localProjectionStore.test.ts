@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "../../../test/helpers/data/waitFor";
+import { createContainerContentsTestRuntime } from "../../../test/helpers/workflows/containerContentsTestRuntime";
 import { DocumentContainerProjectionRepository as Links } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { upsertDiscoveredDocuments } from "../../data/persistence/documents/documentsPersistence";
 import type { DomainScope } from "../../data/shared/domainScope";
@@ -11,7 +12,6 @@ import {
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "../container-contents/containerContentsStore";
-import { createContainerContentsTestRuntime } from "../container-contents/runtime.testFixtures";
 import type {
   ContainerContentsStore,
   ContainerNode,

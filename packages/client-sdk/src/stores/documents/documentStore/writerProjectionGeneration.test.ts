@@ -2,6 +2,10 @@ import { expect, test } from "bun:test";
 import { createDocument, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { createPrincipalPolicyOperation } from "../../../workflows/principals/principalPolicyService";
 import {
@@ -9,10 +13,6 @@ import {
   noopDocumentStorePersistenceEffects,
 } from "./documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "./initialization";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "./rotation/rotationRecoveryHelpers.test";
 import { createDocumentStoreState, type DocumentStoreState } from "./state";
 import { settleUploadedAttachment } from "./sync/syncAttachmentSettlement";
 import { finalizeDocumentSync } from "./sync/syncFinalize";

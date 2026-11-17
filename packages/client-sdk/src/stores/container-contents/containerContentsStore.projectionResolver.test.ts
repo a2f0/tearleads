@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/data/trustedUserIdentity";
+import { createContainerContentsTestRuntime } from "../../../test/helpers/workflows/containerContentsTestRuntime";
 import {
   createDomainScope,
   type DomainScope,
@@ -8,7 +9,6 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { requireTrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
-import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsStoreRuntime,

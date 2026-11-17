@@ -6,6 +6,10 @@ import {
   getUpdateVersionVectors,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import {
   createRemoteHistoryFixture,
@@ -15,10 +19,6 @@ import { ensureDocumentStoreReady } from "../initialization";
 import { enqueuePendingUpdate, listPendingUpdates } from "../persistence";
 import { createDocumentStoreState } from "../state";
 import { captureDocumentStoreSyncGeneration } from "../sync/syncGeneration";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "./rotationRecoveryHelpers.test";
 import { settleOrdinaryDocumentUpdatesBeforeRotation } from "./rotationSettlement";
 
 test("rotation refuses to relabel an uncovered checkpoint gap as ordinary", async () => {

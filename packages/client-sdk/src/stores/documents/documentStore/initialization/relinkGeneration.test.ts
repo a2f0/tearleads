@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
 } from "../documentStore.testFixtures";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "../rotation/rotationRecoveryHelpers.test";
 import { createDocumentStoreState, resetDocumentStore } from "../state";
 import {
   allowDocumentStoreRemoteSync,

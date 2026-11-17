@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { createDocument, getTextValue, importSnapshot } from "@tearleads/loro";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import {
   createRemoteHistoryFixture,
@@ -9,10 +13,6 @@ import {
 import { ensureDocumentStoreReady } from "../initialization";
 import { createDocumentStoreState } from "../state";
 import { assertDocumentStoreCanRotateContentKey } from "./index";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "./rotationRecoveryHelpers.test";
 
 test("raw continuation pages use projection state verified by the prior page", async () => {
   const { close, execSql } = await createTestExecSql(

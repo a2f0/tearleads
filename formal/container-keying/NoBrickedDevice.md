@@ -141,12 +141,12 @@ verifier produced:
   a citation regression, and a served root older than the cited one are refused;
   the documented residual is accepted; and a device with no history refuses a
   stale served root on the citation alone.
-- [`noBrickGroupProjection.test.ts`](../../packages/client-sdk/src/data/keyingProjectionVerification/noBrickGroupProjection.test.ts)
+- [`noBrickGroupProjection.test.ts`](../../packages/client-sdk/src/workflows/organizations/groups/noBrickGroupProjection.test.ts)
   verifies a child authored by a group admin before removal, delivered to a cold
   device after the root has adopted the successor group policy. Authorization
   uses the signed historical group reference while the current ancestor still
   satisfies citation floors.
-- [`noBrickHistoricalPolicyProjection.test.ts`](../../packages/client-sdk/src/data/keyingProjectionVerification/noBrickHistoricalPolicyProjection.test.ts)
+- [`noBrickHistoricalPolicyProjection.test.ts`](../../packages/client-sdk/src/workflows/principals/publicHistory/noBrickHistoricalPolicyProjection.test.ts)
   verifies signed public policy snapshots and organization directory history on
   two fresh local databases, before and after deletion. A signed revoke removes
   the live grant before deletion; the current path verifies through its

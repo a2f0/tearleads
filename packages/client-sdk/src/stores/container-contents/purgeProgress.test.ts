@@ -2,13 +2,13 @@ import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { waitFor } from "../../../test/helpers/data/waitFor";
-import type { DomainScope } from "../../data/shared/domainScope";
-import type { PurgeProgress } from "../../workflows/container-contents/container-state/purge/purgeProgress";
-import { createContainerContentsStore } from "./containerContentsStore";
 import {
   createContainerContentsTestRuntime,
   seedLocalRootContainer,
-} from "./runtime.testFixtures";
+} from "../../../test/helpers/workflows/containerContentsTestRuntime";
+import type { DomainScope } from "../../data/shared/domainScope";
+import type { PurgeProgress } from "../../workflows/container-contents/container-state/purge/purgeProgress";
+import { createContainerContentsStore } from "./containerContentsStore";
 
 // These tests drive the real recursive purge engine through the store over an
 // in-memory SQLite, but keep every container LOCAL-ONLY (created offline, so

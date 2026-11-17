@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createRotationRecoveryRuntime } from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { attachmentContentSha256 } from "../../../../data/blobs/attachmentContentIdentity";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import {
@@ -14,7 +15,6 @@ import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
 } from "../documentStore.testFixtures";
-import { createRotationRecoveryRuntime } from "../rotation/rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "../state";
 import { syncPendingAttachments } from "./syncAttachments";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";

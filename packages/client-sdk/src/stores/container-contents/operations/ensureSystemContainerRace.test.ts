@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { createContainerContentsStoreTestRuntime } from "../../../../test/helpers/workflows/containerContentsTestRuntime";
 import type { BlobStore } from "../../../data/blobs/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import type { DomainScope } from "../../../data/shared/domainScope";
@@ -9,7 +10,6 @@ import type { ContainerContentsPersistence } from "../../../workflows/container-
 import { createContainerMetadataDocument } from "../../../workflows/container-contents/metadata/containerMetadataDocument";
 import type { ContainerState } from "../../../workflows/container-contents/remoteHydration";
 import { reconcileLocalOnlySystemContainers } from "../../../workflows/container-contents/remoteHydration/reconciliation";
-import { createContainerContentsStoreTestRuntime } from "../runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,

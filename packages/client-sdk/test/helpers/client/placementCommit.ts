@@ -4,13 +4,13 @@ import { DocumentContainerProjectionRepository as Links } from "../../../src/dat
 import { sqlDocumentsPersistence as documents } from "../../../src/data/persistence/documents/documentsPersistence";
 import { createRemoteHistoryFixture } from "../../../src/stores/documents/documentStore/documentStore.testFixtures";
 import { relinkDocumentStoreWithCommitSideEffect } from "../../../src/stores/documents/documentStore/internalRelink";
-import { persistFullHistoryDocument } from "../../../src/stores/documents/documentStore/rotation/rotationRecoveryHelpers.test";
 import { removeDocumentLinkLocally } from "../../../src/workflows/container-contents/documentLinks/documentLinkIntent";
 import { createFileBackedSql } from "../data/fileBackedSql";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
 } from "../workflows/internalRuntimeFixtures";
+import { persistFullHistoryDocument } from "../workflows/rotationRecoveryRuntime";
 
 export async function createPlacementCommitFixture() {
   const db = await createFileBackedSql();

@@ -5,11 +5,11 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import type { DomainScope } from "../../../src/data/shared/domainScope";
 import type { ExecSql } from "../../../src/data/sqlite/sqlSchema";
 import { createContainerContentsStore } from "../../../src/stores/container-contents/containerContentsStore";
+import { waitFor } from "../data/waitFor";
 import {
   createContainerContentsTestRuntime,
   seedLocalRootContainer,
-} from "../../../src/stores/container-contents/runtime.testFixtures";
-import { waitFor } from "../data/waitFor";
+} from "../workflows/containerContentsTestRuntime";
 
 // A non-built-in system slot is enough to exercise the device-first create path;
 // the slot string only needs to be stable for `findSystemContainerState`.

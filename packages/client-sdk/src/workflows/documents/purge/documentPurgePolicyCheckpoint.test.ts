@@ -1,0 +1,231 @@
+import { expect, test } from "bun:test";
+import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
+import {
+  asContainerMutationFixture,
+  createContainerMutationResponseFromRequest,
+  createTestExecSql,
+} from "@tearleads/test-utils";
+import type {
+  ContainerMutationResponse,
+  ContainerWriterProjectionResponse,
+} from "@tearleads/validators/response";
+import { createResponse } from "../../../../test/helpers/data/documentFixtures";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
+import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/data/principalPolicySnapshots";
+import { verifyPrincipalPolicySnapshots } from "../../../../test/helpers/data/principalPolicySnapshotVerification";
+import { createProjectionPolicyEvidence } from "../../../../test/helpers/data/projectionPolicyEvidence";
+import { createDocumentPurgeProof } from "../../../../test/helpers/workflows/documentPurge";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
+import { projectionPolicyWarmer } from "../../../../test/helpers/workflows/projectionPolicyWarmer";
+import { verifyDocumentPurgeProof } from "../../../data/keyingProjectionVerification/documentPurge/documentPurgeProofVerification";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { buildMaterializedContainerSharePlan } from "../../containers/child/share/shareMaterialization";
+import {
+  buildMaterializedDocumentCreatePlan,
+  documentWriterProjectionFromCreateResponse,
+} from "../create";
+
+function projectionAfterShare(
+  previous: ContainerWriterProjectionResponse,
+  response: ContainerMutationResponse,
+): ContainerWriterProjectionResponse {
+  return {
+    ...previous,
+    containerKeks: [
+      ...previous.containerKeks.slice(0, -1),
+      asContainerMutationFixture(response).containerKek,
+    ],
+    path: [
+      ...previous.path.slice(0, -1),
+      asContainerMutationFixture(response).accessManifest,
+    ],
+  };
+}
+
+async function createGroupAuthorizedPurge(input: { execSql: ExecSql }) {
+  const fixture = await createMaterializedSyncFixture();
+  const policyFixture =
+    await createExternallyAuthorizedPrincipalPolicySnapshots();
+  const resolveUserKey = async (userId: string) =>
+    (await fixture.resolveProjectionUserKey(userId)) ??
+    policyFixture.resolveUserKey(userId);
+  const policies = await verifyPrincipalPolicySnapshots({
+    resolveUserKey,
+    snapshots: [policyFixture.subject, policyFixture.admin],
+  });
+  const groupPolicy = policies.find(
+    (policy) =>
+      policy.principalId === policyFixture.subject.currentState.principalId,
+  );
+  if (!groupPolicy) throw new Error("Expected verified group policy");
+  const share = await buildMaterializedContainerSharePlan({
+    accessLevel: "read",
+    author: fixture.author,
+    execSql: input.execSql,
+    previousProjection: fixture.projection,
+    recipient: {
+      principalPolicy: makeVerifiedPrincipalPolicy(groupPolicy),
+      subjectId: groupPolicy.principalId,
+      subjectType: "group",
+    },
+    resolveProjectionUserKey: resolveUserKey,
+    targetSecretKey: fixture.secretKey,
+  });
+  const previousKek = fixture.projection.containerKeks.at(-1);
+  const shareResponse = await createContainerMutationResponseFromRequest(
+    share.plan.request,
+    previousKek,
+  );
+  const sharedProjection = projectionAfterShare(
+    fixture.projection,
+    shareResponse,
+  );
+  const createPlan = await buildMaterializedDocumentCreatePlan({
+    author: fixture.author,
+    containerProjection: sharedProjection,
+    execSql: input.execSql,
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+  });
+  const documentResponse = createResponse(createPlan.plan);
+  const writerProjection = documentWriterProjectionFromCreateResponse({
+    containerProjection: sharedProjection,
+    response: documentResponse,
+  });
+  const proof = await createDocumentPurgeProof(
+    fixture.author,
+    writerProjection,
+  );
+  const evidence = await createProjectionPolicyEvidence({
+    author: fixture.author,
+    group: policyFixture.subjectBundle,
+    admins: policyFixture.adminBundle,
+    signingPublicKey: fixture.signingPublicKey,
+    encapsulationKeyPair: {
+      publicKey: fixture.publicKey,
+      secretKey: fixture.secretKey,
+    },
+  });
+  return {
+    warmer: projectionPolicyWarmer({
+      bundles: evidence.bundles,
+      execSql: input.execSql,
+      resolveUserKey,
+    }),
+    organizationId: fixture.author.organizationId,
+    policies,
+    proof: {
+      ...proof,
+      policyEvidence: evidence.policyEvidence,
+    },
+    resolveUserKey,
+    writerProjection,
+  };
+}
+
+test("purge commit atomically pins first-seen policy snapshots", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-purge-policy-first-pin",
+  );
+  try {
+    const fixture = await createGroupAuthorizedPurge({ execSql });
+    const verified = await verifyDocumentPurgeProof({
+      execSql,
+      openPrincipalPolicyBundleReader,
+      expectedDocumentId: fixture.writerProjection.documentId,
+      expectedOrganizationId: fixture.organizationId,
+      proof: fixture.proof,
+      resolveUserKey: fixture.resolveUserKey,
+      warmReferencedPrincipalPolicies: fixture.warmer,
+    });
+    await verified.commitCheckpoints(execSql);
+
+    for (const policy of fixture.policies) {
+      await expect(
+        new KeyingCheckpointRepository(execSql).loadPrincipalPolicyCheckpoint(
+          policy.principalType,
+          policy.principalId,
+        ),
+      ).resolves.toMatchObject({
+        stateHash: policy.stateHash,
+        version: policy.version,
+      });
+    }
+  } finally {
+    close();
+  }
+});
+
+for (const supersededPath of [false, true]) {
+  test(`purge verification and commit reject a raced policy fork (superseded path: ${supersededPath})`, async () => {
+    const { close, execSql } = await createTestExecSql(
+      "document-purge-policy-race",
+    );
+    try {
+      const fixture = await createGroupAuthorizedPurge({ execSql });
+      const verification = {
+        execSql,
+        openPrincipalPolicyBundleReader,
+        expectedDocumentId: fixture.writerProjection.documentId,
+        expectedOrganizationId: fixture.organizationId,
+        proof: fixture.proof,
+        resolveUserKey: fixture.resolveUserKey,
+        warmReferencedPrincipalPolicies: fixture.warmer,
+      };
+      const verified = await verifyDocumentPurgeProof(verification);
+      const raced = fixture.policies[0];
+      if (!raced) throw new Error("Expected a purge policy snapshot");
+      await new KeyingCheckpointRepository(
+        execSql,
+      ).loadPrincipalPolicyCheckpoint(raced.principalType, raced.principalId);
+      await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+        raced.principalType,
+        raced.principalId,
+        raced.version,
+        "d".repeat(64),
+        "2026-08-27T00:00:00.000Z",
+        fixture.organizationId,
+      ]);
+
+      if (supersededPath) {
+        const root = fixture.proof.authorizingContainerPath[0]?.state;
+        if (!root) throw new Error("Expected signed root identity");
+        const { containerId, epoch } = root;
+        if (typeof containerId !== "string" || typeof epoch !== "number")
+          throw new Error("Expected signed root identity");
+        // Model a previously authenticated durable head independently of the
+        // forked principal checkpoint. Real signed advances are covered by the
+        // ancestor/leaf currency fixtures.
+        await execSql(
+          `INSERT OR REPLACE INTO access_manifest_checkpoints
+        (object_kind, organization_id, object_id, epoch, manifest_hash, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            "container",
+            fixture.organizationId,
+            containerId,
+            epoch + 1,
+            "e".repeat(64),
+            "2026-09-28T00:00:00.000Z",
+          ],
+        );
+      }
+      await expect(
+        verifyDocumentPurgeProof(verification),
+      ).rejects.toMatchObject({ code: "equivocation" });
+
+      await expect(verified.commitCheckpoints(execSql)).rejects.toMatchObject({
+        code: "equivocation",
+      });
+      await expect(
+        new KeyingCheckpointRepository(execSql).loadDocumentPurgeCheckpoint(
+          fixture.writerProjection.documentId,
+        ),
+      ).resolves.toBeNull();
+    } finally {
+      close();
+    }
+  });
+}

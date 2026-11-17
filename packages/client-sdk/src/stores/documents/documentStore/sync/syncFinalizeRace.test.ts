@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { createDocument, getTextValue, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
 import type { DocumentsPersistence } from "../../../../workflows/documents";
@@ -11,10 +15,6 @@ import {
 } from "../documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "../initialization";
 import { setDocumentText } from "../mutations";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "../rotation/rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "../state";
 import { finalizeDocumentSync } from "./syncFinalize";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";

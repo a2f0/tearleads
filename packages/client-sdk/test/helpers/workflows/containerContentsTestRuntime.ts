@@ -1,0 +1,180 @@
+import type { ListContainersResponse } from "@tearleads/validators/response";
+import { defaultDocumentProjectorRegistry } from "../../../src/data/documents/documentKinds";
+import { UnverifiedUserIdentityError } from "../../../src/data/trustedUserIdentity";
+import type { BlobStore } from "../../../src/workflows/blobs";
+import { defaultContainerContentsPersistence } from "../../../src/workflows/container-contents/containerPersistence";
+import {
+  type ContainerContentsVerifiedRecipientGuard,
+  type ContainerContentsWorkflowRuntimeInput,
+  createContainerContentsStoreWorkflowRuntime,
+} from "../../../src/workflows/container-contents/runtime";
+import { containerContentsOrganizationHost } from "../../../src/workflows/organizations/containerContentsHost";
+import { createSignedContainerDirectory } from "../data/signedContainerDirectory";
+
+type ExecSql = Parameters<
+  typeof defaultContainerContentsPersistence.ensureSchema
+>[0];
+
+// Store tests admit no share recipient unless they opt in, as with an empty
+// trust store.
+async function refuseRecipient(userId: string): Promise<void> {
+  throw new UnverifiedUserIdentityError(userId);
+}
+
+export function createContainerContentsStoreTestRuntime(
+  input: Omit<ContainerContentsWorkflowRuntimeInput, "organizations">,
+  requireVerifiedRecipient: ContainerContentsVerifiedRecipientGuard = refuseRecipient,
+) {
+  return createContainerContentsStoreWorkflowRuntime(
+    {
+      ...input,
+      organizations: containerContentsOrganizationHost,
+      auth: {
+        ...input.auth,
+        rootContainerId: input.auth.rootContainerId ?? input.state.containerId,
+      },
+    },
+    () => false,
+    requireVerifiedRecipient,
+  );
+}
+
+/**
+ * Defaults-based builder over createContainerContentsStoreTestRuntime for the
+ * common store-test posture: authenticated as user-1/org-1, ready database,
+ * online, no key material, silent log. Omitted organizationId/userId derive
+ * from isAuthenticated so an unauthenticated runtime carries no identity.
+ */
+/** An explicitly passed value (even undefined) wins over the default. */
+function authenticatedDefault(
+  passed: boolean,
+  value: string | null | undefined,
+  fallback: string | null,
+): string | null {
+  return passed ? (value ?? null) : fallback;
+}
+
+export function createContainerContentsTestRuntime(input: {
+  apiClient?: ContainerContentsWorkflowRuntimeInput["apiClient"] | undefined;
+  containerId?: string | null | undefined;
+  dbStatus?:
+    | ContainerContentsWorkflowRuntimeInput["infra"]["dbStatus"]
+    | undefined;
+  domainScope: ContainerContentsWorkflowRuntimeInput["state"]["domainScope"];
+  encapsulationKeyPair?:
+    | ContainerContentsWorkflowRuntimeInput["crypto"]["encapsulationKeyPair"]
+    | undefined;
+  execSql: ExecSql;
+  isAuthenticated?: boolean | undefined;
+  log?: ((message: string) => void) | undefined;
+  logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
+  online?: boolean | undefined;
+  organizationId?: string | null | undefined;
+  rootContainerId?: string | null | undefined;
+  resolveTrustedUserIdentity?:
+    | ContainerContentsWorkflowRuntimeInput["resolveTrustedUserIdentity"]
+    | undefined;
+  signingFingerprint?:
+    | ContainerContentsWorkflowRuntimeInput["crypto"]["signingFingerprint"]
+    | undefined;
+  userId?: string | null | undefined;
+}) {
+  const isAuthenticated = input.isAuthenticated ?? true;
+  return createContainerContentsStoreTestRuntime({
+    apiClient:
+      input.apiClient ??
+      ({} as ContainerContentsWorkflowRuntimeInput["apiClient"]),
+    auth: {
+      rootContainerId: input.rootContainerId ?? input.containerId ?? null,
+      isAuthenticated,
+      organizationId: authenticatedDefault(
+        "organizationId" in input,
+        input.organizationId,
+        isAuthenticated ? "org-1" : null,
+      ),
+      userId: authenticatedDefault(
+        "userId" in input,
+        input.userId,
+        isAuthenticated ? "user-1" : null,
+      ),
+    },
+    crypto: {
+      encapsulationKeyPair: input.encapsulationKeyPair ?? null,
+      signingFingerprint: input.signingFingerprint ?? null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: {} as BlobStore,
+      dbStatus: input.dbStatus ?? "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql: input.execSql,
+    },
+    resolveTrustedUserIdentity:
+      input.resolveTrustedUserIdentity ?? (async () => null),
+    state: {
+      containerId: input.containerId ?? null,
+      domainScope: input.domainScope,
+      events: [],
+      online: input.online ?? true,
+    },
+    util: {
+      log: input.log ?? (() => {}),
+      logError: input.logError,
+      reportSecurityIncident: async () => undefined,
+    },
+  });
+}
+
+/**
+ * Ensure the container schema and persist a local root container row
+ * (`parentId: null`, name "/") with the conventional
+ * `<id>-metadata-document` metadata id.
+ */
+export async function seedLocalRootContainer(
+  execSql: ExecSql,
+  input: {
+    organizationId?: string | undefined;
+    rootContainerId: string;
+  },
+): Promise<void> {
+  await defaultContainerContentsPersistence.ensureSchema(execSql);
+  await defaultContainerContentsPersistence.saveContainer(
+    execSql,
+    {
+      icon: null,
+      id: input.rootContainerId,
+      effectiveAccessLevel: "admin",
+      metadataDocumentId: `${input.rootContainerId}-metadata-document`,
+      name: "/",
+      organizationId: input.organizationId ?? "org-1",
+      parentId: null,
+    },
+    null,
+  );
+}
+
+export function emptyListContainersResponse(): ListContainersResponse {
+  return {
+    hasMore: false,
+    items: [],
+    nextWatermark: null,
+    tombstones: [],
+  };
+}
+
+export function rootRefreshDirectory() {
+  return createSignedContainerDirectory([
+    { id: "active-root", parentId: null },
+    {
+      id: "active-root-trash",
+      parentId: "active-root",
+      systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+    { id: "server-root", parentId: null },
+    {
+      id: "server-trash",
+      parentId: "server-root",
+      systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+  ]);
+}

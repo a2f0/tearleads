@@ -10,6 +10,11 @@ import type {
 } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../test/helpers/data/signedContainerDirectory";
 import { waitFor } from "../../../test/helpers/data/waitFor";
+import {
+  createContainerContentsTestRuntime,
+  emptyListContainersResponse,
+  seedLocalRootContainer,
+} from "../../../test/helpers/workflows/containerContentsTestRuntime";
 import type { DomainScope } from "../../data/shared/domainScope";
 import {
   type ContainerContentsPersistence,
@@ -21,11 +26,6 @@ import {
   createContainerContentsStore,
   getOrCreateContainerContentsStore,
 } from "./containerContentsStore";
-import {
-  createContainerContentsTestRuntime,
-  emptyListContainersResponse,
-  seedLocalRootContainer,
-} from "./runtime.testFixtures";
 
 interface Deferred<T> {
   promise: Promise<T>;

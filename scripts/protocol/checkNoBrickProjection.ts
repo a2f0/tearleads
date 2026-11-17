@@ -31,8 +31,8 @@ import { requireTrace, runTraceProjection } from "./traceProjectionRunner";
 const SCENARIO_TESTS: readonly string[] = [
   "src/data/keyingProjectionVerification/noBrickContainerProjection.test.ts",
   "src/data/keyingProjectionVerification/noBrickPolicyProjection.test.ts",
-  "src/data/keyingProjectionVerification/noBrickGroupProjection.test.ts",
-  "src/data/keyingProjectionVerification/noBrickHistoricalPolicyProjection.test.ts",
+  "src/workflows/organizations/groups/noBrickGroupProjection.test.ts",
+  "src/workflows/principals/publicHistory/noBrickHistoricalPolicyProjection.test.ts",
 ];
 const EXPECTED_TRACES = [
   "container-fresh-device",

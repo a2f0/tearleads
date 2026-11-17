@@ -9,6 +9,10 @@ import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { insertQueuedUpdateRows } from "../../../test/helpers/data/queuedUpdateRows";
 import { waitFor } from "../../../test/helpers/data/waitFor";
 import {
+  createContainerContentsTestRuntime,
+  emptyListContainersResponse,
+} from "../../../test/helpers/workflows/containerContentsTestRuntime";
+import {
   listDormantMetadataSweepRequests,
   requestDormantMetadataRestorationSweeps,
 } from "../../data/persistence/container-contents/dormantMetadataSweep";
@@ -20,10 +24,6 @@ import {
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createRestoredAccessReconciler } from "./accessRestorationSweep";
 import { createContainerContentsStore } from "./containerContentsStore";
-import {
-  createContainerContentsTestRuntime,
-  emptyListContainersResponse,
-} from "./runtime.testFixtures";
 import type { ContainerContentsStoreSyncState } from "./syncAgent/syncAgentTypes";
 
 const ORGANIZATION_ID = "restored-organization";

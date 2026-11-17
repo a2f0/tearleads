@@ -3,6 +3,10 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { waitFor } from "../../../../../test/helpers/data/waitFor";
 import { settleWithin } from "../../../../../test/helpers/workflows/remoteSyncWait";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import {
   disposeDomainSyncCoordinator,
@@ -23,10 +27,6 @@ import {
   markDocumentStoreRemoteSyncPending,
 } from "../sync/syncGeneration";
 import { assertDocumentStoreCanRotateContentKey } from "./index";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "./rotationRecoveryHelpers.test";
 
 async function createState(
   execSql: Parameters<typeof persistFullHistoryDocument>[0]["execSql"],

@@ -14,6 +14,10 @@ import {
   createSyncResponse,
 } from "../../../../../test/helpers/data/documentFixtures";
 import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
+import {
   buildRotatedDocumentContentKeyBundle,
   collectContainerKeksForDocumentSync,
 } from "../../../../data/documents/shared/projection";
@@ -33,10 +37,6 @@ import { setDocumentText } from "../mutations";
 import { enqueuePendingUpdate, listPendingUpdates } from "../persistence";
 import { createDocumentStoreState } from "../state";
 import { assertDocumentStoreCanRotateContentKey } from "./index";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "./rotationRecoveryHelpers.test";
 
 const hasTerminalFailures = (
   execSql: ConstructorParameters<typeof DocumentRecordRepository>[0],

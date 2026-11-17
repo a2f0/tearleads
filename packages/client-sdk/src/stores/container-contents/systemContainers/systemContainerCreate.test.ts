@@ -7,13 +7,13 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/data/containerFixtures";
 import { createResponseFromRequest } from "../../../../test/helpers/data/documentFixtures";
+import { createContainerContentsStoreTestRuntime } from "../../../../test/helpers/workflows/containerContentsTestRuntime";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { createTestContainerState } from "../../../workflows/container-contents/container-state/containerState.testFixtures";
 import { defaultContainerContentsPersistence } from "../../../workflows/container-contents/containerPersistence";
 import { handleContainerContentsRemoteEvents } from "../remoteEvents/remoteEventSync";
-import { createContainerContentsStoreTestRuntime } from "../runtime.testFixtures";
 import { createContainerContentsStoreState } from "../state";
 import type { ContainerContentsStoreSyncAgent } from "../syncAgent";
 import { createSystemContainer } from "./systemContainerCreate";

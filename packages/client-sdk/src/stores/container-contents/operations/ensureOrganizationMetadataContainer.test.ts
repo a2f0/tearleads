@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { createContainerContentsTestRuntime } from "../../../../test/helpers/workflows/containerContentsTestRuntime";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { createTestContainerState } from "../../../workflows/container-contents/container-state/containerState.testFixtures";
 import { defaultContainerContentsPersistence } from "../../../workflows/container-contents/containerPersistence";
@@ -7,7 +8,6 @@ import {
   invalidateRemoteContainerWrites,
   trackRemoteContainerWrite,
 } from "../remoteWrites/remoteWriteGuards";
-import { createContainerContentsTestRuntime } from "../runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,

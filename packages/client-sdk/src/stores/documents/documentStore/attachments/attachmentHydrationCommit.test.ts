@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createRotationRecoveryRuntime } from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { addDocumentAttachments } from "../../../../data/documents/documentContent";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
@@ -7,7 +8,6 @@ import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
 } from "../documentStore.testFixtures";
-import { createRotationRecoveryRuntime } from "../rotation/rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "../state";
 import { commitHydratedAttachment } from "./attachmentHydrationCommit";
 
