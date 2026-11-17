@@ -54,6 +54,9 @@ until the next review completes. Preserve unrelated work.
 
 Before reporting success, confirm HEAD still matches the reviewed commit and
 that an existing PR points to that same commit. If the base moved, refresh it and
-review again before shipping. Report reviewer, exact base and head IDs, verdict,
-remaining findings, validation, and any repairs performed. This skill does not
-authorize pushing, opening a PR, or merging unless the user requested that work.
+review again before shipping, unless the new HEAD only integrated the base and
+prepared versions and `agent-tool review carry <reviewed-head> <new-head>`
+accepts it; then report the review as carried, with both heads. Report
+reviewer, exact base and head IDs, verdict, remaining findings, validation, and
+any repairs performed. This skill does not authorize pushing, opening a PR, or
+merging unless the user requested that work.

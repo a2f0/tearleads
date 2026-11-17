@@ -4,8 +4,8 @@ import { fastMlDsa87 } from "./fastMlDsa87.testFixtures";
 
 // Opt-in for local iteration: with TEARLEADS_TEST_FAST_SIGNATURES=1, importing
 // this module replaces ML-DSA-87 in this process with the stand-in from
-// fastMlDsa87.testFixtures.ts. Unset, which is the default and what CI and the
-// push gate run, it changes nothing.
+// fastMlDsa87.testFixtures.ts. Unset, which is the default and what CI runs,
+// it changes nothing.
 //
 // The mock only reaches modules that import ml-dsa.js after it is installed, so
 // a test preload must import this module before anything that loads
