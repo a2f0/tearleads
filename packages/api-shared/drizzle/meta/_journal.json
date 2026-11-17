@@ -8,13 +8,6 @@
       "when": 1794396284330,
       "tag": "0000_greenfield_baseline",
       "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1794935547907,
-      "tag": "0001_drop_unread_columns",
-      "breakpoints": true
     }
   ]
 }
