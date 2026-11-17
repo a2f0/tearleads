@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import {
+  type ApiDatabase,
   type DatabaseTransaction,
   db,
   getDefaultApiDatabaseKind,
@@ -42,6 +43,28 @@ function publisherKeyOrder(left: ProgressRow, right: ProgressRow): number {
 function publish(executor: DatabaseTransaction, row: ProgressRow) {
   return upsertPrincipalHistoryProgress(executor, [row]);
 }
+
+/**
+ * The database with index and bitmap scans off in each transaction, so the
+ * purge's lock query reads rows in storage order rather than from the
+ * `(..., version)` unique index, which already yields versions ascending.
+ */
+const storageOrderDatabase: ApiDatabase = new Proxy(db, {
+  get(target, property) {
+    if (property === "transaction") {
+      return (...args: Parameters<ApiDatabase["transaction"]>) => {
+        const [run, config] = args;
+        return target.transaction(async (tx) => {
+          await tx.execute(sql`set local enable_indexscan = off`);
+          await tx.execute(sql`set local enable_bitmapscan = off`);
+          return run(tx);
+        }, config);
+      };
+    }
+    const value = Reflect.get(target, property, target);
+    return typeof value === "function" ? value.bind(target) : value;
+  },
+});
 
 async function claimedOrganizationHints() {
   const organizationId = await registerOrganization();
@@ -86,6 +109,7 @@ async function publishDuringPurge(input: {
   readonly first: ProgressRow;
   readonly last: ProgressRow;
   readonly now: Date;
+  readonly purgeDatabase?: ApiDatabase;
 }) {
   let held!: (backendPid: number) => void;
   let failed!: (error: unknown) => void;
@@ -108,7 +132,7 @@ async function publishDuringPurge(input: {
   const blockerPid = await heldFirst;
   const purge = purgeClaimedOrganizationRemoteData({
     claim: input.claim,
-    db,
+    db: input.purgeDatabase ?? db,
     now: input.now,
   });
   try {
@@ -191,8 +215,20 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       .values({ ...first, id: randomUUID(), version: first.version + 1 })
       .returning();
     invariant(last, "expected the next version's hint row");
+    // Rewrite the older version after it, so storage order puts the newer
+    // version first and only the version sort locks the older one first.
+    await db
+      .delete(principalHistoryProgress)
+      .where(eq(principalHistoryProgress.id, first.id));
+    await db.insert(principalHistoryProgress).values(first);
 
-    await publishDuringPurge({ claim, first, last, now });
+    await publishDuringPurge({
+      claim,
+      first,
+      last,
+      now,
+      purgeDatabase: storageOrderDatabase,
+    });
     expect(
       await db
         .select()
