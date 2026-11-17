@@ -27,6 +27,7 @@ import {
 } from "../documentWork/documentRecovery";
 import { createAcceptedMoveRetry } from "./acceptedMoveRetry";
 import {
+  coversAdvertisedMetadataVersion,
   findOwedContainerMetadataRead,
   restoreOwedContainerMetadataReads,
   settleOwedContainerMetadataRead,
@@ -221,15 +222,12 @@ async function syncSingleContainerMetadata(input: {
     return;
   }
 
-  // A resumed pull reads only to its earlier bound, and a superseded result
-  // discarded what it pulled: either keeps the signals for a fresh read.
-  const keepsSignals =
-    synced.resumedEarlierPull === true || isSupersededMetadataSync(synced);
+  const kept = keptMetadataSignals({ containerState, owedRead, synced });
   const stillCurrent = await settleConsumedMetadataSignals({
     consumedSeqById,
     documentIds: [metadataDocumentId, synced.record.documentId],
     isCurrent,
-    keepsSignals,
+    keepsSignals: kept.keep,
     owedRead,
     readExecSql,
     state,
@@ -245,10 +243,31 @@ async function syncSingleContainerMetadata(input: {
   // A pass that kept an owed read hands it to a fresh read next pass.
   if (
     synced.shouldRequestFollowupSync ||
-    (keepsSignals && isQueuedForRead(state, metadataDocumentId))
+    (kept.followUp && isQueuedForRead(state, metadataDocumentId))
   ) {
     requestContainerContentsStoreSync(state);
   }
+}
+
+/**
+ * Whether a completed read keeps its signals for another read, and whether to
+ * ask for that read now. A resumed pull reads only to its earlier bound, and a
+ * superseded result discarded what it pulled: both hand the read to a fresh
+ * pass. A replica lagging the listing can answer without the advertised edit;
+ * that debt waits for a later pass rather than a follow-up loop.
+ */
+function keptMetadataSignals(input: {
+  containerState: ContainerState;
+  owedRead: ContainerMetadataRevalidation | null;
+  synced: SyncedContainerMetadataState;
+}): { followUp: boolean; keep: boolean } {
+  const followUp =
+    input.synced.resumedEarlierPull === true ||
+    isSupersededMetadataSync(input.synced);
+  const behindListing =
+    input.owedRead !== null &&
+    !coversAdvertisedMetadataVersion(input.containerState.doc, input.owedRead);
+  return { followUp, keep: followUp || behindListing };
 }
 
 function isSupersededMetadataSync(

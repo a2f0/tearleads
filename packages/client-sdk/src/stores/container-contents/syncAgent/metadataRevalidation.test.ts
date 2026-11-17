@@ -57,7 +57,10 @@ test("an owed metadata read survives a restart until a read pays it", async () =
   const { close, execSql } = await openDatabase();
   try {
     const before = storeState(execSql);
-    await oweContainerMetadataRead(before, "metadata-1");
+    await oweContainerMetadataRead(before, {
+      advertisedVersionVector: "",
+      documentId: "metadata-1",
+    });
     expect([...before.metadataDocumentIdsNeedingSync]).toEqual(["metadata-1"]);
     expect(before.metadataSyncSignalSeqById.get("metadata-1")).toBe(1);
 
@@ -97,14 +100,20 @@ test("a read settles only the request it saw, not a newer one from another tab",
   const { close, execSql } = await openDatabase();
   try {
     const reader = storeState(execSql);
-    await oweContainerMetadataRead(reader, "metadata-1");
+    await oweContainerMetadataRead(reader, {
+      advertisedVersionVector: "",
+      documentId: "metadata-1",
+    });
     const seen = await findOwedContainerMetadataRead(reader, {
       documentId: "metadata-1",
       execSql,
     });
     if (!seen) throw new Error("Expected the owed read");
     // Another tab sharing the database owes the read again meanwhile.
-    await oweContainerMetadataRead(storeState(execSql), "metadata-1");
+    await oweContainerMetadataRead(storeState(execSql), {
+      advertisedVersionVector: "",
+      documentId: "metadata-1",
+    });
 
     reader.metadataDocumentIdsNeedingSync.delete("metadata-1");
     await settleOwedContainerMetadataRead(reader, {
@@ -120,8 +129,14 @@ test("a read settles only the request it saw, not a newer one from another tab",
 test("startup leaves a debt for a container this tab does not hold", async () => {
   const { close, execSql } = await openDatabase();
   try {
-    await oweContainerMetadataRead(storeState(execSql), "metadata-1");
-    await oweContainerMetadataRead(storeState(execSql), "metadata-gone");
+    await oweContainerMetadataRead(storeState(execSql), {
+      advertisedVersionVector: "",
+      documentId: "metadata-1",
+    });
+    await oweContainerMetadataRead(storeState(execSql), {
+      advertisedVersionVector: "",
+      documentId: "metadata-gone",
+    });
     const after = storeState(execSql);
     expect(await restoreOwedContainerMetadataReads(after, () => true)).toBe(1);
     expect([...after.metadataDocumentIdsNeedingSync]).toEqual(["metadata-1"]);
@@ -138,7 +153,10 @@ test("startup leaves a debt for a container this tab does not hold", async () =>
 test("a restore that a store replacement overtakes queues nothing", async () => {
   const { close, execSql } = await openDatabase();
   try {
-    await oweContainerMetadataRead(storeState(execSql), "metadata-1");
+    await oweContainerMetadataRead(storeState(execSql), {
+      advertisedVersionVector: "",
+      documentId: "metadata-1",
+    });
     const stale = storeState(execSql);
     expect(await restoreOwedContainerMetadataReads(stale, () => false)).toBe(0);
     expect([...stale.metadataDocumentIdsNeedingSync]).toEqual([]);

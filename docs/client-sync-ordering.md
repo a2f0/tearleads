@@ -122,15 +122,20 @@ it with the client's own copy:
 - Owing a read. When a listing shows a held container whose metadata version
   the local copy does not cover, the document is owed one forced read. The
   client's own edits, seeds, moves and writes into the folder never trigger
-  one, because the local copy already covers every update they produced.
+  one, because the local copy already covers every update they produced. An
+  unreadable version also owes a read, and the rest of the page still
+  hydrates.
 - Durability. Hydration queues the forced read in memory and then writes it to
   `container_metadata_revalidations`, before the lane watermark advances past
   the row. A store's first sync pass requeues what a previous run still owed,
   and an owed read alone schedules that pass at startup.
 - Settling. A completed sync pulls every update the client lacks, so it settles
   the debt, unless a newer signal queued the document while the read was in
-  flight. Each request carries a revision, and a read settles only the one it
-  saw before it began, so a newer request from another tab survives. A pass
+  flight. Each request records the version the listing advertised, and a read
+  settles it only once the local copy covers that version; a replica lagging
+  the listing can answer without the edit, and the debt then waits for a later
+  pass. Each request also carries a revision, and a read settles only the one
+  it saw before it began, so a newer request from another tab survives. A pass
   that resumes an earlier paginated pull reads only up to that pull's upper
   bound, and a superseded result discarded what it pulled; neither settles,
   and each hands the read to a fresh pass.

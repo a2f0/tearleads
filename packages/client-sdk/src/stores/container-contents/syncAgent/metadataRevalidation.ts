@@ -12,6 +12,11 @@
  * saw before its request, so a newer request from another tab survives.
  */
 
+import {
+  decodeVersionVector,
+  encodeVersionVector,
+  satisfiesVersionVector,
+} from "@tearleads/loro";
 import type {
   ContainerMetadataRevalidation,
   ExecSql,
@@ -39,13 +44,35 @@ function queueMetadataRead(
 /** Owe a metadata document one read, in memory and then durably. */
 export async function oweContainerMetadataRead(
   state: MetadataRevalidationState,
-  documentId: string,
+  request: {
+    readonly advertisedVersionVector: string;
+    readonly documentId: string;
+  },
 ): Promise<void> {
-  queueMetadataRead(state, documentId);
+  queueMetadataRead(state, request.documentId);
   await state.persistence.requestContainerMetadataRevalidation(
     state.runtime.infra.execSql,
-    documentId,
+    request,
   );
+}
+
+/**
+ * Whether the local copy covers the version a listing advertised. A read
+ * served by a replica that lags the listing can succeed without the edit; its
+ * debt then stays for a later pass. An unreadable version is covered: the read
+ * it caused already pulled the truth.
+ */
+export function coversAdvertisedMetadataVersion(
+  doc: Parameters<typeof encodeVersionVector>[0],
+  owed: ContainerMetadataRevalidation,
+): boolean {
+  try {
+    const advertised = owed.advertisedVersionVector;
+    if (decodeVersionVector(advertised).toJSON().size === 0) return true;
+    return satisfiesVersionVector(encodeVersionVector(doc), advertised);
+  } catch {
+    return true;
+  }
 }
 
 /**

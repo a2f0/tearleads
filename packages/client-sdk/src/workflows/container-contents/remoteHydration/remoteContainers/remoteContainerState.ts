@@ -183,9 +183,18 @@ function coversMetadataVersion(
   remoteContainer: RemoteContainer,
 ): boolean {
   const listed = remoteContainer.metadataVersionVector;
-  // A document with no stored update is covered by any copy.
-  if (decodeVersionVector(listed).toJSON().size === 0) return true;
-  return satisfiesVersionVector(encodeVersionVector(existingState.doc), listed);
+  try {
+    // A document with no stored update is covered by any copy.
+    if (decodeVersionVector(listed).toJSON().size === 0) return true;
+    return satisfiesVersionVector(
+      encodeVersionVector(existingState.doc),
+      listed,
+    );
+  } catch {
+    // An unreadable version proves nothing: owe the read, which pulls the
+    // truth, and let the rest of the page hydrate.
+    return false;
+  }
 }
 
 async function oweMetadataReadIfBehind(
@@ -194,9 +203,10 @@ async function oweMetadataReadIfBehind(
   remoteContainer: RemoteContainer,
 ): Promise<void> {
   if (!coversMetadataVersion(existingState, remoteContainer)) {
-    await host.requestMetadataRevalidation?.(
-      remoteContainer.metadataDocumentId,
-    );
+    await host.requestMetadataRevalidation?.({
+      advertisedVersionVector: remoteContainer.metadataVersionVector,
+      documentId: remoteContainer.metadataDocumentId,
+    });
   }
 }
 

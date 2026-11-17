@@ -1,5 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { encodeVersionVectorCounters } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createContainerContentsTestRuntime } from "../../../../test/helpers/workflows/containerContentsTestRuntime";
 import { createDomainScope } from "../../../data/shared/domainScope";
@@ -39,6 +40,8 @@ function synced(folder: ContainerState): SyncedContainerMetadataState {
  * earlier pull, reads that pull's last page.
  */
 async function owedFolder(input: {
+  /** The version the listing advertised; empty when the read reaches it. */
+  advertisedVersionVector?: string;
   /** An older pull cursor appears only once the read is under way. */
   continuationInstalledDuringRead?: boolean;
   resetDuringSettle?: boolean;
@@ -84,7 +87,10 @@ async function owedFolder(input: {
   updateContainerContentsSnapshot(state);
   const followups = mock(() => {});
   state.syncLane = { requestSync: followups } as never;
-  await oweContainerMetadataRead(state, documentId);
+  await oweContainerMetadataRead(state, {
+    advertisedVersionVector: input.advertisedVersionVector ?? "",
+    documentId: documentId,
+  });
 
   const reads: { forced: boolean; resumed: boolean }[] = [];
   const syncContainerMetadata = mock(
@@ -207,6 +213,24 @@ test("a read settles by the pull it actually resumed, not the one seen at the st
       queued: true,
     });
     expect(folder.followups).toHaveBeenCalled();
+  } finally {
+    folder.close();
+  }
+});
+
+test("a read that does not reach the advertised version keeps the debt without a loop", async () => {
+  // A replica lagging the listing answers without the peer's edit.
+  const folder = await owedFolder({
+    advertisedVersionVector: encodeVersionVectorCounters({ "7": 3 }),
+    resumesEarlierPull: false,
+  });
+  try {
+    await folder.runPass();
+    expect(await folder.owed()).toEqual({
+      durable: ["metadata-folder"],
+      queued: true,
+    });
+    expect(folder.followups).not.toHaveBeenCalled();
   } finally {
     folder.close();
   }

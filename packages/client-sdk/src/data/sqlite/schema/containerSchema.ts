@@ -134,6 +134,9 @@ export const containerMetadataRevalidations = sqliteTable(
   "container_metadata_revalidations",
   {
     documentId: text("document_id").notNull(),
+    // The metadata version the listing advertised; a read settles the request
+    // only once the local copy covers it.
+    advertisedVersionVector: text("advertised_version_vector").notNull(),
     // Replaced on every request, so a read settles only the request it saw.
     revision: text("revision").notNull(),
     requestedAt: text("requested_at").notNull(),

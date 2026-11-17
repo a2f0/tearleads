@@ -6,6 +6,7 @@ import { ensureContainerTables } from "./containerPersistence";
 
 /** A metadata document owed a remote read, and the request's revision. */
 export interface ContainerMetadataRevalidation {
+  readonly advertisedVersionVector: string;
   readonly documentId: string;
   readonly revision: string;
 }
@@ -14,7 +15,10 @@ export interface ContainerMetadataRevalidationPersistence {
   /** Record, or renew, a request that a metadata document be read. */
   requestContainerMetadataRevalidation: (
     execSql: ExecSql,
-    documentId: string,
+    request: {
+      readonly advertisedVersionVector: string;
+      readonly documentId: string;
+    },
   ) => Promise<void>;
   /** Requests still owed, in document id order. */
   listContainerMetadataRevalidations: (
@@ -32,20 +36,25 @@ export interface ContainerMetadataRevalidationPersistence {
 
 async function requestContainerMetadataRevalidation(
   execSql: ExecSql,
-  documentId: string,
+  request: {
+    readonly advertisedVersionVector: string;
+    readonly documentId: string;
+  },
 ): Promise<void> {
   await ensureContainerTables(execSql);
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     await db
       .insert(containerMetadataRevalidations)
       .values({
-        documentId,
+        advertisedVersionVector: request.advertisedVersionVector,
+        documentId: request.documentId,
         requestedAt: new Date().toISOString(),
         revision: crypto.randomUUID(),
       })
       .onConflictDoUpdate({
         target: containerMetadataRevalidations.documentId,
         set: {
+          advertisedVersionVector: sql`excluded.advertised_version_vector`,
           requestedAt: sql`excluded.requested_at`,
           revision: sql`excluded.revision`,
         },
@@ -60,6 +69,8 @@ async function listContainerMetadataRevalidations(
   await ensureContainerTables(execSql);
   return getClientSQLitePersistenceRuntime(execSql)
     .db.select({
+      advertisedVersionVector:
+        containerMetadataRevalidations.advertisedVersionVector,
       documentId: containerMetadataRevalidations.documentId,
       revision: containerMetadataRevalidations.revision,
     })

@@ -108,8 +108,8 @@ function createContainerContentsStoreSyncHost(
     requestDocumentPriming: () => {
       state.documentStoresNeedPriming = true;
     },
-    requestMetadataRevalidation: (metadataDocumentId) =>
-      oweContainerMetadataRead(state, metadataDocumentId),
+    requestMetadataRevalidation: (request) =>
+      oweContainerMetadataRead(state, request),
     updateSnapshot: () => updateContainerContentsSnapshot(state),
   };
 }

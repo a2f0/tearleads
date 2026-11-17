@@ -80,7 +80,7 @@ test("a metadata read owed before a restart is startup work even when nothing el
     await expect(hasStartupContainerSyncWork(state)).resolves.toBe(false);
     await defaultContainerContentsPersistence.requestContainerMetadataRevalidation(
       execSql,
-      "metadata-root",
+      { advertisedVersionVector: "", documentId: "metadata-root" },
     );
     await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);
   } finally {

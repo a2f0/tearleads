@@ -143,8 +143,8 @@ async function hydrateListing(listing: RemoteContainer, heldUpdates: string) {
         installContainerMetadataRecord(candidate, persisted.record);
         return { record: persisted.record, status: "persisted" };
       },
-      requestMetadataRevalidation: async (metadataDocumentId) => {
-        calls.push(`owe ${metadataDocumentId}`);
+      requestMetadataRevalidation: async ({ documentId }) => {
+        calls.push(`owe ${documentId}`);
       },
       updateSnapshot: () => {},
     };
@@ -187,4 +187,14 @@ test("a listing the held copy covers owes no read, even after other writes", asy
       versions.heldUpdates,
     ),
   ).toEqual([`persist ${LATER}`]);
+});
+
+test("an unreadable listed version owes a read instead of failing the page", async () => {
+  const versions = await metadataVersions();
+  expect(
+    await hydrateListing(
+      listed({ updatedAt: LATER, versionVector: "not a version vector" }),
+      versions.heldUpdates,
+    ),
+  ).toEqual(["owe metadata-1", `persist ${LATER}`]);
 });

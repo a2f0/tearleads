@@ -166,7 +166,10 @@ export interface RemoteContainerHydrationHost {
    * advances the timestamps and lane watermark that revealed it.
    */
   requestMetadataRevalidation?:
-    | ((metadataDocumentId: string) => Promise<void>)
+    | ((request: {
+        readonly advertisedVersionVector: string;
+        readonly documentId: string;
+      }) => Promise<void>)
     | undefined;
   updateSnapshot: () => void;
 }

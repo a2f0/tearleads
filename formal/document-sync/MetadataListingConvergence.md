@@ -66,6 +66,7 @@ clock-free. The model assumes, as existing discovery does, that a write
 leaves its row past the lane watermark; a trailing server clock can break that
 for discovery and for this recovery alike. Also outside the model:
 minimum commit positions and replica lag (the forced read uses the stored
-commit position as its floor, as a hint-forced read does), several containers
-per lane, lane paging, access changes, and updates a client rejects, whose
-version it never covers.
+commit position as its floor, as a hint-forced read does, and production
+settles a debt only once the local copy covers the advertised version), several
+containers per lane, lane paging, access changes, and updates a client
+rejects, whose version it never covers.
