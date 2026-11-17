@@ -29,6 +29,7 @@ export {
   MiniAppTabPanel,
 } from "./layout/MiniAppTabs";
 export { MiniAppActions, MiniAppToolbar } from "./layout/MiniAppToolbar";
+export { MiniAppDetailModal } from "./overlays/MiniAppDetailModal";
 export { MiniAppImageViewer } from "./overlays/MiniAppImageViewer";
 export {
   MiniAppModalBackdrop,
@@ -37,4 +38,5 @@ export {
   MiniAppModalHighlight,
   MiniAppModalPanel,
 } from "./overlays/MiniAppModal";
+export { useModalEscapeAndFocusRestore } from "./overlays/useModalEscapeAndFocusRestore";
 export { runAfterBusyPaint } from "./overlays/waitForBusyPaint";

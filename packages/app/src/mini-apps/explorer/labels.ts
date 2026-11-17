@@ -5,6 +5,7 @@ import { EXPLORER_CONTAINER_INFO_LABELS } from "./shared/containerInfoLabels";
 import { EXPLORER_DOCUMENT_HISTORY_LABELS } from "./shared/documentHistoryLabels";
 import { EXPLORER_DOCUMENT_INFO_LABELS } from "./shared/documentInfoLabels";
 import { EXPLORER_DOWNLOAD_LABELS } from "./shared/downloadLabels";
+import { EXPLORER_INFO_ROW_DETAIL_LABELS } from "./shared/infoRowDetailLabels";
 import { EXPLORER_SYNC_LABELS } from "./shared/syncLabels";
 import { EXPLORER_SYNC_LANE_TIMING_LABELS } from "./shared/syncLaneTimingLabels";
 import { EXPLORER_UPLOAD_LABELS } from "./shared/uploadLabels";
@@ -16,6 +17,7 @@ export const EXPLORER_LABELS = {
   ...EXPLORER_CONTAINER_INFO_LABELS,
   ...EXPLORER_DOCUMENT_HISTORY_LABELS,
   ...EXPLORER_DOCUMENT_INFO_LABELS,
+  ...EXPLORER_INFO_ROW_DETAIL_LABELS,
   ...EXPLORER_SYNC_LABELS,
   ...EXPLORER_UPLOAD_LABELS,
   ...EXPLORER_WRITE_QUEUE_LABELS,

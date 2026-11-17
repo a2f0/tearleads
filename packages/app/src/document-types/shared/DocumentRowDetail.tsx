@@ -1,17 +1,12 @@
-import { useId, useRef } from "react";
 import {
-  MiniAppActions,
-  MiniAppButton,
+  MiniAppDetailModal,
   MiniAppInfoSection,
-  MiniAppModalBackdrop,
-  MiniAppModalPanel,
 } from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppKeyValueList,
   MiniAppKeyValueRow,
 } from "../../components/mini-app/MiniAppTable";
 import { formatRowByline, formatWriterLabel } from "./rowAttribution";
-import { useModalEscapeAndFocusRestore } from "./useModalEscapeAndFocusRestore";
 import "./DocumentRowDetail.css";
 
 const ROW_DETAIL_EMPTY_VALUE = "None";
@@ -82,10 +77,6 @@ export function DocumentRowDetailOverlay(params: {
     showFieldValues = true,
     onClose,
   } = params;
-  const titleId = useId();
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  useModalEscapeAndFocusRestore(onClose, closeButtonRef);
-
   const created = formatRowByline({
     at: createdAt,
     by: createdBy,
@@ -98,58 +89,31 @@ export function DocumentRowDetailOverlay(params: {
   });
 
   return (
-    <MiniAppModalBackdrop
-      className="document-row-detail-backdrop"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-      role="presentation"
-    >
-      <MiniAppModalPanel
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className="document-row-detail-panel"
-        role="dialog"
-      >
-        <h2 className="document-row-detail-title" id={titleId}>
-          {title}
-        </h2>
-        <MiniAppInfoSection heading="Fields">
+    <MiniAppDetailModal onClose={onClose} title={title}>
+      <MiniAppInfoSection heading="Fields">
+        <MiniAppKeyValueList>
+          {fields.map((field) => (
+            <DocumentRowDetailFieldRow
+              currentAuthorId={currentAuthorId}
+              field={field}
+              key={field.label}
+              showFieldValues={showFieldValues}
+            />
+          ))}
+        </MiniAppKeyValueList>
+      </MiniAppInfoSection>
+      {created || updated ? (
+        <MiniAppInfoSection heading="History">
           <MiniAppKeyValueList>
-            {fields.map((field) => (
-              <DocumentRowDetailFieldRow
-                currentAuthorId={currentAuthorId}
-                field={field}
-                key={field.label}
-                showFieldValues={showFieldValues}
-              />
-            ))}
+            {created ? (
+              <MiniAppKeyValueRow label="Created">{created}</MiniAppKeyValueRow>
+            ) : null}
+            {updated ? (
+              <MiniAppKeyValueRow label="Updated">{updated}</MiniAppKeyValueRow>
+            ) : null}
           </MiniAppKeyValueList>
         </MiniAppInfoSection>
-        {created || updated ? (
-          <MiniAppInfoSection heading="History">
-            <MiniAppKeyValueList>
-              {created ? (
-                <MiniAppKeyValueRow label="Created">
-                  {created}
-                </MiniAppKeyValueRow>
-              ) : null}
-              {updated ? (
-                <MiniAppKeyValueRow label="Updated">
-                  {updated}
-                </MiniAppKeyValueRow>
-              ) : null}
-            </MiniAppKeyValueList>
-          </MiniAppInfoSection>
-        ) : null}
-        <MiniAppActions>
-          <MiniAppButton onClick={onClose} ref={closeButtonRef}>
-            Close
-          </MiniAppButton>
-        </MiniAppActions>
-      </MiniAppModalPanel>
-    </MiniAppModalBackdrop>
+      ) : null}
+    </MiniAppDetailModal>
   );
 }

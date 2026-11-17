@@ -21,8 +21,18 @@ import {
   getExplorerAttributionWriterTitle,
 } from "../attributionDisplay";
 import { compactId } from "../compactId";
+import {
+  type ExplorerInfoRowDetail,
+  ExplorerInfoRowDetailButton,
+  type ExplorerInfoRowDetailOpeners,
+  useExplorerInfoRowDetail,
+} from "../row-detail/ExplorerInfoRowDetail";
 
 type EditRangeItem = DocumentAttributionRangesPage["items"][number];
+
+function getEditRangeKey(item: EditRangeItem): string {
+  return `${item.updateId}:${item.peerId}:${item.startCounter}:${item.endCounter}`;
+}
 
 /**
  * Every column after Writer, in order. Unfolded they are the table's columns;
@@ -45,6 +55,14 @@ function getEditRangeAuthorityLabel(
   return authorityKind === "direct"
     ? EXPLORER_LABELS.documentInfoEditRangeAuthorityDirect
     : EXPLORER_LABELS.documentInfoEditRangeAuthorityReasserted;
+}
+
+function getEditRangeSpan(item: EditRangeItem): string {
+  return `${item.startCounter}–${item.endCounter}`;
+}
+
+function getEditRangeOpCount(item: EditRangeItem): string {
+  return String(item.endCounter - item.startCounter);
 }
 
 function getEditRangeColumns(
@@ -86,11 +104,50 @@ function getEditRangeSecondaryFields(
   const [peer, range, ops, upload, authority] = EDIT_RANGE_SECONDARY_COLUMNS;
   return [
     { ...peer, text: compactId(item.peerId), title: item.peerId },
-    { ...range, text: `${item.startCounter}–${item.endCounter}` },
-    { ...ops, text: String(item.endCounter - item.startCounter) },
+    { ...range, text: getEditRangeSpan(item) },
+    { ...ops, text: getEditRangeOpCount(item) },
     { ...upload, text: compactId(item.updateId), title: item.updateId },
     { ...authority, text: getEditRangeAuthorityLabel(item.authorityKind) },
   ];
+}
+
+function getEditRangeDetail(
+  item: EditRangeItem,
+  attributionUserLabelResolver:
+    | ExplorerAttributionUserLabelResolver
+    | undefined,
+): ExplorerInfoRowDetail {
+  const [peer, range, ops, upload, authority] = EDIT_RANGE_SECONDARY_COLUMNS;
+  return {
+    fields: [
+      {
+        id: "writer",
+        label: EXPLORER_LABELS.documentInfoEditRangeWriterColumn,
+        value: getExplorerAttributionWriterLabel(
+          item,
+          attributionUserLabelResolver,
+        ),
+      },
+      {
+        copyable: true,
+        id: "writerUserId",
+        label: EXPLORER_LABELS.infoRowDetailWriterUserIdRow,
+        value: item.writerUserId,
+      },
+      {
+        copyable: true,
+        id: "writerKey",
+        label: EXPLORER_LABELS.infoRowDetailWriterKeyRow,
+        value: item.writerKeyFingerprint,
+      },
+      { ...peer, copyable: true, value: item.peerId },
+      { ...range, value: getEditRangeSpan(item) },
+      { ...ops, value: getEditRangeOpCount(item) },
+      { ...upload, copyable: true, value: item.updateId },
+      { ...authority, value: getEditRangeAuthorityLabel(item.authorityKind) },
+    ],
+    title: EXPLORER_LABELS.infoRowDetailEditRangeTitle,
+  };
 }
 
 function EditRangeRow(params: {
@@ -99,29 +156,36 @@ function EditRangeRow(params: {
     | undefined;
   compact: boolean;
   item: EditRangeItem;
+  openers: ExplorerInfoRowDetailOpeners;
 }) {
-  const { attributionUserLabelResolver, compact, item } = params;
+  const { attributionUserLabelResolver, compact, item, openers } = params;
+  const title = getExplorerAttributionWriterTitle(
+    item,
+    attributionUserLabelResolver,
+  );
   const writer = {
-    id: "writer",
-    text: getExplorerAttributionWriterLabel(item, attributionUserLabelResolver),
-    title: getExplorerAttributionWriterTitle(
-      item,
-      attributionUserLabelResolver,
+    content: (
+      <ExplorerInfoRowDetailButton
+        onOpen={openers.openFromControl}
+        text={getExplorerAttributionWriterLabel(
+          item,
+          attributionUserLabelResolver,
+        )}
+        title={title}
+      />
     ),
+    id: "writer",
+    title,
   };
   const secondary = getEditRangeSecondaryFields(item);
 
   return (
-    <MiniAppTableRow>
+    <MiniAppTableRow interactive onActivate={openers.openFromRow}>
       {compact ? (
         <MiniAppCompactTableCell primary={[writer]} secondary={secondary} />
       ) : (
         <>
-          <MiniAppTableCell>
-            <MiniAppTableText title={writer.title}>
-              {writer.text}
-            </MiniAppTableText>
-          </MiniAppTableCell>
+          <MiniAppTableCell>{writer.content}</MiniAppTableCell>
           {secondary.map((field) => (
             <MiniAppTableCell key={field.id}>
               <MiniAppTableText title={field.title}>
@@ -143,29 +207,39 @@ export function EditRangesTable(params: {
 }) {
   const { compact, frameRef, rowHeight } = useMiniAppCompactTableFrame();
   const columns = useMemo(() => getEditRangeColumns(compact), [compact]);
+  const { detailOverlay, getRowDetailOpeners } = useExplorerInfoRowDetail({
+    getDetail: (item) =>
+      getEditRangeDetail(item, params.attributionUserLabelResolver),
+    getKey: getEditRangeKey,
+    rows: params.items,
+  });
 
   return (
-    <MiniAppTableFrame
-      className={classNames(
-        compact &&
-          "mini-app-table-frame--compact mini-app-table-frame--two-line",
-      )}
-      ref={frameRef}
-      style={getMiniAppVirtualFrameStyle(rowHeight)}
-    >
-      <MiniAppTable
-        aria-label={EXPLORER_LABELS.documentInfoEditRangesHeading}
-        columns={columns}
+    <>
+      <MiniAppTableFrame
+        className={classNames(
+          compact &&
+            "mini-app-table-frame--compact mini-app-table-frame--two-line",
+        )}
+        ref={frameRef}
+        style={getMiniAppVirtualFrameStyle(rowHeight)}
       >
-        {params.items.map((item) => (
-          <EditRangeRow
-            attributionUserLabelResolver={params.attributionUserLabelResolver}
-            compact={compact}
-            item={item}
-            key={`${item.updateId}:${item.peerId}:${item.startCounter}:${item.endCounter}`}
-          />
-        ))}
-      </MiniAppTable>
-    </MiniAppTableFrame>
+        <MiniAppTable
+          aria-label={EXPLORER_LABELS.documentInfoEditRangesHeading}
+          columns={columns}
+        >
+          {params.items.map((item) => (
+            <EditRangeRow
+              attributionUserLabelResolver={params.attributionUserLabelResolver}
+              compact={compact}
+              item={item}
+              key={getEditRangeKey(item)}
+              openers={getRowDetailOpeners(item)}
+            />
+          ))}
+        </MiniAppTable>
+      </MiniAppTableFrame>
+      {detailOverlay}
+    </>
   );
 }
