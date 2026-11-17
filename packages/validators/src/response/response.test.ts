@@ -304,6 +304,7 @@ test("isListContainersResponse", () => {
               keyFingerprint: "key-fingerprint",
             },
           ],
+          metadataVersionVector: "AQ==",
           updatedAt: new Date().toISOString(),
         },
       ],

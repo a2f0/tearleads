@@ -9,7 +9,6 @@ import {
   syncPendingDocumentMoveIntents,
 } from "../../../workflows/container-contents/documentMove/documentMoveIntentSync";
 import { syncContainerMetadataState } from "../../../workflows/container-contents/metadata";
-import { currentMetadataPullContinuation } from "../../../workflows/container-contents/metadata/metadataPersistence";
 import type { SyncedContainerMetadataState } from "../../../workflows/container-contents/metadata/metadataTypes";
 import type {
   ContainerState,
@@ -169,7 +168,6 @@ async function syncSingleContainerMetadata(input: {
     input;
   const metadataDocumentId = containerState.record.documentId;
   const readExecSql = state.runtime.infra.execSql;
-  const resumesEarlierPull = resumesEarlierMetadataPull(containerState);
   // The durable request this read answers, read before the read begins.
   const owedRead = isQueuedForRead(state, metadataDocumentId)
     ? await findOwedContainerMetadataRead(state, {
@@ -225,7 +223,8 @@ async function syncSingleContainerMetadata(input: {
 
   // A resumed pull reads only to its earlier bound, and a superseded result
   // discarded what it pulled: either keeps the signals for a fresh read.
-  const keepsSignals = resumesEarlierPull || isSupersededMetadataSync(synced);
+  const keepsSignals =
+    synced.resumedEarlierPull === true || isSupersededMetadataSync(synced);
   const stillCurrent = await settleConsumedMetadataSignals({
     consumedSeqById,
     documentIds: [metadataDocumentId, synced.record.documentId],
@@ -235,7 +234,8 @@ async function syncSingleContainerMetadata(input: {
     readExecSql,
     state,
   });
-  if (!stillCurrent) return;
+  // A reset can land after the settlement's last check and before this resumes.
+  if (!stillCurrent || !isCurrent()) return;
   // syncContainerMetadataState settles its detached candidate into this live
   // object while preserving any metadata edit that completed or queued during
   // the remote pass. Do not install its returned detached record again here:
@@ -249,17 +249,6 @@ async function syncSingleContainerMetadata(input: {
   ) {
     requestContainerContentsStoreSync(state);
   }
-}
-
-/**
- * A pass that resumes an earlier pull reads only up to that pull's upper
- * bound, which can predate a signal raised since.
- */
-function resumesEarlierMetadataPull(containerState: ContainerState): boolean {
-  return (
-    currentMetadataPullContinuation(containerState) !== null ||
-    containerState.record.pullContinuationRecoveryRequired === true
-  );
 }
 
 function isSupersededMetadataSync(

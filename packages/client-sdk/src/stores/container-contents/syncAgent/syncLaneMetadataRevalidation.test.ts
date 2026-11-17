@@ -39,6 +39,8 @@ function synced(folder: ContainerState): SyncedContainerMetadataState {
  * earlier pull, reads that pull's last page.
  */
 async function owedFolder(input: {
+  /** An older pull cursor appears only once the read is under way. */
+  continuationInstalledDuringRead?: boolean;
   resetDuringSettle?: boolean;
   resumesEarlierPull: boolean;
   superseded?: boolean;
@@ -87,15 +89,17 @@ async function owedFolder(input: {
   const reads: { forced: boolean; resumed: boolean }[] = [];
   const syncContainerMetadata = mock(
     async (sync: { forceReadSync?: boolean }) => {
-      reads.push({
-        forced: sync.forceReadSync === true,
-        resumed: folder.record.pullContinuation != null,
-      });
+      const resumed =
+        folder.record.pullContinuation != null ||
+        (input.continuationInstalledDuringRead === true && reads.length === 0);
+      reads.push({ forced: sync.forceReadSync === true, resumed });
       // This pass reads the earlier pull's last page.
       delete folder.record.pullContinuation;
-      return input.superseded
-        ? { ...synced(folder), mutationSuperseded: true as const }
-        : synced(folder);
+      return {
+        ...synced(folder),
+        ...(resumed ? { resumedEarlierPull: true as const } : {}),
+        ...(input.superseded ? { mutationSuperseded: true as const } : {}),
+      };
     },
   );
   const runPass = () =>
@@ -185,6 +189,24 @@ test("a pass whose store is replaced while it settles publishes nothing", async 
     expect(settled).toBeGreaterThanOrEqual(0);
     expect(folder.events.slice(settled + 1)).not.toContain("snapshot");
     expect(folder.followups).not.toHaveBeenCalled();
+  } finally {
+    folder.close();
+  }
+});
+
+test("a read settles by the pull it actually resumed, not the one seen at the start", async () => {
+  const folder = await owedFolder({
+    continuationInstalledDuringRead: true,
+    resumesEarlierPull: false,
+  });
+  try {
+    await folder.runPass();
+    expect(folder.reads).toEqual([{ forced: true, resumed: true }]);
+    expect(await folder.owed()).toEqual({
+      durable: ["metadata-folder"],
+      queued: true,
+    });
+    expect(folder.followups).toHaveBeenCalled();
   } finally {
     folder.close();
   }

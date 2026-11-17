@@ -56,6 +56,8 @@ export interface PersistedContainerMetadataState {
 
 export interface SyncedContainerMetadataState
   extends PersistedContainerMetadataState {
+  /** The read resumed an earlier pull's pages and stopped at its bound. */
+  resumedEarlierPull?: true;
   shouldRequestFollowupSync: boolean;
 }
 
