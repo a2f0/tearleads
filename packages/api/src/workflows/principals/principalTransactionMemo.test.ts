@@ -8,7 +8,11 @@ import { organizations, principalStates } from "@tearleads/api-shared/schema";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { registerOrganization } from "../../../test/helpers/organizationPurge";
-import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
+import {
+  getCurrentPrincipalState,
+  getCurrentPrincipalStatesFor,
+  principalCurrentStateKey,
+} from "../../access/read/principalStateStore";
 import { forgetPrincipalTransactionMemo } from "../../access/write/principalStateStore";
 import {
   loadGroupOrganizationDescriptor,
@@ -67,6 +71,85 @@ test("a current-state read before the principal lock is never kept", async () =>
         expect(await readOrganizationState(tx, organizationId)).toEqual(locked),
       ),
     ).toBe(0);
+  });
+});
+
+test("a set read answers locked principals from the memo and reads only the rest", async () => {
+  const { memberGroupId, organizationId } = await organizationFixture();
+  const organization = {
+    principalId: organizationId,
+    principalType: "organization",
+  } as const;
+  const member = {
+    principalId: memberGroupId,
+    principalType: "group",
+  } as const;
+  const missing = {
+    principalId: crypto.randomUUID(),
+    principalType: "group",
+  } as const;
+  await inRolledBackTransaction(async (tx) => {
+    const unlocked = await getCurrentPrincipalStatesFor(
+      [organization, member],
+      tx,
+    );
+    await lockPrincipalMutationInTransaction(
+      tx,
+      "organization",
+      organizationId,
+    );
+    await lockPrincipalMutationInTransaction(tx, "group", missing.principalId);
+    // The organization is locked but not yet read: one statement reads all
+    // three, and keeps the two locked answers (a missing head included).
+    expect(
+      await statementsOf(async () =>
+        expect(
+          await getCurrentPrincipalStatesFor(
+            [member, organization, missing],
+            tx,
+          ),
+        ).toEqual(unlocked),
+      ),
+    ).toBe(1);
+    // The unlocked group is still read; the locked principals are not.
+    expect(
+      await statementsOf(async () =>
+        expect(
+          await getCurrentPrincipalStatesFor(
+            [organization, member, missing],
+            tx,
+          ),
+        ).toEqual(unlocked),
+      ),
+    ).toBe(1);
+    expect(
+      await statementsOf(async () => {
+        const kept = await getCurrentPrincipalStatesFor(
+          [organization, missing],
+          tx,
+        );
+        expect([...kept.keys()]).toEqual([
+          principalCurrentStateKey(organization),
+        ]);
+        expect(await readOrganizationState(tx, organizationId)).toEqual(
+          kept.get(principalCurrentStateKey(organization)) ?? null,
+        );
+        expect(
+          await getCurrentPrincipalState("group", missing.principalId, tx),
+        ).toBeNull();
+      }),
+    ).toBe(0);
+    // A kept head is a copy.
+    const first = (await getCurrentPrincipalStatesFor([organization], tx)).get(
+      principalCurrentStateKey(organization),
+    );
+    invariant(first, "expected organization state");
+    first.stateHash = "mutated by a caller";
+    expect(
+      (await getCurrentPrincipalStatesFor([organization], tx)).get(
+        principalCurrentStateKey(organization),
+      )?.stateHash,
+    ).not.toBe("mutated by a caller");
   });
 });
 
