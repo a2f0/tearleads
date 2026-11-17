@@ -10,6 +10,10 @@ export const DOCUMENT_MUTATION_ERROR_CODES = {
   // live row. Registered once here because the container envelope unions this
   // schema (see ContainerMutationErrorCodeSchema).
   containerUnavailable: CONTAINER_UNAVAILABLE_ERROR_CODE,
+  // A link or unlink's blob rewraps do not name exactly the document's active
+  // bindings. The client lists the attachments and retries; the binding check
+  // at commit stays authoritative on the server.
+  linkAttachmentsChanged: "document_link_attachments_changed",
   manifestAlreadyExists: "document_manifest_already_exists",
   // An unlink's rotation baseline does not cover a committed update. The
   // client proves the full history again and retries; the rotation and its
@@ -26,6 +30,7 @@ export const DocumentMutationErrorCodeSchema = z.union([
   DocumentSyncErrorCodeSchema,
   z.literal(DOCUMENT_NOT_FOUND_ERROR_CODE),
   z.literal(DOCUMENT_MUTATION_ERROR_CODES.containerUnavailable),
+  z.literal(DOCUMENT_MUTATION_ERROR_CODES.linkAttachmentsChanged),
   z.literal(DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale),
 ]);
 
