@@ -3,9 +3,9 @@ import {
   KeyingVerificationError,
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { assertMetadataRootBinding } from "./groupMetadataRootBinding";
 

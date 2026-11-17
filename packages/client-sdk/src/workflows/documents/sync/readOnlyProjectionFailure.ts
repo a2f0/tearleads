@@ -1,7 +1,7 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { projectionIntegrityErrorCode } from "../../../data/documents/shared/projection/freshProjectionRetry";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
-import { projectionIntegrityErrorCode } from "../syncFailures/syncFailureClassification";
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 
 export const REFRESH_CACHED_PROJECTION = Symbol("refresh cached projection");

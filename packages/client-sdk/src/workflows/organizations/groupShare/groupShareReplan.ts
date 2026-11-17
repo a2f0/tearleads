@@ -1,6 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 
 /**
  * Client calls that leave the server unchanged. Every other call counts as a

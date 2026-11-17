@@ -33,7 +33,7 @@ import {
   type DocumentPlacementInput,
   type DocumentPlacementWriteOptions,
   filterWritableDocumentPlacements,
-} from "./documentPlacement";
+} from "../documents/documentPlacement";
 
 const LINK_INSERT_BATCH_SIZE = sqliteInsertBatchSize(
   documentContainerProjection,
@@ -62,8 +62,33 @@ export async function deleteDocumentPlacementRowsByDocumentIds(
   await deleteContainerDocumentTombstoneHoldsForDocuments(tx, documentIds);
 }
 
+/**
+ * Remove the tombstoned placements and, with each head now verified, every
+ * remaining local link row the head does not link: those are listing-seeded
+ * rows, and leaving one would keep showing the document in a container the
+ * signed link set never named. Rows the head links are kept as they are.
+ * Runs inside the Document Store tombstone transaction.
+ */
+export async function deleteContainerDocumentTombstonePlacementRows(
+  tx: ClientSQLiteTransactionScope,
+  tombstones: ReadonlyArray<{
+    readonly containerId: string;
+    readonly documentId: string;
+  }>,
+  verifiedLinkedContainerIdsByDocumentId: ReadonlyMap<
+    string,
+    ReadonlySet<string>
+  >,
+): Promise<void> {
+  await deleteDocumentPlacementRowsInTransaction(tx, tombstones);
+  await deleteUnlinkedDocumentPlacementRowsInTransaction(
+    tx,
+    verifiedLinkedContainerIdsByDocumentId,
+  );
+}
+
 /** Removes the listed (document, container) placements, 50 pairs per statement. */
-export async function deleteDocumentPlacementRowsInTransaction(
+async function deleteDocumentPlacementRowsInTransaction(
   tx: ClientSQLiteTransactionScope,
   placements: ReadonlyArray<{
     readonly containerId: string;
@@ -88,7 +113,7 @@ export async function deleteDocumentPlacementRowsInTransaction(
  * Removes each document's placements outside the containers its head links,
  * batching documents so one statement stays inside SQLite's bind budget.
  */
-export async function deleteUnlinkedDocumentPlacementRowsInTransaction(
+async function deleteUnlinkedDocumentPlacementRowsInTransaction(
   tx: ClientSQLiteTransactionScope,
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlySet<string>>,
 ): Promise<void> {

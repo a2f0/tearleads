@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import {

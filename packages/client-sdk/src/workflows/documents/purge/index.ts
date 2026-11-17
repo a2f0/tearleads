@@ -33,9 +33,9 @@ import {
   verifyDocumentPurgeProofBaseline,
   verifyDocumentWriterProjection,
 } from "../../../data/keyingProjectionVerification";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type {
   DocumentPurgeApi,

@@ -11,6 +11,7 @@ import {
   PrincipalAuthorizationCheckpointUnavailableError,
   validatePrincipalAuthorizationCheckpoints,
 } from "../../persistence/keyingCheckpoints/principalAuthorizationCheckpoints";
+import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import { registerClientSQLiteCommitGuard } from "../../sqlite/sqliteCommitGuards";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
@@ -19,7 +20,6 @@ import {
   commitProjectionCheckpoints,
   type ProjectionCheckpointContext,
 } from "../checkpoints/checkpointContext";
-import { ProjectionDependencyUnavailableError } from "../dependencyUnavailable";
 import { projectionLifetimeGuard } from "../projectionLifetimes";
 import { assertProjectionVerificationCurrent } from "../types";
 import { admitDocumentPurgePolicyCheckpoints } from "./documentPurgePolicyCheckpoints";

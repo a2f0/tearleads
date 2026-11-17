@@ -2,13 +2,13 @@ import {
   KeyingVerificationError,
   verifyOrganizationReplacementAuthorization,
 } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
 import {
   assertHeldContainerBinding,
   type HeldContainerBinding,
 } from "../../../../data/persistence/container-contents/containerBinding";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadOrganizationFounder } from "../../../../data/persistence/organizationFounderPersistence";
+import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 import type { DestinationRole } from "./destinationRoleCache";
 

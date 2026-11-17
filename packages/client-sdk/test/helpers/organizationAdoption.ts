@@ -9,7 +9,7 @@ import { readAccessManifest } from "../../src/data/keyingProjectionVerification/
 import { locallyAuthoredAccessManifestHead } from "../../src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { PrincipalPolicyBundleRepository } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
-import { createOrganization } from "../../src/workflows/organizations/provisioning/createOrganization";
+import { createOrganization } from "../../src/workflows/registration/organizationCreation/createOrganization";
 import {
   principalPolicyBundleFromInitialGroupRequest,
   principalPolicyBundleFromInitialOrganizationRequest,

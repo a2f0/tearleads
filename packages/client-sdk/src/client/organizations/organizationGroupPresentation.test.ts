@@ -8,7 +8,7 @@ import {
   organizationId,
   principalPolicy,
 } from "../../../test/helpers/organizationReadModelFixtures";
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import {
   buildOrganizationGroupPolicyHistory,

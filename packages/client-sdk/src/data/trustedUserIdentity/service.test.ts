@@ -8,7 +8,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { TrustedUserIdentityPinRepository } from "../persistence/identity/trustedUserIdentityPinRepository";
-import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
+import { DatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import { createApiUserIdentitySource } from "./apiAdapter";
 import { createTrustedUserIdentityService } from "./service";
 import type {

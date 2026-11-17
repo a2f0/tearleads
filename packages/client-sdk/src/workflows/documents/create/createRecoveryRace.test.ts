@@ -15,7 +15,7 @@ import {
 } from "../../../../test/helpers/documentFixtures";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { documentWriterProjectionFromCreateResponse } from "./index";
 
 test.each(["unavailable", "integrity", "forged-recovery"] as const)(

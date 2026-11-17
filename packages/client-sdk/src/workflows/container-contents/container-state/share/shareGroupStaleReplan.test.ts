@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { runGroupShareScenario } from "../../../../../test/helpers/groupShareScenario";
-import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { shareRemoteContainerWithGroup } from "../remote";
 

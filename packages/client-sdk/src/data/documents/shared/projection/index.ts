@@ -29,6 +29,7 @@ import {
 
 export { unwrapContainerKekPath } from "../containerKek/containerKekPath";
 export { ContainerKekHistoryUnavailableError } from "../containerKek/containerKekPathHistory";
+export { shouldRetryWithFreshProjection } from "./freshProjectionRetry";
 export {
   buildRotatedDocumentContentKeyBundle,
   collectContainerKeksForDocumentSync,

@@ -13,6 +13,7 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type { PrincipalPolicyCurrentEvidence } from "../../principals/principalPolicyEvidence";
+import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { addBundleByHash } from "../checkpoints/bundleVerification";
 import {
@@ -23,7 +24,6 @@ import {
   observeVerifiedProjectionBundles,
   type ProjectionCheckpointContext,
 } from "../checkpoints/checkpointContext";
-import { ProjectionDependencyUnavailableError } from "../dependencyUnavailable";
 import { throwKeyingVerificationShapeFailure } from "../error";
 import { collectReferencedPrincipalPolicies } from "../principalPolicy/principalPolicyVerification";
 import { verifyProjectionAuthorizationEvidence } from "../principalPolicy/projectionAuthorizationEvidence";

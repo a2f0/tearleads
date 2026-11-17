@@ -11,9 +11,9 @@ import { organizationReadModelSnapshot } from "../../../test/helpers/organizatio
 import { createAuthorityRecoveryFixture } from "../../../test/helpers/principalAuthorityRecovery";
 import { withPrincipalPolicies } from "../../../test/helpers/principalPolicyServiceFixture";
 import { projectionHistoryPages } from "../../../test/helpers/projectionPolicyHistory";
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { OrganizationReadModelRepository } from "../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 
