@@ -15,7 +15,7 @@ import {
   requestAllDomainSyncLanes,
   subscribeToDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
-} from "../../workflows/sync";
+} from "../../workflows/sync/coordination";
 import {
   type ContainerContents,
   carriesLocalWrites,

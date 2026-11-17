@@ -14,6 +14,7 @@ import {
   rootConsoleSurface,
   runtimeRootSurface,
   securityIncidentSurface,
+  syncCoordinationSurface,
   syncEngineSurface,
 } from "./clientSdkSurfaces";
 import {
@@ -26,7 +27,7 @@ import {
   organizationReadModelTables,
   principalPolicyTables,
   securityIncidentTables,
-  syncEngineTables,
+  syncCoordinationTables,
 } from "./clientSdkTables";
 import { packageSourcePath } from "./dependencySourceRoots";
 import type { Subsystem } from "./subsystemTypes";
@@ -165,18 +166,17 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     name: "Sync Engine",
     package: "client-sdk",
     responsibility:
-      "The per-DomainScope sync coordinator (lanes, phases, coalescing), device-first local projection + background reconciliation, and the scope/peer-seed primitives that drive cache invalidation.",
+      "Device-first local projection, background reconciliation, and the remote sync-state reset, built on the Sync Coordination primitives.",
     seam: "tearleads.deviceFirst facade; sync workflow facade snapshots",
     paths: [
-      `${sdk}/workflows/sync/`,
-      `${sdk}/data/sync/`,
-      `${sdk}/data/shared/domainScope.ts`,
+      `${sdk}/workflows/sync/index.ts`,
+      `${sdk}/workflows/sync/remoteReset.ts`,
+      `${sdk}/workflows/sync/remoteResetScope.ts`,
       `${sdk}/sync/`,
       `${sdk}/stores/local-projection/`,
       `${sdk}/client/deviceFirst/`,
     ],
     surface: syncEngineSurface,
-    tables: syncEngineTables,
   },
   {
     name: "Identity & Session",
@@ -217,6 +217,20 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       "The local SQLite executor, Drizzle schema, transaction serialization, and the @tearleads/client-sdk/sqlite public worker-runtime entry point.",
     seam: "@tearleads/client-sdk/sqlite subpath; data/sqlite",
     paths: [`${sdk}/data/sqlite/`, `${sdk}/sqlite/`],
+  },
+  {
+    name: "Sync Coordination",
+    package: "client-sdk",
+    responsibility:
+      "The per-DomainScope sync coordinator (lanes, phases, coalescing), the scope/peer-seed primitives that drive cache invalidation, outgoing-update settlement, database-unavailable classification, and organization sync pauses with their SQLite persistence.",
+    seam: "workflows/sync/coordination facade (re-exported by the workflows/sync facade); data/sync contract modules",
+    paths: [
+      `${sdk}/workflows/sync/coordination.ts`,
+      `${sdk}/data/sync/`,
+      `${sdk}/data/shared/domainScope.ts`,
+    ],
+    surface: syncCoordinationSurface,
+    tables: syncCoordinationTables,
   },
   {
     name: "Keying Verification",

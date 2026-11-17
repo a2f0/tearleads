@@ -4,7 +4,7 @@ import type { PendingAttachmentRecord } from "../../../../workflows/documents";
 import {
   beginDomainSyncUploadLane,
   type UploadSyncLane,
-} from "../../../../workflows/sync";
+} from "../../../../workflows/sync/coordination";
 
 export interface AttachmentUploadLaneReporter {
   complete: () => void;

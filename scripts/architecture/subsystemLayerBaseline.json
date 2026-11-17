@@ -48,32 +48,6 @@
     "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts",
     "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicySigners.ts"
   ],
-  "packages/client-sdk/src/data/sync/crdtPeerSeed.ts": [
-    "packages/client-sdk/src/workflows/container-contents/metadata/containerMetadataDocument.ts",
-    "packages/client-sdk/src/workflows/documents/historyContent.ts",
-    "packages/client-sdk/src/workflows/organizations/organizationProfile.ts",
-    "packages/client-sdk/src/workflows/organizations/rosterProfileContainer.ts",
-    "packages/client-sdk/src/workflows/registration/persistRegistrationBootstrap.ts"
-  ],
-  "packages/client-sdk/src/data/sync/organizationSyncPauses.ts": [
-    "packages/client-sdk/src/client/containerContents/documentDiscovery.ts",
-    "packages/client-sdk/src/workflows/container-contents/remoteHydration/remoteContainers/organizationSyncPauseFilter.ts"
-  ],
-  "packages/client-sdk/src/data/sync/outgoingUpdateSettlement.ts": [
-    "packages/client-sdk/src/workflows/container-contents/metadata/index.ts",
-    "packages/client-sdk/src/workflows/documents/index.ts"
-  ],
-  "packages/client-sdk/src/data/sync/sequence.ts": [
-    "packages/client-sdk/src/workflows/container-contents/syncLane.ts",
-    "packages/client-sdk/src/workflows/documents/sync/syncLane.ts"
-  ],
-  "packages/client-sdk/src/data/sync/syncCoordinator.ts": [
-    "packages/client-sdk/src/workflows/container-contents/index.ts",
-    "packages/client-sdk/src/workflows/container-contents/recovery/accessRestoration.ts",
-    "packages/client-sdk/src/workflows/container-contents/syncLane.ts",
-    "packages/client-sdk/src/workflows/documents/index.ts",
-    "packages/client-sdk/src/workflows/documents/sync/syncLane.ts"
-  ],
   "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataErrors.ts": [
     "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/destinationRootReload.ts"
   ],
@@ -97,14 +71,6 @@
     "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
   ],
   "packages/client-sdk/src/workflows/sync/index.ts": [
-    "packages/client-sdk/src/client/organizations/organizationMemberships.ts",
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts",
-    "packages/client-sdk/src/stores/container-contents/operations/forgetOrganizationContentOperation.ts",
-    "packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentUploadLane.ts",
-    "packages/client-sdk/src/stores/documents/documentStore/initialization/index.ts",
-    "packages/client-sdk/src/stores/documents/documentStore/storedDocument.ts",
-    "packages/client-sdk/src/stores/documents/documentStore/sync/syncAttachments.ts",
-    "packages/client-sdk/src/workflows/container-contents/syncPause/documentRemoval.ts",
-    "packages/client-sdk/src/workflows/organizations/memberships/organizationMemberships.ts"
+    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
   ]
 }

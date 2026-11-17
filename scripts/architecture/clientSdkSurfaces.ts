@@ -194,12 +194,18 @@ export const syncEngineSurface = [
   `${sdk}/stores/local-projection/index.ts`,
   `${sdk}/sync/reconciliation/index.ts`,
   `${sdk}/workflows/sync/index.ts`,
+];
+
+export const syncCoordinationSurface = [
+  `${sdk}/workflows/sync/coordination.ts`,
   `${sdk}/data/shared/domainScope.ts`,
   `${sdk}/data/sync/crdtPeerSeed.ts`,
   `${sdk}/data/sync/organizationSyncPauses.ts`,
+  `${sdk}/data/sync/originatedDocuments.ts`,
   `${sdk}/data/sync/outgoingUpdateSettlement.ts`,
   `${sdk}/data/sync/sequence.ts`,
   `${sdk}/data/sync/syncCoordinator.ts`,
+  `${sdk}/data/sync/syncLaneConfig.ts`,
 ];
 
 export const identitySurface = [

@@ -1,40 +1,34 @@
 export {
+  beginDomainSyncUploadLane,
   createDomainScope,
   type DomainScope,
-} from "../../data/shared/domainScope";
-export { getRuntimePeerSeed } from "../../data/sync/crdtPeerSeed";
-export {
+  type DomainSyncCoordinator,
+  type DomainSyncSnapshot,
+  getDomainSyncCoordinatorSnapshot,
+  getOrCreateDomainSyncCoordinator,
   getOrCreateOrganizationSyncPauses,
+  getRuntimePeerSeed,
+  hasDomainSyncCoordinatorPendingWork,
   isRetainedWhileSyncPaused,
+  markOriginatedDocuments,
   type OrganizationSyncPauseChange,
   OrganizationSyncPauseRepository,
   type OrganizationSyncPauseSubject,
   type OrganizationSyncPauses,
-} from "../../data/sync/organizationSyncPauses";
-export { markOriginatedDocuments } from "../../data/sync/originatedDocuments";
-export type {
-  DomainSyncCoordinator,
-  DomainSyncSnapshot,
-  SyncIdleOptions,
-  SyncLane,
-  SyncLaneConfig,
-  SyncLaneLastAction,
-  SyncLanePhase,
-  SyncLaneProgress,
-  SyncLaneSnapshot,
-  SyncLaneStatus,
-  UploadSyncLane,
-  UploadSyncLaneOptions,
-} from "../../data/sync/syncCoordinator";
-export {
-  beginDomainSyncUploadLane,
-  getDomainSyncCoordinatorSnapshot,
-  getOrCreateDomainSyncCoordinator,
-  hasDomainSyncCoordinatorPendingWork,
   requestAllDomainSyncLanes,
+  type SyncIdleOptions,
+  type SyncLane,
+  type SyncLaneConfig,
+  type SyncLaneLastAction,
+  type SyncLanePhase,
+  type SyncLaneProgress,
+  type SyncLaneSnapshot,
+  type SyncLaneStatus,
   subscribeToDomainSyncCoordinator,
+  type UploadSyncLane,
+  type UploadSyncLaneOptions,
   waitForDomainSyncCoordinatorToSettle,
-} from "../../data/sync/syncCoordinator";
+} from "./coordination";
 export {
   type ClearRemoteSyncStateResult,
   clearRemoteSyncState,
