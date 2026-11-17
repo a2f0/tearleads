@@ -9,8 +9,7 @@ import {
   rememberAcknowledgedContainerHead,
 } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { locallyAuthoredAccessManifestHead } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
-import { acknowledgedAuthoredBundle } from "../../../data/persistence/verifiedCitations/authoredBundleCitation";
+import { locallyAcknowledgedAuthoredHead } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import {
   type ExecSql,
@@ -96,13 +95,7 @@ async function recitePinnedPath(
       input.execSql,
     ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
       heads: [
-        {
-          ...locallyAuthoredAccessManifestHead(plan),
-          servedBundle: await acknowledgedAuthoredBundle(
-            plan,
-            response.bundleDigest,
-          ),
-        },
+        await locallyAcknowledgedAuthoredHead(plan, response.bundleDigest),
       ],
       expectedAccessManifestCheckpoints: path.map((head) => ({
         objectKind: "container",

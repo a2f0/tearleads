@@ -313,7 +313,7 @@ export async function verifyContainerWriterProjectionWithContext(
 export function verifyContainerWriterProjection(
   input: ContainerWriterProjectionVerificationInput,
 ): Promise<VerifiedContainerAccessManifest[]> {
-  return verifyWithHeldBundleRecovery(input.execSql, input.projection, () =>
+  return verifyWithHeldBundleRecovery(input, () =>
     verifyContainerWriterProjectionOnce(input),
   );
 }
@@ -354,7 +354,15 @@ async function verifyContainerWriterProjectionOnce(
   }
 }
 
-export async function collectContainerWriterProjectionPrincipalPolicies(
+export function collectContainerWriterProjectionPrincipalPolicies(
+  input: ContainerWriterProjectionVerificationInput,
+): Promise<PrincipalPolicyCurrentEvidence[]> {
+  return verifyWithHeldBundleRecovery(input, () =>
+    collectContainerWriterProjectionPrincipalPoliciesOnce(input),
+  );
+}
+
+async function collectContainerWriterProjectionPrincipalPoliciesOnce(
   input: ContainerWriterProjectionVerificationInput,
 ): Promise<PrincipalPolicyCurrentEvidence[]> {
   try {

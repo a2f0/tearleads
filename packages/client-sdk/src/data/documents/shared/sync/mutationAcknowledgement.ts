@@ -1,12 +1,9 @@
 import { KeyingCheckpointRepository } from "../../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
-  type LocallyAcknowledgedAccessManifestHead,
-  locallyAuthoredAccessManifestHead,
-} from "../../../persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
-import {
   type AuthoredManifestBundle,
-  acknowledgedAuthoredBundle,
-} from "../../../persistence/verifiedCitations/authoredBundleCitation";
+  type LocallyAcknowledgedAccessManifestHead,
+  locallyAcknowledgedAuthoredHead,
+} from "../../../persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 
 /**
@@ -17,10 +14,7 @@ export async function locallyAcknowledgedDocumentHead(
   plan: AuthoredManifestBundle,
   bundleDigest: string,
 ): Promise<LocallyAcknowledgedAccessManifestHead> {
-  return {
-    ...locallyAuthoredAccessManifestHead(plan),
-    servedBundle: await acknowledgedAuthoredBundle(plan, bundleDigest),
-  };
+  return locallyAcknowledgedAuthoredHead(plan, bundleDigest);
 }
 
 /** Advances a document head only after its response was matched to this plan. */

@@ -4,11 +4,11 @@ import {
 } from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { toServedAccessManifestBundle } from "@tearleads/validators/util";
-import { accessManifestState } from "./access/shared/internal/accessManifestJson";
 import {
   projectionAccessManifestRecord,
   projectionVerifiedAccessEventRecord,
-} from "./keyingProjectionRecords";
+} from "../../keyingProjectionRecords";
+import { accessManifestState } from "../shared/internal/accessManifestJson";
 
 /**
  * The citation digest of the bundle a writer projection serves for a stored

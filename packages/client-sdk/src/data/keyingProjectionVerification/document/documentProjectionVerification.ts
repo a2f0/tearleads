@@ -299,7 +299,7 @@ function observeVerifiedDocumentProjectionBundles(
 export function verifyDocumentWriterProjection(
   input: DocumentWriterProjectionVerificationInput,
 ): Promise<VerifiedDocumentLinkSetManifest> {
-  return verifyWithHeldBundleRecovery(input.execSql, input.projection, () =>
+  return verifyWithHeldBundleRecovery(input, () =>
     verifyDocumentWriterProjectionOnce(input),
   );
 }
@@ -327,7 +327,7 @@ async function verifyDocumentWriterProjectionOnce(
 export function verifyDocumentWriterProjectionAuthorization(
   input: DocumentWriterProjectionVerificationInput,
 ): Promise<DocumentWriterProjectionAuthorization> {
-  return verifyWithHeldBundleRecovery(input.execSql, input.projection, () =>
+  return verifyWithHeldBundleRecovery(input, () =>
     verifyDocumentWriterProjectionAuthorizationOnce(input),
   );
 }

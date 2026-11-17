@@ -3,8 +3,8 @@ import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerReciteRequest } from "@tearleads/validators/request";
 import type { ContainerReciteResponse } from "@tearleads/validators/response";
+import { servedAccessManifestBundleDigest } from "../../../access/read/accessManifestBundleDigest";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
-import { servedAccessManifestBundleDigest } from "../../../keyingProjectionBundleDigest";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import {
   appendOrganizationReadModelChangeInTransaction,

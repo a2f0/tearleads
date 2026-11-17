@@ -10,9 +10,9 @@ import {
 } from "@tearleads/crypto";
 import type { OrganizationProvisioningRequest } from "@tearleads/validators/request";
 import { z } from "zod";
+import { servedAccessManifestBundleDigest } from "../../access/read/accessManifestBundleDigest";
 import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
-import { servedAccessManifestBundleDigest } from "../../keyingProjectionBundleDigest";
 import {
   readProjectionAccessEvent,
   readProjectionAccessManifest,

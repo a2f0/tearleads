@@ -41,7 +41,7 @@ export type DocumentLinkSetFixture = DocumentLinkSetMutationResponse &
  * Fixture acknowledgements name no real bundle digest, so their authored
  * bundles are not cached; tests of that seeding compute the digest.
  */
-export const UNMATCHED_BUNDLE_DIGEST = "b".repeat(64);
+const UNMATCHED_BUNDLE_DIGEST = "b".repeat(64);
 
 export function createResponse(
   plan: DocumentCreatePlan,

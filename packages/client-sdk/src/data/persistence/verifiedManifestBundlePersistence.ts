@@ -284,11 +284,46 @@ export async function loadVerifiedManifestCitations(
 }
 
 /**
- * Drops stored bundles so no later read cites them: damaged rows, and held
- * bundles a projection that cited them failed to verify with. Each is then
- * read again from the server.
+ * Drops the stored rows of held bundles a projection that cited them failed
+ * to verify with, so the next read fetches them from the server. Only a row
+ * still holding the exact bytes cited goes, so a newer verified copy written
+ * meanwhile stays; nothing is dropped once `stillCurrent` turns false.
  */
-export async function dropVerifiedManifestBundles(
+export async function dropHeldManifestBundles(
+  execSql: ExecSql,
+  heldBundles: readonly ServedAccessManifestBundleWireResponse[],
+  stillCurrent?: () => boolean,
+): Promise<void> {
+  if (heldBundles.length === 0) return;
+  const cited = await Promise.all(
+    heldBundles.map(async (bundle) => ({
+      manifestHash: bundle.manifestHash,
+      bundleDigest: await sha256Hex(JSON.stringify(bundle)),
+    })),
+  );
+  await ensureSqlTables(execSql, verifiedManifestBundleTables);
+  const runtime = getClientSQLitePersistenceRuntime(execSql);
+  const drop = async (tx: ClientSQLiteTransactionScope) => {
+    for (const row of cited)
+      await tx
+        .delete(bundles)
+        .where(
+          and(
+            eq(bundles.manifestHash, row.manifestHash),
+            eq(bundles.bundleDigest, row.bundleDigest),
+          ),
+        )
+        .run();
+  };
+  if (stillCurrent)
+    await runtime.guardedTransaction(drop, stillCurrent, {
+      behavior: "immediate",
+    });
+  else await runtime.transaction(drop, { behavior: "immediate" });
+}
+
+/** Drops damaged stored rows so no later read cites them. */
+async function dropVerifiedManifestBundles(
   execSql: ExecSql,
   manifestHashes: readonly string[],
 ): Promise<void> {

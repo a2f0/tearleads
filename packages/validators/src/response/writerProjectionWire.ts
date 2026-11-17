@@ -220,25 +220,29 @@ function decodeKeyingPath(
   };
 }
 
-// The bundle hashes each decoded projection took from the caller's held
-// citations rather than from the response.
-const heldBundlesByProjection = new WeakMap<object, readonly string[]>();
+// The held bundles each decoded projection took from the caller's citations
+// rather than from the response, exactly as the caller held them.
+const heldBundlesByProjection = new WeakMap<object, readonly ServedBundle[]>();
 
 /**
- * The manifest hashes a decoded projection filled from held citations. A
- * verifier that refuses such a projection drops those held bundles, so the
- * next read fetches them from the server instead of failing the same way.
+ * The held bundles a decoded projection filled omissions from. A verifier
+ * that refuses such a projection drops exactly those held rows, so the next
+ * read fetches them from the server instead of failing the same way.
  */
-export function heldBundlesUsedBy(projection: object): readonly string[] {
+export function heldBundlesUsedBy(projection: object): readonly ServedBundle[] {
   return heldBundlesByProjection.get(projection) ?? [];
 }
 
 function withHeldBundles<T extends object>(
   projection: T,
   omittedBundles: readonly string[],
+  held: ReadonlyMap<string, ServedBundle>,
 ): T {
-  if (omittedBundles.length > 0)
-    heldBundlesByProjection.set(projection, [...omittedBundles]);
+  const used = omittedBundles.flatMap((hash) => {
+    const bundle = held.get(hash);
+    return bundle ? [bundle] : [];
+  });
+  if (used.length > 0) heldBundlesByProjection.set(projection, used);
   return projection;
 }
 
@@ -262,7 +266,7 @@ export function decodeContainerWriterProjection(
     ? decodeKeyingPath(projection, resolve, heldLevels)
     : null;
   return path
-    ? withHeldBundles({ ...projection, ...path }, omittedBundles)
+    ? withHeldBundles({ ...projection, ...path }, omittedBundles, held)
     : null;
 }
 
@@ -303,5 +307,6 @@ export function decodeDocumentWriterProjection(
       documentManifestHistory: projection.documentManifestHistory.map(resolve),
     },
     omittedBundles,
+    held,
   );
 }

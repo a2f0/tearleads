@@ -8,6 +8,13 @@ import {
 } from "@tearleads/crypto";
 import type { ServedAccessManifestBundleWireResponse } from "@tearleads/validators/util";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
+import {
+  type AuthoredManifestBundle,
+  acknowledgedAuthoredBundle,
+} from "../verifiedCitations/authoredBundleCitation";
+
+export type { AuthoredManifestBundle } from "../verifiedCitations/authoredBundleCitation";
+
 import { loadContainerRetirementCheck } from "../principalContracts/principalGrantRetirementPersistence";
 import {
   accessManifestObjectKey,
@@ -38,6 +45,20 @@ export function locallyAuthoredAccessManifestHead(plan: {
       manifestHash: plan.manifestHash,
     }),
     previousManifestHash: plan.manifest.previousManifestHash,
+  };
+}
+
+/**
+ * An authored head with its served bundle for citation, when the
+ * acknowledgement's digest names exactly the bundle the plan builds.
+ */
+export async function locallyAcknowledgedAuthoredHead(
+  plan: AuthoredManifestBundle,
+  bundleDigest: string,
+): Promise<LocallyAcknowledgedAccessManifestHead> {
+  return {
+    ...locallyAuthoredAccessManifestHead(plan),
+    servedBundle: await acknowledgedAuthoredBundle(plan, bundleDigest),
   };
 }
 

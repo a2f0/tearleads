@@ -1,7 +1,6 @@
 import {
   type AccessEvent,
   type AccessManifest,
-  accessManifestCheckpointFromManifest,
   type ContainerAccessManifestState,
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
@@ -14,8 +13,10 @@ import {
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../../keying/canonicalJson";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import type { LocallyAcknowledgedAccessManifestHead } from "../../persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
-import { acknowledgedAuthoredBundle } from "../../persistence/verifiedCitations/authoredBundleCitation";
+import {
+  type LocallyAcknowledgedAccessManifestHead,
+  locallyAcknowledgedAuthoredHead,
+} from "../../persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 
 export interface AuthoredContainerMutationHead {
@@ -163,17 +164,10 @@ export async function locallyAcknowledgedContainerMutationHead(input: {
 }): Promise<LocallyAcknowledgedAccessManifestHead> {
   assertResponseIdentity(input.plan, input.response);
   await assertResponseCommitments(input.plan, input.response);
-  return {
-    checkpoint: accessManifestCheckpointFromManifest({
-      manifest: input.plan.manifest,
-      manifestHash: input.plan.manifestHash,
-    }),
-    previousManifestHash: input.plan.manifest.previousManifestHash,
-    servedBundle: await acknowledgedAuthoredBundle(
-      input.plan,
-      input.response.bundleDigest,
-    ),
-  };
+  return locallyAcknowledgedAuthoredHead(
+    input.plan,
+    input.response.bundleDigest,
+  );
 }
 
 /** Correlates an API acknowledgement to the locally signed plan before pinning. */

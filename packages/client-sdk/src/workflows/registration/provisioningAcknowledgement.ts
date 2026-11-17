@@ -9,9 +9,8 @@ import { locallyAcknowledgedDocumentHead } from "../../data/documents/shared/syn
 import type { AuthoredDiscoveryHead } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import {
   type LocallyAcknowledgedAccessManifestHead,
-  locallyAuthoredAccessManifestHead,
+  locallyAcknowledgedAuthoredHead,
 } from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
-import { acknowledgedAuthoredBundle } from "../../data/persistence/verifiedCitations/authoredBundleCitation";
 
 type ContainerPlan = Parameters<
   typeof locallyAcknowledgedContainerMutationHead
@@ -162,13 +161,10 @@ export async function provisioningAcknowledgedAccessHeads(input: {
     );
   }
   const heads: LocallyAcknowledgedAccessManifestHead[] = [
-    {
-      ...locallyAuthoredAccessManifestHead(input.rootContainerPlan),
-      servedBundle: await acknowledgedAuthoredBundle(
-        input.rootContainerPlan,
-        response.rootBundleDigest,
-      ),
-    },
+    await locallyAcknowledgedAuthoredHead(
+      input.rootContainerPlan,
+      response.rootBundleDigest,
+    ),
     await locallyAcknowledgedDocumentHead(
       input.rootMetadataDocumentPlan,
       response.rootMetadataDocument.bundleDigest,

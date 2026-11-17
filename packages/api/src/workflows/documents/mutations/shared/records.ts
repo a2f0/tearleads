@@ -14,12 +14,12 @@ import type {
   DocumentKekTargetsResponse,
   DocumentLinkSetMutationResponse,
 } from "@tearleads/validators/response";
+import { servedAccessManifestBundleDigest } from "../../../../access/read/accessManifestBundleDigest";
 import type {
   StoredDocumentContentKeyBundle,
   DocumentContentKeyTargetEnvelope as StoredDocumentContentKeyTargetEnvelope,
 } from "../../../../access/read/documentContentKeyStore";
 import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
-import { servedAccessManifestBundleDigest } from "../../../../keyingProjectionBundleDigest";
 import { readProjectionWriteHeader } from "../../../../keyingProjectionRecords";
 import {
   copyProjectionRecord,

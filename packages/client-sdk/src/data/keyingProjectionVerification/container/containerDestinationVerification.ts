@@ -43,7 +43,7 @@ interface VerifiedContainerDestination {
 export function verifyContainerDestinationProjection(
   input: ContainerDestinationProjectionInput,
 ): Promise<VerifiedContainerDestination> {
-  return verifyWithHeldBundleRecovery(input.execSql, input.projection, () =>
+  return verifyWithHeldBundleRecovery(input, () =>
     verifyContainerDestinationProjectionOnce(input),
   );
 }
