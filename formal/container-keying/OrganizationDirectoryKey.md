@@ -19,6 +19,12 @@ secret rotates, which the model's `KeepOnGrow = FALSE` covers. The negative
 control `RotateOnShrink = FALSE` keeps the key on a removal and violates
 `RemovedAdminLacksCurrentKey`.
 
+The model treats every envelope as opening for its admin. The SDK checks
+only the signer's own envelope before keeping a key (without the signer's key
+it always rotates), so a co-admin envelope that a faulty author wrapped
+wrongly is carried forward until the next rotation; nothing consumes the
+organization key, and every removal rotates.
+
 Signatures, the directory payload, and the group keys are outside the model;
 the transition rule and the builder are covered by
 `principalPolicyTransition` tests and `organizationDirectoryKeying.test.ts`.

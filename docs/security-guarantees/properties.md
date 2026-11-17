@@ -171,7 +171,8 @@ rotates to a fresh key wrapped for the remaining admins, so a removed admin
 never holds the current organization key
 ([model](../../formal/container-keying/OrganizationDirectoryKey.md)). The
 write also rotates when the signer cannot recover the held key: its own
-envelope does not open, or opens a key other than the signed one. A changed
+envelope does not open, opens a key other than the signed one, or the writer
+does not have its encapsulation key to check. A changed
 identity for a continuing admin is not a rotation case; verifiers refuse it.
 
 ### Managed Grants Fail Closed

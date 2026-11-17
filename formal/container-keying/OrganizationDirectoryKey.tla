@@ -61,7 +61,8 @@ TypeOK ==
 (* Revocation by rotation: a removed admin never holds the current key. *)
 RemovedAdminLacksCurrentKey ==
   \A u \in Users \ admins: epoch \notin learned[u]
-(* Every current admin can open the current directory key. *)
+(* Every current admin can open the current directory key, given that each *)
+(* envelope opens for its admin; the SDK checks only the signer's own.     *)
 AdminsHoldCurrentKey ==
   \A u \in admins: epoch \in learned[u]
 =============================================================================
