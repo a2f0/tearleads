@@ -16,13 +16,13 @@ import {
   createParentProjectionUserKeyResolver,
   substituteFirstProjectionUserWrapMaterial,
   tamperFirstProjectionEventSignature,
-} from "../../../../test/helpers/containerFixtures";
+} from "../../../../test/helpers/data/containerFixtures";
 import {
   createAuthor,
   createResponseFromRequest,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { acknowledgedDocumentCreate } from "../../../data/documents/shared/responses";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { documentWriterProjectionFromCreateResponse } from "./index";

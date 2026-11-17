@@ -5,19 +5,19 @@ import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
 } from "../../src/workflows/containers/root/create";
-import { createAuthor, SIGNED_AT } from "./containerFixtures";
-import { buildInitialGroupPolicyRequest } from "./groupMetadata";
-import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
+import { createAuthor, SIGNED_AT } from "./data/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "./data/groupMetadata";
+import { createSuccessorGroupPolicyBundle } from "./data/groupPolicyFixtures";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "./principalPolicyFixtures";
+} from "./data/principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "./projectionPolicyPages";
-import { createTestTrustedUserIdentityResolver } from "./trustedUserIdentity";
+} from "./data/projectionPolicyPages";
+import { createTestTrustedUserIdentityResolver } from "./data/trustedUserIdentity";
 
 export const ADMIN_GROUP_ID = "admins-group";
 export const ORGANIZATION_ID = "organization-1";

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyBundles";
-import { countingExecSql } from "../../../../test/helpers/statementCounting";
+import { createPrincipalPolicyBundle } from "../../../../test/helpers/data/principalPolicyBundles";
+import { countingExecSql } from "../../../../test/helpers/data/statementCounting";
 import {
   principalPolicyBundles,
   principalPolicyCheckpoints,

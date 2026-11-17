@@ -10,7 +10,7 @@ import type {
   OrganizationReadModelOrganizationPolicyResponse,
   OrganizationReadModelSnapshotResponse,
 } from "@tearleads/validators/response";
-import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
 import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
 import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 

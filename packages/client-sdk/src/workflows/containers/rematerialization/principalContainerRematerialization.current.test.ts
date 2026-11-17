@@ -3,9 +3,9 @@ import {
   generateKemSeedAndKeyPair,
   verifyPrincipalPolicyCurrentSuccessor,
 } from "@tearleads/crypto";
-import { currentGroupMutationInput } from "../../../../test/helpers/currentGroupMutation";
-import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
+import { currentGroupMutationInput } from "../../../../test/helpers/data/currentGroupMutation";
+import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/data/groupPolicyFixtures";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   createPrincipalReciteFixture,
   ROOT_CONTAINER_ID,

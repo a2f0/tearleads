@@ -7,13 +7,13 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
   createRecipientIdentityResolver,
-} from "../../../../../test/helpers/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
+} from "../../../../../test/helpers/data/containerFixtures";
 
 type Refusal = { readonly status: number; readonly code?: string };
 const STALE: Refusal = {

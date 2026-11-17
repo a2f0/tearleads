@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { ORGANIZATION_PRESENTATION_ERROR_CODES } from "@tearleads/validators/response";
-import { dataUsage } from "../../../../test/helpers/organizationReadModelFixtures";
+import { dataUsage } from "../../../../test/helpers/data/organizationReadModelFixtures";
 import {
   organizationReadModelFailure,
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
   organizationReadModelUserId,
-} from "../../../../test/helpers/organizationReadModelProjectionFixtures";
-import { createRejectingExecSql } from "../../../../test/helpers/rejectingExecSql";
+} from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
+import { createRejectingExecSql } from "../../../../test/helpers/data/rejectingExecSql";
 import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
 import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import {

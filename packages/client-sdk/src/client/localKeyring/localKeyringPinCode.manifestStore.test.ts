@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createFakeIndexedDb,
   createTestManifestStorage,
-} from "../../../test/helpers/localKeyringFakes";
+} from "../../../test/helpers/data/localKeyringFakes";
 import {
   createBrowserLocalKeyringManifestStore,
   createLocalStorageLocalKeyringManifestStore,

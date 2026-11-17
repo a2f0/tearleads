@@ -12,7 +12,7 @@ import {
 import {
   createAuthor,
   fixtureHash,
-} from "../../../test/helpers/documentFixtures";
+} from "../../../test/helpers/data/documentFixtures";
 import { decryptDocumentSyncUpdates } from "../../data/documents/shared/crypto";
 import { buildDocumentRotationBaseline } from "./rotationBaseline";
 

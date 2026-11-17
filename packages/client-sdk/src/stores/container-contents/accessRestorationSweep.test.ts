@@ -6,8 +6,8 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
-import { insertQueuedUpdateRows } from "../../../test/helpers/queuedUpdateRows";
-import { waitFor } from "../../../test/helpers/waitFor";
+import { insertQueuedUpdateRows } from "../../../test/helpers/data/queuedUpdateRows";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import {
   listDormantMetadataSweepRequests,
   requestDormantMetadataRestorationSweeps,

@@ -1,0 +1,92 @@
+import { createTestExecSql } from "@tearleads/test-utils";
+import { asc } from "drizzle-orm";
+import { PrincipalHistoryRepository } from "../../../src/data/persistence/principalHistory/principalHistoryRepository";
+import {
+  principalHistoryEvidenceTables,
+  principalHistoryPrefixes,
+} from "../../../src/data/sqlite/schema/principalHistoryEvidenceSchema";
+import {
+  principalHistoryStages,
+  principalHistoryStageTables,
+} from "../../../src/data/sqlite/schema/principalHistoryStageSchema";
+import { getClientSQLitePersistenceRuntime } from "../../../src/data/sqlite/sqlitePersistenceRuntime";
+import { ensureSqlTables } from "../../../src/data/sqlite/sqlSchema";
+
+/** A stored stage without its retention hints, as writers hand it in. */
+const principalHistoryStageWorkColumns = {
+  id: principalHistoryStages.id,
+  organizationId: principalHistoryStages.organizationId,
+  currentJson: principalHistoryStages.currentJson,
+  afterVersion: principalHistoryStages.afterVersion,
+  complete: principalHistoryStages.complete,
+  progress: principalHistoryStages.progress,
+};
+
+/** Opaque rows exercise eviction; cryptographic recovery is tested separately. */
+export async function seededCompletedRetention(
+  count: number,
+  prefixVersion?: number,
+) {
+  const f = await createTestExecSql("principal-completed-retention");
+  await ensureSqlTables(f.execSql, [
+    ...principalHistoryStageTables,
+    ...principalHistoryEvidenceTables,
+  ]);
+  const { db } = getClientSQLitePersistenceRuntime(f.execSql);
+  const rows = Array.from({ length: count }, (_, index) => ({
+    id: `old-${index}`,
+    organizationId: "org-1",
+    currentJson: "{}",
+    afterVersion: index,
+    complete: true,
+    progress: `progress-${index}`,
+  }));
+  await db.insert(principalHistoryStages).values(
+    rows.map((row, index) => ({
+      ...row,
+      scopeId: "scope-1",
+      touchedAt: Number.MAX_SAFE_INTEGER - count + index,
+    })),
+  );
+  if (prefixVersion !== undefined)
+    await db.insert(principalHistoryPrefixes).values({
+      scopeId: "scope-1",
+      organizationId: "org-1",
+      version: prefixVersion,
+      currentJson: "{}",
+      headJson: "{}",
+      progress: "published-prefix",
+    });
+  return {
+    ...f,
+    db,
+    rows,
+    repository: new PrincipalHistoryRepository(f.execSql),
+    input: {
+      stage: {
+        id: "current",
+        organizationId: "org-1",
+        currentJson: "{}",
+        afterVersion: 99,
+        complete: true,
+        progress: "current-progress",
+      },
+      previousProgress: null,
+      evidence: {
+        indexRootHash: "opaque-index-root",
+        scopeId: "scope-1",
+        organizationId: "org-1",
+        entries: [],
+        nodes: [],
+      },
+      stillCurrent: () => true,
+    },
+    snapshot: async () => ({
+      stages: await db
+        .select(principalHistoryStageWorkColumns)
+        .from(principalHistoryStages)
+        .orderBy(asc(principalHistoryStages.id)),
+      prefixes: await db.select().from(principalHistoryPrefixes),
+    }),
+  };
+}

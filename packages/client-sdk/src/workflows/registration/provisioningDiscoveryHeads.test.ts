@@ -5,8 +5,8 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { CreateOrganizationResponse } from "@tearleads/validators/response";
-import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
-import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
+import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
+import { respondToOrganizationProvisioning } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { DocumentDiscoveryEvidenceRepository } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createDiscoveredDocumentVerifier } from "../container-contents/documentDiscovery/documentDiscoveryEvidence";

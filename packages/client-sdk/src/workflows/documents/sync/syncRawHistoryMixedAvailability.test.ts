@@ -8,12 +8,12 @@ import {
   getUpdateVersionVectors,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sealContentKeyBundle } from "../../../../test/helpers/contentKeyBundleSealing";
+import { sealContentKeyBundle } from "../../../../test/helpers/data/contentKeyBundleSealing";
 import {
   createPendingUpdateRecord,
   createSignedSyncResponseUpdate,
   createSyncResponse,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { targetEnvelopeReference } from "../../../data/documents/shared/readers";
 import {

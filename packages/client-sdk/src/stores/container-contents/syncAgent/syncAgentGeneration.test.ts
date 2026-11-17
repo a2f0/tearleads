@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import { waitFor } from "../../../../test/helpers/waitFor";
+import { waitFor } from "../../../../test/helpers/data/waitFor";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   disposeDomainSyncCoordinator,

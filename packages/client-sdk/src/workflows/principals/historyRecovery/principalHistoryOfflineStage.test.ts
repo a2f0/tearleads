@@ -2,7 +2,7 @@ import { beforeAll, expect, test } from "bun:test";
 import {
   createRecoveryFixture,
   signedRecoveryHistory,
-} from "../../../../test/helpers/principalHistoryRecovery";
+} from "../../../../test/helpers/data/principalHistoryRecovery";
 import { isProjectionVerificationCancelledError } from "../../../data/keyingProjectionVerification/types";
 import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";

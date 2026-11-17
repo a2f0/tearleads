@@ -21,8 +21,8 @@ import {
   createSqlClient,
   noIdentityChange,
   setGeneratedIdentity,
-} from "./clientTestSupport";
-import { respondToOrganizationProvisioning } from "./organizationProvisioningResponder";
+} from "./data/clientTestSupport";
+import { respondToOrganizationProvisioning } from "./data/organizationProvisioningResponder";
 
 function billing(
   organizationId: string,

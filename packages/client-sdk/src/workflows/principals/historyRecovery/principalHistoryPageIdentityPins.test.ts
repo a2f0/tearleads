@@ -10,14 +10,14 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import {
   serveRecoveryHistory,
   signedRecoveryHistory,
-} from "../../../../test/helpers/principalHistoryRecovery";
-import { principalIdentityPinFixture } from "../../../../test/helpers/principalIdentityPinFixture";
+} from "../../../../test/helpers/data/principalHistoryRecovery";
+import { principalIdentityPinFixture } from "../../../../test/helpers/data/principalIdentityPinFixture";
 import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
-} from "../../../../test/helpers/principalPolicyFixtures";
-import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
-import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createPublicHistoryFixture } from "../../../../test/helpers/data/publicPrincipalHistory";
+import { createFixtureUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import type { TrustedUserIdentity } from "../../../data/trustedUserIdentity";
 import { recoverPublicPrincipalHistory } from "../publicHistory/recoverPublicPrincipalHistory";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";

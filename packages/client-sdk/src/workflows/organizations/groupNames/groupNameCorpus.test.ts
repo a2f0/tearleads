@@ -13,8 +13,8 @@ import {
   buildInitialGroupPolicyRequest,
   groupPolicyNameMismatch,
   testGroupMetadataKey,
-} from "../../../../test/helpers/groupMetadata";
-import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/groupMetadata";
+import { policyBundleFromInitialRequest } from "../../../../test/helpers/data/principalPolicyFixtures";
 
 async function createBaseBundle() {
   const signingKeyPair = generateSigningSeedAndKeyPair();

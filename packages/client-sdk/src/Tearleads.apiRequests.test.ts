@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { ApiRequestMetrics } from "@tearleads/api-client";
-import { quietLogger } from "../test/helpers/clientTestSupport";
+import { quietLogger } from "../test/helpers/data/clientTestSupport";
 import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import { Tearleads } from "./Tearleads";
 

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { createPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyBundles";
-import { countingExecSql } from "../../../../test/helpers/statementCounting";
+import { createPrincipalPolicyBundle } from "../../../../test/helpers/data/principalPolicyBundles";
+import { countingExecSql } from "../../../../test/helpers/data/statementCounting";
 import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 
 const now = () => new Date("2026-01-01T00:00:00.000Z");

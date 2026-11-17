@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
-import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
+import { createPublicHistoryFixture } from "../../../../test/helpers/data/publicPrincipalHistory";
 import { recoverPublicPrincipalHistory } from "../../../workflows/principals/publicHistory/recoverPublicPrincipalHistory";
 import { principalHistoryPrefixes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalKeyEnvelopeArchive } from "../../sqlite/schema/principalHistoryRetentionSchema";

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
-import { createParentProjection } from "../../../../../test/helpers/containerFixtures";
-import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
-import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
+import { createParentProjection } from "../../../../../test/helpers/data/containerFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/data/trustedUserIdentity";
+import { withTestExecSql } from "../../../../../test/helpers/data/withTestExecSql";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import { createContainerContentsTestRuntime } from "../../../../stores/container-contents/runtime.testFixtures";

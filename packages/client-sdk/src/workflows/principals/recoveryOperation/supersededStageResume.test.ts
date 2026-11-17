@@ -1,11 +1,11 @@
 import { beforeAll, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../../test/helpers/principalAuthorityRecovery";
-import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";

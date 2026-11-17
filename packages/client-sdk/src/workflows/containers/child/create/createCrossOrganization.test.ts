@@ -5,8 +5,8 @@ import {
   createAuthor,
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../../test/helpers/containerFixtures";
-import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
+} from "../../../../../test/helpers/data/containerFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/data/trustedUserIdentity";
 import { buildMaterializedContainerCreatePlan } from "./index";
 
 test.each(["write", "read"] as const)(

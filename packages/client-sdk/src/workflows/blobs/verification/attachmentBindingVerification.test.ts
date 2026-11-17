@@ -3,7 +3,7 @@ import { computeAccessEventHash } from "@tearleads/crypto";
 import { createVerifiedDocumentAccessEvent } from "@tearleads/crypto/access-event-test-fixtures";
 import { createSignedAttachmentEvent } from "@tearleads/crypto/attachment-access-event-test-fixtures";
 import { createDocumentLinkSetManifestFixture } from "@tearleads/crypto/document-link-set-manifest-test-fixtures";
-import { createScenario } from "../../../../test/helpers/ancestorCitationScenario";
+import { createScenario } from "../../../../test/helpers/data/ancestorCitationScenario";
 import { assertAttachmentBindingVerified } from "./attachmentBindingVerification";
 
 async function historicalBinding(omitAncestor = false) {

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { insertQueuedUpdateRows } from "../../../../test/helpers/queuedUpdateRows";
+import { insertQueuedUpdateRows } from "../../../../test/helpers/data/queuedUpdateRows";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import {
   createContainerMetadataDocument,

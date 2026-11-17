@@ -17,23 +17,23 @@ import {
 import {
   buildInitialGroupPolicyRequest,
   testGroupMetadataKey,
-} from "./groupMetadata";
+} from "./data/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
   principalPolicyHead,
   signedPrincipalPolicyBundle,
-} from "./principalPolicyFixtures";
+} from "./data/principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "./projectionPolicyPages";
+} from "./data/projectionPolicyPages";
 import {
   createFixtureUserIdentity,
   createTestTrustedUserIdentity,
   trustedUserIdentityFromResponse,
-} from "./trustedUserIdentity";
+} from "./data/trustedUserIdentity";
 
 export function policySnapshot(
   bundle: PrincipalPolicyBundleResponse,

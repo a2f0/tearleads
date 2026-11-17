@@ -5,7 +5,7 @@ import {
   createSqlClient,
   noIdentityChange,
   setGeneratedIdentity,
-} from "../../../test/helpers/clientTestSupport";
+} from "../../../test/helpers/data/clientTestSupport";
 import { TrustedUserIdentityPinRepository } from "../../data/persistence/identity/trustedUserIdentityPinRepository";
 import { createTrustedUserIdentityService } from "../../data/trustedUserIdentity/service";
 import { createIdentity } from "../identity";

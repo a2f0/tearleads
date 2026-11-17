@@ -17,8 +17,8 @@ import {
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
-} from "../../../../test/helpers/blobUploadFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/blobUploadFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
 
 test("decryptDocumentAttachmentBlob accepts the signed write-time authorization after blob targets advance", async () => {

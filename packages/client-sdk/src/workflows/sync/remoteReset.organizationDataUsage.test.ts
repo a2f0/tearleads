@@ -5,7 +5,7 @@ import type { OrganizationDataUsageResponse } from "@tearleads/validators/respon
 import {
   dataUsage,
   organizationId,
-} from "../../../test/helpers/organizationReadModelFixtures";
+} from "../../../test/helpers/data/organizationReadModelFixtures";
 import { OrganizationDataUsageRepository } from "../../data/persistence/organizations/organizationDataUsagePersistence";
 import { clientSqlTables } from "../../data/sqlite/schema";
 import { organizationDataUsageSnapshots } from "../../data/sqlite/schema/organizationDataUsageSchema";

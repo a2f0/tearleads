@@ -2,15 +2,15 @@ import { expect, test } from "bun:test";
 import type { RequestResult } from "@tearleads/api-client";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
-import { createParentProjection } from "../../../test/helpers/containerFixtures";
+import { createParentProjection } from "../../../test/helpers/data/containerFixtures";
+import {
+  organizationReadModelSnapshot,
+  organizationReadModelUserId,
+} from "../../../test/helpers/data/organizationReadModelProjectionFixtures";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
 } from "../../../test/helpers/internalRuntimeFixtures";
-import {
-  organizationReadModelSnapshot,
-  organizationReadModelUserId,
-} from "../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createDomainScope } from "../../data/shared/domainScope";
 import { createOrganizations } from "../organizations";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";

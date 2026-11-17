@@ -1,5 +1,5 @@
 import type { ListContainersResponse } from "@tearleads/validators/response";
-import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
+import { createSignedContainerDirectory } from "../../../test/helpers/data/signedContainerDirectory";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { UnverifiedUserIdentityError } from "../../data/trustedUserIdentity";
 import type { BlobStore } from "../../workflows/blobs";

@@ -5,16 +5,16 @@ import type {
   ContainerWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
-import { createAuthor } from "../../../../../test/helpers/containerFixtures";
-import { buildInitialGroupPolicyRequest } from "../../../../../test/helpers/groupMetadata";
-import { createOrganizationHistoryFixture } from "../../../../../test/helpers/organizationPolicyHistory";
+import { createAuthor } from "../../../../../test/helpers/data/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../../test/helpers/data/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "../../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
+import { createOrganizationHistoryFixture } from "../../../../../test/helpers/organizationPolicyHistory";
 import { createRepairWarmer } from "../../../../../test/helpers/principalPolicyRepair";
-import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { buildInitialOrganizationPolicyRequest } from "../../../../data/principals/organizationPolicyRequest";
 import { recoverPrincipalPolicyRepair } from "../../../principals/policyRepair";

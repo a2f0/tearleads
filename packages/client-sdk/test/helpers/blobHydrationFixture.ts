@@ -12,7 +12,7 @@ import { createBlobAttachmentServiceFixture } from "./blobAttachmentServiceFixtu
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
-} from "./blobUploadFixtures";
+} from "./data/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 export function createBlobBytesResponse(input: {

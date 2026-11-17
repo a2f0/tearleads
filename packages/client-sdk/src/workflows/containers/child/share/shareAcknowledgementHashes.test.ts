@@ -5,6 +5,7 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createAuthor,
   createMutationResponseFromRequest,
@@ -12,8 +13,7 @@ import {
   createParentProjectionUserKeyResolver,
   createRecipientIdentityResolver,
   SIGNED_AT,
-} from "../../../../../test/helpers/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
+} from "../../../../../test/helpers/data/containerFixtures";
 
 const WRONG_HASH = "0".repeat(64);
 

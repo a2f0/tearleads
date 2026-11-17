@@ -5,12 +5,12 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import { createGroupNameDirectory } from "../../../test/helpers/groupNameDirectory";
+import { createGroupNameDirectory } from "../../../test/helpers/data/groupNameDirectory";
+import { organizationReadModelSnapshot } from "../../../test/helpers/data/organizationReadModelProjectionFixtures";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
 } from "../../../test/helpers/internalRuntimeFixtures";
-import { organizationReadModelSnapshot } from "../../../test/helpers/organizationReadModelProjectionFixtures";
 import {
   repairPolicyPages,
   repairProtectionLease,

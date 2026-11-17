@@ -4,8 +4,8 @@ import {
   type CacheReferencedPrincipalPoliciesOptions,
   cacheReferencedPrincipalPolicies,
 } from "../../src/workflows/principals/policyCache";
-import type { PolicyDirectoryFixture } from "./policyDirectoryFixtures";
-import { createMockApiTrustedUserIdentityResolver } from "./trustedUserIdentity";
+import type { PolicyDirectoryFixture } from "./data/policyDirectoryFixtures";
+import { createMockApiTrustedUserIdentityResolver } from "./data/trustedUserIdentity";
 
 type CacheReferencedPoliciesOptions = Omit<
   CacheReferencedPrincipalPoliciesOptions,

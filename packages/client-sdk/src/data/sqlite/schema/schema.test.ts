@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { readTableColumns } from "../../../../test/helpers/sqlitePragma";
+import { readTableColumns } from "../../../../test/helpers/data/sqlitePragma";
 import type { ExecSql, SqlRow } from "../sqlSchema";
 import { ensureSqlTables } from "../sqlTableSchema";
 import { documentTables } from "./documentRecordSchema";

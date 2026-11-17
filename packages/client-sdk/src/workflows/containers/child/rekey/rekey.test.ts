@@ -13,13 +13,13 @@ import type {
   ContainerKekLogResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../../test/helpers/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
-import { tamperSealedKeyring } from "../../../../../test/helpers/keyringRotationFixtures";
+} from "../../../../../test/helpers/data/containerFixtures";
+import { tamperSealedKeyring } from "../../../../../test/helpers/data/keyringRotationFixtures";
 import {
   rebuildKeyringEntriesFromLog,
   recoverKeyringEntryFromWraps,

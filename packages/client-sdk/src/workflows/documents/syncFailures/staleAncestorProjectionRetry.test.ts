@@ -4,8 +4,8 @@ import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blo
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
-} from "../../../../test/helpers/blobUploadFixtures";
-import { createPendingUpdateRecord } from "../../../../test/helpers/documentResponseFixtures";
+} from "../../../../test/helpers/data/blobUploadFixtures";
+import { createPendingUpdateRecord } from "../../../../test/helpers/data/documentResponseFixtures";
 import { repairedAncestorDocument } from "../../../../test/helpers/repairedAncestorDocument";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { ContainerKekRepairRequiredError } from "../../../data/documents/shared/containerKek/containerKekCurrency";

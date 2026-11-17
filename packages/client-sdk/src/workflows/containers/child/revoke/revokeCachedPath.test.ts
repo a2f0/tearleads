@@ -12,9 +12,9 @@ import {
   encodeContainerWriterProjection,
 } from "@tearleads/validators/response";
 import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancestorRotationRecovery";
-import { createRecipientIdentityResolver } from "../../../../../test/helpers/containerFixtures";
-import { createContainerServer } from "../../../../../test/helpers/containerMutationServer";
 import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
+import { createRecipientIdentityResolver } from "../../../../../test/helpers/data/containerFixtures";
+import { createContainerServer } from "../../../../../test/helpers/data/containerMutationServer";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import type { ContainerMutationServiceApi } from "../../containerMutationCollaborators";

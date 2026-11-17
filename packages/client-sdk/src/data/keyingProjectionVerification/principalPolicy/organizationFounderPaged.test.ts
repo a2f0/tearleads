@@ -4,11 +4,11 @@ import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "../../../../test/helpers/projectionPolicyPages";
+} from "../../../../test/helpers/data/projectionPolicyPages";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";

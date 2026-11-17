@@ -8,7 +8,7 @@ import {
 import {
   grantBy,
   manifestBundle,
-} from "../../../test/helpers/ancestorCitationScenario";
+} from "../../../test/helpers/data/ancestorCitationScenario";
 import { createGroupHistoricalSignerScenario } from "../../../test/helpers/groupHistoricalSignerScenario";
 import { KeyingCheckpointRepository } from "../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../persistence/principalPolicy/principalPolicyBundleRepository";

@@ -4,7 +4,7 @@ import {
   makeEpochBridge,
   makeEpochKeys,
   makeLogEpoch,
-} from "../../../../test/helpers/keyringRotationFixtures";
+} from "../../../../test/helpers/data/keyringRotationFixtures";
 import {
   fetchContainerKekLog,
   rebuildKeyringEntriesFromLog,

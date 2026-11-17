@@ -7,8 +7,8 @@ import {
   documentWriterProjectionFromCreateResponse,
 } from "../../src/workflows/documents/create";
 import { createDeepRotatedAncestorFixture } from "./ancestorRotationRecovery";
-import { createParentProjectionUserKeyResolver } from "./containerFixtures";
-import { createResponseFromRequest } from "./documentResponseFixtures";
+import { createParentProjectionUserKeyResolver } from "./data/containerFixtures";
+import { createResponseFromRequest } from "./data/documentResponseFixtures";
 
 /** Sign the common graph once; each case still verifies it on a cold database. */
 export async function prepareDeepDocumentRepairFixture(depth: number) {

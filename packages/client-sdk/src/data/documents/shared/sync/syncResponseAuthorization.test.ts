@@ -12,7 +12,7 @@ import {
   createScenario,
   grantBy,
   manifestBundle,
-} from "../../../../../test/helpers/ancestorCitationScenario";
+} from "../../../../../test/helpers/data/ancestorCitationScenario";
 import { verifyDocumentWriterProjectionAuthorization } from "../../../keyingProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../../../persistence/principalPolicy/principalPolicyBundleRepository";

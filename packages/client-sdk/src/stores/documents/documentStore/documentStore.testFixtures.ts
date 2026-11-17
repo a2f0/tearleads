@@ -10,7 +10,7 @@ import {
 import {
   createPendingUpdateRecord,
   createSyncResponse,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlan/syncPlanMaterial";
 import type { DocumentStorePersistenceEffects } from "./state";

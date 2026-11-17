@@ -5,7 +5,7 @@ import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../../test/helpers/containerFixtures";
+} from "../../../../../test/helpers/data/containerFixtures";
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";

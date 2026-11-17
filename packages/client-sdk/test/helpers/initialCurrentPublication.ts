@@ -12,12 +12,12 @@ import {
 import type { AcknowledgedPrincipalCurrentInput } from "../../src/workflows/organizations/principalMutations/retainAcknowledgedPrincipalCurrents";
 import { captureAcknowledgedPrincipalPredecessor } from "../../src/workflows/principals/acknowledgements/acknowledgedPrincipalPredecessor";
 import { currentPolicyPublicationFixture } from "./currentPolicyPublication";
-import type { signedAuthorityRecoveryHistory } from "./principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
   principalPolicyBundleFromState,
-} from "./principalPolicyFixtures";
+} from "./data/principalPolicyFixtures";
+import type { signedAuthorityRecoveryHistory } from "./principalAuthorityRecovery";
 
 export async function initialCurrentPublicationFixture(
   history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>,

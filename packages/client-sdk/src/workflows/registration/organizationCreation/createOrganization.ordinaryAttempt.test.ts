@@ -7,7 +7,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
-import { respondToOrganizationProvisioning } from "../../../../test/helpers/organizationProvisioningResponder";
+import { respondToOrganizationProvisioning } from "../../../../test/helpers/data/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import {
   createExecSql,

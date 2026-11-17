@@ -9,7 +9,7 @@ import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createPendingUpdateRecord,
   writerKeyResolver,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";

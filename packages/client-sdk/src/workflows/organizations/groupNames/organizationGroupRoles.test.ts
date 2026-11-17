@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createGroupNameDirectory } from "../../../../test/helpers/groupNameDirectory";
-import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
+import { createGroupNameDirectory } from "../../../../test/helpers/data/groupNameDirectory";
+import { withTestExecSql } from "../../../../test/helpers/data/withTestExecSql";
 import { loadVerifiedOrganizationGroupRoles } from "../../../data/principals/organizationGroupRoles";
 import { loadGroupNameDirectoryAuthority } from "./organizationGroupNamePolicies";
 

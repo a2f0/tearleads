@@ -10,14 +10,14 @@ import {
   policyBundleFromInitialRequest,
   principalPolicyHead,
   signedPrincipalPolicyBundle,
-} from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "../../../../test/helpers/projectionPolicyPages";
+} from "../../../../test/helpers/data/projectionPolicyPages";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";
 import { loadOrganizationFounder } from "../../persistence/organizationFounderPersistence";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";

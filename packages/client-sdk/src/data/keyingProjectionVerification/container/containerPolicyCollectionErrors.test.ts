@@ -3,7 +3,7 @@ import { createNativeTestExecSql } from "@tearleads/test-utils";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../test/helpers/containerFixtures";
+} from "../../../../test/helpers/data/containerFixtures";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 
 test("KEK unwrapping classifies a malformed key epoch hash as a security failure", async () => {

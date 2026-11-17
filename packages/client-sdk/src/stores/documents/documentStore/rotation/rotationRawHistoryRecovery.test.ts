@@ -12,7 +12,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createPendingUpdateRecord,
   createSyncResponse,
-} from "../../../../../test/helpers/documentFixtures";
+} from "../../../../../test/helpers/data/documentFixtures";
 import {
   buildRotatedDocumentContentKeyBundle,
   collectContainerKeksForDocumentSync,

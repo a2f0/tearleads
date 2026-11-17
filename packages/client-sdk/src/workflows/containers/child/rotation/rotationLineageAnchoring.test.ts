@@ -6,8 +6,8 @@ import {
 import { asContainerMutationFixture } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { createMutationResponseFromRequest } from "../../../../../test/helpers/containerFixtures";
 import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
+import { createMutationResponseFromRequest } from "../../../../../test/helpers/data/containerFixtures";
 import { createChildContainerProjection } from "../../../../../test/helpers/projectionHierarchy";
 import {
   CHILD_ID,

@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createAuthor,
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
   createRecipientIdentityResolver,
-} from "../../../../../test/helpers/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
+} from "../../../../../test/helpers/data/containerFixtures";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 

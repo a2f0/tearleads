@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createPendingUpdateRecord } from "../../../../test/helpers/documentFixtures";
+import { createPendingUpdateRecord } from "../../../../test/helpers/data/documentFixtures";
 import {
   acceptedHeldBackPendingUpdateIds,
   hasDeferredPendingUpdatesAfterSubmit,

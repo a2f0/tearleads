@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
 import {
   principalHistoryRetentionTables,
   principalKeyEnvelopeArchive,

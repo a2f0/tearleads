@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { organizationReadModelSnapshot } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
+import { organizationReadModelSnapshot } from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
 import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 test("only verified local names at the projected signed head enter the scoped display cache", async () => {

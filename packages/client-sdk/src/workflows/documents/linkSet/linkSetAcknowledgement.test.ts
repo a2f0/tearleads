@@ -15,9 +15,9 @@ import {
   createLinkSetResponseFromRequest,
   createResponse,
   writerProjectionEvidence,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { buildMaterializedDocumentCreatePlan } from "../create";
 
 const linkSetAcknowledgementTampers: readonly {

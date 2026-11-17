@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { insertQueuedUpdateRows } from "../../../../test/helpers/queuedUpdateRows";
-import { countingExecSql } from "../../../../test/helpers/statementCounting";
+import { insertQueuedUpdateRows } from "../../../../test/helpers/data/queuedUpdateRows";
+import { countingExecSql } from "../../../../test/helpers/data/statementCounting";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 
 const T1 = "2026-01-01T00:00:01.000Z";

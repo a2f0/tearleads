@@ -14,7 +14,7 @@ import {
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "./containerFixtures";
+} from "./data/containerFixtures";
 import {
   createChildContainerProjection,
   moveContainerProjection,

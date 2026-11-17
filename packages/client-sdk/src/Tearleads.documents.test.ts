@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { emptyVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { quietLogger } from "../test/helpers/clientTestSupport";
+import { quietLogger } from "../test/helpers/data/clientTestSupport";
 import { Tearleads } from ".";
 import type {
   ExecSql,

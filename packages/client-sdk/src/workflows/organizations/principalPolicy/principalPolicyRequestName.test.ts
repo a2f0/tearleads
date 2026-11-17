@@ -4,12 +4,12 @@ import {
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createAuthor } from "../../../../test/helpers/containerFixtures";
+import { createAuthor } from "../../../../test/helpers/data/containerFixtures";
 import {
   buildInitialGroupPolicyRequest,
   readGroupPolicyPayloadName,
-} from "../../../../test/helpers/groupMetadata";
-import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/groupMetadata";
+import { policyBundleFromInitialRequest } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { canonicalGroupNameKey } from "../../../data/principals/principalPolicyRequest";
 
 test("look-alike group names share one canonical key", () => {

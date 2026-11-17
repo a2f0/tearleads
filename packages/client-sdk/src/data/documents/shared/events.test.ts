@@ -11,7 +11,7 @@ import {
   createProjection,
   fixtureHash,
   getOnlyTarget,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { buildDocumentCreatePlan } from "./events";
 
 test("buildDocumentCreatePlan signs an initial document link manifest from a container projection", async () => {

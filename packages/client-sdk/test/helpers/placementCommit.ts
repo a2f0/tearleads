@@ -6,7 +6,7 @@ import { createRemoteHistoryFixture } from "../../src/stores/documents/documentS
 import { relinkDocumentStoreWithCommitSideEffect } from "../../src/stores/documents/documentStore/internalRelink";
 import { persistFullHistoryDocument } from "../../src/stores/documents/documentStore/rotation/rotationRecoveryHelpers.test";
 import { removeDocumentLinkLocally } from "../../src/workflows/container-contents/documentLinks/documentLinkIntent";
-import { createFileBackedSql } from "./fileBackedSql";
+import { createFileBackedSql } from "./data/fileBackedSql";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,

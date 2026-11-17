@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { writerKeyResolver } from "../../../../test/helpers/documentFixtures";
+import { writerKeyResolver } from "../../../../test/helpers/data/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import {
   createReadOnlyResponseFixture,

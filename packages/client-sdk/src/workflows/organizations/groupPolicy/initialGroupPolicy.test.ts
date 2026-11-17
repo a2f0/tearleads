@@ -5,7 +5,7 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/data/groupMetadata";
 
 test("buildInitialGroupPolicyRequest creates an admin-only initial group policy", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();

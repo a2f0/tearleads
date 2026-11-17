@@ -8,7 +8,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   quietLogger,
   setGeneratedIdentity,
-} from "../test/helpers/clientTestSupport";
+} from "../test/helpers/data/clientTestSupport";
 import { Tearleads } from ".";
 import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import { loadContainers } from "./data/persistence/container-contents/containerPersistence";

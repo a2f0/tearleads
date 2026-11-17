@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 

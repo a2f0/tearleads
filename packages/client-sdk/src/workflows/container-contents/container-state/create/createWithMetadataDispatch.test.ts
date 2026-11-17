@@ -8,14 +8,14 @@ import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../../test/helpers/containerFixtures";
-import { createResponseFromRequest } from "../../../../../test/helpers/documentFixtures";
-import { buildInitialGroupPolicyRequest } from "../../../../../test/helpers/groupMetadata";
+} from "../../../../../test/helpers/data/containerFixtures";
+import { createResponseFromRequest } from "../../../../../test/helpers/data/documentFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../../test/helpers/data/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "../../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../../test/helpers/data/principalPolicyFixtures";
 import {
   repairPolicyPages,
   repairProtectionLease,

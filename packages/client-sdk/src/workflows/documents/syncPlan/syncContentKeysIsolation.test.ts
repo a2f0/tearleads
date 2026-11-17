@@ -6,13 +6,13 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
-import { sealContentKeyBundle } from "../../../../test/helpers/contentKeyBundleSealing";
+import { sealContentKeyBundle } from "../../../../test/helpers/data/contentKeyBundleSealing";
 import {
   createPendingUpdateRecord,
   createSignedSyncResponseUpdate,
   createSyncResponse,
   writerKeyResolver,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { DocumentHistoryUnavailableError } from "../../../data/documents/shared/projection";
 import { targetEnvelopeReference } from "../../../data/documents/shared/readers";

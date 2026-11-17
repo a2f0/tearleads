@@ -11,7 +11,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { createFixtureUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { createFixtureUserIdentity } from "../../../test/helpers/data/trustedUserIdentity";
 import { PrincipalPolicyBundleRepository } from "../persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   principalHistoryEvidenceTables,

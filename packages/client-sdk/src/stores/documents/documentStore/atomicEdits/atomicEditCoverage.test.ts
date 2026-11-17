@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { encodeVersionVector } from "@tearleads/loro";
-import { createFileBackedSql } from "../../../../../test/helpers/fileBackedSql";
-import { countingExecSql } from "../../../../../test/helpers/statementCounting";
+import { createFileBackedSql } from "../../../../../test/helpers/data/fileBackedSql";
+import { countingExecSql } from "../../../../../test/helpers/data/statementCounting";
 import { createCoverageFixture } from "../../../../../test/helpers/syncOutgoingCoverage";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { setDocumentText } from "../mutations";

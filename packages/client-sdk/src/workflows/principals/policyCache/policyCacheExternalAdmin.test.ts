@@ -7,12 +7,12 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
-import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/data/groupMetadata";
 import {
   principalPolicyBundleFromInitialPolicy,
   referencedPrincipalStateFromBundle,
-} from "../../../../test/helpers/principalPolicyBundles";
+} from "../../../../test/helpers/data/principalPolicyBundles";
+import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("principal policy sync authorizes empty group bundles from verified organization admins", async () => {

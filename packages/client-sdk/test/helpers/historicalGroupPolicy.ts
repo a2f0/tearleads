@@ -7,17 +7,17 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { buildInitialOrganizationPolicyRequest } from "../../src/data/principals/organizationPolicyRequest";
-import type { Signer } from "./ancestorCitationScenario";
-import { policySnapshot } from "./organizationPolicyHistory";
+import type { Signer } from "./data/ancestorCitationScenario";
 import {
   organizationPolicyBundleFromInitialRequest,
   principalPolicyHead,
   signedPrincipalPolicyBundle,
-} from "./principalPolicyFixtures";
+} from "./data/principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "./projectionPolicyPages";
+} from "./data/projectionPolicyPages";
+import { policySnapshot } from "./organizationPolicyHistory";
 
 /** Real signed group history, including a former administrator. */
 export async function historicalGroupPolicy(input: {

@@ -8,22 +8,22 @@ import type { PrincipalHistoryProtectionLease } from "../../src/data/principals/
 import { buildInitialGroupPolicyRequest } from "../../src/data/principals/principalPolicyRequest";
 import { buildOrganizationGroupDirectoryPolicyRequest } from "../../src/workflows/organizations/groups/organizationGroupDirectory";
 import { buildOrganizationProvisioningArtifacts } from "../../src/workflows/registration/organizationProvisioning";
-import { createMutationResponseFromRequest } from "./containerFixtures";
-import { createShareTestRuntime } from "./groupShareScenario";
-import { createLocalAuthorityRecoveryFixture } from "./principalAuthorityLocal";
+import { createMutationResponseFromRequest } from "./data/containerFixtures";
+import { createLocalAuthorityRecoveryFixture } from "./data/principalAuthorityLocal";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "./principalPolicyFixtures";
-import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
+} from "./data/principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
   projectionHistoryPages,
   projectionPolicySource,
-} from "./projectionPolicyPages";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
+} from "./data/projectionPolicyPages";
+import { createTestTrustedUserIdentity } from "./data/trustedUserIdentity";
+import { createShareTestRuntime } from "./groupShareScenario";
+import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
 
 /** Real encrypted group name and signed metadata root, with private page custody. */
 export async function createCurrentShareMetadataFixture(

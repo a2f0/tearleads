@@ -10,8 +10,8 @@ import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../../test/helpers/containerFixtures";
-import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
+} from "../../../../../test/helpers/data/containerFixtures";
+import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
 import { assertSignedWrappingPublicKey } from "../../../../data/documents/shared/containerKek/containerKekWrapping";
 import { unwrapContainerKekPath } from "../../../../data/documents/shared/projection";
 import { buildMaterializedContainerRekeyPlan } from "../rekey";

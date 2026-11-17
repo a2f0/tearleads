@@ -5,16 +5,16 @@ import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createAuthor,
   SIGNED_AT,
-} from "../../../../test/helpers/containerFixtures";
-import { createResponseFromRequest } from "../../../../test/helpers/documentFixtures";
-import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
-import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/containerFixtures";
+import { createResponseFromRequest } from "../../../../test/helpers/data/documentFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/data/groupMetadata";
+import { policyBundleFromInitialRequest } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import {
   repairPolicyPages,
   repairProtectionLease,
 } from "../../../../test/helpers/principalPolicyRepair";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {

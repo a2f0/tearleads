@@ -11,14 +11,14 @@ import {
   asContainerMutationFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
 import { createContainerMutationServiceFixture } from "../../../../test/helpers/containerMutationServiceFixture";
+import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
 import {
   createSignedSyncResponseUpdate,
   createSyncResponse,
   createUserContainerWrap,
   writerKeyResolver,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import {

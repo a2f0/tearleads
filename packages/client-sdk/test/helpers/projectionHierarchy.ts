@@ -13,13 +13,13 @@ import {
   childContainerWriterProjectionFromCreatePlan,
   type SubmittedContainerMove,
 } from "../../src/workflows/containers";
+import { createContainerMutationServiceFixture } from "./containerMutationServiceFixture";
 import {
   createMutationResponseFromRequest,
   type createParentProjection,
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
-} from "./containerFixtures";
-import { createContainerMutationServiceFixture } from "./containerMutationServiceFixture";
+} from "./data/containerFixtures";
 
 type ProjectionBundle = ContainerWriterProjectionResponse["path"][number];
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];

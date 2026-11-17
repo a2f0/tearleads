@@ -5,13 +5,13 @@ import {
   ORGANIZATION_PRESENTATION_ERROR_CODES,
   type OrganizationDataUsageResponse,
 } from "@tearleads/validators/response";
-import { dataUsage } from "../../../../test/helpers/organizationReadModelFixtures";
+import { dataUsage } from "../../../../test/helpers/data/organizationReadModelFixtures";
 import {
   organizationReadModelFailure,
   organizationReadModelOrganizationId,
   organizationReadModelUserId,
-} from "../../../../test/helpers/organizationReadModelProjectionFixtures";
-import { createRejectingExecSql } from "../../../../test/helpers/rejectingExecSql";
+} from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
+import { createRejectingExecSql } from "../../../../test/helpers/data/rejectingExecSql";
 import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {

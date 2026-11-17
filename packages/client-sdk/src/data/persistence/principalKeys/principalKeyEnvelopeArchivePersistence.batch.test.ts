@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
-import { retentionBatchFixture } from "../../../../test/helpers/principalRetentionBatch";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
+import { retentionBatchFixture } from "../../../../test/helpers/data/principalRetentionBatch";
 import { principalKeyEnvelopeArchive } from "../../sqlite/schema/principalHistoryRetentionSchema";
 import { archivePrincipalHistoryKeyEnvelopeBatch } from "./principalKeyEnvelopeArchivePersistence";
 

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/data/trustedUserIdentity";
 import { requireTrustedUserIdentityResolver } from "./requiredResolver";
 import type { TrustedUserIdentity } from "./types";
 

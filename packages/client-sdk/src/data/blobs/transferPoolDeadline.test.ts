@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { waitFor } from "../../../test/helpers/waitFor";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import { runBlobTransfer } from "./transferPool";
 
 test("four stalled transfers time out and admit a healthy transfer", async () => {

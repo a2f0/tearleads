@@ -5,8 +5,8 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   principalHistoryEntries,
   principalHistoryEvidenceTables,

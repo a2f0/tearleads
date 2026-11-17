@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
-import { createFixtureUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { principalIdentityPinFixture } from "../../../test/helpers/data/principalIdentityPinFixture";
+import { createFixtureUserIdentity } from "../../../test/helpers/data/trustedUserIdentity";
 
 type Fixture = Awaited<ReturnType<typeof principalIdentityPinFixture>>;
 

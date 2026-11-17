@@ -7,7 +7,7 @@ import {
   getUpdateVersionVectors,
 } from "@tearleads/loro";
 import { isDocumentSyncRequest } from "@tearleads/validators/request";
-import { createPendingUpdateRecord } from "../../../../test/helpers/documentFixtures";
+import { createPendingUpdateRecord } from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 

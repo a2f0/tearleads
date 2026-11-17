@@ -3,7 +3,7 @@ import {
   generateKemSeedAndKeyPair,
   verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { createProjectionCheckpointContext } from "../../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { referencedPrincipalPolicyKey } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { collectReferencedPrincipalPolicies } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";

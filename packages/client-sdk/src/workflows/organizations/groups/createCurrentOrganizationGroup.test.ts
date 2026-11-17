@@ -1,15 +1,15 @@
 import { beforeAll, expect, test } from "bun:test";
 import { toFingerprint } from "@tearleads/crypto";
-import { testGroupMetadataAccess } from "../../../../test/helpers/groupMetadata";
-import {
-  createAuthorityRecoveryFixture,
-  signedAuthorityRecoveryHistory,
-} from "../../../../test/helpers/principalAuthorityRecovery";
+import { testGroupMetadataAccess } from "../../../../test/helpers/data/groupMetadata";
 import {
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
   policyReceiptFromBundle,
-} from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
+import {
+  createAuthorityRecoveryFixture,
+  signedAuthorityRecoveryHistory,
+} from "../../../../test/helpers/principalAuthorityRecovery";
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createRuntimeCurrentOrganizationMutation } from "../principalMutations/runtimeCurrentOrganizationMutation";

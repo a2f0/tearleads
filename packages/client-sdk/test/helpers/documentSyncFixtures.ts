@@ -13,7 +13,7 @@ import { buildMaterializedDocumentSyncPlan } from "../../src/workflows/documents
 import {
   createPendingUpdateRecord,
   createSyncResponse,
-} from "./documentFixtures";
+} from "./data/documentFixtures";
 import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 export async function createLoroPendingUpdate(text: string, id?: string) {

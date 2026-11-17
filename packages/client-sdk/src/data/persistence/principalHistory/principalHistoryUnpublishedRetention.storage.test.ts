@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { seededCompletedRetention } from "../../../../test/helpers/principalCompletedRetention";
+import { seededCompletedRetention } from "../../../../test/helpers/data/principalCompletedRetention";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import { createExecSql, type ExecSql } from "../../sqlite/sqlSchema";
 import { PrincipalHistoryRepository } from "./principalHistoryRepository";

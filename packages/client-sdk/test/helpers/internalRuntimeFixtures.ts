@@ -11,7 +11,7 @@ import { createDomainScope } from "../../src/data/shared/domainScope";
 import { UnverifiedUserIdentityError } from "../../src/data/trustedUserIdentity";
 import { containerContentsOrganizationHost } from "../../src/workflows/organizations/containerContentsHost";
 import type { PrincipalMutationRecoveryApi } from "../../src/workflows/organizations/principalMutations/principalMutationJournalManagement";
-import { principalMutationApiFixture } from "./principalMutationApiFixture";
+import { principalMutationApiFixture } from "./data/principalMutationApiFixture";
 import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
 
 interface WorkflowInputFixtureOptions {

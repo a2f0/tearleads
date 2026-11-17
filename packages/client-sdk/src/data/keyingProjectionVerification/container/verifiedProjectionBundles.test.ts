@@ -5,8 +5,8 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { containerKekWireLevel } from "@tearleads/validators/response";
-import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
+import { createAuthor } from "../../../../test/helpers/data/documentFixturePrimitives";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { loadVerifiedManifestCitations } from "../../persistence/verifiedManifestBundlePersistence";
 import { verifyContainerWriterProjection } from "./containerProjectionVerification";

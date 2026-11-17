@@ -11,14 +11,14 @@ import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blo
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
-} from "../../../../test/helpers/blobUploadFixtures";
+} from "../../../../test/helpers/data/blobUploadFixtures";
 import {
   createContainerManifestFixture,
   createParentProjection,
   createParentProjectionUserKeyResolver,
   substituteFirstProjectionUserWrapMaterial,
-} from "../../../../test/helpers/containerFixtures";
-import { createResponse } from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/containerFixtures";
+import { createResponse } from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { parseBlobEncryptedBytes } from "../../../data/blobs/attachments/readers";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";

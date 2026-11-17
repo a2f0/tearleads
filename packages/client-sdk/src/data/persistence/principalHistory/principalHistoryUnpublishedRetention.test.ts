@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { unwrapDek, wrapDekForRecipients } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { rotatingCompletedHistory } from "../../../../test/helpers/principalCompletedHistory";
-import { createRecoveryFixture } from "../../../../test/helpers/principalHistoryRecovery";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
+import { rotatingCompletedHistory } from "../../../../test/helpers/data/principalCompletedHistory";
+import { createRecoveryFixture } from "../../../../test/helpers/data/principalHistoryRecovery";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { recoverPrincipalPolicyHistory } from "../../../workflows/principals/historyRecovery/recoverPrincipalPolicyHistory";
 import {
   principalHistoryEntries,

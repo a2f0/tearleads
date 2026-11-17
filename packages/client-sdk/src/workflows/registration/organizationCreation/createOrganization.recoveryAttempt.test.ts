@@ -5,8 +5,8 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
-import { execSqlClientFromExecSql } from "../../../../test/helpers/execSqlClient";
-import { respondToOrganizationProvisioning } from "../../../../test/helpers/organizationProvisioningResponder";
+import { execSqlClientFromExecSql } from "../../../../test/helpers/data/execSqlClient";
+import { respondToOrganizationProvisioning } from "../../../../test/helpers/data/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema";
 import { accessManifestCheckpoints } from "../../../data/sqlite/schema/keyingCheckpointSchema";

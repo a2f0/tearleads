@@ -3,7 +3,7 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/data/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../data/shared/domainScope";

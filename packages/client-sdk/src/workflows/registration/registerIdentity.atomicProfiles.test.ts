@@ -17,8 +17,8 @@ import {
   type ProvisionedDocumentRequest,
   type RegistrationRequest,
 } from "@tearleads/validators/request";
-import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
-import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
+import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
+import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { readStoredDocumentState } from "../../data/documents/documentKinds";
 import { decryptDocumentSyncUpdates } from "../../data/documents/shared/crypto";
 import { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";

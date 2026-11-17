@@ -17,9 +17,9 @@ import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
-} from "./principalPolicyFixtures";
-import { createExternallyAuthorizedPrincipalPolicySnapshots } from "./principalPolicySnapshots";
-import { createProjectionPolicyEvidence } from "./projectionPolicyEvidence";
+} from "./data/principalPolicyFixtures";
+import { createExternallyAuthorizedPrincipalPolicySnapshots } from "./data/principalPolicySnapshots";
+import { createProjectionPolicyEvidence } from "./data/projectionPolicyEvidence";
 import { projectionPolicyWarmer } from "./projectionPolicyWarmer";
 
 type Policies = Awaited<

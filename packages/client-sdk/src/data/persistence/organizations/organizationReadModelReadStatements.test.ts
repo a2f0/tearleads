@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { organizationReadModelSnapshot } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
-import { countingExecSql } from "../../../../test/helpers/statementCounting";
+import { organizationReadModelSnapshot } from "../../../../test/helpers/data/organizationReadModelPersistenceFixtures";
+import { countingExecSql } from "../../../../test/helpers/data/statementCounting";
 import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 test("membership reads state and requester together and keeps requester scoping", async () => {

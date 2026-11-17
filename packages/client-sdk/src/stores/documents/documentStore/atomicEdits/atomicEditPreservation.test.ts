@@ -12,7 +12,7 @@ import {
   ensureAtomicEditStoreReady,
   prepareAtomicCoverage,
 } from "../../../../../test/helpers/atomicEditCoverage";
-import { openFileBackedSql } from "../../../../../test/helpers/fileBackedSql";
+import { openFileBackedSql } from "../../../../../test/helpers/data/fileBackedSql";
 import { readStoredDocumentState } from "../../../../data/documents/documentKinds";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import { sqlDocumentsPersistence as documents } from "../../../../data/persistence/documents/documentsPersistence";

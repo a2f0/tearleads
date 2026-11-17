@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createParentProjection } from "../../../../test/helpers/containerFixtures";
-import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers/principalPolicyBundles";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
+import { createParentProjection } from "../../../../test/helpers/data/containerFixtures";
+import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers/data/principalPolicyBundles";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/data/principalPolicySnapshots";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import {
   openPrincipalPolicyBundleReader,
   PrincipalPolicyBundleRepository,

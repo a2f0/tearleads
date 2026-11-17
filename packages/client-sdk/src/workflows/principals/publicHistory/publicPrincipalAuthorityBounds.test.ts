@@ -1,10 +1,10 @@
 import { beforeAll, expect, test } from "bun:test";
-import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
 import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
-} from "../../../../test/helpers/principalPolicyFixtures";
-import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createPublicHistoryFixture } from "../../../../test/helpers/data/publicPrincipalHistory";
+import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
 import { recoverProjectionPolicyHistory } from "./recoverProjectionPolicyHistory";
 
 let history: Awaited<ReturnType<typeof createOrganizationHistoryFixture>>;

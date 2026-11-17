@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
+import { principalIdentityPinFixture } from "../../../test/helpers/data/principalIdentityPinFixture";
 import { runWithSecurityIncidentReporting } from "../shared/securityIncidents";
 import { DatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import {

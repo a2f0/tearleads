@@ -9,10 +9,10 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { currentGroupMutationInput } from "../../../../test/helpers/currentGroupMutation";
-import { testGroupMetadataKey } from "../../../../test/helpers/groupMetadata";
-import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { currentGroupMutationInput } from "../../../../test/helpers/data/currentGroupMutation";
+import { testGroupMetadataKey } from "../../../../test/helpers/data/groupMetadata";
+import { policyBundleFromInitialRequest } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { signedGroupPolicyRequest } from "../../../data/principals/principalPolicyRequest";
 import { toRecipientEntries } from "../principalPolicy/principalPolicyRecipients";
 import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";

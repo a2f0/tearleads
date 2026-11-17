@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
-import { createPendingUpdateRecord } from "../../../../test/helpers/documentResponseFixtures";
+import { createPendingUpdateRecord } from "../../../../test/helpers/data/documentResponseFixtures";
 import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { withStaleDocument } from "../../../../test/helpers/syncRepairBoundary";
 import { DOCUMENT_SYNC_TRACE_PATTERN } from "../sync/syncTrace";

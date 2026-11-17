@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createContainerMutationResponseFromRequest } from "@tearleads/test-utils";
-import { createParentProjectionUserKeyResolver } from "../../../../test/helpers/containerFixtures";
 import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
+import { createParentProjectionUserKeyResolver } from "../../../../test/helpers/data/containerFixtures";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import { rememberAcknowledgedContainerHead } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";

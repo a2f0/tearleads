@@ -24,8 +24,8 @@ import {
   createParentProjection,
   createUserContainerWrap,
   SIGNED_AT,
-} from "./containerFixtures";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
+} from "./data/containerFixtures";
+import { createTestTrustedUserIdentity } from "./data/trustedUserIdentity";
 
 /**
  * A parent container shared with a second user, then rotated to a new KEK

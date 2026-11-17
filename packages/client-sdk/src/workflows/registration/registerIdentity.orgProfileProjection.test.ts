@@ -6,8 +6,8 @@ import {
 import { base64ToBytes } from "@tearleads/encoding";
 import { createDocument, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
-import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
+import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
+import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import {
   type DocumentClientProjectionSaveInput,
   type DocumentProjectorDefinition,

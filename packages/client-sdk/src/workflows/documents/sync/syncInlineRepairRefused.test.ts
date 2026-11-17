@@ -9,13 +9,13 @@ import {
   createDeepRotatedAncestorFixture,
   createRotatedAncestorFixture,
 } from "../../../../test/helpers/ancestorRotationRecovery";
-import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
-import { createContainerServer } from "../../../../test/helpers/containerMutationServer";
-import { writerKeyResolver } from "../../../../test/helpers/documentFixtures";
+import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
+import { createContainerServer } from "../../../../test/helpers/data/containerMutationServer";
+import { writerKeyResolver } from "../../../../test/helpers/data/documentFixtures";
 import {
   createPendingUpdateRecord,
   createResponseFromRequest,
-} from "../../../../test/helpers/documentResponseFixtures";
+} from "../../../../test/helpers/data/documentResponseFixtures";
 import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
 import {

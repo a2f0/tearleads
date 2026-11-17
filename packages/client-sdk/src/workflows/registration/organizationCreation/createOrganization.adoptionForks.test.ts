@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
+import { signedPrincipalPolicyBundle } from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   acknowledgePolicy,
   adoptionAccessHeads,
   organizationAdoptionFixture,
 } from "../../../../test/helpers/organizationAdoption";
-import { signedPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyFixtures";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 

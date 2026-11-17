@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createPendingUpdateRecord } from "../../../../test/helpers/documentResponseFixtures";
+import { createPendingUpdateRecord } from "../../../../test/helpers/data/documentResponseFixtures";
 import { documentWithStaleAncestors } from "../../../../test/helpers/staleAncestorDocument";
 import {
   verifiedBlobWrapTargetsFromDocumentProjection,

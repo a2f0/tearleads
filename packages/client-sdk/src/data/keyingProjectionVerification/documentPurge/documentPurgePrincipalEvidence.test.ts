@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
+import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/data/principalPolicySnapshots";
+import { projectionPolicySource } from "../../../../test/helpers/data/projectionPolicyPages";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
-import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
-import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
-import { projectionPolicySource } from "../../../../test/helpers/projectionPolicyPages";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";

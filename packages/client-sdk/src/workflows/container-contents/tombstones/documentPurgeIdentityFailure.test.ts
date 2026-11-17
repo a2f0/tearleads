@@ -4,7 +4,7 @@ import {
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import { createMockApiClient } from "@tearleads/test-utils";
-import { createAuthor } from "../../../../test/helpers/documentFixtures";
+import { createAuthor } from "../../../../test/helpers/data/documentFixtures";
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";

@@ -4,7 +4,7 @@ import {
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import { createAuthor } from "../../../../test/helpers/documentFixtures";
+import { createAuthor } from "../../../../test/helpers/data/documentFixtures";
 import { DatabaseUnavailableError } from "../../../data/sqlite/availability/databaseUnavailable";
 import { Tearleads } from "../../../Tearleads";
 import { relinkRemoteContainerDocument } from "./index";

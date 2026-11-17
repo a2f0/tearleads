@@ -7,7 +7,7 @@ import type {
 import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
-} from "../../../../test/helpers/organizationReadModelProjectionFixtures";
+} from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
 import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 function withMemberships(

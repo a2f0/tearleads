@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
+import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
 import {
   createPrincipalReciteFixture as createFixture,
   GROUP_ID,

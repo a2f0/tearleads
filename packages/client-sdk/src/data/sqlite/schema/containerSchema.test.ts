@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   readTableColumns,
   requireColumn,
-} from "../../../../test/helpers/sqlitePragma";
+} from "../../../../test/helpers/data/sqlitePragma";
 import { ensureSqlTables } from "../sqlSchema";
 import { containerTables } from "./index";
 

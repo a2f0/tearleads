@@ -3,8 +3,8 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { createMetadataBindingFixture } from "../../../../../test/helpers/containerMetadataBinding";
+import { insertQueuedUpdateRows } from "../../../../../test/helpers/data/queuedUpdateRows";
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
-import { insertQueuedUpdateRows } from "../../../../../test/helpers/queuedUpdateRows";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {

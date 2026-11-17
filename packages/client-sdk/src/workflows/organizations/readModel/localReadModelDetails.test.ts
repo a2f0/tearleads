@@ -6,7 +6,7 @@ import type {
   OrganizationReadModelSnapshotResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
-import { principalPolicy } from "../../../../test/helpers/organizationReadModelFixtures";
+import { principalPolicy } from "../../../../test/helpers/data/organizationReadModelFixtures";
 import {
   ensureContainerTables,
   saveContainer,

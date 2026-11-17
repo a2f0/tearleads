@@ -1,17 +1,17 @@
 import { expect, test } from "bun:test";
 import { createMockRequestFailure } from "@tearleads/test-utils";
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
-import { readTestGroupName } from "../../../../test/helpers/groupMetadata";
+import { readTestGroupName } from "../../../../test/helpers/data/groupMetadata";
+import {
+  policyBundleAfterMutation,
+  policyReceiptFromBundle,
+} from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   stubRekeyRequest as carriedRequest,
   createRemovalFixture,
   echoMutation as echo,
   mutationObjectIds,
 } from "../../../../test/helpers/groupRemovalCarryFixture";
-import {
-  policyBundleAfterMutation,
-  policyReceiptFromBundle,
-} from "../../../../test/helpers/principalPolicyFixtures";
 import { removeOrganizationGroupUser } from "./index";
 
 // #2340 finding 1. A group membership change rematerializes the group's

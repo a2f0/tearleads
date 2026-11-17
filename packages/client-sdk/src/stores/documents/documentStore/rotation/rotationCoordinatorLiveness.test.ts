@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import { waitFor } from "../../../../../test/helpers/data/waitFor";
 import { settleWithin } from "../../../../../test/helpers/remoteSyncWait";
-import { waitFor } from "../../../../../test/helpers/waitFor";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import {
   disposeDomainSyncCoordinator,

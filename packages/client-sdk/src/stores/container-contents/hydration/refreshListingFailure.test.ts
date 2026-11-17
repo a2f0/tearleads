@@ -6,7 +6,7 @@ import {
 } from "@tearleads/test-utils";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type { ListContainerParentLanesResponse } from "@tearleads/validators/response";
-import { waitFor } from "../../../../test/helpers/waitFor";
+import { waitFor } from "../../../../test/helpers/data/waitFor";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import {
   ContainerSyncWatermarkRepository,

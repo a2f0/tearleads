@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
-} from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "../../../../test/helpers/projectionPolicyPages";
+} from "../../../../test/helpers/data/projectionPolicyPages";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";

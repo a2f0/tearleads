@@ -4,7 +4,7 @@ import {
   isValidOrganizationLeaveRequest,
 } from "@tearleads/crypto";
 import type { OrganizationLeaveRequest } from "@tearleads/validators/util";
-import { TEST_LEAVE_REQUEST_MEMBERS_HEAD as MEMBERS_HEAD } from "../../../../test/helpers/leaveRequestFixtures";
+import { TEST_LEAVE_REQUEST_MEMBERS_HEAD as MEMBERS_HEAD } from "../../../../test/helpers/data/leaveRequestFixtures";
 import {
   type OrganizationLeaveRequestApi,
   setOrganizationLeaveRequested,

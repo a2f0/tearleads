@@ -11,9 +11,9 @@ import {
 import {
   manifestBundle,
   successor,
-} from "../../../test/helpers/ancestorCitationScenario";
+} from "../../../test/helpers/data/ancestorCitationScenario";
+import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyFixtures";
 import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
-import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { projectionPolicyWarmer } from "../../../test/helpers/projectionPolicyWarmer";
 import { openPrincipalPolicyBundleReader } from "../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "./checkpoints/checkpointContext";

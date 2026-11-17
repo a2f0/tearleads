@@ -11,18 +11,18 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import {
   buildInitialGroupPolicyRequest,
   testGroupMetadataAccess,
-} from "../../../../test/helpers/groupMetadata";
+} from "../../../../test/helpers/data/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
   policyReceiptFromBundle,
   principalPolicyHead,
-} from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   createFixtureUserIdentity,
   createTestTrustedUserIdentity,
-} from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principalContracts/organizationAuthorityDescriptor";

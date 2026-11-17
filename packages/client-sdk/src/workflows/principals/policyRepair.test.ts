@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createAuthor } from "../../../test/helpers/containerFixtures";
-import { principalRepairEvidence } from "../../../test/helpers/principalRepairEvidence";
+import { createAuthor } from "../../../test/helpers/data/containerFixtures";
+import { principalRepairEvidence } from "../../../test/helpers/data/principalRepairEvidence";
 import type { PrincipalPolicyResolveRequest } from "../../data/keyingProjectionVerification/types";
 import { recoverPrincipalPolicyRepair } from "./policyRepair";
 

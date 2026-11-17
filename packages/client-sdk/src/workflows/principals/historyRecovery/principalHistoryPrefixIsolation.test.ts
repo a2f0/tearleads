@@ -2,7 +2,7 @@ import { beforeAll, expect, test } from "bun:test";
 import {
   createRecoveryFixture,
   signedRecoveryHistory,
-} from "../../../../test/helpers/principalHistoryRecovery";
+} from "../../../../test/helpers/data/principalHistoryRecovery";
 import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";

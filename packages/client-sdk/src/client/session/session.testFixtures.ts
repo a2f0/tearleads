@@ -2,7 +2,7 @@ import type { ApiClient } from "@tearleads/api-client";
 import {
   noIdentityChange,
   quietLogger,
-} from "../../../test/helpers/clientTestSupport";
+} from "../../../test/helpers/data/clientTestSupport";
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { Logger } from "../host/logger";
 import { createIdentity, type Identity } from "../identity";

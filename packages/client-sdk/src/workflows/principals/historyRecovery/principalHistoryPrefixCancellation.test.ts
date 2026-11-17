@@ -3,8 +3,8 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createRecoveryFixture,
   signedRecoveryHistory,
-} from "../../../../test/helpers/principalHistoryRecovery";
-import { principalIdentityPinFixture } from "../../../../test/helpers/principalIdentityPinFixture";
+} from "../../../../test/helpers/data/principalHistoryRecovery";
+import { principalIdentityPinFixture } from "../../../../test/helpers/data/principalIdentityPinFixture";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 test("a restored-prefix recovery cancelled during its selected check pins nothing", async () => {

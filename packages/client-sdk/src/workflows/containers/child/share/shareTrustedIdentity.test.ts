@@ -3,14 +3,14 @@ import {
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
 } from "@tearleads/crypto";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createAuthor,
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../../test/helpers/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
-import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
+} from "../../../../../test/helpers/data/containerFixtures";
+import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
+import { withTestExecSql } from "../../../../../test/helpers/data/withTestExecSql";
 
 test("shareRemoteContainer stops before network I/O on trusted identity failure", async () => {
   const parent = await createParentProjection();

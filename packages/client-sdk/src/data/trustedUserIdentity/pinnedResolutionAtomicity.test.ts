@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
-import { createPin } from "../../../test/helpers/trustedUserIdentityPin";
+import { principalIdentityPinFixture } from "../../../test/helpers/data/principalIdentityPinFixture";
+import { createPin } from "../../../test/helpers/data/trustedUserIdentityPin";
 import { TrustedUserIdentityPinRepository } from "../persistence/identity/trustedUserIdentityPinRepository";
 
 test("a staged scope that conflicts on its second pin commits none of its first sights", async () => {

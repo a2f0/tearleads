@@ -11,8 +11,8 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
-import { createMultipartBlobStageFixture } from "../../../../test/helpers/blobUploadFixtures";
-import { SIGNED_AT } from "../../../../test/helpers/containerFixtures";
+import { createMultipartBlobStageFixture } from "../../../../test/helpers/data/blobUploadFixtures";
+import { SIGNED_AT } from "../../../../test/helpers/data/containerFixtures";
 import {
   createDocumentAfterRevoke,
   createRevokedRotationFixture,

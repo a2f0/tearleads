@@ -3,8 +3,8 @@ import {
   generateSigningSeedAndKeyPair,
   KeyingVerificationError,
 } from "@tearleads/crypto";
-import { setGeneratedIdentity } from "../../../test/helpers/clientTestSupport";
-import { waitFor } from "../../../test/helpers/waitFor";
+import { setGeneratedIdentity } from "../../../test/helpers/data/clientTestSupport";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { Tearleads } from "../../Tearleads";
 import { createApi, createSessionHarness } from "./session.testFixtures";

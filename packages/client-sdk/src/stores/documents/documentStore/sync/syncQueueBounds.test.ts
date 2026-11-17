@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createPendingUpdateRecord } from "../../../../../test/helpers/documentFixtures";
+import { createPendingUpdateRecord } from "../../../../../test/helpers/data/documentFixtures";
 import type { DocumentStoreState } from "../state";
 import { prepareDocumentStoreSyncQueue } from "./index";
 import { preRegisterMaterializedDocumentSyncUpdateIds } from "./syncAcceptedUpdateIds";

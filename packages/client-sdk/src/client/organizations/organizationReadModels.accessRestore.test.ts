@@ -3,15 +3,15 @@ import type { RequestResult } from "@tearleads/api-client";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
 import {
-  createInternalRuntimeFixture,
-  createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
-import {
   organizationReadModelFailure,
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
   organizationReadModelUserId,
-} from "../../../test/helpers/organizationReadModelProjectionFixtures";
+} from "../../../test/helpers/data/organizationReadModelProjectionFixtures";
+import {
+  createInternalRuntimeFixture,
+  createWorkflowInputFixture,
+} from "../../../test/helpers/internalRuntimeFixtures";
 import { DocumentMoveIntentRepository } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   completeDormantMetadataSweepRequest,

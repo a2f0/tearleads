@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
 import type { OrganizationGroupMembersResponse } from "@tearleads/validators/response";
-import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
 import {
   containers,
   groupId,
   organizationId,
   principalPolicy,
-} from "../../../test/helpers/organizationReadModelFixtures";
+} from "../../../test/helpers/data/organizationReadModelFixtures";
+import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import {

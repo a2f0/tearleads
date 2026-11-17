@@ -1,10 +1,10 @@
 import { beforeAll, expect, test } from "bun:test";
 import { principalPolicyMatchesReference } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createPublicProjectionHistoryFixture } from "../../../../test/helpers/data/publicProjectionHistory";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { createPublicProjectionHistoryFixture } from "../../../../test/helpers/publicProjectionHistory";
 import {
   principalHistoryEntries,
   principalHistoryPrefixes,

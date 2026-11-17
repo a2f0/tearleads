@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { waitFor } from "../../../test/helpers/waitFor";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import { waitForDomainSyncCoordinatorToSettle } from "../../data/sync/syncCoordinator";
 import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
 import { createReconciliationService } from "./service";

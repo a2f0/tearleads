@@ -26,9 +26,9 @@ import {
   principalPolicyBundleFromInitialGroupRequest,
   principalPolicyBundleFromInitialOrganizationRequest,
 } from "../../src/workflows/registration/registrationPrincipalPolicyPersistence";
-import { execSqlClientFromExecSql } from "./execSqlClient";
-import { respondToOrganizationProvisioning } from "./organizationProvisioningResponder";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
+import { execSqlClientFromExecSql } from "./data/execSqlClient";
+import { respondToOrganizationProvisioning } from "./data/organizationProvisioningResponder";
+import { createTestTrustedUserIdentity } from "./data/trustedUserIdentity";
 
 const PRIMING_TRUST_DOMAIN = "https://api.example.test";
 const protection = {

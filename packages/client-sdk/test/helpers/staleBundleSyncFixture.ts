@@ -2,7 +2,7 @@ import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
 import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { getOnlyTarget } from "./documentFixtures";
+import { getOnlyTarget } from "./data/documentFixtures";
 import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 /**

@@ -6,16 +6,16 @@ import {
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { currentGroupMutationInput } from "../../../../test/helpers/currentGroupMutation";
+import { currentGroupMutationInput } from "../../../../test/helpers/data/currentGroupMutation";
 import {
   buildInitialGroupPolicyRequest,
   readGroupPolicyPayloadName,
-} from "../../../../test/helpers/groupMetadata";
+} from "../../../../test/helpers/data/groupMetadata";
 import {
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
-} from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import {
   buildAddGroupUserPolicyRequest,
   buildGroupAccessSetShrinkPolicyRequest,

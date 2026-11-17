@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/data/principalPolicySnapshots";
+import { verifyPrincipalPolicySnapshots } from "../../../../test/helpers/data/principalPolicySnapshotVerification";
 import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeChain";
-import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
-import { verifyPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshotVerification";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";

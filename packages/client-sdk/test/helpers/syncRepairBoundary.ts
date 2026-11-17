@@ -4,8 +4,8 @@ import {
   documentWriterProjectionFromCreateResponse,
 } from "../../src/workflows/documents/create";
 import { createDeepRotatedAncestorFixture } from "./ancestorRotationRecovery";
-import { writerKeyResolver } from "./documentFixtures";
-import { createResponseFromRequest } from "./documentResponseFixtures";
+import { writerKeyResolver } from "./data/documentFixtures";
+import { createResponseFromRequest } from "./data/documentResponseFixtures";
 import { createFullHistoryRotationSnapshot } from "./staleBundleSyncFixture";
 
 export async function withStaleDocument(

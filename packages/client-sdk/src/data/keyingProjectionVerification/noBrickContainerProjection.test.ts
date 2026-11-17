@@ -16,7 +16,7 @@ import {
   grantBy,
   type Signer,
   verifyPath,
-} from "../../../test/helpers/ancestorCitationScenario";
+} from "../../../test/helpers/data/ancestorCitationScenario";
 import { KeyingCheckpointRepository } from "../persistence/keyingCheckpoints/keyingCheckpointRepository";
 
 /**

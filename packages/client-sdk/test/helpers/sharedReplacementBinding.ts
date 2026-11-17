@@ -8,10 +8,10 @@ import { rememberOrganizationFounder } from "../../src/data/persistence/organiza
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import type { assertPermittedDestinationBinding } from "../../src/workflows/container-contents/remoteHydration/destination/replacementBinding";
 import { buildOrganizationProvisioningArtifacts } from "../../src/workflows/registration/organizationProvisioning";
+import { organizationPolicyBundleFromInitialRequest } from "./data/principalPolicyFixtures";
+import { verifyPrincipalPolicySnapshots } from "./data/principalPolicySnapshotVerification";
+import { createTestTrustedUserIdentityResolver } from "./data/trustedUserIdentity";
 import { policySnapshot } from "./organizationPolicyHistory";
-import { organizationPolicyBundleFromInitialRequest } from "./principalPolicyFixtures";
-import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
-import { createTestTrustedUserIdentityResolver } from "./trustedUserIdentity";
 
 export async function sharedReplacementBindingFixture(execSql: ExecSql) {
   const signingKeyPair = generateSigningSeedAndKeyPair();

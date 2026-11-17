@@ -9,8 +9,8 @@ import {
 } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
-import { createAuthor } from "../../../../../test/helpers/documentFixturePrimitives";
-import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
+import { createAuthor } from "../../../../../test/helpers/data/documentFixturePrimitives";
+import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/data/trustedUserIdentity";
 import { ContainerPathTooDeepError } from "../../../../data/containers/shared/containerPathLimits";
 import { buildMaterializedContainerCreatePlan } from "./index";
 

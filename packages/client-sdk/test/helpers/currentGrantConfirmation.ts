@@ -4,22 +4,22 @@ import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
 } from "../../src/workflows/containers/root/create";
-import { createAuthor } from "./containerFixtures";
-import { buildInitialGroupPolicyRequest } from "./groupMetadata";
-import { createShareTestRuntime } from "./groupShareScenario";
-import { createLocalAuthorityRecoveryFixture } from "./principalAuthorityLocal";
+import { createAuthor } from "./data/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "./data/groupMetadata";
+import { createLocalAuthorityRecoveryFixture } from "./data/principalAuthorityLocal";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "./principalPolicyFixtures";
-import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
+} from "./data/principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
   projectionHistoryPages,
   projectionPolicySource,
-} from "./projectionPolicyPages";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
+} from "./data/projectionPolicyPages";
+import { createTestTrustedUserIdentity } from "./data/trustedUserIdentity";
+import { createShareTestRuntime } from "./groupShareScenario";
+import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
 
 export async function createCurrentGrantConfirmationFixture() {
   const containerId = crypto.randomUUID();

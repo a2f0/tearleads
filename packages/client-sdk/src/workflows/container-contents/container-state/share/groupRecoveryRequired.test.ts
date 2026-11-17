@@ -5,8 +5,8 @@ import {
   ROOT_CONTAINER_ID,
   setUpAdminGroupRoot,
 } from "../../../../../test/helpers/adminGroupRoot";
+import { principalPolicyHead } from "../../../../../test/helpers/data/principalPolicyFixtures";
 import { missingPrincipalRecoveryFixture } from "../../../../../test/helpers/missingPrincipalRecovery";
-import { principalPolicyHead } from "../../../../../test/helpers/principalPolicyFixtures";
 import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import type { ContainerState } from "../../remoteHydration";
 import { shareRemoteContainerWithGroup } from "../remote";

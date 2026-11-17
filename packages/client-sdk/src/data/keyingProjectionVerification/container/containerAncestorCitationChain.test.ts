@@ -19,7 +19,7 @@ import {
   type Signer,
   successor,
   verifyPath,
-} from "../../../../test/helpers/ancestorCitationScenario";
+} from "../../../../test/helpers/data/ancestorCitationScenario";
 
 // Citations along a deeper chain, and the two paths a move cites.
 

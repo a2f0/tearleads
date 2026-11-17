@@ -4,9 +4,9 @@ import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
+import { createAuthor } from "../../../../test/helpers/data/documentFixturePrimitives";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { clearRemoteSyncState } from "../../../workflows/sync/remoteReset";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";

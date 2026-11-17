@@ -22,7 +22,7 @@ import {
 import {
   createResponseFromRequest,
   type DocumentCreateFixture,
-} from "../../../../../test/helpers/documentFixtures";
+} from "../../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import {
   createEchoDocumentSyncResponse,

@@ -6,7 +6,7 @@ import {
   spyOn,
   test,
 } from "bun:test";
-import { waitFor } from "../../../test/helpers/waitFor";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import type { DomainScope } from "../shared/domainScope";
 import { createDomainScope } from "../shared/domainScope";
 import {

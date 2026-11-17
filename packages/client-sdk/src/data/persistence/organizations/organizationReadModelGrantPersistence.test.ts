@@ -5,7 +5,7 @@ import type {
   OrganizationContainerGrantsResponse,
   OrganizationReadModelDeltaResponse,
 } from "@tearleads/validators/response";
-import { organizationReadModelSnapshot } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
+import { organizationReadModelSnapshot } from "../../../../test/helpers/data/organizationReadModelPersistenceFixtures";
 import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 const CREATED_AT = "2026-07-17T12:00:00.000Z";

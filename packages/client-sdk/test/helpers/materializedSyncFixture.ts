@@ -2,9 +2,9 @@ import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
-import { createAuthor } from "./documentFixturePrimitives";
-import { createResponse } from "./documentResponseFixtures";
-import { createTestTrustedUserIdentityResolver } from "./trustedUserIdentity";
+import { createAuthor } from "./data/documentFixturePrimitives";
+import { createResponse } from "./data/documentResponseFixtures";
+import { createTestTrustedUserIdentityResolver } from "./data/trustedUserIdentity";
 
 export async function createMaterializedSyncFixture(
   input: {

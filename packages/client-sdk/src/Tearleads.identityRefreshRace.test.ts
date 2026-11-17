@@ -4,7 +4,7 @@ import {
   generateIdentityKeyPairsFromSeedPhrase,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { quietLogger } from "../test/helpers/clientTestSupport";
+import { quietLogger } from "../test/helpers/data/clientTestSupport";
 import { createMemoryBlobStore, Tearleads } from ".";
 import { createExecSql } from "./sqlite";
 

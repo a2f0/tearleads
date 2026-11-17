@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { computeUserIdentityBundleFingerprint } from "@tearleads/crypto";
-import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
+import { principalIdentityPinFixture } from "../../../test/helpers/data/principalIdentityPinFixture";
 import {
   evidence,
   GOOD_KEY,

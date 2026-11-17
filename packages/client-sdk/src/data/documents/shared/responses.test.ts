@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DocumentCreateResponse } from "@tearleads/validators/response";
-import { sealNextContentKeyEpoch } from "../../../../test/helpers/contentKeyBundleSealing";
+import { sealNextContentKeyEpoch } from "../../../../test/helpers/data/contentKeyBundleSealing";
 import {
   createAuthor,
   createPendingUpdateRecord,
@@ -11,7 +11,7 @@ import {
   fixtureHash,
   getOnlyTarget,
   writerKeyResolver,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlan/syncPlanMaterial";
 import { DatabaseUnavailableError } from "../../sqlite/availability/databaseUnavailable";

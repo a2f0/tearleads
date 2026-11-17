@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
+import { withTestExecSql } from "../../../../../test/helpers/data/withTestExecSql";
 import {
   CONTAINER_MOVE_INTENT_TYPE,
   type ContainerMoveIntentRecord,

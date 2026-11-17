@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { captureStatements } from "../../../../test/helpers/statementCapture";
+import { captureStatements } from "../../../../test/helpers/data/statementCapture";
 import { sqlContainerContentsPersistence as persistence } from "./containerContentsPersistence";
 import { DocumentMoveIntentRepository } from "./documentMoveIntentPersistence";
 

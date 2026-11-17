@@ -15,8 +15,8 @@ import {
   createContainerRevokeManifestFixture,
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../test/helpers/containerFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/containerFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 import { verifyContainerWriterProjection } from "../../keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";

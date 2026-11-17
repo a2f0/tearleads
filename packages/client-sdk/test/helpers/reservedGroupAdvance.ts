@@ -18,8 +18,8 @@ import {
   policyBundleFromInitialRequest,
   principalPolicyHead,
   signedPrincipalPolicyBundle,
-} from "./principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
+} from "./data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "./data/trustedUserIdentity";
 
 /**
  * A provisioned organization whose signed directory has advanced one reserved

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { OrganizationReadModelGroupMembershipsResponse } from "@tearleads/validators/response";
-import { withSqliteBindBudget } from "../../../../test/helpers/sqliteBindBudgetGuard";
+import { withSqliteBindBudget } from "../../../../test/helpers/data/sqliteBindBudgetGuard";
 import { organizationReadModelTables } from "../../sqlite/schema";
 import { organizationReadModelGroups } from "../../sqlite/schema/organizationReadModelSchema";
 import { sqliteInsertBatchSize } from "../../sqlite/sqliteBindBudget";

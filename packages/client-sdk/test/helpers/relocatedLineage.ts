@@ -10,13 +10,13 @@ import {
 } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
+import { createContainerMutationServiceFixture } from "./containerMutationServiceFixture";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
   createRecipientIdentityResolver,
-} from "./containerFixtures";
-import { createContainerMutationServiceFixture } from "./containerMutationServiceFixture";
+} from "./data/containerFixtures";
 import { createChildContainerProjection } from "./projectionHierarchy";
 
 export const CHILD_ID = "lineage-child";

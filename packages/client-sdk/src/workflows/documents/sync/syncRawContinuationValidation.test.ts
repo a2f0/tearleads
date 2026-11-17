@@ -4,7 +4,7 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";

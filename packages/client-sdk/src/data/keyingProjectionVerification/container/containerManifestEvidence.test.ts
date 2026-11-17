@@ -21,12 +21,12 @@ import {
 } from "@tearleads/crypto/container-access-test-fixtures";
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { manifestBundle } from "../../../../test/helpers/ancestorCitationScenario";
+import { manifestBundle } from "../../../../test/helpers/data/ancestorCitationScenario";
 import {
   createFixtureUserIdentity,
   createTestTrustedUserIdentity,
   fixtureProjectionMember,
-} from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/trustedUserIdentity";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { principalPolicyCacheForVerifiedPolicies } from "../principalPolicy/principalPolicyCache";

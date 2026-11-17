@@ -8,7 +8,7 @@ import {
   getTextValue,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { countingExecSql } from "../../../../test/helpers/statementCounting";
+import { countingExecSql } from "../../../../test/helpers/data/statementCounting";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";

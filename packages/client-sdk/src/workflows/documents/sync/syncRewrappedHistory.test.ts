@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { base64ToBytes } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sealContentKeyBundle } from "../../../../test/helpers/contentKeyBundleSealing";
+import { sealContentKeyBundle } from "../../../../test/helpers/data/contentKeyBundleSealing";
 import {
   createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { wrapDocumentContentKeyForCreate } from "../../../data/documents/shared/projection";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";

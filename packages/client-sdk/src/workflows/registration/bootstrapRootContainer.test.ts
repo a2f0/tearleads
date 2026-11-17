@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
+import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
 import {
   ensureContainerTables,
   loadContainers,

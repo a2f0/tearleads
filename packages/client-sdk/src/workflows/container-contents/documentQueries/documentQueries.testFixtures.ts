@@ -1,5 +1,5 @@
 import { emptyVersionVector } from "@tearleads/loro";
-import { insertQueuedUpdateRows } from "../../../../test/helpers/queuedUpdateRows";
+import { insertQueuedUpdateRows } from "../../../../test/helpers/data/queuedUpdateRows";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {

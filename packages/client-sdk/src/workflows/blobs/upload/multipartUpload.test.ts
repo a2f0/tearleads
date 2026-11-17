@@ -4,7 +4,7 @@ import {
   createMultipartApi,
   DEFAULT_CHUNK_SIZE,
   initiatedStage,
-} from "../../../../test/helpers/multipartUpload";
+} from "../../../../test/helpers/data/multipartUpload";
 import { stageMultipartBlobAttachment } from "./multipartUpload";
 
 describe("stageMultipartBlobAttachment", () => {

@@ -9,11 +9,11 @@ import {
   policyBundleAfterMutation,
   principalPolicyHead,
   signedPrincipalPolicyBundle,
-} from "./principalPolicyFixtures";
+} from "./data/principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "./projectionPolicyPages";
+} from "./data/projectionPolicyPages";
 
 /** Prepare a genuine rename to publish between the share read and grant mint. */
 export async function prepareCurrentShareRename(

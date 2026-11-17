@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
-import { readTableColumns } from "../../../test/helpers/sqlitePragma";
+import { readTableColumns } from "../../../test/helpers/data/sqlitePragma";
 import type { SqlTableSchema } from "./sqlSchema";
 import { defineSqlTableSchema, ensureSqlTables } from "./sqlTableSchema";
 

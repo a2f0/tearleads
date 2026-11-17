@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
 import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
-import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
+import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
+import {
+  projectionHistoryPages,
+  projectionPolicySource,
+} from "../../../../test/helpers/data/projectionPolicyPages";
 import {
   createPrincipalReciteFixture,
   ORGANIZATION_ID,
   ROOT_CONTAINER_ID,
   SECOND_CONTAINER_ID,
 } from "../../../../test/helpers/principalReciteFixtures";
-import {
-  projectionHistoryPages,
-  projectionPolicySource,
-} from "../../../../test/helpers/projectionPolicyPages";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
 import {
   openPrincipalPolicyBundleReader,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { principalMutationJournalFixture } from "../../../../test/helpers/principalMutationJournalFixture";
+import { principalMutationJournalFixture } from "../../../../test/helpers/data/principalMutationJournalFixture";
 import { PrincipalMutationJournalRepository } from "../../../data/persistence/principalMutationJournalPersistence";
 import { sealPrincipalMutation } from "../../../data/principals/principalMutationJournal";
 import {

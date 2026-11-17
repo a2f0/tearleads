@@ -9,7 +9,7 @@ import {
   createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import { createAuthor } from "../../../../../test/helpers/containerFixtures";
+import { createAuthor } from "../../../../../test/helpers/data/containerFixtures";
 import {
   createShareTestRuntime,
   runGroupShareScenario,

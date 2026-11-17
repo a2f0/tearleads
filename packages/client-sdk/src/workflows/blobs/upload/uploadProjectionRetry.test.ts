@@ -5,7 +5,7 @@ import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blo
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
-} from "../../../../test/helpers/blobUploadFixtures";
+} from "../../../../test/helpers/data/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 

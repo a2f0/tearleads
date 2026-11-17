@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
 import { initialCurrentPublicationFixture } from "../../../../test/helpers/initialCurrentPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   principalHistoryEntries,

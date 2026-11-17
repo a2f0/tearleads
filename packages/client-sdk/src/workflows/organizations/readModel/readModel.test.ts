@@ -5,7 +5,7 @@ import {
   organizationPrincipalPolicy,
   principalPolicy,
   userDetail,
-} from "../../../../test/helpers/organizationReadModelFixtures";
+} from "../../../../test/helpers/data/organizationReadModelFixtures";
 import {
   buildOrganizationGroupPolicyHistory,
   buildOrganizationPolicyHistory,

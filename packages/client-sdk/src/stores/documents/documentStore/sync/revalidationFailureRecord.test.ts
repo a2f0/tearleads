@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   insertQueuedUpdateRows,
   QUEUED_UPDATES_SQL,
-} from "../../../../../test/helpers/queuedUpdateRows";
+} from "../../../../../test/helpers/data/queuedUpdateRows";
 import { DocumentSyncUpdateIsolationError } from "../../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";

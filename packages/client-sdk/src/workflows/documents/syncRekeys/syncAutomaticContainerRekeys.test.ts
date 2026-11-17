@@ -4,11 +4,11 @@ import {
   createForkedRotatedAncestorFixture,
   createRotatedAncestorFixture,
 } from "../../../../test/helpers/ancestorRotationRecovery";
-import { writerKeyResolver } from "../../../../test/helpers/documentFixtures";
+import { writerKeyResolver } from "../../../../test/helpers/data/documentFixtures";
 import {
   createPendingUpdateRecord,
   createResponseFromRequest,
-} from "../../../../test/helpers/documentResponseFixtures";
+} from "../../../../test/helpers/data/documentResponseFixtures";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";

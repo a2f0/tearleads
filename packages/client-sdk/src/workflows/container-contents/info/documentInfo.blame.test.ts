@@ -7,7 +7,7 @@ import {
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createDocumentWriterProjection } from "../../../../test/helpers/documentInfoFixtures";
+import { createDocumentWriterProjection } from "../../../../test/helpers/data/documentInfoFixtures";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { loadDocumentInfo } from "./documentInfo";
 

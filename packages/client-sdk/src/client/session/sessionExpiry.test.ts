@@ -4,7 +4,7 @@ import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   quietLogger,
   setGeneratedIdentity,
-} from "../../../test/helpers/clientTestSupport";
+} from "../../../test/helpers/data/clientTestSupport";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { Tearleads } from "../../Tearleads";
 

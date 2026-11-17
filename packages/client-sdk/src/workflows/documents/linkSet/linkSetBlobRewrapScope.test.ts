@@ -12,7 +12,7 @@ import {
   createBlobBytesResponse,
   createFixtureBinding,
 } from "../../../../test/helpers/blobHydrationFixture";
-import { createLinkSetResponseFromRequest } from "../../../../test/helpers/documentFixtures";
+import { createLinkSetResponseFromRequest } from "../../../../test/helpers/data/documentFixtures";
 import { createRelinkScopeFixture } from "../../../../test/helpers/linkSetBlobRewrapScope";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import {

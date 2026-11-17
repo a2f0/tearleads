@@ -3,7 +3,7 @@ import type { ApiClient } from "@tearleads/api-client";
 import {
   noIdentityChange,
   setGeneratedIdentity,
-} from "../../../test/helpers/clientTestSupport";
+} from "../../../test/helpers/data/clientTestSupport";
 import { createIdentity } from "../identity";
 import { Database } from "../runtime/database";
 import { createSession } from "./index";

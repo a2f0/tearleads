@@ -1,11 +1,11 @@
 import { expect, spyOn, test } from "bun:test";
 import * as crypto from "@tearleads/crypto";
+import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyFixtures";
+import { verifyReceivedPolicySnapshot } from "../../../test/helpers/data/principalSnapshotVerificationCache";
 import {
   createOrganizationHistoryFixture,
   policySnapshot,
 } from "../../../test/helpers/organizationPolicyHistory";
-import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { verifyReceivedPolicySnapshot } from "../../../test/helpers/principalSnapshotVerificationCache";
 
 test("reused proof bytes skip signatures while changed bytes and trusted keys still fail", async () => {
   const data = await createOrganizationHistoryFixture();

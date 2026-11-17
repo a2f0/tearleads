@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import type { PrincipalPolicyStateChainEntryResponse } from "@tearleads/validators/response";
 import type { OrganizationLeaveRequest } from "@tearleads/validators/util";
-import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { createFixtureUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import type { RecoveredPrincipalHistoryPage } from "../../principals/historyRecovery/loadRecoveredPrincipalHistoryPage";
 import {
   createLeaveRequestMembershipCheck,

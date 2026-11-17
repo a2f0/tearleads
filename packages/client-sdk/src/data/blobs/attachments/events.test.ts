@@ -3,7 +3,7 @@ import {
   readKeyingCanonicalJson,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
+import { createAuthor } from "../../../../test/helpers/data/documentFixturePrimitives";
 import {
   signBlobAttachmentDetachEvent,
   signBlobAttachmentEvent,

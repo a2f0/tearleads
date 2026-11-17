@@ -8,7 +8,7 @@ import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_PROJECTION_ERROR_CODES,
 } from "@tearleads/validators/response";
-import { createPendingUpdateRecord } from "../../../../test/helpers/documentFixtures";
+import { createPendingUpdateRecord } from "../../../../test/helpers/data/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { describeDocumentRevalidationFailure } from "../syncFailures/syncFailureClassification";

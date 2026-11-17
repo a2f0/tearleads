@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
-import { createAuthor } from "../../../../test/helpers/containerFixtures";
-import { principalRepairEvidence } from "../../../../test/helpers/principalRepairEvidence";
+import { createAuthor } from "../../../../test/helpers/data/containerFixtures";
+import { principalRepairEvidence } from "../../../../test/helpers/data/principalRepairEvidence";
 import type { DocumentSyncPlan } from "../../../data/documents/shared/sync/documentSyncTypes";
 import type {
   PrincipalPolicyResolveRequest,

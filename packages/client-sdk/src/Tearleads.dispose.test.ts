@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   quietLogger,
   setGeneratedIdentity,
-} from "../test/helpers/clientTestSupport";
+} from "../test/helpers/data/clientTestSupport";
 import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import { getOrCreateDomainSyncCoordinator } from "./data/sync/syncCoordinator";
 import { Tearleads } from "./Tearleads";

@@ -1,8 +1,8 @@
 import { beforeAll, expect, test } from "bun:test";
 import { verifyPrincipalPolicyHistoryReferences } from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
-import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
+import { createPublicHistoryFixture } from "../../../../test/helpers/data/publicPrincipalHistory";
 import { isProjectionVerificationCancelledError } from "../../../data/keyingProjectionVerification/types";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import {

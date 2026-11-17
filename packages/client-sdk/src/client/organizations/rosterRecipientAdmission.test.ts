@@ -57,7 +57,7 @@ async function fixtureRuntime() {
   ).mockReturnValue(served);
   // Observing the candidate is structural, not the admission being tested.
   const { createTestTrustedUserIdentity } = await import(
-    "../../../test/helpers/trustedUserIdentity"
+    "../../../test/helpers/data/trustedUserIdentity"
   );
   resolver.mockResolvedValue(
     createTestTrustedUserIdentity({

@@ -8,7 +8,7 @@ import {
   NOW,
   ORGANIZATION,
   remember,
-} from "../../../../test/helpers/verifiedCitationReads";
+} from "../../../../test/helpers/data/verifiedCitationReads";
 import { containers } from "../../sqlite/schema/containerSchema";
 import { documentContainerProjection } from "../../sqlite/schema/documentProjectionSchema";
 import { verifiedAccessManifestBundles as bundles } from "../../sqlite/schema/verifiedManifestBundleSchema";

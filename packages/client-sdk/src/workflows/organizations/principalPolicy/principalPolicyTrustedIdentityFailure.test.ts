@@ -11,17 +11,17 @@ import {
   buildInitialGroupPolicyRequest,
   readTestGroupName,
   testGroupMetadataKey,
-} from "../../../../test/helpers/groupMetadata";
+} from "../../../../test/helpers/data/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   createFixtureUserIdentity,
   createTestTrustedUserIdentity,
-} from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/trustedUserIdentity";
 import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";
 import type { TrustedUserIdentity } from "../../../data/trustedUserIdentity";
 import { assertGroupMembershipName } from "../groupNames/groupMembershipName";

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
-import { noIdentityChange } from "../../../test/helpers/clientTestSupport";
+import { noIdentityChange } from "../../../test/helpers/data/clientTestSupport";
 import { createIdentity } from "./index";
 
 function createTestIdentity() {

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { readTestGroupName } from "../../../../test/helpers/groupMetadata";
-import { createGroupNameDirectory } from "../../../../test/helpers/groupNameDirectory";
+import { readTestGroupName } from "../../../../test/helpers/data/groupMetadata";
+import { createGroupNameDirectory } from "../../../../test/helpers/data/groupNameDirectory";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { createAuthorityRecoveryFixture } from "../../../../test/helpers/principalAuthorityRecovery";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import {
   principalPolicyBundles,
   principalPolicyCheckpoints,

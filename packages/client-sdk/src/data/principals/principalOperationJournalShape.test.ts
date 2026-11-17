@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { sign } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { principalMutationJournalFixture } from "../../../test/helpers/principalMutationJournalFixture";
+import { principalMutationJournalFixture } from "../../../test/helpers/data/principalMutationJournalFixture";
 import {
   openPrincipalMutation,
   sealPrincipalMutation,

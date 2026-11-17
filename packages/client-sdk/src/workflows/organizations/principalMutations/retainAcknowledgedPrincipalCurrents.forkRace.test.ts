@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { runWithSecurityIncidentReporting } from "../../../data/shared/securityIncidents";
 import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";

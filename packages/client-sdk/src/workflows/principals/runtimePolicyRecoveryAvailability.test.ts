@@ -2,12 +2,12 @@ import { beforeAll, expect, test } from "bun:test";
 import type { ApiClient } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createMockApiClient } from "@tearleads/test-utils";
+import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/data/principalPolicyCheckpointPins";
+import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyFixtures";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
-import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/principalPolicyCheckpointPins";
-import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";

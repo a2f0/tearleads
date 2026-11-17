@@ -16,17 +16,17 @@ import {
 import {
   createManagedContainerWrap,
   createRotatedGroupPolicy,
-} from "../../../../test/helpers/coldGrantPolicyFixtures";
-import { createAuthor } from "../../../../test/helpers/documentFixtures";
-import { rotateRootKekKeyringFixture } from "../../../../test/helpers/keyringRotationFixtures";
-import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { createRepairWarmer } from "../../../../test/helpers/principalPolicyRepair";
+} from "../../../../test/helpers/data/coldGrantPolicyFixtures";
+import { createAuthor } from "../../../../test/helpers/data/documentFixtures";
+import { rotateRootKekKeyringFixture } from "../../../../test/helpers/data/keyringRotationFixtures";
+import { createPolicyDirectoryFixture } from "../../../../test/helpers/data/policyDirectoryFixtures";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   createTestTrustedUserIdentityResolver,
   trustedUserIdentityFromResponse,
-} from "../../../../test/helpers/trustedUserIdentity";
-import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
+} from "../../../../test/helpers/data/trustedUserIdentity";
+import { withTestExecSql } from "../../../../test/helpers/data/withTestExecSql";
+import { createRepairWarmer } from "../../../../test/helpers/principalPolicyRepair";
 import { unwrapDocumentSyncResponseContentKeys } from "../../../workflows/documents/syncPlan/syncContentKeys";
 
 import { createProjectionCheckpointContext } from "../../keyingProjectionVerification/checkpoints/checkpointContext";

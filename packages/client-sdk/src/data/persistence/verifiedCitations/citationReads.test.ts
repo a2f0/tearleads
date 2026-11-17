@@ -5,7 +5,7 @@ import {
   hash,
   NOW,
   remember,
-} from "../../../../test/helpers/verifiedCitationReads";
+} from "../../../../test/helpers/data/verifiedCitationReads";
 import { documentContainerProjection } from "../../sqlite/schema/documentProjectionSchema";
 import { loadVerifiedManifestCitations } from "../verifiedManifestBundlePersistence";
 

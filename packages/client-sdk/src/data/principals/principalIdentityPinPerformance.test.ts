@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
+import { principalIdentityPinFixture } from "../../../test/helpers/data/principalIdentityPinFixture";
 
 test("a partially pinned policy resolves only the unpinned identities", async () => {
   const fixture = await principalIdentityPinFixture(8);

@@ -4,10 +4,10 @@ import {
   MAX_CONTAINER_PATH_LENGTH,
   MAX_INLINE_CONTAINER_REKEYS,
 } from "@tearleads/validators/util";
-import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
+import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
+import { writerKeyResolver } from "../../../../test/helpers/data/documentFixtures";
+import { createPendingUpdateRecord } from "../../../../test/helpers/data/documentResponseFixtures";
 import { prepareDeepDocumentRepairFixture } from "../../../../test/helpers/deepDocumentRepairFixture";
-import { writerKeyResolver } from "../../../../test/helpers/documentFixtures";
-import { createPendingUpdateRecord } from "../../../../test/helpers/documentResponseFixtures";
 import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
 import { prepareAutomaticContainerRekeys } from "./syncContainerRekeyPreparation";

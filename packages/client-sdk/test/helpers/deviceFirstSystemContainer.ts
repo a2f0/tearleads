@@ -9,7 +9,7 @@ import {
   createContainerContentsTestRuntime,
   seedLocalRootContainer,
 } from "../../src/stores/container-contents/runtime.testFixtures";
-import { waitFor } from "./waitFor";
+import { waitFor } from "./data/waitFor";
 
 // A non-built-in system slot is enough to exercise the device-first create path;
 // the slot string only needs to be stable for `findSystemContainerState`.

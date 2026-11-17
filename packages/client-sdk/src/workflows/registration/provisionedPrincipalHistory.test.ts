@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
-import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
+import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
+import { respondToOrganizationProvisioning } from "../../../test/helpers/data/organizationProvisioningResponder";
 import {
   createFounder,
   createPrimingRuntime,

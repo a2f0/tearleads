@@ -4,8 +4,8 @@ import {
   asContainerMutationFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import { createMutationResponseFromRequest } from "../../../../../test/helpers/containerFixtures";
 import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
+import { createMutationResponseFromRequest } from "../../../../../test/helpers/data/containerFixtures";
 import { buildRotatedDocumentContentKeyBundle } from "../../../../data/documents/shared/projection";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { DocumentRawHistoryUnavailableError } from "../../../../workflows/documents";

@@ -10,6 +10,7 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createAuthor,
   createMutationResponseFromRequest,
@@ -18,8 +19,7 @@ import {
   createRecipientIdentityResolver,
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
-} from "../../../../../test/helpers/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
+} from "../../../../../test/helpers/data/containerFixtures";
 
 test("shareRemoteContainer rejects tampered projected container state before sending", async () => {
   const parent = await createParentProjection();

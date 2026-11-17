@@ -7,8 +7,8 @@ import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../../test/helpers/containerFixtures";
-import { createResponseFromRequest } from "../../../../../test/helpers/documentFixtures";
+} from "../../../../../test/helpers/data/containerFixtures";
+import { createResponseFromRequest } from "../../../../../test/helpers/data/documentFixtures";
 import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";

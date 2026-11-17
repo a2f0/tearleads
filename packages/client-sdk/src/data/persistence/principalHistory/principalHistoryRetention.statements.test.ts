@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
-import { retentionBatchFixture } from "../../../../test/helpers/principalRetentionBatch";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
+import { retentionBatchFixture } from "../../../../test/helpers/data/principalRetentionBatch";
 
 // Counts are executor calls against real SQLite, including BEGIN/COMMIT;
 // fixture setup and result reads are deliberately outside the measured pass.

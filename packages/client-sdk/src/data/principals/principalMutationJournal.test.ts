@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
-import { principalMutationJournalFixture as fixture } from "../../../test/helpers/principalMutationJournalFixture";
+import { principalMutationJournalFixture as fixture } from "../../../test/helpers/data/principalMutationJournalFixture";
 import {
   openPrincipalMutation,
   principalMutationJournalScopeId,
