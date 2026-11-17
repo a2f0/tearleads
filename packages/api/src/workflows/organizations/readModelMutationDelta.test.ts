@@ -5,6 +5,7 @@ import {
   withDatabaseStatementCounter,
 } from "@tearleads/api-shared/postgres";
 import { createTestUser } from "@tearleads/test-utils";
+import { sql } from "drizzle-orm";
 import invariant from "invariant";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { loadOrganizationReadModelSnapshot } from "../../../test/helpers/organizationReadModel";
@@ -80,11 +81,12 @@ test("the committer's delta is the feed's page, under the feed's access check", 
   );
   invariant(feed.mode === "delta", "expected a feed delta");
   expect(deltas.served).toEqual(feed);
-  // The same statements as the feed's own read, without its transaction:
-  // a mutation that carries the delta saves a whole feed request.
+  // The feed's own statements, with a savepoint's two control statements in
+  // place of the feed's transaction control (which PGlite does not count): a
+  // mutation that carries the delta saves a whole feed request.
   expect(counter.statements).toBe(
-    feedCounter.statements -
-      (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    feedCounter.statements +
+      (getDefaultApiDatabaseKind() === "postgres" ? 0 : 2),
   );
 });
 
@@ -125,4 +127,38 @@ test("a held cursor other than the head before the first stamp earns no delta", 
   );
   expect(afterFirstStamp).toBeUndefined();
   expect(otherOrganization).toBeUndefined();
+});
+
+test("a delta read that fails in SQL leaves the mutation's transaction usable", async () => {
+  const { organizationId, owner, snapshot } = await organizationWithSnapshot();
+  const delta = await db.transaction(async (tx) => {
+    await appendOrganizationReadModelChangeInTransaction(tx, {
+      lanes: ["directory"],
+      organizationId,
+    });
+    // The directory lane's query then fails in SQL, inside the savepoint.
+    await tx.execute(
+      sql`alter table organization_roster_entries rename to roster_entries_hidden`,
+    );
+    const served = await loadCommittedReadModelDeltaInTransaction({
+      heldCursor: snapshot.nextCursor,
+      organizationId,
+      sessionUserId: owner.userId,
+      tx,
+    });
+    // An aborted transaction would refuse this statement.
+    await tx.execute(
+      sql`alter table roster_entries_hidden rename to organization_roster_entries`,
+    );
+    return served;
+  });
+
+  expect(delta).toBeUndefined();
+  const feed = await runGetOrganizationReadModelWorkflow(
+    db,
+    organizationId,
+    owner.userId,
+    snapshot.nextCursor,
+  );
+  expect(Object.keys(feed.lanes)).toEqual(["directory"]);
 });

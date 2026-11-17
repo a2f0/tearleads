@@ -124,3 +124,14 @@ test("a committed delta applies only over the cursor its mutation sent", async (
     close();
   }
 });
+
+test("an unreadable projection begins a lease without a cursor", async () => {
+  const { close, execSql } = await createTestExecSql("committed-closed-test");
+  close();
+  const lease = await beginCommittedReadModel({
+    execSql,
+    organizationId,
+    userId,
+  });
+  expect(lease.heldCursor).toBeUndefined();
+});

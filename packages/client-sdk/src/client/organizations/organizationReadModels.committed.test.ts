@@ -39,7 +39,7 @@ async function committedFixture(name: string) {
       };
     },
   });
-  const workflowInput = createWorkflowInputFixture({
+  let workflowInput = createWorkflowInputFixture({
     apiClient,
     auth: { organizationId, userId },
     execSql,
@@ -48,7 +48,22 @@ async function committedFixture(name: string) {
     createInternalRuntimeFixture(() => workflowInput),
   );
   const scope = { execSql, organizationId, userId };
-  return { close, coordinator, execSql, requestedCursors, scope };
+  // A logout or identity switch hands the runtime a new domain scope.
+  const switchDomainScope = () => {
+    workflowInput = createWorkflowInputFixture({
+      apiClient,
+      auth: { organizationId, userId },
+      execSql,
+    });
+  };
+  return {
+    close,
+    coordinator,
+    execSql,
+    requestedCursors,
+    scope,
+    switchDomainScope,
+  };
 }
 
 test("an own mutation's delta presents without a feed request", async () => {
@@ -173,4 +188,30 @@ test("a delta that fails to apply resolves undefined, leaving the feed read", as
     f.coordinator.applyCommittedReadModel(organizationId, delta),
   ).resolves.toBeUndefined();
   expect(f.requestedCursors).toEqual([]);
+});
+
+test("a hint check overtaken by a scope switch applies nothing", async () => {
+  const f = await committedFixture("committed-read-model-switch-test");
+  try {
+    const lease = await beginCommittedReadModel(f.scope);
+    const checked = f.coordinator.loadAppliedCursor();
+    await Promise.resolve();
+    f.switchDomainScope();
+    lease.settle(
+      organizationReadModelGroupsDelta({
+        cursor: "cursor-2",
+        groupName: "Operators",
+      }),
+    );
+    await checked;
+
+    await expect(
+      new OrganizationReadModelRepository(
+        f.execSql,
+      ).loadOrganizationReadModelCursor(organizationId),
+    ).resolves.toBe("cursor-1");
+    expect(f.requestedCursors).toEqual([]);
+  } finally {
+    f.close();
+  }
 });

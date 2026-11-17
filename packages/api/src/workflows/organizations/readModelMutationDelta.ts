@@ -45,16 +45,23 @@ export async function loadCommittedReadModelDeltaInTransaction(input: {
   const held = decodeHeldCursor(input.heldCursor, input.organizationId);
   if (held === undefined || held !== stamps.first - 1n) return undefined;
   try {
-    return await loadOrganizationReadModelDeltaInTransaction({
-      organizationId: input.organizationId,
-      requestedCursor: held,
-      sessionUserId: input.sessionUserId,
-      tx: input.tx,
-    });
+    // A savepoint keeps the optional read from aborting the mutation: an SQL
+    // failure here rolls back to it, and the mutation commits as before.
+    return await input.tx.transaction((savepoint) =>
+      loadOrganizationReadModelDeltaInTransaction({
+        organizationId: input.organizationId,
+        requestedCursor: held,
+        sessionUserId: input.sessionUserId,
+        tx: savepoint,
+      }),
+    );
   } catch (error) {
-    // The feed answers these with 403, 404 or 409; the client's own read
-    // receives that answer instead.
-    if (error instanceof OrganizationManagerError) return undefined;
-    throw error;
+    // The feed answers an access refusal with 403, 404 or 409, which the
+    // client's own read then receives. Any other failure only omits the
+    // delta; the client reads the feed as before.
+    if (!(error instanceof OrganizationManagerError)) {
+      console.error("Failed to build the committed read-model delta:", error);
+    }
+    return undefined;
   }
 }

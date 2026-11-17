@@ -361,12 +361,22 @@ class OrganizationReadModelCoordinatorImpl
     active: ActiveOrganizationDataRuntime,
     offer: CommittedReadModelOffer,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
+    const { domainScope } = active.runtime.state;
     // A failure here only forgoes the delta: the caller reads the feed.
     try {
       const held = await loadHeldOrganizationReadModelCursor(
         committedScope(active),
       );
-      if (held !== offer.heldCursor) return undefined;
+      // A logout, identity or domain transition during the wait forgoes it.
+      if (
+        held !== offer.heldCursor ||
+        !isOrganizationDataRuntimeCurrent(
+          this.runtimeService,
+          active,
+          domainScope,
+        )
+      )
+        return undefined;
       return await this.presentReconciliation(active, () =>
         applyCommittedOrganizationReadModel({
           currentUserId: active.userId,

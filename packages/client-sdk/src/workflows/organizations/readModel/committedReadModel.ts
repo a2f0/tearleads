@@ -59,13 +59,16 @@ export interface CommittedReadModelLease {
  * Begin a mutation that sends the read-model cursor this requester's next
  * reconcile would request from, so its response can carry the delta from it.
  * Until it settles, a realtime hint's cursor check waits for it. No cursor is
- * held while the requester's presentation is denied: that reconcile requests
- * a snapshot.
+ * held while the requester's presentation is denied, since that reconcile
+ * requests a snapshot, or when the projection cannot be read.
  */
 export async function beginCommittedReadModel(
   scope: CommittedReadModelScope,
 ): Promise<CommittedReadModelLease> {
-  const heldCursor = await loadHeldOrganizationReadModelCursor(scope);
+  // An unreadable cursor only forgoes the delta; the mutation still goes out.
+  const heldCursor = await loadHeldOrganizationReadModelCursor(scope).catch(
+    () => undefined,
+  );
   if (heldCursor === undefined) {
     return { heldCursor, settle: () => {} };
   }
