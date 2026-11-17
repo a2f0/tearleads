@@ -8,6 +8,7 @@ import {
   principalPolicyHead,
 } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
+import { rotatingDirectoryView } from "../../../../test/helpers/workflows/rotatingDirectoryView";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { buildOrganizationGroupDirectoryPolicyRequest } from "../../../data/principals/organizationGroupDirectoryRequest";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../../data/principals/principalPolicyCrypto";
@@ -41,9 +42,10 @@ test("successive acknowledgements reclaim old stages while preserving predecesso
         current.currentPayload.ciphertext,
       );
       const request = await buildOrganizationGroupDirectoryPolicyRequest({
+        currentUserSecretKey: null,
         adminProjection: history.admin.currentProjection,
         adminUsers: [identity],
-        currentPolicy: current,
+        currentPolicy: rotatingDirectoryView(current),
         descriptor,
         groupHeads: descriptor.groupHeads,
         signerUserId: history.signerUserId,

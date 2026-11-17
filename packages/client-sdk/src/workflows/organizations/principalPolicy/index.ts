@@ -79,6 +79,8 @@ interface CommitAndCacheGroupPolicyMutationInput {
     | ((head: ReferencedPrincipalHead) => void)
     | undefined;
   readonly currentPolicy: PrincipalPolicyBundleResponse;
+  /** The signer's KEM secret; it keeps the directory key when admins grow. */
+  readonly currentUserSecretKey: Uint8Array | null;
   readonly execSql: ExecSql;
   readonly externalAuthority: PrincipalPolicyExternalAuthority | undefined;
   readonly groupId: string;
@@ -151,6 +153,7 @@ async function commitAndCacheGroupPolicyMutation(
       adminProjection: nextAdminProjection,
       adminUsers,
       currentPolicy: input.policyContext.organizationPolicyBundle,
+      currentUserSecretKey: input.currentUserSecretKey,
       descriptor: input.policyContext.organizationDescriptor,
       groupHeads: replaceOrganizationGroupHead({
         descriptor: input.policyContext.organizationDescriptor,
@@ -263,6 +266,7 @@ export async function addOrganizationGroupUser(input: {
     targetUser,
   });
   return commitAndCacheGroupPolicyMutation({
+    currentUserSecretKey: input.currentUserSecretKey,
     afterPolicyCommitBeforeCache: input.afterPolicyCommitBeforeCache,
     apiClient: input.apiClient,
     beforePolicyCommit: (head) =>
@@ -331,6 +335,7 @@ export async function removeOrganizationGroupUser(input: {
     removedUserId: input.removedUserId,
   });
   return commitAndCacheGroupPolicyMutation({
+    currentUserSecretKey: null,
     afterPolicyCommitBeforeCache: input.afterPolicyCommitBeforeCache,
     apiClient: input.apiClient,
     beforePolicyCommit: (head) =>
@@ -384,6 +389,7 @@ export async function setOrganizationGroupContainerGrant(input: {
     containerId: input.containerId,
   });
   return commitAndCacheGroupPolicyMutation({
+    currentUserSecretKey: null,
     apiClient: input.apiClient,
     assertCanCommit: input.assertCanCommit,
     currentPolicy: policyContext.currentPolicy,
@@ -436,6 +442,7 @@ export async function rotateOrganizationGroupForAccessSetShrink(input: {
     revokedContainerId: input.revokedContainerId,
   });
   return commitAndCacheGroupPolicyMutation({
+    currentUserSecretKey: null,
     apiClient: input.apiClient,
     currentPolicy: policyContext.currentPolicy,
     execSql: input.execSql,

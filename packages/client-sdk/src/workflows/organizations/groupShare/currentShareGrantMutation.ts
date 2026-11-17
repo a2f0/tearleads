@@ -66,6 +66,8 @@ export async function commitCurrentShareGrant(input: {
       const response = await commitCurrentGroupPolicyMutation({
         apiClient: share.apiClient,
         context,
+        // A grant change keeps the admins, so the directory key is kept.
+        currentUserSecretKey: null,
         groupId: share.recipientGroupId,
         organizationId: share.author.organizationId,
         request,

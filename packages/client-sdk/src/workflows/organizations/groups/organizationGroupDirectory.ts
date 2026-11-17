@@ -102,6 +102,7 @@ export async function commitCreatedGroupToDirectory(input: {
       adminProjection,
       adminUsers,
       currentPolicy: input.externalAdminPolicy.bundle,
+      currentUserSecretKey: null,
       descriptor: input.externalAdminPolicy.descriptor,
       groupHeads: [
         ...input.externalAdminPolicy.descriptor.groupHeads,

@@ -58,6 +58,7 @@ export async function deleteOrganizationGroup(input: {
       adminProjection,
       adminUsers,
       currentPolicy: externalAdminPolicy.bundle,
+      currentUserSecretKey: null,
       descriptor: externalAdminPolicy.descriptor,
       groupHeads: removeOrganizationGroupHead({
         descriptor: externalAdminPolicy.descriptor,

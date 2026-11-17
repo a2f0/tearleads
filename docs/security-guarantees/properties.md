@@ -163,6 +163,14 @@ addressed to that unchanged key. Strong post-removal confidentiality requires
 publishing a successor policy state with a fresh principal key epoch and fresh
 member envelopes for the remaining members.
 
+The organization policy follows the same rule for its directory key. A
+directory write (group create, group policy commit, group delete) keeps the
+key, epoch and envelopes while the Admins projection is unchanged, and when
+admins are only added it wraps the held key for them alone. Any removal or
+changed admin identity rotates to a fresh key wrapped for the remaining
+admins, so a removed admin never holds the current organization key
+([model](../../formal/container-keying/OrganizationDirectoryKey.md)).
+
 ### Managed Grants Fail Closed
 
 Group [container grants](../glossary/access.md#grant) require an active signed group

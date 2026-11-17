@@ -1,18 +1,14 @@
 import {
   buildPrincipalStateSigningInput,
-  generateKemSeedAndKeyPair,
   normalizePrincipalProjectionMembers,
   type ReferencedPrincipalHead,
   type SigningKeyPair,
   signPrincipalState,
-  toFingerprint,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   PrincipalProjectionMemberRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   encodeOrganizationAuthorityDescriptor,
   normalizeOrganizationGroupHeads,
@@ -20,7 +16,10 @@ import {
   type OrganizationGroupHead,
 } from "../principalContracts/organizationAuthorityDescriptor";
 import type { TrustedUserIdentity } from "../trustedUserIdentity";
-import { rewrapProjectionMemberEnvelopes } from "./principalPolicyRecipients";
+import {
+  type OrganizationDirectoryCurrentPolicy,
+  organizationDirectoryKeying,
+} from "./organizationDirectoryKeying";
 
 export function organizationGroupHead(
   head: ReferencedPrincipalHead,
@@ -44,10 +43,17 @@ export function replaceOrganizationGroupHead(input: {
   ]);
 }
 
+/**
+ * The organization's successor directory state. Its key follows the Admins
+ * projection (see `organizationDirectoryKeying`): `currentUserSecretKey` is
+ * the signer's KEM secret, needed only to keep the key while admins grow;
+ * without it a growth rotates.
+ */
 export async function buildOrganizationGroupDirectoryPolicyRequest(input: {
   readonly adminProjection: readonly PrincipalProjectionMemberRequest[];
   readonly adminUsers: readonly TrustedUserIdentity[];
-  readonly currentPolicy: Pick<PrincipalPolicyBundleResponse, "currentState">;
+  readonly currentPolicy: OrganizationDirectoryCurrentPolicy;
+  readonly currentUserSecretKey: Uint8Array | null;
   readonly descriptor: OrganizationAuthorityDescriptor;
   readonly groupHeads: readonly OrganizationGroupHead[];
   readonly signerUserId: string;
@@ -61,10 +67,10 @@ export async function buildOrganizationGroupDirectoryPolicyRequest(input: {
   ) {
     throw new Error("Organization policy must mirror the Admins projection");
   }
-  const organizationKem = generateKemSeedAndKeyPair();
-  const memberEnvelopes = await rewrapProjectionMemberEnvelopes({
+  const keying = await organizationDirectoryKeying({
+    currentPolicy: input.currentPolicy,
+    currentUserSecretKey: input.currentUserSecretKey,
     projection,
-    secretKey: organizationKem.secretKey,
     users: input.adminUsers,
   });
   const payloadCiphertext = encodeOrganizationAuthorityDescriptor({
@@ -77,11 +83,11 @@ export async function buildOrganizationGroupDirectoryPolicyRequest(input: {
       principalId: input.descriptor.organizationId,
       version: input.currentPolicy.currentState.version + 1,
       prevStateHash: input.currentPolicy.currentState.stateHash,
-      keyEpoch: input.currentPolicy.currentState.keyEpoch + 1,
-      encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
-      keyFingerprint: await toFingerprint(organizationKem.publicKey),
+      keyEpoch: keying.keyEpoch,
+      encapsulationPublicKey: keying.encapsulationPublicKey,
+      keyFingerprint: keying.keyFingerprint,
       members: projection.map((member) => ({ userId: member.userId })),
-      memberEnvelopes,
+      memberEnvelopes: keying.memberEnvelopes,
       projection,
       grants: [],
       payloadCiphertext,
@@ -100,7 +106,7 @@ export async function buildOrganizationGroupDirectoryPolicyRequest(input: {
       ciphertextHash: state.payloadCiphertextHash,
     },
     grants: [],
-    memberEnvelopes,
+    memberEnvelopes: keying.memberEnvelopes,
     projection,
     state,
   };

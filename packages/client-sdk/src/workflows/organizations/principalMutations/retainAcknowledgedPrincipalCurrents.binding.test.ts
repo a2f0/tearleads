@@ -113,6 +113,7 @@ test("individually valid receipts cannot publish a group absent from the acknowl
     // This valid directory successor still cites group version 66, not the
     // separately acknowledged group version 67 in the same local batch.
     const request = await buildOrganizationGroupDirectoryPolicyRequest({
+      currentUserSecretKey: null,
       currentPolicy: history.directory,
       descriptor,
       groupHeads: descriptor.groupHeads,

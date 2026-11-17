@@ -15,6 +15,7 @@ import {
   principalPolicyHead,
 } from "../data/principalPolicyFixtures";
 import { currentPolicyAcknowledgementFixture } from "./currentPolicyAcknowledgement";
+import { rotatingDirectoryView } from "./rotatingDirectoryView";
 
 export async function currentPolicyPublicationFixture(
   history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>,
@@ -41,9 +42,11 @@ export async function currentPolicyPublicationFixture(
     );
     const organizationRequest =
       await buildOrganizationGroupDirectoryPolicyRequest({
+        currentUserSecretKey: null,
         adminProjection: history.admin.currentProjection,
         adminUsers: [identity],
-        currentPolicy: history.directory,
+        // Rotate, so the publication also retires the predecessor's key.
+        currentPolicy: rotatingDirectoryView(history.directory),
         descriptor,
         groupHeads: replaceOrganizationGroupHead({
           descriptor,

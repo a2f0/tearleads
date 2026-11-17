@@ -35,6 +35,8 @@ export async function deleteCurrentOrganizationGroup(input: {
       userIds: projectionUserIds(adminProjection),
     }),
     currentPolicy: context.directory.current,
+    // Deleting a group leaves the admins unchanged, so the key is kept.
+    currentUserSecretKey: null,
     descriptor: context.descriptor,
     groupHeads: removeOrganizationGroupHead({
       descriptor: context.descriptor,
