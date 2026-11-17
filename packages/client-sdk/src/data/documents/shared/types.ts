@@ -216,7 +216,7 @@ type DocumentLinkSetMutationResult =
   | (DocumentLinkSetMutationFailure & {
       readonly ok: false;
       /** The host report a `reportErrors: false` request withheld. */
-      readonly report: () => void;
+      readonly report?: (() => void) | undefined;
     });
 
 export interface DocumentLinkSetMutationApi {

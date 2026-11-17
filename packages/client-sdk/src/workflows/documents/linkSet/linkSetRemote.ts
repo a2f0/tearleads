@@ -73,6 +73,9 @@ async function submitLinkSetMutation(input: {
   if (result.ok) {
     return result.data;
   }
+  // A refusal the operation no longer waits for is neither retried nor
+  // reported.
+  if (input.stillCurrent?.() === false) return null;
   input.onFailure({
     code: result.code,
     message: result.message,
@@ -87,7 +90,7 @@ function reportLinkSetFailure(
   input: Pick<RelinkRemoteDocumentInput, "onFailure">,
   failure: LinkSetSubmitFailure,
 ): void {
-  failure.report();
+  failure.report?.();
   input.onFailure?.({
     code: failure.code,
     message: failure.message,

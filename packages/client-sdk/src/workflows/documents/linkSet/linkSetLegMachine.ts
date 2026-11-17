@@ -13,7 +13,7 @@ export type LinkSetRewrapSource = "listed" | "reused" | "skipped";
 
 /** A submit refusal, with the deferred host report the API client withheld. */
 export interface LinkSetSubmitFailure extends DocumentLinkSetMutationFailure {
-  readonly report: () => void;
+  readonly report?: (() => void) | undefined;
 }
 
 /**

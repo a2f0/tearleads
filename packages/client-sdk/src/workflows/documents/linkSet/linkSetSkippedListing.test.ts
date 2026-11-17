@@ -104,7 +104,8 @@ async function runLinkLeg(
   name: string,
   input: {
     readonly refusals: readonly DocumentLinkSetMutationFailure[];
-    readonly stopsBeingCurrentOnRefusal?: boolean;
+    /** The 1-based submission during which the operation stops being current. */
+    readonly stopsBeingCurrentAt?: number;
     readonly view: LocalView;
   },
 ) {
@@ -134,7 +135,7 @@ async function runLinkLeg(
         linkDocumentResult: async (requestDocumentId, request) => {
           const refusal = input.refusals[counts.submissions];
           counts.submissions += 1;
-          if (refusal && input.stopsBeingCurrentOnRefusal) current = false;
+          if (counts.submissions === input.stopsBeingCurrentAt) current = false;
           return refusal
             ? linkSetRefusal(requestDocumentId, refusal, () => {
                 counts.hostReports += 1;
@@ -250,7 +251,7 @@ test("a refused retry is reported and not retried again", async () => {
 test("a refusal after the operation stopped being current is dropped", async () => {
   const run = await runLinkLeg("skipped-listing-refused-stale", {
     refusals: [ATTACHMENTS_CHANGED],
-    stopsBeingCurrentOnRefusal: true,
+    stopsBeingCurrentAt: 1,
     view: "empty",
   });
   expect(run).toMatchObject({
@@ -258,6 +259,21 @@ test("a refusal after the operation stopped being current is dropped", async () 
     hostReports: 0,
     listings: 0,
     submissions: 1,
+  });
+  expect(run.result).toBeNull();
+});
+
+test("a retry refused after the operation stopped being current is dropped", async () => {
+  const run = await runLinkLeg("skipped-listing-retry-stale", {
+    refusals: [ATTACHMENTS_CHANGED, ATTACHMENTS_CHANGED],
+    stopsBeingCurrentAt: 2,
+    view: "empty",
+  });
+  expect(run).toMatchObject({
+    failures: [],
+    hostReports: 0,
+    listings: 1,
+    submissions: 2,
   });
   expect(run.result).toBeNull();
 });
