@@ -121,14 +121,6 @@
     "packages/client-sdk/src/workflows/organizations/rosterProfileContainer.ts",
     "packages/client-sdk/src/workflows/registration/persistRegistrationBootstrap.ts"
   ],
-  "packages/client-sdk/src/data/sync/databaseUnavailable.ts": [
-    "packages/client-sdk/src/client/organizations/recipientAdmission.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/error.ts",
-    "packages/client-sdk/src/data/trustedUserIdentity/pinnedResolution.ts",
-    "packages/client-sdk/src/data/trustedUserIdentity/service.ts",
-    "packages/client-sdk/src/workflows/container-contents/documentLinks/index.ts",
-    "packages/client-sdk/src/workflows/documents/writerKeys.ts"
-  ],
   "packages/client-sdk/src/data/sync/organizationSyncPauses.ts": [
     "packages/client-sdk/src/client/containerContents/documentDiscovery.ts",
     "packages/client-sdk/src/workflows/container-contents/remoteHydration/remoteContainers/organizationSyncPauseFilter.ts"

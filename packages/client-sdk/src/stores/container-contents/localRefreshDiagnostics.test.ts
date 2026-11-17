@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
+import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { Tearleads } from "../../Tearleads";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { ContainerStateMap } from "./containerState/containerStateMap";
