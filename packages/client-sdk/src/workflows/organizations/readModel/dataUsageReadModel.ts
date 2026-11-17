@@ -4,7 +4,7 @@ import type {
 } from "@tearleads/api-client";
 import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
-import { recordOrganizationPresentationDenials } from "../../../data/persistence/organizations/organizationPresentationDenialPersistence";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   captureOrganizationPresentationAccessAttempt,
@@ -81,7 +81,9 @@ export async function reconcileOrganizationDataUsage(
       // the revoked usage projection.
       try {
         await runOrganizationPresentationMutation(input.execSql, () =>
-          recordOrganizationPresentationDenials(input, ["usage"]),
+          new OrganizationReadModelRepository(
+            input.execSql,
+          ).recordOrganizationPresentationDenials(input, ["usage"]),
         );
       } catch (error) {
         input.logError?.(

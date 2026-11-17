@@ -7,7 +7,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { CreateOrganizationResponse } from "@tearleads/validators/response";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
-import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createDiscoveredDocumentVerifier } from "../container-contents/documentDiscovery/documentDiscoveryEvidence";
 import { createOrganization } from "../organizations/provisioning/createOrganization";
@@ -67,7 +67,7 @@ test("provisioning seeds the signed heads of the documents it authored", async (
   try {
     const response = await provision(execSql);
     if (!response) throw new Error("Expected a provisioning response");
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     for (const { containerId, document } of seededDocuments(response)) {
       expect(await store.loadHead(document.id, document.manifestHash)).toEqual({
         organizationId: response.organizationId,
@@ -119,7 +119,7 @@ test("a seeded head is not reused once its access checkpoint moves", async () =>
       [document.id],
     );
     expect(
-      await createDocumentDiscoveryEvidenceStore(execSql).loadHead(
+      await new DocumentDiscoveryEvidenceRepository(execSql).loadHead(
         document.id,
         document.manifestHash,
       ),
@@ -145,7 +145,7 @@ test("an acknowledgement for a different document head seeds nothing", async () 
       }),
     ).rejects.toThrow();
     if (!tampered) throw new Error("Expected a provisioning response");
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     expect(await store.loadHead(tampered.id, tampered.manifestHash)).toBeNull();
     expect(
       await execSql("SELECT COUNT(*) AS count FROM document_discovery_heads"),

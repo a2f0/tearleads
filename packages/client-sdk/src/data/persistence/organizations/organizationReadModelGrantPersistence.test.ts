@@ -6,11 +6,7 @@ import type {
   OrganizationReadModelDeltaResponse,
 } from "@tearleads/validators/response";
 import { organizationReadModelSnapshot } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
-import {
-  applyOrganizationReadModelResponse,
-  loadOrganizationReadModelProjection,
-  purgeOrganizationReadModelProjection,
-} from "./organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 const CREATED_AT = "2026-07-17T12:00:00.000Z";
 const ORGANIZATION_ID = "organization-grants-v4";
@@ -75,13 +71,12 @@ function grantsDelta(input: {
 }
 
 async function applySnapshot(
-  execSql: Parameters<typeof applyOrganizationReadModelResponse>[0]["execSql"],
+  repository: OrganizationReadModelRepository,
   grants: readonly OrganizationContainerGrantResponse[],
 ): Promise<void> {
   await expect(
-    applyOrganizationReadModelResponse({
+    repository.applyOrganizationReadModelResponse({
       currentUserId: CURRENT_USER_ID,
-      execSql,
       requestedCursor: null,
       response: snapshotWithGrants(grants),
     }),
@@ -89,11 +84,10 @@ async function applySnapshot(
 }
 
 async function loadGrants(
-  execSql: Parameters<typeof applyOrganizationReadModelResponse>[0]["execSql"],
+  repository: OrganizationReadModelRepository,
 ): Promise<OrganizationContainerGrantsResponse | undefined> {
   return (
-    await loadOrganizationReadModelProjection(
-      execSql,
+    await repository.loadOrganizationReadModelProjection(
       ORGANIZATION_ID,
       CURRENT_USER_ID,
     )
@@ -104,36 +98,35 @@ test("grants deltas atomically replace the whole lane, including with empty stat
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-grants-replacement",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
-    await applySnapshot(execSql, [
+    await applySnapshot(repository, [
       groupGrant("container-1"),
       groupGrant("container-2"),
     ]);
-    await expect(loadGrants(execSql)).resolves.toMatchObject({
+    await expect(loadGrants(repository)).resolves.toMatchObject({
       grants: [{ containerId: "container-1" }, { containerId: "container-2" }],
     });
 
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: CURRENT_USER_ID,
-        execSql,
         requestedCursor: "cursor-1",
         response: grantsDelta({ grants: [groupGrant("container-3")] }),
       }),
     ).resolves.toBe("applied");
-    await expect(loadGrants(execSql)).resolves.toMatchObject({
+    await expect(loadGrants(repository)).resolves.toMatchObject({
       grants: [{ containerId: "container-3" }],
     });
 
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: CURRENT_USER_ID,
-        execSql,
         requestedCursor: "cursor-2",
         response: grantsDelta({ cursor: "cursor-3", grants: [] }),
       }),
     ).resolves.toBe("applied");
-    await expect(loadGrants(execSql)).resolves.toEqual({
+    await expect(loadGrants(repository)).resolves.toEqual({
       organizationId: ORGANIZATION_ID,
       grants: [],
     });
@@ -146,9 +139,10 @@ test("grants reject duplicate identities and lane scope without changing durable
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-grants-validation",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
     const original = groupGrant("container-original");
-    await applySnapshot(execSql, [original]);
+    await applySnapshot(repository, [original]);
 
     const invalidResponses = [
       grantsDelta({
@@ -167,21 +161,19 @@ test("grants reject duplicate identities and lane scope without changing durable
     ];
     for (const response of invalidResponses) {
       await expect(
-        applyOrganizationReadModelResponse({
+        repository.applyOrganizationReadModelResponse({
           currentUserId: CURRENT_USER_ID,
-          execSql,
           requestedCursor: "cursor-1",
           response,
         }),
       ).rejects.toThrow();
-      await expect(loadGrants(execSql)).resolves.toEqual({
+      await expect(loadGrants(repository)).resolves.toEqual({
         organizationId: ORGANIZATION_ID,
         grants: [original],
       });
     }
 
-    const projection = await loadOrganizationReadModelProjection(
-      execSql,
+    const projection = await repository.loadOrganizationReadModelProjection(
       ORGANIZATION_ID,
       CURRENT_USER_ID,
     );
@@ -195,12 +187,13 @@ test("large grants snapshots preserve wire order across insert batches", async (
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-grants-batching",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   const grants = Array.from({ length: 125 }, (_, index) =>
     groupGrant(`container-${String(index).padStart(3, "0")}`, `group-${index}`),
   );
   try {
-    await applySnapshot(execSql, grants);
-    const stored = await loadGrants(execSql);
+    await applySnapshot(repository, grants);
+    const stored = await loadGrants(repository);
     expect(stored?.grants).toHaveLength(grants.length);
     expect(stored?.grants.map((grant) => grant.containerId)).toEqual(
       grants.map((grant) => grant.containerId),
@@ -214,11 +207,12 @@ test("organization projection purge removes persisted grants", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-grants-purge",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
-    await applySnapshot(execSql, [groupGrant("container-purge")]);
-    await purgeOrganizationReadModelProjection(execSql, ORGANIZATION_ID);
+    await applySnapshot(repository, [groupGrant("container-purge")]);
+    await repository.purgeOrganizationReadModelProjection(ORGANIZATION_ID);
 
-    await expect(loadGrants(execSql)).resolves.toBeUndefined();
+    await expect(loadGrants(repository)).resolves.toBeUndefined();
     const rows = await execSql(
       "SELECT COUNT(*) FROM organization_read_model_container_grants",
       undefined,
@@ -234,9 +228,10 @@ test("a mid-apply storage failure rolls back the grants lane and cursor", async 
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-grants-rollback",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   try {
     const original = groupGrant("container-original");
-    await applySnapshot(execSql, [original]);
+    await applySnapshot(repository, [original]);
     await execSql(`CREATE TRIGGER fail_grant_insert
       BEFORE INSERT ON organization_read_model_container_grants
       WHEN NEW.container_id = 'container-fail'
@@ -245,9 +240,8 @@ test("a mid-apply storage failure rolls back the grants lane and cursor", async 
       END`);
 
     await expect(
-      applyOrganizationReadModelResponse({
+      repository.applyOrganizationReadModelResponse({
         currentUserId: CURRENT_USER_ID,
-        execSql,
         requestedCursor: "cursor-1",
         response: grantsDelta({
           grants: [groupGrant("container-ok"), groupGrant("container-fail")],
@@ -255,12 +249,11 @@ test("a mid-apply storage failure rolls back the grants lane and cursor", async 
       }),
     ).rejects.toThrow();
 
-    await expect(loadGrants(execSql)).resolves.toEqual({
+    await expect(loadGrants(repository)).resolves.toEqual({
       organizationId: ORGANIZATION_ID,
       grants: [original],
     });
-    const projection = await loadOrganizationReadModelProjection(
-      execSql,
+    const projection = await repository.loadOrganizationReadModelProjection(
       ORGANIZATION_ID,
       CURRENT_USER_ID,
     );

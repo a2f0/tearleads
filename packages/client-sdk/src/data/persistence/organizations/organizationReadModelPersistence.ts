@@ -5,9 +5,6 @@ import type {
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import { getOrCreatePrincipalPolicyCoordinator } from "../../principals/principalPolicyCoordinator";
-import { organizationReadModelTables } from "../../sqlite/schema";
-import { organizationDataUsageTables } from "../../sqlite/schema/organizationDataUsageSchema";
 import {
   organizationReadModelDirectoryUsers,
   organizationReadModelGroups,
@@ -15,11 +12,7 @@ import {
   organizationReadModelState,
 } from "../../sqlite/schema/organizationReadModelSchema";
 import { sqliteInsertBatchSize } from "../../sqlite/sqliteBindBudget";
-import {
-  type ClientSQLiteTransactionScope,
-  getClientSQLitePersistenceRuntime,
-} from "../../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { clearOrganizationPresentationDenialInTransaction } from "./organizationPresentationDenialPersistence";
 import { applyOrganizationReadModelGrantsLane } from "./organizationReadModelGrantPersistence";
 import {
@@ -27,16 +20,7 @@ import {
   assertStoredGroupMembershipBindings,
   OrganizationReadModelBindingError,
 } from "./organizationReadModelMembershipPersistence";
-import {
-  loadOrganizationReadModelProjectionInTransaction,
-  type OrganizationReadModelProjection,
-} from "./organizationReadModelProjection";
-import {
-  loadWithOrganizationReadModelIntegrityPurge,
-  pruneInactiveOrganizationRequestersInTransaction,
-  purgeOrganizationReadModelProjectionInTransaction,
-} from "./organizationReadModelPurge";
-import { assertOrganizationReadModelResponse } from "./organizationReadModelResponseAssertions";
+import { pruneInactiveOrganizationRequestersInTransaction } from "./organizationReadModelPurge";
 
 export type { OrganizationReadModelProjection } from "./organizationReadModelProjection";
 
@@ -47,7 +31,7 @@ const GROUP_INSERT_BATCH_SIZE = sqliteInsertBatchSize(
   organizationReadModelGroups,
 );
 
-type ApplyOrganizationReadModelResponseResult =
+export type ApplyOrganizationReadModelResponseResult =
   | "already-applied"
   | "applied"
   | "stale";
@@ -387,107 +371,56 @@ function requireMemberGroupId(input: {
   return memberGroupId;
 }
 
-export async function loadOrganizationReadModelProjection(
-  execSql: ExecSql,
-  organizationId: string,
-  currentUserId: string,
-): Promise<OrganizationReadModelProjection | null> {
-  return loadWithOrganizationReadModelIntegrityPurge({
-    execSql,
-    organizationId,
-    load: (tx) =>
-      loadOrganizationReadModelProjectionInTransaction({
-        currentUserId,
-        organizationId,
-        tx,
-      }),
-  });
-}
-
-export async function applyOrganizationReadModelResponse(input: {
-  readonly currentUserId: string;
-  readonly execSql: ExecSql;
-  readonly requestedCursor: string | null;
-  readonly response: OrganizationReadModelResponse;
-}): Promise<ApplyOrganizationReadModelResponseResult> {
-  assertOrganizationReadModelResponse({
-    currentUserId: input.currentUserId,
+/** The transaction body of applying one read-model response. */
+export async function applyOrganizationReadModelResponseInTransaction(
+  tx: ClientSQLiteTransactionScope,
+  input: {
+    readonly currentUserId: string;
+    readonly now: () => Date;
+    readonly requestedCursor: string | null;
+    readonly response: OrganizationReadModelResponse;
+  },
+): Promise<ApplyOrganizationReadModelResponseResult> {
+  const current = await loadCurrentState(tx, input.response.organizationId);
+  const disposition = resolveApplyDisposition({
+    current,
+    requestedCursor: input.requestedCursor,
     response: input.response,
   });
-  // The requester prune below also retires pruned users' usage projections.
-  await ensureSqlTables(input.execSql, [
-    ...organizationReadModelTables,
-    ...organizationDataUsageTables,
-  ]);
-
-  const disposition = await getClientSQLitePersistenceRuntime(
-    input.execSql,
-  ).transaction(
-    async (tx): Promise<ApplyOrganizationReadModelResponseResult> => {
-      const current = await loadCurrentState(tx, input.response.organizationId);
-      const disposition = resolveApplyDisposition({
-        current,
-        requestedCursor: input.requestedCursor,
-        response: input.response,
-      });
-      if (disposition === "stale") {
-        return disposition;
-      }
-      const now = new Date().toISOString();
-      await upsertRequester({
-        appliedCursor: input.response.nextCursor,
-        currentUserId: input.currentUserId,
-        isOrgAdmin: input.response.currentUser.isOrgAdmin,
-        now,
-        organizationId: input.response.organizationId,
-        tx,
-      });
-      if (disposition === "already-applied") {
-        return disposition;
-      }
-      const memberGroupId = requireMemberGroupId({
-        current,
-        response: input.response,
-      });
-      const memberGroupStateHash = await applyResponseLanes({
-        current,
-        currentUserId: input.currentUserId,
-        memberGroupId,
-        response: input.response,
-        tx,
-      });
-      await upsertOrganizationReadModelState({
-        current,
-        memberGroupId,
-        memberGroupStateHash,
-        now,
-        response: input.response,
-        tx,
-      });
-
-      return "applied";
-    },
-  );
-  // An applied change follows an organization hint or mutation; in-flight
-  // operations recover the directory again instead of reusing their memo.
-  if (disposition === "applied")
-    getOrCreatePrincipalPolicyCoordinator(input.execSql).invalidateRecovery(
-      input.response.organizationId,
-    );
-  return disposition;
-}
-
-export async function purgeOrganizationReadModelProjection(
-  execSql: ExecSql,
-  organizationId: string,
-  options: { readonly onlyRequesterUserId?: string } = {},
-): Promise<void> {
-  await ensureSqlTables(execSql, organizationReadModelTables);
-  await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
-    await purgeOrganizationReadModelProjectionInTransaction({
-      onlyRequesterUserId: options.onlyRequesterUserId,
-      organizationId,
-      tx,
-    });
+  if (disposition === "stale") {
+    return disposition;
+  }
+  const now = input.now().toISOString();
+  await upsertRequester({
+    appliedCursor: input.response.nextCursor,
+    currentUserId: input.currentUserId,
+    isOrgAdmin: input.response.currentUser.isOrgAdmin,
+    now,
+    organizationId: input.response.organizationId,
+    tx,
   });
+  if (disposition === "already-applied") {
+    return disposition;
+  }
+  const memberGroupId = requireMemberGroupId({
+    current,
+    response: input.response,
+  });
+  const memberGroupStateHash = await applyResponseLanes({
+    current,
+    currentUserId: input.currentUserId,
+    memberGroupId,
+    response: input.response,
+    tx,
+  });
+  await upsertOrganizationReadModelState({
+    current,
+    memberGroupId,
+    memberGroupStateHash,
+    now,
+    response: input.response,
+    tx,
+  });
+
+  return "applied";
 }

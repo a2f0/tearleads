@@ -6,7 +6,7 @@ import {
   signSuccessorPolicy,
 } from "../../../../test/helpers/organizationAdoption";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
@@ -38,7 +38,7 @@ test.each([true, false])(
       ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
         heads: advanced,
       });
-      const store = createDocumentDiscoveryEvidenceStore(execSql);
+      const store = new DocumentDiscoveryEvidenceRepository(execSql);
       const generation = await store.begin();
       const profiles = advanced.filter(
         ({ checkpoint }) =>

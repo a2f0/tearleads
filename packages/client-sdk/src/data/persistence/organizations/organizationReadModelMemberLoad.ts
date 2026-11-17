@@ -10,9 +10,7 @@ import {
   organizationReadModelState,
 } from "../../sqlite/schema/organizationReadModelSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import type { ExecSql } from "../../sqlite/sqlSchema";
 import { OrganizationReadModelIntegrityError } from "./organizationReadModelProtocol";
-import { loadWithOrganizationReadModelIntegrityPurge } from "./organizationReadModelPurge";
 
 interface SelectedGroupMember {
   readonly userId: string;
@@ -147,46 +145,44 @@ async function loadOrganizationReadModelGroupMembersInTransaction(input: {
   };
 }
 
-export async function loadOrganizationReadModelGroupMembers(
-  execSql: ExecSql,
-  organizationId: string,
-  groupId: string,
-  currentUserId: string,
+/** One group's members, provided `currentUserId` holds a requester row. */
+export async function loadRequesterOrganizationReadModelGroupMembersInTransaction(
+  tx: ClientSQLiteTransactionScope,
+  input: {
+    readonly currentUserId: string;
+    readonly groupId: string;
+    readonly organizationId: string;
+  },
 ): Promise<OrganizationReadModelGroupMembers | null> {
-  return loadWithOrganizationReadModelIntegrityPurge({
-    execSql,
-    organizationId,
-    load: async (tx) => {
-      const [state] = await tx
-        .select({
-          memberGroupId: organizationReadModelState.memberGroupId,
-          memberGroupStateHash: organizationReadModelState.memberGroupStateHash,
-        })
-        .from(organizationReadModelState)
-        .innerJoin(
-          organizationReadModelRequesters,
-          and(
-            eq(
-              organizationReadModelRequesters.organizationId,
-              organizationReadModelState.organizationId,
-            ),
-            eq(organizationReadModelRequesters.userId, currentUserId),
-          ),
-        )
-        .where(eq(organizationReadModelState.organizationId, organizationId))
-        .limit(1);
-      if (!state) {
-        return null;
-      }
-      return loadOrganizationReadModelGroupMembersInTransaction({
-        groupId,
-        memberGroup: {
-          groupId: state.memberGroupId,
-          stateHash: state.memberGroupStateHash,
-        },
-        organizationId,
-        tx,
-      });
+  const { currentUserId, groupId, organizationId } = input;
+  const [state] = await tx
+    .select({
+      memberGroupId: organizationReadModelState.memberGroupId,
+      memberGroupStateHash: organizationReadModelState.memberGroupStateHash,
+    })
+    .from(organizationReadModelState)
+    .innerJoin(
+      organizationReadModelRequesters,
+      and(
+        eq(
+          organizationReadModelRequesters.organizationId,
+          organizationReadModelState.organizationId,
+        ),
+        eq(organizationReadModelRequesters.userId, currentUserId),
+      ),
+    )
+    .where(eq(organizationReadModelState.organizationId, organizationId))
+    .limit(1);
+  if (!state) {
+    return null;
+  }
+  return loadOrganizationReadModelGroupMembersInTransaction({
+    groupId,
+    memberGroup: {
+      groupId: state.memberGroupId,
+      stateHash: state.memberGroupStateHash,
     },
+    organizationId,
+    tx,
   });
 }

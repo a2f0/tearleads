@@ -1,7 +1,7 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { saveOrganizationGroupDisplayNames } from "../../../data/persistence/organizations/organizationGroupNamePersistence";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
@@ -63,7 +63,13 @@ export async function hydrateCurrentOrganizationGroupNames(
     policies: [authority.directory.policy, authority.admins.policy],
     stillCurrent,
   });
-  await saveOrganizationGroupDisplayNames({ ...input, names, stillCurrent });
+  await new OrganizationReadModelRepository(
+    input.execSql,
+  ).saveOrganizationGroupDisplayNames({
+    organizationId: input.organizationId,
+    names,
+    stillCurrent,
+  });
   assertProjectionVerificationCurrent(stillCurrent);
   const byId = new Map(names.map((entry) => [entry.groupId, entry.name]));
   return {

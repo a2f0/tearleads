@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { createDiscoveredDocumentVerifier } from "./documentDiscoveryEvidence";
 
 const candidate = {
@@ -18,7 +18,7 @@ test("a lagging same-epoch head retains a link-addition candidate until the head
   try {
     let now = 0;
     let caughtUp = false;
-    const store = createDocumentDiscoveryEvidenceStore(execSql, () => now);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql, () => now);
     const verify = createDiscoveredDocumentVerifier(
       "org",
       async () => ({
@@ -75,7 +75,7 @@ for (const head of [
       "discovery-head-exclusion",
     );
     try {
-      const store = createDocumentDiscoveryEvidenceStore(execSql);
+      const store = new DocumentDiscoveryEvidenceRepository(execSql);
       const result = await createDiscoveredDocumentVerifier(
         "org",
         async () => head,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import {
   clientSqlTables,
   containerDocumentTombstoneHolds,
@@ -46,7 +46,7 @@ test("remote reset clears tombstone holds with the link rows they hide", async (
       updatedAt: stale,
     });
 
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     const generation = await store.begin();
     const candidate = {
       documentId: "doc-remote-old",
