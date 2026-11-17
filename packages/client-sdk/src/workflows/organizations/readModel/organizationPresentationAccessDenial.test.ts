@@ -22,10 +22,7 @@ import {
 import { createRejectingExecSql } from "../../../../test/helpers/rejectingExecSql";
 import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
 import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
-import {
-  applyOrganizationReadModelResponse,
-  loadOrganizationReadModelProjection,
-} from "../../../data/persistence/organizations/organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -122,9 +119,10 @@ function presentationSnapshot(
 
 async function savePresentationState(execSql: ExecSql): Promise<void> {
   await ensureContainerTables(execSql);
-  await applyOrganizationReadModelResponse({
-    currentUserId: requesterUserId,
+  await new OrganizationReadModelRepository(
     execSql,
+  ).applyOrganizationReadModelResponse({
+    currentUserId: requesterUserId,
     requestedCursor: null,
     response: presentationSnapshot(),
   });
@@ -198,6 +196,7 @@ test("read-model denial hides all presentation reads when purge fails", async ()
       rejectReadModelDelete &&
       sql.includes('delete from "organization_read_model_state"'),
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   const errors: unknown[][] = [];
 
   try {
@@ -233,8 +232,7 @@ test("read-model denial hides all presentation reads when purge fails", async ()
       }),
     ).resolves.toBeNull();
     await expect(
-      loadOrganizationReadModelProjection(
-        execSql,
+      repository.loadOrganizationReadModelProjection(
         organizationId,
         requesterUserId,
       ),
@@ -294,6 +292,7 @@ test("a delayed pre-denial read-model response cannot apply or restore", async (
   const { close, execSql } = await createTestExecSql(
     "organization-presentation-delayed-response",
   );
+  const repository = new OrganizationReadModelRepository(execSql);
   let resolveRequest: (
     result: RequestResult<OrganizationReadModelResponse>,
   ) => void = () => {};
@@ -308,9 +307,8 @@ test("a delayed pre-denial read-model response cannot apply or restore", async (
   });
 
   try {
-    await applyOrganizationReadModelResponse({
+    await repository.applyOrganizationReadModelResponse({
       currentUserId: requesterUserId,
-      execSql,
       requestedCursor: null,
       response: organizationReadModelSnapshot(),
     });
@@ -351,8 +349,7 @@ test("a delayed pre-denial read-model response cannot apply or restore", async (
     });
     await expect(delayed).resolves.toBeNull();
     await expect(
-      loadOrganizationReadModelProjection(
-        execSql,
+      repository.loadOrganizationReadModelProjection(
         organizationId,
         requesterUserId,
       ),

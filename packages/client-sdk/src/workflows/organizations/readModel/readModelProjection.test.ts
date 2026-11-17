@@ -14,7 +14,7 @@ import {
   organizationReadModelUserId,
 } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
 import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
-import { applyOrganizationReadModelResponse } from "../../../data/persistence/organizations/organizationReadModelPersistence";
+import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import {
   loadLocalOrganizationDirectoryAndGroups,
   reconcileOrganizationDirectoryAndGroups,
@@ -24,12 +24,13 @@ const organizationId = organizationReadModelOrganizationId;
 const currentUserId = organizationReadModelUserId;
 
 async function seedProjection(
-  execSql: Parameters<typeof applyOrganizationReadModelResponse>[0]["execSql"],
+  execSql: ConstructorParameters<typeof OrganizationReadModelRepository>[0],
   response: OrganizationReadModelResponse = organizationReadModelSnapshot(),
 ): Promise<void> {
-  await applyOrganizationReadModelResponse({
-    currentUserId,
+  await new OrganizationReadModelRepository(
     execSql,
+  ).applyOrganizationReadModelResponse({
+    currentUserId,
     requestedCursor: null,
     response,
   });

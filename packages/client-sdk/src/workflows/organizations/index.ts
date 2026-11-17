@@ -1,4 +1,3 @@
-export { loadAppliedOrganizationReadModelCursor } from "../../data/persistence/organizations/organizationReadModelCursorPersistence";
 export {
   type OrganizationReadModelInvalidationListener,
   subscribeOrganizationReadModelInvalidation,
