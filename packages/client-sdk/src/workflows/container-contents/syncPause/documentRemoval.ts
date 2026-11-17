@@ -6,7 +6,7 @@ import {
   defaultDocumentsPersistence,
   deletePersistedDocument,
 } from "../../documents";
-import { recordPauseRemovedDocument } from "../../sync";
+import { OrganizationSyncPauseRepository } from "../../sync";
 import { carriesLocalWrites, listPendingWrites } from "../pendingWrites";
 import type { ContainerContentsWorkflowRuntimeInfra } from "../runtime";
 
@@ -112,7 +112,9 @@ async function deleteDocumentUnlessEdited(input: {
   try {
     const deleted = await deletePersistedDocument({
       beforeDeleteInTransaction: async (transactionExecSql) => {
-        await recordPauseRemovedDocument(transactionExecSql, {
+        await new OrganizationSyncPauseRepository(
+          transactionExecSql,
+        ).recordPauseRemovedDocument({
           localId: input.localId,
           organizationId: input.organizationId,
         });
