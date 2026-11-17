@@ -13,13 +13,13 @@ import {
   previousStatesIncludeHead,
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
-} from "../../data/principals/organizationAuthorityDescriptor";
+} from "../../data/principalContracts/organizationAuthorityDescriptor";
 import {
   organizationAdminExternalAuthority,
   organizationAdminSignerUserIds,
   principalPolicyReferenceFromBundle,
   verifyOrganizationAdminPolicy,
-} from "../../data/principals/principalPolicyAdminSigners";
+} from "../../data/principalContracts/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import type { CurrentPrincipalPolicyReader } from "./currentPrincipalPolicyReader";

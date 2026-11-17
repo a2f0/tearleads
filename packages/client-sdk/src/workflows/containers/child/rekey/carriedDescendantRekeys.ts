@@ -12,8 +12,8 @@ import {
   verifyContainerWriterProjection,
 } from "../../../../data/keyingProjectionVerification";
 import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principalContracts/principalPolicyEvidence";
 import type { CurrentPolicyReferenceResolver } from "../../../../data/principals/currentPolicyReferenceResolver";
-import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principals/principalPolicyEvidence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { selectReplacementPrincipalPolicyReferences } from "../rotation/replacementPrincipalPolicyReferences";
 import { buildMaterializedContainerRekeyPlan } from "./index";

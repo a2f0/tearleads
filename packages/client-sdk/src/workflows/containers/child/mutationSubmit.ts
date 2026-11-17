@@ -16,7 +16,7 @@ import type {
   ContainerRotationResult,
   MaterializedContainerRekeyPlan,
 } from "../../../data/containers/shared/types";
-import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principals/principalPolicyEvidence";
+import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principalContracts/principalPolicyEvidence";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { scheduleHeldDescendantRecitations } from "./recite";

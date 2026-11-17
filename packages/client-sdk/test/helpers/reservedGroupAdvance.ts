@@ -5,7 +5,7 @@ import {
 } from "@tearleads/crypto";
 import type { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
+import { parseOrganizationAuthorityDescriptor } from "../../src/data/principalContracts/organizationAuthorityDescriptor";
 import { createGroupMetadataContainerVerifier } from "../../src/workflows/organizations/groupMetadata/groupMetadataContainerAuthority";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,

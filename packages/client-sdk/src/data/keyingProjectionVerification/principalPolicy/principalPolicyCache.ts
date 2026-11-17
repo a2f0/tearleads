@@ -4,8 +4,8 @@ import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/
 import {
   type PrincipalPolicyCurrentEvidence,
   principalPolicyEvidenceEntries,
-} from "../../principals/principalPolicyEvidence";
-import { principalStateMatchesReference } from "../../principals/principalPolicyStates";
+} from "../../principalContracts/principalPolicyEvidence";
+import { principalStateMatchesReference } from "../../principalContracts/principalPolicyStates";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import type { OpenPrincipalPolicyBundleReader } from "../types";
 import { verifiedPrincipalPolicyMeetsCheckpoint } from "./principalPolicyCheckpointSelection";

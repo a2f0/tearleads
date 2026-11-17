@@ -12,7 +12,11 @@ import {
   type TrustedUserIdentityResolver,
   type TrustedUserIdentityService,
 } from "../../data/trustedUserIdentity";
-import type { ContainerContentsRootAdopter } from "../../workflows/container-contents";
+import type {
+  ContainerContentsOrganizationHost,
+  ContainerContentsRootAdopter,
+} from "../../workflows/container-contents";
+import { containerContentsOrganizationHost } from "../../workflows/organizations/containerContentsHost";
 import { PrincipalPolicyService } from "../../workflows/principals/principalPolicyService";
 import {
   createProvisionedStatePrimer,
@@ -87,6 +91,7 @@ export interface InternalRuntime {
   retirePrincipalHistoryProtection(): void;
   readonly sessionGeneration: number;
   readonly adoptRootContainer: ContainerContentsRootAdopter;
+  readonly containerContentsOrganizations: ContainerContentsOrganizationHost;
   readonly publicRuntime: Runtime;
   boundUserId(signingKeyFingerprint: string): Promise<string | null>;
   pinLocalUserIdentity(
@@ -227,6 +232,7 @@ export function createRuntime(
     },
     adoptRootContainer: (input) =>
       adoptSessionRootContainer(dependencies, input),
+    containerContentsOrganizations: containerContentsOrganizationHost,
     boundUserId: (signingKeyFingerprint) =>
       trustedUserIdentityService.boundUserId(signingKeyFingerprint),
     async pinLocalUserIdentity(userId, candidate) {

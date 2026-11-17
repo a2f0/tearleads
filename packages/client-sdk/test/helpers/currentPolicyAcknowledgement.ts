@@ -1,5 +1,5 @@
 import { toFingerprint } from "@tearleads/crypto";
-import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
+import { parseOrganizationAuthorityDescriptor } from "../../src/data/principalContracts/organizationAuthorityDescriptor";
 import { groupPolicyMutationHead } from "../../src/workflows/organizations/groupPolicy/groupPolicyMutationHead";
 import { buildSetGroupContainerGrantPolicyRequest } from "../../src/workflows/organizations/groupPolicy/groupPolicyRequests";
 import { buildOrganizationGroupDirectoryPolicyRequest } from "../../src/workflows/organizations/groups/organizationGroupDirectory";

@@ -6,7 +6,7 @@ import { openPrincipalPolicyBundleReader } from "../../persistence/principalPoli
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
-} from "../../principals/organizationAuthorityDescriptor";
+} from "../../principalContracts/organizationAuthorityDescriptor";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
 test("purge uses authority already verified during paging when the directory binds a newer Admins head", async () => {

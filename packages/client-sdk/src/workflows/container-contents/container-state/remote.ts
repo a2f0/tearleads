@@ -16,8 +16,6 @@ import {
   signedContainerReferencedPrincipalHeads,
 } from "../../containers";
 import { resolveDocumentCreateAuthor } from "../../documents";
-import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadata/groupMetadataRuntime";
-import { createRuntimeCurrentGroupShare } from "../../organizations/groupShare";
 
 import {
   type ContainerAlreadyCommitted,
@@ -169,7 +167,9 @@ export async function shareRemoteContainerWithGroup(input: {
   }
   const { author, collaborators } = writer;
 
-  const shareWithGroup = createRuntimeCurrentGroupShare(input.runtime);
+  const shareWithGroup = input.runtime.organizations.createCurrentGroupShare(
+    input.runtime,
+  );
   if (!shareWithGroup)
     throw new ProjectionDependencyUnavailableError(
       "Group sharing requires private paged recovery",
@@ -183,11 +183,11 @@ export async function shareRemoteContainerWithGroup(input: {
     execSql: collaborators.execSql,
     expectedGroupName: input.expectedGroupName ?? null,
     readEncryptedName: (bundle) =>
-      createRuntimeGroupMetadataAccess(
+      input.runtime.organizations.groupMetadataNameReader(
         input.runtime,
         author.organizationId,
         input.stillCurrent,
-      ).readName(bundle),
+      )(bundle),
     knownContainerKeks: input.knownContainerKeks,
     previousProjection: input.previousProjection,
     recipientGroupId: input.recipientGroupId,

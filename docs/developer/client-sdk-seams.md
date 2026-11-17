@@ -32,6 +32,7 @@ reference.
 | Current principal policy | `CurrentPrincipalPolicyReader` (`currentPolicyReader`) | The API client, as is | `directoryPinnedPolicyReader` for the group-name authority check |
 | Principal policy process state | `getOrCreatePrincipalPolicyCoordinator(execSql)` | One coordinator per database | None |
 | Acknowledged principal currents | `PrincipalAcknowledgementChecks`, the host for `recordAcknowledgedPrincipalCurrents` | The organization mutation checks bound by `retainAcknowledgedPrincipalCurrents` | None |
+| Organization operations in container contents | `ContainerContentsOrganizationHost` (`runtime.organizations`): group share, current group policy, group metadata name, metadata-root authority and reload | `containerContentsOrganizationHost`, bound by the workflow runtime and the standalone `createContainerContentsWorkflowRuntime` | None; tests bind the real host |
 | Domain sync lanes | `getOrCreateDomainSyncCoordinator(domainScope)` | One coordinator per domain scope | None |
 | Identity change preparation | `IdentityChangePreparation` | `Blobs` prepares a store and returns a commit that only assigns state | No-op preparation in identity/session tests |
 | Blob attachment I/O | `BlobAttachmentService` (`runtime.blobAttachments`) | One per documents runtime, built by `createDocumentsWorkflowRuntime` | Constructed over a fake API in tests |
@@ -72,6 +73,7 @@ rejects any other file there.
   [`containers/`](../../packages/client-sdk/src/data/containers/),
   [`documents/`](../../packages/client-sdk/src/data/documents/),
   [`principals/`](../../packages/client-sdk/src/data/principals/),
+  [`principalContracts/`](../../packages/client-sdk/src/data/principalContracts/),
   [`sync/`](../../packages/client-sdk/src/data/sync/),
   [`trustedUserIdentity/`](../../packages/client-sdk/src/data/trustedUserIdentity/))
   hold that domain's contracts and helpers.

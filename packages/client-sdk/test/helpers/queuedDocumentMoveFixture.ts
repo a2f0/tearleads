@@ -23,6 +23,7 @@ import type { ContainerContentsWorkflowRuntime } from "../../src/workflows/conta
 import { defaultDocumentsPersistence } from "../../src/workflows/documents";
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
 import { RemoteDocumentService } from "../../src/workflows/documents/remote/remoteDocumentService";
+import { containerContentsOrganizationHost } from "../../src/workflows/organizations/containerContentsHost";
 import { createAuthor, createResponse } from "./documentFixtures";
 import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
 import { queuedDocumentMoveLocalState } from "./queuedDocumentMoveLocalState";
@@ -208,6 +209,7 @@ export async function runQueuedDocumentMoveFixture(input: {
       writerProjection: initialWriterProjection,
     });
     const runtime: ContainerContentsWorkflowRuntime = withPrincipalPolicies({
+      organizations: containerContentsOrganizationHost,
       apiClient: createMockApiClient({
         listDocumentAttachments: async () => {
           remoteRequests.push("attachments");

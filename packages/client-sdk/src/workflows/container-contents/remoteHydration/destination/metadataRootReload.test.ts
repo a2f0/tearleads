@@ -11,6 +11,7 @@ import {
   projectionPolicySource,
 } from "../../../../../test/helpers/projectionPolicyHistory";
 import { createReservedGroupAdvance } from "../../../../../test/helpers/reservedGroupAdvance";
+import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 import { verifyRemoteContainerDestination } from "./verifiedDestination";
 
@@ -68,6 +69,7 @@ test("a stale prefetched metadata root is read once more, then reported", async 
       containersById: new Map(),
       runtime: withPrincipalPolicies(
         {
+          organizations: containerContentsOrganizationHost,
           apiClient: {
             ...projectionHistoryPages([
               scenario.admin,

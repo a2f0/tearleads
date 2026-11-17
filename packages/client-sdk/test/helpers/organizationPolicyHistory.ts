@@ -8,7 +8,7 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicySnapshotResponse,
 } from "@tearleads/validators/response";
-import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
+import { parseOrganizationAuthorityDescriptor } from "../../src/data/principalContracts/organizationAuthorityDescriptor";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,

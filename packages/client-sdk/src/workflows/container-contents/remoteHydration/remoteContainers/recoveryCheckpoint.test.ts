@@ -15,6 +15,7 @@ import {
   childContainerWriterProjectionFromCreatePlan,
 } from "../../../containers/child/create";
 import { containerWriterProjectionFromRotationPlan } from "../../../containers/child/rekey/rekeyProjection";
+import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import { defaultContainerContentsPersistence as persistence } from "../../containerPersistence";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 import { upsertRemoteContainerState } from "./remoteContainerState";
@@ -113,6 +114,7 @@ test.each(["before verification", "before insertion"])(
           },
         },
         runtime: withPrincipalPolicies({
+          organizations: containerContentsOrganizationHost,
           apiClient: {
             getContainerWriterProjection: async () => served,
             evictContainerWriterProjection: () => {},

@@ -6,6 +6,7 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../../../test/helpers/documentFixtures";
+import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { ContainerCreateIntentSupersededError } from "../../../../data/persistence/container-contents/containerIntentPersistence";
@@ -15,7 +16,6 @@ import {
   defaultContainerContentsPersistence,
 } from "../../containerPersistence";
 import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
-import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { createTestContainerState } from "../containerState.testFixtures";
 import type { ContainerCreateIntentSyncState } from "../types";
 import { syncPendingContainerCreateIntents } from "./createIntentSync";

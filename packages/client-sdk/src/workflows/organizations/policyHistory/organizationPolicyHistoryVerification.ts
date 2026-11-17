@@ -8,7 +8,7 @@ import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
-} from "../../../data/principals/organizationAuthorityDescriptor";
+} from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import type { RecoveredPrincipalHistoryPage } from "../../principals/historyRecovery/loadRecoveredPrincipalHistoryPage";
 
 function reject(message: string): never {

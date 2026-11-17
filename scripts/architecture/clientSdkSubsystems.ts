@@ -14,6 +14,7 @@ import {
   localKeyringSurface,
   organizationClientSurface,
   organizationReadModelSurface,
+  principalPolicyContractsSurface,
   principalPolicySurface,
   purchasesSurface,
   registrationSurface,
@@ -32,6 +33,7 @@ import {
   identityTables,
   keyingVerificationTables,
   organizationReadModelTables,
+  principalPolicyContractsTables,
   principalPolicyTables,
   securityIncidentTables,
   syncCoordinationTables,
@@ -278,6 +280,19 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       "The local SQLite executor, Drizzle schema, transaction serialization, and the @tearleads/client-sdk/sqlite public worker-runtime entry point.",
     seam: "@tearleads/client-sdk/sqlite subpath; data/sqlite",
     paths: [`${sdk}/data/sqlite/`, `${sdk}/sqlite/`],
+  },
+  {
+    name: "Principal Policy Contracts",
+    package: "client-sdk",
+    responsibility:
+      "The principal-policy contracts verification builds on: organization authority descriptors, policy evidence and state selection, full member identity commitment checks, admin-signer resolution, and the grant retirements acknowledged policies record.",
+    seam: "data/principalContracts modules; principalGrantRetirementPersistence",
+    paths: [
+      `${sdk}/data/principalContracts/`,
+      `${sdk}/data/persistence/principalContracts/`,
+    ],
+    surface: principalPolicyContractsSurface,
+    tables: principalPolicyContractsTables,
   },
   {
     name: "Sync Coordination",

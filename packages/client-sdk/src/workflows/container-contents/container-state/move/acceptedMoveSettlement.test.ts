@@ -11,6 +11,7 @@ import { withPrincipalPolicies } from "../../../../../test/helpers/principalPoli
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import { defaultContainerContentsPersistence } from "../../containerPersistence";
 import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";
@@ -114,6 +115,7 @@ async function replayAcceptedMove(input: {
       userId: author.signerUserId,
     }),
     runtime: withPrincipalPolicies({
+      organizations: containerContentsOrganizationHost,
       apiClient: createMockApiClient({
         getContainerWriterProjection: async (id) =>
           input.projectionUnavailable

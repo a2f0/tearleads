@@ -3,7 +3,7 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
+import { parseOrganizationAuthorityDescriptor } from "../../src/data/principalContracts/organizationAuthorityDescriptor";
 import type { PrincipalHistoryProtectionLease } from "../../src/data/principals/principalHistoryProtection";
 import { buildOrganizationGroupDirectoryPolicyRequest } from "../../src/workflows/organizations/groups/organizationGroupDirectory";
 import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy/principalPolicyRequest";

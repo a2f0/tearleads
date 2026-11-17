@@ -10,7 +10,7 @@ import {
   verifyDocumentPurgeEvent,
 } from "@tearleads/crypto";
 import type { DocumentPurgeProofResponse } from "@tearleads/validators/response";
-import { parseOrganizationAuthorityDescriptor } from "../../principals/organizationAuthorityDescriptor";
+import { parseOrganizationAuthorityDescriptor } from "../../principalContracts/organizationAuthorityDescriptor";
 import { verifyStandaloneAccessEventBundle } from "../checkpoints/bundleVerification";
 import type { ProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import type { PrincipalPolicyCache, ProjectionUserKeyResolver } from "../types";

@@ -10,11 +10,11 @@ import { PrincipalPolicyBundleRepository } from "../../../data/persistence/princ
 import {
   type OrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
-} from "../../../data/principals/organizationAuthorityDescriptor";
+} from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import {
   principalPolicyReferenceFromBundle,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
-} from "../../../data/principals/principalPolicyAdminSigners";
+} from "../../../data/principalContracts/principalPolicyAdminSigners";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";

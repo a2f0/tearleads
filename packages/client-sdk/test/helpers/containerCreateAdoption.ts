@@ -1,5 +1,6 @@
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { createContainerContentsWorkflowRuntime } from "../../src/client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { createDomainScope } from "../../src/data/shared/domainScope";
@@ -10,7 +11,6 @@ import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,
 } from "../../src/workflows/container-contents/containerPersistence";
-import { createContainerContentsWorkflowRuntime } from "../../src/workflows/container-contents/runtime";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,

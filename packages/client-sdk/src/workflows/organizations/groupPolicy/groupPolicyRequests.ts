@@ -12,7 +12,7 @@ import type {
   PrincipalProjectionMemberRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
-import { createPrincipalProjectionMember } from "../../../data/principals/principalIdentityCommitments";
+import { createPrincipalProjectionMember } from "../../../data/principalContracts/principalIdentityCommitments";
 import { principalSecretKeyMatchesState } from "../../../data/principals/principalKeyValidation";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { TrustedUserIdentity } from "../../../data/trustedUserIdentity";

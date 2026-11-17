@@ -15,6 +15,7 @@ import {
 } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStoreWorkflowRuntimeFromSnapshot } from "../../workflows/container-contents/runtime";
 import { defaultDocumentsPersistence } from "../../workflows/documents";
+import { containerContentsOrganizationHost } from "../../workflows/organizations/containerContentsHost";
 import type { ContainerContents } from "../containerContents";
 import { createDocuments } from "../documents";
 import { createDeviceFirst, createDeviceFirstWorkflowRuntime } from "./index";
@@ -90,7 +91,7 @@ test("local deletion evicts a cached device-first summary until disposal", async
   });
   const adoptRootContainer = () => false;
   const runtime = createContainerContentsStoreWorkflowRuntimeFromSnapshot(
-    workflowInput,
+    { ...workflowInput, organizations: containerContentsOrganizationHost },
     adoptRootContainer,
     async () => undefined,
   );

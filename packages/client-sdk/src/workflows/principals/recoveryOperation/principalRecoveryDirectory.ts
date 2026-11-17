@@ -15,7 +15,7 @@ import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
-} from "../../../data/principals/organizationAuthorityDescriptor";
+} from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { principalHistoryEvidenceScopeId } from "../../../data/principals/principalHistoryPrefixProtection";
 import { directoryHistoryProtection } from "../../../data/principals/principalHistoryScopeProtection";
 import { loadVerifiedPrincipalHistoryPrefix } from "../historyRecovery/principalHistoryRecoveryPrefix";

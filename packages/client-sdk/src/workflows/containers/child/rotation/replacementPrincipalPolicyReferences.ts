@@ -5,8 +5,8 @@ import {
   dedupeReferencedPrincipalStates,
   referencedPrincipalPolicyKey,
 } from "../../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
+import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principalContracts/principalPolicyEvidence";
 import type { CurrentPolicyReferenceResolver } from "../../../../data/principals/currentPolicyReferenceResolver";
-import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principals/principalPolicyEvidence";
 
 /** Current membership with only the historical group citations this path uses. */
 export async function selectReplacementPrincipalPolicyReferences(input: {

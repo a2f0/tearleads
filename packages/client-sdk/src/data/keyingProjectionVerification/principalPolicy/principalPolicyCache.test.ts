@@ -18,7 +18,7 @@ import {
   openPrincipalPolicyBundleReader,
   PrincipalPolicyBundleRepository,
 } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
-import { principalPolicyBundleContainsReference } from "../../principals/principalPolicyStates";
+import { principalPolicyBundleContainsReference } from "../../principalContracts/principalPolicyStates";
 import {
   filterUncachedPrincipalPolicyReferences,
   referencedPrincipalPolicyKey,

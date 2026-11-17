@@ -16,8 +16,8 @@ import type {
   CreateOrganizationGroupRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
-import { encodeOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
-import { createPrincipalProjectionMember } from "../../data/principals/principalIdentityCommitments";
+import { encodeOrganizationAuthorityDescriptor } from "../../data/principalContracts/organizationAuthorityDescriptor";
+import { createPrincipalProjectionMember } from "../../data/principalContracts/principalIdentityCommitments";
 import { resolveDocumentCreateAuthor } from "../documents";
 import { groupPolicyMutationHead } from "../organizations/groupPolicy/groupPolicyMutationHead";
 import {

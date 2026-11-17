@@ -9,6 +9,7 @@ import {
   type ContainerContentsWorkflowRuntimeInput,
   createContainerContentsStoreWorkflowRuntime,
 } from "../../workflows/container-contents/runtime";
+import { containerContentsOrganizationHost } from "../../workflows/organizations/containerContentsHost";
 
 type ExecSql = Parameters<
   typeof defaultContainerContentsPersistence.ensureSchema
@@ -21,12 +22,13 @@ async function refuseRecipient(userId: string): Promise<void> {
 }
 
 export function createContainerContentsStoreTestRuntime(
-  input: ContainerContentsWorkflowRuntimeInput,
+  input: Omit<ContainerContentsWorkflowRuntimeInput, "organizations">,
   requireVerifiedRecipient: ContainerContentsVerifiedRecipientGuard = refuseRecipient,
 ) {
   return createContainerContentsStoreWorkflowRuntime(
     {
       ...input,
+      organizations: containerContentsOrganizationHost,
       auth: {
         ...input.auth,
         rootContainerId: input.auth.rootContainerId ?? input.state.containerId,

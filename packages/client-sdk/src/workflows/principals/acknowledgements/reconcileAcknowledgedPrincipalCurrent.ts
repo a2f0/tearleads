@@ -9,7 +9,7 @@ import type {
   ReconciledPrincipalCurrentPublication,
 } from "../../../data/persistence/principalCurrentAcknowledgementPersistence";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import {
   PrincipalHistoryEvidenceUnavailableError,
   selectRecoveredPrincipalHistory,

@@ -7,8 +7,8 @@ import {
   type OrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
-} from "../../../data/principals/organizationAuthorityDescriptor";
-import { principalPolicyEvidenceEntries } from "../../../data/principals/principalPolicyEvidence";
+} from "../../../data/principalContracts/organizationAuthorityDescriptor";
+import { principalPolicyEvidenceEntries } from "../../../data/principalContracts/principalPolicyEvidence";
 import { MetadataRootBehindDirectoryError } from "./groupMetadataErrors";
 
 /** Root bindings consume verified current grants and explicitly retained predecessor citations. */
