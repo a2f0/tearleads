@@ -156,10 +156,17 @@ export async function organizationDirectoryKeying(input: {
   const keepsEveryMember =
     input.projection.length - added.length === previous.size;
   if (!keepsEveryMember) return rotatedKeying(input);
-  // The signed envelopes, re-served exactly as the predecessor holds them.
-  const currentEnvelopes = [
-    ...input.currentPolicy.currentMemberEnvelopes.envelopes,
-  ];
+  // The predecessor's signed envelopes, re-served with only their signed
+  // fields: a response may carry fields the request must not forward.
+  const currentEnvelopes =
+    input.currentPolicy.currentMemberEnvelopes.envelopes.map(
+      (envelope): PrincipalMemberEnvelopeRequest => ({
+        kemCipherText: envelope.kemCipherText,
+        memberKeyFingerprint: envelope.memberKeyFingerprint,
+        userId: envelope.userId,
+        wrappedKey: envelope.wrappedKey,
+      }),
+    );
   // A key is kept only when the signer's own envelope opens it and it
   // matches the signed key. Otherwise, or without the signer's key, the write
   // rotates, which re-wraps a fresh key for every admin.

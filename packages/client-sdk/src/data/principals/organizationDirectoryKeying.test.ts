@@ -239,3 +239,32 @@ test("a grown admin may not share an encapsulation key with a retained one", asy
     }),
   ).rejects.toThrow("must not share an encapsulation key");
 });
+
+test("a kept key re-serves only the signed envelope fields", async () => {
+  const [a, b] = [await admin("a"), await admin("b")];
+  const { policy } = await directory([a, b]);
+  const served = policy.currentMemberEnvelopes.envelopes;
+  const withExtra: OrganizationDirectoryCurrentPolicy = {
+    ...policy,
+    currentMemberEnvelopes: {
+      envelopes: served.map((envelope) =>
+        Object.assign({ createdAt: "2026-11-17T00:00:00.000Z" }, envelope),
+      ),
+    },
+  };
+  const keying = await organizationDirectoryKeying({
+    currentPolicy: withExtra,
+    currentUserSecretKey: a.kem.secretKey,
+    projection: [a.member, b.member],
+    users: [a.identity, b.identity],
+  });
+  expect(keying.keyEpoch).toBe(3);
+  expect(keying.memberEnvelopes).toEqual([...served]);
+  for (const envelope of keying.memberEnvelopes)
+    expect(Object.keys(envelope).sort()).toEqual([
+      "kemCipherText",
+      "memberKeyFingerprint",
+      "userId",
+      "wrappedKey",
+    ]);
+});
