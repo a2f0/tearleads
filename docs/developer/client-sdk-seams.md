@@ -91,7 +91,7 @@ rejects any other file there.
   [`sync/`](../../packages/client-sdk/src/data/sync/) are internal to stores. A
   store reaches a module there through the matching workflow facade, such as
   [`workflows/blobs`](../../packages/client-sdk/src/workflows/blobs/) or
-  [`workflows/sync`](../../packages/client-sdk/src/workflows/sync/).
+  [`workflows/sync/coordination.ts`](../../packages/client-sdk/src/workflows/sync/coordination.ts).
 
 In [`workflows/`](../../packages/client-sdk/src/workflows/), the root holds only
 its [`README`](../../packages/client-sdk/src/workflows/README.md). Each folder

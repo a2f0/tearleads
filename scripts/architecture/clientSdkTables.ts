@@ -55,7 +55,7 @@ export const principalPolicyTables = [
 
 export const identityTables = ["trustedUserIdentityPins"];
 
-export const syncEngineTables = [
+export const syncCoordinationTables = [
   "organizationSyncPauseRemovals",
   "organizationSyncPauses",
 ];
