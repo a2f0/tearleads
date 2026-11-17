@@ -48,10 +48,20 @@ const manifest: ScreenshotManifest = {
     { name: "light", label: "Light" },
     { name: "dark", label: "Dark" },
   ],
+  // Contacts and notes carry the alt text agent-tool.json configures for them;
+  // explorer falls back to its label.
   screens: [
     { name: "explorer", label: "Explorer" },
-    { name: "contacts", label: "Contacts" },
-    { name: "notes", label: "Notes" },
+    {
+      name: "contacts",
+      label: "Contacts",
+      alt: "Contacts: a list of people with their profile photos.",
+    },
+    {
+      name: "notes",
+      label: "Notes",
+      alt: "Notes: a list of notes with the time each was modified.",
+    },
   ],
   entries: [
     entry("windowed", "light", "explorer"),
@@ -151,7 +161,8 @@ test("the home carousel shows each phone screen once and links to its page", asy
     "Notes",
   ]);
   // No loop copies: every slide is visible to assistive technology and in the
-  // tab order, and its image keeps the alt text PhoneCarousel.astro renders.
+  // tab order, and its image keeps the alt text PhoneCarousel.astro renders,
+  // the configured description or else the label.
   expect(carousel.querySelectorAll("[data-clone]")).toHaveLength(0);
   for (const slide of slides) {
     expect(slide.hasAttribute("aria-hidden")).toBe(false);
@@ -161,8 +172,8 @@ test("the home carousel shows each phone screen once and links to its page", asy
     slides.map((slide) => slide.querySelector("img")?.getAttribute("alt")),
   ).toEqual([
     "Explorer, phone screenshot",
-    "Contacts, phone screenshot",
-    "Notes, phone screenshot",
+    "Contacts: a list of people with their profile photos.",
+    "Notes: a list of notes with the time each was modified.",
   ]);
   expect(
     slides.map((slide) => slide.querySelector("a")?.getAttribute("href")),
@@ -185,73 +196,126 @@ test("the home carousel shows each phone screen once and links to its page", asy
   expect(routes).toContain(href ?? "");
 });
 
-// happy-dom has no layout. Lays the carousel out as on a phone: 240px slides
-// 264px apart behind 16px of padding, in a 390px track that scrolls only as far
-// as its content and finishes each scroll at once. Returns the track.
-function layOutPhoneRow(carousel: Element): HTMLElement {
-  const track = carousel.querySelector<HTMLElement>(".shots-carousel-track");
-  if (!track) throw new Error("the carousel has no track");
-  const slides = [...carousel.querySelectorAll(".shots-carousel-slide")];
-  for (const [index, slide] of slides.entries()) {
-    Object.defineProperty(slide, "offsetLeft", { value: 16 + index * 264 });
-  }
+// happy-dom has no layout. Until the returned function runs, every carousel is
+// laid out as on a phone: 240px slides 264px apart behind 16px of padding, in a
+// 390px track that scrolls only as far as its content and finishes each scroll
+// at once. Installed before a carousel renders, so its first state is its own.
+function simulatePhoneLayout(): () => void {
   const width = 390;
-  const end = 2 * 16 + slides.length * 264 - 24 - width;
-  let left = 0;
-  // gallery.css rests a slide inside the padding; happy-dom reads inline styles.
-  track.style.setProperty("scroll-padding-left", "16px");
-  Object.defineProperties(track, {
-    clientWidth: { value: width },
-    scrollWidth: { value: width + end },
-    scrollLeft: {
-      get: () => left,
-      set: (value: number) => {
-        left = Math.min(end, Math.max(0, value));
+  const positions = new WeakMap<Element, number>();
+  const isTrack = (element: Element) =>
+    element.classList.contains("shots-carousel-track");
+  const end = (track: Element) =>
+    Math.max(
+      0,
+      2 * 16 +
+        track.querySelectorAll(".shots-carousel-slide").length * 264 -
+        24 -
+        width,
+    );
+  const position = (track: Element) =>
+    Math.min(end(track), Math.max(0, positions.get(track) ?? 0));
+  const measures: Record<string, (element: HTMLElement) => number | null> = {
+    offsetLeft: (element) =>
+      element.classList.contains("shots-carousel-slide")
+        ? 16 +
+          [...(element.parentElement?.children ?? [])].indexOf(element) * 264
+        : null,
+    clientWidth: (element) => (isTrack(element) ? width : null),
+    scrollWidth: (element) => (isTrack(element) ? width + end(element) : null),
+    scrollLeft: (element) => (isTrack(element) ? position(element) : null),
+  };
+  const restores: (() => void)[] = [];
+  function override(
+    name: string,
+    replace: (original: PropertyDescriptor | undefined) => PropertyDescriptor,
+  ): void {
+    const own = Object.getOwnPropertyDescriptor(HTMLElement.prototype, name);
+    let original = own;
+    for (
+      let proto: object | null = HTMLElement.prototype;
+      !original && proto;
+      proto = Object.getPrototypeOf(proto)
+    ) {
+      original = Object.getOwnPropertyDescriptor(proto, name);
+    }
+    Object.defineProperty(HTMLElement.prototype, name, {
+      configurable: true,
+      ...replace(original),
+    });
+    restores.push(() => {
+      if (own) Object.defineProperty(HTMLElement.prototype, name, own);
+      else Reflect.deleteProperty(HTMLElement.prototype, name);
+    });
+  }
+  for (const [name, measure] of Object.entries(measures)) {
+    override(name, (original) => ({
+      get(this: HTMLElement) {
+        return measure(this) ?? original?.get?.call(this);
       },
-    },
-    scrollTo: {
-      value: (options: ScrollToOptions) => {
-        const before = left;
-        track.scrollLeft = options.left ?? 0;
-        if (left !== before) track.dispatchEvent(new Event("scroll"));
+      set(this: HTMLElement, value: number) {
+        if (isTrack(this)) positions.set(this, value);
+        else original?.set?.call(this, value);
       },
+    }));
+  }
+  override("scrollTo", (original) => ({
+    writable: true,
+    value(this: HTMLElement, ...args: unknown[]) {
+      if (!isTrack(this)) return original?.value?.apply(this, args);
+      const [options] = args as [ScrollToOptions];
+      const before = position(this);
+      positions.set(this, options.left ?? 0);
+      if (position(this) !== before) this.dispatchEvent(new Event("scroll"));
     },
-  });
-  track.dispatchEvent(new Event("scroll"));
-  return track;
+  }));
+  return () => {
+    for (const restore of restores.reverse()) restore();
+  };
 }
 
 test("the home carousel stops at its last phone screen instead of wrapping", async () => {
-  const carousel = await mount("screenshot-carousel", {
-    project: "mobile",
-    "link-base": SCREENSHOTS_BASE_PATH,
-  });
-  const track = layOutPhoneRow(carousel);
-  const [previous, next] = carousel.querySelectorAll<HTMLButtonElement>(
-    ".shots-carousel-step",
-  );
-  if (!previous || !next) throw new Error("the carousel has no step buttons");
-  const unavailable = () =>
-    [previous, next]
-      .filter((button) => button.getAttribute("aria-disabled") === "true")
-      .map((button) => button.dataset.step);
-  // It starts at the first screen, where only the next step can move.
-  expect([track.scrollLeft, unavailable()]).toEqual([0, ["-1"]]);
-  next.click();
-  expect(unavailable()).toEqual([]);
-  // Stepping on reaches the end of the row and stays there rather than
-  // returning to the first screen. The button that cannot move is marked
-  // unavailable but never disabled, so it can keep keyboard focus.
-  for (let press = 0; press < 5; press += 1) next.click();
-  expect([track.scrollLeft, unavailable(), next.disabled]).toEqual([
-    410,
-    ["1"],
-    false,
-  ]);
-  for (let press = 0; press < 5; press += 1) previous.click();
-  expect([track.scrollLeft, unavailable(), previous.disabled]).toEqual([
-    0,
-    ["-1"],
-    false,
-  ]);
+  const removeLayout = simulatePhoneLayout();
+  try {
+    const carousel = await mount("screenshot-carousel", {
+      project: "mobile",
+      "link-base": SCREENSHOTS_BASE_PATH,
+    });
+    const track = carousel.querySelector<HTMLElement>(".shots-carousel-track");
+    const [previous, next] = carousel.querySelectorAll<HTMLButtonElement>(
+      ".shots-carousel-step",
+    );
+    if (!track || !previous || !next) {
+      throw new Error("the carousel has no track or step buttons");
+    }
+    const unavailable = () =>
+      [previous, next]
+        .filter((button) => button.getAttribute("aria-disabled") === "true")
+        .map((button) => button.dataset.step);
+    // As rendered, before any scroll, it rests on the first screen, where only
+    // the next step can move.
+    expect([track.scrollLeft, unavailable()]).toEqual([0, ["-1"]]);
+    // gallery.css rests a slide inside the padding; happy-dom reads inline
+    // styles.
+    track.style.setProperty("scroll-padding-left", "16px");
+    next.click();
+    expect(unavailable()).toEqual([]);
+    // Stepping on reaches the end of the row and stays there rather than
+    // returning to the first screen. The button that cannot move is marked
+    // unavailable but never disabled, so it can keep keyboard focus.
+    for (let press = 0; press < 5; press += 1) next.click();
+    expect([track.scrollLeft, unavailable(), next.disabled]).toEqual([
+      410,
+      ["1"],
+      false,
+    ]);
+    for (let press = 0; press < 5; press += 1) previous.click();
+    expect([track.scrollLeft, unavailable(), previous.disabled]).toEqual([
+      0,
+      ["-1"],
+      false,
+    ]);
+  } finally {
+    removeLayout();
+  }
 });
