@@ -299,7 +299,10 @@ Shipping rules on top of the shared skills:
 - **Base integration**: only on a conflict or a `versions check` failure
   against the live base, merge the pinned base OID; never rebase or
   force-push. Without a PR, integrate and repair locally so the branch is
-  pushed once.
+  pushed once. After that integration and `versions prepare`, the earlier
+  clean review stands when
+  `bun run agent-tool review carry <reviewed-head> <new-head>` passes, as the
+  `ship-pr` skill describes; review again anything it rejects.
 - **Versions**: every changed workspace package ships one patch past its
   version on the merge base. After each base integration or repair and before
   each review, run `bun run agent-tool versions prepare "$BASE_OID"`, which
