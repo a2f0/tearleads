@@ -72,56 +72,97 @@ export interface OrganizationSyncPauses {
   runExclusive<T>(task: () => Promise<T>): Promise<T>;
 }
 
-async function readPausedOrganizationIds(
-  execSql: ExecSql,
-): Promise<Set<string>> {
-  await ensureSqlTables(execSql, organizationSyncPauseTables);
-  const rows = await getClientSQLitePersistenceRuntime(execSql)
-    .db.select({ organizationId: organizationSyncPauses.organizationId })
-    .from(organizationSyncPauses);
-  return new Set(rows.map((row) => row.organizationId));
-}
+/**
+ * Persistence for organization sync pauses and the documents a pause's
+ * cleanup removed, bound to one executor.
+ */
+export class OrganizationSyncPauseRepository {
+  private readonly execSql: ExecSql;
 
-// One transaction replaces the whole set, so a failed write keeps the
-// previous pauses in force; inserts go in batches within SQLite's bind budget.
-async function writePausedOrganizationIds(
-  execSql: ExecSql,
-  organizationIds: ReadonlySet<string>,
-): Promise<void> {
-  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    await ensureSqlTables(lockedExecSql, organizationSyncPauseTables);
-    const ids = [...organizationIds];
-    const batchSize = sqliteInsertBatchSize(organizationSyncPauses);
-    await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-      async (tx) => {
-        await tx.delete(organizationSyncPauses).run();
-        for (let index = 0; index < ids.length; index += batchSize) {
+  constructor(execSql: ExecSql) {
+    this.execSql = execSql;
+  }
+
+  async readPausedOrganizationIds(): Promise<Set<string>> {
+    await ensureSqlTables(this.execSql, organizationSyncPauseTables);
+    const rows = await getClientSQLitePersistenceRuntime(this.execSql)
+      .db.select({ organizationId: organizationSyncPauses.organizationId })
+      .from(organizationSyncPauses);
+    return new Set(rows.map((row) => row.organizationId));
+  }
+
+  // One transaction replaces the whole set, so a failed write keeps the
+  // previous pauses in force; inserts go in batches within SQLite's bind
+  // budget.
+  async writePausedOrganizationIds(
+    organizationIds: ReadonlySet<string>,
+  ): Promise<void> {
+    await runSerializedSqlMutation(this.execSql, async (lockedExecSql) => {
+      await ensureSqlTables(lockedExecSql, organizationSyncPauseTables);
+      const ids = [...organizationIds];
+      const batchSize = sqliteInsertBatchSize(organizationSyncPauses);
+      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          await tx.delete(organizationSyncPauses).run();
+          for (let index = 0; index < ids.length; index += batchSize) {
+            await tx
+              .insert(organizationSyncPauses)
+              .values(
+                ids
+                  .slice(index, index + batchSize)
+                  .map((organizationId) => ({ organizationId })),
+              )
+              .run();
+          }
+          // A resumed organization's removed documents may be reopened again.
           await tx
-            .insert(organizationSyncPauses)
-            .values(
-              ids
-                .slice(index, index + batchSize)
-                .map((organizationId) => ({ organizationId })),
+            .delete(organizationSyncPauseRemovals)
+            .where(
+              notInArray(
+                organizationSyncPauseRemovals.organizationId,
+                tx
+                  .select({
+                    organizationId: organizationSyncPauses.organizationId,
+                  })
+                  .from(organizationSyncPauses),
+              ),
             )
             .run();
-        }
-        // A resumed organization's removed documents may be reopened again.
-        await tx
-          .delete(organizationSyncPauseRemovals)
-          .where(
-            notInArray(
-              organizationSyncPauseRemovals.organizationId,
-              tx
-                .select({
-                  organizationId: organizationSyncPauses.organizationId,
-                })
-                .from(organizationSyncPauses),
-            ),
-          )
-          .run();
-      },
-    );
-  });
+        },
+      );
+    });
+  }
+
+  /**
+   * Records, in the caller's transaction, that a pause's cleanup removed this
+   * document, so reopening it does not recreate it while the pause lasts.
+   * A plain insert on the bound executor; it never opens a transaction.
+   */
+  async recordPauseRemovedDocument(removal: {
+    readonly localId: string;
+    readonly organizationId: string;
+  }): Promise<void> {
+    await ensureSqlTables(this.execSql, organizationSyncPauseTables);
+    await getClientSQLitePersistenceRuntime(this.execSql)
+      .db.insert(organizationSyncPauseRemovals)
+      .values(removal)
+      .onConflictDoUpdate({
+        set: { organizationId: removal.organizationId },
+        target: organizationSyncPauseRemovals.localId,
+      })
+      .run();
+  }
+
+  /** Whether a pause's cleanup removed this document and the pause holds. */
+  async isPauseRemovedDocument(localId: string): Promise<boolean> {
+    await ensureSqlTables(this.execSql, organizationSyncPauseTables);
+    const rows = await getClientSQLitePersistenceRuntime(this.execSql)
+      .db.select({ localId: organizationSyncPauseRemovals.localId })
+      .from(organizationSyncPauseRemovals)
+      .where(eq(organizationSyncPauseRemovals.localId, localId))
+      .limit(1);
+    return rows.length > 0;
+  }
 }
 
 function createOrganizationSyncPauses(): OrganizationSyncPauses {
@@ -136,17 +177,19 @@ function createOrganizationSyncPauses(): OrganizationSyncPauses {
 
   const pauses: OrganizationSyncPauses = {
     load(execSql) {
-      loading ??= readPausedOrganizationIds(execSql).then(
-        (stored) => {
-          paused = stored;
-          if (stored.size > 0) notify();
-        },
-        (error: unknown) => {
-          // Let a later call retry a failed read.
-          loading = null;
-          throw error;
-        },
-      );
+      loading ??= new OrganizationSyncPauseRepository(execSql)
+        .readPausedOrganizationIds()
+        .then(
+          (stored) => {
+            paused = stored;
+            if (stored.size > 0) notify();
+          },
+          (error: unknown) => {
+            // Let a later call retry a failed read.
+            loading = null;
+            throw error;
+          },
+        );
       return loading;
     },
     isOrganizationPaused: (organizationId) => paused.has(organizationId),
@@ -168,7 +211,9 @@ function createOrganizationSyncPauses(): OrganizationSyncPauses {
         if (change.paused.length === 0 && change.resumed.length === 0) {
           return change;
         }
-        await writePausedOrganizationIds(execSql, next);
+        await new OrganizationSyncPauseRepository(
+          execSql,
+        ).writePausedOrganizationIds(next);
         paused = next;
         notify();
         return change;
@@ -209,37 +254,4 @@ export function getOrCreateOrganizationSyncPauses(
     pausesByScope.set(domainScope, pauses);
   }
   return pauses;
-}
-
-/**
- * Records, in the caller's transaction, that a pause's cleanup removed this
- * document, so reopening it does not recreate it while the pause lasts.
- */
-export async function recordPauseRemovedDocument(
-  execSql: ExecSql,
-  removal: { readonly localId: string; readonly organizationId: string },
-): Promise<void> {
-  await ensureSqlTables(execSql, organizationSyncPauseTables);
-  await getClientSQLitePersistenceRuntime(execSql)
-    .db.insert(organizationSyncPauseRemovals)
-    .values(removal)
-    .onConflictDoUpdate({
-      set: { organizationId: removal.organizationId },
-      target: organizationSyncPauseRemovals.localId,
-    })
-    .run();
-}
-
-/** Whether a pause's cleanup removed this document and the pause still holds. */
-export async function isPauseRemovedDocument(
-  execSql: ExecSql,
-  localId: string,
-): Promise<boolean> {
-  await ensureSqlTables(execSql, organizationSyncPauseTables);
-  const rows = await getClientSQLitePersistenceRuntime(execSql)
-    .db.select({ localId: organizationSyncPauseRemovals.localId })
-    .from(organizationSyncPauseRemovals)
-    .where(eq(organizationSyncPauseRemovals.localId, localId))
-    .limit(1);
-  return rows.length > 0;
 }

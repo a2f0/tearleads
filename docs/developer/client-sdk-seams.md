@@ -50,6 +50,7 @@ reference.
 | Trusted identity pin storage | `TrustedUserIdentityPinRepository(execSql)` | Built from the caller's executor at each call | None |
 | Organization read models | `OrganizationReadModelRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Document records | `DocumentRecordRepository(execSql, now)` | Built from the caller's executor (the locked handle inside a mutation) at each call | None |
+| Organization sync pauses | `OrganizationSyncPauseRepository(execSql)` | Built from the caller's executor (the transaction's inside a removal commit) at each call | None |
 
 ## Where code goes
 

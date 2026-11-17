@@ -9,7 +9,7 @@ import {
 } from "../../../../workflows/documents";
 import {
   getOrCreateOrganizationSyncPauses,
-  recordPauseRemovedDocument,
+  OrganizationSyncPauseRepository,
 } from "../../../../workflows/sync";
 import { retireDocumentStore } from "../../registry";
 import { openDocumentStore } from "../index";
@@ -105,7 +105,9 @@ test("after a restart, reopening a removed document waits for the resume", async
     // The pause's cleanup removed the document and recorded why.
     await deletePersistedDocument({
       beforeDeleteInTransaction: (transactionExecSql) =>
-        recordPauseRemovedDocument(transactionExecSql, {
+        new OrganizationSyncPauseRepository(
+          transactionExecSql,
+        ).recordPauseRemovedDocument({
           localId: LOCAL_ID,
           organizationId: "org-paused",
         }),

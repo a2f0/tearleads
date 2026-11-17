@@ -3,9 +3,8 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createDomainScope } from "../shared/domainScope";
 import {
   getOrCreateOrganizationSyncPauses,
-  isPauseRemovedDocument,
   isRetainedWhileSyncPaused,
-  recordPauseRemovedDocument,
+  OrganizationSyncPauseRepository,
 } from "./organizationSyncPauses";
 
 const METADATA_SLOT = `sys_v1_${"m".repeat(43)}`;
@@ -144,19 +143,31 @@ test("resuming an organization forgets only its removed documents", async () => 
   try {
     const pauses = getOrCreateOrganizationSyncPauses(createDomainScope());
     await pauses.replace(execSql, ["org-a", "org-b"]);
-    await recordPauseRemovedDocument(execSql, {
+    await new OrganizationSyncPauseRepository(
+      execSql,
+    ).recordPauseRemovedDocument({
       localId: "doc-a",
       organizationId: "org-a",
     });
-    await recordPauseRemovedDocument(execSql, {
+    await new OrganizationSyncPauseRepository(
+      execSql,
+    ).recordPauseRemovedDocument({
       localId: "doc-b",
       organizationId: "org-b",
     });
 
     await pauses.replace(execSql, ["org-b"]);
 
-    expect(await isPauseRemovedDocument(execSql, "doc-a")).toBe(false);
-    expect(await isPauseRemovedDocument(execSql, "doc-b")).toBe(true);
+    expect(
+      await new OrganizationSyncPauseRepository(execSql).isPauseRemovedDocument(
+        "doc-a",
+      ),
+    ).toBe(false);
+    expect(
+      await new OrganizationSyncPauseRepository(execSql).isPauseRemovedDocument(
+        "doc-b",
+      ),
+    ).toBe(true);
   } finally {
     close();
   }

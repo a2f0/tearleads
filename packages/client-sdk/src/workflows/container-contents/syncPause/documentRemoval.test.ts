@@ -4,7 +4,7 @@ import { createDocumentProjectorRegistry } from "../../../data/documents";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { isPauseRemovedDocument } from "../../sync";
+import { OrganizationSyncPauseRepository } from "../../sync";
 import { saveTestSyncedContainer } from "../documentQueries/documentQueries.testFixtures";
 import { listPendingWrites } from "../pendingWrites";
 import { removeOrganizationContentUnlessPending } from "./documentRemoval";
@@ -95,7 +95,11 @@ test("an organization with nothing pending is removed with its documents", async
       await sqlDocumentsPersistence.loadDocument(execSql, "synced"),
     ).toBeNull();
     // Reopening it stays refused while the pause lasts, even after a restart.
-    expect(await isPauseRemovedDocument(execSql, "synced")).toBe(true);
+    expect(
+      await new OrganizationSyncPauseRepository(execSql).isPauseRemovedDocument(
+        "synced",
+      ),
+    ).toBe(true);
   });
 });
 
@@ -302,7 +306,11 @@ test("a session switch before a document's COMMIT leaves its store writable", as
       await sqlDocumentsPersistence.loadDocument(execSql, "kept"),
     ).not.toBeNull();
     // The removal record rolled back with the deletion.
-    expect(await isPauseRemovedDocument(execSql, "kept")).toBe(false);
+    expect(
+      await new OrganizationSyncPauseRepository(execSql).isPauseRemovedDocument(
+        "kept",
+      ),
+    ).toBe(false);
   });
 });
 
