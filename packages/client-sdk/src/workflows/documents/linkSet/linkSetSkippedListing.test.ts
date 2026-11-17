@@ -7,6 +7,7 @@ import {
   linkSetRefusal,
 } from "../../../../test/helpers/workflows/linkSetLegFixture";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
+import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import type { DocumentLinkSetMutationFailure } from "../../../data/documents/shared/types";
 import { documentMayHaveAttachments } from "../../../data/persistence/documents/documentAttachmentPresence";
 import { ensureDocumentsSchema } from "../../../data/persistence/documents/internal/ensureDocumentsSchema";
@@ -18,7 +19,13 @@ import { documents } from "../../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
-type LocalView = "absent" | "empty" | "held" | "detached" | "pending";
+type LocalView =
+  | "absent"
+  | "empty"
+  | "held"
+  | "detached"
+  | "pending"
+  | "metadata";
 
 const ATTACHMENTS_CHANGED: DocumentLinkSetMutationFailure = {
   code: DOCUMENT_MUTATION_ERROR_CODES.linkAttachmentsChanged,
@@ -39,7 +46,12 @@ async function seedLocalView(
   const now = new Date().toISOString();
   await db
     .insert(documents)
-    .values({ appKind: "notes", documentId, localId, updatedAt: now })
+    .values({
+      appKind: view === "metadata" ? "container-metadata" : DOCUMENTS_APP_KIND,
+      documentId,
+      localId,
+      updatedAt: now,
+    })
     .run();
   const attachment = {
     byteLength: 1,
@@ -132,6 +144,7 @@ test("only a held document without a local attachment row skips the listing", as
       "held",
       "detached",
       "pending",
+      "metadata",
     ] as const) {
       const documentId = `presence-${view}`;
       await seedLocalView(execSql, documentId, view);
@@ -142,6 +155,7 @@ test("only a held document without a local attachment row skips the listing", as
       detached: true,
       empty: false,
       held: true,
+      metadata: true,
       pending: true,
     });
   } finally {
