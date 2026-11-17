@@ -12,7 +12,7 @@ import { and, eq, inArray, or } from "drizzle-orm";
 import {
   principalPolicyBundleContainsReference,
   principalPolicyBundleStates,
-} from "../../principals/principalPolicyStates";
+} from "../../principalContracts/principalPolicyStates";
 import {
   principalPolicyBundleReferences,
   principalPolicyBundles,

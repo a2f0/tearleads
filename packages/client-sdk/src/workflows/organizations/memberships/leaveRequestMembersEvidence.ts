@@ -1,6 +1,6 @@
 import type { OrganizationLeaveRequestMembersHead } from "@tearleads/validators/util";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { requireOrganizationGroupHead } from "../../../data/principals/organizationAuthorityDescriptor";
+import { requireOrganizationGroupHead } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { PrincipalPolicyRuntime } from "../../principals/principalPolicyService";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";

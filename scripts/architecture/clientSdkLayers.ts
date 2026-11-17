@@ -10,7 +10,12 @@ import type { SubsystemLayers } from "./subsystemTypes";
  */
 export const clientSdkLayers: SubsystemLayers = [
   ["SDK Shared Utilities", "SQLite Runtime", "Security Incident Detection"],
-  ["Identity & Session", "Keying Verification", "Principal Policy (client)"],
+  [
+    "Identity & Session",
+    "Principal Policy Contracts",
+    "Keying Verification",
+    "Principal Policy (client)",
+  ],
   [
     "Container Data",
     "Client Blob Storage",

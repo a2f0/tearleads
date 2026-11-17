@@ -8,7 +8,7 @@ import {
   policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
-import { parseOrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
+import { parseOrganizationAuthorityDescriptor } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../../data/principals/principalPolicyCrypto";
 import { principalKeyEnvelopeArchive } from "../../../data/sqlite/schema/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";

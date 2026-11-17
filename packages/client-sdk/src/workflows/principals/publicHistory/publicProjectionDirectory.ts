@@ -6,7 +6,7 @@ import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/res
 import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
-} from "../../../data/principals/organizationAuthorityDescriptor";
+} from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import {
   type PublicProjectionPrincipal,
   rejectPublicProjection,

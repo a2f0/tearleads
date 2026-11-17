@@ -15,7 +15,7 @@ import {
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
-import { principalPolicyBundleContainsReference } from "../../principals/principalPolicyStates";
+import { principalPolicyBundleContainsReference } from "../../principalContracts/principalPolicyStates";
 import {
   filterUncachedPrincipalPolicyReferences,
   referencedPrincipalPolicyKey,

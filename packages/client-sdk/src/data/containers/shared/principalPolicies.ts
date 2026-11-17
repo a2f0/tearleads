@@ -1,6 +1,6 @@
 import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type { PrincipalPolicyRef } from "@tearleads/validators/request";
-import type { PrincipalPolicyCurrentEvidence } from "../../principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../../principalContracts/principalPolicyEvidence";
 
 /**
  * The head a container mutation cites for a policy it was planned against.

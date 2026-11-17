@@ -4,7 +4,7 @@ import type {
   VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
 import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
-import type { PrincipalPolicyCurrentEvidence } from "../principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../principalContracts/principalPolicyEvidence";
 import type { TrustedUserIdentity } from "../trustedUserIdentity";
 
 export type ProjectionUserKey = TrustedUserIdentity;

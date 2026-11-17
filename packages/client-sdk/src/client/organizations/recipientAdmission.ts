@@ -5,7 +5,7 @@ import type {
 import { computeUserIdentityBundleFingerprint } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
-import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../data/principalContracts/organizationAuthorityDescriptor";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

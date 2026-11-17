@@ -83,36 +83,10 @@
   "packages/client-sdk/src/data/persistence/container-contents/pendingContainerCreate.ts": [
     "packages/client-sdk/src/workflows/documents/create/index.ts"
   ],
-  "packages/client-sdk/src/data/persistence/principalKeys/principalGrantRetirementPersistence.ts": [
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence.ts",
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence.ts",
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/organizationReplacementCheckpointPersistence.ts"
-  ],
   "packages/client-sdk/src/data/persistence/principalPolicy/principalPolicyBundleRepository.ts": [
     "packages/client-sdk/src/data/keyingProjectionVerification/documentPurge/documentPurgeCheckpointCurrency.ts",
     "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts",
     "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts"
-  ],
-  "packages/client-sdk/src/data/principals/organizationAuthorityDescriptor.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/documentPurge/documentPurgePrincipalEvidence.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/mergeProjectionPolicyEvidence.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts"
-  ],
-  "packages/client-sdk/src/data/principals/principalIdentityCommitments.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicySigners.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts"
-  ],
-  "packages/client-sdk/src/data/principals/principalPolicyAdminSigners.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts"
-  ],
-  "packages/client-sdk/src/data/principals/principalPolicyEvidence.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts",
-    "packages/client-sdk/src/data/persistence/organizationFounderPersistence.ts"
-  ],
-  "packages/client-sdk/src/data/principals/principalPolicyStates.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicySigners.ts"
   ],
   "packages/client-sdk/src/data/sync/crdtPeerSeed.ts": [
     "packages/client-sdk/src/workflows/container-contents/metadata/containerMetadataDocument.ts",

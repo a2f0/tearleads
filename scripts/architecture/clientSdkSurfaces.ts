@@ -29,20 +29,28 @@ const principalsWorkflowSurface = [
 // mutations on them.
 const principalsDataSurface = [
   "currentPolicyReferenceResolver",
-  "organizationAuthorityDescriptor",
   "organizationGroupRoles",
   "principalHistoryProtection",
   "principalHistoryScopeProtection",
-  "principalIdentityCommitments",
   "principalKeyValidation",
   "principalMutationJournal",
   "principalMutationJournalRecord",
-  "principalPolicyAdminSigners",
   "principalPolicyCoordinator",
   "principalPolicyCrypto",
-  "principalPolicyEvidence",
-  "principalPolicyStates",
 ].map((module) => `${sdk}/data/principals/${module}.ts`);
+
+// Every Principal Policy Contracts module is a contract: Keying Verification
+// verifies policies with them, and Principal Policy builds on them.
+export const principalPolicyContractsSurface = [
+  ...[
+    "organizationAuthorityDescriptor",
+    "principalIdentityCommitments",
+    "principalPolicyAdminSigners",
+    "principalPolicyEvidence",
+    "principalPolicyStates",
+  ].map((module) => `${sdk}/data/principalContracts/${module}.ts`),
+  `${sdk}/data/persistence/principalContracts/principalGrantRetirementPersistence.ts`,
+];
 
 export const documentStoreSurface = [
   `${sdk}/client/documents/index.ts`,
@@ -161,7 +169,6 @@ export const rootConsoleSurface = [
 export const principalPolicySurface = [
   ...principalsWorkflowSurface,
   `${sdk}/data/persistence/principalCurrentAcknowledgementPersistence.ts`,
-  `${sdk}/data/persistence/principalKeys/principalGrantRetirementPersistence.ts`,
   `${sdk}/data/persistence/principalMutationJournalPersistence.ts`,
   `${sdk}/data/persistence/principalPolicy/principalPolicyBundleRepository.ts`,
   `${sdk}/data/persistence/principalPolicy/principalPolicyPersistence.ts`,

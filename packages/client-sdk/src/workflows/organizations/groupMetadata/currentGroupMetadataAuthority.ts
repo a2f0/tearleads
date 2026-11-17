@@ -4,7 +4,7 @@ import {
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { assertMetadataRootBinding } from "./groupMetadataRootBinding";

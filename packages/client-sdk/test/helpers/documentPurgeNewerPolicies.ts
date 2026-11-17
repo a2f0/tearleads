@@ -8,7 +8,7 @@ import {
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
-} from "../../src/data/principals/organizationAuthorityDescriptor";
+} from "../../src/data/principalContracts/organizationAuthorityDescriptor";
 import { PrincipalPolicyService } from "../../src/workflows/principals/principalPolicyService";
 import { createHistoricalPolicyPurgeFixture } from "./documentPurgeHistoricalPolicy";
 import { createAuthorityRecoveryFixture } from "./principalAuthorityRecovery";

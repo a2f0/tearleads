@@ -1,8 +1,8 @@
 import type { PrincipalPolicyHistoryProgressOptions } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
+import { principalPolicyReferenceFromBundle } from "../../data/principalContracts/principalPolicyAdminSigners";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
-import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import type {

@@ -16,7 +16,7 @@ import {
 import {
   type AcknowledgedPrincipalGrantRetirements,
   storePrincipalGrantRetirements,
-} from "../principalKeys/principalGrantRetirementPersistence";
+} from "../principalContracts/principalGrantRetirementPersistence";
 import {
   retainPrincipalPolicyBundleInTransaction,
   writePrincipalPolicyBundleInTransaction,

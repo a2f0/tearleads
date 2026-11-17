@@ -13,7 +13,7 @@ import { KeyingCheckpointRepository } from "../../../data/persistence/keyingChec
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
-} from "../../../data/principals/organizationAuthorityDescriptor";
+} from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { buildOrganizationGroupDirectoryPolicyRequest } from "../groups/organizationGroupDirectory";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 

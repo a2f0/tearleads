@@ -18,7 +18,7 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
-import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principals/principalPolicyEvidence";
+import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principalContracts/principalPolicyEvidence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 /** Both paths have been verified; a readable proof does not authorize a link. */

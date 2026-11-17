@@ -26,7 +26,7 @@ import type {
   MaterializedContainerMovePlan,
 } from "../../../../data/containers/shared/types";
 import { readCanonicalRecord } from "../../../../data/keying/canonicalJson";
-import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principalContracts/principalPolicyEvidence";
 import {
   containerMutationRequestCore,
   previousPathRequestFields,

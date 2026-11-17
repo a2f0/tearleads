@@ -12,8 +12,8 @@ import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
-} from "../../../data/principals/organizationAuthorityDescriptor";
-import { verifyOrganizationAdminPolicy } from "../../../data/principals/principalPolicyAdminSigners";
+} from "../../../data/principalContracts/organizationAuthorityDescriptor";
+import { verifyOrganizationAdminPolicy } from "../../../data/principalContracts/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { CurrentPrincipalPolicyReader } from "../currentPrincipalPolicyReader";

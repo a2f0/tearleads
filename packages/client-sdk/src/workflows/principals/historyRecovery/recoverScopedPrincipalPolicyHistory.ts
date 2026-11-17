@@ -6,12 +6,12 @@ import {
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
+import { principalPolicyReferenceFromBundle } from "../../../data/principalContracts/principalPolicyAdminSigners";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import {
   directoryHistoryProtection,
   scopedGroupHistoryProtection,
 } from "../../../data/principals/principalHistoryScopeProtection";
-import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
 import {
   type PrincipalRecoveryContext,
   PrincipalRecoveryDirectoryAdvanced,

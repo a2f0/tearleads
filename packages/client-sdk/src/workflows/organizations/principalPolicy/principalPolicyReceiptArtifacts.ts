@@ -16,7 +16,7 @@ import {
   readContainerKeyEpoch,
   readContainerKeyWrap,
 } from "../../../data/keyingProjectionVerification/readers";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 
 function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
   return [...values].sort((left, right) =>

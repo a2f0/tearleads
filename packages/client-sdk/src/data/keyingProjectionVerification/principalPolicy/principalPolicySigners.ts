@@ -4,8 +4,8 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { withUnauthenticatedPolicyIdentities } from "../../principals/principalIdentityCommitments";
-import { principalPolicyBundleStates } from "../../principals/principalPolicyStates";
+import { withUnauthenticatedPolicyIdentities } from "../../principalContracts/principalIdentityCommitments";
+import { principalPolicyBundleStates } from "../../principalContracts/principalPolicyStates";
 import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import type { ProjectionUserKeyResolver } from "../types";
 

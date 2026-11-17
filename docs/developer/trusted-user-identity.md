@@ -280,7 +280,7 @@ principal's own key epoch changes. This does not introduce identity rotation.
 
 The API [recomputes commitments](../../packages/api/src/workflows/principals/principalIdentityBundles.ts)
 from registered public keys in its configured trust domain and checks envelope
-key fingerprints. The SDK [checks commitments](../../packages/client-sdk/src/data/principals/principalIdentityCommitments.ts)
+key fingerprints. The SDK [checks commitments](../../packages/client-sdk/src/data/principalContracts/principalIdentityCommitments.ts)
 against gateway-resolved bundles during policy verification. These structural
 checks do not themselves authenticate an `observed` identity; admission still
 needs an independent anchor or the chain below.

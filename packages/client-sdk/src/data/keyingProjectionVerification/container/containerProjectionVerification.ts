@@ -12,7 +12,7 @@ import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import type { PrincipalPolicyCurrentEvidence } from "../../principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../../principalContracts/principalPolicyEvidence";
 import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { addBundleByHash } from "../checkpoints/bundleVerification";

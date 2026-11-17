@@ -1,5 +1,5 @@
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { organizationAdminSignerUserIds } from "../../../data/principals/principalPolicyAdminSigners";
+import { organizationAdminSignerUserIds } from "../../../data/principalContracts/principalPolicyAdminSigners";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 
 /** Resolve uncertain work and verify the signing administrator before any mutation pins. */
