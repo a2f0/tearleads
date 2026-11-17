@@ -10,7 +10,7 @@ import {
 const sdk = "packages/client-sdk";
 const rule = {
   name: "data-tests-load-only-data",
-  from: `^${sdk}/src/data/`,
+  from: { path: `^${sdk}/src/data/` },
   to: {
     path: [`^${sdk}/src/`, `^${sdk}/test/helpers/`],
     pathNot: [`^${sdk}/src/data/`, `^${sdk}/test/helpers/data/`],
@@ -102,6 +102,18 @@ describe("findStaleTestTierBaselineEntries", () => {
     ).toEqual([
       `${sdk}/src/data/typeOnly.test.ts: no longer breaks ${rule.name}; delete it from ${clientSdkTestTierBaselinePath}`,
       `${sdk}/src/data/moved.test.ts: no longer exists; delete it from ${rule.name} in ${clientSdkTestTierBaselinePath}`,
+    ]);
+  });
+
+  test("reports an entry that moved out of the rule's tier", () => {
+    // The workflow test still has a runtime edge out of the data tier, but the
+    // data rule no longer governs it, so its exemption must go.
+    expect(
+      findStaleTestTierBaselineEntries(graph, [rule], {
+        [rule.name]: [`${sdk}/src/workflows/sync.test.ts`],
+      }),
+    ).toEqual([
+      `${sdk}/src/workflows/sync.test.ts: no longer breaks ${rule.name}; delete it from ${clientSdkTestTierBaselinePath}`,
     ]);
   });
 

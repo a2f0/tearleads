@@ -10,9 +10,10 @@ export type ClientSdkTestTierBaseline = Readonly<
   Record<string, readonly string[]>
 >;
 
-/** The `to` criteria of a test-tier rule, as dependency-cruiser regexes. */
+/** A test-tier rule's `from` and `to` criteria, as dependency-cruiser regexes. */
 export interface TestTierRuleTarget {
   readonly name: string;
+  readonly from: { readonly path: string };
   readonly to: {
     readonly path: readonly string[];
     readonly pathNot: readonly string[];
@@ -49,28 +50,29 @@ function matchesAny(patterns: readonly string[], path: string): boolean {
   return patterns.some((pattern) => new RegExp(pattern).test(path));
 }
 
+/** Whether `module` is in the rule's scope and has a runtime edge out of it. */
 function violates(module: GraphModule, rule: TestTierRuleTarget): boolean {
-  return module.dependencies.some(
-    (dependency) =>
-      !dependency.dependencyTypes.includes("type-only") &&
-      matchesAny(rule.to.path, dependency.resolved) &&
-      !matchesAny(rule.to.pathNot, dependency.resolved),
+  return (
+    new RegExp(rule.from.path).test(module.source) &&
+    module.dependencies.some(
+      (dependency) =>
+        !dependency.dependencyTypes.includes("type-only") &&
+        matchesAny(rule.to.path, dependency.resolved) &&
+        !matchesAny(rule.to.pathNot, dependency.resolved),
+    )
   );
 }
 
 /** Files that break each rule, for generating the baseline. */
 export function findTestTierViolators(
   graph: DependencyGraph,
-  rules: readonly (TestTierRuleTarget & { readonly from: string })[],
+  rules: readonly TestTierRuleTarget[],
 ): Record<string, string[]> {
   return Object.fromEntries(
     rules.map((rule) => [
       rule.name,
       graph.modules
-        .filter(
-          (module) =>
-            new RegExp(rule.from).test(module.source) && violates(module, rule),
-        )
+        .filter((module) => violates(module, rule))
         .map((module) => module.source)
         .sort(),
     ]),
