@@ -11,9 +11,8 @@ import {
   waitForDomainSyncCoordinatorToSettle,
 } from "../../data/sync/syncCoordinator";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
-  markContainerSyncLaneChecked,
-  saveContainerSyncWatermark,
 } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
 import {
@@ -53,12 +52,9 @@ test("reconnect preserves child watermarks while an explicit refresh resets them
   };
   try {
     await seedLocalRootContainer(execSql, { rootContainerId: "root" });
-    await markContainerSyncLaneChecked(
-      execSql,
-      createContainerParentSyncLane(null),
-    );
-    await saveContainerSyncWatermark(
-      execSql,
+    const watermarks = new ContainerSyncWatermarkRepository(execSql);
+    await watermarks.markChecked(createContainerParentSyncLane(null));
+    await watermarks.saveWatermark(
       createContainerParentSyncLane("root"),
       watermark,
     );

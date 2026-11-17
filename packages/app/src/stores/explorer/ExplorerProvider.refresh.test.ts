@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerDocumentObjectSyncState,
   createContainerParentSyncLane as createExplorerContainerParentSyncLane,
   createContainerContentsStore as createExplorerStore,
-  loadContainerSyncWatermark as loadExplorerContainerSyncWatermark,
 } from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
@@ -153,8 +153,7 @@ test("explorer store refreshes remote containers on demand after initialization"
       ),
     ).toBe(true);
     await expect(
-      loadExplorerContainerSyncWatermark(
-        runtime.infra.execSql,
+      new ContainerSyncWatermarkRepository(runtime.infra.execSql).loadWatermark(
         createExplorerContainerParentSyncLane(null),
       ),
     ).resolves.toEqual({

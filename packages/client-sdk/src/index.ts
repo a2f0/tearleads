@@ -379,6 +379,7 @@ export type {
   RecoveryFolder,
 } from "./workflows/container-contents";
 export {
+  ContainerSyncWatermarkRepository,
   createContainerContentsDocumentsRuntime,
   createContainerContentsProjectionUserKeyResolver,
   createContainerContentsStoreWorkflowRuntime,
@@ -392,11 +393,9 @@ export {
   listBlobInfo,
   listDocumentLinkedContainerIds,
   loadContainerInfo,
-  loadContainerSyncWatermark,
   loadDocumentAttributionRanges,
   loadDocumentInfo,
   replaceDocumentLinks,
-  saveContainerSyncWatermark,
   syncedContainerDocumentObjectSyncState,
 } from "./workflows/container-contents";
 export type {

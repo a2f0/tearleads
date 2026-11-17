@@ -1,15 +1,13 @@
 import {
   type ContainerContentsPersistence,
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
-  loadContainerSyncLaneCheckRecords,
+  type ExecSql,
 } from "../../../workflows/container-contents/containerPersistence";
 import { hasStartupDocumentSyncWork } from "../../../workflows/container-contents/documentPriming";
 import { isDatabaseUnavailableError } from "../../../workflows/container-contents/syncLane";
 
 const STARTUP_REMOTE_HYDRATION_FRESH_MS = 15 * 60_000;
-type StartupHydrationExecSql = Parameters<
-  typeof loadContainerSyncLaneCheckRecords
->[0];
 
 interface StartupHydrationState {
   containerParentIdsNeedingHydration: Set<string | null>;
@@ -25,7 +23,7 @@ interface StartupHydrationState {
   rootLaneHydrated: boolean;
   runtime: {
     auth: { isAuthenticated: boolean; organizationId?: string | null };
-    infra: { execSql: StartupHydrationExecSql };
+    infra: { execSql: ExecSql };
     state: { containerId: string | null; online: boolean };
   };
 }
@@ -58,10 +56,9 @@ async function getStaleStartupRemoteHydrationParentIds(
   const syncLanes = parentIds.map((parentId) =>
     createContainerParentSyncLane(parentId),
   );
-  const checkRecords = await loadContainerSyncLaneCheckRecords(
+  const checkRecords = await new ContainerSyncWatermarkRepository(
     state.runtime.infra.execSql,
-    syncLanes,
-  );
+  ).loadCheckRecords(syncLanes);
   if (isCurrent?.() === false) {
     return null;
   }
@@ -147,7 +144,7 @@ export async function scheduleStaleStartupRemoteHydration(input: {
 export async function hasStartupContainerSyncWork(state: {
   containersById: ReadonlyMap<string, unknown>;
   persistence: ContainerContentsPersistence;
-  runtime: { infra: { execSql: StartupHydrationExecSql } };
+  runtime: { infra: { execSql: ExecSql } };
 }): Promise<boolean> {
   const execSql = state.runtime.infra.execSql;
   const [createIntents, moveIntents] = await Promise.all([

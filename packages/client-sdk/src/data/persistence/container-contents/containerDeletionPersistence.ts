@@ -5,6 +5,7 @@ import {
   inContainerIntentLanes,
   localIntents,
 } from "../../sqlite/schema";
+import { containerSyncWatermarkTables } from "../../sqlite/schema/containerSyncWatermarkSchema";
 import { documentContainerProjectionTables } from "../../sqlite/schema/documentProjectionSchema";
 import {
   type ClientSQLiteTransactionScope,
@@ -28,10 +29,7 @@ import {
 import { containerRemovalBatches } from "./containerRemovalBatches";
 import { containerIdsWithRemovalWork } from "./containerRemovalWork";
 import { repairDocumentsForRemovedContainersInTransaction } from "./containerStructuralRepair";
-import {
-  deleteContainerWatermarksInTransaction,
-  sqlContainerSyncWatermarkPersistence,
-} from "./containerSyncWatermarkPersistence";
+import { deleteContainerWatermarksInTransaction } from "./containerSyncWatermarkPersistence";
 import {
   refreshPlacementIntentsAfterRemoval,
   repairLinkIntentsForRemovedContainers,
@@ -232,7 +230,7 @@ export async function deleteStoredContainers(
     await ensureSqlTables(lockedExecSql, documentPlacementIntentTables);
     await ensureContainerTables(lockedExecSql);
     await ensureDocumentProjectionTables(lockedExecSql);
-    await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
+    await ensureSqlTables(lockedExecSql, containerSyncWatermarkTables);
     const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
     const remove = async (tx: ClientSQLiteTransactionScope) => {
       if (

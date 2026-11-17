@@ -9,11 +9,10 @@ export {
 } from "./attribution/documentAttributionRanges";
 export {
   type ContainerSyncWatermarkLane,
+  ContainerSyncWatermarkRepository,
   createContainerContentsSyncLane,
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
-  loadContainerSyncWatermark,
-  saveContainerSyncWatermark,
 } from "./containerPersistence";
 export {
   initializeDocumentLinksSchema,
