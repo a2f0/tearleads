@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { randomUUID } from "node:crypto";
 import {
   type DatabaseTransaction,
   db,
@@ -15,6 +16,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import invariant from "invariant";
 import { registerOrganization } from "../../../test/helpers/organizationPurge";
 import { waitForPostgresLockWait } from "../../../test/helpers/postgresConcurrency";
+import { upsertPrincipalHistoryProgress } from "../../access/write/principalHistoryProgress";
 import { purgeClaimedOrganizationRemoteData } from "./organizationPurge";
 import { claimOrganizationForPurge } from "./organizationPurgeCandidates";
 
@@ -36,12 +38,9 @@ function publisherKeyOrder(left: ProgressRow, right: ProgressRow): number {
   );
 }
 
-/** Lock a hint row as the publisher's conflicting upsert does. */
-function touch(executor: DatabaseTransaction, row: ProgressRow) {
-  return executor
-    .update(principalHistoryProgress)
-    .set({ updatedAt: new Date() })
-    .where(eq(principalHistoryProgress.id, row.id));
+/** Republish one hint row through the post-commit publisher's upsert. */
+function publish(executor: DatabaseTransaction, row: ProgressRow) {
+  return upsertPrincipalHistoryProgress(executor, [row]);
 }
 
 async function claimedOrganizationHints() {
@@ -100,10 +99,10 @@ async function publishDuringPurge(input: {
   });
   const publisher = db.transaction(async (tx) => {
     const pid = await tx.execute(sql`select pg_backend_pid() as pid`);
-    await touch(tx, input.first);
+    await publish(tx, input.first);
     held(Number(Reflect.get(pid.rows[0] ?? {}, "pid")));
     await mayProceed;
-    await touch(tx, input.last);
+    await publish(tx, input.last);
   });
   void publisher.catch(failed);
   const blockerPid = await heldFirst;
@@ -168,6 +167,30 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         last?.principalType === "organization",
       "expected group and organization hint rows",
     );
+
+    await publishDuringPurge({ claim, first, last, now });
+    expect(
+      await db
+        .select()
+        .from(principalHistoryProgress)
+        .where(inArray(principalHistoryProgress.principalId, principalIds)),
+    ).toEqual([]);
+  },
+  30_000,
+);
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "organization purge locks a scope's versions in ascending order",
+  async () => {
+    const { claim, now, principalIds, rows } = await claimedOrganizationHints();
+    const first = rows[0];
+    invariant(first, "expected a hint row");
+    // The next version of the same scope, which the publisher writes next.
+    const [last] = await db
+      .insert(principalHistoryProgress)
+      .values({ ...first, id: randomUUID(), version: first.version + 1 })
+      .returning();
+    invariant(last, "expected the next version's hint row");
 
     await publishDuringPurge({ claim, first, last, now });
     expect(
