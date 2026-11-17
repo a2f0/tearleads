@@ -1,8 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  computeBlobAccessManifestHash,
-  computeBlobContentKeyTargetHash,
-  generateKemSeedAndKeyPair,
   normalizeDocumentAccessEventBody,
   readKeyingCanonicalJson,
 } from "@tearleads/crypto";
@@ -11,29 +8,26 @@ import {
   createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import type {
-  BlobAttachmentSummary,
-  DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
 import {
-  createAuthor,
-  createLinkSetResponseFromRequest,
-  createResponse,
-  writerProjectionEvidence,
-} from "../../../../test/helpers/data/documentFixtures";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
+  DOCUMENT_MUTATION_ERROR_CODES,
+  type DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
+import { createLinkSetResponseFromRequest } from "../../../../test/helpers/data/documentFixtures";
 import {
   createBlobBytesResponse,
   createFixtureBinding,
   createUploadedAttachmentFixture,
 } from "../../../../test/helpers/workflows/blobHydration";
+import {
+  bindingWithTargets,
+  linkLegFixture,
+  linkSetRefusal,
+} from "../../../../test/helpers/workflows/linkSetLegFixture";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
-import { contentKeyTargetReference } from "../../../data/blobs/attachments/readers";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
 import type { DocumentLinkSetMutationFailure } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import { decryptDocumentAttachmentBlob } from "../../blobs/hydration/decrypt";
-import { buildMaterializedDocumentCreatePlan } from "../create";
 import {
   createLinkSetAttachmentReuse,
   reuseCommittedBlobRewraps,
@@ -114,60 +108,6 @@ test("a target the previous leg never wrapped falls back to listing", () => {
   ).toBeNull();
 });
 
-async function linkLegFixture(name: string) {
-  const { author, signingPublicKey } = await createAuthor();
-  const keyPair = generateKemSeedAndKeyPair();
-  const fixture = {
-    encapsulationPublicKey: keyPair.publicKey,
-    organizationId: "reuse-organization",
-    signerKeyFingerprint: author.signerKeyFingerprint,
-    signerPrivateKey: author.signerPrivateKey,
-    userId: author.signerUserId,
-  };
-  const projection = await createContainerWriterProjectionFixture({
-    ...fixture,
-    containerId: `${name}-root`,
-  });
-  const sibling = await createContainerWriterProjectionFixture({
-    ...fixture,
-    containerId: `${name}-sibling`,
-    parentProjection: projection,
-  });
-  const created = await buildMaterializedDocumentCreatePlan({
-    author,
-    containerProjection: projection,
-    documentId: `${name}-document`,
-    targetSecretKey: keyPair.secretKey,
-    trustedLocalProjection: true,
-  });
-  const createdResponse = createResponse(created.plan);
-  const writerProjection: DocumentWriterProjectionResponse = {
-    policyEvidence: {
-      organization: null,
-      organizationPayloads: [],
-      groups: [],
-    },
-    authorizingContainerPaths: [projection],
-    contentKeyBundle: createdResponse.contentKeyBundle,
-    ...writerProjectionEvidence([projection], []),
-    documentId: createdResponse.id,
-    documentKekTargets: createdResponse.documentKekTargets,
-    documentManifest: createdResponse.accessManifest,
-  };
-  return {
-    author,
-    keyPair,
-    resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
-      encapsulationPublicKey: keyPair.publicKey,
-      signingKeyFingerprint: author.signerKeyFingerprint,
-      signingPublicKey,
-      userId: author.signerUserId,
-    }),
-    sibling,
-    writerProjection,
-  };
-}
-
 async function runReusedLeg(
   name: string,
   refusal: DocumentLinkSetMutationFailure,
@@ -178,11 +118,13 @@ async function runReusedLeg(
   reuse.committed = [];
   const failures: DocumentLinkSetMutationFailure[] = [];
   let listings = 0;
+  let refreshedListings = 0;
   let submissions = 0;
   const result = await createRemoteDocumentServiceFixture({
     api: createMockApiClient({
-      listDocumentAttachments: async () => {
+      listDocumentAttachments: async (_documentId, options) => {
         listings += 1;
+        if (options?.refresh) refreshedListings += 1;
         return [];
       },
       getContainerWriterProjection: async () => leg.sibling,
@@ -191,15 +133,7 @@ async function runReusedLeg(
       linkDocumentResult: async (documentId, request) => {
         submissions += 1;
         return submissions === 1
-          ? {
-              ...refusal,
-              kind: "http" as const,
-              method: "POST" as const,
-              ok: false as const,
-              path: `/documents/${documentId}/link`,
-              report: () => {},
-              statusText: "Conflict",
-            }
+          ? linkSetRefusal(documentId, refusal)
           : {
               data: await createLinkSetResponseFromRequest(documentId, request),
               ok: true as const,
@@ -218,22 +152,32 @@ async function runReusedLeg(
     targetContainerId: leg.sibling.containerId,
   });
   close();
-  return { failures, listings, result, reuse, submissions };
+  return { failures, listings, refreshedListings, result, reuse, submissions };
 }
 
-test("a reused leg the server refuses re-lists the attachments and retries once", async () => {
-  const run = await runReusedLeg("attachment-reuse-retry", {
-    code: undefined,
+test.each([
+  {
+    code: DOCUMENT_MUTATION_ERROR_CODES.linkAttachmentsChanged,
     message:
       "Document attachments changed; retry the link with current blob keys",
     status: 409,
-  });
-  expect(run.submissions).toBe(2);
-  expect(run.listings).toBe(1);
-  expect(run.failures).toEqual([]);
-  expect(run.result).not.toBeNull();
-  expect(run.reuse.committed).toEqual([]);
-});
+  },
+  { code: undefined, message: "Blob content key epoch changed", status: 409 },
+] satisfies DocumentLinkSetMutationFailure[])(
+  "a reused leg the server refuses ($message) re-lists the attachments and retries once",
+  async (refusal) => {
+    const run = await runReusedLeg(
+      `attachment-reuse-retry-${refusal.code ?? "uncoded"}`,
+      refusal,
+    );
+    expect(run.submissions).toBe(2);
+    expect(run.listings).toBe(1);
+    expect(run.refreshedListings).toBe(1);
+    expect(run.failures).toEqual([]);
+    expect(run.result).not.toBeNull();
+    expect(run.reuse.committed).toEqual([]);
+  },
+);
 
 test("a coded refusal of a reused leg keeps its own recovery path", async () => {
   const refusal = {
@@ -248,39 +192,6 @@ test("a coded refusal of a reused leg keeps its own recovery path", async () => 
   expect(run.result).toBeNull();
   expect(run.reuse.committed).toBeNull();
 });
-
-async function bindingWithTargets(
-  binding: BlobAttachmentSummary,
-  projection: DocumentWriterProjectionResponse,
-  targets: BlobAttachmentSummary["contentKeyBundle"]["targets"],
-): Promise<BlobAttachmentSummary> {
-  const references = targets.map(contentKeyTargetReference);
-  const targetHash = await computeBlobContentKeyTargetHash(references);
-  const current = {
-    ...binding.blobKekTargets,
-    documentManifestHashes: [projection.documentManifest.manifestHash],
-    linkedContainerManifestHashes: references
-      .map((target) => target.containerManifestHash)
-      .sort(),
-    linkedContainerKeyEpochIds: references
-      .map((target) => target.containerKeyEpochId)
-      .sort(),
-    targets: references.map((target) => ({ ...target })),
-    blobKeyTargetHash: targetHash,
-  };
-  const { targets: _targets, blobAccessManifestHash: _old, ...rest } = current;
-  return {
-    ...binding,
-    blobKekTargets: {
-      ...current,
-      blobAccessManifestHash: await computeBlobAccessManifestHash({
-        version: 1,
-        ...rest,
-      }),
-    },
-    contentKeyBundle: { ...binding.contentKeyBundle, targetHash, targets },
-  };
-}
 
 test("an unlink leg re-cites the link leg's attachment wrap, usable with only the destination KEK", async () => {
   const fixture = await createUploadedAttachmentFixture();

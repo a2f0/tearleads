@@ -83,7 +83,23 @@ event records the proposed envelopes. The API validates their target identities
 and substitutes retained envelopes where applicable, so event replay must apply
 this retention rule rather than copying the proposal directly. Readers consume
 the resulting verified bundle projection. Stale or incomplete rewraps conflict
-without advancing the document head.
+without advancing the document head. Rewraps whose blobs are not exactly the
+active bindings answer `409 document_link_attachments_changed`; other stale
+rewraps (a re-cited content-key epoch that moved) stay uncoded.
+
+A client normally lists the document's attachments before signing. It may
+instead sign an empty `blobRewraps` without listing when its local view holds
+the document and no attachment row for it (no held or downloaded copy, no
+locally detached slot whose remote detach is queued, and no pending upload). A
+move or Trash leg may likewise re-cite the envelopes the previous leg committed;
+a leg that cannot re-cite them lists. Either view can be stale, so the server's
+frontier check stays authoritative: on `document_link_attachments_changed` (or,
+for re-cited envelopes, the uncoded epoch conflict) the client lists afresh,
+bypassing any cached listing, and retries once, unless the operation is no
+longer current. A refused retry is reported like any other link-set failure. A
+stale view therefore costs at most one refused submission per attempt, plus the
+reads its fresh attempt makes (the listing and the evicted writer projection),
+and never a wrong commit.
 
 An unlink [rotates](./glossary/keys.md#rotate) the document content key and must
 carry a `rotationBaseline` — a signed `rotate_baseline` full-history snapshot
