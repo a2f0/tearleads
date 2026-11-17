@@ -6043,14 +6043,6 @@
       "OrganizationPrincipalPolicyRequest": {
         "type": "object",
         "properties": {
-          "containerMutations": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ContainerMutationRequest"
-            },
-            "maxItems": 0,
-            "description": "Container mutations committed atomically with the state."
-          },
           "encryptedPayload": {
             "type": "object",
             "properties": {
@@ -6077,6 +6069,51 @@
             "items": {
               "$ref": "#/components/schemas/PrincipalContainerGrantRequest"
             }
+          },
+          "memberEnvelopeChanges": {
+            "type": "object",
+            "properties": {
+              "removeUserIds": {
+                "type": "array",
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "type": "string"
+                }
+              },
+              "upsert": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kemCipherText": {
+                      "type": "string"
+                    },
+                    "memberKeyFingerprint": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                      "type": "string"
+                    },
+                    "wrappedKey": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kemCipherText",
+                    "memberKeyFingerprint",
+                    "userId",
+                    "wrappedKey"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "required": [
+              "removeUserIds",
+              "upsert"
+            ],
+            "additionalProperties": {}
           },
           "memberEnvelopes": {
             "type": "array",
@@ -6291,6 +6328,14 @@
               "version"
             ],
             "additionalProperties": {}
+          },
+          "containerMutations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContainerMutationRequest"
+            },
+            "maxItems": 0,
+            "description": "Container mutations committed atomically with the state."
           }
         },
         "required": [
@@ -8471,13 +8516,6 @@
       "PutPrincipalPolicyRequest": {
         "type": "object",
         "properties": {
-          "containerMutations": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ContainerMutationRequest"
-            },
-            "description": "Container mutations that move the principal's grants to the new key epoch, committed atomically with it."
-          },
           "encryptedPayload": {
             "type": "object",
             "properties": {
@@ -8506,6 +8544,51 @@
               "$ref": "#/components/schemas/PrincipalContainerGrantRequest"
             },
             "description": "The principal's complete container grant list after this state."
+          },
+          "memberEnvelopeChanges": {
+            "type": "object",
+            "properties": {
+              "removeUserIds": {
+                "type": "array",
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "type": "string"
+                }
+              },
+              "upsert": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kemCipherText": {
+                      "type": "string"
+                    },
+                    "memberKeyFingerprint": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                      "type": "string"
+                    },
+                    "wrappedKey": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kemCipherText",
+                    "memberKeyFingerprint",
+                    "userId",
+                    "wrappedKey"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "required": [
+              "removeUserIds",
+              "upsert"
+            ],
+            "additionalProperties": {}
           },
           "memberEnvelopes": {
             "type": "array",
@@ -8721,6 +8804,13 @@
             ],
             "additionalProperties": {},
             "description": "The signed state."
+          },
+          "containerMutations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContainerMutationRequest"
+            },
+            "description": "Container mutations that move the principal's grants to the new key epoch, committed atomically with it."
           }
         },
         "required": [

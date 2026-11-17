@@ -25,6 +25,7 @@ import { runDeleteOrganizationGroupWorkflow } from "../../workflows/organization
 import { runUpdateOrganizationProfileWorkflow } from "../../workflows/organizations/profileMutation";
 import { runGetOrganizationReadModelWorkflow } from "../../workflows/organizations/readModelFeed";
 import { runUpdateOrganizationRosterEntryWorkflow } from "../../workflows/organizations/rosterMutation";
+import { rebuildOrganizationLegMemberEnvelopes } from "../../workflows/principals/memberEnvelopeReferences";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { OrganizationManagerError, OrganizationReadModelCursorError };
@@ -96,7 +97,7 @@ export async function createOrganizationGroup(
     runtime.db,
     organizationId,
     sessionUserId,
-    input,
+    await rebuildOrganizationLegMemberEnvelopes(runtime.db, input),
     resolveApiIdentityTrustDomain(runtime.identityTrustDomain, requestUrl),
   );
 }
@@ -114,7 +115,7 @@ export async function deleteOrganizationGroup(
     organizationId,
     groupId,
     sessionUserId,
-    input,
+    await rebuildOrganizationLegMemberEnvelopes(runtime.db, input),
     resolveApiIdentityTrustDomain(runtime.identityTrustDomain, requestUrl),
   );
 }

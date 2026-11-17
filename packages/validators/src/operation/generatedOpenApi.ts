@@ -3503,6 +3503,19 @@ export type components = {
                 [key: string]: unknown;
             };
             grants: components["schemas"]["PrincipalContainerGrantRequest"][];
+            memberEnvelopeChanges?: {
+                removeUserIds: string[];
+                upsert: ({
+                    kemCipherText: string;
+                    memberKeyFingerprint: string;
+                    userId: string;
+                    wrappedKey: string;
+                } & {
+                    [key: string]: unknown;
+                })[];
+            } & {
+                [key: string]: unknown;
+            };
             /** @description The new key epoch's key, encapsulated to each member. */
             memberEnvelopes: ({
                 kemCipherText: string;
@@ -4119,6 +4132,19 @@ export type components = {
             };
             /** @description The principal's complete container grant list after this state. */
             grants: components["schemas"]["PrincipalContainerGrantRequest"][];
+            memberEnvelopeChanges?: {
+                removeUserIds: string[];
+                upsert: ({
+                    kemCipherText: string;
+                    memberKeyFingerprint: string;
+                    userId: string;
+                    wrappedKey: string;
+                } & {
+                    [key: string]: unknown;
+                })[];
+            } & {
+                [key: string]: unknown;
+            };
             /** @description The new key epoch's key, encapsulated to each member. */
             memberEnvelopes: ({
                 kemCipherText: string;

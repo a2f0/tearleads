@@ -29,6 +29,7 @@ const principalsWorkflowSurface = [
 // founding policies.
 const principalsDataSurface = [
   "currentPolicyReferenceResolver",
+  "memberEnvelopeReferences",
   "organizationGroupDirectoryRequest",
   "organizationGroupRoles",
   "organizationPolicyRequest",

@@ -152,6 +152,18 @@ Principal-state signing and hashing use the domain `tearleads.principal-state`.
 `memberEnvelopesRoot` is mandatory; a state missing it, required policy
 material, or envelope material fails closed.
 
+A policy write in its predecessor's key epoch may send its envelopes by
+reference: `memberEnvelopes` is empty and `memberEnvelopeChanges` names the
+removed users (`removeUserIds`) and the added or replaced envelopes
+(`upsert`); a leg with both is refused. The API rebuilds the full set from
+the envelopes it stored for `state.prevStateHash`, which never change once
+written, before any other check, so the rebuilt set must match the signed
+`memberEnvelopesRoot`, and an outcome replay compares the rebuilt request. A
+leg outside the predecessor's epoch is refused. Clients send changes only
+against a predecessor they hold whose envelopes match its signed root, and
+otherwise send the full list
+([model](../../formal/container-keying/EnvelopeSetReference.md)).
+
 `GET /principals/:principalType/:principalId/policy` serves one pinned head
 in pages ([history transport](../principal-history-transport.md)). Every read
 applies live read authorization and verifies the current policy first. An

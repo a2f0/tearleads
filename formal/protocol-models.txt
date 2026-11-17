@@ -6,6 +6,7 @@ formal/container-keying/ContainerGrantScope.tla|formal/container-keying/Containe
 formal/container-keying/ContainerTombstoneRecovery.tla|formal/container-keying/ContainerTombstoneRecovery.cfg
 formal/container-keying/GroupGrantRevocation.tla|formal/container-keying/GroupGrantRevocation.cfg
 formal/container-keying/OrganizationDirectoryKey.tla|formal/container-keying/OrganizationDirectoryKey.cfg
+formal/container-keying/EnvelopeSetReference.tla|formal/container-keying/EnvelopeSetReference.cfg
 formal/container-keying/InaccessibleIntermediateRepair.tla|formal/container-keying/InaccessibleIntermediateRepair.cfg
 formal/container-keying/InaccessibleIntermediateRepair.tla|formal/container-keying/InaccessibleIntermediateSelfRevoke.cfg
 formal/container-keying/KeyringReachability.tla|formal/container-keying/KeyringReachability.cfg

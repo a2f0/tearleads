@@ -98,7 +98,9 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // public keys: 530,053 bytes received (541,249 with keys). Served bundles
   // leave off the state their signed bytes name: 507,337 bytes received.
   // Either return (keys 518,533, full states about 530,000) exceeds this
-  // ceiling.
+  // ceiling. Policy legs in their predecessor's key epoch send member
+  // envelopes as changes to the held predecessor's set: 114,744 bytes sent
+  // with one recitation, 134,118 with every list in full.
   bodyBytes: { request: 160_000, response: 515_000 },
   byRequest: {
     "GET /principals/history": 7,

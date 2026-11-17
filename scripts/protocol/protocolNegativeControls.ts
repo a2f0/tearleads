@@ -11,6 +11,7 @@ import { CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS } from "./protocolContainerMove
 import { CONTENT_WRITE_NEGATIVE_CONTROLS } from "./protocolContentWriteNegativeControls";
 import { DEFERRED_TAIL_NEGATIVE_CONTROLS } from "./protocolDeferredTailNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
+import { ENVELOPE_SET_REFERENCE_NEGATIVE_CONTROLS } from "./protocolEnvelopeSetReferenceNegativeControls";
 import { GROUP_GRANT_REVOCATION_NEGATIVE_CONTROLS } from "./protocolGroupGrantRevocationNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
@@ -64,6 +65,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...CONTAINER_ADOPTION_NEGATIVE_CONTROLS,
   ...CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS,
   ...ORGANIZATION_DIRECTORY_KEY_NEGATIVE_CONTROLS,
+  ...ENVELOPE_SET_REFERENCE_NEGATIVE_CONTROLS,
   ...READ_MODEL_STAMP_NEGATIVE_CONTROLS,
   {
     id: "purged-queue-starts-remote-create",

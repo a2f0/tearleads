@@ -10,6 +10,7 @@ import {
   isUpdateOrganizationRosterEntryRequest,
   isVerifyRequest,
   OrganizationPrincipalPolicyRequestSchema,
+  PutPrincipalPolicyRequestSchema,
   VerifyRequestSchema,
 } from "./index";
 
@@ -232,6 +233,31 @@ test("isPutPrincipalPolicyRequest", () => {
   expect(
     isPutPrincipalPolicyRequest({ ...request, memberEnvelopes: undefined }),
   ).toBe(false);
+  // Envelope changes replace the list, which is then empty (#2903 P17); the
+  // API refuses a leg that sends both.
+  const changes = {
+    removeUserIds: ["550e8400-e29b-41d4-a716-446655440002"],
+    upsert: request.memberEnvelopes,
+  };
+  for (const schema of [
+    PutPrincipalPolicyRequestSchema,
+    OrganizationPrincipalPolicyRequestSchema,
+  ]) {
+    expect(
+      schema.safeParse({
+        ...request,
+        memberEnvelopeChanges: changes,
+        memberEnvelopes: [],
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        ...request,
+        memberEnvelopeChanges: { ...changes, removeUserIds: [42] },
+        memberEnvelopes: [],
+      }).success,
+    ).toBe(false);
+  }
   for (const signedAt of [
     "2026-09-12T00:00:00Z",
     "0050-01-01T00:00:00.000Z",

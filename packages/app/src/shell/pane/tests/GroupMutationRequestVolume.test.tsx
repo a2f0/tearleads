@@ -153,6 +153,18 @@ test("group creation and adding a peer have separate request budgets", async () 
     const body: unknown = JSON.parse(commit.requestBody);
     if (group === "first") expect(body).toHaveProperty("memberPolicy");
     else expect(body).not.toHaveProperty("memberPolicy");
+    // The Members leg keeps its key epoch and the device holds its
+    // predecessor, so it sends only the peer's envelope (#2903 P17).
+    if (group === "first")
+      expect(body).toMatchObject({
+        memberPolicy: {
+          memberEnvelopeChanges: {
+            removeUserIds: [],
+            upsert: [expect.objectContaining({ userId: peerId })],
+          },
+          memberEnvelopes: [],
+        },
+      });
     // The first pair adds private metadata-root authority reads. Phase margins
     // cannot accumulate across creation and membership changes.
     const combined = listProxiedApiRequests().slice(pairStart);

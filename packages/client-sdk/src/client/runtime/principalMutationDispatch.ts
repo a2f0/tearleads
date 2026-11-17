@@ -9,6 +9,7 @@ import {
   isDeleteOrganizationGroupResponse,
   isPrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
+import { withHeldMemberEnvelopeChanges } from "../../data/principals/memberEnvelopeReferences";
 import type { AuthoredPrincipalMutation } from "../../data/principals/principalMutationJournal";
 import type { PrincipalMutationResponse } from "../../workflows/organizations";
 import {
@@ -70,6 +71,30 @@ export function dispatchAuthoredPrincipalMutation(
   }
 }
 
+/** Each journaled request goes out with held envelope sets by reference. */
+function sendByReference(input: {
+  readonly api: ApiClient;
+  readonly dispatch: ReturnType<typeof createPrincipalMutationDispatcher>;
+  readonly journal: Omit<PrincipalMutationJournalContext, "submit">;
+  readonly options: RequestResultOptions;
+  readonly organizationId: string;
+}): PrincipalMutationJournalContext["submit"] {
+  return async (saved) => {
+    const wire = await withHeldMemberEnvelopeChanges(
+      input.journal.execSql,
+      saved,
+    );
+    return input.dispatch(input.options, (dispatchOptions) =>
+      dispatchAuthoredPrincipalMutation(
+        input.api,
+        input.organizationId,
+        wire,
+        dispatchOptions,
+      ),
+    );
+  };
+}
+
 function unsupportedMutation(_mutation: never): never {
   throw new Error("Unsupported principal mutation operation");
 }
@@ -87,18 +112,17 @@ export function createJournaledPrincipalMutations(
     validator: (value: unknown) => value is T,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<T>> {
+    const journal = context(organizationId);
     const result = await submitJournaledPrincipalMutation({
-      ...context(organizationId),
+      ...journal,
       mutation,
-      submit: (saved) =>
-        dispatch(options, (dispatchOptions) =>
-          dispatchAuthoredPrincipalMutation(
-            api,
-            organizationId,
-            saved,
-            dispatchOptions,
-          ),
-        ),
+      submit: sendByReference({
+        api,
+        dispatch,
+        journal,
+        options,
+        organizationId,
+      }),
     });
     if (!result.ok) return result;
     // The session already verified this operation before clearing its row.

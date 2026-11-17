@@ -94,13 +94,34 @@ export type PrincipalMemberEnvelopeRequest = z.infer<
   typeof PrincipalMemberEnvelopeRequestSchema
 >;
 
-export const PutPrincipalPolicyRequestSchema = loosePlainObject({
-  containerMutations: arraySchema(ContainerMutationRequestSchema).optional(),
+/**
+ * A successor in its predecessor's key epoch may send its member envelopes as
+ * changes to the predecessor's set (#2903 P17): `memberEnvelopes` is then
+ * empty (the server refuses a leg with both), and the server rebuilds the full
+ * set from the envelopes it stored for `state.prevStateHash` and checks it
+ * against the signed root.
+ */
+const PrincipalMemberEnvelopeChangesRequestSchema = loosePlainObject({
+  removeUserIds: arraySchema(uuidV4StringSchema),
+  upsert: arraySchema(PrincipalMemberEnvelopeRequestSchema),
+});
+
+export type PrincipalMemberEnvelopeChangesRequest = z.infer<
+  typeof PrincipalMemberEnvelopeChangesRequestSchema
+>;
+
+const principalPolicyRequestShape = {
   encryptedPayload: PrincipalStateEncryptedPayloadRequestSchema,
   grants: arraySchema(PrincipalContainerGrantRequestSchema),
+  memberEnvelopeChanges: PrincipalMemberEnvelopeChangesRequestSchema.optional(),
   memberEnvelopes: arraySchema(PrincipalMemberEnvelopeRequestSchema),
   projection: arraySchema(PrincipalProjectionMemberRequestSchema),
   state: PrincipalStateRequestSchema,
+};
+
+export const PutPrincipalPolicyRequestSchema = loosePlainObject({
+  ...principalPolicyRequestShape,
+  containerMutations: arraySchema(ContainerMutationRequestSchema).optional(),
 });
 
 export type PutPrincipalPolicyRequest = z.infer<
@@ -108,12 +129,8 @@ export type PutPrincipalPolicyRequest = z.infer<
 >;
 
 export const OrganizationPrincipalPolicyRequestSchema = loosePlainObject({
+  ...principalPolicyRequestShape,
   containerMutations: arraySchema(ContainerMutationRequestSchema, 0).optional(),
-  encryptedPayload: PrincipalStateEncryptedPayloadRequestSchema,
-  grants: arraySchema(PrincipalContainerGrantRequestSchema),
-  memberEnvelopes: arraySchema(PrincipalMemberEnvelopeRequestSchema),
-  projection: arraySchema(PrincipalProjectionMemberRequestSchema),
-  state: PrincipalStateRequestSchema,
 });
 
 export type OrganizationPrincipalPolicyRequest = z.infer<

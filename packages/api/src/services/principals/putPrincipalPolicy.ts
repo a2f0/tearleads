@@ -4,6 +4,10 @@ import {
   runCommitOrganizationGroupPolicyWorkflow,
 } from "../../workflows/principals/commitOrganizationGroupPolicy";
 import {
+  rebuildCommitMemberEnvelopes,
+  rebuildMemberEnvelopes,
+} from "../../workflows/principals/memberEnvelopeReferences";
+import {
   type PutPrincipalPolicyInput,
   type PutPrincipalPolicyResult,
   runPutPrincipalPolicyWorkflow,
@@ -13,7 +17,18 @@ import { createIdentityBoundDatabaseWorkflowService } from "../identityBoundData
 export const putPrincipalPolicy = createIdentityBoundDatabaseWorkflowService<
   PutPrincipalPolicyInput,
   PutPrincipalPolicyResult
->(runPutPrincipalPolicyWorkflow);
+>(async (db, input, identityTrustDomain) =>
+  runPutPrincipalPolicyWorkflow(
+    db,
+    {
+      ...(await rebuildMemberEnvelopes(db, input)),
+      expectedPrincipalId: input.expectedPrincipalId,
+      expectedPrincipalType: input.expectedPrincipalType,
+      requesterUserId: input.requesterUserId,
+    },
+    identityTrustDomain,
+  ),
+);
 
 interface CommitOrganizationGroupPolicyServiceInput {
   readonly groupId: string;
@@ -26,4 +41,13 @@ export const commitOrganizationGroupPolicy =
   createIdentityBoundDatabaseWorkflowService<
     CommitOrganizationGroupPolicyServiceInput,
     CommitOrganizationGroupPolicyResult
-  >(runCommitOrganizationGroupPolicyWorkflow);
+  >(async (db, input, identityTrustDomain) =>
+    runCommitOrganizationGroupPolicyWorkflow(
+      db,
+      {
+        ...input,
+        request: await rebuildCommitMemberEnvelopes(db, input.request),
+      },
+      identityTrustDomain,
+    ),
+  );

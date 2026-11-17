@@ -42,6 +42,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/container-keying/PrincipalRecoveryReuse.md": 1,
   "formal/container-keying/GroupGrantRevocation.md": 1,
   "formal/container-keying/OrganizationDirectoryKey.md": 1,
+  "formal/container-keying/EnvelopeSetReference.md": 1,
   "formal/container-keying/KeyringReachability.md": 1,
   "formal/container-keying/InaccessibleIntermediateRepair.md": 1,
   "formal/container-keying/PrincipalReferenceProgress.md": 1,

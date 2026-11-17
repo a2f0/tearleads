@@ -22,6 +22,12 @@ epoch while the writer can verify the held key. Two negative controls:
 `RemovedAdminLacksCurrentKey`; `KeepWhenVerifiable = FALSE` rotates on every
 write and violates `EpochHeldUnlessShrink`.
 
+Every rotation in the model is a fresh key, as the SDK generates. Verifiers
+compare key material only with the predecessor, so they also accept a
+rotation back to an older key; that has no confidentiality consequence
+because the directory key encrypts no data
+([security properties](../../docs/security-guarantees/properties.md)).
+
 The model treats every envelope as opening for its admin. The SDK checks
 only the signer's own envelope before keeping a key (without the signer's key
 it always rotates), so a co-admin envelope that a faulty author wrapped

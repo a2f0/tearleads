@@ -75,6 +75,13 @@ writer can verify it, and rotates on any removal, so a removed admin never
 holds the current key. See the
 [mapping and negative controls](./container-keying/OrganizationDirectoryKey.md).
 
+[`container-keying/EnvelopeSetReference.tla`](./container-keying/EnvelopeSetReference.tla)
+checks member envelopes sent by reference: a successor in its predecessor's key
+epoch sends changes to the predecessor's set, the server rebuilds the full set
+from the stored predecessor and stores it only when it matches the signed root,
+and a retry in either form replays its commit. See the
+[mapping and negative controls](./container-keying/EnvelopeSetReference.md).
+
 ### Container Tombstone Recovery
 
 [`container-keying/ContainerTombstoneRecovery.tla`](./container-keying/ContainerTombstoneRecovery.tla)
