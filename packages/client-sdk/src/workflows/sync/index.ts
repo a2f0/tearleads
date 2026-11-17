@@ -5,12 +5,11 @@ export {
 export { getRuntimePeerSeed } from "../../data/sync/crdtPeerSeed";
 export {
   getOrCreateOrganizationSyncPauses,
-  isPauseRemovedDocument,
   isRetainedWhileSyncPaused,
   type OrganizationSyncPauseChange,
+  OrganizationSyncPauseRepository,
   type OrganizationSyncPauseSubject,
   type OrganizationSyncPauses,
-  recordPauseRemovedDocument,
 } from "../../data/sync/organizationSyncPauses";
 export { markOriginatedDocuments } from "../../data/sync/originatedDocuments";
 export type {

@@ -10,7 +10,7 @@ import {
 import { createCoverageFixture } from "../../../../../test/helpers/syncOutgoingCoverage";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { listDeferredPendingWriteCandidates } from "../../../../workflows/container-contents/pendingWrites/deferredTails";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { pendingDeltaSinceBase, persistDocument } from "../persistence";
 import { resetDocumentStore, setReadySnapshot } from "../state";
 import { shouldReArmDocumentSync } from "./syncFinalize";

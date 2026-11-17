@@ -4,7 +4,7 @@ import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../workf
 import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadata/groupMetadataRuntime";
 import { hydrateOrganizationGroupNames } from "../../workflows/organizations/groupNames/organizationGroupNames";
 import type { OrganizationDirectoryAndGroups } from "../../workflows/organizations/readModel";
-import { createRuntimePrincipalPolicyCurrentResolver } from "../../workflows/principals/runtimePolicyRecovery";
+
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import {
   type ActiveOrganizationDataRuntime,
@@ -22,9 +22,8 @@ export async function hydrateOrganizationGroupNamesForRuntime(
       isOrganizationDataRuntimeCurrent(runtimeService, active, domainScope);
     // Labels and their metadata root belong to this one reconciliation view.
     const currentRecovery = {
-      resolveCurrentPolicy: createRuntimePrincipalPolicyCurrentResolver(
-        active.runtime,
-      ),
+      resolveCurrentPolicy:
+        active.runtime.principalPolicies.createCurrentPolicyResolver(),
       recoveryBatch: {},
     };
     return hydrateOrganizationGroupNames({

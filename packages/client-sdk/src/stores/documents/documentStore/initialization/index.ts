@@ -21,7 +21,7 @@ import {
   isDatabaseUnavailableError,
   loadPersistedDocumentStoreState,
 } from "../../../../workflows/documents";
-import { isPauseRemovedDocument } from "../../../../workflows/sync";
+import { OrganizationSyncPauseRepository } from "../../../../workflows/sync";
 import type { DocumentStoreRelinkInput } from "../../types";
 import { chainIdentityWrite } from "../identityWriteChain";
 import type { DocumentRelinkCommitSideEffect } from "../internalRelink";
@@ -260,7 +260,9 @@ async function initializeDocumentStore(
   // retries, so it loads once the organization resumes.
   if (
     !persistedState.document &&
-    (await isPauseRemovedDocument(state.runtime.infra.execSql, state.localId))
+    (await new OrganizationSyncPauseRepository(
+      state.runtime.infra.execSql,
+    ).isPauseRemovedDocument(state.localId))
   ) {
     state.initializePromise = null;
     return;

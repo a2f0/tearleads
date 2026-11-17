@@ -12,6 +12,7 @@ import {
   createLinkSetResponseFromRequest,
   createResponse,
 } from "../../../../test/helpers/documentFixtures";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
@@ -160,7 +161,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
       replaceLinkedContainers: true,
       resolveProjectionUserKey,
       rotationSnapshot: await createRotationSnapshot(),
-      runtime: {
+      runtime: withPrincipalPolicies({
         apiClient: createMockApiClient({
           listDocumentAttachments: async () => [],
           getContainerWriterProjection: async (containerId) =>
@@ -232,7 +233,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
           log: () => undefined,
           reportSecurityIncident: async () => undefined,
         },
-      },
+      }),
       targetContainerId: trashProjection.containerId,
     });
 

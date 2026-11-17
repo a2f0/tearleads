@@ -12,6 +12,7 @@ import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../../test/helpers/principalPolicyFixtures";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import { createRuntimeCurrentGroupMutation } from "../principalMutations/runtimeCurrentGroupMutation";
 import { commitCurrentGroupPolicyMutation } from "./commitCurrentGroupPolicyMutation";
@@ -75,21 +76,25 @@ test.each(["carry", "stale"] as const)(
         },
       };
     };
-    const mutate = createRuntimeCurrentGroupMutation({
-      apiClient: {
-        getPrincipalPolicyPages:
-          apiClient.getPrincipalPolicyPages.bind(apiClient),
-        recoverPendingPrincipalMutation: async () => {},
-      },
-      infra: { execSql: f.options.execSql },
-      resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
-      util: { reportSecurityIncident: async () => {} },
-      withPrincipalHistoryProtection: async (work) =>
-        work({
-          protection: f.options.protection,
-          stillCurrent: () => true,
-        }),
-    });
+    const mutate = createRuntimeCurrentGroupMutation(
+      withPrincipalPolicies(
+        {
+          apiClient: {
+            getPrincipalPolicyPages:
+              apiClient.getPrincipalPolicyPages.bind(apiClient),
+            recoverPendingPrincipalMutation: async () => {},
+          },
+          infra: { execSql: f.options.execSql },
+          resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
+          util: { reportSecurityIncident: async () => {} },
+        },
+        async (work) =>
+          work({
+            protection: f.options.protection,
+            stillCurrent: () => true,
+          }),
+      ),
+    );
     try {
       if (!mutate) throw new Error("Missing current mutation runtime");
       const remaining = await fixture.resolveTrustedUserIdentity(

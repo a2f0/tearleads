@@ -7,7 +7,7 @@ import {
   isProjectionVerificationCancelledError,
 } from "../../data/keyingProjectionVerification/types";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
-import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
+import { PrincipalPolicyService } from "./principalPolicyService";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
@@ -18,7 +18,7 @@ async function fixture() {
   const f = await createPublicProjectionHistoryFixture(history);
   const state = { online: true, current: true, fullReads: 0 };
   const incidents: unknown[] = [];
-  const warmer = createRuntimePrincipalPolicyWarmer({
+  const warmer = new PrincipalPolicyService({
     apiClient: createMockApiClient({
       getProjectionPolicyHistoryPages:
         f.options.historyReader.getProjectionPolicyHistoryPages.bind(
@@ -42,7 +42,7 @@ async function fixture() {
         protection: f.options.protection,
         stillCurrent: () => state.current,
       }),
-  });
+  }).createWarmer();
   const guarded = generationGuardedPrincipalPolicyWarmer(
     warmer,
     () => state.current,

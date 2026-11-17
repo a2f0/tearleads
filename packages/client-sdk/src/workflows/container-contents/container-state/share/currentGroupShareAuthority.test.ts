@@ -7,8 +7,8 @@ import {
 } from "../../../../../test/helpers/containerFixtures";
 import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/currentShareMetadata";
 import { createShareTestRuntime } from "../../../../../test/helpers/groupShareScenario";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { inheritPrincipalHistoryProtection } from "../../../../data/principals/principalHistoryRuntime";
 import { commitCurrentShareGrant } from "../../../organizations/groupShare/currentShareGrantMutation";
 import { createRuntimeCurrentGroupMutation } from "../../../organizations/principalMutations/runtimeCurrentGroupMutation";
 import { shareRemoteContainerWithGroup } from "../remote";
@@ -55,8 +55,7 @@ test("a container admin outside group authority can rewrap a grant but cannot mi
     compoundCalls += 1;
     throw new Error("Existing grants require no group-admin mutation");
   };
-  const runtime = inheritPrincipalHistoryProtection(
-    f.runtime,
+  const runtime = withPrincipalPolicies(
     createShareTestRuntime({
       apiClient: f.options.apiClient,
       author,
@@ -72,6 +71,7 @@ test("a container admin outside group authority can rewrap a grant but cannot mi
       logs: [],
       resolveTrustedUserIdentity: resolveUser,
     }),
+    f.lease,
   );
   try {
     for (const policy of [f.group, f.admin])
@@ -93,12 +93,13 @@ test("a container admin outside group authority can rewrap a grant but cannot mi
     expect(compoundCalls).toBe(0);
     expect(f.fullReads()).toBe(0);
     const mutate = createRuntimeCurrentGroupMutation(
-      inheritPrincipalHistoryProtection(runtime, {
+      // Object.assign keeps the API client this runtime's service reads.
+      {
         ...runtime,
         apiClient: Object.assign(f.options.apiClient, {
           recoverPendingPrincipalMutation: async () => {},
         }),
-      }),
+      },
     );
     if (!mutate) throw new Error("Missing fixture Current mutation custody");
     // Exercise the mint boundary with the same genuine container administrator.

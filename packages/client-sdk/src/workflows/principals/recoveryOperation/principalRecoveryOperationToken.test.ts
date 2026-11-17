@@ -16,9 +16,9 @@ import { KeyingCheckpointRepository } from "../../../data/persistence/keyingChec
 import { getOrCreatePrincipalPolicyCoordinator } from "../../../data/principals/principalPolicyCoordinator";
 import {
   createPrincipalPolicyOperation,
-  createRuntimePrincipalPolicyWarmer,
   type PrincipalPolicyOperation,
-} from "../runtimePolicyWarmer";
+  PrincipalPolicyService,
+} from "../principalPolicyService";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
@@ -37,28 +37,26 @@ async function fixture() {
   // Each step of a pass builds its own warmer, as production call sites do;
   // only the pass's token can make them share a discovery.
   const warmer = (operation?: PrincipalPolicyOperation) =>
-    createRuntimePrincipalPolicyWarmer(
-      {
-        apiClient: createMockApiClient({
-          getPrincipalPolicyPages:
-            source.apiClient.getPrincipalPolicyPages.bind(source.apiClient),
+    new PrincipalPolicyService({
+      apiClient: createMockApiClient({
+        getPrincipalPolicyPages: source.apiClient.getPrincipalPolicyPages.bind(
+          source.apiClient,
+        ),
+      }),
+      infra: { execSql: source.options.execSql },
+      state: { online: true },
+      withPrincipalHistoryProtection: (work) =>
+        work({
+          protection: source.options.protection,
+          stillCurrent: () => true,
         }),
-        infra: { execSql: source.options.execSql },
-        state: { online: true },
-        withPrincipalHistoryProtection: (work) =>
-          work({
-            protection: source.options.protection,
-            stillCurrent: () => true,
-          }),
-        resolveTrustedUserIdentity: source.options.resolveTrustedUserIdentity,
-        util: {
-          reportSecurityIncident: async (error) => {
-            incidents.push(error);
-          },
+      resolveTrustedUserIdentity: source.options.resolveTrustedUserIdentity,
+      util: {
+        reportSecurityIncident: async (error) => {
+          incidents.push(error);
         },
       },
-      { operation },
-    );
+    }).createWarmer({ operation });
   const collect = async (warm: ReferencedPrincipalPolicyWarmer) => {
     const context = createProjectionCheckpointContext(source.options);
     await collectReferencedPrincipalPolicies({

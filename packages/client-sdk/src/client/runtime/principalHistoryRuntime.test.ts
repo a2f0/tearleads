@@ -8,15 +8,29 @@ import {
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";
-import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { Tearleads } from "../../Tearleads";
 import {
   createContainerContentsDocumentsRuntime,
-  createContainerContentsStoreWorkflowRuntime,
+  createContainerContentsStoreWorkflowRuntimeFromSnapshot,
 } from "../../workflows/container-contents/runtime";
-import { createDocumentsWorkflowRuntime } from "../../workflows/documents/runtime";
+import { createDocumentsWorkflowRuntimeFromSnapshot } from "../../workflows/documents/runtime";
+import {
+  type CurrentPrincipalMutationLeaseContext,
+  createCurrentPrincipalMutationLease,
+  type PrincipalPolicyService,
+} from "../../workflows/principals/principalPolicyService";
 import { createContainerContents } from "../containerContents";
 import { createRuntime, type InternalRuntime } from "./workflowRuntime";
+
+/** The snapshot's bound custody, reached through the SDK-internal mutation lease. */
+function protectionLease(principalPolicies: PrincipalPolicyService) {
+  const lease = createCurrentPrincipalMutationLease(principalPolicies);
+  return lease
+    ? <T>(
+        work: (context: CurrentPrincipalMutationLeaseContext) => Promise<T>,
+      ) => lease(() => true, work)
+    : undefined;
+}
 
 type Adapter =
   | "direct"
@@ -27,7 +41,7 @@ type Adapter =
 function adaptedLease(internalRuntime: InternalRuntime, adapter: Adapter) {
   const input = internalRuntime.workflowInput();
   const containers = () =>
-    createContainerContentsStoreWorkflowRuntime(
+    createContainerContentsStoreWorkflowRuntimeFromSnapshot(
       input,
       () => false,
       async () => undefined,
@@ -38,13 +52,13 @@ function adaptedLease(internalRuntime: InternalRuntime, adapter: Adapter) {
       : adapter === "direct"
         ? input
         : adapter === "documents"
-          ? createDocumentsWorkflowRuntime(input)
+          ? createDocumentsWorkflowRuntimeFromSnapshot(input)
           : adapter === "containers"
             ? containers()
             : createContainerContentsDocumentsRuntime(containers(), null);
   if (adapter !== "direct")
     expect(runtime).not.toHaveProperty("withPrincipalHistoryProtection");
-  return readPrincipalHistoryProtection(runtime);
+  return protectionLease(runtime.principalPolicies);
 }
 
 test.each([
@@ -135,7 +149,7 @@ test.each(["database", "identity", "session", "retirement"] as const)(
         reportSecurityIncident: async () => {},
         session: sdk.session,
       });
-      const lease = runtime.workflowInput().withPrincipalHistoryProtection;
+      const lease = protectionLease(runtime.workflowInput().principalPolicies);
       if (!lease) throw new Error("Missing runtime protection");
       expect(runtime.publicRuntime.input()).not.toHaveProperty(
         "withPrincipalHistoryProtection",

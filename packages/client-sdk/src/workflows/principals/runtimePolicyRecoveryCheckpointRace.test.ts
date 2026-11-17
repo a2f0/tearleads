@@ -13,7 +13,7 @@ import {
 import { resolveReferencedPrincipalPolicy } from "../../data/keyingProjectionVerification/principalPolicy/resolvedPrincipalPolicy";
 import type { PrincipalPolicyResolveRequest } from "../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { createRuntimePrincipalPolicyResolver } from "./runtimePolicyRecovery";
+import { PrincipalPolicyService } from "./principalPolicyService";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
@@ -27,7 +27,7 @@ async function fixture(kind: "target" | "dependency", updateServer = true) {
   const directory = await history.advanceDirectory(history.directory, advanced);
   const incidents: unknown[] = [];
   let resolutions = 0;
-  const resolve = createRuntimePrincipalPolicyResolver({
+  const resolve = new PrincipalPolicyService({
     apiClient: f.apiClient,
     infra: { execSql: f.options.execSql },
     withPrincipalHistoryProtection: (operation) =>
@@ -41,7 +41,7 @@ async function fixture(kind: "target" | "dependency", updateServer = true) {
         incidents.push(error);
       },
     },
-  });
+  }).createCurrentPolicyResolver();
   if (!resolve) throw new Error("Expected private paged recovery");
   const context = createProjectionCheckpointContext(f.options);
   const collect = () =>

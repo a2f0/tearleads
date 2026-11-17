@@ -37,6 +37,7 @@ reference.
 | Blob attachment I/O | `BlobAttachmentService` (`runtime.blobAttachments`) | One per documents runtime, built by `createDocumentsWorkflowRuntime` | Constructed over a fake API in tests |
 | Remote document operations | `RemoteDocumentService` | Built by Container Contents link and purge callers from the runtime snapshot they read, per call | Constructed over a fake API in tests |
 | Remote container mutations | `ContainerMutationService` | One per runtime snapshot, built where a mutation reads it: Container Contents' writer context and the organizations grant revocation | Constructed over a fake API in tests, through `createContainerMutationServiceFixture` |
+| Principal policy recovery and warming | `PrincipalPolicyService` (`runtime.principalPolicies`) | One per runtime snapshot, built by `workflowInput()` with the lease that snapshot binds, or by the standalone runtime constructors from the host's lease; derived views share it | Constructed over runtime-shaped fixtures in tests, through `withPrincipalPolicies` |
 | Keying checkpoint storage | `KeyingCheckpointRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Principal history storage | `PrincipalHistoryRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Document move intents | `DocumentMoveIntentRepository(execSql, now)` | Built from the caller's executor (the relink transaction's inside its commit) at each call | None |
@@ -51,6 +52,7 @@ reference.
 | Document container projection | `DocumentContainerProjectionRepository(execSql, now)` | Built from the caller's executor (the transaction or locked handle inside a commit) at each call | None |
 | Organization read models | `OrganizationReadModelRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Document records | `DocumentRecordRepository(execSql, now)` | Built from the caller's executor (the locked handle inside a mutation) at each call | None |
+| Organization sync pauses | `OrganizationSyncPauseRepository(execSql)` | Built from the caller's executor (the transaction's inside a removal commit) at each call | None |
 
 ## Where code goes
 

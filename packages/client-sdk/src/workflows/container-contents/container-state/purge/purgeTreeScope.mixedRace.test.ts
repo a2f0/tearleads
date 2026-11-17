@@ -3,6 +3,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
@@ -92,7 +93,7 @@ for (const race of ["none", "move", "intent"] as const) {
             controller.abort();
         },
         signal: controller.signal,
-        runtime: {
+        runtime: withPrincipalPolicies({
           apiClient: {
             evictContainerWriterProjection: () => {},
             getContainerWriterProjection: async () => {
@@ -134,7 +135,7 @@ for (const race of ["none", "move", "intent"] as const) {
             encapsulationPublicKey: parent.encapsulationPublicKey,
           }),
           util: { log: () => {}, reportSecurityIncident: async () => {} },
-        } as unknown as ContainerContentsWorkflowRuntime,
+        }) as unknown as ContainerContentsWorkflowRuntime,
       });
       expect(projectionReads).toBeGreaterThan(0);
       expect(result?.completedCount).toBe(race === "none" ? 1 : 0);

@@ -4,6 +4,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -119,7 +120,7 @@ test("a stale tombstone does not starve independent page work", async () => {
         [deletedState.container.id, deletedState],
       ]),
       persistence: defaultContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
         apiClient: {
           getContainerWriterProjection: directory.getContainerWriterProjection,
@@ -179,7 +180,7 @@ test("a stale tombstone does not starve independent page work", async () => {
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
 
     await hydrateRemoteContainers({
@@ -267,7 +268,7 @@ test("a stale descendant keeps its whole tombstone cascade retryable", async () 
         ),
       ),
       persistence: defaultContainerContentsPersistence,
-      runtime: {
+      runtime: withPrincipalPolicies({
         apiClient: {
           getCurrentPrincipalPolicy: async () => null,
           listContainerParentLanes: async (request: {
@@ -302,7 +303,7 @@ test("a stale descendant keeps its whole tombstone cascade retryable", async () 
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
-      },
+      }),
     } as unknown as RemoteContainerHydrationState;
 
     const hydrate = () =>

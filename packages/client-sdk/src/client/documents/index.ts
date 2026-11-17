@@ -19,7 +19,7 @@ import {
 } from "../../stores/documents";
 import { emitPersistedDocumentDeletion } from "../../stores/documents/registry";
 import {
-  createDocumentsWorkflowRuntime,
+  createDocumentsWorkflowRuntimeFromSnapshot,
   type DocumentHistory,
   defaultDocumentsPersistence,
   deletePersistedDocument,
@@ -167,7 +167,7 @@ class DocumentsService implements Documents {
     containerId = this.dependencies.getDefaultContainerId(),
   ): DocumentsRuntime {
     const input = this.dependencies.runtime.workflowInput(containerId);
-    return createDocumentsWorkflowRuntime(input);
+    return createDocumentsWorkflowRuntimeFromSnapshot(input);
   }
 
   open(

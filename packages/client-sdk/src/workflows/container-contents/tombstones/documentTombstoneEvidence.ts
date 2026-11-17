@@ -10,10 +10,7 @@ import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionV
 import type { DocumentPurgeCheckpoint } from "../../../data/persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import {
-  createRuntimePrincipalPolicyWarmer,
-  type PrincipalPolicyOperation,
-} from "../../principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import type {
   ContainerDocumentTombstone,
   ContainerDocumentTombstoneVerdict,
@@ -90,10 +87,9 @@ async function verifiedHeadLinkSet(
       }
     },
     resolveProjectionUserKey: createProjectionUserKeyResolver(runtime),
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      runtime,
-      { operation: policyOperation },
-    ),
+    warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
+      operation: policyOperation,
+    }),
   });
   if (!verified.value) {
     throw new Error("Tombstone evidence lacks a verified document head");

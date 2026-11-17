@@ -14,9 +14,8 @@ import {
 } from "../../documents";
 import {
   createPrincipalPolicyOperation,
-  createRuntimePrincipalPolicyWarmer,
   type PrincipalPolicyOperation,
-} from "../../principals/runtimePolicyWarmer";
+} from "../../principals/principalPolicyService";
 import { resolveContainerDocumentMoveUnlinkIds } from "../documentMove/documentMoveUnlinkIds";
 import {
   type ContainerDocumentLinkApi,
@@ -101,10 +100,10 @@ async function containerDocumentAlreadyMovedResult(input: {
     execSql: input.runtime.infra.execSql,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     stillCurrent: input.isCurrent,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      input.runtime,
-      { operation: input.policyOperation },
-    ),
+    warmReferencedPrincipalPolicies:
+      input.runtime.principalPolicies.createWarmer({
+        operation: input.policyOperation,
+      }),
     onVerifiedAuthorization: (authorization) => {
       verified.head = authorization.documentManifestByHash.get(
         input.writerProjection.documentManifest.manifestHash,

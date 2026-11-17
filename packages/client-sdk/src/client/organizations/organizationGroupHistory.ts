@@ -2,7 +2,7 @@ import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectio
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { loadLocalOrganizationPolicyReference } from "../../workflows/organizations";
 import { buildOrganizationGroupPolicyHistoryPage } from "../../workflows/organizations/policyHistory/groupPolicyHistoryPage";
-import { createRuntimePrincipalPolicyCurrentResolver } from "../../workflows/principals/runtimePolicyRecovery";
+
 import type { ActiveOrganizationDataRuntime } from "./organizationWorkflowRuntime";
 
 /** All group history reads use the private paged verifier. */
@@ -13,7 +13,8 @@ export async function loadBoundedOrganizationGroupHistory(input: {
   readonly stillCurrent: () => boolean;
 }) {
   const { active } = input;
-  const resolve = createRuntimePrincipalPolicyCurrentResolver(active.runtime);
+  const resolve =
+    active.runtime.principalPolicies.createCurrentPolicyResolver();
   if (!resolve)
     throw new ProjectionDependencyUnavailableError(
       "Group history requires private paged recovery",

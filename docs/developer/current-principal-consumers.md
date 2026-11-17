@@ -30,7 +30,7 @@ reconciliation pass (remote [container](../glossary/access.md#container) hydrati
 attachment and container-metadata syncs use as their operation), or a user
 workflow (a document move's link and unlink legs) mints one token at its root,
 and every warmer it
-creates with `createRuntimePrincipalPolicyWarmer( runtime, { operation })`
+creates with `runtime.principalPolicies.createWarmer({ operation })`
 shares one batch, so the pass discovers the directory once. A warmer created
 without a token is its own operation. A batch entry is reused only while its
 producing lease is live, no

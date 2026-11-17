@@ -12,7 +12,7 @@ import { requireOrganizationGroupHead } from "../../data/principals/organization
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { loadCurrentOrganizationAuthority } from "../../workflows/organizations/currentOrganizationAuthority";
 import type { RosterAdmissionEvidence } from "../../workflows/organizations/memberships/rosterVouchedAdmission";
-import { createRuntimePrincipalPolicyCurrentResolver } from "../../workflows/principals/runtimePolicyRecovery";
+
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { currentOrganizationMutation } from "./principalMutationScope";
 
@@ -53,7 +53,7 @@ export function createRosterAdmissionEvidence(
   organizationId: string,
 ): RosterAdmissionEvidence | null {
   const { runtime, stillCurrent } = currentOrganizationMutation(service);
-  const resolve = createRuntimePrincipalPolicyCurrentResolver(runtime);
+  const resolve = runtime.principalPolicies.createCurrentPolicyResolver();
   if (!resolve) return null;
   return {
     async loadCurrentMembers() {

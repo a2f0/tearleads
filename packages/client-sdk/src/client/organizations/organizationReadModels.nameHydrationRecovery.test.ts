@@ -15,12 +15,12 @@ import {
   repairPolicyPages,
   repairProtectionLease,
 } from "../../../test/helpers/principalPolicyRepair";
+import { withPrincipalPolicies } from "../../../test/helpers/principalPolicyServiceFixture";
 import { DocumentMoveIntentRepository } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   DocumentRecordRepository,
   ensureDocumentTables,
 } from "../../data/persistence/documents/records";
-import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { containerTables } from "../../data/sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import {
@@ -187,8 +187,7 @@ test("name hydration failure cannot consume the denied-access write recovery edg
       logs.push(args);
     },
   });
-  const workflowInput = inheritPrincipalHistoryProtection(
-    { withPrincipalHistoryProtection: repairProtectionLease() },
+  const workflowInput = withPrincipalPolicies(
     {
       ...input,
       crypto: {
@@ -196,6 +195,7 @@ test("name hydration failure cannot consume the denied-access write recovery edg
         encapsulationKeyPair: generateKemSeedAndKeyPair(),
       },
     },
+    repairProtectionLease(),
   );
   const domainScope = workflowInput.state.domainScope;
   try {

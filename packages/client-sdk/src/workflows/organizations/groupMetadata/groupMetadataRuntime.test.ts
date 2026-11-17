@@ -1,12 +1,11 @@
 import { expect, test } from "bun:test";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { createCurrentOrganizationRuntimeFixture } from "../../../../test/helpers/currentOrganizationRuntime";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import {
   ensureContainerTables,
   saveContainer,
 } from "../../../data/persistence/container-contents/containerPersistence";
-import { inheritPrincipalHistoryProtection } from "../../../data/principals/principalHistoryRuntime";
-import { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { createRuntimeGroupMetadataAccess } from "./groupMetadataRuntime";
 
@@ -26,9 +25,8 @@ test("metadata key unwrapping reuses exact private evidence and refuses a differ
       name: "Metadata",
       icon: null,
     });
-    const resolveCurrentPolicy = createRuntimePrincipalPolicyCurrentResolver(
-      f.runtime,
-    );
+    const resolveCurrentPolicy =
+      f.runtime.principalPolicies.createCurrentPolicyResolver();
     if (!resolveCurrentPolicy)
       throw new Error("Missing current-policy resolver");
     const authority = await loadCurrentOrganizationAuthority({
@@ -96,10 +94,14 @@ test.each(["bounded", "no lease", "no pages"] as const)(
         evictContainerWriterProjection:
           api.evictContainerWriterProjection.bind(api),
       };
-      const runtime = inheritPrincipalHistoryProtection(f.runtime, {
-        ...f.runtime,
-        apiClient: mode === "no pages" ? withoutPages : f.runtime.apiClient,
-      });
+      // Another API client is another snapshot, with its own policy service.
+      const runtime = withPrincipalPolicies(
+        {
+          ...f.runtime,
+          apiClient: mode === "no pages" ? withoutPages : f.runtime.apiClient,
+        },
+        f.lease,
+      );
       if (mode !== "bounded") {
         expect(() =>
           createRuntimeGroupMetadataAccess(runtime, organizationId),

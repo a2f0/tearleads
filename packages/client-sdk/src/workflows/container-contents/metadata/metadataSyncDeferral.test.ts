@@ -1,9 +1,10 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createMockApiClient } from "@tearleads/test-utils";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { PrincipalPolicyNotCachedError } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
-import { createPrincipalPolicyOperation } from "../../principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import { createContainerMetadataDocument } from "./containerMetadataDocument";
 import { syncContainerMetadataState } from "./index";
 import {
@@ -20,7 +21,7 @@ function createMetadataSyncRuntime(input: {
     | ((error: unknown, context: unknown) => Promise<void>)
     | undefined;
 }) {
-  return {
+  return withPrincipalPolicies({
     apiClient: createMockApiClient({
       getDocumentWriterProjection: input.getDocumentWriterProjection,
     }),
@@ -49,7 +50,7 @@ function createMetadataSyncRuntime(input: {
       reportSecurityIncident:
         input.reportSecurityIncident ?? (async () => undefined),
     },
-  } as never;
+  }) as never;
 }
 
 function createForcedMetadataSyncInput(runtime: never) {

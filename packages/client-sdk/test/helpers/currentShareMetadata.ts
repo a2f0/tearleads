@@ -4,7 +4,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
-import { inheritPrincipalHistoryProtection } from "../../src/data/principals/principalHistoryRuntime";
+import type { PrincipalHistoryProtectionLease } from "../../src/data/principals/principalHistoryProtection";
 import { buildOrganizationGroupDirectoryPolicyRequest } from "../../src/workflows/organizations/groups/organizationGroupDirectory";
 import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy/principalPolicyRequest";
 import { buildOrganizationProvisioningArtifacts } from "../../src/workflows/registration/organizationProvisioning";
@@ -17,6 +17,7 @@ import {
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "./principalPolicyFixtures";
+import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
 import {
   projectionDirectoryPayload,
   projectionHistoryPages,
@@ -148,15 +149,9 @@ export async function createCurrentShareMetadataFixture(
     ]).getProjectionPolicyHistoryPages(source, {
       afterVersion: options?.afterVersion ?? 0,
     });
-  const runtime = inheritPrincipalHistoryProtection(
-    {
-      withPrincipalHistoryProtection: async <T>(
-        work: (lease: {
-          protection: typeof f.options.protection;
-          stillCurrent: () => boolean;
-        }) => Promise<T>,
-      ) => work({ protection: f.options.protection, stillCurrent: () => true }),
-    },
+  const lease: PrincipalHistoryProtectionLease = async (work) =>
+    work({ protection: f.options.protection, stillCurrent: () => true });
+  const runtime = withPrincipalPolicies(
     createShareTestRuntime({
       apiClient: f.options.apiClient,
       author: {
@@ -176,6 +171,7 @@ export async function createCurrentShareMetadataFixture(
       resolveTrustedUserIdentity: async (userId) =>
         userId === signerUserId ? identity : null,
     }),
+    lease,
   );
   return {
     ...f,
@@ -188,6 +184,7 @@ export async function createCurrentShareMetadataFixture(
     projection,
     rootProjection,
     runtime,
+    lease,
     fullReads: () => fullReads,
     metadataReads: () => metadataReads,
   };

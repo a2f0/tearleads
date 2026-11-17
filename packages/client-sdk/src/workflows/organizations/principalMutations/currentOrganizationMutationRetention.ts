@@ -4,9 +4,10 @@ import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/resp
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { scopedGroupHistoryProtection } from "../../../data/principals/principalHistoryScopeProtection";
 import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import { captureAcknowledgedPrincipalPredecessor } from "../../principals/acknowledgements/acknowledgedPrincipalPredecessor";
 import type { PrincipalPolicyPageReader } from "../../principals/principalPolicyHistoryReader";
-import type { PrincipalPolicyRecoveryRuntime } from "../../principals/runtimePolicyRecovery";
 import type { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import {
   type AcknowledgedPrincipalCurrentInput,
@@ -15,7 +16,10 @@ import {
 
 /** Couple directory acknowledgements to any newly created group under the same lease. */
 export async function createCurrentOrganizationMutationRetention(input: {
-  readonly runtime: PrincipalPolicyRecoveryRuntime;
+  readonly runtime: {
+    readonly infra: { readonly execSql: ExecSql };
+    readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  };
   readonly authority: Awaited<
     ReturnType<typeof loadCurrentOrganizationAuthority>
   >;

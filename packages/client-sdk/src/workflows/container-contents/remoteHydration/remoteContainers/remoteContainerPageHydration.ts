@@ -1,8 +1,7 @@
 import {
   createPrincipalPolicyOperation,
-  createRuntimePrincipalPolicyWarmer,
   type PrincipalPolicyOperation,
-} from "../../../principals/runtimePolicyWarmer";
+} from "../../../principals/principalPolicyService";
 import { prefetchDestinationProjections } from "../destination/destinationPrefetch";
 import { cachedDestinationRole } from "../destination/destinationRoleCache";
 import { markContainerParentLaneFetched } from "../lanes/laneFetchMarkers";
@@ -89,10 +88,10 @@ async function applyRemoteContainerPage(input: {
   let hydratedCount = 0;
   let pageCompleted = true;
   await cacheRemoteContainerPrincipalPolicies({
-    cacheReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      state.runtime,
-      { operation: input.policyOperation },
-    ),
+    cacheReferencedPrincipalPolicies:
+      state.runtime.principalPolicies.createWarmer({
+        operation: input.policyOperation,
+      }),
     remoteContainers: items,
     stillCurrent: input.isCurrent,
   });

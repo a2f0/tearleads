@@ -15,14 +15,9 @@ import {
 } from "../../documents";
 import { ensureDocumentClientProjectionTables } from "../../documents/persistence";
 import type { SubtreePurgeRoot } from "../../documents/purge/subtreePurgeScope";
-import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
+
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 
-type ContainerDocumentPurgeApi = RemoteDocumentServiceApi &
-  Pick<
-    ContainerContentsWorkflowRuntime["apiClient"],
-    "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
-  >;
 type DocumentPurgeResult =
   | DocumentPurgeResponse
   | {
@@ -38,11 +33,12 @@ interface ContainerDocumentPurgeRuntime
     | "auth"
     | "crypto"
     | "infra"
+    | "principalPolicies"
     | "resolveTrustedUserIdentity"
     | "state"
     | "util"
   > {
-  apiClient: ContainerDocumentPurgeApi;
+  apiClient: RemoteDocumentServiceApi;
 }
 
 interface PurgeRemoteContainerDocumentInput {
@@ -163,8 +159,7 @@ export async function purgeRemoteContainerDocument(
         });
       },
       resolveProjectionUserKey: input.resolveProjectionUserKey,
-      warmReferencedPrincipalPolicies:
-        createRuntimePrincipalPolicyWarmer(runtime),
+      warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
     });
     if (!response) {
       runtime.util.log(

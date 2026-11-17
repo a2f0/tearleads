@@ -4,11 +4,8 @@ import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionV
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
-import {
-  createRuntimePrincipalPolicyCurrentResolver,
-  type PrincipalPolicyRecoveryRuntime,
-} from "../../principals/runtimePolicyRecovery";
-import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
+import type { PrincipalPolicyService } from "../../principals/principalPolicyService";
+import type { PrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
 import type { PrincipalPolicyReadApi } from "../groupPolicy/groupPolicyMutationContext";
 import { createCurrentGroupMetadataContainerVerifier } from "./currentGroupMetadataAuthority";
 import {
@@ -17,14 +14,13 @@ import {
 } from "./groupMetadataAccess";
 
 interface GroupMetadataRuntime {
-  readonly state?: PrincipalPolicyRecoveryRuntime["state"];
   readonly apiClient: GroupMetadataAccessInput["apiClient"] &
-    PrincipalPolicyReadApi &
-    PrincipalPolicyRecoveryRuntime["apiClient"];
+    PrincipalPolicyReadApi;
   readonly crypto: {
     readonly encapsulationKeyPair: EncapsulationKeyPair | null;
   };
   readonly infra: { readonly execSql: ExecSql };
+  readonly principalPolicies: PrincipalPolicyService;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly util: {
     readonly log: (message: string) => void;
@@ -38,9 +34,7 @@ export function createRuntimeGroupMetadataAccess(
   stillCurrent?: () => boolean,
   verifyMetadataContainer?: GroupMetadataAccessInput["verifyMetadataContainer"],
   currentRecovery?: {
-    readonly resolveCurrentPolicy: ReturnType<
-      typeof createRuntimePrincipalPolicyCurrentResolver
-    >;
+    readonly resolveCurrentPolicy: PrincipalPolicyCurrentResolver | undefined;
     readonly recoveryBatch: object;
   },
 ) {
@@ -48,12 +42,12 @@ export function createRuntimeGroupMetadataAccess(
   if (!targetSecretKey) throw new Error("Group metadata identity is locked");
   // The signed metadata projection selects exact citations. Reuse matching
   // private evidence with its dependencies and pins before bounded online reads.
-  const warmer = createRuntimePrincipalPolicyWarmer(runtime, {
+  const warmer = runtime.principalPolicies.createWarmer({
     preferLocalCurrent: true,
   });
   const resolveCurrentPolicy =
     currentRecovery?.resolveCurrentPolicy ??
-    createRuntimePrincipalPolicyCurrentResolver(runtime);
+    runtime.principalPolicies.createCurrentPolicyResolver();
   const authorityInput = {
     apiClient: runtime.apiClient,
     execSql: runtime.infra.execSql,
@@ -81,7 +75,7 @@ export function createRuntimeGroupMetadataAccess(
 }
 
 function requireCurrentResolver(
-  resolve: ReturnType<typeof createRuntimePrincipalPolicyCurrentResolver>,
+  resolve: PrincipalPolicyCurrentResolver | undefined,
 ) {
   if (!resolve)
     throw new ProjectionDependencyUnavailableError(

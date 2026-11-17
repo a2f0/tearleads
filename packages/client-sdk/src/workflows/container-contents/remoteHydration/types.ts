@@ -103,6 +103,7 @@ interface RemoteContainerHydrationRuntime
     | "adoptRootContainer"
     | "crypto"
     | "infra"
+    | "principalPolicies"
     | "resolveTrustedUserIdentity"
     | "state"
     | "util"

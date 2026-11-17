@@ -11,6 +11,7 @@ import {
   repairPolicyPages,
   repairProtectionLease,
 } from "../../../../../test/helpers/principalPolicyRepair";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 import { verifyRemoteContainerDestination } from "./verifiedDestination";
 
@@ -34,33 +35,33 @@ test.each([true, false])(
       let reads = 0;
       const state = {
         containersById: new Map(),
-        runtime: {
-          ...(withCustody
-            ? { withPrincipalHistoryProtection: repairProtectionLease() }
-            : {}),
-          apiClient: {
-            ...directory.apiClient,
-            getPrincipalPolicyPages: repairPolicyPages([
-              organization,
-              ...Object.values(directory.servedGroups),
-            ]),
-            evictContainerWriterProjection: () => {},
-            getContainerWriterProjection: async () => {
-              reads += 1;
-              return metadata.projection;
+        runtime: withPrincipalPolicies(
+          {
+            apiClient: {
+              ...directory.apiClient,
+              getPrincipalPolicyPages: repairPolicyPages([
+                organization,
+                ...Object.values(directory.servedGroups),
+              ]),
+              evictContainerWriterProjection: () => {},
+              getContainerWriterProjection: async () => {
+                reads += 1;
+                return metadata.projection;
+              },
             },
+            auth: {
+              organizationId: parent.author.organizationId,
+              rootContainerId: parent.projection.containerId,
+              userId: parent.userId,
+            },
+            infra: { execSql },
+            resolveTrustedUserIdentity: async (userId: string) =>
+              (await owner(userId)) ??
+              (await directory.resolveTrustedUserIdentity(userId)),
+            util: { log: () => {}, reportSecurityIncident: async () => {} },
           },
-          auth: {
-            organizationId: parent.author.organizationId,
-            rootContainerId: parent.projection.containerId,
-            userId: parent.userId,
-          },
-          infra: { execSql },
-          resolveTrustedUserIdentity: async (userId: string) =>
-            (await owner(userId)) ??
-            (await directory.resolveTrustedUserIdentity(userId)),
-          util: { log: () => {}, reportSecurityIncident: async () => {} },
-        },
+          withCustody ? repairProtectionLease() : undefined,
+        ),
       } as unknown as RemoteContainerHydrationState;
       const remoteContainer: RemoteContainer = {
         id: metadata.key.containerId,

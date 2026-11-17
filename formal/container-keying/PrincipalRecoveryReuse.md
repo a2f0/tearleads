@@ -29,7 +29,7 @@ skips the confirmation read.
 | `FinishPrime` | `createProvisionedPrincipalHistoryPrimer` captures the provisioning scope before any await, reads the founder's existing trust pin without writing, and passes that scope into every guarded progress write; its private batch memo is discarded |
 | `Interrupt` | `savePrincipalHistoryStage` persists an incomplete page boundary |
 | `StoreRejectedCurrent` | `acceptPage` saves a completed stage before `verifyPrincipalPolicyCurrent` checks its current artifacts |
-| `BeginOperation` / `EndOperation` | a pass or workflow root mints a `createPrincipalPolicyOperation` token, and every `createRuntimePrincipalPolicyWarmer` given it shares the coordinator's batch for that token; a warmer without a token is its own operation. The batch is discarded with the token |
+| `BeginOperation` / `EndOperation` | a pass or workflow root mints a `createPrincipalPolicyOperation` token, and every `PrincipalPolicyService.createWarmer` given it shares the coordinator's batch for that token; a warmer without a token is its own operation. The batch is discarded with the token |
 | `MemoUsable` | `reusableEntry` checks the hint epoch and producer lease before and after `directoryMemoValidity` pin coverage; `resolveReferencedPrincipalPolicy` always resolves through the warmer, so this is the only reuse of scoped evidence |
 | `BeginReuse` | `memoPrincipalRecovery` rechecks `entryLive` synchronously and hands out the value with the consumer's and producer's lifetime |
 | `ExpireProducer` | the producing call's `stillCurrent` (lease or caller lifetime) ends |

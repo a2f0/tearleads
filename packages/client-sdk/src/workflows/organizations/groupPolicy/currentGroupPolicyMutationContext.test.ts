@@ -6,7 +6,7 @@ import {
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
-import { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
+import { PrincipalPolicyService } from "../../principals/principalPolicyService";
 import { loadCurrentGroupPolicyMutationContext } from "./currentGroupPolicyMutationContext";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
@@ -17,7 +17,7 @@ beforeAll(async () => {
 async function fixture() {
   const f = await createAuthorityRecoveryFixture(history);
   const state = { current: true, online: true };
-  const resolveCurrentPolicy = createRuntimePrincipalPolicyCurrentResolver({
+  const resolveCurrentPolicy = new PrincipalPolicyService({
     apiClient: f.apiClient,
     infra: { execSql: f.options.execSql },
     resolveTrustedUserIdentity: f.options.resolveTrustedUserIdentity,
@@ -28,7 +28,7 @@ async function fixture() {
         protection: f.options.protection,
         stillCurrent: () => state.current,
       }),
-  });
+  }).createCurrentPolicyResolver();
   if (!resolveCurrentPolicy) throw new Error("Missing current policy resolver");
   let recovered = false;
   const input = {

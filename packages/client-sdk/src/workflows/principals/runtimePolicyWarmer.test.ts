@@ -9,7 +9,7 @@ import { repairProtectionLease } from "../../../test/helpers/principalPolicyRepa
 import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
-import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
+import { PrincipalPolicyService } from "./principalPolicyService";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
@@ -27,7 +27,7 @@ async function fixture(protectedRecovery = true) {
   );
   let fullReads = 0;
   const state = { current: true, online: true };
-  const warmer = createRuntimePrincipalPolicyWarmer({
+  const warmer = new PrincipalPolicyService({
     apiClient: createMockApiClient({
       getPrincipalPolicyPages: source.apiClient.getPrincipalPolicyPages.bind(
         source.apiClient,
@@ -48,7 +48,7 @@ async function fixture(protectedRecovery = true) {
         }
       : {}),
     util: { reportSecurityIncident: async () => undefined },
-  });
+  }).createWarmer();
   const warm = (references = [principalPolicyHead(history.created)]) =>
     warmer({
       organizationId: history.organizationId,

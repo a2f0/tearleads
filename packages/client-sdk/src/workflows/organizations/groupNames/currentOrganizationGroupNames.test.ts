@@ -7,7 +7,7 @@ import {
   principalPolicyBundles,
   principalPolicyCheckpoints,
 } from "../../../data/sqlite/schema/principalPolicySchema";
-import { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
+import { PrincipalPolicyService } from "../../principals/principalPolicyService";
 import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
 import { hydrateOrganizationGroupNames } from "./organizationGroupNames";
 
@@ -36,14 +36,14 @@ test("current group names hydrate without a full-policy read or fabricated bundl
     throw new Error("Full policy reads are forbidden");
   };
   let current = true;
-  const resolveCurrentPolicy = createRuntimePrincipalPolicyCurrentResolver({
+  const resolveCurrentPolicy = new PrincipalPolicyService({
     apiClient: f.apiClient,
     infra: { execSql: f.options.execSql },
     resolveTrustedUserIdentity: f.options.resolveTrustedUserIdentity,
     util: { reportSecurityIncident: async () => {} },
     withPrincipalHistoryProtection: async (work) =>
       work({ protection: f.options.protection, stillCurrent: () => current }),
-  });
+  }).createCurrentPolicyResolver();
   if (!resolveCurrentPolicy) throw new Error("Missing current resolver");
   const input = {
     apiClient: f.apiClient,

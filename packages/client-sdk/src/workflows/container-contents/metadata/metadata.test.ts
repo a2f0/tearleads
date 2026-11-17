@@ -8,7 +8,7 @@ import {
   type ExecSql,
   resolveCanonicalExecSql,
 } from "../../../data/sqlite/sqlSchema";
-import { createPrincipalPolicyOperation } from "../../principals/runtimePolicyWarmer";
+import { createPrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import {
   createContainerMetadataDocument,
   readContainerMetadataValue,

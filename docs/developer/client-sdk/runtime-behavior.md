@@ -50,8 +50,8 @@ local work from shared folders with inaccessible parents.
 
 Standalone document and container workflow constructors accept
 `withPrincipalHistoryProtection: PrincipalHistoryProtectionLease`. This private
-input supplies the built-in bounded recovery resolvers and survives derived
-document/store adapters without appearing on their public runtime views. The
+input binds the view's `principalPolicies` service, which derived document and
+store adapters share; the lease never appears on runtime views. The
 host owns key cleanup and must invalidate the lease when its authority or local
 storage changes. Authority loaders take exact heads, including cached
 citations. See [recovery](../principal-history-recovery.md) for offline reads and

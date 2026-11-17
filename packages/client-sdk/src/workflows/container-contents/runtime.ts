@@ -5,16 +5,18 @@ import {
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
-import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "../../data/trustedUserIdentity";
 import {
-  createDocumentsWorkflowRuntime,
+  type createDocumentsWorkflowRuntime,
+  createDocumentsWorkflowRuntimeFromSnapshot,
   type DocumentsWorkflowRuntime,
+  type DocumentsWorkflowRuntimeSnapshot,
 } from "../documents";
+import { PrincipalPolicyService } from "../principals/principalPolicyService";
 import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
@@ -86,7 +88,7 @@ export interface ContainerContentsWorkflowRuntimeInputGroups {
 
 export interface ContainerContentsWorkflowRuntimeInput
   extends ContainerContentsWorkflowRuntimeInputGroups {
-  /** Private host custody, inherited by container and derived document runtimes. */
+  /** Private host custody, held by the runtime's policy service and shared with derived document runtimes. */
   readonly withPrincipalHistoryProtection?:
     | PrincipalHistoryProtectionLease
     | undefined;
@@ -94,10 +96,20 @@ export interface ContainerContentsWorkflowRuntimeInput
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
+/** A runtime snapshot whose producer already bound its policy service, such as `workflowInput()`. */
+export interface ContainerContentsWorkflowRuntimeSnapshot
+  extends ContainerContentsWorkflowRuntimeInputGroups {
+  readonly apiClient: ContainerContentsWorkflowApi;
+  readonly principalPolicies: PrincipalPolicyService;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+}
+
 export interface ContainerContentsWorkflowRuntime
   extends ContainerContentsWorkflowRuntimeGroups,
     Pick<ContainerContentsWorkflowRuntimeInput, "apiClient"> {
   readonly adoptRootContainer?: ContainerContentsRootAdopter | undefined;
+  /** Bound to this snapshot's API client, executor, and history custody. */
+  readonly principalPolicies: PrincipalPolicyService;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
@@ -126,60 +138,77 @@ export interface ContainerContentsWorkflowSqlRuntime {
   };
 }
 
-function documentsRuntimeInput(
+function documentsRuntimeSnapshot(
   runtime: ContainerContentsWorkflowRuntime,
   containerId: string | null,
-): DocumentsWorkflowRuntimeInput {
-  return inheritPrincipalHistoryProtection(runtime, {
+): DocumentsWorkflowRuntimeSnapshot {
+  return {
     apiClient: runtime.apiClient,
     auth: runtime.auth,
     crypto: runtime.crypto,
     infra: runtime.infra,
+    principalPolicies: runtime.principalPolicies,
     resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
     state: { ...runtime.state, containerId },
     util: runtime.util,
-  });
+  };
 }
 
 export function createContainerContentsDocumentsRuntime(
   runtime: ContainerContentsWorkflowRuntime,
   containerId: string | null,
 ): DocumentsWorkflowRuntime {
-  return createDocumentsWorkflowRuntime(
-    documentsRuntimeInput(runtime, containerId),
+  return createDocumentsWorkflowRuntimeFromSnapshot(
+    documentsRuntimeSnapshot(runtime, containerId),
   );
 }
 
-function createContainerContentsWorkflowRuntimeWithRootAdopter(
+/** Standalone hosts supply their own lease; the view never carries it. */
+function standaloneSnapshot(
   input: ContainerContentsWorkflowRuntimeInput,
+): ContainerContentsWorkflowRuntimeSnapshot {
+  return { ...input, principalPolicies: new PrincipalPolicyService(input) };
+}
+
+function createContainerContentsWorkflowRuntimeWithRootAdopter(
+  snapshot: ContainerContentsWorkflowRuntimeSnapshot,
   adoptRootContainer?: ContainerContentsRootAdopter | undefined,
 ): ContainerContentsWorkflowRuntime {
   const documentProjectors = resolveDocumentProjectorRegistry(
-    input.infra.documentProjectors,
+    snapshot.infra.documentProjectors,
   );
   const infra = {
-    ...input.infra,
+    ...snapshot.infra,
     documentProjectors,
   };
 
-  return inheritPrincipalHistoryProtection(input, {
+  return {
     ...(adoptRootContainer ? { adoptRootContainer } : {}),
-    apiClient: input.apiClient,
-    auth: input.auth,
-    crypto: input.crypto,
+    apiClient: snapshot.apiClient,
+    auth: snapshot.auth,
+    crypto: snapshot.crypto,
     infra,
+    principalPolicies: snapshot.principalPolicies,
     resolveTrustedUserIdentity: requireTrustedUserIdentityResolver(
-      input.resolveTrustedUserIdentity,
+      snapshot.resolveTrustedUserIdentity,
     ),
-    state: input.state,
-    util: input.util,
-  });
+    state: snapshot.state,
+    util: snapshot.util,
+  };
 }
 
 export function createContainerContentsWorkflowRuntime(
   input: ContainerContentsWorkflowRuntimeInput,
 ): ContainerContentsWorkflowRuntime {
-  return createContainerContentsWorkflowRuntimeWithRootAdopter(input);
+  return createContainerContentsWorkflowRuntimeWithRootAdopter(
+    standaloneSnapshot(input),
+  );
+}
+
+export function createContainerContentsWorkflowRuntimeFromSnapshot(
+  snapshot: ContainerContentsWorkflowRuntimeSnapshot,
+): ContainerContentsWorkflowRuntime {
+  return createContainerContentsWorkflowRuntimeWithRootAdopter(snapshot);
 }
 
 /** Internal store runtime with the session-root adoption capability wired. */
@@ -188,12 +217,24 @@ export function createContainerContentsStoreWorkflowRuntime(
   adoptRootContainer: ContainerContentsRootAdopter,
   requireVerifiedRecipient: ContainerContentsVerifiedRecipientGuard,
 ): ContainerContentsStoreWorkflowRuntime {
-  return inheritPrincipalHistoryProtection(input, {
+  return createContainerContentsStoreWorkflowRuntimeFromSnapshot(
+    standaloneSnapshot(input),
+    adoptRootContainer,
+    requireVerifiedRecipient,
+  );
+}
+
+export function createContainerContentsStoreWorkflowRuntimeFromSnapshot(
+  snapshot: ContainerContentsWorkflowRuntimeSnapshot,
+  adoptRootContainer: ContainerContentsRootAdopter,
+  requireVerifiedRecipient: ContainerContentsVerifiedRecipientGuard,
+): ContainerContentsStoreWorkflowRuntime {
+  return {
     ...createContainerContentsWorkflowRuntimeWithRootAdopter(
-      input,
+      snapshot,
       adoptRootContainer,
     ),
     adoptRootContainer,
     requireVerifiedRecipient,
-  });
+  };
 }

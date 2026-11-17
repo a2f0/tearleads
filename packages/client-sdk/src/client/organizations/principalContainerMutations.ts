@@ -7,7 +7,7 @@ import {
   preparePrincipalContainerRematerializationBatch,
 } from "../../workflows/containers/rematerialization";
 import { resolveDocumentCreateAuthor } from "../../workflows/documents";
-import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
+
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 
 export async function preparePrincipalContainerMutations(input: {
@@ -52,8 +52,7 @@ export async function preparePrincipalContainerMutations(input: {
     revokedContainerId: input.revokedContainerId,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
     targetSecretKey,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      input.runtime,
-    ),
+    warmReferencedPrincipalPolicies:
+      input.runtime.principalPolicies.createWarmer(),
   });
 }

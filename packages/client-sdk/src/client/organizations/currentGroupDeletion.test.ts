@@ -72,6 +72,20 @@ async function fixture(custody = true) {
       organizationId: history.organizationId,
       userId: history.signerUserId,
     },
+    ...(custody
+      ? {
+          withPrincipalHistoryProtection: async <T>(
+            work: (lease: {
+              protection: typeof f.options.protection;
+              stillCurrent: () => boolean;
+            }) => Promise<T>,
+          ) =>
+            work({
+              protection: f.options.protection,
+              stillCurrent: () => state.current,
+            }),
+        }
+      : {}),
   });
   Object.assign(base.apiClient, {
     recoverPendingPrincipalMutation: async () => {
@@ -88,20 +102,6 @@ async function fixture(custody = true) {
       ),
       encapsulationKeyPair: history.creatorEncapsulationKeyPair,
     },
-    ...(custody
-      ? {
-          withPrincipalHistoryProtection: async <T>(
-            work: (lease: {
-              protection: typeof f.options.protection;
-              stillCurrent: () => boolean;
-            }) => Promise<T>,
-          ) =>
-            work({
-              protection: f.options.protection,
-              stillCurrent: () => state.current,
-            }),
-        }
-      : {}),
   };
   return {
     ...f,

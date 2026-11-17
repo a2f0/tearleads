@@ -8,7 +8,7 @@ import { assertProjectionVerificationCurrent } from "../../../data/keyingProject
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { requireOrganizationGroupHead } from "../../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import type { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
+import type { PrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
 import { createSelectedCurrentGroupMetadataContainerVerifier } from "../groupMetadata/currentGroupMetadataAuthority";
 import { assertGroupMetadataBinding } from "../groupMetadata/groupMetadataBinding";
 import { loadCurrentOrganizationMutationAuthority } from "../principalMutations/currentOrganizationMutationAuthority";
@@ -20,9 +20,7 @@ export async function loadCurrentGroupPolicyMutationContext(input: {
   readonly groupId: string;
   readonly organizationId: string;
   readonly signerUserId: string;
-  readonly resolveCurrentPolicy: NonNullable<
-    ReturnType<typeof createRuntimePrincipalPolicyCurrentResolver>
-  >;
+  readonly resolveCurrentPolicy: PrincipalPolicyCurrentResolver;
   readonly recoverPendingPrincipalMutation: (
     organizationId: string,
   ) => Promise<void>;

@@ -12,7 +12,7 @@ import {
   type ProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../../../data/keyingProjectionVerification";
-import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
+
 import type { ContainerContentsPersistence } from "../../containerPersistence";
 import { projectionGeneration } from "../../projectionGeneration";
 import type { ContainerState } from "../../remoteHydration";
@@ -211,9 +211,8 @@ async function prepareContainerStateGroupRewrapInternal(input: {
       projection,
       resolveUserKey: input.resolveProjectionUserKey,
       stillCurrent: input.stillCurrent,
-      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-        input.runtime,
-      ),
+      warmReferencedPrincipalPolicies:
+        input.runtime.principalPolicies.createWarmer(),
     });
     if (input.stillCurrent?.() === false) return null;
     const verifiedState = readContainerState(
@@ -257,9 +256,8 @@ async function prepareContainerStateGroupRewrapInternal(input: {
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: targetSecretKey,
     stillCurrent: input.stillCurrent,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      input.runtime,
-    ),
+    warmReferencedPrincipalPolicies:
+      input.runtime.principalPolicies.createWarmer(),
   });
   if (input.stillCurrent?.() === false) return null;
   const targetKek = keksByEpochId.get(target.kek.containerKeyEpochId);

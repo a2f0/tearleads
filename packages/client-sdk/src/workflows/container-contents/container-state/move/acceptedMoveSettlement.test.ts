@@ -7,6 +7,7 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../../test/helpers/documentFixturePrimitives";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
@@ -112,7 +113,7 @@ async function replayAcceptedMove(input: {
       signingPublicKey,
       userId: author.signerUserId,
     }),
-    runtime: {
+    runtime: withPrincipalPolicies({
       apiClient: createMockApiClient({
         getContainerWriterProjection: async (id) =>
           input.projectionUnavailable
@@ -162,12 +163,12 @@ async function replayAcceptedMove(input: {
       },
       util: {
         log: () => {},
-        logError: (message, error) => {
+        logError: (message: string | Error, error?: unknown) => {
           reports.push({ error, message: String(message) });
         },
         reportSecurityIncident: async () => {},
       },
-    },
+    }),
   };
   try {
     const movedCount = await syncPendingContainerMoveIntents({

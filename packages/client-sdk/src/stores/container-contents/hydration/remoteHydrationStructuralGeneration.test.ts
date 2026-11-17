@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   createGenerationGuardedHydrationHost,
@@ -97,13 +98,13 @@ test("structural replacement retries hydration in the current generation", async
       remoteHydrationGeneration: null,
       remoteHydrationStructuralGeneration: null,
       rootLaneHydrated: false,
-      runtime: {
+      runtime: withPrincipalPolicies({
         apiClient: { listContainerParentLanes },
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
-      },
+      }),
       snapshot: { ready: true },
       structuralGeneration: 0,
     } as unknown as RequestState;

@@ -5,10 +5,12 @@ import type {
 } from "../../src/client/runtime/workflowRuntime";
 import type { BlobStore } from "../../src/data/blobs/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
+import type { PrincipalHistoryProtectionLease } from "../../src/data/principals/principalHistoryProtection";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import { UnverifiedUserIdentityError } from "../../src/data/trustedUserIdentity";
 import type { PrincipalMutationRecoveryApi } from "../../src/workflows/organizations/principalMutations/principalMutationJournalManagement";
 import { principalMutationApiFixture } from "./principalMutationApiFixture";
+import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
 
 interface WorkflowInputFixtureOptions {
   readonly apiClient: ApiClient;
@@ -27,6 +29,10 @@ interface WorkflowInputFixtureOptions {
   readonly logError?: InternalWorkflowRuntimeInput["util"]["logError"];
   readonly online?: boolean | undefined;
   readonly resolveTrustedUserIdentity?: InternalWorkflowRuntimeInput["resolveTrustedUserIdentity"];
+  /** The snapshot's bound history custody; none when omitted. */
+  readonly withPrincipalHistoryProtection?:
+    | PrincipalHistoryProtectionLease
+    | undefined;
 }
 
 /**
@@ -50,39 +56,42 @@ export function createWorkflowInputFixture(
     discardUnreadablePrincipalMutation:
       api.discardUnreadablePrincipalMutation ?? (async () => false),
   } satisfies PrincipalMutationRecoveryApi;
-  return {
-    apiClient: principalMutationApiFixture(api, recovery),
-    resolveTrustedUserIdentity:
-      options.resolveTrustedUserIdentity ?? (async () => null),
-    auth: {
-      isAuthenticated: true,
-      organizationId: null,
-      userId: null,
-      ...options.auth,
+  return withPrincipalPolicies(
+    {
+      apiClient: principalMutationApiFixture(api, recovery),
+      resolveTrustedUserIdentity:
+        options.resolveTrustedUserIdentity ?? (async () => null),
+      auth: {
+        isAuthenticated: true,
+        organizationId: null,
+        userId: null,
+        ...options.auth,
+      },
+      crypto: {
+        encapsulationKeyPair: null,
+        signingFingerprint: null,
+        signingKeyPair: null,
+      },
+      infra: {
+        blobStore: options.blobStore ?? ({} as BlobStore),
+        dbStatus: options.dbStatus ?? "ready",
+        documentProjectors: defaultDocumentProjectorRegistry,
+        execSql: options.execSql,
+      },
+      state: {
+        containerId: options.containerId ?? null,
+        domainScope: options.domainScope ?? createDomainScope(),
+        events: [],
+        online: options.online ?? true,
+      },
+      util: {
+        log: () => {},
+        logError: options.logError ?? (() => {}),
+        reportSecurityIncident: async () => undefined,
+      },
     },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: options.blobStore ?? ({} as BlobStore),
-      dbStatus: options.dbStatus ?? "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: options.execSql,
-    },
-    state: {
-      containerId: options.containerId ?? null,
-      domainScope: options.domainScope ?? createDomainScope(),
-      events: [],
-      online: options.online ?? true,
-    },
-    util: {
-      log: () => {},
-      logError: options.logError ?? (() => {}),
-      reportSecurityIncident: async () => undefined,
-    },
-  };
+    options.withPrincipalHistoryProtection,
+  );
 }
 
 /** Wraps a workflow-input source into the InternalRuntime stub tests inject. */

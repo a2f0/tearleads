@@ -12,10 +12,7 @@ import {
   syncRemoteDocument,
   validateDocumentSyncUpdateImports,
 } from "../../../../workflows/documents";
-import {
-  createRuntimePrincipalPolicyWarmer,
-  type PrincipalPolicyOperation,
-} from "../../../../workflows/principals/runtimePolicyWarmer";
+import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { requestDocumentStoreSync } from "../../registry";
 import { parkForAncestorRepair } from "../ancestorRepairPark";
 import { chainIdentityWrite } from "../identityWriteChain";
@@ -212,10 +209,9 @@ function runRemoteDocumentSync(
         decryptedUpdates: result.decryptedUpdates,
         responseUpdates: result.response.updates,
       }),
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      runtime,
-      { operation: input.policyOperation },
-    ),
+    warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
+      operation: input.policyOperation,
+    }),
     writerProjection:
       state.writerProjection?.documentId === currentRecord.documentId
         ? state.writerProjection

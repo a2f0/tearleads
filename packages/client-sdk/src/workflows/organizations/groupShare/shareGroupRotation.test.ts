@@ -21,6 +21,7 @@ import {
   repairPolicyPages,
   repairProtectionLease,
 } from "../../../../test/helpers/principalPolicyRepair";
+import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import {
   projectionHistoryPages,
   projectionPolicyWarmer,
@@ -46,23 +47,25 @@ test("current group grant verification returns false when projection verificatio
     "container-group-grant-verification-generation",
   );
   let current = true;
-  const runtime = {
-    apiClient: {
-      ...projectionHistoryPages(projectionBundles),
-      getPrincipalPolicyPages: repairPolicyPages(projectionBundles),
-      getContainerWriterProjection: async () => initialProjection,
-      getCurrentPrincipalPolicy: async () => {
-        throw new Error("Full policy reads are forbidden");
+  const runtime = withPrincipalPolicies(
+    {
+      apiClient: {
+        ...projectionHistoryPages(projectionBundles),
+        getPrincipalPolicyPages: repairPolicyPages(projectionBundles),
+        getContainerWriterProjection: async () => initialProjection,
+        getCurrentPrincipalPolicy: async () => {
+          throw new Error("Full policy reads are forbidden");
+        },
+      },
+      infra: { execSql },
+      resolveTrustedUserIdentity: resolveUserIdentity,
+      util: {
+        log: () => undefined,
+        reportSecurityIncident: async () => undefined,
       },
     },
-    withPrincipalHistoryProtection: repairProtectionLease(),
-    infra: { execSql },
-    resolveTrustedUserIdentity: resolveUserIdentity,
-    util: {
-      log: () => undefined,
-      reportSecurityIncident: async () => undefined,
-    },
-  } as unknown as ContainerWorkflowRuntime;
+    repairProtectionLease(),
+  ) as unknown as ContainerWorkflowRuntime;
   const containerState = {
     container: {
       effectiveAccessLevel: "admin",
