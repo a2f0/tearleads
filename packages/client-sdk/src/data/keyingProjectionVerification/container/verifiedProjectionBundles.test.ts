@@ -331,3 +331,29 @@ test("an unrecorded bundle changed while its signer resolves is refused", async 
     database.close();
   }
 });
+
+test("verification compares the caller's bundle with the copy it verified", async () => {
+  const fixture = await createVerificationFixture();
+  const database = await createTestExecSql("verified-bundles-envelope-change");
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  const live = structuredClone(leaf);
+  try {
+    // The signature is checked before the signer lookup awaits, and no later
+    // step reads it again: only the comparison with the verified copy sees
+    // this change.
+    await expect(
+      verifyContainerWriterProjection({
+        execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [live] },
+        resolveUserKey: async (userId) => {
+          Reflect.set(live.event.event, "signature", "AAAA");
+          return fixture.resolveUserKey(userId);
+        },
+      }),
+    ).rejects.toThrow("changed while it was verified");
+  } finally {
+    database.close();
+  }
+});
