@@ -21,7 +21,7 @@ import { PrincipalPolicyError } from "./shared";
  * canonical JSON, domain-separated. Null for a request that is not canonical
  * JSON, which no acknowledgement can match.
  */
-export function mutationAcknowledgementRequestSha256(
+function mutationAcknowledgementRequestSha256(
   request: ContainerMutationRequest,
 ): string | null {
   if (!isKeyingCanonicalJson(request)) return null;

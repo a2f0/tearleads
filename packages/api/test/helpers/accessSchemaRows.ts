@@ -1,7 +1,6 @@
 import type { WriteHeader } from "@tearleads/crypto";
 
-export const contentRecordEncryptionSuite =
-  "aes-256-gcm-hkdf-sha256-record-key";
+const contentRecordEncryptionSuite = "aes-256-gcm-hkdf-sha256-record-key";
 
 export function fixtureHash(label: string) {
   return `schema-test:${label}:${crypto.randomUUID()}`;
