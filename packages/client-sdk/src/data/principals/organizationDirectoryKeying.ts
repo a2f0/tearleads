@@ -17,10 +17,17 @@ import {
   toRecipientEntries,
 } from "./principalPolicyRecipients";
 
-export type OrganizationDirectoryCurrentPolicy = Pick<
-  PrincipalPolicyBundleResponse,
-  "currentMemberEnvelopes" | "currentProjection" | "currentState"
->;
+/** The predecessor fields the keep-or-rotate decision reads. */
+export interface OrganizationDirectoryCurrentPolicy {
+  readonly currentMemberEnvelopes: {
+    readonly envelopes: readonly PrincipalMemberEnvelopeRequest[];
+  };
+  readonly currentProjection: readonly PrincipalProjectionMemberRequest[];
+  readonly currentState: Pick<
+    PrincipalPolicyBundleResponse["currentState"],
+    "encapsulationPublicKey" | "keyEpoch" | "keyFingerprint"
+  >;
+}
 
 /** The key material a directory successor signs. */
 export interface OrganizationDirectoryKeying {
@@ -120,9 +127,14 @@ export async function organizationDirectoryKeying(input: {
   const currentEnvelopes = [
     ...input.currentPolicy.currentMemberEnvelopes.envelopes,
   ];
-  if (added.length === 0)
+  // With the signer's key, a kept directory key must still open from its
+  // envelope and match the signed key; otherwise the write rotates, which
+  // repairs it for every admin.
+  const secret = input.currentUserSecretKey
+    ? await heldOrganizationSecret(input)
+    : null;
+  if (added.length === 0 && (!input.currentUserSecretKey || secret))
     return keptKeying(input.currentPolicy, currentEnvelopes);
-  const secret = await heldOrganizationSecret(input);
   if (!secret) return rotatedKeying(input);
   return keptKeying(input.currentPolicy, [
     ...currentEnvelopes,

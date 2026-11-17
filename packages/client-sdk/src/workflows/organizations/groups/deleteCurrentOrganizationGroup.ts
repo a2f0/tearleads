@@ -23,6 +23,8 @@ export async function deleteCurrentOrganizationGroup(input: {
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
+  /** The signer's KEM secret; it checks the kept directory key still opens. */
+  readonly currentUserSecretKey: Uint8Array | null;
 }) {
   const { context } = input;
   assertProjectionVerificationCurrent(context.stillCurrent);
@@ -35,8 +37,7 @@ export async function deleteCurrentOrganizationGroup(input: {
       userIds: projectionUserIds(adminProjection),
     }),
     currentPolicy: context.directory.current,
-    // Deleting a group leaves the admins unchanged, so the key is kept.
-    currentUserSecretKey: null,
+    currentUserSecretKey: input.currentUserSecretKey,
     descriptor: context.descriptor,
     groupHeads: removeOrganizationGroupHead({
       descriptor: context.descriptor,

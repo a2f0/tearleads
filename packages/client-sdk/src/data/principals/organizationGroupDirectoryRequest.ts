@@ -9,6 +9,7 @@ import type {
   PrincipalProjectionMemberRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   encodeOrganizationAuthorityDescriptor,
   normalizeOrganizationGroupHeads,
@@ -52,7 +53,8 @@ export function replaceOrganizationGroupHead(input: {
 export async function buildOrganizationGroupDirectoryPolicyRequest(input: {
   readonly adminProjection: readonly PrincipalProjectionMemberRequest[];
   readonly adminUsers: readonly TrustedUserIdentity[];
-  readonly currentPolicy: OrganizationDirectoryCurrentPolicy;
+  readonly currentPolicy: OrganizationDirectoryCurrentPolicy &
+    Pick<PrincipalPolicyBundleResponse, "currentState">;
   readonly currentUserSecretKey: Uint8Array | null;
   readonly descriptor: OrganizationAuthorityDescriptor;
   readonly groupHeads: readonly OrganizationGroupHead[];

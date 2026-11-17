@@ -166,10 +166,13 @@ member envelopes for the remaining members.
 The organization policy follows the same rule for its directory key. A
 directory write (group create, group policy commit, group delete) keeps the
 key, epoch and envelopes while the Admins projection is unchanged, and when
-admins are only added it wraps the held key for them alone. Any removal or
-changed admin identity rotates to a fresh key wrapped for the remaining
-admins, so a removed admin never holds the current organization key
-([model](../../formal/container-keying/OrganizationDirectoryKey.md)).
+admins are only added it wraps the held key for them alone. Any removal
+rotates to a fresh key wrapped for the remaining admins, so a removed admin
+never holds the current organization key
+([model](../../formal/container-keying/OrganizationDirectoryKey.md)). The
+write also rotates when the signer cannot recover the held key: its own
+envelope does not open, or opens a key other than the signed one. A changed
+identity for a continuing admin is not a rotation case; verifiers refuse it.
 
 ### Managed Grants Fail Closed
 
