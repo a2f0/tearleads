@@ -103,9 +103,10 @@ test("organization purge statements do not grow with its documents", async () =>
   // retired; 57 / 59 / 59 after. Locking the organization and its two
   // groups before deleting their principal states adds three advisory locks
   // where PGlite and Postgres take them: 60 / 59 / 62. Deleting the history
-  // progress of the organization and every group it had adds one statement:
-  // 61 on PGlite, 63 on PostgreSQL.
-  expect(one).toBeLessThanOrEqual(63);
+  // progress of the organization and every group it had, as two index
+  // lookups locked in key order, adds two statements: 62 on PGlite, 64 on
+  // PostgreSQL.
+  expect(one).toBeLessThanOrEqual(64);
 });
 
 test("organization purge statements do not grow with its blobs", async () => {
@@ -121,8 +122,8 @@ test("organization purge statements do not grow with its blobs", async () => {
   // Budget: PGlite / PostgreSQL. Dereferencing the blobs is one update per
   // batch of 500 (61 / 63); locking each batch in UUID order first, so the
   // update cannot deadlock with a reclaim chunk, adds one lock: 62 / 64.
-  // Deleting the purged principals' history progress adds one: 63 / 65.
-  expect(one).toBeLessThanOrEqual(65);
+  // Deleting the purged principals' history progress adds two: 64 / 66.
+  expect(one).toBeLessThanOrEqual(66);
 });
 
 test("organization blob reclaim statements do not grow with its blobs", async () => {

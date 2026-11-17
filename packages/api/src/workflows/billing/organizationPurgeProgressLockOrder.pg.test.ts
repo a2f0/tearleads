@@ -6,6 +6,7 @@ import {
 } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
+  organizationGroupTombstones,
   organizations,
   principalHistoryProgress,
 } from "@tearleads/api-shared/schema";
@@ -73,15 +74,19 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         .from(principalHistoryProgress)
         .where(inArray(principalHistoryProgress.principalId, principalIds))
     ).toSorted(publisherKeyOrder);
-    const first = rows[0];
-    const last = rows.at(-1);
-    invariant(first && last && first !== last, "expected two hint rows");
-    // Rewrite the key-first row at the end of the heap, so a scan in storage
-    // order reaches it last.
+    // The groups' rows, which the purge deletes in one statement.
+    const groupRows = rows.filter((row) => row.principalType === "group");
+    const first = groupRows[0];
+    const last = groupRows.at(-1);
+    invariant(
+      first && last && first.principalId !== last.principalId,
+      "expected hint rows of both groups",
+    );
+    // Tombstone the key-last group first, so a purge that visits groups in
+    // tombstone order reaches the key-first group's rows last.
     await db
-      .delete(principalHistoryProgress)
-      .where(eq(principalHistoryProgress.id, first.id));
-    await db.insert(principalHistoryProgress).values(first);
+      .insert(organizationGroupTombstones)
+      .values({ groupId: last.principalId, organizationId });
 
     // A publisher upserting these hints holds the key-first row and, in key
     // order, goes on to the last one only once the purge waits on it.
@@ -102,15 +107,20 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     });
     const blockerPid = await heldFirst;
     const purge = purgeClaimedOrganizationRemoteData({ claim, db, now });
-    await waitForPostgresLockWait({
-      blockerPid,
-      queryFragment: "principal_history_progress",
-    });
-    proceed();
+    try {
+      await waitForPostgresLockWait({
+        blockerPid,
+        queryFragment: "principal_history_progress",
+      });
+    } finally {
+      // Let both transactions finish even if the wait was never observed.
+      proceed();
+    }
 
     // Neither side is chosen as a deadlock victim.
-    await publisher;
-    expect(await purge).toBeDefined();
+    const [published, purged] = await Promise.allSettled([publisher, purge]);
+    expect(published.status).toBe("fulfilled");
+    expect(purged.status).toBe("fulfilled");
     expect(
       await db
         .select()
