@@ -17,6 +17,7 @@ import {
   renderPane,
   waitForPersistedPaneLocalIdentity,
 } from "../../../test/helpers/paneTestUtils";
+import { showExplorerSidebar } from "../../../test/helpers/showExplorerSidebar";
 import type { AppDiagnostics } from "../../host/AppDiagnostics";
 
 const OFFLINE_NAMESPACE = "explorer-offline-boot";
@@ -122,6 +123,7 @@ test(
     );
 
     const explorerWindow = await openExplorerWindow(offline);
+    await showExplorerSidebar(explorerWindow);
 
     // The boot error is surfaced with a Retry (in both the detail panel and the
     // sidebar tree) instead of an indistinguishable, never-ending "Loading...".
@@ -131,8 +133,8 @@ test(
       );
     });
     expect(
-      within(explorerWindow).getAllByRole("button", { name: "Retry" }).length,
-    ).toBeGreaterThan(0);
+      within(explorerWindow).getAllByRole("button", { name: "Retry" }),
+    ).toHaveLength(2);
     expect(explorerWindow.textContent).not.toContain("Loading...");
     // And it never falsely reaches the ready-but-empty "No containers." state.
     expect(explorerWindow.textContent).not.toContain("No containers.");
