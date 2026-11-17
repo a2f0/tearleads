@@ -7,6 +7,7 @@ export { ContainerPathTooDeepError } from "../../data/containers/shared/containe
 export type { ContainerReciteApi } from "../../data/containers/shared/reciteApi";
 export type {
   ContainerMutationAuthor,
+  CreateRemoteContainerResult,
   MaterializedContainerRekeyPlan,
 } from "../../data/containers/shared/types";
 export type {
@@ -29,12 +30,12 @@ export {
   buildContainerCreatePlan,
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
-  createRemoteContainer,
 } from "./child/create";
-export {
-  type AppliedContainerMove,
-  moveRemoteContainer,
-  replayRemoteContainerMove,
+export type { RemoteContainerCreateRequest } from "./child/create/createSubmission";
+export type {
+  AppliedContainerMove,
+  MoveRemoteContainerRequest,
+  SubmittedContainerMove,
 } from "./child/move";
 // Organizations' group shares submit and acknowledge their container mutation.
 export {
@@ -45,15 +46,27 @@ export { buildMaterializedContainerRekeyPlan } from "./child/rekey";
 // A rebuilt keyring override that a concurrent rotation outdated: rebuild it.
 export { ContainerKeyringOverrideStaleError } from "./child/rekey/keyringOverrideLineage";
 export { containerWriterProjectionFromRekeyPlan } from "./child/rekey/rekeyProjection";
-export { rekeyRemoteContainer } from "./child/rekey/rekeyRemote";
+export type {
+  RekeyedRemoteContainer,
+  RekeyRemoteContainerRequest,
+} from "./child/rekey/rekeyRemote";
 export {
   buildMaterializedContainerRevokePlan,
-  revokeRemoteContainer,
+  type RevokedRemoteContainer,
+  type RevokeRemoteContainerRequest,
 } from "./child/revoke";
-export { shareRemoteContainer } from "./child/share";
+export type {
+  SharedRemoteContainer,
+  ShareRemoteContainerRequest,
+} from "./child/share";
 export { buildMaterializedContainerSharePlan } from "./child/share/shareMaterialization";
 export { referencedPrincipalHeadFromPolicy } from "./child/share/sharePlanCore";
 export { resolveShareProjection } from "./child/share/shareProjection";
+export type {
+  ContainerMutationCollaborators,
+  ContainerMutationServiceApi,
+} from "./containerMutationCollaborators";
+export { ContainerMutationService } from "./containerMutationService";
 export {
   signedContainerMetadataDocumentId,
   signedContainerReferencedPrincipalHeads,

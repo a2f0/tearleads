@@ -29,7 +29,7 @@ import {
   createRecipientIdentityResolver,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
-import { revokeRemoteContainer } from "./revoke";
+import { createContainerMutationServiceFixture } from "../../../../test/helpers/containerMutationServiceFixture";
 
 test("revokeRemoteContainer removes a direct user grant and rotates the KEK", async () => {
   const revokedUserId = "user-2";
@@ -56,9 +56,9 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
     signingPublicKey: parent.signingPublicKey,
   });
 
-  const revoked = await revokeRemoteContainer({
+  const revoked = await createContainerMutationServiceFixture({
     reportSecurityIncident: async () => {},
-    apiClient: {
+    api: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => parent.projection,
       revokeContainer: async (_containerId, request) => {
@@ -71,9 +71,11 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
         return response;
       },
     },
+    execSql: database.execSql,
+    encapsulationSecretKey: parent.secretKey,
+  }).revokeRemoteContainer({
     author,
     containerId: parent.projection.containerId,
-    execSql: database.execSql,
     revokedSubject: {
       subjectId: revokedUserId,
       subjectType: "user",
@@ -83,7 +85,6 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
         ? resolveRevokedUserKey(userId)
         : createParentProjectionUserKeyResolver(parent)(userId),
     signedAt: SIGNED_AT,
-    targetSecretKey: parent.secretKey,
   });
 
   expect(revoked).not.toBeNull();

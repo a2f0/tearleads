@@ -1,11 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationBilling } from "@tearleads/api-shared/schema";
-import {
-  createRemoteContainer,
-  defaultContainerContentsPersistence as persistence,
-  shareRemoteContainer,
-} from "@tearleads/client-sdk";
+import { defaultContainerContentsPersistence as persistence } from "@tearleads/client-sdk";
 import { eq } from "drizzle-orm";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import {
@@ -106,21 +102,15 @@ test("fresh member hydration verifies a re-shared replacement and retains queued
       member,
     );
     try {
-      const sdk = {
-        ...owner.common,
-        resolveTrustedUserIdentity: owner.resolveTrustedUserIdentity,
-        reportSecurityIncident: async () => undefined,
-      };
-      const replacement = await createRemoteContainer({
-        ...sdk,
+      const replacement = await owner.containers.createRemoteContainer({
+        ...owner.mutation,
         containerId,
         parentContainerId: request.rootContainerId,
-        parentSecretKey: tree.owner.kem.secretKey,
       });
       if (!replacement) throw new Error("Expected replacement folder");
       expect(
-        await shareRemoteContainer({
-          ...sdk,
+        await owner.containers.shareRemoteContainer({
+          ...owner.mutation,
           containerId,
           accessLevel: "write",
           recipientUserId: member.userId,

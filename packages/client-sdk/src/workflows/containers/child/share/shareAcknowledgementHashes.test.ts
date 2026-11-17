@@ -13,7 +13,7 @@ import {
   createRecipientIdentityResolver,
   SIGNED_AT,
 } from "../../../../../test/helpers/containerFixtures";
-import { shareRemoteContainer } from "./index";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 
 const WRONG_HASH = "0".repeat(64);
 
@@ -30,27 +30,28 @@ async function shareWith(tamper: Tamper) {
   const recipientKeyPair = generateKemSeedAndKeyPair();
   const database = await createTestExecSql("container-share-ack-hashes");
   try {
-    return await shareRemoteContainer({
+    return await createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      accessLevel: "read",
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         shareContainer: async (_containerId, request) =>
           tamper(await createMutationResponseFromRequest(request)),
       },
-      author,
-      containerId: parent.projection.containerId,
       execSql: database.execSql,
-      recipientUserId: "user-2",
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createRecipientIdentityResolver({
         encapsulationPublicKey: recipientKeyPair.publicKey,
         signingKeyFingerprint: author.signerKeyFingerprint,
         signingPublicKey: parent.signingPublicKey,
       }),
+      encapsulationSecretKey: parent.secretKey,
+    }).shareRemoteContainer({
+      accessLevel: "read",
+      author,
+      containerId: parent.projection.containerId,
+      recipientUserId: "user-2",
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       signedAt: SIGNED_AT,
-      targetSecretKey: parent.secretKey,
     });
   } finally {
     database.close();

@@ -6,11 +6,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { DocumentRecord } from "../../../data/persistence/documents/records";
-import type {
-  createRemoteContainer,
-  moveRemoteContainer,
-  shareRemoteContainer,
-} from "../../containers";
+import type { ContainerMutationServiceApi } from "../../containers";
 import type { createRemoteDocument } from "../../documents";
 import type { shareRemoteContainerWithGroup } from "../../organizations/groupShare";
 import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
@@ -28,12 +24,8 @@ import type {
 } from "../remoteHydration/types";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 
-export type ContainerWorkflowApi = Parameters<
-  typeof createRemoteContainer
->[0]["apiClient"] &
-  Parameters<typeof shareRemoteContainer>[0]["apiClient"] &
+export type ContainerWorkflowApi = ContainerMutationServiceApi &
   Parameters<typeof shareRemoteContainerWithGroup>[0]["apiClient"] &
-  Parameters<typeof moveRemoteContainer>[0]["apiClient"] &
   Parameters<typeof createRemoteDocument>[0]["apiClient"] &
   Partial<PrincipalPolicyHistoryReader> &
   CurrentPrincipalPolicyReader & {

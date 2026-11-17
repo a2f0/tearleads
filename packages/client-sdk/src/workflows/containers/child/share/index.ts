@@ -22,12 +22,15 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
-import type { SecurityIncidentReporter } from "../../../../data/shared/securityIncidents";
-import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "../../../../data/trustedUserIdentity";
+import {
+  type ContainerMutationCollaborators,
+  type ContainerRotationBag,
+  containerRotationBag,
+} from "../../containerMutationCollaborators";
 import {
   submitAcknowledgedContainerMutation,
   submitPlainContainerMutation,
@@ -43,25 +46,25 @@ async function buildCurrentContainerSharePlan(
   );
 }
 
-type ShareRemoteContainerInput = {
-  reportSecurityIncident: SecurityIncidentReporter;
+export interface ShareRemoteContainerRequest {
   accessLevel: ContainerAccessLevel;
-  apiClient: ContainerShareApi;
   author: ContainerMutationAuthor;
   containerId: string;
   eventId?: string | undefined;
-  execSql: ExecSql;
   previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientUserId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
-  targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-};
+}
 
-type SharedRemoteContainer = {
+type ShareRemoteContainerInput = ShareRemoteContainerRequest &
+  ContainerRotationBag<ContainerShareApi> & {
+    resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  };
+
+export type SharedRemoteContainer = {
   containerKey: Uint8Array;
   plan: ContainerSharePlan;
   response: ContainerMutationResponse;
@@ -194,8 +197,14 @@ async function shareRemoteContainerOnce(
  * projection, as a create under a stale parent is.
  */
 export async function shareRemoteContainer(
-  input: ShareRemoteContainerInput,
+  collaborators: ContainerMutationCollaborators<ContainerShareApi>,
+  request: ShareRemoteContainerRequest,
 ): Promise<SharedRemoteContainer | null> {
+  const input: ShareRemoteContainerInput = {
+    ...request,
+    ...containerRotationBag(collaborators),
+    resolveTrustedUserIdentity: collaborators.resolveTrustedUserIdentity,
+  };
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote container share",
