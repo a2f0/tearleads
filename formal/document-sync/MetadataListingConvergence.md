@@ -2,66 +2,70 @@
 
 [`MetadataListingConvergence.tla`](./MetadataListingConvergence.tla) models how
 a client recovers a peer's container metadata edit whose realtime hint it never
-received. The client holds the metadata document at a recorded position, so a
-clean pass skips the read. A hint is lost while the client is closed, offline,
-or not yet subscribed, for instance when another device of the same identity
-edits a folder this device has just created or registered.
+received. A clean metadata document skips its read. A hint is lost while the
+client is closed, offline, or not yet subscribed, for instance when another
+device of the same identity edits a folder this device has just created or
+registered.
 
-Every write to a metadata document advances its container's timestamp, and so
-do other touches, such as writes into the folder or moves (`OtherTouch`). Each
-acknowledged connection owes one re-list of the container tree. A re-list that
-shows the timestamp later than the recorded one owes the metadata document one
-read before it records the new timestamp and lane watermark. The debt is held
-in memory and in `container_metadata_revalidations`. A crash loses memory, the
-socket and in-flight work. The recorded timestamp, the durable debt and the
-local metadata version survive, and startup requeues the debt.
+The listing reports each container's metadata version: the version vector of
+every update the server holds for the metadata document. A write to that
+document, or any other write that touches the container (`OtherTouch`, such as
+a write into the folder or a move), leaves the row past its lane watermark, so
+the next delta listing returns it. Each acknowledged connection owes a re-list
+of the client's lanes from their watermarks. A listing whose version the local
+copy does not cover owes the document one read, in memory and in
+`container_metadata_revalidations`, before the watermark advances past the row.
+A crash loses memory, the socket and in-flight work. The watermark, the durable
+debt and the local copy survive, and the store's first pass requeues the debt.
 
 | Model action | Production seam |
 | --- | --- |
-| `PeerEdit` | a peer's accepted metadata write, which advances the container through `touchAcceptedSyncTargets` and `advancedTimestampExpression` and publishes a hint that reaches only connected, subscribed clients |
-| `OtherTouch` | `touchContainers` for a write into the folder, or `touchContainerStructure` for a structural move |
-| `Acknowledge` | `consumePendingContainerContentsReconnectRefresh` after the interest acknowledgement advances the connection generation |
-| `BeginListing` | `refreshAllRemoteHydration` re-listing the root lane and every held lane from its start (`resetAllLaneWatermarks`) |
-| `OweListedRead` | `remoteContainerChangedSince` in `updateExistingRemoteContainerState`, then `oweContainerMetadataRead` and `requestContainerMetadataRevalidation` |
-| `RecordListedStamp` | the hydration write in `updateExistingRemoteContainerState` recording `serverUpdatedAt` and the lane watermark |
+| `PeerEdit` | a peer's accepted metadata write, which adds update spans (`metadataVersionExpression` reports them) and touches the container through `touchAcceptedSyncTargets`, publishing a hint that reaches only connected, subscribed clients |
+| `OtherTouch` | `touchContainers` for a write into the folder, or `touchContainerStructure` for a move |
+| `Acknowledge` | `consumePendingContainerContentsReconnectRefresh` after the interest acknowledgement advances the connection generation, or on a store opened after it |
+| `BeginListing` | `refreshAllRemoteHydration` listing the root lane and every held lane from their watermarks |
+| `OweListedRead` | `satisfiesVersionVector` in `oweMetadataReadIfBehind`, then `oweContainerMetadataRead` and `requestContainerMetadataRevalidation` |
+| `AdvanceWatermark` | the page's `saveWatermark` after its rows are applied |
 | `BeginRead` | `syncSingleContainerMetadata` snapshotting the signal sequence before its forced read |
 | `ResumeRead` | a pass whose metadata record still holds a pull continuation (`currentMetadataPullContinuation`), reading up to an earlier pull's bound |
 | `FinishRead` | `clearMetadataSyncQueueIfUnchanged` and `settleOwedContainerMetadataRead` after the pull |
 | `Start` | `restoreOwedContainerMetadataReads` on a store's first sync pass |
 
 `EvidenceRetained` requires that while the client is behind, something still
-obliges a read. That is a durable debt, a timestamp the next re-list will see
-as changed, or, while the process is up, a queued read, a read that covers the
-latest version, or a re-list that has seen the change and not yet owed its
-read. `Converges` requires that once edits stop, the client holds the server's
-version. Weak fairness covers acknowledgement, startup, the re-list steps and
+obliges a read: a durable debt, a row the next delta listing will return, or,
+while the process is up, a queued read, a fresh read that covers the latest
+version, or a re-list that has seen the row behind and not yet owed its read.
+`Converges` requires that once edits stop, the client holds the server's
+version. Weak fairness covers acknowledgement, startup, the listing steps and
 the read.
 
 Five guards are parameters with registered negative controls:
 
-- `StrictTimestamps = FALSE` lets an edit leave the stored timestamp unchanged,
-  as a write in the same millisecond or from an instance whose clock trails
-  would without `advancedTimestampExpression`, which advances every touched
-  row by at least one millisecond, violating `EvidenceRetained`.
+- `OweBeforeWatermark = FALSE` advances the watermark past the row before owing
+  the read. A crash in between leaves no evidence, violating
+  `EvidenceRetained`.
+- `SettleOnlyIfUnchanged = FALSE` lets a read that began before a listing owed a
+  newer edit settle that debt with its older snapshot, violating
+  `EvidenceRetained`.
 - `SettleResumedPull = TRUE` lets a pass that resumed an earlier pull settle a
   debt for an edit past that pull's bound, violating `EvidenceRetained`.
-- `OweBeforeRecord = FALSE` records the listed timestamp before owing the read.
-  A crash in between leaves no evidence, violating `EvidenceRetained`.
-- `SettleOnlyIfUnchanged = FALSE` lets a read that began before a re-list owed
-  a newer edit settle that debt with its older snapshot, violating
-  `EvidenceRetained`.
 - `RestoreOnStart = FALSE` keeps the durable debt but never requeues it. The
-  recorded timestamp already hides the change from later re-lists, violating
+  watermark already passed the row, violating `Converges`.
+- `RelistOnAcknowledge = FALSE` drops the re-list after an acknowledged
+  connection, so an edit whose hint was lost is never found, violating
   `Converges`.
 
 The bounded configuration allows two peer edits, one other touch, one crash,
-one disconnect and one resumed pull. TLC explores 389,155 generated states,
-95,812 distinct states, and depth 25.
+one disconnect and one resumed pull. TLC explores 216,116 generated states,
+52,223 distinct states, and depth 25.
 
-The model has one container and an exact recorded baseline at the start, as
-after registration or a seeded create. It does not model the extra reads that
-`OtherTouch` causes: each is one read that finds nothing new. It also leaves
-out minimum commit positions and replica lag. The forced read uses the stored
-commit position as its floor, as a hint-forced read does. Other things outside
-the model are a hint arriving in a different order than its write, several
-containers per lane, lane paging, and access changes.
+The model has one container, with the local copy holding the server's version
+at the start, as after registration or a seeded create. `OtherTouch` changes
+only the row, never the metadata version, so it owes no read; the comparison is
+clock-free. The model assumes, as existing discovery does, that a write
+leaves its row past the lane watermark; a trailing server clock can break that
+for discovery and for this recovery alike. Also outside the model:
+minimum commit positions and replica lag (the forced read uses the stored
+commit position as its floor, as a hint-forced read does), several containers
+per lane, lane paging, access changes, and updates a client rejects, whose
+version it never covers.

@@ -2046,6 +2046,10 @@
             },
             "description": "Principal policy heads the metadata document's access depends on."
           },
+          "metadataVersionVector": {
+            "type": "string",
+            "description": "Loro version vector of every update the server holds for the metadata document, encoded like a sync update's version vectors. A client whose copy does not cover it owes the document a read."
+          },
           "organizationId": {
             "type": "string"
           },
@@ -2084,6 +2088,7 @@
           "metadataAccessStateHash",
           "metadataDocumentId",
           "metadataReferencedPrincipals",
+          "metadataVersionVector",
           "organizationId",
           "parentId",
           "updatedAt"

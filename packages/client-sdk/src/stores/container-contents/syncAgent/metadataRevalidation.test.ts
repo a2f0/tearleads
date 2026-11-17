@@ -117,7 +117,7 @@ test("a read settles only the request it saw, not a newer one from another tab",
   }
 });
 
-test("startup drops a debt for a container it no longer holds", async () => {
+test("startup leaves a debt for a container this tab does not hold", async () => {
   const { close, execSql } = await openDatabase();
   try {
     await oweContainerMetadataRead(storeState(execSql), "metadata-1");
@@ -125,7 +125,11 @@ test("startup drops a debt for a container it no longer holds", async () => {
     const after = storeState(execSql);
     expect(await restoreOwedContainerMetadataReads(after, () => true)).toBe(1);
     expect([...after.metadataDocumentIdsNeedingSync]).toEqual(["metadata-1"]);
-    expect(await owedDocumentIds(execSql)).toEqual(["metadata-1"]);
+    // Another tab sharing the database may hold it and still owe the read.
+    expect(await owedDocumentIds(execSql)).toEqual([
+      "metadata-1",
+      "metadata-gone",
+    ]);
   } finally {
     close();
   }

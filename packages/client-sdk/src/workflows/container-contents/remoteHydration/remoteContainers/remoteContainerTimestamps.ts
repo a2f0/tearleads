@@ -52,28 +52,3 @@ export function resolveRemoteContainerHydrationLocalUpdatedAt(input: {
     ? previousLocalUpdatedAt
     : remoteContainer.updatedAt;
 }
-
-/** UTC server timestamp at microsecond precision, or null if malformed. */
-function serverTimestampMicros(value: string): string | null {
-  const match =
-    /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,6}))?Z$/u.exec(value);
-  return match ? `${match[1]}.${(match[2] ?? "").padEnd(6, "0")}` : null;
-}
-
-/**
- * Whether a listing shows the container changed since the server timestamp
- * this client last recorded for it. Listings carry 3 or 6 fractional digits and
- * mutation responses 3, so both are compared at microseconds. An unknown or
- * unreadable timestamp counts as changed.
- */
-export function remoteContainerChangedSince(
-  remoteContainer: RemoteContainer,
-  recordedServerUpdatedAt: string | null | undefined,
-): boolean {
-  const listed = serverTimestampMicros(remoteContainer.updatedAt);
-  const recorded =
-    recordedServerUpdatedAt == null
-      ? null
-      : serverTimestampMicros(recordedServerUpdatedAt);
-  return listed === null || recorded === null || listed > recorded;
-}

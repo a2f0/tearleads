@@ -86,6 +86,7 @@ export function createListedContainers(
         metadataAccessStateHash,
         metadataDocumentId: `metadata-${containerId}`,
         metadataReferencedPrincipals: [],
+        metadataVersionVector: "",
         organizationId,
         parentId: null,
         updatedAt,

@@ -1,4 +1,12 @@
 import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  createDocument,
+  emptyVersionVector,
+  encodeVersionVector,
+  exportAllUpdates,
+  importUpdates,
+} from "@tearleads/loro";
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/workflows/cachedContainerHydrationRuntime";
@@ -17,12 +25,31 @@ import type {
   RemoteContainerHydrationState,
 } from "../types";
 import { upsertRemoteContainerState } from "./remoteContainerState";
-import { remoteContainerChangedSince } from "./remoteContainerTimestamps";
 
 const CREATED = "2026-01-01T00:00:01.000Z";
 const RECORDED = "2026-01-01T00:00:02.000Z";
+const LATER = "2026-01-01T00:00:03.000Z";
 
-function listedAt(updatedAt: string): RemoteContainer {
+/** The held copy has this device's first edit; a peer then edits again. */
+async function metadataVersions() {
+  const held = await createDocument("metadata-revalidation-held");
+  held.getText("text").update("Folder");
+  held.commit();
+  const peer = await createDocument("metadata-revalidation-peer");
+  importUpdates(peer, [exportAllUpdates(held)]);
+  peer.getText("text").update("Renamed by a peer");
+  peer.commit();
+  return {
+    heldUpdates: bytesToBase64(exportAllUpdates(held)),
+    heldVersion: encodeVersionVector(held),
+    peerVersion: encodeVersionVector(peer),
+  };
+}
+
+function listed(input: {
+  updatedAt: string;
+  versionVector: string;
+}): RemoteContainer {
   return {
     createdAt: CREATED,
     effectiveAccessLevel: "write",
@@ -31,10 +58,11 @@ function listedAt(updatedAt: string): RemoteContainer {
     metadataAccessStateHash: "access-1",
     metadataDocumentId: "metadata-1",
     metadataReferencedPrincipals: [],
+    metadataVersionVector: input.versionVector,
     organizationId: "organization-1",
     parentId: "parent-1",
     systemSlot: null,
-    updatedAt,
+    updatedAt: input.updatedAt,
   };
 }
 
@@ -54,10 +82,10 @@ async function openRuntime() {
 }
 
 /** Hydrates one listing and returns the host calls in the order they ran. */
-async function hydrateListing(updatedAt: string) {
+async function hydrateListing(listing: RemoteContainer, heldUpdates: string) {
   const { close, execSql } = await openRuntime();
   try {
-    const listed = listedAt(updatedAt);
+    const listed = listing;
     await sqlContainerContentsPersistence.saveContainer(
       execSql,
       {
@@ -75,7 +103,7 @@ async function hydrateListing(updatedAt: string) {
         documentId: listed.metadataDocumentId,
         id: listed.id,
         lastCommitLsn: "0/16B3748",
-        metadataUpdates: "",
+        metadataUpdates: heldUpdates,
         snapshotEndVersion: "",
       },
       {
@@ -133,30 +161,30 @@ async function hydrateListing(updatedAt: string) {
   }
 }
 
-test("a listing that moved a held container owes its metadata a read before recording the move", async () => {
-  const moved = "2026-01-01T00:00:03.000Z";
-  expect(await hydrateListing(moved)).toEqual([
-    "owe metadata-1",
-    `persist ${moved}`,
-  ]);
+test("a listing whose metadata version the held copy lacks owes a read first", async () => {
+  const versions = await metadataVersions();
+  // The container timestamp did not move: the version alone reveals the edit.
+  expect(
+    await hydrateListing(
+      listed({ updatedAt: RECORDED, versionVector: versions.peerVersion }),
+      versions.heldUpdates,
+    ),
+  ).toEqual(["owe metadata-1", `persist ${RECORDED}`]);
 });
 
-test("a listing at the recorded timestamp owes no read", async () => {
-  expect(await hydrateListing(RECORDED)).toEqual([`persist ${RECORDED}`]);
-});
-
-test("listing timestamps compare at microseconds across fraction widths", () => {
-  const changed = (listed: string, recorded: string | null) =>
-    remoteContainerChangedSince(listedAt(listed), recorded);
-  expect(changed("2026-01-01T00:00:02.000500Z", RECORDED)).toBe(true);
-  expect(changed("2026-01-01T00:00:02.000Z", "2026-01-01T00:00:02.000Z")).toBe(
-    false,
-  );
-  expect(changed("2026-01-01T00:00:01.999999Z", RECORDED)).toBe(false);
-  expect(changed("2026-01-01T00:00:02Z", "2026-01-01T00:00:02.000Z")).toBe(
-    false,
-  );
-  // Unknown or unreadable evidence owes the read.
-  expect(changed(RECORDED, null)).toBe(true);
-  expect(changed("not a timestamp", RECORDED)).toBe(true);
+test("a listing the held copy covers owes no read, even after other writes", async () => {
+  const versions = await metadataVersions();
+  // A write into the folder or a move advanced the timestamp only.
+  expect(
+    await hydrateListing(
+      listed({ updatedAt: LATER, versionVector: versions.heldVersion }),
+      versions.heldUpdates,
+    ),
+  ).toEqual([`persist ${LATER}`]);
+  expect(
+    await hydrateListing(
+      listed({ updatedAt: LATER, versionVector: emptyVersionVector() }),
+      versions.heldUpdates,
+    ),
+  ).toEqual([`persist ${LATER}`]);
 });

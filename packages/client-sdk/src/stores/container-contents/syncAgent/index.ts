@@ -81,6 +81,7 @@ async function initializeContainerContentsStore(input: {
   for (const containerState of localContainerStates) {
     state.containersById.set(containerState.container.id, containerState);
   }
+
   state.initialized = true;
 
   const shouldScheduleStaleRootRecovery =
@@ -139,9 +140,7 @@ async function initializeContainerContentsStore(input: {
 function waitForStaleLocalRefreshBeforeInitialization(input: {
   handleRemoteEvents: () => void;
   host: RemoteContainerHydrationHost;
-  refreshAfterReconnect: (options: {
-    resetAllLaneWatermarks: true;
-  }) => Promise<boolean>;
+  refreshAfterReconnect: () => Promise<boolean>;
   resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
@@ -180,9 +179,7 @@ function waitForStaleLocalRefreshBeforeInitialization(input: {
 function ensureContainerContentsStoreInitialized(input: {
   handleRemoteEvents: () => void;
   host: RemoteContainerHydrationHost;
-  refreshAfterReconnect: (options: {
-    resetAllLaneWatermarks: true;
-  }) => Promise<boolean>;
+  refreshAfterReconnect: () => Promise<boolean>;
   resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;

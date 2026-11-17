@@ -68,16 +68,16 @@ unless noted.
 | [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Link a document into the folder, keeping its root link | 2 | One link; no attachment listing, because the device holds no attachment row for the document; 10,500 request and 700 response bytes |
 | [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Unlink the document from the folder | 5 | One unlink, one document projection, one rotation-preflight sync that the replay reuses; no attachment listing; 20,000 request and 33,000 response bytes |
 | [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Move the document to Trash | 4 | One link and one unlink; the link cites no rewraps without listing and the unlink re-cites what the link committed; the first write into Trash reads its projection, and the unlink reuses the unchanged document's rotation proof, so no sync or document projection; 30,000 request and 21,500 response bytes |
-| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Move the emptied folder to Trash | 11 | One move, no read-model read (an ungranted move stamps no grants); one metadata read for a container the refreshed lane shows changed since it was last listed; 18,500 request and 40,000 response bytes |
-| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Restore the folder to the root | 13 | One move, no read-model read; one metadata read for each parent the move advanced, Trash and the root; 18,500 request and 48,500 response bytes |
+| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Move the emptied folder to Trash | 10 | One move, no read-model read (an ungranted move stamps no grants); 18,500 request and 40,000 response bytes |
+| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Restore the folder to the root | 11 | One move, no read-model read; 18,500 request and 48,500 response bytes |
 | [`DualPaneProvider.groupsRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx) | Open Org Manager and select Admins | 3 | One read-model, one organization-policy and one Admins-policy read |
 | [`DualPaneProvider.groupsRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx) | Add a new peer to Admins, including peer convergence | 51, plus each validated preparation response (at most one) | 160,000 request and 515,000 response bytes; 10 organization-policy, 3 group-policy and 7 history reads; 3 read-model reads; 9 document projections (10 after a real stale-target `409`); 12 syncs, all read-only; 2 recitations; 1 policy commit; no standalone share |
 | [`DualPaneProvider.sharing.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx) (root grant after attachment writes) | Create a folder and a note with an attachment, share the root with an active roster peer, and settle the peer's discovery; measured after provisioning and roster import | 56 | 128,000 request and 390,000 response bytes; 18 syncs (1-2 write-bearing, at most 16 read-only); 9 document projections; 11 parent-lane queries; 4 listings; 3 read-model reads; 10 organization-policy reads; 4 recitations; 1 share |
 | [`packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx`](../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx) | Upload one small image from Explorer | 6 | One document create, one multipart stage, one part upload, one attachment binding that carries the first content update and acknowledges its KEK targets by hash, no sync; one organization-policy read shared by the create and the bind's sync drain; no per-part authorization or stage-completion request; 38,000 request and 2,300 response bytes, plus the bytes of the one allowed root projection read when it happens |
 | [`DualPaneProvider.activePeerRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx) | An active peer reconciles an ungranted custom-group change | Exactly 4 | One read-model read, two organization-policy reads and one group-policy read; no container or document request and no Admins-policy read |
 | [`DeviceFirstOfflineRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DeviceFirstOfflineRequestVolume.test.tsx) | Offline folder create, cached note edit, and move to Trash | 0 each | After reconnect the queued create, link and unlink commit |
-| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged | 28 | Two user folders and two notes; fresh SDK and SQLite worker; no replayed writes |
-| [`PaneReconnectRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx) | Reconnect without pending work / after one peer folder create | 25 / 33 | Disconnect costs zero; one WebSocket ticket and one memberships read each; no write-bearing syncs |
+| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged | 23 | Two user folders and two notes; fresh SDK and SQLite worker; no replayed writes |
+| [`PaneReconnectRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx) | Reconnect without pending work / after one peer folder create | 22 / 30 | Disconnect costs zero; one WebSocket ticket and one memberships read each; no write-bearing syncs |
 
 [`DualPaneProvider.sidebarReloadBudget.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.sidebarReloadBudget.test.tsx)
 budgets local sidebar reload passes during cold bootstrap, not HTTP requests.
@@ -135,8 +135,8 @@ twin and the real proxied test API.
 The restart and unchanged reconnect use one pane with the `app` host profile
 and shared runtime policy. The peer-create case uses two panes with the `demo`
 profile, isolated runtimes and peer-sharing features enabled, but no demo
-identity seeding. These are distinct fixtures: the difference between 25 and
-33 is not a measured incremental cost of creating one folder.
+identity seeding. These are distinct fixtures: the difference between 22 and
+30 is not a measured incremental cost of creating one folder.
 
 The restart closes the SQLite connection, terminates its worker and disposes
 the SDK before mounting another instance with the persisted identity/session
@@ -169,18 +169,10 @@ be remeasured and documented when an optimization changes the baseline.
 | `GET /principals/organization/:organizationId/policy` | 2 | 3 | 5 |
 | `GET /principals/group/:groupId/policy` | 0 | 0 | 0 |
 | `GET /principals/history` | 1 | 0 | 0 |
-| `GET /containers/:containerId/writer-projection` | 5 | 1 | 2 |
+| `GET /containers/:containerId/writer-projection` | 3 | 1 | 2 |
 | `GET /documents/:documentId/writer-projection` | 3 | 3 | 4 |
-| `POST /documents/:documentId/sync` (all read-only) | 9 | 11 | 12 |
-| **Total** | **28** | **25** | **33** |
-
-Three of the syncs in each column are
-[owed container metadata reads](./client-sync-ordering.md#container-metadata-under-lost-hints):
-the setup wrote into Canary A, Canary B and Contacts after they were last
-listed, so the first re-list shows them changed. That re-list also starts every
-lane from its beginning; on restart, each held folder it lists drops its cached
-writer projection, which costs two more folder projection reads (23, 22 and 30
-before).
+| `POST /documents/:documentId/sync` (all read-only) | 6 | 8 | 9 |
+| **Total** | **23** | **22** | **30** |
 
 Each canary also rejects data mutations and non-200 responses, checks for
 delayed follow-up traffic before other UI actions, and tears down the pane.
@@ -221,13 +213,12 @@ local application.
 - Explicit Refresh or Sync is a recovery signal. Opened documents probe on
   startup, acknowledged reconnect or forced invalidation; unopened ordinary
   documents stay lazy, and system projections are eager.
-- A container tree listing that shows a held container changed since this
-  client last listed it owes that container's metadata document one read, so a
-  lost metadata hint is recovered at the next reconnect, restart or refresh
+- A held container whose listed metadata version vector the local copy does
+  not cover owes its metadata document one read, so a lost metadata hint is
+  recovered at the next reconnect, restart or refresh
   ([container metadata under lost hints](./client-sync-ordering.md#container-metadata-under-lost-hints)).
-  The timestamp also moves for writes into the folder and for moves that touch
-  it, so such a read can find nothing new; a listing that shows nothing
-  changed owes none.
+  A listing whose metadata nobody else edited owes none, so the budgets below
+  are unchanged.
 
 There is no periodic full-tree sweep on a healthy socket: a lost hint waits for
 another relevant signal, reconnect, startup or explicit refresh. Server

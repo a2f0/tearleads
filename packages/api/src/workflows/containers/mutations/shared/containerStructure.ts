@@ -3,11 +3,7 @@ import { containers } from "@tearleads/api-shared/schema";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { eq, sql } from "drizzle-orm";
-import {
-  advancedTimestampExpression,
-  intExpression,
-  uuidValue,
-} from "../../../../utils/postgresSql";
+import { intExpression, uuidValue } from "../../../../utils/postgresSql";
 import {
   ContainerMutationError,
   containerManifestAlreadyExists,
@@ -123,9 +119,7 @@ async function touchContainerStructure(
 ): Promise<StoredContainerRow> {
   const [updated] = await executor
     .update(containers)
-    .set({
-      updatedAt: advancedTimestampExpression(containers.updatedAt, updatedAt),
-    })
+    .set({ updatedAt })
     .where(eq(containers.id, containerId))
     .returning({
       createdAt: containers.createdAt,
@@ -205,7 +199,7 @@ export async function persistContainerStructure(
     destinationParent.depth,
   );
 
-  const moved = await executor.execute(sql`
+  await executor.execute(sql`
     with recursive subtree as (
       select
         ${containers.id} as id,
@@ -230,26 +224,14 @@ export async function persistContainerStructure(
         from subtree
         where subtree.id = ${containers.id}
       ),
-      updated_at = ${advancedTimestampExpression(containers.updatedAt, updatedAt)}
+      updated_at = ${updatedAt}
     where ${containers.id} in (select id from subtree)
-    returning
-      ${containers.id} as "id",
-      to_char(${containers.updatedAt}, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "updatedAt"
   `);
-  // Report the stored timestamp, which a trailing clock can leave later than
-  // this writer's.
-  const movedRow = moved.rows.find(
-    (row) => Reflect.get(row, "id") === state.containerId,
-  );
-  const storedUpdatedAt = movedRow ? Reflect.get(movedRow, "updatedAt") : null;
 
   return {
     ...container,
     depth: destinationParent.depth + 1,
     parentId: state.parentContainerId,
-    updatedAt:
-      typeof storedUpdatedAt === "string"
-        ? new Date(storedUpdatedAt)
-        : updatedAt,
+    updatedAt,
   };
 }

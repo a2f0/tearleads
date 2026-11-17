@@ -1,4 +1,9 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
+import {
+  decodeVersionVector,
+  encodeVersionVector,
+  satisfiesVersionVector,
+} from "@tearleads/loro";
 import { isProjectionVerificationCancelledError } from "../../../../data/keyingProjectionVerification/types";
 import {
   heldContainerBinding,
@@ -33,7 +38,6 @@ import type {
 import { insertRemoteContainerState } from "./insertRemoteContainer";
 import {
   applyRemoteContainerTimestamps,
-  remoteContainerChangedSince,
   remoteContainerHydrationSaveOptions,
   resolveRemoteContainerHydrationLocalUpdatedAt,
 } from "./remoteContainerTimestamps";
@@ -169,22 +173,27 @@ function installUpdatedRemoteContainerState(
 
 /**
  * A clean metadata document is read only when a hint names it, and a hint sent
- * while this client was offline or not yet subscribed is lost. The container's
- * timestamp moves with every write to its metadata document, so a listing
- * showing it moved may carry such an edit: owe the read before this hydration
- * advances the recorded timestamp and lane watermark past that evidence.
+ * while this client was offline or not yet subscribed is lost. The listing
+ * reports the version vector of every update the server holds for the metadata
+ * document; when this client's copy does not cover it, an edit is unread. Owe
+ * the read before this hydration advances the lane watermark past the row.
  */
-async function oweMetadataReadIfChanged(
+function coversMetadataVersion(
+  existingState: ContainerState,
+  remoteContainer: RemoteContainer,
+): boolean {
+  const listed = remoteContainer.metadataVersionVector;
+  // A document with no stored update is covered by any copy.
+  if (decodeVersionVector(listed).toJSON().size === 0) return true;
+  return satisfiesVersionVector(encodeVersionVector(existingState.doc), listed);
+}
+
+async function oweMetadataReadIfBehind(
   host: RemoteContainerHydrationHost,
   existingState: ContainerState,
   remoteContainer: RemoteContainer,
 ): Promise<void> {
-  if (
-    remoteContainerChangedSince(
-      remoteContainer,
-      existingState.container.serverUpdatedAt,
-    )
-  ) {
+  if (!coversMetadataVersion(existingState, remoteContainer)) {
     await host.requestMetadataRevalidation?.(
       remoteContainer.metadataDocumentId,
     );
@@ -221,7 +230,7 @@ async function updateExistingRemoteContainerState(input: {
     previousLocalUpdatedAt,
     remoteContainer,
   });
-  await oweMetadataReadIfChanged(host, existingState, remoteContainer);
+  await oweMetadataReadIfBehind(host, existingState, remoteContainer);
   const nextState = createUpdatedRemoteContainerState(
     existingState,
     remoteContainer,

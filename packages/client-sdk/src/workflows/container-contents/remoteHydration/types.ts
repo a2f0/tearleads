@@ -47,6 +47,7 @@ export type RemoteContainer = Pick<
   | "metadataAccessStateHash"
   | "metadataDocumentId"
   | "metadataReferencedPrincipals"
+  | "metadataVersionVector"
   | "organizationId"
   | "parentId"
   | "updatedAt"

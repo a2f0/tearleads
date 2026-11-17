@@ -2358,6 +2358,8 @@ export type components = {
             metadataDocumentId: string;
             /** @description Principal policy heads the metadata document's access depends on. */
             metadataReferencedPrincipals: components["schemas"]["ReferencedPrincipalStateResponse"][];
+            /** @description Loro version vector of every update the server holds for the metadata document, encoded like a sync update's version vectors. A client whose copy does not cover it owes the document a read. */
+            metadataVersionVector: string;
             organizationId: string;
             parentId: string | null;
             /** @description Opaque id of a system container's role, such as Trash, or null for an ordinary container. */

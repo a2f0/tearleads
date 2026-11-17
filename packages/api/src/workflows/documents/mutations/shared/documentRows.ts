@@ -14,7 +14,6 @@ import {
 } from "../../../../access/read/accessManifestStore";
 import { uniqueSortedStrings } from "../../../../utils/array";
 import { isUniqueViolation } from "../../../../utils/databaseErrors";
-import { advancedTimestampExpression } from "../../../../utils/postgresSql";
 
 import {
   DocumentMutationError,
@@ -242,9 +241,7 @@ export async function touchContainers(
 
   await executor
     .update(containers)
-    .set({
-      updatedAt: advancedTimestampExpression(containers.updatedAt, updatedAt),
-    })
+    .set({ updatedAt })
     .where(inArray(containers.id, uniqueContainerIds));
 }
 

@@ -50,9 +50,9 @@ export async function oweContainerMetadataRead(
 
 /**
  * Requeue reads a previous run still owed for the containers now held, and
- * return how many. A debt for a container no longer held is dropped: a
- * container that returns is re-attached without key bundles, so it is read
- * anyway. Work stops once `isCurrent` reports a replaced store or database.
+ * return how many. A debt for a container this store does not hold is left
+ * alone: another tab sharing the database may hold it. Work stops once
+ * `isCurrent` reports a replaced store or database.
  */
 export async function restoreOwedContainerMetadataReads(
   state: MetadataRevalidationState,
@@ -64,17 +64,12 @@ export async function restoreOwedContainerMetadataReads(
   );
   const owed =
     await state.persistence.listContainerMetadataRevalidations(execSql);
+  if (!isCurrent()) return 0;
   let restored = 0;
-  for (const revalidation of owed) {
-    if (!isCurrent()) return restored;
-    if (heldDocumentIds.has(revalidation.documentId)) {
-      queueMetadataRead(state, revalidation.documentId);
+  for (const { documentId } of owed) {
+    if (heldDocumentIds.has(documentId)) {
+      queueMetadataRead(state, documentId);
       restored += 1;
-    } else {
-      await state.persistence.settleContainerMetadataRevalidation(
-        execSql,
-        revalidation,
-      );
     }
   }
   return restored;

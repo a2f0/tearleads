@@ -12,6 +12,7 @@ function listed(id: string): RemoteContainer {
     metadataAccessEpoch: 1,
     metadataAccessStateHash: `access-${id}`,
     metadataDocumentId: `metadata-${id}`,
+    metadataVersionVector: "",
     metadataReferencedPrincipals: [],
     organizationId: "organization-1",
     parentId: "root-1",

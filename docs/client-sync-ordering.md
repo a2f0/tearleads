@@ -113,24 +113,20 @@ identity editing a folder this device has just created or registered. Without
 recovery such an edit would stay unread until a later hint or local edit named
 the same document.
 
-Every write to a metadata document also advances its container's `updatedAt`,
-which the container tree listing reports. Recovery uses that:
+Each container in a listing carries `metadataVersionVector`: the Loro version
+vector of every update the server holds for its metadata document, the highest
+counter per peer across the document's stored update spans. It changes exactly
+when the document gains an update, independent of any clock. Recovery compares
+it with the client's own copy:
 
-- Owing a read. When a listing shows a container this client already holds
-  with an `updatedAt` later than the server timestamp it last recorded, the
-  container's metadata document is owed one read. Timestamps are compared at
-  microseconds, whatever fraction width they arrive with; a missing or
-  unreadable timestamp counts as changed.
-- Strictly advancing timestamps. Every write that touches a container,
-  including each row of a moved subtree, advances its `updatedAt` to the write
-  time, or one millisecond past the stored value when that is not later. A
-  write in the same millisecond, or on an instance whose clock trails the last
-  writer's, therefore still moves the millisecond timestamp listings send.
+- Owing a read. When a listing shows a held container whose metadata version
+  the local copy does not cover, the document is owed one forced read. The
+  client's own edits, seeds, moves and writes into the folder never trigger
+  one, because the local copy already covers every update they produced.
 - Durability. Hydration queues the forced read in memory and then writes it to
-  `container_metadata_revalidations`, before it records the new timestamp and
-  lane watermark. A store's first sync pass requeues what a previous run still
-  owed, and an owed read alone schedules that pass at startup, so a restart
-  that interrupts the read reloads the debt instead of losing the evidence.
+  `container_metadata_revalidations`, before the lane watermark advances past
+  the row. A store's first sync pass requeues what a previous run still owed,
+  and an owed read alone schedules that pass at startup.
 - Settling. A completed sync pulls every update the client lacks, so it settles
   the debt, unless a newer signal queued the document while the read was in
   flight. Each request carries a revision, and a read settles only the one it
@@ -138,21 +134,14 @@ which the container tree listing reports. Recovery uses that:
   that resumes an earlier paginated pull reads only up to that pull's upper
   bound, and a superseded result discarded what it pulled; neither settles,
   and each hands the read to a fresh pass.
-- Coverage. Reconnect and restart re-list the root lane and every held lane
-  from its start, so either one recovers a lost metadata hint. A lane
-  watermark is not trusted here: a folder written by an instance with a
-  trailing clock can sort below the watermark a sibling set. When that re-list
-  waits behind another hydration, whichever pass next takes the queued lanes
-  performs the reset.
+- Coverage. A metadata write advances its container's `updatedAt`, so the next
+  delta listing of the container's lane returns the row. Every acknowledged
+  connection re-lists the root lane and every held lane from their
+  watermarks, including the first one after a restart or after the store
+  opened, so either recovers a lost metadata hint. This has the clock-skew
+  window that existing discovery accepts.
 - No-brick. The forced read uses the stored commit position as its floor, as
   a hint-forced read does, and never waits on another device.
-
-The container timestamp also moves for writes to documents in the folder and
-for moves that touch it, and the listing cannot tell those apart from a
-metadata edit. A re-list therefore owes one read per held container it shows
-changed since this client last listed it, even when the read finds nothing new;
-a re-list that shows nothing changed owes none. The measured cost is in
-[request budgets](./request-budgets.md#restart-and-reconnect).
 
 Ordinary documents need no such debt: opening one probes it, and an
 acknowledged reconnect probes every open one (see
