@@ -17,8 +17,8 @@ import {
 } from "../../../test/helpers/principalPolicyRepair";
 import { DocumentMoveIntentRepository } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
+  DocumentRecordRepository,
   ensureDocumentTables,
-  recordDocumentSyncFailure,
 } from "../../data/persistence/documents/records";
 import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { containerTables } from "../../data/sqlite/schema";
@@ -106,8 +106,7 @@ async function parkDeniedWritesAndMoves(
   organizationId: string,
 ) {
   await ensureDocumentTables(execSql);
-  await recordDocumentSyncFailure(
-    execSql,
+  await new DocumentRecordRepository(execSql).recordDocumentSyncFailure(
     { appKind: "documents", localId: "stranded-write" },
     {
       attemptedAt: "2026-09-17T00:00:00.000Z",

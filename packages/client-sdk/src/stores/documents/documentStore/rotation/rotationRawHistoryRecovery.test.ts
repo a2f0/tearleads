@@ -18,7 +18,7 @@ import {
   collectContainerKeksForDocumentSync,
 } from "../../../../data/documents/shared/projection";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import { hasRecordedTerminalSyncFailures } from "../../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
 import {
   DocumentRawHistoryUnavailableError,
   isDocumentSyncUpdateIsolationError,
@@ -37,6 +37,10 @@ import {
   createRotationRecoveryRuntime,
   persistFullHistoryDocument,
 } from "./rotationRecoveryHelpers.test";
+
+const hasTerminalFailures = (
+  execSql: ConstructorParameters<typeof DocumentRecordRepository>[0],
+) => new DocumentRecordRepository(execSql).hasRecordedTerminalSyncFailures();
 
 async function createForgedRotationBaseline(
   fixture: Awaited<ReturnType<typeof createRemoteHistoryFixture>>,
@@ -174,7 +178,7 @@ test("raw recovery quarantines a same-page forged rotation baseline", async () =
     if (!isDocumentSyncUpdateIsolationError(error)) return;
     expect(error.attribution).toBe("batch");
     expect(error.stage).toBe("loro_import");
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
+    expect(await hasTerminalFailures(execSql)).toBe(true);
     expect(await listPendingUpdates(state)).toEqual(pendingBefore);
     expect(
       await sqlDocumentsPersistence.loadHistoryRestoreState(execSql, localId),
@@ -403,7 +407,7 @@ test("a malformed historical bundle is poison-isolated instead of reported unava
 
     expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
     expect(error).not.toBeInstanceOf(DocumentRawHistoryUnavailableError);
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
+    expect(await hasTerminalFailures(execSql)).toBe(true);
     expect(state.doc && getTextValue(state.doc)).toBe("survives key");
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, localId),
@@ -479,7 +483,7 @@ test("a missing raw-history bundle is poison-isolated without durable mutation",
     expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
     if (!isDocumentSyncUpdateIsolationError(error)) return;
     expect(error.stage).toBe("content_key");
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
+    expect(await hasTerminalFailures(execSql)).toBe(true);
     expect(state.doc && getTextValue(state.doc)).toBe("survives key");
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, localId),

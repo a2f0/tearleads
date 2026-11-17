@@ -1,6 +1,6 @@
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { requestDormantMetadataRestorationSweeps } from "../../../data/persistence/container-contents/dormantMetadataSweep";
-import { hasRecordedTerminalSyncFailures } from "../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -27,7 +27,9 @@ export async function recoverOrganizationAccess(input: {
   // A failed pass (`undefined`) proves nothing about restored access,
   // so it must not re-arm either.
   if (
-    ((await hasRecordedTerminalSyncFailures(execSql)) ||
+    ((await new DocumentRecordRepository(
+      execSql,
+    ).hasRecordedTerminalSyncFailures()) ||
       (await moveIntents.hasDeniedMoveIntents({ organizationId }))) &&
     stillCurrent()
   ) {

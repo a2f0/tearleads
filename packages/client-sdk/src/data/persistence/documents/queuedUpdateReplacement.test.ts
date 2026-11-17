@@ -16,7 +16,7 @@ import { createPendingUpdateFields } from "../../documents/documentSync";
 import { sqlDocumentsPersistence as persistence } from "./documentsPersistence";
 import { getDocumentScope } from "./internal/documentRows";
 import type { ReplaceQueuedPendingUpdatesInput } from "./queuedUpdateReplacementPort";
-import { enqueueDocumentPendingUpdate } from "./records";
+import { DocumentRecordRepository } from "./records";
 
 const LOCAL_ID = "local-merge-document";
 const DOCUMENT_ID = "document-merge";
@@ -278,11 +278,9 @@ for (const miss of PRECONDITION_MISSES) {
         encodeVersionVector(doc),
       );
       const outboxFields = await mergedFields(execSql, doc, [a, c]);
-      const outbox = await enqueueDocumentPendingUpdate(
+      const outbox = await new DocumentRecordRepository(
         execSql,
-        getDocumentScope(LOCAL_ID),
-        outboxFields,
-      );
+      ).enqueueDocumentPendingUpdate(getDocumentScope(LOCAL_ID), outboxFields);
       const d = await enqueueEdit(execSql, doc);
       if (miss.settleB) await persistence.deletePendingUpdate(execSql, b);
       const { members, overrides } = miss.input({

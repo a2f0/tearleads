@@ -4,7 +4,7 @@ import {
   DOCUMENTS_APP_KIND,
   sqlDocumentsPersistence,
 } from "../../../data/persistence/documents/documentsPersistence";
-import { findLocalIdByDocumentId } from "../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import { loadOrganizationProfileDocumentIds } from "../../../data/persistence/organizations/organizationProfileDocumentPointers";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { loadPersistedDocumentContent } from "../../documents";
@@ -109,11 +109,9 @@ async function readLocalOrganizationName(
   if (profileDocumentId) {
     // Reach the row wherever it landed: a device that only synced the document
     // keys it under the server documentId rather than any local alias.
-    const syncedLocalId = await findLocalIdByDocumentId(
+    const syncedLocalId = await new DocumentRecordRepository(
       execSql,
-      DOCUMENTS_APP_KIND,
-      profileDocumentId,
-    );
+    ).findLocalIdByDocumentId(DOCUMENTS_APP_KIND, profileDocumentId);
     const syncedName = syncedLocalId
       ? await readOrganizationNameFromDocument(execSql, syncedLocalId)
       : null;

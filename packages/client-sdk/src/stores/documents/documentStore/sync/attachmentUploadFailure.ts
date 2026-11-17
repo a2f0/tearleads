@@ -1,7 +1,7 @@
 import {
   DOCUMENTS_APP_KIND,
+  DocumentRecordRepository,
   type PendingAttachmentRecord,
-  recordDocumentSyncFailure,
   runSerializedSqlMutation,
 } from "../../../../workflows/documents";
 import {
@@ -43,8 +43,9 @@ export function reportAttachmentUploadFailure(input: {
       ) {
         return;
       }
-      await recordDocumentSyncFailure(
+      await new DocumentRecordRepository(
         lockedExecSql,
+      ).recordDocumentSyncFailure(
         { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
         {
           attemptedAt: new Date().toISOString(),

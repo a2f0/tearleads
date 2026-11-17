@@ -1,10 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import {
-  clearDocumentSyncFailure,
-  recordDocumentSyncFailure,
-} from "../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import {
@@ -63,11 +60,12 @@ test("a recorded terminal failure surfaces as an errored queue item", async () =
   const { close, execSql } = await createTestExecSql(
     "pending-writes-sync-failure",
   );
+  const records = new DocumentRecordRepository(execSql);
   try {
     await ensurePendingWriteSchema(execSql);
     await saveSharedOrgContainerWithPendingDocument(execSql);
 
-    await recordDocumentSyncFailure(execSql, DOCUMENT_SCOPE, {
+    await records.recordDocumentSyncFailure(DOCUMENT_SCOPE, {
       attemptedAt: T2,
       message: "Write access denied by the server (403)",
       status: 403,
@@ -87,7 +85,7 @@ test("a recorded terminal failure surfaces as an errored queue item", async () =
       }),
     ]);
 
-    await clearDocumentSyncFailure(execSql, DOCUMENT_SCOPE);
+    await records.clearDocumentSyncFailure(DOCUMENT_SCOPE);
     const cleared = await listPendingWrites(execSql);
     expect(
       cleared.find((item) => item.localId === "local-document"),
@@ -105,6 +103,7 @@ test("a failure with no pending work surfaces as its own queue item", async () =
   const { close, execSql } = await createTestExecSql(
     "pending-writes-failure-only",
   );
+  const records = new DocumentRecordRepository(execSql);
   try {
     await ensurePendingWriteSchema(execSql);
     await sqlDocumentsPersistence.saveDocument(
@@ -123,7 +122,7 @@ test("a failure with no pending work surfaces as its own queue item", async () =
       { updatedAt: T0 },
     );
 
-    await recordDocumentSyncFailure(execSql, DOCUMENT_SCOPE, {
+    await records.recordDocumentSyncFailure(DOCUMENT_SCOPE, {
       attemptedAt: T2,
       message: "Remote revalidation failed: container unavailable (409)",
       status: 409,
@@ -168,7 +167,7 @@ test("a failure with no pending work surfaces as its own queue item", async () =
     expect(combined.every(carriesLocalWrites)).toBe(true);
 
     // A later clean pass clears the row and the failure-only item with it.
-    await clearDocumentSyncFailure(execSql, DOCUMENT_SCOPE);
+    await records.clearDocumentSyncFailure(DOCUMENT_SCOPE);
     await execSql(
       "DELETE FROM document_history_updates WHERE update_id IS NOT NULL",
     );
@@ -195,8 +194,7 @@ test("a metadata quarantine with no pending updates stays visible", async () => 
       organizationId: "metadata-organization",
       timestamp: T0,
     });
-    await recordDocumentSyncFailure(
-      execSql,
+    await new DocumentRecordRepository(execSql).recordDocumentSyncFailure(
       { appKind: "container-metadata", localId: "quarantined-container" },
       {
         attemptedAt: T2,
@@ -301,11 +299,14 @@ test("retry keeps a failure-only row and clears it with queued work", async () =
       },
       { updatedAt: T0 },
     );
-    await recordDocumentSyncFailure(execSql, DOCUMENT_SCOPE, {
-      attemptedAt: T2,
-      message: "Remote revalidation failed: container unavailable (409)",
-      status: 409,
-    });
+    await new DocumentRecordRepository(execSql).recordDocumentSyncFailure(
+      DOCUMENT_SCOPE,
+      {
+        attemptedAt: T2,
+        message: "Remote revalidation failed: container unavailable (409)",
+        status: 409,
+      },
+    );
 
     await resetPendingWriteRetryState(execSql, {
       localId: "local-document",

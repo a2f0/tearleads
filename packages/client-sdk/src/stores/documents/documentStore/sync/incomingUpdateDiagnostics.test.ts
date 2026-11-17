@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { DocumentSyncUpdateIsolationError } from "../../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import { hasRecordedTerminalSyncFailures } from "../../../../data/persistence/documents/records/documentSyncFailurePersistence";
+import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
 import { runSerializedSqlMutation } from "../../../../data/sqlite/sqlExec";
 import { Tearleads } from "../../../../Tearleads";
 import type { DocumentState, DocumentStoreState } from "../state";
@@ -31,6 +31,7 @@ for (const runtimeKind of ["documents", "container-contents"] as const) {
     `quarantine reaches the ${runtimeKind} SDK logger: %s`,
     async (result) => {
       const database = await createTestExecSql("quarantine-diagnostics");
+      const records = new DocumentRecordRepository(database.execSql);
       const reported: unknown[] = [];
       const sdk = new Tearleads({
         logger: {
@@ -71,9 +72,7 @@ for (const runtimeKind of ["documents", "container-contents"] as const) {
         await documentIncomingUpdateIsolationFailureHandler(state)(failure);
         await documentIncomingUpdateIsolationFailureHandler(state)(failure);
         expect(reported).toEqual([failure]);
-        expect(await hasRecordedTerminalSyncFailures(database.execSql)).toBe(
-          true,
-        );
+        expect(await records.hasRecordedTerminalSyncFailures()).toBe(true);
       } finally {
         sdk.dispose();
         database.close();
@@ -84,6 +83,7 @@ for (const runtimeKind of ["documents", "container-contents"] as const) {
 
 test("quarantine queued behind an identity teardown is neither recorded nor reported", async () => {
   const database = await createTestExecSql("stale-quarantine-diagnostics");
+  const records = new DocumentRecordRepository(database.execSql);
   const reported: unknown[] = [];
   try {
     await seedStoredDocument(database.execSql, "old-identity-document");
@@ -122,7 +122,7 @@ test("quarantine queued behind an identity teardown is neither recorded nor repo
     await teardown;
     await recording;
     expect(reported).toEqual([]);
-    expect(await hasRecordedTerminalSyncFailures(database.execSql)).toBe(false);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(false);
   } finally {
     database.close();
   }

@@ -1,8 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 import { documentHistoryUpdates } from "../../../sqlite/schema/documentRecordSchema";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
-import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
-import type { ExecSql } from "../../../sqlite/sqlSchema";
 import {
   documentWriteFenceMatchesInTransaction,
   queuedInScope,
@@ -63,59 +61,40 @@ async function contiguousMemberRowIds(
 }
 
 /**
- * Replace queued local updates with one merged update, all or nothing, in
- * one immediate transaction. Every check must hold or nothing changes and
- * the result is null: the document still has the captured document id and
- * recovery generation, and the members are still queued under their ids as
- * ordinary local rows (no outbox row, no rotation checkpoint) forming one
- * contiguous run in queue order that starts with the first listed member.
- *
- * The first member's row is updated in place, so it keeps its row id,
- * `created_at` and rowid (its queue and history-tail position), and receives
- * a fresh update id (an id is never reused for different content), the
- * merged data and vectors, and `rekeyCount`. The other members are deleted.
- * Resolves to the merged row's new update id.
+ * The checks and writes of `replaceDocumentQueuedUpdates`, inside the
+ * caller's transaction: null unless every check holds.
  */
-export async function replaceDocumentQueuedUpdates(
-  execSql: ExecSql,
+export async function replaceDocumentQueuedUpdatesInTransaction(
+  tx: ClientSQLiteTransactionScope,
   scope: DocumentScope,
   replacement: QueuedUpdateReplacement,
 ): Promise<string | null> {
-  if (replacement.memberUpdateIds.length < 2) return null;
-  return getClientSQLitePersistenceRuntime(execSql).transaction(
-    async (tx) => {
-      if (
-        !(await documentWriteFenceMatchesInTransaction(tx, scope, replacement))
-      ) {
-        return null;
-      }
-      const rowIds = await contiguousMemberRowIds(
-        tx,
-        scope,
-        replacement.memberUpdateIds,
-      );
-      const [firstRowId, ...mergedAwayRowIds] = rowIds ?? [];
-      if (firstRowId === undefined) return null;
-      const updateId = crypto.randomUUID();
-      await tx
-        .update(documentHistoryUpdates)
-        .set({
-          updateId,
-          updateData: replacement.merged.updateData,
-          partialStartVersionVector:
-            replacement.merged.partialStartVersionVector,
-          partialEndVersionVector: replacement.merged.partialEndVersionVector,
-          sourceVersionVector: null,
-          rekeyCount: replacement.rekeyCount,
-        })
-        .where(eq(documentHistoryUpdates.id, firstRowId))
-        .run();
-      await tx
-        .delete(documentHistoryUpdates)
-        .where(inArray(documentHistoryUpdates.id, mergedAwayRowIds))
-        .run();
-      return updateId;
-    },
-    { behavior: "immediate" },
+  if (!(await documentWriteFenceMatchesInTransaction(tx, scope, replacement))) {
+    return null;
+  }
+  const rowIds = await contiguousMemberRowIds(
+    tx,
+    scope,
+    replacement.memberUpdateIds,
   );
+  const [firstRowId, ...mergedAwayRowIds] = rowIds ?? [];
+  if (firstRowId === undefined) return null;
+  const updateId = crypto.randomUUID();
+  await tx
+    .update(documentHistoryUpdates)
+    .set({
+      updateId,
+      updateData: replacement.merged.updateData,
+      partialStartVersionVector: replacement.merged.partialStartVersionVector,
+      partialEndVersionVector: replacement.merged.partialEndVersionVector,
+      sourceVersionVector: null,
+      rekeyCount: replacement.rekeyCount,
+    })
+    .where(eq(documentHistoryUpdates.id, firstRowId))
+    .run();
+  await tx
+    .delete(documentHistoryUpdates)
+    .where(inArray(documentHistoryUpdates.id, mergedAwayRowIds))
+    .run();
+  return updateId;
 }

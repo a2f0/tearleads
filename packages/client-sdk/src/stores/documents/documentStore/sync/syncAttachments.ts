@@ -5,9 +5,9 @@ import type {
 } from "../../../../workflows/blobs";
 import type { PreparedUploadDocumentAttachmentRequest } from "../../../../workflows/blobs/upload";
 import {
-  clearDocumentSyncFailure,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  DocumentRecordRepository,
   type PendingAttachmentRecord,
   resolveDocumentCreateAuthor,
 } from "../../../../workflows/documents";
@@ -160,7 +160,9 @@ export async function syncPendingAttachments(
   // retried upload with no pending CRDT update never reaches the document
   // submission that would otherwise clear it, and the stale row would flag the
   // next unrelated edit as failed before it was attempted.
-  await clearDocumentSyncFailure(state.runtime.infra.execSql, {
+  await new DocumentRecordRepository(
+    state.runtime.infra.execSql,
+  ).clearDocumentSyncFailure({
     appKind: DOCUMENTS_APP_KIND,
     localId: state.localId,
   });
