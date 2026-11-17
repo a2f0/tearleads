@@ -14,7 +14,7 @@ import {
 } from "../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../../documents/create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../documents/linkSet";
 import { moveRemoteContainerDocument } from "./documentLinksMove";
@@ -144,11 +144,10 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
       ],
       documentManifestHistory: [createdResponse.accessManifest],
     };
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-      execSql,
-      writerProjection.documentId,
-      [contactsProjection.containerId, extraProjection.containerId],
-    );
+    await new Links(execSql).replaceDocumentLinks(writerProjection.documentId, [
+      contactsProjection.containerId,
+      extraProjection.containerId,
+    ]);
     const submittedRequests: Array<{
       operation: "link" | "unlink";
       targetContainerId: string;
@@ -257,10 +256,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
     expect(moved?.nextContainerId).toBe(trashProjection.containerId);
     expect(moved?.linkedContainerIds).toEqual([trashProjection.containerId]);
     await expect(
-      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-        execSql,
-        writerProjection.documentId,
-      ),
+      new Links(execSql).listLinkedContainerIds(writerProjection.documentId),
     ).resolves.toEqual([trashProjection.containerId]);
   } finally {
     close();

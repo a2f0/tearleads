@@ -5,7 +5,7 @@ import {
   createWorkflowInputFixture,
 } from "../../../../test/helpers/internalRuntimeFixtures";
 import { createContainerContents } from "../../../client/containerContents";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -48,7 +48,7 @@ test.each([
         execSql,
         localId: "local",
       });
-      await links.replaceDocumentLinks(execSql, documentId, [
+      await new Links(execSql).replaceDocumentLinks(documentId, [
         "source-container",
       ]);
       const networkRequests: string[] = [];
@@ -121,9 +121,9 @@ test.each([
       const expectedLinks = failProjection
         ? ["source-container"]
         : ["destination", "source-container"];
-      expect(await links.listLinkedContainerIds(execSql, documentId)).toEqual(
-        expectedLinks,
-      );
+      expect(
+        await new Links(execSql).listLinkedContainerIds(documentId),
+      ).toEqual(expectedLinks);
       expect(await documents.loadDocument(execSql, "local")).toMatchObject({
         containerId: "source-container",
         accessEpoch: 1,
@@ -137,12 +137,12 @@ test.each([
       expect(linkChanges).toEqual(failProjection ? [] : [expectedLinks]);
       if (!failProjection) {
         // A stale server listing must not hide the locally committed link.
-        await links.replaceDocumentLinks(execSql, documentId, [
+        await new Links(execSql).replaceDocumentLinks(documentId, [
           "source-container",
         ]);
-        expect(await links.listLinkedContainerIds(execSql, documentId)).toEqual(
-          expectedLinks,
-        );
+        expect(
+          await new Links(execSql).listLinkedContainerIds(documentId),
+        ).toEqual(expectedLinks);
         const destination = await listContainerContentsDocumentsForContainers(
           execSql,
           ["destination"],

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "../../../test/helpers/waitFor";
-import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { upsertDiscoveredDocuments } from "../../data/persistence/documents/documentsPersistence";
 import type { DomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -103,10 +103,9 @@ async function seedContainerWithDocument(
       linkedContainerIds: [input.containerId],
     },
   ]);
-  await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
-    execSql,
-    [{ documentId: input.documentId, containerIds: [input.containerId] }],
-  );
+  await new Links(execSql).replaceDocumentLinksBatch([
+    { documentId: input.documentId, containerIds: [input.containerId] },
+  ]);
 }
 
 test("local projection store paints cached container documents without any network", async () => {

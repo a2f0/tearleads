@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createPlacementCommitFixture } from "../../../../test/helpers/placementCommit";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -34,7 +34,7 @@ test.each(["move", "link", "unlink"] as const)(
         },
       );
       expect(
-        await links.listLinkedContainerIds(f.db.execSql, f.documentId),
+        await new Links(f.db.execSql).listLinkedContainerIds(f.documentId),
       ).toEqual(
         operation === "move"
           ? ["trash"]
@@ -93,7 +93,7 @@ test("move settlement joins the document commit without worker savepoints", asyn
     });
     expect(await intents(f.db.execSql).listPendingMoveIntents()).toEqual([]);
     expect(
-      await links.listLinkedContainerIds(f.db.execSql, f.documentId),
+      await new Links(f.db.execSql).listLinkedContainerIds(f.documentId),
     ).toEqual(["trash"]);
     expect(traffic.length).toBeLessThanOrEqual(14);
     expect(savepoints).toEqual([]);

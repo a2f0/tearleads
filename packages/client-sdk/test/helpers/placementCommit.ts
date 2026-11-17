@@ -1,6 +1,6 @@
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createContainerContents } from "../../src/client/containerContents";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence as documents } from "../../src/data/persistence/documents/documentsPersistence";
 import { createRemoteHistoryFixture } from "../../src/stores/documents/documentStore/documentStore.testFixtures";
 import { relinkDocumentStoreWithCommitSideEffect } from "../../src/stores/documents/documentStore/internalRelink";
@@ -23,7 +23,7 @@ export async function createPlacementCommitFixture() {
     execSql: db.execSql,
     localId: "local",
   });
-  await links.replaceDocumentLinks(db.execSql, documentId, [
+  await new Links(db.execSql).replaceDocumentLinks(documentId, [
     "source-container",
     "other-container",
   ]);

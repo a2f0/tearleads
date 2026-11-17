@@ -1,9 +1,9 @@
 import { isContainerNotFoundFailure } from "../../../data/containers/shared/mutationFailures";
 import { readLinkedContainerIdsFromDocumentManifest } from "../../../data/documents/shared/projection";
+import { DocumentContainerProjectionRepository } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import type { DocumentMoveIntentRecord } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DocumentLinkSetFailureHandler } from "../../documents";
-import { listDocumentLinkedContainerIds } from "../documentLinks";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import {
   createDocumentMoveFailureState,
@@ -42,7 +42,9 @@ async function listMoveSourceContainerIds(input: {
     input.apiClient.getDocumentWriterProjectionResult(documentId, {
       reportErrors: false,
     }),
-    listDocumentLinkedContainerIds(input.execSql, documentId),
+    new DocumentContainerProjectionRepository(
+      input.execSql,
+    ).listLinkedContainerIds(documentId),
   ]);
   const remoteLinkedContainerIds = remote.ok
     ? readLinkedContainerIdsFromDocumentManifest(remote.data)

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import {
@@ -60,7 +60,7 @@ async function seedDocumentInFolder(execSql: ExecSql) {
     title: "Held note",
     updatedAt: at,
   });
-  await links.replaceDocumentLinks(execSql, "doc", ["folder"]);
+  await new Links(execSql).replaceDocumentLinks("doc", ["folder"]);
   return createContainerDocumentQueriesFromRuntime({ infra: { execSql } });
 }
 
@@ -111,7 +111,7 @@ test("a held tombstone hides the placement from every container read without del
       subtreeIds: [],
       subtreeLinks: [],
     });
-    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([
+    expect(await new Links(execSql).listLinkedContainerIds("doc")).toEqual([
       "folder",
     ]);
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
@@ -156,7 +156,7 @@ test("a hidden linked placement stays hidden while the primary placement shows",
       parentId: null,
       timestamp: at,
     });
-    await links.replaceDocumentLinks(execSql, "doc", ["folder", "shared"]);
+    await new Links(execSql).replaceDocumentLinks("doc", ["folder", "shared"]);
     const sharedCount = async () =>
       (
         await readModel.listContainerItemWindow({
@@ -343,7 +343,7 @@ test("a local move releases the holds on the document it relinks", async () => {
       targetContainerId: "folder",
     });
 
-    await links.replaceDocumentLinks(execSql, "doc", ["folder"], {
+    await new Links(execSql).replaceDocumentLinks("doc", ["folder"], {
       moveIntentId: "intent-1",
     });
 
@@ -360,7 +360,7 @@ test("a hold whose placement is gone is dropped when retried", async () => {
   try {
     await seedDocumentInFolder(execSql);
     await holdFolderAt(execSql);
-    await links.replaceDocumentLinks(execSql, "doc", []);
+    await new Links(execSql).replaceDocumentLinks("doc", []);
     await applyContainerDocumentTombstones(execSql, [
       { ...hold("folder"), accessEpoch: 1, linkedContainerIds: [] },
     ]);
@@ -442,7 +442,7 @@ test("a refuted tombstone stays visible and remains retryable if the head lagged
         linkedContainerIds: [],
       },
     ]);
-    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([]);
+    expect(await new Links(execSql).listLinkedContainerIds("doc")).toEqual([]);
     expect(
       await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
     ).toEqual([]);
@@ -479,7 +479,7 @@ test("a document with every placement held remains available in orphan recovery"
         currentOrganizationId: null,
       }),
     ).toMatchObject({ documentId: "doc" });
-    await links.replaceDocumentLinks(execSql, "doc", ["folder", "visible"]);
+    await new Links(execSql).replaceDocumentLinks("doc", ["folder", "visible"]);
     expect(
       await readModel.hasOrphanedDocuments({ currentOrganizationId: null }),
     ).toBe(false);

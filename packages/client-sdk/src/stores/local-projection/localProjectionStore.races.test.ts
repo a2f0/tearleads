@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
@@ -100,8 +100,7 @@ test.each([
     });
     try {
       await seed(db.execSql, "Moving", primary, "note", "remote");
-      await links.replaceDocumentLinks(
-        db.execSql,
+      await new Links(db.execSql).replaceDocumentLinks(
         "remote",
         primary === "trash" ? ["root", "trash"] : ["root"],
       );
@@ -112,7 +111,7 @@ test.each([
       if (!read) view.setActiveContainer("root");
       await waitFor(() => held, "Root read was not held");
       await seed(db.execSql, "Moving", "trash", "note", "remote");
-      await links.replaceDocumentLinks(db.execSql, "remote", ["trash"]);
+      await new Links(db.execSql).replaceDocumentLinks("remote", ["trash"]);
       const rootCounts: number[] = [];
       view.subscribe(() => {
         const rows = view

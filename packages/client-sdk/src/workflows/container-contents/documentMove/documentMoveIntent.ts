@@ -1,10 +1,12 @@
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../../data/documents/documentConstants";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
-import { replaceDocumentLinksInTransaction } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import {
+  DocumentContainerProjectionRepository,
+  replaceDocumentLinksInTransaction,
+} from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { enqueueDocumentPlacementIntentInTransaction } from "../../../data/persistence/container-contents/documentPlacementIntentEnqueue";
 import { defaultDocumentsPersistence } from "../../documents";
-import { listDocumentLinkedContainerIds } from "../documentLinks";
 import { relinkContainerDocumentLocally } from "../documentLinks/documentLocalRelink";
 import type {
   DocumentStructuralMutationHost,
@@ -24,10 +26,10 @@ async function resolveOptimisticDocumentMoveLinks(input: {
     return [input.targetContainerId];
   }
 
-  const currentLinkedContainerIds = await listDocumentLinkedContainerIds(
-    input.runtime.infra.execSql,
-    input.documentId,
-  );
+  const currentLinkedContainerIds =
+    await new DocumentContainerProjectionRepository(
+      input.runtime.infra.execSql,
+    ).listLinkedContainerIds(input.documentId);
   const linkedContainerIds =
     currentLinkedContainerIds.length > 0
       ? currentLinkedContainerIds

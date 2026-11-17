@@ -39,33 +39,6 @@ const LINK_INSERT_BATCH_SIZE = sqliteInsertBatchSize(
   documentContainerProjection,
 );
 
-interface DocumentContainerProjectionPersistence {
-  ensureSchema: (execSql: ExecSql) => Promise<void>;
-  listLinkedContainerIds: (
-    execSql: ExecSql,
-    documentId: string,
-  ) => Promise<ReadonlyArray<string>>;
-  listLinkedContainerIdsByDocumentIds: (
-    execSql: ExecSql,
-    documentIds: ReadonlyArray<string>,
-  ) => Promise<ReadonlyMap<string, ReadonlyArray<string>>>;
-  listDocumentIdsByContainerIds: (
-    execSql: ExecSql,
-    containerIds: ReadonlyArray<string>,
-  ) => Promise<ReadonlyArray<string>>;
-  replaceDocumentLinks: (
-    execSql: ExecSql,
-    documentId: string,
-    containerIds: ReadonlyArray<string>,
-    options?: DocumentPlacementWriteOptions,
-  ) => Promise<void>;
-  replaceDocumentLinksBatch: (
-    execSql: ExecSql,
-    inputs: ReadonlyArray<DocumentPlacementInput>,
-    options?: DocumentPlacementWriteOptions,
-  ) => Promise<void>;
-}
-
 /** Link rows and their tombstone holds leave together on a remote reset. */
 export async function deleteDocumentPlacementRowsByContainerIds(
   tx: ClientSQLiteTransactionScope,
@@ -196,6 +169,7 @@ async function ensureDocumentLinksSchema(execSql: ExecSql): Promise<void> {
 async function replaceDocumentLinkRows(
   tx: ClientSQLiteTransactionScope,
   latest: ReadonlyMap<string, DocumentPlacementInput>,
+  now: () => Date,
   options?: DocumentPlacementWriteOptions,
 ): Promise<void> {
   const writable = await filterWritableDocumentPlacements(
@@ -233,7 +207,7 @@ async function replaceDocumentLinkRows(
       )
       .run();
   }
-  const updatedAt = new Date().toISOString();
+  const updatedAt = now().toISOString();
   const rows = writable.flatMap((input) =>
     Array.from(new Set(input.containerIds))
       .sort()
@@ -264,98 +238,119 @@ export async function replaceDocumentLinksInTransaction(
   await replaceDocumentLinkRows(
     getClientSQLitePersistenceRuntime(transactionExecSql).db,
     new Map([[documentId, { documentId, containerIds }]]),
+    () => new Date(),
     options,
   );
 }
 
-export const sqlDocumentContainerProjectionPersistence: DocumentContainerProjectionPersistence =
-  {
-    async ensureSchema(execSql) {
-      await ensureSqlTables(execSql, documentContainerProjectionTables);
-    },
-    async listLinkedContainerIds(execSql, documentId) {
-      await ensureSqlTables(execSql, documentContainerProjectionTables);
-      const { db } = getClientSQLitePersistenceRuntime(execSql);
-      const rows = await db
-        .select({ containerId: documentContainerProjection.containerId })
-        .from(documentContainerProjection)
-        .where(eq(documentContainerProjection.documentId, documentId))
-        .orderBy(asc(documentContainerProjection.containerId));
+/** The document container projection, bound to one executor and clock. */
+export class DocumentContainerProjectionRepository {
+  constructor(
+    private readonly execSql: ExecSql,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
 
-      return rows.map((row) => row.containerId);
-    },
-    async listLinkedContainerIdsByDocumentIds(execSql, documentIds) {
-      await ensureSqlTables(execSql, documentContainerProjectionTables);
-      const uniqueDocumentIds = Array.from(new Set(documentIds));
-      if (uniqueDocumentIds.length === 0) {
-        return new Map();
-      }
+  async ensureSchema(): Promise<void> {
+    await ensureSqlTables(this.execSql, documentContainerProjectionTables);
+  }
 
-      const { db } = getClientSQLitePersistenceRuntime(execSql);
-      const rows = await db
-        .select({
-          documentId: documentContainerProjection.documentId,
-          containerId: documentContainerProjection.containerId,
-        })
-        .from(documentContainerProjection)
-        .where(
-          inArray(documentContainerProjection.documentId, uniqueDocumentIds),
-        )
-        .orderBy(
-          asc(documentContainerProjection.documentId),
-          asc(documentContainerProjection.containerId),
-        );
+  async listLinkedContainerIds(
+    documentId: string,
+  ): Promise<ReadonlyArray<string>> {
+    await this.ensureSchema();
+    const { db } = getClientSQLitePersistenceRuntime(this.execSql);
+    const rows = await db
+      .select({ containerId: documentContainerProjection.containerId })
+      .from(documentContainerProjection)
+      .where(eq(documentContainerProjection.documentId, documentId))
+      .orderBy(asc(documentContainerProjection.containerId));
 
-      const linkedContainerIdsByDocumentId = new Map<string, string[]>();
-      for (const documentId of uniqueDocumentIds) {
-        linkedContainerIdsByDocumentId.set(documentId, []);
-      }
+    return rows.map((row) => row.containerId);
+  }
 
-      for (const row of rows) {
-        const linkedContainerIds =
-          linkedContainerIdsByDocumentId.get(row.documentId) ?? [];
-        linkedContainerIds.push(row.containerId);
-        linkedContainerIdsByDocumentId.set(row.documentId, linkedContainerIds);
-      }
+  async listLinkedContainerIdsByDocumentIds(
+    documentIds: ReadonlyArray<string>,
+  ): Promise<ReadonlyMap<string, ReadonlyArray<string>>> {
+    await this.ensureSchema();
+    const uniqueDocumentIds = Array.from(new Set(documentIds));
+    if (uniqueDocumentIds.length === 0) {
+      return new Map();
+    }
 
-      return linkedContainerIdsByDocumentId;
-    },
-    async listDocumentIdsByContainerIds(execSql, containerIds) {
-      await ensureSqlTables(execSql, documentContainerProjectionTables);
-      const uniqueContainerIds = Array.from(new Set(containerIds));
-      if (uniqueContainerIds.length === 0) {
-        return [];
-      }
-
-      const { db } = getClientSQLitePersistenceRuntime(execSql);
-      const rows = await db
-        .selectDistinct({ documentId: documentContainerProjection.documentId })
-        .from(documentContainerProjection)
-        .where(
-          inArray(documentContainerProjection.containerId, uniqueContainerIds),
-        )
-        .orderBy(asc(documentContainerProjection.documentId));
-
-      return rows.map((row) => row.documentId);
-    },
-    async replaceDocumentLinks(execSql, documentId, containerIds, options) {
-      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
-        execSql,
-        [{ documentId, containerIds }],
-        options,
+    const { db } = getClientSQLitePersistenceRuntime(this.execSql);
+    const rows = await db
+      .select({
+        documentId: documentContainerProjection.documentId,
+        containerId: documentContainerProjection.containerId,
+      })
+      .from(documentContainerProjection)
+      .where(inArray(documentContainerProjection.documentId, uniqueDocumentIds))
+      .orderBy(
+        asc(documentContainerProjection.documentId),
+        asc(documentContainerProjection.containerId),
       );
-    },
-    async replaceDocumentLinksBatch(execSql, inputs, options) {
-      await ensureDocumentLinksSchema(execSql);
-      const latest = new Map(inputs.map((input) => [input.documentId, input]));
-      if (latest.size === 0) return;
-      const runtime = getClientSQLitePersistenceRuntime(execSql);
-      const replace = (tx: ClientSQLiteTransactionScope) =>
-        replaceDocumentLinkRows(tx, latest, options);
-      if (options?.stillCurrent) {
-        await runtime.guardedTransaction(replace, options.stillCurrent);
-        return;
-      }
-      await runtime.transaction(replace);
-    },
-  };
+
+    const linkedContainerIdsByDocumentId = new Map<string, string[]>();
+    for (const documentId of uniqueDocumentIds) {
+      linkedContainerIdsByDocumentId.set(documentId, []);
+    }
+
+    for (const row of rows) {
+      const linkedContainerIds =
+        linkedContainerIdsByDocumentId.get(row.documentId) ?? [];
+      linkedContainerIds.push(row.containerId);
+      linkedContainerIdsByDocumentId.set(row.documentId, linkedContainerIds);
+    }
+
+    return linkedContainerIdsByDocumentId;
+  }
+
+  async listDocumentIdsByContainerIds(
+    containerIds: ReadonlyArray<string>,
+  ): Promise<ReadonlyArray<string>> {
+    await this.ensureSchema();
+    const uniqueContainerIds = Array.from(new Set(containerIds));
+    if (uniqueContainerIds.length === 0) {
+      return [];
+    }
+
+    const { db } = getClientSQLitePersistenceRuntime(this.execSql);
+    const rows = await db
+      .selectDistinct({ documentId: documentContainerProjection.documentId })
+      .from(documentContainerProjection)
+      .where(
+        inArray(documentContainerProjection.containerId, uniqueContainerIds),
+      )
+      .orderBy(asc(documentContainerProjection.documentId));
+
+    return rows.map((row) => row.documentId);
+  }
+
+  async replaceDocumentLinks(
+    documentId: string,
+    containerIds: ReadonlyArray<string>,
+    options?: DocumentPlacementWriteOptions,
+  ): Promise<void> {
+    await this.replaceDocumentLinksBatch(
+      [{ documentId, containerIds }],
+      options,
+    );
+  }
+
+  async replaceDocumentLinksBatch(
+    inputs: ReadonlyArray<DocumentPlacementInput>,
+    options?: DocumentPlacementWriteOptions,
+  ): Promise<void> {
+    await ensureDocumentLinksSchema(this.execSql);
+    const latest = new Map(inputs.map((input) => [input.documentId, input]));
+    if (latest.size === 0) return;
+    const runtime = getClientSQLitePersistenceRuntime(this.execSql);
+    const replace = (tx: ClientSQLiteTransactionScope) =>
+      replaceDocumentLinkRows(tx, latest, this.now, options);
+    if (options?.stillCurrent) {
+      await runtime.guardedTransaction(replace, options.stillCurrent);
+      return;
+    }
+    await runtime.transaction(replace);
+  }
+}
