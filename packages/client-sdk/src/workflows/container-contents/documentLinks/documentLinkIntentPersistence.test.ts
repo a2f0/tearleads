@@ -3,15 +3,17 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence as containers } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { reassignContainerDocumentsInTransaction } from "../../../data/persistence/container-contents/containerDocumentReassignment";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
-import { createExecSql } from "../../../data/sqlite/sqlSchema";
+import { createExecSql, type ExecSql } from "../../../data/sqlite/sqlSchema";
 import { hasStartupDocumentSyncWork } from "../documentPriming";
 import {
   listPendingWrites,
   resetPendingWriteRetryState,
 } from "../pendingWrites";
+
+const intents = (execSql: ExecSql) => new DocumentMoveIntentRepository(execSql);
 
 test("multiple queued links coalesce without replacing each other and follow a subsequent move", async () => {
   const { execSql, close } = await createTestExecSql("queued-link-coalesce");
@@ -23,20 +25,20 @@ test("multiple queued links coalesce without replacing each other and follow a s
     };
     await Promise.all(
       ["one", "two"].map((targetContainerId) =>
-        intents.enqueueLinkIntent(execSql, { ...base, targetContainerId }),
+        intents(execSql).enqueueLinkIntent({ ...base, targetContainerId }),
       ),
     );
-    const [original] = await intents.listPendingMoveIntents(execSql);
+    const [original] = await intents(execSql).listPendingMoveIntents();
     expect(original).toMatchObject({
       sourceContainerId: "source",
       targetContainerId: "source",
       additionalLinkContainerIds: ["one", "two"],
     });
-    await intents.enqueueMoveIntent(execSql, {
+    await intents(execSql).enqueueMoveIntent({
       ...base,
       targetContainerId: "destination",
     });
-    expect(await intents.listPendingMoveIntents(execSql)).toMatchObject([
+    expect(await intents(execSql).listPendingMoveIntents()).toMatchObject([
       {
         sourceContainerId: "source",
         targetContainerId: "destination",
@@ -45,19 +47,19 @@ test("multiple queued links coalesce without replacing each other and follow a s
     ]);
     if (!original) throw new Error("Missing original intent");
     expect(
-      await intents.markMoveIntentSynced(execSql, {
+      await intents(execSql).markMoveIntentSynced({
         documentId: "remote",
         expectedIntentId: original.id,
         expectedUpdatedAt: original.updatedAt,
       }),
     ).toBe(false);
-    await intents.enqueueMoveIntent(execSql, {
+    await intents(execSql).enqueueMoveIntent({
       ...base,
       targetContainerId: "trash",
       replaceLinkedContainers: true,
     });
     expect(
-      (await intents.listPendingMoveIntents(execSql))[0]
+      (await intents(execSql).listPendingMoveIntents())[0]
         ?.additionalLinkContainerIds,
     ).toBeUndefined();
     expect(await execSql("SELECT * FROM document_intent_link_targets")).toEqual(
@@ -72,13 +74,13 @@ test("container reassignment retargets pending additions and invalidates their r
   const { execSql, close } = await createTestExecSql("queued-link-retarget");
   try {
     await documents.ensureSchema(execSql);
-    await intents.enqueueLinkIntent(execSql, {
+    await intents(execSql).enqueueLinkIntent({
       documentId: "remote",
       localId: "local",
       sourceContainerId: "source",
       targetContainerId: "deleted",
     });
-    const [original] = await intents.listPendingMoveIntents(execSql);
+    const [original] = await intents(execSql).listPendingMoveIntents();
     await getClientSQLitePersistenceRuntime(execSql).transaction((tx) =>
       reassignContainerDocumentsInTransaction({
         tx,
@@ -87,7 +89,7 @@ test("container reassignment retargets pending additions and invalidates their r
         updatedAt: new Date().toISOString(),
       }),
     );
-    const [retargeted] = await intents.listPendingMoveIntents(execSql);
+    const [retargeted] = await intents(execSql).listPendingMoveIntents();
     expect(retargeted).toMatchObject({
       sourceContainerId: "source",
       targetContainerId: "source",
@@ -120,16 +122,16 @@ test.each(["deleted", "access_revoked"] as const)(
         sourceContainerId: "source",
       };
       for (const targetContainerId of ["gone", "surviving"])
-        await intents.enqueueLinkIntent(execSql, {
+        await intents(execSql).enqueueLinkIntent({
           ...base,
           targetContainerId,
         });
-      await intents.enqueueUnlinkIntent(execSql, {
+      await intents(execSql).enqueueUnlinkIntent({
         ...base,
         targetContainerId: "source",
         removedContainerId: "revoked-link",
       });
-      const [original] = await intents.listPendingMoveIntents(execSql);
+      const [original] = await intents(execSql).listPendingMoveIntents();
       if (!original) throw new Error("Missing intent");
       await links.replaceDocumentLinks(
         execSql,
@@ -137,7 +139,7 @@ test.each(["deleted", "access_revoked"] as const)(
         ["source", "gone", "surviving"],
         { moveIntentId: original.id },
       );
-      await intents.recordMoveIntentError(execSql, {
+      await intents(execSql).recordMoveIntentError({
         documentId: "remote",
         unavailable: true,
         message: "deleted target",
@@ -150,7 +152,7 @@ test.each(["deleted", "access_revoked"] as const)(
           updatedAt: new Date().toISOString(),
         })),
       );
-      const [repaired] = await intents.listPendingMoveIntents(execSql);
+      const [repaired] = await intents(execSql).listPendingMoveIntents();
       expect(repaired).toMatchObject({
         intentType: "document.link",
         targetContainerId: "surviving",
@@ -161,7 +163,7 @@ test.each(["deleted", "access_revoked"] as const)(
       });
       expect(repaired?.id).not.toBe(original.id);
       expect(
-        await intents.markMoveIntentSynced(execSql, {
+        await intents(execSql).markMoveIntentSynced({
           documentId: "remote",
           expectedIntentId: original.id,
           expectedUpdatedAt: original.updatedAt,
@@ -178,7 +180,7 @@ test.each(["deleted", "access_revoked"] as const)(
       await containers.deleteContainer(execSql, "surviving", {
         updatedAt: new Date().toISOString(),
       });
-      expect(await intents.listPendingMoveIntents(execSql)).toEqual([]);
+      expect(await intents(execSql).listPendingMoveIntents()).toEqual([]);
     } finally {
       close();
     }
@@ -190,13 +192,13 @@ test("deleting the only queued addition clears its intent without losing survivi
   try {
     await documents.ensureSchema(execSql);
     await containers.ensureSchema(execSql);
-    await intents.enqueueLinkIntent(execSql, {
+    await intents(execSql).enqueueLinkIntent({
       documentId: "remote",
       localId: "local",
       sourceContainerId: "source",
       targetContainerId: "gone",
     });
-    const [intent] = await intents.listPendingMoveIntents(execSql);
+    const [intent] = await intents(execSql).listPendingMoveIntents();
     if (!intent) throw new Error("Missing intent");
     await links.replaceDocumentLinks(execSql, "remote", ["source", "gone"], {
       moveIntentId: intent.id,
@@ -204,7 +206,7 @@ test("deleting the only queued addition clears its intent without losing survivi
     await containers.deleteContainer(execSql, "gone", {
       updatedAt: new Date().toISOString(),
     });
-    expect(await intents.listPendingMoveIntents(execSql)).toEqual([]);
+    expect(await intents(execSql).listPendingMoveIntents()).toEqual([]);
     expect(await execSql("SELECT * FROM document_intent_link_targets")).toEqual(
       [],
     );
@@ -219,7 +221,7 @@ test("deleting the only queued addition clears its intent without losing survivi
 test("explicit link intents remain visible and retryable after a permission denial", async () => {
   const { execSql, close } = await createTestExecSql("queued-link-denied");
   try {
-    await intents.enqueueLinkIntent(execSql, {
+    await intents(execSql).enqueueLinkIntent({
       documentId: "remote",
       localId: "local",
       sourceContainerId: "source",
@@ -231,19 +233,19 @@ test("explicit link intents remain visible and retryable after a permission deni
         (item) => item.localId === "local",
       ),
     ).toBe(true);
-    await intents.recordMoveIntentError(execSql, {
+    await intents(execSql).recordMoveIntentError({
       documentId: "remote",
       denied: true,
       message: "permission denied",
     });
-    expect(await intents.hasDeniedMoveIntents(execSql)).toBe(true);
-    expect(await intents.listPendingMoveIntents(execSql)).toEqual([]);
+    expect(await intents(execSql).hasDeniedMoveIntents()).toBe(true);
+    expect(await intents(execSql).listPendingMoveIntents()).toEqual([]);
     await resetPendingWriteRetryState(execSql, {
       localId: "local",
       objectKind: "document",
       namespace: null,
     });
-    expect(await intents.listPendingMoveIntents(execSql)).toMatchObject([
+    expect(await intents(execSql).listPendingMoveIntents()).toMatchObject([
       {
         intentType: "document.link",
         syncStatus: "pending",
@@ -260,13 +262,13 @@ test("revoked container access does not acknowledge a pending document unlink", 
   try {
     await documents.ensureSchema(execSql);
     await containers.ensureSchema(execSql);
-    await intents.enqueueUnlinkIntent(execSql, {
+    await intents(execSql).enqueueUnlinkIntent({
       documentId: "remote",
       localId: "local",
       targetContainerId: "source",
       removedContainerId: "revoked",
     });
-    const [original] = await intents.listPendingMoveIntents(execSql);
+    const [original] = await intents(execSql).listPendingMoveIntents();
     if (!original) throw new Error("Missing intent");
     await links.replaceDocumentLinks(execSql, "remote", ["source"], {
       moveIntentId: original.id,
@@ -278,7 +280,7 @@ test("revoked container access does not acknowledge a pending document unlink", 
         updatedAt: new Date().toISOString(),
       },
     ]);
-    expect(await intents.listPendingMoveIntents(execSql)).toMatchObject([
+    expect(await intents(execSql).listPendingMoveIntents()).toMatchObject([
       {
         intentType: "document.link",
         targetContainerId: "source",
@@ -300,19 +302,19 @@ test.each([
       `move-unlink-${removedContainerId}`,
     );
     try {
-      await intents.enqueueMoveIntent(execSql, {
+      await intents(execSql).enqueueMoveIntent({
         documentId: "remote",
         localId: "local",
         sourceContainerId: "source",
         targetContainerId: "destination",
       });
-      await intents.enqueueUnlinkIntent(execSql, {
+      await intents(execSql).enqueueUnlinkIntent({
         documentId: "remote",
         localId: "local",
         targetContainerId: "active-link",
         removedContainerId,
       });
-      expect(await intents.listPendingMoveIntents(execSql)).toMatchObject([
+      expect(await intents(execSql).listPendingMoveIntents()).toMatchObject([
         {
           targetContainerId: expectedDestination,
           removedLinkContainerIds: [removedContainerId, "source"].sort(),
@@ -344,8 +346,8 @@ test("replay waits for an enqueue transaction's parent and targets to commit tog
     },
   });
   try {
-    await intents.ensureSchema(execSql);
-    const enqueue = intents.enqueueLinkIntent(execSql, {
+    await intents(execSql).ensureSchema();
+    const enqueue = intents(execSql).enqueueLinkIntent({
       id: "atomic-link",
       documentId: "remote",
       localId: "local",
@@ -354,10 +356,12 @@ test("replay waits for an enqueue transaction's parent and targets to commit tog
     });
     await parentWritten.promise;
     let observedBeforeCommit = false;
-    const replay = intents.listPendingMoveIntents(execSql).then((rows) => {
-      observedBeforeCommit = true;
-      return rows;
-    });
+    const replay = intents(execSql)
+      .listPendingMoveIntents()
+      .then((rows) => {
+        observedBeforeCommit = true;
+        return rows;
+      });
     await Bun.sleep(20);
     const readIncompleteTransaction = observedBeforeCommit;
     releaseWriter.resolve();

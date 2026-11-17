@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { runQueuedDocumentMoveFixture } from "../../../../test/helpers/queuedDocumentMoveFixture";
-import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 
 test.each([false, true])(
   "a missing routing source cannot defer explicit unlinks (missing: %s)",
@@ -14,7 +14,7 @@ test.each([false, true])(
         : [],
       unlinkAvailable: true,
       beforeReplay: async (execSql) => {
-        await intents.enqueueUnlinkIntent(execSql, {
+        await new DocumentMoveIntentRepository(execSql).enqueueUnlinkIntent({
           documentId: "queued-move-document",
           localId: "queued-move-local",
           removedContainerId: "queued-move-root-container",

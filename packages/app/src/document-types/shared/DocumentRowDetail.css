@@ -1,15 +1,3 @@
-.document-row-detail-panel {
-  display: grid;
-  gap: var(--space-md);
-  max-height: 100%;
-  overflow-y: auto;
-  text-align: start;
-}
-
-.document-row-detail-title {
-  margin: 0;
-}
-
 .document-row-detail-value {
   font-family:
     ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",

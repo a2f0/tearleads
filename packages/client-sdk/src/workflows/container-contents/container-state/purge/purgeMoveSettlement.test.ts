@@ -4,7 +4,7 @@ import {
   CONTAINER_MOVE_INTENT_TYPE,
   type ContainerMoveIntentRecord,
 } from "../../../../data/persistence/container-contents/containerContentsPersistenceTypes";
-import { sqlDocumentMoveIntentPersistence } from "../../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import type { ContainerState } from "../../remoteHydration";
@@ -211,7 +211,7 @@ async function saveQueuedDocument(
     text: "",
     title: "Queued",
   });
-  await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+  await new DocumentMoveIntentRepository(execSql).enqueueMoveIntent({
     documentId,
     localId,
     sourceContainerId: "elsewhere",
@@ -223,7 +223,7 @@ async function saveQueuedDocument(
 test("a parked document placement in scope ends the purge without waiting", async () => {
   await withTestExecSql("purge-move-settlement-parked", async (execSql) => {
     const { documentId } = await saveQueuedDocument(execSql, "child");
-    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+    await new DocumentMoveIntentRepository(execSql).recordMoveIntentError({
       denied: true,
       documentId,
       message: "denied",

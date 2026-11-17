@@ -2,7 +2,7 @@ import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingPro
 import {
   DOCUMENT_LINK_INTENT_TYPE,
   type DocumentMoveIntentRecord,
-  sqlDocumentMoveIntentPersistence,
+  DocumentMoveIntentRepository,
 } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { errorMessage } from "../../../data/shared/errorMessage";
 import {
@@ -435,13 +435,13 @@ export async function syncPendingDocumentMoveIntents<TRuntime>(input: {
   const lifecycleState = input.state;
   const state = { ...lifecycleState };
   const execSql = state.runtime.infra.execSql;
+  const moveIntents = new DocumentMoveIntentRepository(execSql);
   if (!deniedReplayMatchesGeneration(lifecycleState, execSql)) {
-    await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(execSql);
+    await moveIntents.resetDeniedMoveIntents();
     if (!input.isCurrent()) return 0;
     markDeniedReplayGeneration(lifecycleState, execSql);
   }
-  const pendingIntents =
-    await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+  const pendingIntents = await moveIntents.listPendingMoveIntents();
   if (!input.isCurrent()) return 0;
   let movedCount = 0;
 

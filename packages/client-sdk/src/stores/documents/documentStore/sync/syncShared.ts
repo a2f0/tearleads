@@ -3,11 +3,11 @@ import {
   createRemoteDocument,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  DocumentRecordRepository,
   type DocumentSyncUpdateIsolationError,
   describeDocumentRevalidationFailure,
   describeDocumentSyncSubmitFailure,
   type PendingUpdateRecord,
-  recordDocumentSyncFailure,
   resolveDocumentCreateAuthor,
   runSerializedSqlMutation,
 } from "../../../../workflows/documents";
@@ -127,8 +127,9 @@ function documentSyncFailureHandler(input: {
         ) {
           return;
         }
-        await recordDocumentSyncFailure(
+        await new DocumentRecordRepository(
           lockedExecSql,
+        ).recordDocumentSyncFailure(
           { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
           {
             attemptedAt: new Date().toISOString(),

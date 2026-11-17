@@ -2,12 +2,15 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "../../../../test/helpers/waitFor";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultDocumentsPersistence } from "../../documents";
 import { createTestContainerState } from "../container-state/containerState.testFixtures";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import { syncPendingDocumentMoveIntents } from "./documentMoveIntentSync";
+
+const moveIntents = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 test("a generation change while document move intents load abandons replacement state", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -49,7 +52,7 @@ test("a generation change while document move intents load abandons replacement 
   };
 
   try {
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(staleExecSql, {
+    await moveIntents(staleExecSql).enqueueMoveIntent({
       documentId: "remote-document",
       localId: "local-document",
       sourceContainerId: "source",
@@ -122,23 +125,17 @@ test("a replacement executor gets its own denied move replay", async () => {
       isRemoteSyncBlocked: () => false,
       state,
     });
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(
-      replacementDatabase.execSql,
-      {
-        documentId: "replacement-remote-document",
-        localId: "replacement-local-document",
-        sourceContainerId: "source",
-        targetContainerId: "target",
-      },
-    );
-    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(
-      replacementDatabase.execSql,
-      {
-        denied: true,
-        documentId: "replacement-remote-document",
-        message: "denied before executor replacement",
-      },
-    );
+    await moveIntents(replacementDatabase.execSql).enqueueMoveIntent({
+      documentId: "replacement-remote-document",
+      localId: "replacement-local-document",
+      sourceContainerId: "source",
+      targetContainerId: "target",
+    });
+    await moveIntents(replacementDatabase.execSql).recordMoveIntentError({
+      denied: true,
+      documentId: "replacement-remote-document",
+      message: "denied before executor replacement",
+    });
     state.runtime = {
       ...state.runtime,
       infra: {
@@ -179,29 +176,23 @@ test("a generation change at error commit cannot park a document move", async ()
   }) as ExecSql;
 
   try {
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(guardedExecSql, {
+    await moveIntents(guardedExecSql).enqueueMoveIntent({
       documentId: "remote-document",
       localId: "local-document",
       sourceContainerId: "source",
       targetContainerId: "target",
     });
-    const [intent] =
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(
-        guardedExecSql,
-      );
+    const [intent] = await moveIntents(guardedExecSql).listPendingMoveIntents();
     if (!intent) throw new Error("missing document move intent");
 
-    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(
-      guardedExecSql,
-      {
-        denied: true,
-        documentId: intent.documentId,
-        expectedIntentId: intent.id,
-        expectedUpdatedAt: intent.updatedAt,
-        message: "stale denial",
-        stillCurrent: () => current,
-      },
-    );
+    await moveIntents(guardedExecSql).recordMoveIntentError({
+      denied: true,
+      documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
+      message: "stale denial",
+      stillCurrent: () => current,
+    });
 
     const rows = await database.execSql(
       `SELECT sync_status AS syncStatus, last_error AS lastError
@@ -238,7 +229,7 @@ test("stale document move identity failures do not report into a replacement", a
       text: "",
       title: "Document",
     });
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "document",
       localId: "local-document",
       sourceContainerId: "source",
@@ -286,9 +277,7 @@ test("stale document move identity failures do not report into a replacement", a
 
     expect(synced).toBe(0);
     expect(incidents).toEqual([]);
-    expect(
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
-    ).toHaveLength(1);
+    expect(await moveIntents(execSql).listPendingMoveIntents()).toHaveLength(1);
   } finally {
     close();
   }

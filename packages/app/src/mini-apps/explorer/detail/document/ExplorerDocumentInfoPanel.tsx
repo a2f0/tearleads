@@ -20,10 +20,7 @@ import { canWriteDocumentSummary } from "../../model/containerRules";
 import { getDocumentLinkedContainerIds } from "../../model/targetOptions";
 import type { ExplorerAttributionUserLabelResolver } from "../attributionDisplay";
 import { compactId } from "../compactId";
-import {
-  ExplorerDocumentInfoAttachmentsSection,
-  type OpenBlobBrowserRoute,
-} from "./ExplorerDocumentInfoAttachmentsSection";
+import { ExplorerDocumentInfoAttachmentsSection } from "./ExplorerDocumentInfoAttachmentsSection";
 import {
   ExplorerDocumentInfoAuthorizingContainersSection,
   ExplorerDocumentInfoLinksStatus,
@@ -38,6 +35,7 @@ import {
 } from "./ExplorerDocumentInfoGeneralSections";
 import { ExplorerDocumentInfoSecurityTab } from "./ExplorerDocumentInfoSecuritySections";
 import { ExplorerLinkedContainerSection } from "./ExplorerLinkedContainers";
+import type { OpenBlobBrowserRoute } from "./explorerDocumentInfoAttachmentRows";
 import { useExplorerDocumentInfo } from "./useExplorerDocumentInfo";
 import { useExplorerDocumentSummary } from "./useExplorerDocumentSummary";
 

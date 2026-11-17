@@ -2,13 +2,7 @@ import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
 import { documents } from "../../sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
-import {
-  enqueueDocumentPendingUpdate,
-  listDocumentPendingUpdates,
-  rekeyDocumentPendingUpdate,
-  settleDocumentPendingUpdate,
-  unqueueDocumentPendingUpdates,
-} from "../documents/records";
+import { DocumentRecordRepository } from "../documents/records";
 import { listLocalIdsWithQueuedUpdates } from "../documents/records/documentPendingUpdatePersistence";
 import type { ContainerContentsPersistence } from "./containerContentsPersistenceTypes";
 import { getContainerMetadataScope } from "./containerMetadataRows";
@@ -29,34 +23,37 @@ export const containerPendingUpdatePersistence: ContainerPendingUpdatePersistenc
   {
     async deletePendingUpdate(execSql, id) {
       await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-        await settleDocumentPendingUpdate(lockedExecSql, id);
+        await new DocumentRecordRepository(
+          lockedExecSql,
+        ).settleDocumentPendingUpdate(id);
       });
     },
     async deletePendingUpdates(execSql, containerId) {
       await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-        await unqueueDocumentPendingUpdates(
+        await new DocumentRecordRepository(
           lockedExecSql,
-          getContainerMetadataScope(containerId),
-        );
+        ).unqueueDocumentPendingUpdates(getContainerMetadataScope(containerId));
       });
     },
     async enqueuePendingUpdate(execSql, input) {
       return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-        return enqueueDocumentPendingUpdate(
+        return new DocumentRecordRepository(
           lockedExecSql,
+        ).enqueueDocumentPendingUpdate(
           getContainerMetadataScope(input.containerId),
           input,
         );
       });
     },
     async listPendingUpdates(execSql, containerId) {
-      return listDocumentPendingUpdates(
-        execSql,
+      return new DocumentRecordRepository(execSql).listDocumentPendingUpdates(
         getContainerMetadataScope(containerId),
       );
     },
     async rekeyPendingUpdate(execSql, id) {
-      return rekeyDocumentPendingUpdate(execSql, id);
+      return new DocumentRecordRepository(execSql).rekeyDocumentPendingUpdate(
+        id,
+      );
     },
     async listContainerIdsWithPendingUpdates(execSql, containerIds) {
       return listLocalIdsWithQueuedUpdates(

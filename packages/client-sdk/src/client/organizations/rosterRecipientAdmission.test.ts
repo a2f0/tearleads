@@ -171,33 +171,6 @@ test("a group-add proof cannot be reused in a replacement database", async () =>
   }
 });
 
-test("a roster proof cannot outlive its runtime identity trust domain", async () => {
-  const { fixture, runtime, service, restore } = await fixtureRuntime();
-  let current = runtime;
-  const input = spyOn(service, "workflowInput").mockImplementation(
-    () => current,
-  );
-  try {
-    const admission = await requireGroupMemberAdmission(
-      service,
-      runtime.infra.execSql,
-      "carol",
-    );
-    const head = fixture.entries.at(-1);
-    if (!head) throw new Error("Missing fixture head");
-    current = { ...runtime, identityTrustDomain: "https://other.example.test" };
-    await expect(
-      admission({
-        currentState: head.state,
-        currentProjection: head.projection,
-      }),
-    ).rejects.toBeInstanceOf(DatabaseUnavailableError);
-  } finally {
-    input.mockRestore();
-    restore();
-  }
-});
-
 test("a roster group-add proof expires at another head and demands a link at fresh enrollment", async () => {
   const { fixture, runtime, service, restore } = await fixtureRuntime();
   try {

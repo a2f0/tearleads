@@ -23,12 +23,7 @@ import {
   deleteDocumentPlacementIntentsInTransaction,
   deleteDocumentPlacementRowsByDocumentIds,
 } from "../../container-contents/documentContainerProjectionPersistence";
-import {
-  clearDocumentSyncFailure,
-  deleteDocumentRecord,
-  loadDocumentRecord,
-} from "../records";
-import { deleteDocumentHistory } from "../records/documentHistoryPersistence";
+import { DocumentRecordRepository } from "../records";
 import type { StoredDocumentRecord } from "../types";
 import { sameCanonicalDocumentSecurityIdentity } from "./documentRecordIdentity";
 import { getDocumentScope } from "./documentRows";
@@ -68,9 +63,10 @@ async function deleteStoredDocumentRows(input: {
     await deleteDocumentPlacementIntentsInTransaction(tx, existingDocumentId);
   }
   const scope = getDocumentScope(localId);
-  await deleteDocumentHistory(lockedExecSql, scope);
-  await clearDocumentSyncFailure(lockedExecSql, scope);
-  await deleteDocumentRecord(lockedExecSql, scope);
+  const records = new DocumentRecordRepository(lockedExecSql);
+  await records.deleteDocumentHistory(scope);
+  await records.clearDocumentSyncFailure(scope);
+  await records.deleteDocumentRecord(scope);
 }
 
 async function ensureDocumentDeletionTables(execSql: ExecSql): Promise<void> {
@@ -106,7 +102,9 @@ export async function deleteStoredDocument(
     await ensureDocumentDeletionTables(lockedExecSql);
     await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
       async (tx) => {
-        const existingDocument = await loadDocumentRecord(lockedExecSql, {
+        const existingDocument = await new DocumentRecordRepository(
+          lockedExecSql,
+        ).loadDocumentRecord({
           appKind: DOCUMENTS_APP_KIND,
           localId,
         });
@@ -131,7 +129,9 @@ export async function deleteStoredDocumentIfMatches(
     await ensureDocumentDeletionTables(lockedExecSql);
     return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
       async (tx) => {
-        const existingDocument = await loadDocumentRecord(lockedExecSql, {
+        const existingDocument = await new DocumentRecordRepository(
+          lockedExecSql,
+        ).loadDocumentRecord({
           appKind: DOCUMENTS_APP_KIND,
           localId: expectedRecord.id,
         });
@@ -185,7 +185,9 @@ export async function deleteStoredDocumentSideRowsIfAbsent(
     await ensureDocumentDeletionTables(lockedExecSql);
     return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
       async (tx) => {
-        const existingDocument = await loadDocumentRecord(lockedExecSql, {
+        const existingDocument = await new DocumentRecordRepository(
+          lockedExecSql,
+        ).loadDocumentRecord({
           appKind: DOCUMENTS_APP_KIND,
           localId,
         });

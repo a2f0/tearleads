@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import type { ExecSql } from "../../sqlite/sqlSchema";
 import { sqlDocumentsPersistence } from "../documents/documentsPersistence";
-import { sqlDocumentMoveIntentPersistence } from "./documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "./documentMoveIntentPersistence";
+
+const moveIntents = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 test("an overtaken move intent rolls its stale document relink back", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -24,14 +28,13 @@ test("an overtaken move intent rolls its stale document relink back", async () =
       text: "body",
       title: "Title",
     });
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "document-1",
       localId: "local-1",
       sourceContainerId: "source",
       targetContainerId: "stale-target",
     });
-    const [staleIntent] =
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    const [staleIntent] = await moveIntents(execSql).listPendingMoveIntents();
     const currentDocument = await sqlDocumentsPersistence.loadDocument(
       execSql,
       "local-1",
@@ -40,7 +43,7 @@ test("an overtaken move intent rolls its stale document relink back", async () =
     expect(currentDocument).not.toBeNull();
     if (!staleIntent || !currentDocument) return;
 
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "document-1",
       localId: "local-1",
       sourceContainerId: "source",
@@ -57,15 +60,13 @@ test("an overtaken move intent rolls its stale document relink back", async () =
           settleAcceptedPendingOnConflict: false,
         },
         async (transactionExecSql) => {
-          const settled =
-            await sqlDocumentMoveIntentPersistence.markMoveIntentSynced(
-              transactionExecSql,
-              {
-                documentId: staleIntent.documentId,
-                expectedIntentId: staleIntent.id,
-                expectedUpdatedAt: staleIntent.updatedAt,
-              },
-            );
+          const settled = await moveIntents(
+            transactionExecSql,
+          ).markMoveIntentSynced({
+            documentId: staleIntent.documentId,
+            expectedIntentId: staleIntent.id,
+            expectedUpdatedAt: staleIntent.updatedAt,
+          });
           if (!settled) throw new Error("move intent was overtaken");
         },
       ),
@@ -75,9 +76,7 @@ test("an overtaken move intent rolls its stale document relink back", async () =
       (await sqlDocumentsPersistence.loadDocument(execSql, "local-1"))
         ?.containerId,
     ).toBe("source");
-    expect(
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
-    ).toEqual([
+    expect(await moveIntents(execSql).listPendingMoveIntents()).toEqual([
       expect.objectContaining({
         syncStatus: "pending",
         targetContainerId: "winning-target",

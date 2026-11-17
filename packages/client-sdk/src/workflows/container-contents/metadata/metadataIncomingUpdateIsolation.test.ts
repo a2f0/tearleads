@@ -8,8 +8,8 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
+  DocumentRecordRepository,
   ensureDocumentTables,
-  hasRecordedTerminalSyncFailures,
 } from "../../../data/persistence/documents/records";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import {
@@ -59,6 +59,7 @@ test("expired metadata quarantine cannot record or report across the SQL lock", 
   const { close, execSql } = await createTestExecSql(
     "metadata-failure-generation",
   );
+  const records = new DocumentRecordRepository(execSql);
   try {
     await seedMetadataRow(execSql, "container-expired");
     let current = true;
@@ -91,7 +92,7 @@ test("expired metadata quarantine cannot record or report across the SQL lock", 
     releaseLock();
     await Promise.all([blocker, recording]);
 
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(false);
     expect(reported).toEqual([]);
   } finally {
     close();
@@ -102,6 +103,7 @@ test("metadata quarantine preserves the original error and durable row when repo
   const { close, execSql } = await createTestExecSql(
     "metadata-quarantine-diagnostics",
   );
+  const records = new DocumentRecordRepository(execSql);
   try {
     await seedMetadataRow(execSql, "container-quarantined");
     const failure = new DocumentSyncUpdateIsolationError({
@@ -128,7 +130,7 @@ test("metadata quarantine preserves the original error and durable row when repo
     await isolation.onIncomingUpdateIsolationFailure(failure);
 
     expect(reported).toEqual([failure]);
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(true);
   } finally {
     close();
   }
@@ -138,6 +140,7 @@ test("metadata failure recording rolls back when generation expires before commi
   const { close, execSql } = await createTestExecSql(
     "metadata-failure-commit-generation",
   );
+  const records = new DocumentRecordRepository(execSql);
   try {
     await seedMetadataRow(execSql, "container-expired-before-commit");
     let checks = 0;
@@ -160,7 +163,7 @@ test("metadata failure recording rolls back when generation expires before commi
     });
 
     expect(checks).toBe(2);
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(false);
   } finally {
     close();
   }

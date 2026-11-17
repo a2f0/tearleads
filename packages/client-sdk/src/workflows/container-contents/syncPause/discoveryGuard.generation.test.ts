@@ -5,7 +5,7 @@ import {
   ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
-import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { containerSyncWatermarkTables } from "../../../data/sqlite/schema/containerSyncWatermarkSchema";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
@@ -23,7 +23,7 @@ test("discovery cannot restore a cursor after a permission change", async () => 
   try {
     await ensureSqlTables(execSql, containerSyncWatermarkTables);
     const watermarks = new ContainerSyncWatermarkRepository(execSql);
-    const evidence = createDocumentDiscoveryEvidenceStore(execSql);
+    const evidence = new DocumentDiscoveryEvidenceRepository(execSql);
     const cursor = { id: "document", updatedAt: "2026-01-01T00:00:00.000Z" };
     const container = {
       id: "shared",

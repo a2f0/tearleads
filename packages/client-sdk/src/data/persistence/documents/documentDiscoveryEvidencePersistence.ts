@@ -40,35 +40,6 @@ interface RemovedDiscoveryPlacement {
   readonly containerId: string;
   readonly documentId: string;
 }
-export interface DocumentDiscoveryEvidenceStore {
-  begin(): Promise<number>;
-  isCurrent(generation: number): Promise<boolean>;
-  stage(
-    inputs: readonly DiscoveredDocumentCandidate[],
-    generation: number,
-    removed?: readonly RemovedDiscoveryPlacement[],
-  ): Promise<boolean>;
-  pending(
-    containerIds: readonly string[],
-    limit: number,
-  ): Promise<readonly DiscoveredDocumentCandidate[]>;
-  defer(input: DiscoveredDocumentCandidate, generation: number): Promise<void>;
-  acknowledge(
-    inputs: readonly DiscoveredDocumentCandidate[],
-    generation: number,
-  ): Promise<void>;
-  hasPending(containerIds: readonly string[]): Promise<boolean>;
-  retryDelay(containerIds: readonly string[]): Promise<number | null>;
-  loadHead(
-    documentId: string,
-    manifestHash: string | null | undefined,
-  ): Promise<CachedDiscoveryHead | null>;
-  saveHead(
-    documentId: string,
-    head: CachedDiscoveryHead,
-    generation: number,
-  ): Promise<boolean>;
-}
 
 const pending = pendingDocumentDiscoveries;
 const heads = documentDiscoveryHeads;
@@ -88,28 +59,32 @@ const identity = (input: DiscoveredDocumentCandidate) =>
     eq(pending.inputJson, JSON.stringify(input)),
   );
 
-class SqlDocumentDiscoveryEvidenceStore
-  implements DocumentDiscoveryEvidenceStore
-{
+/**
+ * Untrusted document discovery evidence bound to one executor and clock. The
+ * clock (epoch milliseconds, like the `retryAt` column) schedules and reports
+ * pending-discovery retries.
+ */
+export class DocumentDiscoveryEvidenceRepository {
   constructor(
     private readonly execSql: ExecSql,
-    private readonly now: () => number,
+    private readonly now: () => number = Date.now,
   ) {}
 
-  private read = async () => {
+  private async read() {
     await ensureSqlTables(this.execSql, documentContainerProjectionTables);
     return getClientSQLitePersistenceRuntime(this.execSql).db;
-  };
-  private write = async <T>(
+  }
+  private write<T>(
     operation: (
       db: ReturnType<typeof getClientSQLitePersistenceRuntime>["db"],
     ) => Promise<T>,
-  ) =>
-    runSerializedSqlMutation(this.execSql, async (locked) => {
+  ): Promise<T> {
+    return runSerializedSqlMutation(this.execSql, async (locked) => {
       await ensureSqlTables(locked, documentContainerProjectionTables);
       return operation(getClientSQLitePersistenceRuntime(locked).db);
     });
-  begin = async () => {
+  }
+  async begin(): Promise<number> {
     let generation = 0;
     await this.write(async (db) => {
       const [row] = await db
@@ -127,14 +102,15 @@ class SqlDocumentDiscoveryEvidenceStore
       generation = row.generation;
     });
     return generation;
-  };
-  isCurrent = async (generation: number) =>
-    isDocumentDiscoveryGenerationCurrent(await this.read(), generation);
-  stage = (
+  }
+  async isCurrent(generation: number): Promise<boolean> {
+    return isDocumentDiscoveryGenerationCurrent(await this.read(), generation);
+  }
+  stage(
     inputs: readonly DiscoveredDocumentCandidate[],
     generation: number,
     removed: readonly RemovedDiscoveryPlacement[] = [],
-  ) => {
+  ): Promise<boolean> {
     return this.write(async (db) => {
       if (!(await isDocumentDiscoveryGenerationCurrent(db, generation)))
         return false;
@@ -197,8 +173,11 @@ class SqlDocumentDiscoveryEvidenceStore
       });
       return true;
     });
-  };
-  pending = async (containerIds: readonly string[], limit: number) => {
+  }
+  async pending(
+    containerIds: readonly string[],
+    limit: number,
+  ): Promise<readonly DiscoveredDocumentCandidate[]> {
     const db = await this.read();
     const result: DiscoveredDocumentCandidate[] = [];
     for (const batch of batches(containerIds)) {
@@ -219,9 +198,9 @@ class SqlDocumentDiscoveryEvidenceStore
       );
     }
     return result;
-  };
-  defer = (input: DiscoveredDocumentCandidate, generation: number) =>
-    this.write(async (db) => {
+  }
+  defer(input: DiscoveredDocumentCandidate, generation: number): Promise<void> {
+    return this.write(async (db) => {
       if (!(await isDocumentDiscoveryGenerationCurrent(db, generation))) return;
       const [row] = await db
         .select({ attempts: pending.attempts })
@@ -239,11 +218,12 @@ class SqlDocumentDiscoveryEvidenceStore
         .where(identity(input))
         .run();
     });
-  acknowledge = (
+  }
+  acknowledge(
     inputs: readonly DiscoveredDocumentCandidate[],
     generation: number,
-  ) =>
-    this.write(async (db) => {
+  ): Promise<void> {
+    return this.write(async (db) => {
       if (!(await isDocumentDiscoveryGenerationCurrent(db, generation))) return;
       await db.transaction(async (tx) => {
         for (const batch of remoteResetBatches(inputs))
@@ -253,7 +233,8 @@ class SqlDocumentDiscoveryEvidenceStore
             .run();
       });
     });
-  hasPending = async (containerIds: readonly string[]) => {
+  }
+  async hasPending(containerIds: readonly string[]): Promise<boolean> {
     const db = await this.read();
     for (const batch of batches(containerIds)) {
       if (
@@ -268,8 +249,8 @@ class SqlDocumentDiscoveryEvidenceStore
         return true;
     }
     return false;
-  };
-  retryDelay = async (containerIds: readonly string[]) => {
+  }
+  async retryDelay(containerIds: readonly string[]): Promise<number | null> {
     const db = await this.read();
     let due: number | null = null;
     for (const batch of batches(containerIds)) {
@@ -281,11 +262,11 @@ class SqlDocumentDiscoveryEvidenceStore
         due = Math.min(due ?? row.due, row.due);
     }
     return due === null ? null : Math.max(0, due - this.now());
-  };
-  loadHead = async (
+  }
+  async loadHead(
     documentId: string,
     manifestHash: string | null | undefined,
-  ) => {
+  ): Promise<CachedDiscoveryHead | null> {
     if (
       await new KeyingCheckpointRepository(
         this.execSql,
@@ -330,13 +311,13 @@ class SqlDocumentDiscoveryEvidenceStore
         "stored discovery links",
       ),
     };
-  };
-  saveHead = (
+  }
+  saveHead(
     documentId: string,
     head: CachedDiscoveryHead,
     generation: number,
-  ) =>
-    this.write(async (db) => {
+  ): Promise<boolean> {
+    return this.write(async (db) => {
       if (
         !head.accessStateHash ||
         !head.organizationId ||
@@ -361,6 +342,7 @@ class SqlDocumentDiscoveryEvidenceStore
         .run();
       return true;
     });
+  }
 }
 
 /**
@@ -402,11 +384,4 @@ export async function primeAuthoredDocumentDiscoveryHeads(
       })
       .run();
   }
-}
-
-export function createDocumentDiscoveryEvidenceStore(
-  execSql: ExecSql,
-  now = Date.now,
-): DocumentDiscoveryEvidenceStore {
-  return new SqlDocumentDiscoveryEvidenceStore(execSql, now);
 }

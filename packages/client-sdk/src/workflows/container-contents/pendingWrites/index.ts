@@ -1,11 +1,8 @@
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import {
-  clearDocumentSyncFailure,
-  resetDocumentPendingUpdateRekeyBudget,
-} from "../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import {
   documentPlacementIntentTables,
   LOCAL_INTENT_LANES,
@@ -50,7 +47,7 @@ export async function listPendingWrites(
 ): Promise<ReadonlyArray<PendingWriteQueueItem>> {
   await defaultContainerContentsPersistence.ensureSchema(execSql);
   await sqlDocumentsPersistence.ensureSchema(execSql);
-  await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+  await new DocumentMoveIntentRepository(execSql).ensureSchema();
 
   const [persisted, deferred] = await Promise.all([
     listPersistedPendingWriteCandidates(execSql),
@@ -89,12 +86,13 @@ export async function resetPendingWriteRetryState(
     return;
   }
   const scope = { appKind, localId: input.localId };
-  await resetDocumentPendingUpdateRekeyBudget(execSql, scope);
+  const records = new DocumentRecordRepository(execSql);
+  await records.resetDocumentPendingUpdateRekeyBudget(scope);
   if (appKind === DOCUMENTS_APP_KIND) {
     // A deliberate retry is the rate-limited signal that conditions changed:
     // a parked permission-denied move (row 7) replays once, like row 11's
     // re-key budget reset.
-    await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(execSql, {
+    await new DocumentMoveIntentRepository(execSql).resetDeniedMoveIntents({
       localId: input.localId,
     });
   }
@@ -104,7 +102,7 @@ export async function resetPendingWriteRetryState(
   // priming ticket that re-drives the store, so it must survive the retry
   // and clear on the next clean pass instead of vanishing with no request.
   if (await hasQueuedScopeWork(execSql, scope)) {
-    await clearDocumentSyncFailure(execSql, scope);
+    await records.clearDocumentSyncFailure(scope);
   }
 }
 
