@@ -3,6 +3,7 @@ import type { DeleteOrganizationGroupRequest } from "@tearleads/validators/reque
 import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import { buildOrganizationGroupDirectoryPolicyRequest } from "../../../data/principals/organizationGroupDirectoryRequest";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import { loadOrganizationExternalAdminPolicy } from "../../principals/externalAdminPolicy";
@@ -13,10 +14,7 @@ import {
   projectionUserIds,
   resolveRequiredUserIdentities,
 } from "../trustedOrganizationUsers";
-import {
-  buildOrganizationGroupDirectoryPolicyRequest,
-  removeOrganizationGroupHead,
-} from "./organizationGroupDirectory";
+import { removeOrganizationGroupHead } from "./organizationGroupDirectory";
 
 export async function deleteOrganizationGroup(input: {
   readonly apiClient: PrincipalPolicyReadApi & {

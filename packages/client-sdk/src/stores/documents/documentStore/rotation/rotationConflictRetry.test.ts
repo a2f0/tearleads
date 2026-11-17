@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import {
   createRemoteHistoryFixture,
@@ -11,10 +15,6 @@ import { setDocumentText } from "../mutations";
 import { listPendingUpdates } from "../persistence";
 import { createDocumentStoreState } from "../state";
 import { assertDocumentStoreCanRotateContentKey } from "./index";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "./rotationRecoveryHelpers.test";
 
 test("rotation re-proves a re-keyed queue, bounds repeated changes and remains retryable", async () => {
   const { close, execSql } = await createTestExecSql(

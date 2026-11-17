@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMockRequestFailure } from "@tearleads/test-utils";
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
+import { createAuthorityRecoveryFixture } from "../../../../test/helpers/data/principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
@@ -11,7 +12,6 @@ import {
   mutationObjectIds,
   stubRekeyRequest,
 } from "../../../../test/helpers/workflows/groupRemovalCarryFixture";
-import { createAuthorityRecoveryFixture } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import { createRuntimeCurrentGroupMutation } from "../principalMutations/runtimeCurrentGroupMutation";

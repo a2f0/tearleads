@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "../../../test/helpers/data/waitFor";
+import { createContainerContentsTestRuntime } from "../../../test/helpers/workflows/containerContentsTestRuntime";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import {
   deleteDocumentPlacements,
@@ -14,7 +15,6 @@ import {
   deletePersistedDocument,
 } from "../../workflows/documents";
 import { createContainerContentsStore } from "../container-contents/containerContentsStore";
-import { createContainerContentsTestRuntime } from "../container-contents/runtime.testFixtures";
 import { createLocalProjectionStore } from "./localProjectionStore";
 
 async function seed(

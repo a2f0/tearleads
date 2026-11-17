@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { emptyVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createRotationRecoveryRuntime } from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "../../../../workflows/container-contents/documentQueries";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
@@ -9,7 +10,6 @@ import {
   noopDocumentStorePersistenceEffects,
 } from "../documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "../initialization";
-import { createRotationRecoveryRuntime } from "../rotation/rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "../state";
 import { finalizeDocumentSync } from "./syncFinalize";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";

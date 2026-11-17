@@ -6,8 +6,8 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/data/containerFixtures";
+import { createContainerContentsWorkflowRuntime } from "../../../../../test/helpers/workflows/containerContentsWorkflowRuntime";
 import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
-import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../../data/shared/domainScope";

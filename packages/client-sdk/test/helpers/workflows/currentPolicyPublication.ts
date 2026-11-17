@@ -4,17 +4,17 @@ import { parseOrganizationAuthorityDescriptor } from "../../../src/data/principa
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
-} from "../../../src/workflows/organizations/groups/organizationGroupDirectory";
+} from "../../../src/data/principals/organizationGroupDirectoryRequest";
 import { captureAcknowledgedPrincipalPredecessor } from "../../../src/workflows/principals/acknowledgements/acknowledgedPrincipalPredecessor";
 import type { RecoverPrincipalPolicyHistoryOptions } from "../../../src/workflows/principals/historyRecovery/principalHistoryRecoveryTypes";
 import { recoverScopedPrincipalPolicyHistory } from "../../../src/workflows/principals/historyRecovery/recoverScopedPrincipalPolicyHistory";
+import type { signedAuthorityRecoveryHistory } from "../data/principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
   principalPolicyHead,
 } from "../data/principalPolicyFixtures";
 import { currentPolicyAcknowledgementFixture } from "./currentPolicyAcknowledgement";
-import type { signedAuthorityRecoveryHistory } from "./principalAuthorityRecovery";
 
 export async function currentPolicyPublicationFixture(
   history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>,

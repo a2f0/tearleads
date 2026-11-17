@@ -7,17 +7,17 @@ import {
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type { ListContainerParentLanesResponse } from "@tearleads/validators/response";
 import { waitFor } from "../../../../test/helpers/data/waitFor";
+import {
+  createContainerContentsTestRuntime,
+  emptyListContainersResponse,
+  seedLocalRootContainer,
+} from "../../../../test/helpers/workflows/containerContentsTestRuntime";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import {
   ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
 } from "../../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "../containerContentsStore";
-import {
-  createContainerContentsTestRuntime,
-  emptyListContainersResponse,
-  seedLocalRootContainer,
-} from "../runtime.testFixtures";
 import type { ContainerContentsStore } from "../types";
 
 type ParentLaneLister = (

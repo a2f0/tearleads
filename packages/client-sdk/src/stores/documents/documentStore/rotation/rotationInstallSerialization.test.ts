@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { getTextValue } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import type { DocumentsPersistence } from "../../../../workflows/documents";
 import {
@@ -11,10 +15,6 @@ import { chainIdentityWrite } from "../identityWriteChain";
 import { ensureDocumentStoreReady } from "../initialization";
 import { createDocumentStoreState, type DocumentStoreState } from "../state";
 import { assertDocumentStoreCanRotateContentKey } from "./index";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "./rotationRecoveryHelpers.test";
 
 test("rotation serializes its final verification and history install", async () => {
   const { close, execSql } = await createTestExecSql(

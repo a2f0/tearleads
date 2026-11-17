@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { createContainerContentsTestRuntime } from "../../../../test/helpers/workflows/containerContentsTestRuntime";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import { createTestContainerState } from "../../../workflows/container-contents/container-state/containerState.testFixtures";
 import { defaultContainerContentsPersistence } from "../../../workflows/container-contents/containerPersistence";
 import { captureContainerWriteGeneration } from "../remoteWrites/writeGeneration";
-import { createContainerContentsTestRuntime } from "../runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,

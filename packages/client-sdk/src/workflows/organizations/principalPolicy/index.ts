@@ -14,6 +14,10 @@ import type {
   ContainerMutationResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import {
+  buildOrganizationGroupDirectoryPolicyRequest,
+  replaceOrganizationGroupHead,
+} from "../../../data/principals/organizationGroupDirectoryRequest";
 import type { GroupPolicyNameReader } from "../../../data/principals/principalPolicyRequest";
 import {
   buildInitialGroupPolicyRequest,
@@ -38,10 +42,6 @@ import {
   buildRemoveGroupUserPolicyRequest,
   buildSetGroupContainerGrantPolicyRequest,
 } from "../groupPolicy/groupPolicyRequests";
-import {
-  buildOrganizationGroupDirectoryPolicyRequest,
-  replaceOrganizationGroupHead,
-} from "../groups/organizationGroupDirectory";
 import {
   projectionUserIds,
   resolveRequiredUserIdentities,

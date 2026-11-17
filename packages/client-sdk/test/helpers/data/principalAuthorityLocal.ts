@@ -1,7 +1,7 @@
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE } from "@tearleads/validators/response";
 import { getClientSQLitePersistenceRuntime } from "../../../src/data/sqlite/sqlitePersistenceRuntime";
-import type { signedAuthorityRecoveryHistory } from "../workflows/principalAuthorityRecovery";
+import type { signedAuthorityRecoveryHistory } from "./principalAuthorityRecovery";
 
 /** Real signed evidence and SQLite custody, with page transport kept in-process. */
 export async function createLocalAuthorityRecoveryFixture(

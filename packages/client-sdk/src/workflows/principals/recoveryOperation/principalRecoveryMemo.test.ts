@@ -1,9 +1,9 @@
 import { beforeAll, expect, test } from "bun:test";
-import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../../test/helpers/workflows/principalAuthorityRecovery";
+} from "../../../../test/helpers/data/principalAuthorityRecovery";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { recoverScopedPrincipalPolicyHistory } from "../historyRecovery/recoverScopedPrincipalPolicyHistory";
 import {
   createPrincipalRecoveryReader,

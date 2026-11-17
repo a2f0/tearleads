@@ -1,10 +1,10 @@
 import { expect, mock, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { createContainerContentsTestRuntime } from "../../../test/helpers/workflows/containerContentsTestRuntime";
 import { createDomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
-import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,

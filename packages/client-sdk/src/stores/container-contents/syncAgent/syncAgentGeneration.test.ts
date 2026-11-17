@@ -1,6 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { waitFor } from "../../../../test/helpers/data/waitFor";
+import { createContainerContentsTestRuntime } from "../../../../test/helpers/workflows/containerContentsTestRuntime";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   disposeDomainSyncCoordinator,
@@ -8,7 +9,6 @@ import {
 } from "../../../data/sync/syncCoordinator";
 import type { ContainerContentsPersistence } from "../../../workflows/container-contents/containerPersistence";
 import { defaultContainerContentsPersistence } from "../../../workflows/container-contents/containerPersistence";
-import { createContainerContentsTestRuntime } from "../runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,

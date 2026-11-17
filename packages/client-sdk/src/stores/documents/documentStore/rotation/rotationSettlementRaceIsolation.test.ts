@@ -7,6 +7,10 @@ import {
   getUpdateVersionVectors,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import type { DocumentsPersistence } from "../../../../workflows/documents";
 import {
@@ -19,10 +23,6 @@ import { setDocumentText } from "../mutations";
 import { listPendingUpdates } from "../persistence";
 import { createDocumentStoreState } from "../state";
 import { assertDocumentStoreCanRotateContentKey } from "./index";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "./rotationRecoveryHelpers.test";
 
 test("rotation never settles a row appended after provenance verification", async () => {
   const { close, execSql } = await createTestExecSql(

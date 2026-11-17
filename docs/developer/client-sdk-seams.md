@@ -385,30 +385,26 @@ which only shrinks like the surface baseline.
 
 [`scripts/architecture/clientSdkLayers.ts`](../../scripts/architecture/clientSdkLayers.ts)
 puts every client SDK subsystem in one subsystem layer, lowest first: shared
-utilities, SQLite and security incidents; the trust kernel; container,
-blob, and document data; organization, registration, and sync; then the
-facades and the composition root. A subsystem layer is a rank among
-subsystems, not the `data → workflows → stores → sync → client` tier the
-[vocabulary](architecture-vocabulary.md) calls a layer. Within a subsystem
-layer, subsystems are ordered lowest first too.
+utilities, SQLite, sync coordination, and security incidents; the trust kernel;
+projection contracts and container, blob, and document data; organization,
+registration, and sync; then the facades and the composition root. A subsystem
+layer is a rank among subsystems, not the `data → workflows → stores → sync →
+client` tier the [vocabulary](architecture-vocabulary.md) calls a layer.
+Within a subsystem layer, subsystems are ordered lowest first too.
 
 A production file imports at runtime only from subsystems ranked below its
-own, so once the baseline below is empty the subsystem graph has no cycle.
-Type-only imports (`import type`, all-`type` named imports,
-`export type … from`, and `import("…")` types) are exempt; value, side-effect,
-and dynamic imports and `export … from` count. `bun run lint:architecture`
-fails on any other import into a subsystem in the same or a higher position.
-Existing back-edges are listed by imported file in
-[`scripts/architecture/subsystemLayerBaseline.json`](../../scripts/architecture/subsystemLayerBaseline.json).
-The check also fails on an entry whose import is gone, so the list only
-shrinks.
+own, so the subsystem graph has no cycle. Type-only imports (`import type`,
+all-`type` named imports, `export type … from`, and `import("…")` types) are
+exempt; value, side-effect, and dynamic imports and `export … from` count.
+`bun run lint:architecture` fails on any other import into a subsystem in the
+same or a higher position. The back-edge baseline,
+[`scripts/architecture/subsystemLayerBaseline.json`](../../scripts/architecture/subsystemLayerBaseline.json),
+is empty, and the check fails on an entry whose import is gone.
 
-- When you change code that imports through the baseline, move the shared
-  contract down to a lower subsystem or pass a host interface, and delete the
-  entry. Never weaken a check.
+- When new code needs a higher subsystem, move the shared contract down to a
+  lower subsystem or pass a host interface. Never weaken a check.
 - Never add a baseline entry to land new code, and never reorder the subsystem
   layers to make an import pass.
-- When you move a file the baseline names, rename its entries.
 
 ## Test tiers
 

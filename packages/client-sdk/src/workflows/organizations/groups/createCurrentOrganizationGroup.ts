@@ -3,6 +3,10 @@ import { assertProjectionVerificationCurrent } from "../../../data/keyingProject
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyReferenceFromBundle } from "../../../data/principalContracts/principalPolicyAdminSigners";
 import {
+  buildOrganizationGroupDirectoryPolicyRequest,
+  replaceOrganizationGroupHead,
+} from "../../../data/principals/organizationGroupDirectoryRequest";
+import {
   buildInitialGroupPolicyRequest,
   canonicalGroupNameKey,
 } from "../../../data/principals/principalPolicyRequest";
@@ -21,10 +25,6 @@ import {
   projectionUserIds,
   resolveRequiredUserIdentities,
 } from "../trustedOrganizationUsers";
-import {
-  buildOrganizationGroupDirectoryPolicyRequest,
-  replaceOrganizationGroupHead,
-} from "./organizationGroupDirectory";
 
 /** Create from bounded current evidence and publish its genuine genesis with the directory. */
 export async function createCurrentOrganizationGroup(input: {

@@ -7,13 +7,13 @@ import type {
 } from "@tearleads/validators/response";
 import { createAuthor } from "../../../../../test/helpers/data/containerFixtures";
 import { buildInitialGroupPolicyRequest } from "../../../../../test/helpers/data/groupMetadata";
+import { createOrganizationHistoryFixture } from "../../../../../test/helpers/data/organizationPolicyHistory";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "../../../../../test/helpers/data/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
-import { createOrganizationHistoryFixture } from "../../../../../test/helpers/workflows/organizationPolicyHistory";
 import { createRepairWarmer } from "../../../../../test/helpers/workflows/principalPolicyRepair";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { buildInitialOrganizationPolicyRequest } from "../../../../data/principals/organizationPolicyRequest";

@@ -7,10 +7,10 @@ import {
   TEST_SYSTEM_SLOT,
   withReadyStore,
 } from "../../../test/helpers/stores/deviceFirstSystemContainer";
+import { seedLocalRootContainer } from "../../../test/helpers/workflows/containerContentsTestRuntime";
 import type { DomainScope } from "../../data/shared/domainScope";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
-import { seedLocalRootContainer } from "./runtime.testFixtures";
 
 test("ensureSystemContainer creates the slot locally when parent-lane hydration returns a network failure (null)", async () => {
   // The ApiClient surfaces a "Failed to fetch" as a null result, not a throw.

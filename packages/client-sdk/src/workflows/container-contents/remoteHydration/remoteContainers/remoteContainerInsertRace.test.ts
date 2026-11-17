@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
-import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/stores/cachedContainerHydrationRuntime";
+import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/workflows/cachedContainerHydrationRuntime";
 import type { ContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
 import {

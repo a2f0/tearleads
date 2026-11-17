@@ -4,6 +4,10 @@ import {
   createFixtureBinding,
   createUploadedAttachmentFixture,
 } from "../../../../../test/helpers/workflows/blobHydration";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { addDocumentAttachments } from "../../../../data/documents/documentContent";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
@@ -11,10 +15,6 @@ import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
 } from "../documentStore.testFixtures";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "../rotation/rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "../state";
 import { hydrateAttachmentBlobs } from "./attachmentHydration";
 

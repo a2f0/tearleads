@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
+import { createOrganizationHistoryFixture } from "../../../../test/helpers/data/organizationPolicyHistory";
 import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { createPublicHistoryFixture } from "../../../../test/helpers/data/publicPrincipalHistory";
 import { createFixtureUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
-import { createOrganizationHistoryFixture } from "../../../../test/helpers/workflows/organizationPolicyHistory";
 import type { TrustedUserIdentity } from "../../../data/trustedUserIdentity";
 import { recoverProjectionPolicyHistory } from "./recoverProjectionPolicyHistory";
 

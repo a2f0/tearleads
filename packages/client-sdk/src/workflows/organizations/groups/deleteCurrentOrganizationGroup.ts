@@ -1,5 +1,6 @@
 import type { SigningKeyPair } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
+import { buildOrganizationGroupDirectoryPolicyRequest } from "../../../data/principals/organizationGroupDirectoryRequest";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { CurrentOrganizationMutationContext } from "../principalMutations/runtimeCurrentOrganizationMutation";
 import {
@@ -7,10 +8,7 @@ import {
   resolveRequiredUserIdentities,
 } from "../trustedOrganizationUsers";
 import type { deleteOrganizationGroup } from "./deleteOrganizationGroup";
-import {
-  buildOrganizationGroupDirectoryPolicyRequest,
-  removeOrganizationGroupHead,
-} from "./organizationGroupDirectory";
+import { removeOrganizationGroupHead } from "./organizationGroupDirectory";
 
 /** Delete against a verified directory without loading the removed group's history. */
 export async function deleteCurrentOrganizationGroup(input: {

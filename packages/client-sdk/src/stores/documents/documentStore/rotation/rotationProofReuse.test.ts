@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import {
   createRemoteHistoryFixture,
@@ -10,10 +14,6 @@ import { ensureDocumentStoreReady } from "../initialization";
 import { setDocumentText } from "../mutations";
 import { createDocumentStoreState } from "../state";
 import { assertDocumentStoreCanRotateContentKey } from "./index";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "./rotationRecoveryHelpers.test";
 
 test("a reused rotation proof covers only the unchanged document it proved", async () => {
   const { close, execSql } = await createTestExecSql("rotation-proof-reuse");

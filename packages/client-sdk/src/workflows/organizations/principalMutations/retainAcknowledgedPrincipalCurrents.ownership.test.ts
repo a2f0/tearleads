@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/data/principalAuthorityRecovery";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import {
   principalHistoryRootRetention,
   writePrincipalHistoryRootEdges,

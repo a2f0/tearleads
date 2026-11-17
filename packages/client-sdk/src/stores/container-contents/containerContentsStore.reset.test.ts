@@ -1,6 +1,10 @@
 import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { QUEUED_UPDATES_SQL } from "../../../test/helpers/data/queuedUpdateRows";
+import {
+  createContainerContentsTestRuntime,
+  seedLocalRootContainer,
+} from "../../../test/helpers/workflows/containerContentsTestRuntime";
 import { createDomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -9,10 +13,6 @@ import {
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
-import {
-  createContainerContentsTestRuntime,
-  seedLocalRootContainer,
-} from "./runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,

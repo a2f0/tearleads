@@ -11,12 +11,13 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import { createTestExecSql, type TestExecSql } from "@tearleads/test-utils";
-import type { DocumentState } from "../../../stores/documents/documentStore/state";
 import { createPendingUpdateFields } from "../../documents/documentSync";
 import { sqlDocumentsPersistence as persistence } from "./documentsPersistence";
 import { getDocumentScope } from "./internal/documentRows";
 import type { ReplaceQueuedPendingUpdatesInput } from "./queuedUpdateReplacementPort";
 import { DocumentRecordRepository } from "./records";
+
+type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 
 const LOCAL_ID = "local-merge-document";
 const DOCUMENT_ID = "document-merge";

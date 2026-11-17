@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/stores/cachedContainerHydrationRuntime";
+import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/workflows/cachedContainerHydrationRuntime";
 import { getOrCreateOrganizationSyncPauses } from "../../../../data/sync/organizationSyncPauses";
 import { createRemoteContainerIngestor } from "../index";
 import type {

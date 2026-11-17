@@ -1,11 +1,11 @@
 import { beforeAll, expect, test } from "bun:test";
-import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/data/principalPolicyCheckpointPins";
-import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyFixtures";
 import {
   AUTHORITY_RECOVERY_SETUP_TIMEOUT_MS,
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../test/helpers/workflows/principalAuthorityRecovery";
+} from "../../../test/helpers/data/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/data/principalPolicyCheckpointPins";
+import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyFixtures";
 import {
   commitProjectionCheckpoints,
   createProjectionCheckpointContext,

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { createContainerContentsTestRuntime } from "../../../test/helpers/workflows/containerContentsTestRuntime";
 import type { DomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { createContainerContentsTestRuntime } from "../container-contents/runtime.testFixtures";
 import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
 import type {
   ContainerContentsStore,

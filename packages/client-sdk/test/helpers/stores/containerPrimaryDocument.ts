@@ -4,7 +4,6 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../../src/data/persistence/documents/documentsPersistence";
 import type { DomainScope } from "../../../src/data/shared/domainScope";
 import { createContainerWriteMethods } from "../../../src/stores/container-contents/containerContentsStore";
-import { createContainerContentsTestRuntime } from "../../../src/stores/container-contents/runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,
@@ -19,6 +18,7 @@ import {
   createContainerRecord,
   createDocumentRecord,
 } from "../../../src/workflows/container-contents/metadata/metadata.testFixtures";
+import { createContainerContentsTestRuntime } from "../workflows/containerContentsTestRuntime";
 
 export async function primaryDocumentFixture() {
   const db = await createTestExecSql("container-primary-write");

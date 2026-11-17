@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { buildInitialOrganizationPolicyRequest } from "@tearleads/client-sdk";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -14,6 +13,7 @@ import {
 } from "../../../../test/helpers/data/principalPolicyBundles";
 import { cacheReferencedPolicies } from "../../../../test/helpers/workflows/policyCacheFixtures";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";
 
 test("principal policy sync authorizes empty group bundles from verified organization admins", async () => {
   const { close, execSql } = await createTestExecSql(

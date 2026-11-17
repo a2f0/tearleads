@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { createDocument, getTextValue, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import type { DocumentsPersistence } from "../../../../workflows/documents";
 import {
@@ -10,10 +14,6 @@ import {
 import { ensureDocumentStoreReady } from "../initialization";
 import { createDocumentStoreState, type DocumentStoreState } from "../state";
 import { assertDocumentStoreCanRotateContentKey } from "./index";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "./rotationRecoveryHelpers.test";
 
 test("rotation aborts a paged recovery when the runtime generation changes", async () => {
   const source = await createTestExecSql("rotation-recovery-generation-source");

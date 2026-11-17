@@ -5,15 +5,15 @@ import type {
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
+import {
+  buildOrganizationGroupDirectoryPolicyRequest,
+  replaceOrganizationGroupHead,
+} from "../../../data/principals/organizationGroupDirectoryRequest";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type {
   PreparedPrincipalContainerRematerializationBatch,
   PrincipalRematerializationPredecessor,
 } from "../../containers/rematerialization";
-import {
-  buildOrganizationGroupDirectoryPolicyRequest,
-  replaceOrganizationGroupHead,
-} from "../groups/organizationGroupDirectory";
 import { assertAuthoredPrincipalMutationReceipt } from "../principalMutations/principalMutationReceipt";
 import type { RuntimeCurrentGroupMutationContext } from "../principalMutations/runtimeCurrentGroupMutation";
 import {

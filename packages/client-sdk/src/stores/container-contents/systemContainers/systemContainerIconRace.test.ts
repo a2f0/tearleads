@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
+import { createContainerContentsStoreTestRuntime } from "../../../../test/helpers/workflows/containerContentsTestRuntime";
 import type { BlobStore } from "../../../data/blobs/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import type { DomainScope } from "../../../data/shared/domainScope";
@@ -10,7 +11,6 @@ import {
   readContainerMetadataValue,
 } from "../../../workflows/container-contents/metadata/containerMetadataDocument";
 import type { ContainerState } from "../../../workflows/container-contents/remoteHydration";
-import { createContainerContentsStoreTestRuntime } from "../runtime.testFixtures";
 import { createContainerContentsStoreState } from "../state";
 import type { ContainerContentsStoreSyncAgent } from "../syncAgent";
 import { applySystemContainerIcon } from "./systemContainerIcon";

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { createContainerContentsTestRuntime } from "../../../../test/helpers/workflows/containerContentsTestRuntime";
 import { runGroupShareScenario } from "../../../../test/helpers/workflows/groupShareScenario";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import { DatabaseUnavailableError } from "../../../data/sqlite/availability/databaseUnavailable";
@@ -8,7 +9,6 @@ import { defaultContainerContentsPersistence } from "../../../workflows/containe
 import { createContainerMetadataDocument } from "../../../workflows/container-contents/metadata/containerMetadataDocument";
 import type { ContainerState } from "../../../workflows/container-contents/remoteHydration";
 import { createContainerContentsStoreWorkflowRuntime } from "../../../workflows/container-contents/runtime";
-import { createContainerContentsTestRuntime } from "../runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,

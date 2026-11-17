@@ -1,21 +1,21 @@
 import { expect, test } from "bun:test";
 import { wrapDekForRecipients } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/data/principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principalContracts/organizationAuthorityDescriptor";
+import { buildOrganizationGroupDirectoryPolicyRequest } from "../../../data/principals/organizationGroupDirectoryRequest";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../../data/principals/principalPolicyCrypto";
 import { principalKeyEnvelopeArchive } from "../../../data/sqlite/schema/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
 import { captureAcknowledgedPrincipalPredecessor } from "../../principals/acknowledgements/acknowledgedPrincipalPredecessor";
 import { restorePrincipalHistoryRecoveryStage } from "../../principals/historyRecovery/principalHistoryRecoveryStage";
 import { recoverPrincipalPolicyHistory } from "../../principals/historyRecovery/recoverPrincipalPolicyHistory";
-import { buildOrganizationGroupDirectoryPolicyRequest } from "../groups/organizationGroupDirectory";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 
 test("successive acknowledgements reclaim old stages while preserving predecessor recovery and old object keys", async () => {

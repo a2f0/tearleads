@@ -14,13 +14,13 @@ import type {
 } from "@tearleads/validators/request";
 import { createPrincipalProjectionMember } from "../../../data/principalContracts/principalIdentityCommitments";
 import { principalSecretKeyMatchesState } from "../../../data/principals/principalKeyValidation";
-import { signedGroupPolicyRequest } from "../../../data/principals/principalPolicyRequest";
-import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
-import type { TrustedUserIdentity } from "../../../data/trustedUserIdentity";
 import {
   rewrapProjectionMemberEnvelopes,
   toRecipientEntries,
-} from "../principalPolicy/principalPolicyRecipients";
+} from "../../../data/principals/principalPolicyRecipients";
+import { signedGroupPolicyRequest } from "../../../data/principals/principalPolicyRequest";
+import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
+import type { TrustedUserIdentity } from "../../../data/trustedUserIdentity";
 import { isDirectGroupAdmin } from "./groupMutationAuthorization";
 import {
   type BuildGroupMembershipMutationInput,

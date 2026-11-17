@@ -10,6 +10,10 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
 import type { DocumentsRuntime } from "../../types";
@@ -30,10 +34,6 @@ import {
 } from "../persistence";
 import { createDocumentStoreState } from "../state";
 import { assertDocumentStoreCanRotateContentKey } from "./index";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "./rotationRecoveryHelpers.test";
 
 test("rotation commits pending writes before consecutive raw recoveries", async () => {
   const { close, execSql } = await createTestExecSql(

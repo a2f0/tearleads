@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { createContainerContentsTestRuntime } from "../../../../test/helpers/workflows/containerContentsTestRuntime";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createTestContainerState } from "../../../workflows/container-contents/container-state/containerState.testFixtures";
@@ -9,7 +10,6 @@ import {
 } from "../../../workflows/container-contents/containerPersistence";
 import { createContainerMetadataDocument } from "../../../workflows/container-contents/metadata/containerMetadataDocument";
 import type { ContainerState } from "../../../workflows/container-contents/remoteHydration";
-import { createContainerContentsTestRuntime } from "../runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,

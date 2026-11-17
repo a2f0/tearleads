@@ -8,16 +8,16 @@ import { principalPolicyReferenceFromBundle } from "../../../src/data/principalC
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
-} from "../../../src/workflows/organizations/groups/organizationGroupDirectory";
+} from "../../../src/data/principals/organizationGroupDirectoryRequest";
 import type { AcknowledgedPrincipalCurrentInput } from "../../../src/workflows/organizations/principalMutations/retainAcknowledgedPrincipalCurrents";
 import { captureAcknowledgedPrincipalPredecessor } from "../../../src/workflows/principals/acknowledgements/acknowledgedPrincipalPredecessor";
+import type { signedAuthorityRecoveryHistory } from "../data/principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
   principalPolicyBundleFromState,
 } from "../data/principalPolicyFixtures";
 import { currentPolicyPublicationFixture } from "./currentPolicyPublication";
-import type { signedAuthorityRecoveryHistory } from "./principalAuthorityRecovery";
 
 export async function initialCurrentPublicationFixture(
   history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>,

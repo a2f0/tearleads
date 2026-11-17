@@ -260,6 +260,14 @@ rather than raising the lane budget.
   backend. Worker signing stays for multi-version histories.
 - **Faster polling** cannot help where the awaited event already completes
   promptly; measure when the event occurs before shortening a wait.
+- **A separate package for the client SDK trust kernel** (layers 0 and 1 in
+  [`scripts/architecture/clientSdkLayers.ts`](../../scripts/architecture/clientSdkLayers.ts))
+  would skip little. Replaying the 147 SDK-only commits of eight weeks
+  (#2953), it still reruns 93% of SDK test time, against 85% for
+  per-subsystem test tasks and 69% for perfect per-file selection: kernel
+  tests are only 20% of test time, and every other change reruns the rest.
+  Publishing is not the obstacle; the SDK's `scripts/buildPackage.ts` bundles
+  workspace packages into its tarball.
 
 ## Measurement notes
 

@@ -1,5 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { createContainerContentsTestRuntime } from "../../../../test/helpers/workflows/containerContentsTestRuntime";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { createTestContainerState } from "../../../workflows/container-contents/container-state/containerState.testFixtures";
 import {
@@ -9,7 +10,6 @@ import {
 import type { ContainerWorkflowRuntime } from "../../../workflows/container-contents/container-state/types";
 import { defaultContainerContentsPersistence } from "../../../workflows/container-contents/containerPersistence";
 import type { ContainerContentsWorkflowRuntimeInput } from "../../../workflows/container-contents/runtime";
-import { createContainerContentsTestRuntime } from "../runtime.testFixtures";
 import { createContainerContentsStoreState } from "../state";
 import { handleContainerContentsRemoteEvents } from "./remoteEventSync";
 

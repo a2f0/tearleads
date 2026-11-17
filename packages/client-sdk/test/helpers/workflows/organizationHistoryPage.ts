@@ -1,9 +1,9 @@
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { ProjectionPolicyHistoryResolveRequest } from "../../../src/data/keyingProjectionVerification/types";
 import { recoverProjectionPolicyHistory } from "../../../src/workflows/principals/publicHistory/recoverProjectionPolicyHistory";
+import { createOrganizationHistoryFixture } from "../data/organizationPolicyHistory";
 import { principalPolicyHead } from "../data/principalPolicyFixtures";
 import { createPublicHistoryFixture } from "../data/publicPrincipalHistory";
-import { createOrganizationHistoryFixture } from "./organizationPolicyHistory";
 
 export function organizationHistoryPage(
   bundle: PrincipalPolicyBundleResponse,

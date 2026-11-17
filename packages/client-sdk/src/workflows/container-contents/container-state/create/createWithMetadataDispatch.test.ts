@@ -16,11 +16,11 @@ import {
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "../../../../../test/helpers/data/principalPolicyFixtures";
+import { createContainerContentsWorkflowRuntime } from "../../../../../test/helpers/workflows/containerContentsWorkflowRuntime";
 import {
   repairPolicyPages,
   repairProtectionLease,
 } from "../../../../../test/helpers/workflows/principalPolicyRepair";
-import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";

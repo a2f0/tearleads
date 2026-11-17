@@ -24,10 +24,12 @@ const principalsWorkflowSurface = [
 ].map((module) => `${sdk}/workflows/principals/${module}.ts`);
 
 // The data/principals modules the rest of the SDK may import. Organization
-// Read Models builds group policy, membership, and journaled principal
-// mutations on them, and registration builds the founding policies.
+// Read Models builds group policy, the group directory, membership, and
+// journaled principal mutations on them, and registration builds the
+// founding policies.
 const principalsDataSurface = [
   "currentPolicyReferenceResolver",
+  "organizationGroupDirectoryRequest",
   "organizationGroupRoles",
   "organizationPolicyRequest",
   "principalHistoryProtection",
@@ -37,6 +39,7 @@ const principalsDataSurface = [
   "principalMutationJournalRecord",
   "principalPolicyCoordinator",
   "principalPolicyCrypto",
+  "principalPolicyRecipients",
   "principalPolicyRequest",
   "principalPolicyVerification",
 ].map((module) => `${sdk}/data/principals/${module}.ts`);

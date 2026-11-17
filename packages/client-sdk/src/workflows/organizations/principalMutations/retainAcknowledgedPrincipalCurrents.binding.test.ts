@@ -3,18 +3,18 @@ import {
   computePrincipalStatePayloadCiphertextHash,
   signPrincipalState,
 } from "@tearleads/crypto";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/data/principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
 } from "../../../data/principalContracts/organizationAuthorityDescriptor";
-import { buildOrganizationGroupDirectoryPolicyRequest } from "../groups/organizationGroupDirectory";
+import { buildOrganizationGroupDirectoryPolicyRequest } from "../../../data/principals/organizationGroupDirectoryRequest";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
