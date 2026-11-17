@@ -82,6 +82,7 @@ export {
   containerKekWireLevel,
   decodeContainerWriterProjection,
   decodeDocumentWriterProjection,
+  deriveDecodedProjection,
   encodeContainerWriterProjection,
   encodeDocumentWriterProjection,
   type HeldKekLevelDigest,

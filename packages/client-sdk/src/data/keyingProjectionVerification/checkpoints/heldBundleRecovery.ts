@@ -34,8 +34,10 @@ export async function verifyWithHeldBundleRecovery<T>(
     return await verify();
   } catch (error) {
     const held = heldBundlesUsedBy(input.projection);
+    // A superseded request changes no shared cache state.
     if (
       held.length > 0 &&
+      input.stillCurrent?.() !== false &&
       (error instanceof KeyingVerificationError ||
         error instanceof ProjectionDependencyUnavailableError)
     ) {

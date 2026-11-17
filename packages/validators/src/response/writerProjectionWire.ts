@@ -236,10 +236,30 @@ export function heldBundlesUsedBy(projection: object): readonly ServedBundle[] {
 // Decoded projections a verifier refused after they took held bundles: a
 // cache must not hand one out again.
 const rejectedProjections = new WeakSet<object>();
+// A projection derived from a decoded one (a path of a document projection,
+// a sliced path) answers for the decoded projection it came from.
+const decodedOrigins = new WeakMap<object, object>();
+
+/**
+ * Carries a decoded projection's held bundles to a projection built from it,
+ * so a refusal of the derived one drops those bundles and refuses the decoded
+ * projection a cache holds.
+ */
+export function deriveDecodedProjection<T extends object>(
+  from: object,
+  to: T,
+): T {
+  const held = heldBundlesByProjection.get(from);
+  if (held) heldBundlesByProjection.set(to, held);
+  decodedOrigins.set(to, decodedOrigins.get(from) ?? from);
+  return to;
+}
 
 /** Marks a decoded projection refused, so no cache serves it again. */
 export function rejectDecodedProjection(projection: object): void {
   rejectedProjections.add(projection);
+  const origin = decodedOrigins.get(projection);
+  if (origin) rejectedProjections.add(origin);
 }
 
 export function isRejectedDecodedProjection(projection: unknown): boolean {

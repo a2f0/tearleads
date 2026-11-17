@@ -347,3 +347,34 @@ test("held bundles being dropped are not cited meanwhile", async () => {
     database.close();
   }
 });
+
+test("a request superseded during its signer lookup changes no shared state", async () => {
+  const fixture = await seededFixture();
+  const database = await createTestExecSql("held-bundle-superseded");
+  const wrong = toServedAccessManifestBundle({
+    ...fixture.leaf,
+    state: { ...fixture.leaf.state, directGrants: [] },
+  });
+  let current = true;
+  try {
+    const cited = await seedWrongRow(database.execSql, fixture, wrong);
+    await expect(
+      verifyContainerWriterProjection({
+        execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: cited,
+        resolveUserKey: async (userId) => {
+          current = false;
+          return fixture.resolveUserKey(userId);
+        },
+        stillCurrent: () => current,
+      }),
+    ).rejects.toThrow();
+    expect(isRejectedDecodedProjection(cited)).toBe(false);
+    expect(
+      await loadVerifiedManifestCitations(database.execSql, target),
+    ).toEqual([wrong]);
+  } finally {
+    database.close();
+  }
+});
