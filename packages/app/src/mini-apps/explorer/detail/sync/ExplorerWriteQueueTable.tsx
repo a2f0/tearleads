@@ -1,4 +1,5 @@
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
+import { ClipboardIcon } from "@phosphor-icons/react/dist/csr/Clipboard";
 import { CloudArrowDownIcon } from "@phosphor-icons/react/dist/csr/CloudArrowDown";
 import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import type {
@@ -19,6 +20,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useClipboardCopy } from "../../../../components/mini-app/controls/MiniAppButton";
 import { MiniAppButton } from "../../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRowActionsButton,
@@ -38,6 +40,7 @@ import {
   getExplorerWriteQueueMetadataUpdateLabel,
   getExplorerWriteQueueUpdateLabel,
 } from "../../labels";
+import { getWriteQueueEntryClipboardText } from "./writeQueueEntryClipboardText";
 
 export const WRITE_QUEUE_COLUMNS: ReadonlyArray<MiniAppTableColumn> = [
   {
@@ -204,12 +207,14 @@ function WriteQueueObjectCell(params: {
   );
 }
 
-// The row's overflow ("kebab") menu. Its one action drills into the write-queue
+// The row's overflow ("kebab") menu. Entry info drills into the write-queue
 // entry detail — a diagnostics view that surfaces why the change is still
 // queued. Kept separate from the row's primary tap (which opens the object) so
-// inspecting a stuck write never navigates away to the document.
+// inspecting a stuck write never navigates away to the document. Copy puts the
+// entry's ids, status, and errors on the clipboard for a bug report.
 function WriteQueueRowActionsCell(params: {
   entryName: string;
+  onCopy: () => void;
   onDiscard: (() => void) | null;
   onOpenEntryInfo: () => void;
   onRetry: () => void;
@@ -259,6 +264,14 @@ function WriteQueueRowActionsCell(params: {
             onClick={() => {
               closeMenu();
               params.onRetry();
+            }}
+          />
+          <MenuItem
+            icon={ClipboardIcon}
+            label={EXPLORER_LABELS.writeQueueCopyAction}
+            onClick={() => {
+              closeMenu();
+              params.onCopy();
             }}
           />
           {params.onDiscard ? (
@@ -362,6 +375,10 @@ function WriteQueueRow(
       item.organizationId)
     : "-";
   const operationsLabel = getOperationsLabel(item, params.containerNamesById);
+  const billingBlocked =
+    item.organizationId !== null &&
+    item.organizationId === params.billingBlockedOrganizationId;
+  const { copy } = useClipboardCopy();
 
   return (
     <MiniAppTableRow
@@ -389,15 +406,12 @@ function WriteQueueRow(
           </MiniAppTableCell>
         </>
       )}
-      <WriteQueueStatusCell
-        billingBlocked={
-          item.organizationId !== null &&
-          item.organizationId === params.billingBlockedOrganizationId
-        }
-        item={item}
-      />
+      <WriteQueueStatusCell billingBlocked={billingBlocked} item={item} />
       <WriteQueueRowActionsCell
         entryName={getWriteQueueItemName(item)}
+        onCopy={() =>
+          copy(getWriteQueueEntryClipboardText({ billingBlocked, item }))
+        }
         onDiscard={
           canDiscardWriteQueueItem(item)
             ? () => params.discardPendingWrites(item)
