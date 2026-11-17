@@ -11,6 +11,7 @@ import {
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 
 async function authorityProgressVersions(adminGroupId: string) {
@@ -70,6 +71,58 @@ test("each stored Admins head publishes its strict authority progress", async ()
     request: (path, init) => routeApp.request(path, init),
   });
   expect(committed.status).toBe(200);
+  expect(await authorityProgressVersions(prepared.adminGroupId)).toEqual([
+    1, 2,
+  ]);
+  expect((await createGovernedGroup(actor, organizationId)).status).toBe(200);
+});
+
+test("a lost Admins authority hint costs the successor one preparation round", async () => {
+  const actor = createTestUser();
+  const admin = createTestUser();
+  await registerUser(actor);
+  await registerUser(admin);
+  await authenticate(actor);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
+  const prepared = await prepareUserForAdminGroup({
+    actor,
+    member: admin,
+    organizationId,
+  });
+  await db
+    .delete(principalHistoryProgress)
+    .where(
+      and(
+        eq(principalHistoryProgress.principalId, prepared.adminGroupId),
+        eq(principalHistoryProgress.verificationKind, "authority"),
+      ),
+    );
+  const statuses: number[] = [];
+  const commit = () =>
+    submitOrganizationGroupPolicyCommit({
+      actor,
+      groupId: prepared.adminGroupId,
+      groupPolicy: prepared.request,
+      organizationId,
+      request: async (path, init) => {
+        const response = await routeApp.request(path, init);
+        statuses.push(response.status);
+        return response;
+      },
+    });
+  // The rolled-back attempt prepares the committed predecessor only.
+  expect((await commit()).status).toBe(202);
+  expect(
+    (await getCurrentPrincipalState("group", prepared.adminGroupId, db))
+      ?.version,
+  ).toBe(1);
+  expect(await authorityProgressVersions(prepared.adminGroupId)).toEqual([1]);
+  expect((await commit()).status).toBe(200);
+  expect(statuses).toEqual([202, 200]);
+  expect(
+    (await getCurrentPrincipalState("group", prepared.adminGroupId, db))
+      ?.version,
+  ).toBe(2);
   expect(await authorityProgressVersions(prepared.adminGroupId)).toEqual([
     1, 2,
   ]);

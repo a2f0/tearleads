@@ -81,12 +81,13 @@ Each newly inserted successor has a separate one-entry verification allowance,
 including later verification of that same head as a strict Admins authority.
 Storing a reserved Admins state, at provisioning or as a successor, verifies it
 both ways in that transaction, so its strict authority progress publishes with
-its policy progress and the first principal it governs commits without a
-preparation round. A successor first verifies its committed predecessor both
-ways: an unprepared authority prefix yields a 202 that prepares that committed
-head, which a competing request may also complete, and deep histories keep the
-bounded loop. Uncommitted cache hints publish only after a successful outer
-commit.
+its policy progress. The first principal it governs then usually commits
+without a preparation round; hint publication is best effort after commit, so
+a write racing it or a failed publication can still see a 202. A successor
+first verifies its committed predecessor both ways: an unprepared authority
+prefix yields a 202 that prepares that committed head, which a competing
+request may also complete, and deep histories keep the bounded loop.
+Uncommitted cache hints publish only after a successful outer commit.
 
 Cold server preparation runs after the application transaction rolls back. Each
 database has two preparation workers per API process, with at most one active

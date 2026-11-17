@@ -20,9 +20,8 @@ async function verifyStrictAdminsAuthority(
   tx: DatabaseTransaction,
   state: StoredPrincipalState,
 ): Promise<void> {
-  await getVerifiedPrincipalHistory(tx, state, [], "authority", {
-    stateHash: state.stateHash,
-  });
+  // Only the history is verified; the current artifacts are not read.
+  await getVerifiedPrincipalHistory(tx, state, [], "authority");
 }
 
 /**
