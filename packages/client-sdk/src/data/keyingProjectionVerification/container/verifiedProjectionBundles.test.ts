@@ -142,11 +142,9 @@ test("a cache hit still refuses a copy whose state differs", async () => {
       resolveUserKey: fixture.resolveUserKey,
       verifiedByHash,
     });
-    // Same hash, warm cache, a parent pin the verified state does not name.
-    const repinned = {
-      ...leaf,
-      state: { ...leaf.state, parentManifestHash: "f".repeat(64) },
-    };
+    // Same hash and served bytes, warm cache, but a state field the served
+    // form leaves off (it is completed from the signed manifest) differs.
+    const repinned = { ...leaf, state: { ...leaf.state, epoch: 99 } };
     await expect(
       verifyContainerWriterProjection({
         execSql: second.execSql,

@@ -11,6 +11,7 @@ import {
 import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 import { fixtureHash } from "../../../../test/helpers/data/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/workflows/documentPurge";
+import { createPurgeChainFixture } from "../../../../test/helpers/workflows/documentPurgeChain";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { verifyDocumentPurgeProof } from "../../../data/keyingProjectionVerification/documentPurge/documentPurgeProofVerification";
 import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
@@ -98,27 +99,31 @@ test("a malformed unverified purge citation records one integrity incident", asy
   }
 });
 
-test("a purge proof serving compact projection bundles records one integrity incident", async () => {
-  const fixture = await createMaterializedSyncFixture();
-  const proof = structuredClone(
-    await createDocumentPurgeProof(fixture.author, fixture.writerProjection),
-  );
-  // A purge verifies its head from the full stored state; the compact state
-  // a writer projection serves cannot stand in for it.
-  const compact = toServedAccessManifestBundle;
-  proof.documentManifest = compact(proof.documentManifest);
-  proof.documentManifestPredecessors =
-    proof.documentManifestPredecessors.map(compact);
-  proof.documentContainerManifestHistory =
-    proof.documentContainerManifestHistory.map(compact);
-  proof.documentManifestContainerPaths =
-    proof.documentManifestContainerPaths.map((path) => path.map(compact));
-  const [first, ...rest] = proof.authorizingContainerPath.map(compact);
-  if (!first) throw new Error("Expected an authorizing path");
-  proof.authorizingContainerPath = [first, ...rest];
-  const database = await createTestExecSql("purge-compact-bundles");
+test("a pinned purge head served with compact state records one integrity incident", async () => {
+  const fixture = await createPurgeChainFixture();
+  const database = await createTestExecSql("purge-compact-head");
+  const input = {
+    execSql: database.execSql,
+    openPrincipalPolicyBundleReader,
+    expectedDocumentId: fixture.proof.documentId,
+    expectedOrganizationId: fixture.author.organizationId,
+    resolveUserKey: fixture.resolveProjectionUserKey,
+  };
   const incidents: unknown[] = [];
   try {
+    // Pin the head, so a retry verifies it as a hash-only snapshot of its
+    // served state.
+    const pinned = await verifyDocumentPurgeProof({
+      ...input,
+      proof: fixture.proof,
+    });
+    await pinned.commitCheckpoints(database.execSql);
+    const retry = { ...fixture.proof, documentManifestPredecessors: [] };
+    await expect(
+      verifyDocumentPurgeProof({ ...input, proof: retry }),
+    ).resolves.toBeDefined();
+    // The compact state a writer projection serves cannot stand in for the
+    // full stored state a snapshot is verified from.
     await expect(
       runWithSecurityIncidentReporting(
         async (error) => {
@@ -127,21 +132,22 @@ test("a purge proof serving compact projection bundles records one integrity inc
         {
           operation: "document.purge",
           objectKind: "document",
-          objectId: proof.documentId,
+          objectId: fixture.proof.documentId,
         },
         () =>
           verifyDocumentPurgeProof({
-            execSql: database.execSql,
-            openPrincipalPolicyBundleReader,
-            expectedDocumentId: proof.documentId,
-            expectedOrganizationId: fixture.author.organizationId,
-            proof,
-            resolveUserKey: fixture.resolveProjectionUserKey,
+            ...input,
+            proof: {
+              ...retry,
+              documentManifest: toServedAccessManifestBundle(
+                fixture.proof.documentManifest,
+              ),
+            },
           }),
       ),
     ).rejects.toMatchObject({
       name: "KeyingVerificationError",
-      code: "hash_mismatch",
+      code: "invalid_shape",
     });
     expect(incidents).toHaveLength(1);
   } finally {
