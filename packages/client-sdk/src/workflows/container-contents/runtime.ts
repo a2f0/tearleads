@@ -24,6 +24,7 @@ import type {
   WorkflowRuntimeStateInput,
   WorkflowRuntimeUtilInput,
 } from "../shared/runtimeInput";
+import type { ContainerContentsOrganizationHost } from "./container-state/organizationHost";
 
 type DocumentsWorkflowRuntimeInput = Parameters<
   typeof createDocumentsWorkflowRuntime
@@ -92,6 +93,7 @@ export interface ContainerContentsWorkflowRuntimeInput
   readonly withPrincipalHistoryProtection?:
     | PrincipalHistoryProtectionLease
     | undefined;
+  readonly organizations: ContainerContentsOrganizationHost;
   readonly apiClient: ContainerContentsWorkflowApi;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
@@ -100,6 +102,7 @@ export interface ContainerContentsWorkflowRuntimeInput
 export interface ContainerContentsWorkflowRuntimeSnapshot
   extends ContainerContentsWorkflowRuntimeInputGroups {
   readonly apiClient: ContainerContentsWorkflowApi;
+  readonly organizations: ContainerContentsOrganizationHost;
   readonly principalPolicies: PrincipalPolicyService;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
@@ -108,6 +111,8 @@ export interface ContainerContentsWorkflowRuntime
   extends ContainerContentsWorkflowRuntimeGroups,
     Pick<ContainerContentsWorkflowRuntimeInput, "apiClient"> {
   readonly adoptRootContainer?: ContainerContentsRootAdopter | undefined;
+  /** Organization operations, bound by the composition root. */
+  readonly organizations: ContainerContentsOrganizationHost;
   /** Bound to this snapshot's API client, executor, and history custody. */
   readonly principalPolicies: PrincipalPolicyService;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
@@ -188,6 +193,7 @@ function createContainerContentsWorkflowRuntimeWithRootAdopter(
     auth: snapshot.auth,
     crypto: snapshot.crypto,
     infra,
+    organizations: snapshot.organizations,
     principalPolicies: snapshot.principalPolicies,
     resolveTrustedUserIdentity: requireTrustedUserIdentityResolver(
       snapshot.resolveTrustedUserIdentity,

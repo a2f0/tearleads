@@ -131,7 +131,10 @@ export async function discoverContainerDocumentLanesForRuntime({
   if (input.infra.dbStatus !== "ready") {
     return requests.map(({ containerId }) => unlisted(containerId));
   }
-  const runtime = createContainerContentsWorkflowRuntimeFromSnapshot(input);
+  const runtime = createContainerContentsWorkflowRuntimeFromSnapshot({
+    ...input,
+    organizations: runtimeService.containerContentsOrganizations,
+  });
   const execSql = input.infra.execSql;
   const evidenceStore = new DocumentDiscoveryEvidenceRepository(execSql);
   const holdRepository = new ContainerDocumentTombstoneHoldRepository(execSql);

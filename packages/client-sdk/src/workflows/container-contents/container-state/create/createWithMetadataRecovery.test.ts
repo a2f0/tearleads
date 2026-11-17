@@ -7,11 +7,11 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../../../test/helpers/documentFixtures";
+import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import { createDomainScope } from "../../../../data/shared/domainScope";
-import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import {
   CONTAINER_ALREADY_COMMITTED,
   createRemoteContainerWithMetadataDocument,

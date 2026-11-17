@@ -8,6 +8,7 @@ import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyS
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/queuedUpdateRows";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
+import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "../documentQueries";
 import { insertTestPendingUpdate } from "../documentQueries/documentQueries.testFixtures";
@@ -90,6 +91,7 @@ function createState(
     containersById,
     persistence: defaultContainerContentsPersistence,
     runtime: withPrincipalPolicies({
+      organizations: containerContentsOrganizationHost,
       resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
       apiClient: {
         getContainerWriterProjection: directory.getContainerWriterProjection,

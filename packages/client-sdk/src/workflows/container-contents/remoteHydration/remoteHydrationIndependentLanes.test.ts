@@ -7,6 +7,7 @@ import type {
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
+import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import {
   ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
@@ -80,6 +81,7 @@ test.each([false, true])(
         containersById: new Map([[stale.id, existing]]),
         persistence,
         runtime: withPrincipalPolicies({
+          organizations: containerContentsOrganizationHost,
           resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
           apiClient: {
             getContainerWriterProjection:

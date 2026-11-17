@@ -151,20 +151,6 @@
   "packages/client-sdk/src/workflows/documents/syncFailures/syncFailureClassification.ts": [
     "packages/client-sdk/src/workflows/blobs/upload/index.ts"
   ],
-  "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataErrors.ts": [
-    "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/destinationRootReload.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataRuntime.ts": [
-    "packages/client-sdk/src/workflows/container-contents/container-state/remote.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/groupMetadata/runtimeGroupMetadataAuthority.ts": [
-    "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/verifiedDestination.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/groupShare/index.ts": [
-    "packages/client-sdk/src/workflows/container-contents/container-state/remote.ts",
-    "packages/client-sdk/src/workflows/container-contents/container-state/share/groupGrantVerification.ts",
-    "packages/client-sdk/src/workflows/container-contents/container-state/share/groupShareEpoch.ts"
-  ],
   "packages/client-sdk/src/workflows/organizations/index.ts": [
     "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
   ],

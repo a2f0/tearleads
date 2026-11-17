@@ -8,6 +8,7 @@ import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUser
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/shared/domainScope";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
+import { containerContentsOrganizationHost } from "../organizations/containerContentsHost";
 import {
   type ContainerContentsProjectionKeyRuntime,
   createContainerContentsDocumentProjectionUserKeyResolver,
@@ -94,6 +95,7 @@ test("container runtime normalization preserves trusted resolver identity", () =
   const resolveTrustedUserIdentity = async () => null;
   const domainScope = createDomainScope();
   const input: ContainerContentsWorkflowRuntimeInput = {
+    organizations: containerContentsOrganizationHost,
     apiClient: {} as ContainerContentsWorkflowRuntimeInput["apiClient"],
     auth: {
       isAuthenticated: false,

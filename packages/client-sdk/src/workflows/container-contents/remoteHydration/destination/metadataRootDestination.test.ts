@@ -12,6 +12,7 @@ import {
   repairProtectionLease,
 } from "../../../../../test/helpers/principalPolicyRepair";
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
+import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 import { verifyRemoteContainerDestination } from "./verifiedDestination";
 
@@ -37,6 +38,7 @@ test.each([true, false])(
         containersById: new Map(),
         runtime: withPrincipalPolicies(
           {
+            organizations: containerContentsOrganizationHost,
             apiClient: {
               ...directory.apiClient,
               getPrincipalPolicyPages: repairPolicyPages([

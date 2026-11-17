@@ -6,6 +6,7 @@ import {
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createWorkflowInputFixture } from "../../../../test/helpers/internalRuntimeFixtures";
 import { createQueuedDocumentMoveRemote } from "../../../../test/helpers/queuedDocumentMoveRemote";
+import { createContainerContentsWorkflowRuntime } from "../../../client/runtime/containerContentsRuntime";
 import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
@@ -14,7 +15,6 @@ import {
   sqlDocumentsPersistence as documents,
 } from "../../../data/persistence/documents/documentsPersistence";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../documents/linkSet";
-import { createContainerContentsWorkflowRuntime } from "../runtime";
 import {
   createContainerDocumentTombstoneVerifier,
   createDocumentHeadLinkSetLoader,

@@ -21,6 +21,7 @@ import {
   type ContainerContentsWorkflowRuntimeInput,
   createContainerContentsWorkflowRuntime,
 } from "../../src/workflows/container-contents/runtime";
+import { containerContentsOrganizationHost } from "../../src/workflows/organizations/containerContentsHost";
 import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import { createAuthor } from "./containerFixtures";
 import { buildInitialGroupPolicyRequest } from "./groupMetadata";
@@ -68,6 +69,7 @@ function createShareTestRuntimeInput(
 ): ContainerContentsWorkflowRuntimeInput {
   return {
     withPrincipalHistoryProtection: repairProtectionLease(),
+    organizations: containerContentsOrganizationHost,
     apiClient: input.apiClient,
     auth: {
       isAuthenticated: true,

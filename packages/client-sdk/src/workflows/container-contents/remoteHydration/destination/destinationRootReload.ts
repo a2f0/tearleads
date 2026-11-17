@@ -1,4 +1,4 @@
-import { withMetadataRootReload } from "../../../organizations/groupMetadata/groupMetadataErrors";
+import type { ContainerContentsOrganizationHost } from "../../container-state/organizationHost";
 
 /**
  * Reads a destination again once when its metadata root was behind the
@@ -12,6 +12,7 @@ export function resolveWithMetadataRootReload<
   input: Input,
   resolve: (input: Input) => Promise<Result>,
   evictRoot: () => void,
+  withMetadataRootReload: ContainerContentsOrganizationHost["withMetadataRootReload"],
 ): Promise<Result> {
   return withMetadataRootReload(
     (reread) =>
