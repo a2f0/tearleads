@@ -83,6 +83,7 @@ export async function createReservedGroupAdvance(
   const advancedDirectory = await policyBundleAfterMutation({
     previous: organization,
     mutation: await buildOrganizationGroupDirectoryPolicyRequest({
+      currentUserSecretKey: null,
       adminProjection: admin.currentProjection,
       adminUsers: [founder],
       currentPolicy: organization,

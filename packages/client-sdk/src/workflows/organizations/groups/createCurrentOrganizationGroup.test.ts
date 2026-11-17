@@ -1,5 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
 import { toFingerprint } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
+import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import { testGroupMetadataAccess } from "../../../../test/helpers/data/groupMetadata";
 import {
   createAuthorityRecoveryFixture,
@@ -26,6 +28,7 @@ async function fixture(fallback = false) {
   for (const bundle of history.projectionBundles)
     if (!f.policies.has(bundle.currentState.principalId))
       f.policies.set(bundle.currentState.principalId, bundle);
+  const sentDirectories: PutPrincipalPolicyRequest[] = [];
   const state = {
     current: true,
     expire: false,
@@ -42,6 +45,7 @@ async function fixture(fallback = false) {
   f.apiClient.createOrganizationGroup = async (organizationId, request) => {
     state.writes += 1;
     state.groupId = request.groupId;
+    sentDirectories.push(request.organizationPolicy);
     const created = await policyBundleFromInitialRequest(request);
     const directory = await policyBundleAfterMutation({
       previous: history.directory,
@@ -125,7 +129,7 @@ async function fixture(fallback = false) {
         }),
     );
   };
-  return { ...f, state, create };
+  return { ...f, state, create, sentDirectories };
 }
 
 test("bounded group creation verifies every directory name and admits exact genesis plus directory", async () => {
@@ -146,6 +150,31 @@ test("bounded group creation verifies every directory name and admits exact gene
         f.options.execSql,
       ).loadPrincipalPolicyCheckpoint("organization", history.organizationId),
     ).toMatchObject({ version: 67 });
+    // Creating a group keeps the admins, so the creator's own envelope opens
+    // the signed directory key and the successor keeps key, epoch and
+    // envelopes.
+    const [directory] = f.sentDirectories;
+    expect(directory?.state).toMatchObject({
+      keyEpoch: history.directory.currentState.keyEpoch,
+      keyFingerprint: history.directory.currentState.keyFingerprint,
+      encapsulationPublicKey:
+        history.directory.currentState.encapsulationPublicKey,
+    });
+    expect(directory?.memberEnvelopes).toEqual(
+      history.directory.currentMemberEnvelopes.envelopes,
+    );
+    // P18 (#2903) keeps the directory key across writes only because it
+    // encrypts no data: the payload is the plain signed descriptor. Encrypting
+    // anything to that key needs rotation-on-write or a no-reuse rule first.
+    const payload: unknown = JSON.parse(
+      new TextDecoder().decode(
+        base64ToBytes(directory?.encryptedPayload.ciphertext ?? ""),
+      ),
+    );
+    expect(payload).toMatchObject({
+      organizationId: history.organizationId,
+      version: 2,
+    });
   } finally {
     f.close();
   }

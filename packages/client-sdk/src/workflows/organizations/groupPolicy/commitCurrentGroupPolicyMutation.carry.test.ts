@@ -113,6 +113,7 @@ test.each(["carry", "stale"] as const)(
             removedUserId: fixture.removedUserId,
           });
           return commitCurrentGroupPolicyMutation({
+            currentUserSecretKey: null,
             ...fixture,
             apiClient,
             context,

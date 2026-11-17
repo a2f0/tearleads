@@ -75,6 +75,7 @@ test.each(["member group", "directory head"] as const)(
             },
           };
           return commitCurrentGroupPolicyMutation({
+            currentUserSecretKey: null,
             ...fixture,
             apiClient: {
               getCurrentPrincipalPolicy: async () => null,

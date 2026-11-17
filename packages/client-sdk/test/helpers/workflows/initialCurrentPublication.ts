@@ -67,6 +67,7 @@ export async function initialCurrentPublicationFixture(
     const directoryRequest = await buildOrganizationGroupDirectoryPolicyRequest(
       {
         currentPolicy: history.directory,
+        currentUserSecretKey: null,
         descriptor,
         groupHeads: replaceOrganizationGroupHead({
           descriptor,

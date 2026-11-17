@@ -61,6 +61,7 @@ test("a retirement persists a grant present only in the acknowledged predecessor
     );
     const organizationRequest =
       await buildOrganizationGroupDirectoryPolicyRequest({
+        currentUserSecretKey: null,
         ...signer,
         adminProjection: history.admin.currentProjection,
         adminUsers: [identity],

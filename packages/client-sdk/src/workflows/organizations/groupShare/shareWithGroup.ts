@@ -161,6 +161,8 @@ async function commitMissingGroupGrantPolicy(
         }
       },
       containerId: input.containerId,
+      // The sharer's KEM secret, which also checks the kept directory key.
+      currentUserSecretKey: input.targetSecretKey,
       execSql: input.execSql,
       groupId: input.recipientGroupId,
       organizationId: input.author.organizationId,

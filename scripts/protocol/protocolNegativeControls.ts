@@ -18,6 +18,7 @@ import { MEMBER_IDENTITY_NEGATIVE_CONTROLS } from "./protocolMemberIdentityNegat
 import { METADATA_LISTING_NEGATIVE_CONTROLS } from "./protocolMetadataListingNegativeControls";
 import type { NegativeControl } from "./protocolNegativeControlTypes";
 import { NO_BRICK_NEGATIVE_CONTROLS } from "./protocolNoBrickNegativeControls";
+import { ORGANIZATION_DIRECTORY_KEY_NEGATIVE_CONTROLS } from "./protocolOrganizationDirectoryKeyNegativeControls";
 import { OUTGOING_QUEUE_MERGE_NEGATIVE_CONTROLS } from "./protocolOutgoingQueueMergeNegativeControls";
 import { PURGE_SCOPE_NEGATIVE_CONTROLS } from "./protocolPurgeScopeNegativeControls";
 import { READ_MODEL_STAMP_NEGATIVE_CONTROLS } from "./protocolReadModelStampNegativeControls";
@@ -64,6 +65,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...RESTART_PROBE_NEGATIVE_CONTROLS,
   ...CONTAINER_ADOPTION_NEGATIVE_CONTROLS,
   ...CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS,
+  ...ORGANIZATION_DIRECTORY_KEY_NEGATIVE_CONTROLS,
   ...READ_MODEL_STAMP_NEGATIVE_CONTROLS,
   {
     id: "purged-queue-starts-remote-create",

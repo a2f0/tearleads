@@ -225,6 +225,8 @@ export function deleteGroupForOrganization(
           deleteCurrentOrganizationGroup({
             ...signingContext,
             context,
+            currentUserSecretKey:
+              input.runtime.crypto.encapsulationKeyPair?.secretKey ?? null,
             groupId: input.groupId,
             apiClient: input.runtime.apiClient,
             resolveTrustedUserIdentity:
