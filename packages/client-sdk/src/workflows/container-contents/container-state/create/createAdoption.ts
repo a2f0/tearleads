@@ -7,11 +7,11 @@ import {
   verifiedContainerCreateManifest,
   verifyContainerDestinationProjection,
 } from "../../../../data/keyingProjectionVerification";
+import { errorMessage } from "../../../../data/shared/errorMessage";
 import {
   isKeyingVerificationError,
   reportKeyingVerificationErrorInCauseChain,
-} from "../../../../data/keyingProjectionVerification/error";
-import { errorMessage } from "../../../../data/shared/errorMessage";
+} from "../../../../data/shared/securityIncidents";
 
 import type { ContainerState } from "../../remoteHydration";
 import type {

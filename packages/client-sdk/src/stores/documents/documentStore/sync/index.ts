@@ -1,4 +1,4 @@
-import { reportAndRethrowKeyingVerificationError } from "../../../../data/keyingProjectionVerification/error";
+import { reportAndRethrowKeyingVerificationError } from "../../../../data/shared/securityIncidents";
 import {
   type DocumentRecord,
   type DocumentSyncLane,

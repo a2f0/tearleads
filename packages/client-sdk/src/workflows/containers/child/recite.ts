@@ -1,13 +1,13 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
+import type { AuthoredContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
+import type { ContainerReciteApi } from "../../../data/containers/shared/reciteApi";
+import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
 import {
   type HeldContainerHead,
   heldContainerPath,
   heldContainerSnapshot,
   rememberAcknowledgedContainerHead,
-} from "../../../data/containers/shared/heldContainerHeads";
-import type { AuthoredContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
-import type { ContainerReciteApi } from "../../../data/containers/shared/reciteApi";
-import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
+} from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { locallyAuthoredAccessManifestHead } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";

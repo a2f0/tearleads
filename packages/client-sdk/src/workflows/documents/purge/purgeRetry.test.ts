@@ -5,7 +5,7 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/document
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
-import { runWithSecurityIncidentReporting } from "../../../data/keyingProjectionVerification/error";
+import { runWithSecurityIncidentReporting } from "../../../data/shared/securityIncidents";
 
 test("a retry after a lost successful purge response verifies the retained proof and completes", async () => {
   const { author, resolveProjectionUserKey, writerProjection } =

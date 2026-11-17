@@ -5,9 +5,9 @@ import {
 } from "@tearleads/crypto";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { createProjectionCheckpointContext } from "../../../data/keyingProjectionVerification/checkpoints/checkpointContext";
-import { runWithSecurityIncidentReporting } from "../../../data/keyingProjectionVerification/error";
 import { referencedPrincipalPolicyKey } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { collectReferencedPrincipalPolicies } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
+import { runWithSecurityIncidentReporting } from "../../../data/shared/securityIncidents";
 import { identityPolicyFixture } from "./policyIdentity.testFixtures";
 
 test("cached policy admission rechecks pinned bundles before recording a checkpoint", async () => {

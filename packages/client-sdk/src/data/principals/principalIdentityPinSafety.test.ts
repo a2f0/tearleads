@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
 import { collectPrincipalPolicySignerPublicKeys } from "../../workflows/principals/policyVerification";
-import { runWithSecurityIncidentReporting } from "../keyingProjectionVerification/error";
+import { runWithSecurityIncidentReporting } from "../shared/securityIncidents";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import {
   createApiUserIdentitySource,

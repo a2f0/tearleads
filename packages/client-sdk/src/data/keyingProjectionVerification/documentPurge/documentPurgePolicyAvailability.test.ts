@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeHistoricalPolicy";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { runWithSecurityIncidentReporting } from "../error";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import {
   verifyDocumentPurgeProof,
   verifyDocumentPurgeProofBaseline,

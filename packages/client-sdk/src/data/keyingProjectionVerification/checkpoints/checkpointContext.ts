@@ -10,7 +10,6 @@ import {
   type ContainerKeyingPathResponse,
   containerKekWireLevel,
 } from "@tearleads/validators/response";
-import { rememberVerifiedContainerHeads } from "../../containers/shared/heldContainerHeads";
 import type { DocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { PrincipalAuthorizationCheckpointUnavailableError } from "../../persistence/keyingCheckpoints/principalAuthorizationCheckpoints";
 import type { VerifiedManifestBundle } from "../../persistence/verifiedManifestBundlePersistence";
@@ -23,6 +22,7 @@ import {
   enforceAccessManifestCheckpoints,
   validateAccessManifestCheckpoints,
 } from "./accessManifestCheckpointEnforcement";
+import { rememberVerifiedContainerHeads } from "./heldContainerHeads";
 import { matchesVerifiedBundleBytes } from "./verifiedBundleBytes";
 
 export interface ProjectionCheckpointContext {

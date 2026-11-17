@@ -1,7 +1,7 @@
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { DocumentContainerProjectionRepository } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { errorMessage } from "../../../data/shared/errorMessage";
+import { reportAndRethrowKeyingVerificationError } from "../../../data/shared/securityIncidents";
 import { isDatabaseUnavailableError } from "../../../data/sync/databaseUnavailable";
 import {
   type DocumentLinkSetFailureHandler,

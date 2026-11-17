@@ -4,7 +4,6 @@ import {
   type ContainerRotationResponse,
 } from "@tearleads/validators/response";
 import { ContainerPathTooDeepError } from "../../../data/containers/shared/containerPathLimits";
-import { rememberVerifiedContainerHeads } from "../../../data/containers/shared/heldContainerHeads";
 import {
   acknowledgeContainerMutation,
   acknowledgeContainerMutationBatch,
@@ -16,6 +15,7 @@ import type {
   ContainerRotationResult,
   MaterializedContainerRekeyPlan,
 } from "../../../data/containers/shared/types";
+import { rememberVerifiedContainerHeads } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

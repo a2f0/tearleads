@@ -8,12 +8,12 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerReciteRequest } from "@tearleads/validators/request";
 import type { ContainerReciteResponse } from "@tearleads/validators/response";
+import { verifyContainerWriterProjection } from "../../src/data/keyingProjectionVerification";
 import {
   heldContainerPath,
   heldContainerSnapshot,
   rememberAcknowledgedContainerHead,
-} from "../../src/data/containers/shared/heldContainerHeads";
-import { verifyContainerWriterProjection } from "../../src/data/keyingProjectionVerification";
+} from "../../src/data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import {
   readAccessEvent,
   readAccessManifest,

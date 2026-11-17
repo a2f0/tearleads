@@ -22,8 +22,8 @@ import {
   isolateDocumentSyncBatchError,
   isolateDocumentSyncUpdateError,
 } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
-import { isKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
+import { isKeyingVerificationError } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];

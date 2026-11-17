@@ -10,14 +10,14 @@ import {
   verifyContainerWriterProjection,
 } from "../../../../data/keyingProjectionVerification";
 import {
-  isKeyingVerificationError,
-  reportKeyingVerificationErrorInCauseChain,
-  runWithSecurityIncidentReporting,
-} from "../../../../data/keyingProjectionVerification/error";
-import {
   type HeldContainerBinding,
   listingRepeatsHeldOrdinaryBinding,
 } from "../../../../data/persistence/container-contents/containerBinding";
+import {
+  isKeyingVerificationError,
+  reportKeyingVerificationErrorInCauseChain,
+  runWithSecurityIncidentReporting,
+} from "../../../../data/shared/securityIncidents";
 import { verifyRuntimeGroupMetadataAuthority } from "../../../organizations/groupMetadata/runtimeGroupMetadataAuthority";
 
 import type {

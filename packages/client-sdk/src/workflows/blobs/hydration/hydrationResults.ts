@@ -1,9 +1,9 @@
+import { rethrowDatabaseUnavailableError } from "../../../data/keyingProjectionVerification/error";
+import { rethrowProjectionVerificationCancelled } from "../../../data/keyingProjectionVerification/types";
 import {
   reportKeyingVerificationErrorInCauseChain,
-  rethrowDatabaseUnavailableError,
-} from "../../../data/keyingProjectionVerification/error";
-import { rethrowProjectionVerificationCancelled } from "../../../data/keyingProjectionVerification/types";
-import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
+  type SecurityIncidentReporter,
+} from "../../../data/shared/securityIncidents";
 
 /** One unavailable or invalid attachment does not suppress independent successes. */
 export async function collectHydrationResults<T>(input: {

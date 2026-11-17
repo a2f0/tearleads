@@ -4,7 +4,7 @@ import type { DocumentPurgeProofResponse } from "@tearleads/validators/response"
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
-import { runWithSecurityIncidentReporting } from "../error";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { ProjectionVerificationCancelledError } from "../types";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 

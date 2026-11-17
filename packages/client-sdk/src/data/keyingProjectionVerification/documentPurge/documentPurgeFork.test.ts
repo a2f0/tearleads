@@ -4,8 +4,8 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/document
 import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeChain";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { verifyDocumentWriterProjection } from "../document/documentProjectionVerification";
-import { runWithSecurityIncidentReporting } from "../error";
 
 test("complete purge history conflicting with a local pin records an incident without refetching", async () => {
   const fixture = await createPurgeChainFixture();

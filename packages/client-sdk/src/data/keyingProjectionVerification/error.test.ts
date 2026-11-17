@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { DocumentSyncUpdateIsolationError } from "../documents/shared/sync/documentSyncUpdateIsolation";
+import { reportAndRethrowKeyingVerificationError } from "../shared/securityIncidents";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
 import {
-  reportAndRethrowKeyingVerificationError,
   throwKeyingVerificationErrorWithContext,
   throwKeyingVerificationShapeFailure,
 } from "./error";

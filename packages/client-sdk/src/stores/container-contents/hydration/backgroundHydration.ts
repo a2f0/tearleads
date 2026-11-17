@@ -1,5 +1,5 @@
-import { reportKeyingVerificationErrorInCauseChain } from "../../../data/keyingProjectionVerification/error";
 import { errorMessage } from "../../../data/shared/errorMessage";
+import { reportKeyingVerificationErrorInCauseChain } from "../../../data/shared/securityIncidents";
 import { isDatabaseUnavailableError } from "../../../workflows/container-contents/syncLane";
 import type { ContainerContentsStoreSyncState } from "../syncAgent/syncAgentTypes";
 

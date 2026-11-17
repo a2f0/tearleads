@@ -3,9 +3,9 @@ import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { manifestBundle } from "../../../../test/helpers/ancestorCitationScenario";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createPurgeCurrencyFixture } from "../../../../test/helpers/documentPurgeCurrency";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { verifyContainerWriterProjection } from "../container/containerProjectionVerification";
 import { verifyDocumentWriterProjection } from "../document/documentProjectionVerification";
-import { runWithSecurityIncidentReporting } from "../error";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
 test("an older purge path does not conceal an invalid purge signature", async () => {

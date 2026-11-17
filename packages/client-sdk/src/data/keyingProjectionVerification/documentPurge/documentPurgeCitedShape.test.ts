@@ -13,7 +13,7 @@ import {
   fixtureHash,
 } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
-import { runWithSecurityIncidentReporting } from "../error";
+import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
 test("a malformed unverified purge citation records one integrity incident", async () => {

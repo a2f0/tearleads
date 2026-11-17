@@ -12,11 +12,11 @@ import {
   createPrincipalReciteFixture,
   ROOT_CONTAINER_ID,
 } from "../../../../../test/helpers/principalReciteFixtures";
+import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification";
 import {
   heldContainerSnapshot,
   rememberVerifiedContainerHeads,
-} from "../../../../data/containers/shared/heldContainerHeads";
-import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification";
+} from "../../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { recoverPrincipalPolicyHistory } from "../../../principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { buildMaterializedContainerSharePlan } from "./shareMaterialization";
 

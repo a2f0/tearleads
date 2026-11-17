@@ -1,6 +1,8 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
-import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
+import {
+  runWithSecurityIncidentReporting,
+  type SecurityIncidentReporter,
+} from "../../data/shared/securityIncidents";
 import {
   parseIdentityLink,
   type TrustedUserIdentity,

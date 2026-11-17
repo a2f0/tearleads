@@ -8,11 +8,11 @@ import {
 import type { ContainerReciteRequest } from "@tearleads/validators/request";
 import type { ContainerReciteResponse } from "@tearleads/validators/response";
 import { signContainerMutationEvent } from "../../../data/containers/shared/events";
-import type { HeldContainerHead } from "../../../data/containers/shared/heldContainerHeads";
 import { principalPolicyRef } from "../../../data/containers/shared/principalPolicies";
 import { containerManifestRef } from "../../../data/containers/shared/projection";
 import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
+import type { HeldContainerHead } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principals/principalPolicyEvidence";
 
 export function referencedRecitationPolicies(

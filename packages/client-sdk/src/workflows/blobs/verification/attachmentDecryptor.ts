@@ -1,6 +1,6 @@
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
-import { isKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
+import { isKeyingVerificationError } from "../../../data/shared/securityIncidents";
 import { decryptDocumentAttachmentBlob } from "../hydration/decrypt";
 
 interface AttachmentProjectionApi {

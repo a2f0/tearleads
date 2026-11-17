@@ -10,9 +10,6 @@
     "packages/client-sdk/src/client/securityIncidents/index.ts",
     "packages/client-sdk/src/client/session/index.ts"
   ],
-  "packages/client-sdk/src/data/containers/shared/heldContainerHeads.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/checkpoints/checkpointContext.ts"
-  ],
   "packages/client-sdk/src/data/documents/attachmentContentIdentity.ts": [
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.ts"
   ],
@@ -66,12 +63,6 @@
   ],
   "packages/client-sdk/src/data/keyingProjectionVerification/dependencyUnavailable.ts": [
     "packages/client-sdk/src/data/trustedUserIdentity/apiAdapter.ts"
-  ],
-  "packages/client-sdk/src/data/keyingProjectionVerification/error.ts": [
-    "packages/client-sdk/src/client/identity/userIdentities.ts",
-    "packages/client-sdk/src/client/securityIncidents/index.ts",
-    "packages/client-sdk/src/client/session/sessionLoginRefusal.ts",
-    "packages/client-sdk/src/client/session/sessionRootAuthority.ts"
   ],
   "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts": [
     "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstones.ts",

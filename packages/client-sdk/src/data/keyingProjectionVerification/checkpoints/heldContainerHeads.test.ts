@@ -4,15 +4,15 @@ import {
   createContainerManifestFixture,
   createPrincipalPolicyFixture,
 } from "@tearleads/crypto/container-access-test-fixtures";
-import {
-  createProjectionCheckpointContext,
-  finalizeProjectionCheckpoints,
-} from "../../keyingProjectionVerification/checkpoints/checkpointContext";
 import { clientSqlTables } from "../../sqlite/schema";
 import {
   createExecSql,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
+import {
+  createProjectionCheckpointContext,
+  finalizeProjectionCheckpoints,
+} from "./checkpointContext";
 import {
   heldContainerPath,
   heldContainerSnapshot,

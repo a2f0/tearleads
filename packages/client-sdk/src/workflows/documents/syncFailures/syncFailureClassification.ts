@@ -10,7 +10,7 @@ import {
 } from "../../../data/documents/shared/responses";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
-import { isKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
+import { isKeyingVerificationError } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 export type RemoteDocumentDeletionHandler = (input: {
