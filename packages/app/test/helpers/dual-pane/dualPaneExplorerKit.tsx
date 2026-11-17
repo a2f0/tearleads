@@ -14,6 +14,7 @@ import {
   truncateText,
 } from "../dualPaneRequestSummary";
 import { listProxiedApiRequests } from "../msw/server";
+import { showExplorerSidebar } from "../showExplorerSidebar";
 import { waitForCondition } from "../waitForCondition";
 import {
   DUAL_PANE_TEST_TIMEOUT_MS,
@@ -49,6 +50,7 @@ export async function openExplorer(pane: HTMLElement) {
     },
     { timeout: DUAL_PANE_TEST_TIMEOUT_MS },
   );
+  await showExplorerSidebar(getExplorerWindowRoot(pane));
 }
 
 async function createExplorerNote(pane: HTMLElement) {

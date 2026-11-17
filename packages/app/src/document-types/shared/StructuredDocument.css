@@ -123,11 +123,13 @@
 .structured-document-slot-preview {
   /* standard ID-1 card format */
   aspect-ratio: 1.58 / 1;
+  align-self: start;
   box-sizing: border-box;
   display: block;
   min-width: 0;
   width: 100%;
-  max-width: 100%;
+  /* Keep personal-document previews near card size in a large window. */
+  max-width: 20rem;
   border: var(--border-width) dashed currentColor;
   background: linear-gradient(
     135deg,

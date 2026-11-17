@@ -23,6 +23,14 @@ export function visiblePane(page: Page): Locator {
   return page.locator(".pane:not(.pane-hidden)").first();
 }
 
+export async function showExplorerSidebar(window: Locator): Promise<void> {
+  await window.getByRole("menuitem", { name: "View", exact: true }).click();
+  await window.getByRole("menuitem", { name: "Show Sidebar" }).click();
+  await expect(window.locator(".explorer-sidebar-viewport")).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
 // Screenshot setup opens one app at a time and assumes an empty desktop.
 // Call only after boot or the initial layout switch, preserving later windows.
 export async function closeDefaultExplorerWindows(page: Page): Promise<void> {

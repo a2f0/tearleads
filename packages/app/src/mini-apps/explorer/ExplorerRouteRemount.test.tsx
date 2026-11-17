@@ -14,6 +14,7 @@ import {
   createTestHostConfig,
   flattenPaneStatusText,
 } from "../../../test/helpers/paneTestUtils";
+import { showExplorerSidebar } from "../../../test/helpers/showExplorerSidebar";
 import { App } from "../../App";
 import {
   saveSystemMonitorMode,
@@ -70,6 +71,7 @@ async function openExplorerInPane(
     ).toBeTruthy();
   });
   invariant(explorerWindow, "explorer window not found");
+  await showExplorerSidebar(explorerWindow);
   return explorerWindow;
 }
 

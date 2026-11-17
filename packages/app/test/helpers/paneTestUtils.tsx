@@ -29,6 +29,7 @@ import {
 import { listProxiedApiRequests, resetMockServer } from "./msw/server";
 import { createTestHostConfig } from "./paneTestHostConfig";
 import { renderEmptyDesktop } from "./renderEmptyDesktop";
+import { showExplorerSidebar } from "./showExplorerSidebar";
 
 export { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
 export { createTestHostConfig };
@@ -155,6 +156,7 @@ export async function openExplorer(view: ReturnType<typeof renderPane>) {
     ).toBeTruthy();
   });
 
+  await showExplorerSidebar(explorerWindow);
   return explorerWindow as HTMLElement;
 }
 
