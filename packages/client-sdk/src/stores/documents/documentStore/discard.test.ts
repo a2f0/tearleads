@@ -40,7 +40,6 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
       {
         attemptedAt: new Date().toISOString(),
         message: "Update conflict recovery gave up after 5 re-key attempts",
-        status: null,
       },
     );
     const projectionDeletes: RecordedProjectionDelete[] = [];

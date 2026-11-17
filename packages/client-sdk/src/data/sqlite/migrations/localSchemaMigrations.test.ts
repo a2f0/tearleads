@@ -90,3 +90,38 @@ test("step 2 skips a database that never created the directory table", async () 
     close();
   }
 });
+
+test("step 3 drops the documents' unread sync failure status", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-sync-failure-status",
+  );
+  try {
+    await execSql(
+      `CREATE TABLE "documents" ("app_kind" TEXT NOT NULL, "local_id" TEXT NOT NULL,
+        "sync_failure_status" INTEGER, "sync_failure_message" TEXT,
+        PRIMARY KEY ("app_kind", "local_id"))`,
+    );
+    await execSql(
+      `INSERT INTO documents VALUES ('documents', 'note', 409, 'refused')`,
+    );
+    expect((await migrateLocalSchema(execSql)).status).toBe("legacy");
+    expect(
+      await execSql(
+        "SELECT name FROM pragma_table_info('documents') ORDER BY cid",
+      ),
+    ).toEqual([
+      { name: "app_kind" },
+      { name: "local_id" },
+      { name: "sync_failure_message" },
+    ]);
+    expect(await execSql("SELECT * FROM documents")).toEqual([
+      {
+        app_kind: "documents",
+        local_id: "note",
+        sync_failure_message: "refused",
+      },
+    ]);
+  } finally {
+    close();
+  }
+});

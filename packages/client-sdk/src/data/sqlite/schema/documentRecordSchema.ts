@@ -47,14 +47,14 @@ const accessLevelColumn = "effective_access_level";
  * - `recoveryGeneration`: Atomic raw-history recovery writer fence.
  * - `recoveryDocumentId`: Former server id for cross-client post-purge recreation.
  * - `pullContinuation`: Durable progress for the next bounded remote pull.
- * - `syncFailureStatus`, `syncFailureMessage`, `syncFailureAttemptedAt`: The
- *   last terminal sync failure or quarantined incoming update for this scope.
+ * - `syncFailureMessage`, `syncFailureAttemptedAt`: The last terminal sync
+ *   failure or quarantined incoming update for this scope.
  *   The durable write queue (queued rows of `documentHistoryUpdates`) has no
  *   status columns, so these let the write-queue view and footer explain why
  *   the document is blocked. `syncFailureMessage` is non-null exactly when a
  *   failure is recorded; a newer failure replaces the old, and a later fully
- *   validated sync pass, a remote reset, or the scope's teardown clears all
- *   three.
+ *   validated sync pass, a remote reset, or the scope's teardown clears
+ *   both.
  * - `updatedAt`: Local timestamp for the last persisted runtime-state update.
  *
  * Indexes:
@@ -84,7 +84,6 @@ export const documents = sqliteTable(
     recoveryGeneration: integer("recovery_generation").notNull().default(0),
     recoveryDocumentId: text("recovery_document_id"),
     snapshotEndVersion: text("snapshot_end_version").notNull().default(""),
-    syncFailureStatus: integer("sync_failure_status"),
     syncFailureMessage: text("sync_failure_message"),
     syncFailureAttemptedAt: text("sync_failure_attempted_at"),
     updatedAt: text("updated_at").notNull(),
@@ -203,7 +202,6 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
       "pull_continuation",
       "recovery_generation",
       "recovery_document_id",
-      "sync_failure_status",
       "sync_failure_message",
       "sync_failure_attempted_at",
     ],
