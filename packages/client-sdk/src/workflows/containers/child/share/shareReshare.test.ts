@@ -13,8 +13,8 @@ import {
   createRecipientIdentityResolver,
   SIGNED_AT,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { shareRemoteContainer } from "./index";
 
 test("shareRemoteContainer replaces stale wraps when re-sharing a user", async () => {
   const existingUserId = "user-2";
@@ -41,10 +41,9 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
   const submittedRequests: ContainerMutationRequest[] = [];
   const database = await createTestExecSql("container-reshare-user");
 
-  const shared = await shareRemoteContainer({
+  const shared = await createContainerMutationServiceFixture({
     reportSecurityIncident: async () => {},
-    accessLevel: "write",
-    apiClient: {
+    api: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => projectionWithExistingShare,
       shareContainer: async (_containerId, request) => {
@@ -52,9 +51,17 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
         return createMutationResponseFromRequest(request);
       },
     },
+    execSql: database.execSql,
+    resolveTrustedUserIdentity: createRecipientIdentityResolver({
+      encapsulationPublicKey: newRecipientKeyPair.publicKey,
+      signingKeyFingerprint: parent.author.signerKeyFingerprint,
+      signingPublicKey: parent.signingPublicKey,
+    }),
+    encapsulationSecretKey: parent.secretKey,
+  }).shareRemoteContainer({
+    accessLevel: "write",
     author,
     containerId: parent.projection.containerId,
-    execSql: database.execSql,
     recipientUserId: existingUserId,
     resolveProjectionUserKey: async (userId) => {
       if (userId === parent.userId) {
@@ -76,13 +83,7 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
 
       return null;
     },
-    resolveTrustedUserIdentity: createRecipientIdentityResolver({
-      encapsulationPublicKey: newRecipientKeyPair.publicKey,
-      signingKeyFingerprint: parent.author.signerKeyFingerprint,
-      signingPublicKey: parent.signingPublicKey,
-    }),
     signedAt: SIGNED_AT,
-    targetSecretKey: parent.secretKey,
   });
   database.close();
 

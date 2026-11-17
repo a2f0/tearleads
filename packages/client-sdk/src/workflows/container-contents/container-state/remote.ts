@@ -10,8 +10,8 @@ import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjec
 import { errorMessage } from "../../../data/shared/errorMessage";
 import {
   type AppliedContainerMove,
-  replayRemoteContainerMove,
-  shareRemoteContainer as shareRemoteContainerMutation,
+  type ContainerMutationCollaborators,
+  ContainerMutationService,
   signedContainerMetadataDocumentId,
   signedContainerReferencedPrincipalHeads,
 } from "../../containers";
@@ -32,9 +32,9 @@ import type {
 } from "./types";
 
 /**
- * Resolve the author, api client, executor, and encapsulation secret a remote
- * container mutation needs, logging a skip for the given operation when the
- * writer context is unavailable.
+ * Resolve the author and the runtime snapshot's container mutation
+ * collaborators, with a service bound to them, logging a skip for the given
+ * operation when the writer context is unavailable.
  */
 function resolveContainerWriterContext(
   runtime: ContainerWorkflowRuntime,
@@ -53,11 +53,19 @@ function resolveContainerWriterContext(
     return null;
   }
 
-  return {
-    apiClient: runtime.apiClient,
-    author,
+  const collaborators: ContainerMutationCollaborators<
+    ContainerWorkflowRuntime["apiClient"]
+  > = {
+    api: runtime.apiClient,
+    encapsulationSecretKey: secretKey,
     execSql: runtime.infra.execSql,
-    secretKey,
+    reportSecurityIncident: runtime.util.reportSecurityIncident,
+    resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+  };
+  return {
+    author,
+    collaborators,
+    containers: new ContainerMutationService(collaborators),
   };
 }
 
@@ -120,21 +128,14 @@ export async function shareRemoteContainer(input: {
   if (!writer) {
     return null;
   }
-  const { apiClient, author, execSql, secretKey: targetSecretKey } = writer;
-
-  const shared = await shareRemoteContainerMutation({
-    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
+  const shared = await writer.containers.shareRemoteContainer({
     accessLevel: input.accessLevel,
-    apiClient,
-    author,
+    author: writer.author,
     containerId: input.containerId,
-    execSql,
     previousProjection: input.previousProjection,
     recipientUserId: input.recipientUserId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
-    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
     stillCurrent: input.stillCurrent,
-    targetSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),
@@ -167,7 +168,7 @@ export async function shareRemoteContainerWithGroup(input: {
   if (!writer) {
     return null;
   }
-  const { apiClient, author, execSql, secretKey: targetSecretKey } = writer;
+  const { author, collaborators } = writer;
 
   const shareWithGroup = createRuntimeCurrentGroupShare(input.runtime);
   if (!shareWithGroup)
@@ -175,12 +176,12 @@ export async function shareRemoteContainerWithGroup(input: {
       "Group sharing requires private paged recovery",
     );
   const shared = await shareWithGroup({
-    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
+    reportSecurityIncident: collaborators.reportSecurityIncident,
     accessLevel: input.accessLevel,
-    apiClient,
+    apiClient: collaborators.api,
     author,
     containerId: input.containerId,
-    execSql,
+    execSql: collaborators.execSql,
     expectedGroupName: input.expectedGroupName ?? null,
     readEncryptedName: (bundle) =>
       createRuntimeGroupMetadataAccess(
@@ -192,10 +193,10 @@ export async function shareRemoteContainerWithGroup(input: {
     previousProjection: input.previousProjection,
     recipientGroupId: input.recipientGroupId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
-    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+    resolveTrustedUserIdentity: collaborators.resolveTrustedUserIdentity,
     signingKeyPair: input.runtime.crypto.signingKeyPair,
     stillCurrent: input.stillCurrent,
-    targetSecretKey,
+    targetSecretKey: collaborators.encapsulationSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),
@@ -228,19 +229,13 @@ export async function moveRemoteContainer(input: {
   if (!writer) {
     return null;
   }
-  const { apiClient, author, execSql, secretKey: targetSecretKey } = writer;
-
-  const replayed = await replayRemoteContainerMove({
-    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
-    apiClient,
-    author,
+  const replayed = await writer.containers.replayRemoteContainerMove({
+    author: writer.author,
     containerId: input.containerId,
     destinationParentContainerId: input.parentContainerId,
-    execSql,
     onAccepted: input.onAccepted,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     stillCurrent: input.stillCurrent,
-    targetSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),

@@ -7,7 +7,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { loadTrustedUserIdentityPin } from "../persistence/trustedUserIdentityPinPersistence";
+import { TrustedUserIdentityPinRepository } from "../persistence/identity/trustedUserIdentityPinRepository";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import { createApiUserIdentitySource } from "./apiAdapter";
 import { createTrustedUserIdentityService } from "./service";
@@ -91,8 +91,7 @@ test("trusted identity service validates and pins the complete remote bundle", a
       userId: USER_ID,
     });
     await expect(
-      loadTrustedUserIdentityPin({
-        execSql,
+      new TrustedUserIdentityPinRepository(execSql).loadTrustedUserIdentityPin({
         identityTrustDomain: TRUST_DOMAIN,
         userId: USER_ID,
       }),
@@ -178,8 +177,7 @@ test("a remote bundle reusing another user's pinned signing key is typed equivoc
     });
     expect(invalidations).toEqual([OTHER_USER_ID]);
     await expect(
-      loadTrustedUserIdentityPin({
-        execSql,
+      new TrustedUserIdentityPinRepository(execSql).loadTrustedUserIdentityPin({
         identityTrustDomain: TRUST_DOMAIN,
         userId: OTHER_USER_ID,
       }),
@@ -291,8 +289,7 @@ test("invalid key material fails before any pin is written", async () => {
       code: "invalid_shape",
     });
     await expect(
-      loadTrustedUserIdentityPin({
-        execSql,
+      new TrustedUserIdentityPinRepository(execSql).loadTrustedUserIdentityPin({
         identityTrustDomain: TRUST_DOMAIN,
         userId: USER_ID,
       }),
@@ -400,8 +397,7 @@ test("pin store lock contention is retryable availability, not identity evidence
     expect(thrown).toBeInstanceOf(DatabaseUnavailableError);
     expect(thrown).not.toBeInstanceOf(KeyingVerificationError);
     await expect(
-      loadTrustedUserIdentityPin({
-        execSql,
+      new TrustedUserIdentityPinRepository(execSql).loadTrustedUserIdentityPin({
         identityTrustDomain: TRUST_DOMAIN,
         userId: USER_ID,
       }),

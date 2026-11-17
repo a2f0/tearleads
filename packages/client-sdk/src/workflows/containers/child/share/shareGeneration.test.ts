@@ -8,9 +8,9 @@ import {
   createParentProjectionUserKeyResolver,
   createRecipientIdentityResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
-import { shareRemoteContainer } from "./index";
 
 test("share planning rolls back checkpoints after its generation expires", async () => {
   const parent = await createParentProjection();
@@ -31,10 +31,9 @@ test("share planning rolls back checkpoints after its generation expires", async
   }) as ExecSql;
 
   try {
-    const shared = await shareRemoteContainer({
+    const shared = await createContainerMutationServiceFixture({
       reportSecurityIncident: async () => {},
-      accessLevel: "write",
-      apiClient: {
+      api: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         shareContainer: async () => {
@@ -42,18 +41,20 @@ test("share planning rolls back checkpoints after its generation expires", async
           throw new Error("A stale share must not be submitted");
         },
       },
-      author,
-      containerId: parent.projection.containerId,
       execSql: guardedExecSql,
-      recipientUserId: "user-2",
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createRecipientIdentityResolver({
         encapsulationPublicKey: recipientKeyPair.publicKey,
         signingKeyFingerprint: author.signerKeyFingerprint,
         signingPublicKey: parent.signingPublicKey,
       }),
+      encapsulationSecretKey: parent.secretKey,
+    }).shareRemoteContainer({
+      accessLevel: "write",
+      author,
+      containerId: parent.projection.containerId,
+      recipientUserId: "user-2",
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       stillCurrent: () => !transactionStarted,
-      targetSecretKey: parent.secretKey,
     });
 
     expect(shared).toBeNull();
@@ -88,10 +89,9 @@ test.each([false, true])(
     let current = true;
 
     try {
-      const shared = await shareRemoteContainer({
+      const shared = await createContainerMutationServiceFixture({
         reportSecurityIncident: async () => {},
-        accessLevel: "write",
-        apiClient: {
+        api: {
           reciteContainer: async () => null,
           getContainerWriterProjection: async () => parent.projection,
           shareContainer: async (_containerId, request) => {
@@ -100,16 +100,19 @@ test.each([false, true])(
             return response;
           },
         },
-        author,
-        containerId: parent.projection.containerId,
         execSql: database.execSql,
-        recipientUserId: "user-2",
-        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
         resolveTrustedUserIdentity: createRecipientIdentityResolver({
           encapsulationPublicKey: recipientKeyPair.publicKey,
           signingKeyFingerprint: author.signerKeyFingerprint,
           signingPublicKey: parent.signingPublicKey,
         }),
+        encapsulationSecretKey: parent.secretKey,
+      }).shareRemoteContainer({
+        accessLevel: "write",
+        author,
+        containerId: parent.projection.containerId,
+        recipientUserId: "user-2",
+        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
         stillCurrent: () => {
           const permitted = current;
           // A later guard evaluation cannot turn a rolled-back acknowledgement
@@ -117,7 +120,6 @@ test.each([false, true])(
           if (reviveGuard) current = true;
           return permitted;
         },
-        targetSecretKey: parent.secretKey,
       });
 
       expect(shared).toBeNull();

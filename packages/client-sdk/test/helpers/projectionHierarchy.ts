@@ -11,20 +11,19 @@ import type { ContainerWriterProjectionResponse } from "@tearleads/validators/re
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
+  type SubmittedContainerMove,
 } from "../../src/workflows/containers";
-import { moveRemoteContainer } from "../../src/workflows/containers/child/move";
 import {
   createMutationResponseFromRequest,
   type createParentProjection,
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
 } from "./containerFixtures";
+import { createContainerMutationServiceFixture } from "./containerMutationServiceFixture";
 
 type ProjectionBundle = ContainerWriterProjectionResponse["path"][number];
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
-type RemoteMovePlan = NonNullable<
-  Awaited<ReturnType<typeof moveRemoteContainer>>
->["plan"];
+type RemoteMovePlan = SubmittedContainerMove["plan"];
 
 function movePlanManifestBundle(plan: RemoteMovePlan): ProjectionBundle {
   return {
@@ -115,9 +114,9 @@ export async function moveContainerProjection(input: {
   sourceProjection: ContainerWriterProjectionResponse;
 }) {
   const { close, execSql } = await createTestExecSql(input.eventId);
-  const moved = await moveRemoteContainer({
+  const moved = await createContainerMutationServiceFixture({
     reportSecurityIncident: async () => {},
-    apiClient: {
+    api: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async (containerId) => {
         if (containerId === input.sourceProjection.containerId) {
@@ -130,17 +129,21 @@ export async function moveContainerProjection(input: {
       moveContainer: async (_containerId, request) =>
         createMutationResponseFromRequest(request, input.sourceProjection),
     },
-    author: input.parent.author,
-    containerId: input.containerId,
-    destinationParentContainerId: input.destinationParentProjection.containerId,
-    eventId: input.eventId,
     execSql,
-    resolveProjectionUserKey: createParentProjectionUserKeyResolver(
-      input.parent,
-    ),
-    signedAt: SIGNED_AT,
-    targetSecretKey: input.parent.secretKey,
-  }).finally(close);
+    encapsulationSecretKey: input.parent.secretKey,
+  })
+    .moveRemoteContainer({
+      author: input.parent.author,
+      containerId: input.containerId,
+      destinationParentContainerId:
+        input.destinationParentProjection.containerId,
+      eventId: input.eventId,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(
+        input.parent,
+      ),
+      signedAt: SIGNED_AT,
+    })
+    .finally(close);
   if (!moved) {
     throw new Error("Expected remote container move result");
   }

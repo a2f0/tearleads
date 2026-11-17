@@ -25,11 +25,11 @@ import {
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   buildContainerCreatePlan,
   buildMaterializedContainerCreatePlan,
-  createRemoteContainer,
 } from "../..";
 
 test("buildMaterializedContainerCreatePlan signs a child create and wraps the child KEK to the parent KEK only", async () => {
@@ -313,8 +313,8 @@ test("createRemoteContainer fetches the parent projection and submits the materi
   const submittedRequests: ContainerMutationRequest[] = [];
   const { close, execSql } = await createTestExecSql("remote-child-create");
   try {
-    const result = await createRemoteContainer({
-      apiClient: createMockApiClient({
+    const result = await createContainerMutationServiceFixture({
+      api: createMockApiClient({
         getContainerWriterProjection: async (containerId) =>
           containerId === parent.projection.containerId
             ? parent.projection
@@ -325,15 +325,16 @@ test("createRemoteContainer fetches the parent projection and submits the materi
           return createMutationResponseFromRequest(request);
         },
       }),
+      execSql,
+      encapsulationSecretKey: parent.secretKey,
+      reportSecurityIncident: async () => undefined,
+      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
+    }).createRemoteContainer({
       author,
       containerId: "remote-child-container",
-      execSql,
       metadataDocumentId: "remote-child-container-metadata-document",
       parentContainerId: parent.projection.containerId,
-      parentSecretKey: parent.secretKey,
-      reportSecurityIncident: async () => undefined,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
       signedAt: SIGNED_AT,
     });
 
@@ -379,8 +380,8 @@ test("createRemoteContainer rejects a mismatched acknowledgement without pinning
   );
   try {
     await expect(
-      createRemoteContainer({
-        apiClient: createMockApiClient({
+      createContainerMutationServiceFixture({
+        api: createMockApiClient({
           createContainer: async (request) => {
             const response = await createMutationResponseFromRequest(request);
             return {
@@ -394,15 +395,16 @@ test("createRemoteContainer rejects a mismatched acknowledgement without pinning
           getContainerWriterProjection: async () => parent.projection,
           getCurrentPrincipalPolicy: async () => null,
         }),
-        author,
-        containerId,
         execSql,
-        parentContainerId: parent.projection.containerId,
-        parentSecretKey: parent.secretKey,
+        encapsulationSecretKey: parent.secretKey,
         reportSecurityIncident: async () => undefined,
-        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
         resolveTrustedUserIdentity:
           createParentProjectionUserKeyResolver(parent),
+      }).createRemoteContainer({
+        author,
+        containerId,
+        parentContainerId: parent.projection.containerId,
+        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       }),
     ).rejects.toThrow("Container mutation response KEK commitment mismatch");
     await expect(
@@ -433,8 +435,8 @@ test("createRemoteContainer rejects bad parent projection signatures before send
 
   try {
     await expect(
-      createRemoteContainer({
-        apiClient: createMockApiClient({
+      createContainerMutationServiceFixture({
+        api: createMockApiClient({
           getContainerWriterProjection: async () => tamperedProjection,
           getCurrentPrincipalPolicy: async () => null,
           createContainer: async () => {
@@ -442,15 +444,16 @@ test("createRemoteContainer rejects bad parent projection signatures before send
             throw new Error("Unexpected create call");
           },
         }),
-        author,
-        containerId: "bad-parent-signature-child",
         execSql,
-        parentContainerId: parent.projection.containerId,
-        parentSecretKey: parent.secretKey,
+        encapsulationSecretKey: parent.secretKey,
         reportSecurityIncident: async () => undefined,
-        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
         resolveTrustedUserIdentity:
           createParentProjectionUserKeyResolver(parent),
+      }).createRemoteContainer({
+        author,
+        containerId: "bad-parent-signature-child",
+        parentContainerId: parent.projection.containerId,
+        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       }),
     ).rejects.toMatchObject({ code: "signature_mismatch" });
     expect(createCalled).toBe(false);

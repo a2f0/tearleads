@@ -1,10 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { principalStatePayloads } from "@tearleads/api-shared/schema";
-import {
-  buildMaterializedContainerRekeyPlan,
-  revokeRemoteContainer,
-} from "@tearleads/client-sdk";
+import { buildMaterializedContainerRekeyPlan } from "@tearleads/client-sdk";
 import { createTestUser } from "@tearleads/test-utils";
 import {
   CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
@@ -80,10 +77,9 @@ test("a fresh SDK verifies container history after its group is deleted", async 
       };
     };
     expect(
-      await revokeRemoteContainer({
-        ...writer.common,
+      await writer.containers.revokeRemoteContainer({
+        ...writer.mutation,
         containerId: root.kekState.containerId,
-        reportSecurityIncident: async () => undefined,
         revokedSubject: { subjectType: "group", subjectId: granted.groupId },
       }),
     ).not.toBeNull();

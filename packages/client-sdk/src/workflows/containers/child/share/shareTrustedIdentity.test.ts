@@ -8,9 +8,9 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
-import { shareRemoteContainer } from "./index";
 
 test("shareRemoteContainer stops before network I/O on trusted identity failure", async () => {
   const parent = await createParentProjection();
@@ -27,10 +27,9 @@ test("shareRemoteContainer stops before network I/O on trusted identity failure"
 
   await withTestExecSql("container-share-identity-failure", async (execSql) => {
     await expect(
-      shareRemoteContainer({
+      createContainerMutationServiceFixture({
         reportSecurityIncident: async () => {},
-        accessLevel: "read",
-        apiClient: {
+        api: {
           reciteContainer: async () => null,
           getContainerWriterProjection: async () => {
             projectionRead = true;
@@ -41,15 +40,17 @@ test("shareRemoteContainer stops before network I/O on trusted identity failure"
             return null;
           },
         },
-        author,
-        containerId: parent.projection.containerId,
         execSql,
-        recipientUserId: "user-2",
-        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
         resolveTrustedUserIdentity: async () => {
           throw integrityError;
         },
-        targetSecretKey: parent.secretKey,
+        encapsulationSecretKey: parent.secretKey,
+      }).shareRemoteContainer({
+        accessLevel: "read",
+        author,
+        containerId: parent.projection.containerId,
+        recipientUserId: "user-2",
+        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       }),
     ).rejects.toBe(integrityError);
   });
@@ -66,10 +67,9 @@ test("shareRemoteContainer rejects an identity bound to another user before read
 
   await withTestExecSql("container-share-unbound-identity", async (execSql) => {
     await expect(
-      shareRemoteContainer({
+      createContainerMutationServiceFixture({
         reportSecurityIncident: async () => {},
-        accessLevel: "read",
-        apiClient: {
+        api: {
           reciteContainer: async () => null,
           getContainerWriterProjection: async () => {
             projectionRead = true;
@@ -80,11 +80,7 @@ test("shareRemoteContainer rejects an identity bound to another user before read
             return null;
           },
         },
-        author: parent.author,
-        containerId: parent.projection.containerId,
         execSql,
-        recipientUserId: "user-2",
-        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
         resolveTrustedUserIdentity: async () =>
           createTestTrustedUserIdentity({
             encapsulationPublicKey: recipientKeyPair.publicKey,
@@ -92,7 +88,13 @@ test("shareRemoteContainer rejects an identity bound to another user before read
             signingPublicKey: parent.signingPublicKey,
             userId: "different-user",
           }),
-        targetSecretKey: parent.secretKey,
+        encapsulationSecretKey: parent.secretKey,
+      }).shareRemoteContainer({
+        accessLevel: "read",
+        author: parent.author,
+        containerId: parent.projection.containerId,
+        recipientUserId: "user-2",
+        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       }),
     ).rejects.toMatchObject({ code: "object_mismatch" });
   });

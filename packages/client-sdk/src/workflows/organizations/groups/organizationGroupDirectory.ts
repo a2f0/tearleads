@@ -17,7 +17,7 @@ import type {
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/persistence/principalPolicy/locallyAcknowledgedPrincipalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   encodeOrganizationAuthorityDescriptor,
   normalizeOrganizationGroupHeads,
@@ -230,14 +230,14 @@ export async function commitCreatedGroupToDirectory(input: {
     request: organizationRequest,
     response: stored.organizationPolicy,
   });
-  await persistLocallyAcknowledgedPrincipalPolicyBundles({
+  await new PrincipalPolicyBundleRepository(
+    input.execSql,
+  ).persistLocallyAcknowledgedPrincipalPolicyBundles({
     entries: [
       { bundle: acknowledged.bundle, policy: acknowledged.policy },
       organization,
     ],
-    execSql: input.execSql,
     organizationId: input.organizationId,
-    updatedAt: new Date().toISOString(),
     stillCurrent: input.stillCurrent,
   });
   assertProjectionVerificationCurrent(input.stillCurrent);

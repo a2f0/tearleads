@@ -16,7 +16,7 @@ import type {
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
-import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
 import { buildInitialOrganizationPolicyRequest } from "./organizationProvisioning";
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
@@ -274,16 +274,12 @@ test("registerIdentity submits the registration request and persists the local b
     ).not.toBe(
       Reflect.get(request.initialRosterProfileDocument.event, "objectId"),
     );
-    const adminPolicy = await loadPrincipalPolicyBundle(
+    const adminPolicy = await new PrincipalPolicyBundleRepository(
       execSql,
-      "group",
-      request.initialAdminGroup.groupId,
-    );
-    const memberPolicy = await loadPrincipalPolicyBundle(
+    ).loadPrincipalPolicyBundle("group", request.initialAdminGroup.groupId);
+    const memberPolicy = await new PrincipalPolicyBundleRepository(
       execSql,
-      "group",
-      request.initialMemberGroup.groupId,
-    );
+    ).loadPrincipalPolicyBundle("group", request.initialMemberGroup.groupId);
     expect(adminPolicy?.currentState.stateHash).toBe(
       await computePrincipalStateHash(
         request.initialAdminGroup.initialGroupPolicy.state,
