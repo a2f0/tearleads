@@ -3,8 +3,6 @@ import { ApiClient } from "@tearleads/api-client";
 import {
   BlobAttachmentService,
   ContainerMutationService,
-  createRemoteDocument,
-  syncRemoteDocument,
   unwrapContainerKekPath,
 } from "@tearleads/client-sdk";
 import {
@@ -23,6 +21,10 @@ import {
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
+import {
+  createSdkRemoteDocument as createRemoteDocument,
+  syncSdkRemoteDocument as syncRemoteDocument,
+} from "../../../test/helpers/sdkRemoteDocuments";
 import { withStoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
 

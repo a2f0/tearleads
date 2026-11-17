@@ -6,8 +6,11 @@ import {
   createDocumentWriterPublicKeyResolver,
   describeDocumentSyncSubmitFailure,
   type RekeyPendingUpdate,
+  RemoteDocumentService,
+  type RemoteDocumentServiceApi,
   resolveDocumentCreateAuthor,
-  syncRemoteDocument,
+  type SyncRemoteDocumentRequest,
+  type SyncRemoteDocumentResult,
 } from "../../documents";
 import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
@@ -17,10 +20,6 @@ import {
 } from "./metadataIncomingUpdateIsolation";
 import { deferRecoverableMetadataSyncError } from "./metadataSyncErrors";
 import type { ContainerMetadataState } from "./metadataTypes";
-
-type ContainerMetadataSyncApi = Parameters<
-  typeof syncRemoteDocument
->[0]["apiClient"];
 
 export interface ContainerMetadataSyncRuntime
   extends Pick<
@@ -33,18 +32,14 @@ export interface ContainerMetadataSyncRuntime
     | "state"
     | "util"
   > {
-  apiClient: ContainerMetadataSyncApi;
+  apiClient: RemoteDocumentServiceApi;
 }
-
-type ContainerMetadataSyncResult = NonNullable<
-  Awaited<ReturnType<typeof syncRemoteDocument>>
->;
 
 export interface ContainerMetadataSyncAttempt {
   consumedPullContinuation: ContainerMetadataState["pullContinuation"];
   outgoingUpdateCount: number;
   requestRecord: ContainerMetadataState["record"];
-  synced: ContainerMetadataSyncResult;
+  synced: SyncRemoteDocumentResult;
 }
 
 interface SyncRemoteContainerMetadataInput {
@@ -58,9 +53,7 @@ interface SyncRemoteContainerMetadataInput {
   onOutgoingUpdatesMaterialized?:
     | ((updateIds: readonly string[]) => void)
     | undefined;
-  onPullContinuationInvalidated?: Parameters<
-    typeof syncRemoteDocument
-  >[0]["onPullContinuationInvalidated"];
+  onPullContinuationInvalidated?: SyncRemoteDocumentRequest["onPullContinuationInvalidated"];
   pendingUpdates: readonly PendingUpdateRecord[];
   persistedState: ContainerMetadataState["record"];
   policyOperation: PrincipalPolicyOperation;
@@ -76,7 +69,7 @@ function createContainerMetadataSyncAttempt(input: {
   outgoingUpdateCount: number;
   requestedPullContinuation: ContainerMetadataState["pullContinuation"];
   requestRecord: ContainerMetadataState["record"];
-  synced: ContainerMetadataSyncResult;
+  synced: SyncRemoteDocumentResult;
 }): ContainerMetadataSyncAttempt {
   return {
     consumedPullContinuation:
@@ -106,63 +99,67 @@ export async function syncRemoteContainerMetadata(
     appKind: CONTAINER_METADATA_APP_KIND,
     localId: input.containerId,
   };
-  const synced = await syncRemoteDocument({
-    apiClient: runtime.apiClient,
-    author,
-    buildRotationSnapshot: input.buildRotationSnapshot,
-    documentId,
+  const remoteDocuments = new RemoteDocumentService({
+    api: runtime.apiClient,
+    encapsulationSecretKey: input.targetSecretKey,
     execSql,
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
-    localVersionVector: input.localVersionVector,
-    minLsn: input.lastCommitLsn ?? undefined,
-    ...metadataIncomingUpdateIsolation({
-      currentDocument: input.currentDocument,
-      execSql,
-      isCurrent,
-      logError: runtime.util.logError,
-      metadataScope,
-    }),
-    onOutgoingUpdatesMaterialized: input.onOutgoingUpdatesMaterialized,
-    onPullContinuationInvalidated: input.onPullContinuationInvalidated,
-    onSyncTrace: (line) => runtime.util.log(`Container contents: ${line}`),
-    onTerminalSubmitFailure: async (failure) => {
-      await recordCurrentMetadataSyncFailure({
+  });
+  const synced = await remoteDocuments
+    .syncRemoteDocument({
+      author,
+      buildRotationSnapshot: input.buildRotationSnapshot,
+      documentId,
+      localVersionVector: input.localVersionVector,
+      minLsn: input.lastCommitLsn ?? undefined,
+      ...metadataIncomingUpdateIsolation({
+        currentDocument: input.currentDocument,
         execSql,
-        failure: {
-          attemptedAt: new Date().toISOString(),
-          message: describeDocumentSyncSubmitFailure(failure),
-          status: failure.status,
-        },
         isCurrent,
+        logError: runtime.util.logError,
         metadataScope,
-      });
-    },
-    pendingUpdates: input.pendingUpdates,
-    persistedState: input.persistedState,
-    pullContinuation: input.pullContinuation ?? undefined,
-    rekeyPendingUpdate: (rekeyExecSql, updateId) =>
-      isCurrent()
-        ? input.rekeyPendingUpdate(rekeyExecSql, updateId)
-        : Promise.resolve(null),
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
-    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
-      logPrefix: "Container contents",
-      runtime,
-      writerKeyLabel: "metadata writer key",
-    }),
-    stillCurrent: isCurrent,
-    targetSecretKey: input.targetSecretKey,
-    warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
-      operation: input.policyOperation,
-    }),
-    writerProjection: input.writerProjection,
-  }).catch((error: unknown) =>
-    deferRecoverableMetadataSyncError({
-      containerId: input.containerId,
-      error,
-      runtime,
-    }),
-  );
+      }),
+      onOutgoingUpdatesMaterialized: input.onOutgoingUpdatesMaterialized,
+      onPullContinuationInvalidated: input.onPullContinuationInvalidated,
+      onSyncTrace: (line) => runtime.util.log(`Container contents: ${line}`),
+      onTerminalSubmitFailure: async (failure) => {
+        await recordCurrentMetadataSyncFailure({
+          execSql,
+          failure: {
+            attemptedAt: new Date().toISOString(),
+            message: describeDocumentSyncSubmitFailure(failure),
+            status: failure.status,
+          },
+          isCurrent,
+          metadataScope,
+        });
+      },
+      pendingUpdates: input.pendingUpdates,
+      persistedState: input.persistedState,
+      pullContinuation: input.pullContinuation ?? undefined,
+      rekeyPendingUpdate: (rekeyExecSql, updateId) =>
+        isCurrent()
+          ? input.rekeyPendingUpdate(rekeyExecSql, updateId)
+          : Promise.resolve(null),
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
+      resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
+        logPrefix: "Container contents",
+        runtime,
+        writerKeyLabel: "metadata writer key",
+      }),
+      stillCurrent: isCurrent,
+      warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
+        operation: input.policyOperation,
+      }),
+      writerProjection: input.writerProjection,
+    })
+    .catch((error: unknown) =>
+      deferRecoverableMetadataSyncError({
+        containerId: input.containerId,
+        error,
+        runtime,
+      }),
+    );
   if (!synced) return null;
   return createContainerMetadataSyncAttempt({
     outgoingUpdateCount: input.pendingUpdates.length,

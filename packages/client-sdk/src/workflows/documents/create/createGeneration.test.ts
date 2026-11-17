@@ -10,11 +10,11 @@ import {
 } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
 import { createResponseFromRequest } from "../../../../test/helpers/documentResponseFixtures";
+import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { enforceAccessManifestCheckpoints } from "../../../data/keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { createRemoteDocument } from "./index";
 
 test("document create guards projection verification after generation expiry", async () => {
   const { author, signingPublicKey } = await createAuthor();

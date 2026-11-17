@@ -8,8 +8,8 @@ import { createMutationResponseFromRequest } from "../../../../test/helpers/cont
 import { prepareDeepDocumentRepairFixture } from "../../../../test/helpers/deepDocumentRepairFixture";
 import { writerKeyResolver } from "../../../../test/helpers/documentFixtures";
 import { createPendingUpdateRecord } from "../../../../test/helpers/documentResponseFixtures";
+import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
-import { syncRemoteDocument } from "../sync";
 import { prepareAutomaticContainerRekeys } from "./syncContainerRekeyPreparation";
 
 let createFixture: Awaited<ReturnType<typeof prepareDeepDocumentRepairFixture>>;

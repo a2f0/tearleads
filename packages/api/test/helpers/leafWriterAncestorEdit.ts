@@ -1,6 +1,6 @@
 import type { ApiClient } from "@tearleads/api-client";
 import {
-  syncRemoteDocument,
+  type SyncRemoteDocumentRequest,
   validateDocumentSyncUpdateImports,
 } from "@tearleads/client-sdk";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -17,6 +17,7 @@ import type { TestUser } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { createAncestorSdkContext } from "./ancestorSdkRepair";
 import { writerResolver } from "./coldSdkRematerialization";
+import { syncSdkRemoteDocument as syncRemoteDocument } from "./sdkRemoteDocuments";
 
 /**
  * One cold device belonging to a writer, holding a single queued edit it can
@@ -78,9 +79,7 @@ export async function createLeafWriterAncestorEdit(input: {
         currentDocument: document,
         decryptedUpdates,
         responseUpdates: response.updates,
-      })) satisfies Parameters<
-      typeof syncRemoteDocument
-    >[0]["validateIncomingUpdates"],
+      })) satisfies SyncRemoteDocumentRequest["validateIncomingUpdates"],
   };
   const read = await syncRemoteDocument(syncInput);
   if (!read) throw new Error("Expected cold ancestor recovery read");

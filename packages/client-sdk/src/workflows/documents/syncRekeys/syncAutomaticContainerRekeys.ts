@@ -11,7 +11,7 @@ import { ContainerKekTargetUnreachableError } from "../../../data/documents/shar
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { buildMaterializedContainerRekeyPlan } from "../../containers";
-import type { SyncRemoteDocumentInput } from "../sync/readOnlySync";
+import type { RemoteDocumentSyncPass } from "../sync/remoteDocumentSyncPass";
 import { DocumentAncestorRepairAbandonedError } from "../syncFailures/syncRepairAbandon";
 import { hasOtherLinkedWriteAccess } from "../syncFailures/syncRepairAccess";
 import { applyContainerRekeyPlan } from "./syncContainerRekeyProjection";
@@ -70,7 +70,7 @@ function isRepairInaccessible(error: unknown, stale: StaleContainer): boolean {
 
 /** Prepare parent-first repairs; the sync transaction commits them with the write. */
 export async function buildAutomaticContainerRekeys(
-  sync: SyncRemoteDocumentInput,
+  sync: RemoteDocumentSyncPass,
   initialProjection: DocumentWriterProjectionResponse,
 ): Promise<{ plans: MaterializedContainerRekeyPlan[]; hasMore: boolean }> {
   const plans: MaterializedContainerRekeyPlan[] = [];

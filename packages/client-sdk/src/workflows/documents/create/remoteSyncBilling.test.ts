@@ -13,9 +13,9 @@ import {
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
-import { createRemoteDocument } from "./index";
 
 test("createRemoteDocument gates writes by the resolved container organization", async () => {
   const { author, signingPublicKey } = await createAuthor();
