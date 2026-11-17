@@ -5,14 +5,14 @@ import {
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import {
+  createAuthorityRecoveryFixture,
+  signedAuthorityRecoveryHistory,
+} from "../../../test/helpers/data/principalAuthorityRecovery";
+import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
 } from "../../../test/helpers/data/principalPolicyFixtures";
 import { createWorkflowInputFixture } from "../../../test/helpers/workflows/internalRuntimeFixtures";
-import {
-  createAuthorityRecoveryFixture,
-  signedAuthorityRecoveryHistory,
-} from "../../../test/helpers/workflows/principalAuthorityRecovery";
 import { withPrincipalPolicies } from "../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalGrantRetirements } from "../../data/sqlite/schema/principalGrantRetirementSchema";

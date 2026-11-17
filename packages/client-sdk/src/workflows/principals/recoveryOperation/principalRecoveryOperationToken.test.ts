@@ -1,11 +1,11 @@
 import { beforeAll, expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
-import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   AUTHORITY_RECOVERY_SETUP_TIMEOUT_MS,
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../../test/helpers/workflows/principalAuthorityRecovery";
+} from "../../../../test/helpers/data/principalAuthorityRecovery";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   createProjectionCheckpointContext,
   type ProjectionCheckpointContext,

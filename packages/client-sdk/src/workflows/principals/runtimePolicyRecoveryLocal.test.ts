@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
-import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyFixtures";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../test/helpers/workflows/principalAuthorityRecovery";
+} from "../../../test/helpers/data/principalAuthorityRecovery";
+import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyFixtures";
 import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";

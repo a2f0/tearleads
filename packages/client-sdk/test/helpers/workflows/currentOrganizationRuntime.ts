@@ -1,6 +1,7 @@
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { PrincipalHistoryProtectionLease } from "../../../src/data/principals/principalHistoryProtection";
 import { createMutationResponseFromRequest } from "../data/containerFixtures";
+import { createAuthorityRecoveryFixture } from "../data/principalAuthorityRecovery";
 import { organizationPolicyBundleFromInitialRequest } from "../data/principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
@@ -8,7 +9,6 @@ import {
   projectionPolicySource,
 } from "../data/projectionPolicyPages";
 import { createWorkflowInputFixture } from "./internalRuntimeFixtures";
-import { createAuthorityRecoveryFixture } from "./principalAuthorityRecovery";
 import { createReservedGroupAdvance } from "./reservedGroupAdvance";
 
 async function metadataProjection(

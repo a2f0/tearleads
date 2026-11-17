@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { createAuthorityRecoveryFixture } from "../../../../test/helpers/data/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
-import { createAuthorityRecoveryFixture } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { createReservedGroupAdvance } from "../../../../test/helpers/workflows/reservedGroupAdvance";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { PrincipalPolicyService } from "../../principals/principalPolicyService";

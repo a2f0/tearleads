@@ -1,10 +1,10 @@
 import { beforeAll, expect, test } from "bun:test";
-import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   AUTHORITY_RECOVERY_SETUP_TIMEOUT_MS,
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../../test/helpers/workflows/principalAuthorityRecovery";
+} from "../../../../test/helpers/data/principalAuthorityRecovery";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";

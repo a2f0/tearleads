@@ -7,7 +7,7 @@ import {
   documentWriterProjection,
   type GroupHistoricalSignerScenario,
   linkDocument,
-} from "../../../../test/helpers/workflows/groupHistoricalSignerScenario";
+} from "../../../../test/helpers/data/groupHistoricalSignerScenario";
 import { projectionPolicyWarmer } from "../../../../test/helpers/workflows/projectionPolicyWarmer";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification/container/containerProjectionVerification";
 import {

@@ -1,14 +1,14 @@
 import { beforeAll, expect, test } from "bun:test";
 import { toFingerprint, verifyPrincipalPolicyBundle } from "@tearleads/crypto";
 import {
+  createAuthorityRecoveryFixture,
+  signedAuthorityRecoveryHistory,
+} from "../../../../test/helpers/data/principalAuthorityRecovery";
+import {
   policyBundleAfterMutation,
   principalPolicyHead,
   signedPrincipalPolicyBundle,
 } from "../../../../test/helpers/data/principalPolicyFixtures";
-import {
-  createAuthorityRecoveryFixture,
-  signedAuthorityRecoveryHistory,
-} from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { recoverScopedPrincipalPolicyHistory } from "../../principals/historyRecovery/recoverScopedPrincipalPolicyHistory";
 import { withVerifiedGroupMutation } from "./groupPolicyMutationEvidence";
 import { buildSetGroupContainerGrantPolicyRequest } from "./groupPolicyRequests";

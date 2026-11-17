@@ -1,8 +1,8 @@
 import { beforeAll, expect, test } from "bun:test";
 import type { PrincipalPolicyExternalAuthority } from "@tearleads/crypto";
+import { createOrganizationHistoryFixture } from "../../../../test/helpers/data/organizationPolicyHistory";
 import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { createPublicHistoryFixture } from "../../../../test/helpers/data/publicPrincipalHistory";
-import { createOrganizationHistoryFixture } from "../../../../test/helpers/workflows/organizationPolicyHistory";
 import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { recoverPublicPrincipalHistory } from "./recoverPublicPrincipalHistory";
 

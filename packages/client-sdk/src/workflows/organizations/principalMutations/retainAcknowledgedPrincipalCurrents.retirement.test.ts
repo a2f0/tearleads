@@ -1,20 +1,20 @@
 import { expect, test } from "bun:test";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/data/principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principalContracts/organizationAuthorityDescriptor";
+import {
+  buildOrganizationGroupDirectoryPolicyRequest,
+  replaceOrganizationGroupHead,
+} from "../../../data/principals/organizationGroupDirectoryRequest";
 import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import { captureAcknowledgedPrincipalPredecessor } from "../../principals/acknowledgements/acknowledgedPrincipalPredecessor";
 import { groupPolicyMutationHead } from "../groupPolicy/groupPolicyMutationHead";
 import { buildGroupAccessSetShrinkPolicyRequest } from "../groupPolicy/groupPolicyRequests";
-import {
-  buildOrganizationGroupDirectoryPolicyRequest,
-  replaceOrganizationGroupHead,
-} from "../groups/organizationGroupDirectory";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 
 test("a retirement persists a grant present only in the acknowledged predecessor", async () => {

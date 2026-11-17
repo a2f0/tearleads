@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
+import { createAuthorityRecoveryFixture } from "../../../../test/helpers/data/principalAuthorityRecovery";
 import { createRemovalFixture } from "../../../../test/helpers/workflows/groupRemovalCarryFixture";
-import { createAuthorityRecoveryFixture } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { createRuntimeCurrentGroupMutation } from "../principalMutations/runtimeCurrentGroupMutation";
 import { commitCurrentGroupPolicyMutation } from "./commitCurrentGroupPolicyMutation";

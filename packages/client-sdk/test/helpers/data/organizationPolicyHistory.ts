@@ -9,31 +9,31 @@ import type {
   PrincipalPolicySnapshotResponse,
 } from "@tearleads/validators/response";
 import { parseOrganizationAuthorityDescriptor } from "../../../src/data/principalContracts/organizationAuthorityDescriptor";
-import { buildInitialOrganizationPolicyRequest } from "../../../src/data/principals/organizationPolicyRequest";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
-} from "../../../src/workflows/organizations/groups/organizationGroupDirectory";
+} from "../../../src/data/principals/organizationGroupDirectoryRequest";
+import { buildInitialOrganizationPolicyRequest } from "../../../src/data/principals/organizationPolicyRequest";
 import {
   buildInitialGroupPolicyRequest,
   testGroupMetadataKey,
-} from "../data/groupMetadata";
+} from "./groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
   principalPolicyHead,
   signedPrincipalPolicyBundle,
-} from "../data/principalPolicyFixtures";
+} from "./principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "../data/projectionPolicyPages";
+} from "./projectionPolicyPages";
 import {
   createFixtureUserIdentity,
   createTestTrustedUserIdentity,
   trustedUserIdentityFromResponse,
-} from "../data/trustedUserIdentity";
+} from "./trustedUserIdentity";
 
 export function policySnapshot(
   bundle: PrincipalPolicyBundleResponse,

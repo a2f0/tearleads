@@ -1,8 +1,8 @@
 import { beforeAll, expect, test } from "bun:test";
 import { signPrincipalState, wrapDekForRecipients } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/data/principalAuthorityRecovery";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../../data/principals/principalPolicyCrypto";

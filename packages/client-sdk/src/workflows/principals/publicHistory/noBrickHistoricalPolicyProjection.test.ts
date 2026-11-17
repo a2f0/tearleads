@@ -12,8 +12,8 @@ import {
   manifestBundle,
   successor,
 } from "../../../../test/helpers/data/ancestorCitationScenario";
+import { createOrganizationHistoryFixture } from "../../../../test/helpers/data/organizationPolicyHistory";
 import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
-import { createOrganizationHistoryFixture } from "../../../../test/helpers/workflows/organizationPolicyHistory";
 import { projectionPolicyWarmer } from "../../../../test/helpers/workflows/projectionPolicyWarmer";
 import { createProjectionCheckpointContext } from "../../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { verifyContainerManifestPath } from "../../../data/keyingProjectionVerification/container/containerPathVerification";

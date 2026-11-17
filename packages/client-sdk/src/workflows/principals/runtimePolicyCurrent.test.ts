@@ -1,10 +1,10 @@
 import { beforeAll, expect, test } from "bun:test";
-import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/data/principalPolicyCheckpointPins";
-import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyFixtures";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../test/helpers/workflows/principalAuthorityRecovery";
+} from "../../../test/helpers/data/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/data/principalPolicyCheckpointPins";
+import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyFixtures";
 import { assertCurrentMatchesVerifiedPolicy } from "../../data/persistence/principalPolicy/verifiedPrincipalPolicyCurrent";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";

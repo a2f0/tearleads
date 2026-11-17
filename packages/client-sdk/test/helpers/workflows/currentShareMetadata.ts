@@ -4,9 +4,9 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { parseOrganizationAuthorityDescriptor } from "../../../src/data/principalContracts/organizationAuthorityDescriptor";
+import { buildOrganizationGroupDirectoryPolicyRequest } from "../../../src/data/principals/organizationGroupDirectoryRequest";
 import type { PrincipalHistoryProtectionLease } from "../../../src/data/principals/principalHistoryProtection";
 import { buildInitialGroupPolicyRequest } from "../../../src/data/principals/principalPolicyRequest";
-import { buildOrganizationGroupDirectoryPolicyRequest } from "../../../src/workflows/organizations/groups/organizationGroupDirectory";
 import { buildOrganizationProvisioningArtifacts } from "../../../src/workflows/registration/organizationProvisioning";
 import { createMutationResponseFromRequest } from "../data/containerFixtures";
 import { createLocalAuthorityRecoveryFixture } from "../data/principalAuthorityLocal";

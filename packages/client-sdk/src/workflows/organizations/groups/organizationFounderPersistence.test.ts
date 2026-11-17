@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { organizationPolicyBundleFromInitialRequest } from "../../../../test/helpers/data/principalPolicyFixtures";
-import { verifyPrincipalPolicySnapshots } from "../../../../test/helpers/data/principalPolicySnapshotVerification";
 import {
   createOrganizationHistoryFixture,
   policySnapshot,
-} from "../../../../test/helpers/workflows/organizationPolicyHistory";
+} from "../../../../test/helpers/data/organizationPolicyHistory";
+import { organizationPolicyBundleFromInitialRequest } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { verifyPrincipalPolicySnapshots } from "../../../../test/helpers/data/principalPolicySnapshotVerification";
 import {
   loadOrganizationFounder,
   rememberOrganizationFounder,

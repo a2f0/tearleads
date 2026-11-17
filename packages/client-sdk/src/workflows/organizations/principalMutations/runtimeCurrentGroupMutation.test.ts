@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/data/principalAuthorityRecovery";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyReferenceFromBundle } from "../../../data/principalContracts/principalPolicyAdminSigners";

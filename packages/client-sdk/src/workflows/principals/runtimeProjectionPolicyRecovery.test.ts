@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
+import { signedAuthorityRecoveryHistory } from "../../../test/helpers/data/principalAuthorityRecovery";
 import { createPublicProjectionHistoryFixture } from "../../../test/helpers/data/publicProjectionHistory";
-import { signedAuthorityRecoveryHistory } from "../../../test/helpers/workflows/principalAuthorityRecovery";
 import {
   generationGuardedPrincipalPolicyWarmer,
   isProjectionVerificationCancelledError,

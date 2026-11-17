@@ -1,17 +1,17 @@
 import { toFingerprint } from "@tearleads/crypto";
 import { parseOrganizationAuthorityDescriptor } from "../../../src/data/principalContracts/organizationAuthorityDescriptor";
+import { buildOrganizationGroupDirectoryPolicyRequest } from "../../../src/data/principals/organizationGroupDirectoryRequest";
 import { groupPolicyMutationHead } from "../../../src/workflows/organizations/groupPolicy/groupPolicyMutationHead";
 import { buildSetGroupContainerGrantPolicyRequest } from "../../../src/workflows/organizations/groupPolicy/groupPolicyRequests";
-import { buildOrganizationGroupDirectoryPolicyRequest } from "../../../src/workflows/organizations/groups/organizationGroupDirectory";
 import { recoverScopedPrincipalPolicyHistory } from "../../../src/workflows/principals/historyRecovery/recoverScopedPrincipalPolicyHistory";
+import {
+  createAuthorityRecoveryFixture,
+  type signedAuthorityRecoveryHistory,
+} from "../data/principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
   principalPolicyHead,
 } from "../data/principalPolicyFixtures";
-import {
-  createAuthorityRecoveryFixture,
-  type signedAuthorityRecoveryHistory,
-} from "./principalAuthorityRecovery";
 
 export async function currentPolicyAcknowledgementFixture(
   history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>,

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { restorePrincipalPolicyHistoryVerifier } from "@tearleads/crypto";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/data/principalAuthorityRecovery";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/workflows/currentPolicyPublication";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import {
   principalHistoryEvidenceScopeId,

@@ -3,17 +3,17 @@ import { parseOrganizationAuthorityDescriptor } from "../../../src/data/principa
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
-} from "../../../src/workflows/organizations/groups/organizationGroupDirectory";
+} from "../../../src/data/principals/organizationGroupDirectoryRequest";
+import type { createCurrentShareMetadataFixture } from "../workflows/currentShareMetadata";
 import {
   policyBundleAfterMutation,
   principalPolicyHead,
   signedPrincipalPolicyBundle,
-} from "../data/principalPolicyFixtures";
+} from "./principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "../data/projectionPolicyPages";
-import type { createCurrentShareMetadataFixture } from "./currentShareMetadata";
+} from "./projectionPolicyPages";
 
 /** Prepare a genuine rename to publish between the share read and grant mint. */
 export async function prepareCurrentShareRename(

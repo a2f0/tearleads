@@ -13,8 +13,8 @@ import { currentGroupMutationInput } from "../../../../test/helpers/data/current
 import { testGroupMetadataKey } from "../../../../test/helpers/data/groupMetadata";
 import { policyBundleFromInitialRequest } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
+import { toRecipientEntries } from "../../../data/principals/principalPolicyRecipients";
 import { signedGroupPolicyRequest } from "../../../data/principals/principalPolicyRequest";
-import { toRecipientEntries } from "../principalPolicy/principalPolicyRecipients";
 import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";
 
 for (const forgedPublicPart of [false, true]) {

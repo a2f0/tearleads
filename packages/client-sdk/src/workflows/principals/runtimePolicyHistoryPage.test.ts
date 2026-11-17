@@ -1,11 +1,11 @@
 import { beforeAll, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/data/principalPolicyCheckpointPins";
-import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyFixtures";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../test/helpers/workflows/principalAuthorityRecovery";
+} from "../../../test/helpers/data/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/data/principalPolicyCheckpointPins";
+import { principalPolicyHead } from "../../../test/helpers/data/principalPolicyFixtures";
 import { principalHistoryEntries } from "../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
 import { PrincipalPolicyService } from "./principalPolicyService";

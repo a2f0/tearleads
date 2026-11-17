@@ -5,8 +5,8 @@ import type {
   PrincipalProjectionMemberRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalMemberEnvelopeResponse } from "@tearleads/validators/response";
-import { assertPrincipalIdentityCommitments } from "../../../data/principalContracts/principalIdentityCommitments";
-import type { TrustedUserIdentity } from "../../../data/trustedUserIdentity";
+import { assertPrincipalIdentityCommitments } from "../principalContracts/principalIdentityCommitments";
+import type { TrustedUserIdentity } from "../trustedUserIdentity";
 
 type PrincipalRekeyRecipient = {
   readonly encapsulationPublicKey: Uint8Array;

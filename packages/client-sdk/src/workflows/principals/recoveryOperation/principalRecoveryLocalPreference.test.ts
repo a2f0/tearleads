@@ -3,7 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
-} from "../../../../test/helpers/workflows/principalAuthorityRecovery";
+} from "../../../../test/helpers/data/principalAuthorityRecovery";
 import { PrincipalHistoryRecoveryRaceError } from "../historyRecovery/principalHistoryRecoveryTypes";
 import { recoverLeasedScopedPrincipalPolicyHistory } from "../historyRecovery/recoverScopedPrincipalPolicyHistory";
 import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";

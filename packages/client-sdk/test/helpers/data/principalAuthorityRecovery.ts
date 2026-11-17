@@ -8,13 +8,13 @@ import type {
 import { openPrincipalPolicyBundleReader } from "../../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { getClientSQLitePersistenceRuntime } from "../../../src/data/sqlite/sqlitePersistenceRuntime";
 import {
-  principalPolicyHead,
-  signedPrincipalPolicyBundle,
-} from "../data/principalPolicyFixtures";
-import {
   organizationHistoryFixtureFrom,
   signOrganizationHistory,
 } from "./organizationPolicyHistory";
+import {
+  principalPolicyHead,
+  signedPrincipalPolicyBundle,
+} from "./principalPolicyFixtures";
 
 // Signing three 66-version histories can exceed Bun's 5s hook default under CI load.
 export const AUTHORITY_RECOVERY_SETUP_TIMEOUT_MS = 30_000;

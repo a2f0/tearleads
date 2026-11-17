@@ -1,10 +1,10 @@
 import { beforeAll, expect, test } from "bun:test";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/data/principalAuthorityRecovery";
 import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
 } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { createPublicHistoryFixture } from "../../../../test/helpers/data/publicPrincipalHistory";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/workflows/principalAuthorityRecovery";
 import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverProjectionPolicyHistory } from "./recoverProjectionPolicyHistory";

@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { createOrganizationHistoryFixture } from "../../../test/helpers/data/organizationPolicyHistory";
 import { signedPrincipalPolicyBundle } from "../../../test/helpers/data/principalPolicyFixtures";
-import { createOrganizationHistoryFixture } from "../../../test/helpers/workflows/organizationPolicyHistory";
 import { loadOrganizationExternalAdminPolicy } from "./externalAdminPolicy";
 
 // The organization and its Admins group are two GETs. An honest Admins commit
