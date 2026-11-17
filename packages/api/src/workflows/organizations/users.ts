@@ -1,21 +1,21 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
-import type { OrganizationGroupMemberResponse } from "@tearleads/validators/response";
 import { inArray } from "drizzle-orm";
-import type { StoredPrincipalProjectionMember } from "../../access/read/principalStateStore";
 
-export interface UserKeyRow {
+/**
+ * A user's directory facts: key fingerprints only. Clients take public keys
+ * from their trusted identity store, never from an organization read.
+ */
+export interface UserDirectoryRow {
   userId: string;
   defaultOrganizationId: string;
   signingKeyFingerprint: string;
-  signingPublicKey: string;
-  encapsulationPublicKey: string;
   encapsulationKeyFingerprint: string;
   createdAt: Date;
 }
 
 export type UserSigningFingerprintRow = Pick<
-  UserKeyRow,
+  UserDirectoryRow,
   "userId" | "signingKeyFingerprint"
 >;
 
@@ -37,7 +37,7 @@ export async function loadUserSigningFingerprints(
 export async function loadUsersById(
   executor: DatabaseSession,
   userIds: readonly string[],
-): Promise<Map<string, UserKeyRow>> {
+): Promise<Map<string, UserDirectoryRow>> {
   if (userIds.length === 0) {
     return new Map();
   }
@@ -47,8 +47,6 @@ export async function loadUsersById(
       userId: users.id,
       defaultOrganizationId: users.defaultOrganizationId,
       signingKeyFingerprint: users.fingerprint,
-      signingPublicKey: users.signingPublicKey,
-      encapsulationPublicKey: users.encapsulationPublicKey,
       encapsulationKeyFingerprint: users.encapsulationKeyFingerprint,
       createdAt: users.createdAt,
     })
@@ -56,20 +54,4 @@ export async function loadUsersById(
     .where(inArray(users.id, [...userIds]));
 
   return new Map(rows.map((row) => [row.userId, row]));
-}
-
-export function toOrganizationGroupMemberResponse(input: {
-  readonly member: StoredPrincipalProjectionMember;
-  readonly usersById: ReadonlyMap<string, UserKeyRow>;
-}): OrganizationGroupMemberResponse {
-  const user = input.usersById.get(input.member.userId);
-
-  return {
-    userId: input.member.userId,
-    role: input.member.role,
-    signingKeyFingerprint: user?.signingKeyFingerprint ?? null,
-    signingPublicKey: user?.signingPublicKey ?? null,
-    encapsulationPublicKey: user?.encapsulationPublicKey ?? null,
-    encapsulationKeyFingerprint: user?.encapsulationKeyFingerprint ?? null,
-  };
 }

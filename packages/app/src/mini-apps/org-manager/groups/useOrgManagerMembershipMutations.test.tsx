@@ -56,9 +56,6 @@ test("an active directory selection reaches SDK admission and displays its refus
           {
             userId: "bob",
             status: "active",
-            // Selection data, deliberately not cryptographic evidence.
-            signingPublicKey: "untrusted-directory-signing-key",
-            encapsulationPublicKey: "untrusted-directory-encryption-key",
           } as NonNullable<Params["directory"]>["users"][number],
         ],
       },
