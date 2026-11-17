@@ -8,6 +8,7 @@ import {
   containerKekWireLevel,
   type DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 
 function keyingPathBundles(
   path: ContainerKeyingPathResponse,
@@ -28,7 +29,9 @@ export function createHeldManifestCitations(
 ) {
   const held = new Map<string, HeldProjectionCitation>();
   const hold = (bundles: readonly AccessManifestBundleWireResponse[]) => {
-    for (const bundle of bundles) held.set(bundle.manifestHash, bundle);
+    // Held as the device stores them: in the served form.
+    for (const bundle of bundles)
+      held.set(bundle.manifestHash, toServedAccessManifestBundle(bundle));
   };
   const holdLevels = (paths: readonly ContainerKeyingPathResponse[]) => {
     if (options.levels === false) return;

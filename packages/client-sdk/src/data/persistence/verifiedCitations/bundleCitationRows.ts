@@ -1,4 +1,4 @@
-import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import type { ServedAccessManifestBundleWireResponse } from "@tearleads/validators/util";
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { verifiedAccessManifestBundles as bundles } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import type { ClientSQLiteDatabase } from "../../sqlite/sqlitePersistenceRuntime";
@@ -44,7 +44,7 @@ export async function batchedObjectRows(
   limit: number,
   read: (
     row: StoredBundleRow,
-  ) => Promise<AccessManifestBundleWireResponse | null>,
+  ) => Promise<ServedAccessManifestBundleWireResponse | null>,
 ): Promise<StoredBundleRow[] | null> {
   const byObject = new Map<string, string[]>();
   // Document placements can span many independent lineages. Bound the IN

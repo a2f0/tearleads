@@ -10,6 +10,7 @@ import {
   type ContainerKeyingPathResponse,
   containerKekWireLevel,
 } from "@tearleads/validators/response";
+import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 import type { DocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { PrincipalAuthorizationCheckpointUnavailableError } from "../../persistence/keyingCheckpoints/principalAuthorizationCheckpoints";
 import type { VerifiedManifestBundle } from "../../persistence/verifiedManifestBundlePersistence";
@@ -98,10 +99,17 @@ export function observeVerifiedProjectionBundles(
 ): void {
   for (const [manifestHash, bundle] of bundlesByHash) {
     const verified = verifiedByHash.get(manifestHash);
+    if (!verified) continue;
     // A cache hit verifies the hash, not these bytes: store only bytes that
-    // a fresh verification accepted, so a citation never replays others.
-    if (verified && matchesVerifiedBundleBytes(verified, bundle))
-      context.verifiedBundles.push({ bundle, checkpoint: verified.checkpoint });
+    // a fresh verification accepted, so a citation never replays others. One
+    // copy is compared and stored, taken before persistence awaits, so no
+    // later read of the projection's object can reach storage.
+    const snapshot = structuredClone(bundle);
+    if (matchesVerifiedBundleBytes(verified, snapshot))
+      context.verifiedBundles.push({
+        bundle: toServedAccessManifestBundle(snapshot),
+        checkpoint: verified.checkpoint,
+      });
   }
 }
 

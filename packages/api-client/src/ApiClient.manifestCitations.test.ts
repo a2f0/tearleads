@@ -10,7 +10,10 @@ import {
   containerKekWireLevel,
   encodeContainerWriterProjection,
 } from "@tearleads/validators/response";
-import { parseKnownManifestHints } from "@tearleads/validators/util";
+import {
+  parseKnownManifestHints,
+  toServedAccessManifestBundle,
+} from "@tearleads/validators/util";
 import { HttpResponse, http } from "msw";
 import { createContainerWriterProjectionResponse } from "../test/helpers/apiClientTestFactories";
 import {
@@ -39,7 +42,12 @@ function projection(): ContainerWriterProjectionResponse {
       {
         ...kek,
         containerManifestHistory: [
-          { ...leaf, manifestHash: GENESIS, state: { epoch: 0 } },
+          {
+            ...leaf,
+            manifest: { ...leaf.manifest, epoch: 0 },
+            manifestHash: GENESIS,
+            state: { ...leaf.state, epoch: 0 },
+          },
         ],
       },
     ],
@@ -52,7 +60,11 @@ function held(...hashes: string[]): VerifiedManifestCitations {
       projection().path[0],
       projection().containerKeks[0]?.containerManifestHistory[0],
     ].flatMap((bundle) =>
-      bundle ? [[bundle.manifestHash, bundle] as const] : [],
+      // The device holds bundles as served: their state leaves off what the
+      // signed bytes name, which a refill restores.
+      bundle
+        ? [[bundle.manifestHash, toServedAccessManifestBundle(bundle)] as const]
+        : [],
     ),
   );
   return {

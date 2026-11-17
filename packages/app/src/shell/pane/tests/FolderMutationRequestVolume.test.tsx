@@ -285,9 +285,11 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // so the unlink leg reuses it: no sync and no document projection.
       // Measured 4 (5 with the listing; main 8 before the reused proof saved
       // the sync, the document projection and a policy read). 27.3 KB sent
-      // and 22.4 KB received; keep about 10% headroom.
+      // and 22.4 KB received; served bundles leave off the state their
+      // signed bytes name (the container key copy among it): 19.9 KB
+      // received; keep about 8% headroom.
       total: 4,
-      bodyBytes: { request: 30_000, response: 25_000 },
+      bodyBytes: { request: 30_000, response: 21_500 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
@@ -330,9 +332,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
       total: 11,
       // The move cites the destination parent's KEK state instead of carrying
       // it: 16.6 KB sent (34.3 KB before). Syncs no longer echo the bundle and
-      // KEK targets the request named: 40.7 KB received (44.3 KB before); keep
-      // about 10% headroom.
-      bodyBytes: { request: 18_500, response: 45_000 },
+      // KEK targets the request named: 40.7 KB received (44.3 KB before).
+      // Served bundles leave off the state their signed bytes name: 38.0 KB
+      // received; keep about 5% headroom.
+      bodyBytes: { request: 18_500, response: 40_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 4,
         "GET /principals/group/:groupId/policy": 0,
@@ -372,9 +375,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
       total: 13,
       // Projection reads cite the KEK levels the device holds by digest, and
       // syncs no longer echo the bundle and KEK targets the request named:
-      // 53.2 KB received (56.7 KB before); keep about 10% headroom. The move
-      // cites its parent KEK state: 16.8 KB sent (20.6 KB before).
-      bodyBytes: { request: 18_500, response: 59_000 },
+      // 53.2 KB received (56.7 KB before). Served bundles leave off the state
+      // their signed bytes name: 46.5 KB received; keep about 4% headroom.
+      // The move cites its parent KEK state: 16.8 KB sent (20.6 KB before).
+      bodyBytes: { request: 18_500, response: 48_500 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 3,
         "GET /principals/group/:groupId/policy": 0,
