@@ -47,6 +47,8 @@ export interface PendingWriteQueueSummary {
   readonly failedCount: number;
   /** The first failed item's recorded error, for the tooltip/popover. */
   readonly firstError: string | null;
+  /** The organizations the queued items belong to, where known. */
+  readonly organizationIds: ReadonlyArray<string>;
 }
 
 export function summarizePendingWrites(
@@ -65,6 +67,13 @@ export function summarizePendingWrites(
     count: countPendingWrites(items),
     failedCount: failedItems.length,
     firstError,
+    organizationIds: [
+      ...new Set(
+        items.flatMap((item) =>
+          item.organizationId === null ? [] : [item.organizationId],
+        ),
+      ),
+    ].sort(),
   };
 }
 
@@ -127,6 +136,7 @@ const SYNC_STATUS_LABELS = {
   errorOther: "changes failed to sync",
   queueReadFailed: "Unable to check sync status",
   offlineSuffix: " (offline)",
+  syncPausedSuffix: " (sync is paused for an organization)",
   billingTrialEnded:
     "Free trial ended — sync paused. Update billing to resume.",
   billingDisabled:
@@ -156,6 +166,12 @@ interface SyncStatusDescriptionInput {
   readonly firstWriteError: string | null;
   readonly queueReadError: string | null;
   readonly online: boolean;
+  /**
+   * Some queued write belongs to an organization whose sync the user paused
+   * on this device. It waits in the same identity-wide queue, so a pending
+   * count names the pause rather than reading as a stall.
+   */
+  readonly syncPaused: boolean;
   readonly billingStatus: BillingStatus | null;
   /** Whose billing paused sync; only read when `status` is `billing`. */
   readonly billingBlockScope: BillingBlockScope;
@@ -193,7 +209,10 @@ export function describeSyncStatus(input: SyncStatusDescriptionInput): string {
         input.pendingWriteCount === 1
           ? SYNC_STATUS_LABELS.pendingOne
           : `${input.pendingWriteCount} ${SYNC_STATUS_LABELS.pendingOther}`;
-      return input.online ? base : `${base}${SYNC_STATUS_LABELS.offlineSuffix}`;
+      if (!input.online) return `${base}${SYNC_STATUS_LABELS.offlineSuffix}`;
+      return input.syncPaused
+        ? `${base}${SYNC_STATUS_LABELS.syncPausedSuffix}`
+        : base;
     }
   }
 }

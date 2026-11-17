@@ -4,6 +4,7 @@ import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import { usePausedOrganizationIds } from "../../providers/sdk/usePausedOrganizationIds";
 import {
   describeSyncStatus,
   resolveSyncStatus,
@@ -57,6 +58,10 @@ export function useSyncStatus(): SyncStatusResult {
       organizations.loadBillingForOrganization(organizationId),
     [organizations],
   );
+  const pausedOrganizationIds = usePausedOrganizationIds();
+  const syncPaused = queue.organizationIds.some((organizationId) =>
+    pausedOrganizationIds.has(organizationId),
+  );
   const billingNeedsAttention = billing.view?.needsAttention ?? false;
   const otherOrganizationBillingBlocked = useOtherOrganizationBillingBlocked({
     activeOrganizationId: appData.auth.organizationId,
@@ -81,6 +86,7 @@ export function useSyncStatus(): SyncStatusResult {
     firstWriteError: queue.firstError,
     queueReadError: queue.readError,
     online,
+    syncPaused,
     billingStatus: billing.view?.status ?? null,
     // The active org's own lapse is the more specific reason, so it names the
     // status whenever both are blocked.

@@ -52,75 +52,70 @@ left from an earlier membership.
 
 ## Pausing sync
 
-A member can pause an organization's content syncing to their devices. The
-pause is recorded on the server so it follows the user to every device, and
-each device keeps a local copy in `organization_sync_pauses` so it is honored
-offline. Pausing changes no grant, key, or policy: the member still receives
-key [rewraps](./glossary/keys.md#rewrap), still counts as a billing seat, and can
+A member can pause any organization's content sync, their personal organization
+and the one their session is working in included. A pause is a hold: the device
+keeps everything it has of the organization, sends nothing, and fetches nothing
+until the member resumes. Nothing is deleted and nothing has to upload first, so
+a device with unsent changes can pause; those changes wait in its
+[write queue](./client-sync-ordering.md) and send on resume. Pausing changes no
+grant, key, or policy: the member still receives key
+[rewraps](./glossary/keys.md#rewrap), still counts as a billing seat, and can
 resume at any time.
+
+The pause is recorded on the server, and each device keeps the pauses in force
+for it in `organization_sync_pauses`, so they are honored offline. A pause
+follows the user to every device, with one exception: a pause on the user's
+personal organization holds only the devices it was chosen on. A new device
+needs that organization's root, Contacts, and Trash to start, so a pause chosen
+elsewhere must never keep them from it. Resuming applies everywhere: once the
+server no longer lists the pause, every device lifts its hold on its next
+membership read.
 
 While an organization is paused, a device:
 
+- sends none of its writes. The organization reports as blocked to every
+  [sync lane](./client-sync-ordering.md), the same per-organization check a
+  lapsed billing status uses, so document updates, creates, moves, metadata,
+  attachments, and key repairs for it stay queued. Sync Status says that sync
+  is paused when it counts them;
 - skips its containers when applying listed container pages, after tombstones
-  have seen the full page, so the lane still completes and its children are
-  never fetched;
+  have seen the full page, so the lane still completes and nothing below them
+  is fetched. The device's own copy of each stays as it was;
 - treats its stored containers as unlisted for document discovery; a listing
-  in flight when the organization pauses applies none of its documents,
-  links, or watermark, each write re-checking under the cleanup's lock, so a
-  resume lists the organization from scratch;
-- keeps only the organization's metadata root, a parentless system container,
-  so the organization stays named and its membership visible;
-- removes the rest of its local copy: every other container of the
-  organization and every document placed only in those containers.
+  in flight when the organization pauses stops at its next write, each one
+  re-checking under the SQLite mutation lock, and saves no watermark, so the
+  listing after a resume cannot skip what this one did not apply;
+- holds the start of each routine pull of a document it has already pulled,
+  deciding from the document's stored manifest without a request. A
+  document's first pull still runs, so one the device has listed can still be
+  opened; a pull that has fetched a page runs to its end, so no document is
+  left half pulled; and so does an explicit read of a document's history;
+- keeps listing the organization's metadata root, a parentless system
+  container, and its documents, so a device that has never synced the
+  organization still lists and names it and can resume it. Those documents
+  are held like any other once pulled, so a rename made during the pause
+  arrives on resume.
 
-Removal waits for the organization's local writes to upload. Pausing from a
-device first asks every [sync lane](./client-sync-ordering.md) to upload and is
-refused while any pending write for the organization remains. The removal itself
-scans every kind of pending write (queued updates, deferred history tails,
-intents, attachment uploads) and deletes under the same SQLite mutation lock, so
-no persisted write can land between the check and the deletion. A recorded read
-failure with nothing to upload is not pending work and never blocks it. An open
-document store may also hold edits that have not reached SQLite yet: each store
-counts every text, field, row, attachment, and rotation write from the call
-until it persists, and the removal refuses while any of the organization's
-documents has one.
+The sync lanes read the pauses from memory, loaded from
+`organization_sync_pauses` before a store first syncs. If that read fails, the
+store still opens and takes local edits, but the device cannot tell which
+organizations to hold, so it holds them all until a later read succeeds and
+then re-drives every lane.
 
-The removal deletes the containers first and documents only after them. Each
-document's deletion carries a commit guard that runs in the same synchronous
-slice as its COMMIT: an edit queued while the rows were being deleted, or the
-session switching into the organization, rolls that deletion back, and the
-document stays as a detached local copy, like any document whose container
-the device lost. When the guard passes at the COMMIT, it retires the
-document's store in that same slice, so an open editor turns read-only before
-the deletion commits; a COMMIT that then fails restores the store. Documents
-already detached before the pause are never removed, since one may be the
-only copy a recovery still needs. A retired store's sync lane stops and an
-editor holding it sees a read-only stand-in, so nothing recreates or
-downloads the document. Reopening keeps the stand-in while the organization
-stays paused; after a resume, the next open rebinds it to a fresh backing
-store that loads whatever SQLite holds. Each deletion also records the
-document in `organization_sync_pause_removals`, in the same transaction, and a
-store never recreates a recorded document, so reopening one after a restart
-waits for the resume too; resuming the organization drops its records. A
-device with pending or queued writes keeps them syncing out and retries the
-removal each time its sync lanes go idle. Containers go in batches, and each batch
-reads its documents in batches, so every statement stays within SQLite's bind
-limit, all under the one lock.
+A pause is the member's own choice about their devices, not a statement about
+access. Container tombstones in a listed page still apply, so a folder that was
+deleted, or that the member lost access to, leaves the device even while its
+organization is paused.
 
-Resuming forgets which containers the device had already listed, then
-re-lists the whole tree and every container's documents, so the
-organization's folders and documents download again. That listing queues
-behind any sweep that started while the organization was paused rather than
-joining it.
+Resuming re-drives every sync lane, which sends the writes the pause held, then
+forgets which containers the device had already listed and re-lists the whole
+tree and every container's documents, so the organization catches up on what it
+missed. That listing queues behind any sweep that started while the
+organization was paused rather than joining it.
 
-A personal organization cannot be paused: every device keeps its owner's root,
-Contacts, and Trash there. The session's active organization is never skipped
-or removed, even when another device paused it, because its root is the
-session's workspace; the device removes it once the session switches away,
-and Organizations offers to resume it meanwhile. Membership work runs one
-operation at a time per scope and is bound to the scope it started in, so a
-stale membership read cannot undo a newer choice or reach another identity's
-data.
+Membership work runs one operation at a time per scope and is bound to the
+scope it started in, so a stale membership read cannot undo a newer choice or
+reach another identity's data.
 
 ## Asking to leave
 

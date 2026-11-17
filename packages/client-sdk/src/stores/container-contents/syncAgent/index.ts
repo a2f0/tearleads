@@ -4,6 +4,7 @@ import {
   isDatabaseUnavailableError,
   registerContainerContentsSyncLane,
 } from "../../../workflows/container-contents/syncLane";
+import { loadOrganizationSyncPausesBeforeSync } from "../../../workflows/sync/coordination";
 import { createRestoredAccessReconciler } from "../accessRestorationSweep";
 import { primeStoreDocumentSubtree } from "../documentWork/documentRecovery";
 import { observeContainerBackgroundHydration } from "../hydration/backgroundHydration";
@@ -64,6 +65,11 @@ async function initializeContainerContentsStore(input: {
     return;
   }
 
+  await loadOrganizationSyncPausesBeforeSync({
+    domainScope: loadRuntime.state.domainScope,
+    execSql: loadRuntime.infra.execSql,
+    log: loadRuntime.util.log,
+  });
   const localContainerStates = await loadLocalContainerStates({
     persistence,
     runtime: loadRuntime,
