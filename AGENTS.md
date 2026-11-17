@@ -304,9 +304,11 @@ Shipping rules on top of the shared skills:
   `bun run agent-tool review carry <reviewed-head> <new-head>` passes, as the
   `ship-pr` skill describes; review again anything it rejects.
 - **Versions**: every changed workspace package ships one patch past its
-  version on the merge base. After each base integration or repair and before
-  each review, run `bun run agent-tool versions prepare "$BASE_OID"`, which
-  commits the manifests and refreshed `bun.lock`. Resolve a conflict confined
+  version on the merge base. The private root `package.json` is not versioned,
+  so a change confined to root files bumps nothing; leave its `version` field
+  alone. After each base integration or repair and before each review, run
+  `bun run agent-tool versions prepare "$BASE_OID"`, which commits the
+  manifests and refreshed `bun.lock`. Resolve a conflict confined
   to version fields with `bun run agent-tool versions resolve-conflicts`, then
   `git commit --no-edit`. Before merging, `versions check` must pass against the
   live base.

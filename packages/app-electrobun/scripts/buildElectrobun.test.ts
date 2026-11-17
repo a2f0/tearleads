@@ -130,6 +130,24 @@ test.each(["BUN_OPTIONS", "BUN_INSPECT_PRELOAD", "bunfig.toml"])(
   },
 );
 
+test("the build reports each workspace's version but not the unversioned root", async () => {
+  await withLauncher(async ({ root, packageDir, script, bin }) => {
+    const log = join(root, "packages.json");
+    await Bun.write(
+      join(packageDir, "scripts/withSentryReleaseEnv.ts"),
+      `await Bun.write(${JSON.stringify(log)}, process.env.BUN_PUBLIC_PACKAGE_VERSIONS ?? "unset");\n`,
+    );
+    await mkdir(bin);
+    await symlink(process.execPath, join(bin, "bun"));
+    const build = Bun.spawnSync(["sh", script], {
+      env: { HOME: root, PATH: `${bin}:/usr/bin:/bin` },
+      stderr: "pipe",
+    });
+    expect(build.exitCode, build.stderr.toString()).toBe(0);
+    expect(await Bun.file(log).json()).toEqual({ "app-electrobun": "1.2.3" });
+  });
+});
+
 // Fixture Git calls run with no GIT_* variable, so none reaches the repository
 // running these tests.
 function fixtureGit(cwd: string, ...args: string[]) {

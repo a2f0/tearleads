@@ -7,22 +7,20 @@ interface PackageManifest {
   workspaces?: string[];
 }
 
-/** Only names and versions enter client bundles, never other manifest fields. */
+function readManifest(path: string): PackageManifest {
+  return JSON.parse(readFileSync(resolve(path, "package.json"), "utf8"));
+}
+
+/**
+ * Only names and versions enter client bundles, never other manifest fields.
+ * The root manifest supplies the workspace list but is not reported: it is
+ * private and unversioned, so its version would never identify a build.
+ */
 function readPackageVersions(root: string): Record<string, string> {
-  const manifest: PackageManifest = JSON.parse(
-    readFileSync(resolve(root, "package.json"), "utf8"),
-  );
-  const manifests = [
-    manifest,
-    ...(manifest.workspaces ?? []).map(
-      (workspace): PackageManifest =>
-        JSON.parse(
-          readFileSync(resolve(root, workspace, "package.json"), "utf8"),
-        ),
-    ),
-  ];
+  const { workspaces = [] } = readManifest(root);
   return Object.fromEntries(
-    manifests.map(({ name, version }) => {
+    workspaces.map((workspace) => {
+      const { name, version } = readManifest(resolve(root, workspace));
       if (!name || !version) throw new Error("Package name/version is missing");
       return [name, version];
     }),

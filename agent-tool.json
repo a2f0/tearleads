@@ -29,7 +29,6 @@
   },
   "versions": {
     "packages": [
-      ".",
       "packages/api",
       "packages/api-client",
       "packages/api-cli",

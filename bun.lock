@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.212",
+      "version": "0.1.213",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -168,7 +168,7 @@
     },
     "packages/app-electrobun": {
       "name": "app-electrobun",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
