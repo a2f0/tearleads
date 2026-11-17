@@ -22,7 +22,6 @@ export interface StoredContainerKeyEpoch extends ContainerKeyEpoch {
 
 export interface StoredContainerKeyWrap extends ContainerKeyWrap {
   readonly id: string;
-  readonly createdAt: Date;
 }
 
 function predecessorBridgeFromRow(
@@ -157,7 +156,6 @@ export function toStoredContainerKeyWrap(
     kemCipherText: row.kemCipherText,
     wrappedKey: row.wrappedKey,
     wrapManifestHash: row.wrapManifestHash,
-    createdAt: row.createdAt,
   };
 }
 

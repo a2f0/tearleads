@@ -1,5 +1,4 @@
 import type {
-  ContentRecordEncryptionSuite,
   DocumentContentKeyTarget,
   KeyingCanonicalJson,
   WriteHeader,
@@ -43,9 +42,6 @@ import {
  * - `targetHash`: Hash of the normalized target rows in
  *   `documentContentKeyTargets`. Write headers include this hash so ciphertexts
  *   are bound to the exact recipient target set.
- * - `createdAt`: Server-side insertion timestamp for the epoch row.
- * - `updatedAt`: Server-side timestamp for metadata refreshes, such as
- *   same-epoch target growth or link-set manifest refresh.
  *
  * Indexes:
  * - `(documentId, contentKeyEpoch)` is unique because a document can have only
@@ -61,8 +57,6 @@ export const documentContentKeyEpochs = pgTable(
     contentKeyEpoch: integer("content_key_epoch").notNull(),
     linkSetManifestHash: text("link_set_manifest_hash").notNull(),
     targetHash: text("target_hash").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("document_content_key_epochs_document_epoch_idx").on(
@@ -106,7 +100,6 @@ export const documentContentKeyEpochs = pgTable(
  *   AES-GCM IV. The wrap's authenticated data binds the suite, document id,
  *   content-key epoch and target container epoch, so it opens for no other
  *   document, epoch or target.
- * - `createdAt`: Server-side insertion timestamp for the target row.
  *
  * Indexes:
  * - `documentContentKeyEpochId` supports loading the full target set for an
@@ -130,7 +123,6 @@ export const documentContentKeyTargets = pgTable(
     wrappingMetadata: jsonb("wrapping_metadata")
       .$type<KeyingCanonicalJson>()
       .notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("document_content_key_targets_epoch_container_idx").on(
@@ -158,10 +150,6 @@ export const documentContentKeyTargets = pgTable(
  * - `documentId`: Document whose encrypted update this header describes.
  * - `organizationId`: Organization boundary from the verified header.
  * - `contentKeyEpoch`: Document content-key epoch used for the update.
- * - `accessManifestHash`: Document access manifest hash verified for the
- *   write.
- * - `targetHash`: Document content-key target hash verified for the write.
- * - `encryptionSuite`: Content-record encryption suite used by the client.
  * - `contentRecordId`: Client content record id inside the header. For
  *   document updates this is unique within `(documentId, contentKeyEpoch)`.
  * - `nonceDomainHash`: Nonce-domain commitment; uniqueness prevents reusing a
@@ -188,11 +176,6 @@ export const documentContentWriteHeaders = pgTable(
     documentId: uuid("document_id").notNull(),
     organizationId: uuid("organization_id").notNull(),
     contentKeyEpoch: integer("content_key_epoch").notNull(),
-    accessManifestHash: text("access_manifest_hash").notNull(),
-    targetHash: text("target_hash").notNull(),
-    encryptionSuite: text("encryption_suite")
-      .$type<ContentRecordEncryptionSuite>()
-      .notNull(),
     contentRecordId: text("content_record_id").notNull(),
     nonceDomainHash: text("nonce_domain_hash").notNull(),
     headerHash: text("header_hash").notNull(),

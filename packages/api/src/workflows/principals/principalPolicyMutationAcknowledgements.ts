@@ -1,10 +1,11 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { principalPolicyMutationAcknowledgements } from "@tearleads/api-shared/schema";
-import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import {
-  type ContainerMutationRequest,
-  isContainerMutationRequest,
-} from "@tearleads/validators/request";
+  isKeyingCanonicalJson,
+  type ReferencedPrincipalHead,
+  serializeKeyingCanonicalJson,
+} from "@tearleads/crypto";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
   isContainerMutationResponse,
@@ -12,7 +13,24 @@ import {
 import { and, asc, eq } from "drizzle-orm";
 import { readProjectionAccessEvent } from "../../keyingProjectionRecords";
 import { canonicalJsonEquals } from "../../utils/canonicalJson";
+import { sha256Hex } from "../../utils/sha256";
 import { PrincipalPolicyError } from "./shared";
+
+/**
+ * The stored commitment to an acknowledged request: SHA-256 over its
+ * canonical JSON, domain-separated. Null for a request that is not canonical
+ * JSON, which no acknowledgement can match.
+ */
+export function mutationAcknowledgementRequestSha256(
+  request: ContainerMutationRequest,
+): string | null {
+  if (!isKeyingCanonicalJson(request)) return null;
+  return sha256Hex(
+    `tearleads.principal-policy-mutation-acknowledgement-request.v1\0${serializeKeyingCanonicalJson(
+      request,
+    )}`,
+  );
+}
 
 function requestEvent(request: ContainerMutationRequest) {
   return readProjectionAccessEvent(
@@ -32,7 +50,7 @@ export async function loadExactReplayMutationResponses(input: {
       batchIndex: principalPolicyMutationAcknowledgements.batchIndex,
       containerId: principalPolicyMutationAcknowledgements.containerId,
       manifestHash: principalPolicyMutationAcknowledgements.manifestHash,
-      requestJson: principalPolicyMutationAcknowledgements.requestJson,
+      requestSha256: principalPolicyMutationAcknowledgements.requestSha256,
       responseJson: principalPolicyMutationAcknowledgements.responseJson,
     })
     .from(principalPolicyMutationAcknowledgements)
@@ -67,10 +85,8 @@ export async function loadExactReplayMutationResponses(input: {
         409,
       );
     }
-    let storedRequest: unknown;
     let storedResponse: unknown;
     try {
-      storedRequest = JSON.parse(row.requestJson);
       storedResponse = JSON.parse(row.responseJson);
     } catch {
       throw new PrincipalPolicyError(
@@ -84,8 +100,7 @@ export async function loadExactReplayMutationResponses(input: {
       event.objectKind !== "container" ||
       event.objectId !== row.containerId ||
       request.expectedManifestHash !== row.manifestHash ||
-      !isContainerMutationRequest(storedRequest) ||
-      !canonicalJsonEquals(storedRequest, request) ||
+      mutationAcknowledgementRequestSha256(request) !== row.requestSha256 ||
       !isContainerMutationResponse(storedResponse) ||
       storedResponse.containerId !== row.containerId ||
       storedResponse.manifestHead.manifestHash !== row.manifestHash
@@ -122,13 +137,21 @@ export async function storeMutationAcknowledgements(input: {
             "Principal policy container acknowledgement is invalid",
           );
         }
+        const requestSha256 = mutationAcknowledgementRequestSha256(request);
+        // A request no replay can match fails as its replay would.
+        if (requestSha256 === null) {
+          throw new PrincipalPolicyError(
+            "Principal policy container replay does not match its committed acknowledgement",
+            409,
+          );
+        }
         return {
           batchIndex,
           containerId: event.objectId,
           manifestHash: request.expectedManifestHash,
           principalId: input.nextHead.principalId,
           principalType: input.nextHead.principalType,
-          requestJson: JSON.stringify(request),
+          requestSha256,
           responseJson: JSON.stringify(response),
           stateHash: input.nextHead.stateHash,
         };

@@ -21,7 +21,11 @@ export const principalPolicyMutationAcknowledgements = pgTable(
     batchIndex: integer("batch_index").notNull(),
     containerId: uuid("container_id").notNull(),
     manifestHash: text("manifest_hash").notNull(),
-    requestJson: text("request_json").notNull(),
+    /**
+     * Domain-separated SHA-256 of the request's canonical JSON: the stored
+     * commitment an exact replay must match, without keeping the request.
+     */
+    requestSha256: text("request_sha256").notNull(),
     responseJson: text("response_json").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
