@@ -3,8 +3,11 @@ import {
   type PrincipalHistoryVerificationKind,
   principalHistoryProgress,
 } from "@tearleads/api-shared/schema";
-import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import { and, asc, desc, eq, lte } from "drizzle-orm";
+import {
+  compareCanonicalStrings,
+  type ReferencedPrincipalHead,
+} from "@tearleads/crypto";
+import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
 
 export interface PrincipalHistoryProgressScope {
   readonly principalType: ReferencedPrincipalHead["principalType"];
@@ -83,34 +86,63 @@ export async function selectOldestPrincipalHistoryProgressId(
   return row?.id ?? null;
 }
 
+type PrincipalHistoryProgressRow = PrincipalHistoryProgressScope &
+  ReferencedPrincipalHead & {
+    readonly id?: string;
+    readonly progress: string;
+    readonly updatedAt?: Date;
+  };
+
+function progressRowOrder(row: PrincipalHistoryProgressRow): string {
+  return JSON.stringify([
+    row.principalType,
+    row.principalId,
+    row.verificationKind,
+    row.inputHash,
+    row.protectionId,
+  ]);
+}
+
+/**
+ * Upsert progress rows, at most 100 per statement. Each row has a distinct
+ * key, and rows are written in key order so concurrent batches lock shared
+ * keys in the same order.
+ */
 export async function upsertPrincipalHistoryProgress(
   executor: DatabaseSession,
-  input: PrincipalHistoryProgressScope &
-    ReferencedPrincipalHead & {
-      readonly progress: string;
-    },
+  rows: readonly PrincipalHistoryProgressRow[],
 ): Promise<void> {
-  await executor
-    .insert(principalHistoryProgress)
-    .values(input)
-    .onConflictDoUpdate({
-      target: [
-        principalHistoryProgress.principalType,
-        principalHistoryProgress.principalId,
-        principalHistoryProgress.verificationKind,
-        principalHistoryProgress.inputHash,
-        principalHistoryProgress.protectionId,
-        principalHistoryProgress.version,
-      ],
-      set: {
-        protectionId: input.protectionId,
-        stateHash: input.stateHash,
-        keyEpoch: input.keyEpoch,
-        keyFingerprint: input.keyFingerprint,
-        progress: input.progress,
-        updatedAt: new Date(),
-      },
-    });
+  const sorted = [...rows].sort(
+    (left, right) =>
+      compareCanonicalStrings(
+        progressRowOrder(left),
+        progressRowOrder(right),
+      ) || left.version - right.version,
+  );
+  const updatedAt = new Date();
+  for (let start = 0; start < sorted.length; start += 100) {
+    await executor
+      .insert(principalHistoryProgress)
+      .values(sorted.slice(start, start + 100))
+      .onConflictDoUpdate({
+        target: [
+          principalHistoryProgress.principalType,
+          principalHistoryProgress.principalId,
+          principalHistoryProgress.verificationKind,
+          principalHistoryProgress.inputHash,
+          principalHistoryProgress.protectionId,
+          principalHistoryProgress.version,
+        ],
+        set: {
+          protectionId: sql`excluded.protection_id`,
+          stateHash: sql`excluded.state_hash`,
+          keyEpoch: sql`excluded.key_epoch`,
+          keyFingerprint: sql`excluded.key_fingerprint`,
+          progress: sql`excluded.progress`,
+          updatedAt,
+        },
+      });
+  }
 }
 
 /** Remove only the invalid hint observed, preserving a concurrent replacement. */

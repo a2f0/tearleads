@@ -91,7 +91,9 @@ async function loadVerifiedOrganizationAccessPolicies(input: {
     principalType: "organization",
     principalId: input.organizationId,
   } as const;
-  // One statement reads all three heads, from one snapshot.
+  // One statement reads all three heads, from one snapshot; a head whose
+  // principal lock this transaction holds comes from the lock memo instead,
+  // and cannot have moved since it was read.
   const states = await getCurrentPrincipalStatesFor(
     [admin, member, organization],
     input.executor,

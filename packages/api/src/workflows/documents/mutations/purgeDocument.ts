@@ -10,7 +10,10 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { DocumentPurgeRequest } from "@tearleads/validators/request";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
-import { lockAccessManifestHeadsForUpdate } from "../../../access/read/accessManifestStore";
+import {
+  lockAccessManifestHeadsForUpdate,
+  lockUnheldAccessManifestHeads,
+} from "../../../access/read/accessManifestStore";
 import { listCurrentDocumentContainerIds } from "../../../access/read/currentDocumentLinks";
 import { storeVerifiedAccessEventInTransaction } from "../../../access/write/accessManifestStore";
 import { projectionVerifiedAccessEventRecord } from "../../../keyingProjectionRecords";
@@ -460,18 +463,17 @@ export async function teardownContainerMetadataDocument(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
 }): Promise<void> {
-  // Same serialization requirement as purgeDocumentWithExecutor: the metadata
-  // document's rows are deleted below, so an in-flight sync write on it must
-  // commit or abort before this teardown reads what to delete. Callers that
-  // lock or delete container rows in the same transaction must take THIS head
-  // lock first (deleteContainer does) — sync writers hold the head FOR UPDATE
-  // and then update container rows, so row-then-head ordering here would
-  // deadlock.
-  // Re-locking an already-held head is a no-op.
-  await lockAccessManifestHeadsForUpdate(
+  // Same serialization requirement as purgeDocumentWithExecutor: an in-flight
+  // sync write on this metadata document must finish before teardown reads
+  // what to delete. A caller that locks or deletes container rows in this
+  // transaction takes THIS head first (deleteContainer does, so it is not
+  // locked again): sync writers hold it FOR UPDATE and then update container
+  // rows, so row-then-head order here would deadlock.
+  await lockUnheldAccessManifestHeads(
     "document",
     [input.documentId],
     input.executor,
+    "update",
   );
   // Keep the binding as a permanent ID reservation after the container row
   // disappears. Removing it would let a new document restart this history.
