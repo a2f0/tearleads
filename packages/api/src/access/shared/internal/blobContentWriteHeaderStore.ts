@@ -43,18 +43,15 @@ const store = createContentWriteHeaderStore<
     const [inserted] = await executor
       .insert(blobContentWriteHeaders)
       .values({
-        accessManifestHash: input.header.accessManifestHash,
         authorization: input.authorization,
         blobId: input.blobId,
         contentKeyEpoch: input.header.contentKeyEpoch,
         contentRecordId: input.header.contentRecordId,
-        encryptionSuite: input.header.encryptionSuite,
         header: input.header,
         headerHash: input.headerHash,
         nonceDomainHash: input.header.nonceDomainHash,
         organizationId: input.header.organizationId,
         recordId: input.recordId,
-        targetHash: input.header.targetHash,
       })
       .onConflictDoNothing()
       .returning(writeHeaderColumns(blobContentWriteHeaders));

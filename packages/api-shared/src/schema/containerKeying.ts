@@ -119,7 +119,6 @@ export const containerKeyEpochs = pgTable(
  * - `wrappedKey`: Encrypted container KEK material for this recipient.
  * - `wrapManifestHash`: Access manifest hash whose current target set
  *   authorized this wrap.
- * - `createdAt`: Server-side insertion timestamp.
  *
  * Indexes:
  * - `(containerKeyEpochId, recipientKind, recipientId,
@@ -141,7 +140,6 @@ export const containerKeyWraps = pgTable(
     kemCipherText: text("kem_cipher_text").notNull(),
     wrappedKey: text("wrapped_key").notNull(),
     wrapManifestHash: text("wrap_manifest_hash").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("container_key_wraps_epoch_recipient_idx").on(

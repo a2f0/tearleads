@@ -4,6 +4,7 @@ import {
   clientSQLiteSchema,
   defineSqlTableSchema,
   type ExecSql,
+  migrateLocalSchema,
 } from "@tearleads/client-sdk/sqlite";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { unexpectedSecurityIncidents } from "../../../test/helpers/unexpectedSecurityIncidents";
@@ -17,7 +18,10 @@ const blobStore: BlobStore = {
   writeBytes: async () => {},
 };
 
+// Records this build's ledger before creating its tables, as a table ensure
+// does, so a restore reads the backup as current rather than pre-ledger.
 async function initialize(execSql: ExecSql) {
+  await migrateLocalSchema(execSql);
   for (const table of Object.values(clientSQLiteSchema))
     await execSql(defineSqlTableSchema(table).createSql);
 }

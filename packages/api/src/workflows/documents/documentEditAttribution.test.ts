@@ -6,10 +6,7 @@ import {
   documentUpdateSpans,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
-import type {
-  ContentRecordEncryptionSuite,
-  WriteHeader,
-} from "@tearleads/crypto";
+import type { WriteHeader } from "@tearleads/crypto";
 import { computeDocumentContentRecordMetadataHash } from "@tearleads/crypto";
 import {
   createDocument,
@@ -82,11 +79,9 @@ async function insertUpdate(input: {
   await db.insert(documentContentWriteHeaders).values({
     // Attribution inspects signed metadata independently of container targets.
     authorizationTargets: [],
-    accessManifestHash: "manifest",
     contentKeyEpoch: input.contentKeyEpoch,
     contentRecordId: `record-${id}`,
     documentId: input.documentId,
-    encryptionSuite: "suite" as ContentRecordEncryptionSuite,
     // Attribution reads only these two fields off the header JSON.
     header: {
       metadataHash,
@@ -96,7 +91,6 @@ async function insertUpdate(input: {
     headerHash: `header-hash-${id}`,
     nonceDomainHash: `nonce-${id}`,
     organizationId: crypto.randomUUID(),
-    targetHash: `target-${id}`,
     updateId: id,
   });
   return id;

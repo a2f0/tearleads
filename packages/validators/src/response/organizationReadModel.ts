@@ -42,14 +42,13 @@ export type OrganizationReadModelGrantsResponse = z.infer<
 >;
 
 /**
- * A projected member names only the user and role. Public keys live once per
- * user in the directory lane; keying never reads either copy from the read
- * model.
+ * A projected member names only the user and role. The read model carries no
+ * public keys: directory rows carry key fingerprints, and keying takes keys
+ * from the trusted identity store.
  */
-const OrganizationReadModelGroupMemberResponseSchema = z.strictObject({
-  role: OrganizationGroupMemberResponseShape.role,
-  userId: OrganizationGroupMemberResponseShape.userId,
-});
+const OrganizationReadModelGroupMemberResponseSchema = z.strictObject(
+  OrganizationGroupMemberResponseShape,
+);
 
 export type OrganizationReadModelGroupMemberResponse = z.infer<
   typeof OrganizationReadModelGroupMemberResponseSchema

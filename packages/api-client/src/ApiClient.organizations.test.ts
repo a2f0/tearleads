@@ -283,8 +283,6 @@ testApiClient(
           return HttpResponse.json({
             userId: "user-1",
             signingKeyFingerprint: "signing-fingerprint",
-            signingPublicKey: "signing-key",
-            encapsulationPublicKey: "encapsulation-key",
             encapsulationKeyFingerprint: "encapsulation-fingerprint",
             createdAt: "2026-05-12T12:00:00.000Z",
             isPersonalOrganizationOwner: false,

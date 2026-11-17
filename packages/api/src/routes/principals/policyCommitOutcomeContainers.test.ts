@@ -13,7 +13,7 @@ import {
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
 
-test("compound replay uses the original container acknowledgements without retaining a second copy", async () => {
+test("compound replay matches the original container acknowledgements by their request commitment", async () => {
   const prepared = await prepareRotation();
   const groupId = prepared.nextPolicy.principalId;
   let original: { path: string; init: RequestInit } | undefined;
@@ -48,6 +48,33 @@ test("compound replay uses the original container acknowledgements without retai
   if (!receipt) throw new Error("Missing stored compound receipt");
   expect(receipt.responseJson.length).toBeLessThan(1_024);
   expect(receipt.responseJson).not.toContain("containerMutations");
+  // Each acknowledgement keeps a commitment to its request, not the request,
+  // and a replay must match it.
+  const acknowledgements = await db
+    .select({
+      containerId: principalPolicyMutationAcknowledgements.containerId,
+      requestSha256: principalPolicyMutationAcknowledgements.requestSha256,
+    })
+    .from(principalPolicyMutationAcknowledgements)
+    .where(eq(principalPolicyMutationAcknowledgements.principalId, groupId));
+  expect(acknowledgements.length).toBe(
+    committed.groupPolicy.containerMutations.length,
+  );
+  for (const { requestSha256 } of acknowledgements)
+    expect(requestSha256).toMatch(/^[0-9a-f]{64}$/);
+  await db
+    .update(principalPolicyMutationAcknowledgements)
+    .set({ requestSha256: "0".repeat(64) })
+    .where(eq(principalPolicyMutationAcknowledgements.principalId, groupId));
+  const altered = await requestPreparedPrincipalPolicy(
+    original.path,
+    original.init,
+  );
+  expect(altered.status).toBe(409);
+  expect(await altered.json()).toEqual({
+    error:
+      "Principal policy container replay does not match its committed acknowledgement",
+  });
   await db
     .delete(principalPolicyMutationAcknowledgements)
     .where(

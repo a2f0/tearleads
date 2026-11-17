@@ -19,8 +19,6 @@ test("organization manager responses", () => {
         {
           userId: "user-1",
           signingKeyFingerprint: "signing-fingerprint",
-          signingPublicKey: "signing-key",
-          encapsulationPublicKey: "encapsulation-key",
           encapsulationKeyFingerprint: "encapsulation-fingerprint",
           createdAt: new Date().toISOString(),
           isPersonalOrganizationOwner: false,
@@ -92,16 +90,7 @@ test("organization manager responses", () => {
     isOrganizationGroupMembersResponse({
       organizationId: "org-1",
       groupId: "group-1",
-      members: [
-        {
-          userId: "user-1",
-          role: "admin",
-          signingKeyFingerprint: "signing-fingerprint",
-          signingPublicKey: "signing-key",
-          encapsulationPublicKey: "encapsulation-key",
-          encapsulationKeyFingerprint: "encapsulation-fingerprint",
-        },
-      ],
+      members: [{ userId: "user-1", role: "admin" }],
     }),
   ).toBe(true);
   expect(isOrganizationGroupMembersResponse(null)).toBe(false);
@@ -172,8 +161,6 @@ test("organization manager responses", () => {
       user: {
         userId: "user-1",
         signingKeyFingerprint: "signing-fingerprint",
-        signingPublicKey: "signing-key",
-        encapsulationPublicKey: "encapsulation-key",
         encapsulationKeyFingerprint: "encapsulation-fingerprint",
         createdAt: new Date().toISOString(),
         isPersonalOrganizationOwner: false,

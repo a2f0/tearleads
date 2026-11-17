@@ -2,12 +2,10 @@ import { expect, mock, test } from "bun:test";
 import type { OrganizationDirectory } from "@tearleads/client-sdk";
 import { resolveGroupIdentity } from "./resolveGroupIdentity";
 
-test("an active roster selection reaches SDK admission without trusting directory keys", async () => {
+test("an active roster selection reaches SDK admission through the trusted identity", async () => {
   const directoryUser = {
     userId: "bob",
     status: "active",
-    signingPublicKey: "untrusted-directory-signing-key",
-    encapsulationPublicKey: "untrusted-directory-encryption-key",
   } as OrganizationDirectory["users"][number];
   const resolveVerified = mock(async () => null);
   const verifyLink = mock(async () => {
