@@ -9,7 +9,16 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { contentKeyTargetReference } from "../../../src/data/blobs/attachments/readers";
+import { DOCUMENTS_APP_KIND } from "../../../src/data/documents/documentConstants";
 import type { DocumentLinkSetMutationFailure } from "../../../src/data/documents/shared/types";
+import { ensureDocumentsSchema } from "../../../src/data/persistence/documents/internal/ensureDocumentsSchema";
+import {
+  documentAttachmentBlobProjection,
+  documentPendingAttachments,
+} from "../../../src/data/sqlite/schema/documentAttachmentSchema";
+import { documents } from "../../../src/data/sqlite/schema/documentRecordSchema";
+import { getClientSQLitePersistenceRuntime } from "../../../src/data/sqlite/sqlitePersistenceRuntime";
+import type { ExecSql } from "../../../src/data/sqlite/sqlSchema";
 import { buildMaterializedDocumentCreatePlan } from "../../../src/workflows/documents/create";
 import {
   createAuthor,
@@ -122,4 +131,60 @@ export async function bindingWithTargets(
     },
     contentKeyBundle: { ...binding.contentKeyBundle, targetHash, targets },
   };
+}
+
+/** What the device holds locally for a server document. */
+export type LocalView =
+  | "absent"
+  | "empty"
+  | "held"
+  | "detached"
+  | "pending"
+  | "metadata";
+
+/** Seed one local view of `documentId`; `absent` holds nothing. */
+export async function seedLocalView(
+  execSql: ExecSql,
+  documentId: string,
+  view: LocalView,
+): Promise<void> {
+  if (view === "absent") return;
+  await ensureDocumentsSchema(execSql);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const localId = `${documentId}-local`;
+  const now = new Date().toISOString();
+  await db
+    .insert(documents)
+    .values({
+      appKind: view === "metadata" ? "container-metadata" : DOCUMENTS_APP_KIND,
+      documentId,
+      localId,
+      updatedAt: now,
+    })
+    .run();
+  const attachment = {
+    byteLength: 1,
+    contentSha256: "digest",
+    localId,
+    mimeType: null,
+    slotId: "slot",
+    storageKey: `${localId}-bytes`,
+  };
+  if (view === "held" || view === "detached") {
+    await db
+      .insert(documentAttachmentBlobProjection)
+      .values({
+        ...attachment,
+        blobId: "blob",
+        detachedAt: view === "detached" ? now : null,
+        updatedAt: now,
+      })
+      .run();
+  }
+  if (view === "pending") {
+    await db
+      .insert(documentPendingAttachments)
+      .values({ ...attachment, createdAt: now, name: "file.txt" })
+      .run();
+  }
 }

@@ -132,10 +132,12 @@ function isSpeculativeRewrapSource(
 }
 
 /**
- * The server's binding check refused rewraps cited without listing: a coded
- * attachment-set refusal, or for re-cited envelopes the uncoded content-key
- * epoch refusal. The code ships with the server's check in one contract
- * (greenfield), so no older server's uncoded mismatch is recognized here.
+ * The server may have refused rewraps cited without listing: the coded
+ * attachment-set refusal, or any uncoded conflict (for re-cited envelopes the
+ * content-key epoch refusal; from a server without the code, an uncovered
+ * binding). Retrying once with a fresh listing is bounded and harmless for
+ * any other uncoded conflict, so no honest server's refusal of an uncited
+ * binding can strand the leg. Coded refusals keep their own recovery paths.
  */
 function refusedSpeculativeRewraps(
   source: LinkSetRewrapSource | null,
@@ -143,9 +145,10 @@ function refusedSpeculativeRewraps(
 ): boolean {
   if (failure.status !== 409 || !isSpeculativeRewrapSource(source))
     return false;
-  if (failure.code === DOCUMENT_MUTATION_ERROR_CODES.linkAttachmentsChanged)
-    return true;
-  return source === "reused" && failure.code === undefined;
+  return (
+    failure.code === DOCUMENT_MUTATION_ERROR_CODES.linkAttachmentsChanged ||
+    failure.code === undefined
+  );
 }
 
 /**

@@ -1,51 +1,17 @@
 import { expect, test } from "bun:test";
-import {
-  type DocumentLinkAccessEventBody,
-  normalizeDocumentAccessEventBody,
-  readKeyingCanonicalJson,
-} from "@tearleads/crypto";
-import {
-  createContainerWriterProjectionFixture,
-  createMockApiClient,
-  createTestExecSql,
-} from "@tearleads/test-utils";
-import {
-  DOCUMENT_MUTATION_ERROR_CODES,
-  type DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+import type { DocumentLinkAccessEventBody } from "@tearleads/crypto";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { createLinkSetResponseFromRequest } from "../../../../test/helpers/data/documentFixtures";
 import {
-  createBlobBytesResponse,
-  createFixtureBinding,
-  createUploadedAttachmentFixture,
-} from "../../../../test/helpers/workflows/blobHydration";
-import {
-  bindingWithTargets,
+  type LocalView,
   linkLegFixture,
   linkSetRefusal,
+  seedLocalView,
 } from "../../../../test/helpers/workflows/linkSetLegFixture";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
-import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import type { DocumentLinkSetMutationFailure } from "../../../data/documents/shared/types";
-import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import { documentMayHaveAttachments } from "../../../data/persistence/documents/documentAttachmentPresence";
-import { ensureDocumentsSchema } from "../../../data/persistence/documents/internal/ensureDocumentsSchema";
-import {
-  documentAttachmentBlobProjection,
-  documentPendingAttachments,
-} from "../../../data/sqlite/schema/documentAttachmentSchema";
-import { documents } from "../../../data/sqlite/schema/documentRecordSchema";
-import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { decryptDocumentAttachmentBlob } from "../../blobs/hydration/decrypt";
-
-type LocalView =
-  | "absent"
-  | "empty"
-  | "held"
-  | "detached"
-  | "pending"
-  | "metadata";
 
 const ATTACHMENTS_CHANGED: DocumentLinkSetMutationFailure = {
   code: DOCUMENT_MUTATION_ERROR_CODES.linkAttachmentsChanged,
@@ -53,52 +19,6 @@ const ATTACHMENTS_CHANGED: DocumentLinkSetMutationFailure = {
     "Document attachments changed; retry the link with current blob keys",
   status: 409,
 };
-
-async function seedLocalView(
-  execSql: ExecSql,
-  documentId: string,
-  view: LocalView,
-): Promise<void> {
-  if (view === "absent") return;
-  await ensureDocumentsSchema(execSql);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const localId = `${documentId}-local`;
-  const now = new Date().toISOString();
-  await db
-    .insert(documents)
-    .values({
-      appKind: view === "metadata" ? "container-metadata" : DOCUMENTS_APP_KIND,
-      documentId,
-      localId,
-      updatedAt: now,
-    })
-    .run();
-  const attachment = {
-    byteLength: 1,
-    contentSha256: "digest",
-    localId,
-    mimeType: null,
-    slotId: "slot",
-    storageKey: `${localId}-bytes`,
-  };
-  if (view === "held" || view === "detached") {
-    await db
-      .insert(documentAttachmentBlobProjection)
-      .values({
-        ...attachment,
-        blobId: "blob",
-        detachedAt: view === "detached" ? now : null,
-        updatedAt: now,
-      })
-      .run();
-  }
-  if (view === "pending") {
-    await db
-      .insert(documentPendingAttachments)
-      .values({ ...attachment, createdAt: now, name: "file.txt" })
-      .run();
-  }
-}
 
 async function runLinkLeg(
   name: string,
@@ -364,121 +284,37 @@ test("a retry refused after the operation stopped being current is dropped", asy
   expect(run.result).toBeNull();
 });
 
-test("another refusal of a skipped listing keeps its own recovery path", async () => {
+test("an uncoded refusal of a skipped listing lists and retries once", async () => {
+  // A server without the code refuses an uncovered binding uncoded.
   const uncoded = { code: undefined, message: "Conflict", status: 409 };
-  const run = await runLinkLeg("skipped-listing-other-refusal", {
+  const run = await runLinkLeg("skipped-listing-uncoded-refusal", {
     refusals: [uncoded],
     view: "empty",
   });
   expect(run).toMatchObject({
-    failures: [uncoded],
+    failures: [],
+    hostReports: 0,
+    listings: 1,
+    submissions: 2,
+  });
+  expect(run.result).not.toBeNull();
+});
+
+test("a coded refusal of a skipped listing keeps its own recovery path", async () => {
+  const unavailable = {
+    code: "container_unavailable",
+    message: "Container unavailable",
+    status: 409,
+  };
+  const run = await runLinkLeg("skipped-listing-coded-refusal", {
+    refusals: [unavailable],
+    view: "empty",
+  });
+  expect(run).toMatchObject({
+    failures: [unavailable],
     hostReports: 1,
     listings: 0,
     submissions: 1,
   });
   expect(run.result).toBeNull();
-});
-
-test("a stale empty view recovers with an envelope the destination can open", async () => {
-  const fixture = await createUploadedAttachmentFixture();
-  const identity = await fixture.resolveProjectionUserKey(
-    fixture.author.signerUserId,
-  );
-  if (!identity) throw new Error("Expected fixture identity");
-  const destination = await createContainerWriterProjectionFixture({
-    containerId: "stale-view-destination",
-    encapsulationPublicKey: identity.encapsulationPublicKey,
-    organizationId: fixture.author.organizationId,
-    signerKeyFingerprint: fixture.author.signerKeyFingerprint,
-    signerPrivateKey: fixture.author.signerPrivateKey,
-    userId: fixture.author.signerUserId,
-  });
-  const documentId = fixture.writerProjection.documentId;
-  // This device holds the document but never hydrated its attachment.
-  await seedLocalView(fixture.execSql, documentId, "empty");
-  const binding = createFixtureBinding(fixture);
-  const signedRewraps: DocumentLinkAccessEventBody["blobRewraps"][] = [];
-  const primed: DocumentWriterProjectionResponse[] = [];
-  let listings = 0;
-  const linked = await createRemoteDocumentServiceFixture({
-    api: createMockApiClient({
-      getBlobBytes: async (blobId) =>
-        createBlobBytesResponse({
-          blobId,
-          encryptedBytes: fixture.stagedBlob.encryptedBytes,
-          sha256: fixture.stagedBlob.sha256,
-        }),
-      getContainerWriterProjection: async () => destination,
-      getDocumentWriterProjection: async () => fixture.writerProjection,
-      listDocumentAttachments: async () => {
-        listings += 1;
-        return [binding];
-      },
-      // The server's binding check: the active binding must be cited.
-      linkDocumentResult: async (requestDocumentId, request) => {
-        const { blobRewraps } = normalizeDocumentAccessEventBody(
-          readKeyingCanonicalJson(request.body, "link body"),
-        );
-        signedRewraps.push(blobRewraps);
-        return blobRewraps.some((rewrap) => rewrap.blobId === binding.blobId)
-          ? {
-              data: await createLinkSetResponseFromRequest(
-                requestDocumentId,
-                request,
-              ),
-              ok: true as const,
-            }
-          : linkSetRefusal(requestDocumentId, ATTACHMENTS_CHANGED);
-      },
-      primeDocumentWriterProjection: (_id, projection) => {
-        primed.push(projection);
-      },
-    }),
-    encapsulationSecretKey: fixture.secretKey,
-    execSql: fixture.execSql,
-  }).relinkRemoteDocument({
-    author: fixture.author,
-    documentId,
-    operation: "link",
-    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-    targetContainerId: destination.containerId,
-  });
-  if (!linked || !primed[0]) throw new Error("Expected the retried link");
-  expect(listings).toBe(1);
-  expect(signedRewraps.map((rewraps) => rewraps.length)).toEqual([0, 1]);
-  const destinationTargets = (signedRewraps[1]?.[0]?.targets ?? []).filter(
-    (target) => target.containerId === destination.containerId,
-  );
-  expect(destinationTargets).toHaveLength(1);
-  const writerProjection = {
-    ...primed[0],
-    authorizingContainerPaths: [destination],
-  };
-  const destinationBinding = await bindingWithTargets(
-    binding,
-    writerProjection,
-    destinationTargets.map((envelope) => ({
-      ...envelope,
-      wrappingMetadata: readCanonicalRecord(
-        envelope.wrappingMetadata,
-        "rewrap metadata",
-      ),
-    })),
-  );
-  const cold = await createTestExecSql("stale-view-destination-read");
-  try {
-    const bytes = await decryptDocumentAttachmentBlob({
-      binding: destinationBinding,
-      encryptedBytes: fixture.stagedBlob.encryptedBytes,
-      expectedDocumentId: documentId,
-      expectedSlotId: fixture.attachment.slotId,
-      execSql: cold.execSql,
-      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-      targetSecretKey: fixture.secretKey,
-      writerProjection,
-    });
-    expect(Array.from(bytes)).toEqual(Array.from(fixture.bytes));
-  } finally {
-    cold.close();
-  }
 });
