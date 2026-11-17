@@ -11,12 +11,21 @@ import {
 } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { registerIdentity } from "./registerIdentity";
 
-test("every document registration seeds keeps the provisioning commit position", async () => {
-  const { execSql, close } = await createTestExecSql("registration-commit-lsn");
+async function seededCommitLsns(
+  commitLsn: string | null,
+): Promise<{ readonly expected: string[]; readonly rows: unknown[] }> {
+  const { execSql, close } = await createTestExecSql(
+    `registration-commit-lsn-${commitLsn ?? "none"}`,
+  );
   try {
     const response = await registerIdentity({
       identityTrustDomain: "https://api.example.test",
-      apiClient: { registerUser: (...args) => respondToRegistration(args) },
+      apiClient: {
+        registerUser: async (...args) => ({
+          ...(await respondToRegistration(args)),
+          ...(commitLsn === null ? { commitLsn: null } : {}),
+        }),
+      },
       containerId: crypto.randomUUID(),
       dbClient: execSqlClientFromExecSql(execSql),
       encapsulationKeyPair: generateKemSeedAndKeyPair(),
@@ -46,35 +55,51 @@ test("every document registration seeds keeps the provisioning commit position",
         ({ metadataDocument }) => metadataDocument.id,
       ),
     ];
-    const seededDocumentIds = seeded.filter(
+    const expected = seeded.filter(
       (id): id is string => typeof id === "string",
     );
-    expect(seededDocumentIds).toHaveLength(seeded.length);
-    expect(seededDocumentIds).toHaveLength(6);
-
+    expect(expected).toHaveLength(6);
     const rows = await execSql(
       `SELECT document_id AS "documentId", last_commit_lsn AS "lastCommitLsn",
         content_key_bundle IS NOT NULL AND document_kek_targets IS NOT NULL
           AND document_manifest_bundle IS NOT NULL AS "readable"
        FROM documents WHERE document_id IS NOT NULL`,
     );
-    // Each one can skip its first read: a commit position and all three
-    // bundle fields are stored.
-    expect(
-      rows.toSorted((left, right) =>
+    return {
+      expected: expected.toSorted(),
+      rows: rows.toSorted((left, right) =>
         String(Reflect.get(left, "documentId")).localeCompare(
           String(Reflect.get(right, "documentId")),
           "en",
         ),
       ),
-    ).toEqual(
-      seededDocumentIds.toSorted().map((documentId) => ({
-        documentId,
-        lastCommitLsn: PROVISIONING_COMMIT_LSN,
-        readable: 1,
-      })),
-    );
+    };
   } finally {
     close();
   }
+}
+
+test("every document registration seeds keeps the provisioning commit position", async () => {
+  const { expected, rows } = await seededCommitLsns(PROVISIONING_COMMIT_LSN);
+  // Each one can skip its first read: a commit position and all three bundle
+  // fields are stored.
+  expect(rows).toEqual(
+    expected.map((documentId) => ({
+      documentId,
+      lastCommitLsn: PROVISIONING_COMMIT_LSN,
+      readable: 1,
+    })),
+  );
+});
+
+test("a response without a position leaves every seeded document to be read", async () => {
+  // A replayed create, or a position the server could not read after commit.
+  const { expected, rows } = await seededCommitLsns(null);
+  expect(rows).toEqual(
+    expected.map((documentId) => ({
+      documentId,
+      lastCommitLsn: null,
+      readable: 1,
+    })),
+  );
 });

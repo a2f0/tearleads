@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type {
+  CreateOrganizationRequest,
   DocumentSyncRequest,
-  ProvisionedDocumentRequest,
 } from "@tearleads/validators/request";
 import {
   isCreateOrganizationResponse,
@@ -17,25 +17,53 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
-/** A caught-up read of a seeded document, asserting the provisioning commit. */
-async function caughtUpRead(input: {
-  readonly documentRequest: ProvisionedDocumentRequest;
+interface SeededDocument {
+  readonly documentId: string;
+  readonly initialSync: DocumentSyncRequest;
+}
+
+function seededDocument(initialSync: DocumentSyncRequest): SeededDocument {
+  const documentId = Reflect.get(
+    initialSync.outgoingUpdates[0]?.writeHeader ?? {},
+    "objectId",
+  );
+  invariant(typeof documentId === "string", "expected a seeded document id");
+  return { documentId, initialSync };
+}
+
+/** Every document provisioning seeds, with the sync that seeded it. */
+function seededDocuments(body: CreateOrganizationRequest): SeededDocument[] {
+  return [
+    body.initialRootMetadataDocument.initialSync,
+    body.initialRosterProfileContainer?.initialMetadataSync,
+    body.initialRosterProfileDocument?.initialSync,
+    body.initialOrganizationMetadataContainer.initialMetadataSync,
+    body.initialOrganizationProfileDocument?.initialSync,
+    ...(body.initialSystemContainers ?? []).map(
+      (container) => container.initialMetadataSync,
+    ),
+  ].flatMap((initialSync) =>
+    initialSync ? [seededDocument(initialSync)] : [],
+  );
+}
+
+/** A first read from nothing, bounded below by the provisioning position. */
+async function firstRead(input: {
+  readonly document: SeededDocument;
   readonly minLsn: string;
   readonly user: TestUser;
 }) {
-  const initialSync = input.documentRequest.initialSync;
-  const documentId = Reflect.get(input.documentRequest.event, "objectId");
-  invariant(typeof documentId === "string", "expected document id");
+  const { initialSync } = input.document;
   const request = {
     contentKeyEpoch: initialSync.contentKeyEpoch,
     expectedLinkSetManifestHash: initialSync.expectedLinkSetManifestHash,
     expectedTargetHash: initialSync.expectedTargetHash,
-    localVersionVector: initialSync.localVersionVector,
+    localVersionVector: null,
     minLsn: input.minLsn,
     outgoingUpdates: [],
     supportsPullPagination: true,
   } satisfies DocumentSyncRequest;
-  return routeApp.request(`/documents/${documentId}/sync`, {
+  return routeApp.request(`/documents/${input.document.documentId}/sync`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${input.user.token}`,
@@ -52,6 +80,7 @@ test("the provisioning response's commit position covers every seeded document",
   const body = await createOrganizationRequestBody(user, {
     includeOrganizationProfileDocument: true,
     includeRosterProfileDocument: true,
+    includeTrashSystemContainer: true,
   });
   const response = await submitCreateOrganization(user, body);
   expect(response.status).toBe(200);
@@ -61,17 +90,18 @@ test("the provisioning response's commit position covers every seeded document",
   const minLsn = created.commitLsn;
   invariant(minLsn !== null, "expected a tracked commit position");
 
-  for (const documentRequest of [
-    body.initialOrganizationProfileDocument,
-    body.initialRosterProfileDocument,
-  ]) {
-    invariant(documentRequest, "expected a seeded profile document");
-    // Read-your-writes holds at the reported position, and a client holding
-    // the seeded state has nothing to pull.
-    const read = await caughtUpRead({ documentRequest, minLsn, user });
+  const documents = seededDocuments(body);
+  // Root, both profile containers and documents, and the Trash container.
+  expect(documents).toHaveLength(6);
+  for (const document of documents) {
+    // Read-your-writes holds at the reported position: a read from nothing
+    // returns exactly the update provisioning seeded.
+    const read = await firstRead({ document, minLsn, user });
     expect(read.status).toBe(200);
     const sync = await read.json();
     invariant(isDocumentSyncResponse(sync), "expected a document sync");
-    expect(sync.updates).toEqual([]);
+    expect(sync.updates.map((update) => update.id)).toEqual(
+      document.initialSync.outgoingUpdates.map((update) => update.id),
+    );
   }
 });
