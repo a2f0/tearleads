@@ -285,9 +285,11 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // so the unlink leg reuses it: no sync and no document projection.
       // Measured 4 (5 with the listing; main 8 before the reused proof saved
       // the sync, the document projection and a policy read). 27.3 KB sent
-      // and 22.4 KB received; keep about 10% headroom.
+      // and 22.4 KB received; served bundles leave off the state their
+      // signed bytes name (the container key copy among it): 19.9 KB
+      // received; keep about 8% headroom.
       total: 4,
-      bodyBytes: { request: 30_000, response: 25_000 },
+      bodyBytes: { request: 30_000, response: 21_500 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
