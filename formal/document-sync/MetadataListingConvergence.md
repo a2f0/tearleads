@@ -18,13 +18,14 @@ local metadata version survive, and startup requeues the debt.
 
 | Model action | Production seam |
 | --- | --- |
-| `PeerEdit` | a peer's accepted metadata write, which advances the container through `touchAcceptedSyncTargets` and publishes a hint that reaches only connected, subscribed clients |
-| `OtherTouch` | `touchContainers` for a write into the folder or a structural move |
+| `PeerEdit` | a peer's accepted metadata write, which advances the container through `touchAcceptedSyncTargets` and `advancedTimestampExpression` and publishes a hint that reaches only connected, subscribed clients |
+| `OtherTouch` | `touchContainers` for a write into the folder, or `touchContainerStructure` for a structural move |
 | `Acknowledge` | `consumePendingContainerContentsReconnectRefresh` after the interest acknowledgement advances the connection generation |
 | `BeginListing` | `refreshAllRemoteHydration` re-listing the root lane and every held lane |
 | `OweListedRead` | `remoteContainerChangedSince` in `updateExistingRemoteContainerState`, then `oweContainerMetadataRead` and `requestContainerMetadataRevalidation` |
 | `RecordListedStamp` | the hydration write in `updateExistingRemoteContainerState` recording `serverUpdatedAt` and the lane watermark |
 | `BeginRead` | `syncSingleContainerMetadata` snapshotting the signal sequence before its forced read |
+| `ResumeRead` | a pass whose metadata record still holds a pull continuation (`currentMetadataPullContinuation`), reading up to an earlier pull's bound |
 | `FinishRead` | `clearMetadataSyncQueueIfUnchanged` and `settleOwedContainerMetadataRead` after the pull |
 | `Start` | `restoreOwedContainerMetadataReads` during store initialization |
 
@@ -36,8 +37,13 @@ read. `Converges` requires that once edits stop, the client holds the server's
 version. Weak fairness covers acknowledgement, startup, the re-list steps and
 the read.
 
-Three guards are parameters with registered negative controls:
+Five guards are parameters with registered negative controls:
 
+- `StrictTimestamps = FALSE` lets an edit leave the stored timestamp unchanged,
+  as a write in the same millisecond or from an instance whose clock trails
+  would without `advancedTimestampExpression`, violating `EvidenceRetained`.
+- `SettleResumedPull = TRUE` lets a pass that resumed an earlier pull settle a
+  debt for an edit past that pull's bound, violating `EvidenceRetained`.
 - `OweBeforeRecord = FALSE` records the listed timestamp before owing the read.
   A crash in between leaves no evidence, violating `EvidenceRetained`.
 - `SettleOnlyIfUnchanged = FALSE` lets a read that began before a re-list owed
@@ -47,9 +53,9 @@ Three guards are parameters with registered negative controls:
   recorded timestamp already hides the change from later re-lists, violating
   `Converges`.
 
-The bounded configuration allows two peer edits, one other touch, one crash and
-one disconnect. TLC explores 90,449 generated states, 24,505 distinct states,
-and depth 23.
+The bounded configuration allows two peer edits, one other touch, one crash,
+one disconnect and one resumed pull. TLC explores 389,155 generated states,
+95,812 distinct states, and depth 25.
 
 The model has one container and an exact recorded baseline at the start, as
 after registration or a seeded create. It does not model the extra reads that

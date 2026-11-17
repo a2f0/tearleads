@@ -10,11 +10,13 @@ export async function requestContainerMetadataRevalidation(
   documentId: string,
 ): Promise<void> {
   await ensureContainerTables(execSql);
-  await getClientSQLitePersistenceRuntime(execSql)
-    .db.insert(containerMetadataRevalidations)
-    .values({ documentId, requestedAt: new Date().toISOString() })
-    .onConflictDoNothing()
-    .run();
+  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    await db
+      .insert(containerMetadataRevalidations)
+      .values({ documentId, requestedAt: new Date().toISOString() })
+      .onConflictDoNothing()
+      .run();
+  });
 }
 
 /** Metadata documents still owed a read, in id order. */
@@ -35,8 +37,10 @@ export async function settleContainerMetadataRevalidation(
   documentId: string,
 ): Promise<void> {
   await ensureContainerTables(execSql);
-  await getClientSQLitePersistenceRuntime(execSql)
-    .db.delete(containerMetadataRevalidations)
-    .where(eq(containerMetadataRevalidations.documentId, documentId))
-    .run();
+  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    await db
+      .delete(containerMetadataRevalidations)
+      .where(eq(containerMetadataRevalidations.documentId, documentId))
+      .run();
+  });
 }

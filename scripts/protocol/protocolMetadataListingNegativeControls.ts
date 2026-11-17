@@ -7,6 +7,22 @@ const METADATA_LISTING_CONFIG =
 
 export const METADATA_LISTING_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "metadata-listing-timestamp-stalls",
+    module: METADATA_LISTING_MODULE,
+    config: METADATA_LISTING_CONFIG,
+    constants: { StrictTimestamps: "FALSE" },
+    expect: { kind: "invariant", name: "EvidenceRetained" },
+    why: "An edit stamped in the same millisecond, or by an instance whose clock trails, leaves the listed timestamp where the client recorded it, so a lost hint has no evidence left.",
+  },
+  {
+    id: "metadata-listing-resumed-pull-settles",
+    module: METADATA_LISTING_MODULE,
+    config: METADATA_LISTING_CONFIG,
+    constants: { SettleResumedPull: "TRUE" },
+    expect: { kind: "invariant", name: "EvidenceRetained" },
+    why: "A pass that resumes an earlier paginated pull stops at that pull's upper bound and must not settle a debt for a newer edit.",
+  },
+  {
     id: "metadata-listing-records-before-owing",
     module: METADATA_LISTING_MODULE,
     config: METADATA_LISTING_CONFIG,

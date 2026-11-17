@@ -10,6 +10,7 @@
  * watermark that revealed it. A restart reloads what is still owed.
  */
 
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   listContainerMetadataRevalidations,
   requestContainerMetadataRevalidation,
@@ -71,16 +72,17 @@ export async function restoreOwedContainerMetadataReads(
   return restored;
 }
 
-/** Forget the durable debt once a completed read cleared the queued one. */
+/**
+ * Forget the durable debt once a completed read cleared the queued one. The
+ * read's own database is passed in, so a pass that outlived a database swap
+ * never settles a debt the replacement owes.
+ */
 export async function settleOwedContainerMetadataRead(
   state: MetadataRevalidationState,
-  documentId: string,
+  input: { readonly documentId: string; readonly execSql: ExecSql },
 ): Promise<void> {
-  if (state.metadataDocumentIdsNeedingSync.has(documentId)) {
+  if (state.metadataDocumentIdsNeedingSync.has(input.documentId)) {
     return;
   }
-  await settleContainerMetadataRevalidation(
-    state.runtime.infra.execSql,
-    documentId,
-  );
+  await settleContainerMetadataRevalidation(input.execSql, input.documentId);
 }

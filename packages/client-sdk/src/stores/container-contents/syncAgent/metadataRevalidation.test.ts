@@ -61,13 +61,19 @@ test("an owed metadata read survives a restart until a read pays it", async () =
 
     // A read that finished while the document is still queued, because a
     // newer signal arrived during it, leaves the debt in place.
-    await settleOwedContainerMetadataRead(after, "metadata-1");
+    await settleOwedContainerMetadataRead(after, {
+      documentId: "metadata-1",
+      execSql,
+    });
     expect(await listContainerMetadataRevalidations(execSql)).toEqual([
       "metadata-1",
     ]);
 
     after.metadataDocumentIdsNeedingSync.delete("metadata-1");
-    await settleOwedContainerMetadataRead(after, "metadata-1");
+    await settleOwedContainerMetadataRead(after, {
+      documentId: "metadata-1",
+      execSql,
+    });
     expect(await listContainerMetadataRevalidations(execSql)).toEqual([]);
     expect(await restoreOwedContainerMetadataReads(storeState(execSql))).toBe(
       0,

@@ -177,7 +177,7 @@ be remeasured and documented when an optimization changes the baseline.
 Three of the syncs in each column are
 [owed container metadata reads](./client-sync-ordering.md#container-metadata-under-lost-hints):
 the setup wrote into Canary A, Canary B and Contacts after they were last
-listed, so the first re-list shows them changed (25, 22 and 30 before).
+listed, so the first re-list shows them changed (23, 22 and 30 before).
 
 Each canary also rejects data mutations and non-200 responses, checks for
 delayed follow-up traffic before other UI actions, and tears down the pane.

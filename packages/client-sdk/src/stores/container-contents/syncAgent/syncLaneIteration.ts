@@ -5,6 +5,7 @@ import {
   syncPendingDocumentMoveIntents,
 } from "../../../workflows/container-contents/documentMove/documentMoveIntentSync";
 import { syncContainerMetadataState } from "../../../workflows/container-contents/metadata";
+import { currentMetadataPullContinuation } from "../../../workflows/container-contents/metadata/metadataPersistence";
 import type {
   ContainerState,
   RemoteContainerHydrationHost,
@@ -158,6 +159,12 @@ async function syncSingleContainerMetadata(input: {
   const { containerState, encapsulationKeyPair, host, isCurrent, state } =
     input;
   const metadataDocumentId = containerState.record.documentId;
+  const readExecSql = state.runtime.infra.execSql;
+  // A pass that resumes an earlier pull reads only up to that pull's upper
+  // bound, which can predate a signal raised since; it keeps the signal.
+  const resumesEarlierPull =
+    currentMetadataPullContinuation(containerState) !== null ||
+    containerState.record.pullContinuationRecoveryRequired === true;
   // Snapshot this signal before the GET so a mid-pass event survives clearing.
   const consumedSeqById = new Map<string, number>();
   if (typeof metadataDocumentId === "string") {
@@ -203,18 +210,21 @@ async function syncSingleContainerMetadata(input: {
     return;
   }
 
-  for (const id of [metadataDocumentId, synced.record.documentId]) {
-    if (typeof id === "string") {
-      clearMetadataSyncQueueIfUnchanged({
-        consumedSeqById,
-        id,
-        needingSync: state.metadataDocumentIdsNeedingSync,
-        seqById: state.metadataSyncSignalSeqById,
-      });
-      // The sync pulled every update this client lacked, so a read a listing
-      // owed is paid unless a newer signal queued the document again.
-      await settleOwedContainerMetadataRead(state, id);
-    }
+  for (const id of new Set([metadataDocumentId, synced.record.documentId])) {
+    if (typeof id !== "string" || resumesEarlierPull) continue;
+    clearMetadataSyncQueueIfUnchanged({
+      consumedSeqById,
+      id,
+      needingSync: state.metadataDocumentIdsNeedingSync,
+      seqById: state.metadataSyncSignalSeqById,
+    });
+    // The sync pulled every update this client lacked, so a read a listing
+    // owed is paid unless a newer signal queued the document again.
+    if (!isCurrent()) return;
+    await settleOwedContainerMetadataRead(state, {
+      documentId: id,
+      execSql: readExecSql,
+    });
   }
   // syncContainerMetadataState settles its detached candidate into this live
   // object while preserving any metadata edit that completed or queued during

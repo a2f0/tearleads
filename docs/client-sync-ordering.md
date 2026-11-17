@@ -121,13 +121,18 @@ which the container tree listing reports. Recovery uses that:
   container's metadata document is owed one read. Listing timestamps carry
   three or six fractional digits and are compared at microseconds; a missing or
   unreadable timestamp counts as changed.
+- Strictly advancing timestamps. The API advances a container's `updatedAt` to
+  the write time, or one microsecond past its stored value when that is not
+  later, so a write in the same millisecond, or on an instance whose clock
+  trails the last writer's, still moves it.
 - Durability. Hydration queues the forced read in memory and then writes it to
   `container_metadata_revalidations`, before it records the new timestamp and
   lane watermark. A restart that interrupts the read reloads the debt instead
   of losing the evidence.
 - Settling. A completed sync pulls every update the client lacks, so it settles
   the debt, unless a newer signal queued the document while the read was in
-  flight.
+  flight. A pass that resumes an earlier paginated pull reads only up to that
+  pull's upper bound, so it settles nothing; a fresh pull afterwards does.
 - Coverage. Reconnect and restart re-list the root lane and every held lane, so
   either one recovers a lost metadata hint. The forced read uses the stored
   commit position as its floor, as a hint-forced read does, and never waits on

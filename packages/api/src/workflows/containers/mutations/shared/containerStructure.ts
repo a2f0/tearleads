@@ -3,7 +3,11 @@ import { containers } from "@tearleads/api-shared/schema";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { eq, sql } from "drizzle-orm";
-import { intExpression, uuidValue } from "../../../../utils/postgresSql";
+import {
+  advancedTimestampExpression,
+  intExpression,
+  uuidValue,
+} from "../../../../utils/postgresSql";
 import {
   ContainerMutationError,
   containerManifestAlreadyExists,
@@ -119,7 +123,9 @@ async function touchContainerStructure(
 ): Promise<StoredContainerRow> {
   const [updated] = await executor
     .update(containers)
-    .set({ updatedAt })
+    .set({
+      updatedAt: advancedTimestampExpression(containers.updatedAt, updatedAt),
+    })
     .where(eq(containers.id, containerId))
     .returning({
       createdAt: containers.createdAt,
