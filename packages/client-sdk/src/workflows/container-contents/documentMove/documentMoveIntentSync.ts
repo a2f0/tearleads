@@ -20,6 +20,7 @@ import type { ContainerContentsProjectionUserKeyResolver } from "../projectionKe
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
+import { isMoveDestinationSyncBlocked } from "./documentMoveBillingPause";
 import {
   deniedReplayMatchesGeneration,
   markDeniedReplayGeneration,
@@ -249,30 +250,6 @@ async function resolveMoveIntentPreflight(input: {
   return { existingDocument };
 }
 
-/**
- * Whether a destination's organization is billing-gated. The preflight asks
- * before the request, but the gate learns of a block only from a 402, so a
- * refused move may itself be the first one. Asked again before the refusal is
- * recorded, it holds the intent with no error as the preflight would
- * (sync-edge-cases row 19).
- */
-function isMoveDestinationSyncBlocked(input: {
-  intent: DocumentMoveIntentRecord;
-  isRemoteSyncBlocked: (organizationId: string) => boolean;
-  state: DocumentMoveIntentSyncState;
-}): boolean {
-  return [
-    input.intent.targetContainerId,
-    ...(input.intent.additionalLinkContainerIds ?? []),
-  ].some((targetId) => {
-    const target = input.state.containersById.get(targetId);
-    return (
-      target !== undefined &&
-      input.isRemoteSyncBlocked(target.container.organizationId)
-    );
-  });
-}
-
 async function recordRejectedDocumentMove(input: {
   failure: DocumentMoveFailureState;
   intent: DocumentMoveIntentRecord;
@@ -314,6 +291,7 @@ async function settleMovedDocumentIntent<TRuntime>(input: {
   host: DocumentMoveIntentSyncHost<TRuntime>;
   intent: DocumentMoveIntentRecord;
   isCurrent: () => boolean;
+  isSyncBlocked: () => boolean;
   moved: NonNullable<Awaited<ReturnType<typeof moveRemoteContainerDocument>>>;
   state: DocumentMoveIntentSyncState;
   unavailable: boolean;
@@ -340,6 +318,8 @@ async function settleMovedDocumentIntent<TRuntime>(input: {
     return "failed";
   }
   if (moved.status === "partial") {
+    // An unlink refused by a billing pause keeps its link and no error.
+    if (input.isSyncBlocked()) return "partial";
     await recordPendingDocumentMoveIntentError({
       // An unlink refused for permissions parks like any other denied
       // move (row 7); other partials keep row 15's replay.
@@ -382,6 +362,12 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
     return preflight.result;
   }
   const { existingDocument } = preflight;
+  const isSyncBlocked = () =>
+    isMoveDestinationSyncBlocked({
+      containersById: state.containersById,
+      intent: available.intent,
+      isRemoteSyncBlocked: input.isRemoteSyncBlocked,
+    });
 
   try {
     const outcome = await moveWithVanishedContainerRefresh({
@@ -402,8 +388,7 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
     });
     if (outcome === "abandoned" || !input.isCurrent()) return "abandoned";
     if (!outcome.moved) {
-      if (isMoveDestinationSyncBlocked({ ...input, intent: available.intent }))
-        return "blocked";
+      if (isSyncBlocked()) return "blocked";
       await recordRejectedDocumentMove({
         failure: outcome.failure,
         intent,
@@ -418,6 +403,7 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
       host,
       intent,
       isCurrent: input.isCurrent,
+      isSyncBlocked,
       moved: available.deferred
         ? { ...outcome.moved, status: "partial" }
         : outcome.moved,
