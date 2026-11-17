@@ -222,7 +222,11 @@ separately. The API retains prior envelope sets by target hash; updating the
 latest set never deletes an issued historical wrap. Link/unlink events carry
 signed `blobRewraps` and atomically install destination envelopes with the
 document's new links (see
-[document link protocol](../document-link-and-sync-protocol.md)).
+[document link protocol](../document-link-and-sync-protocol.md)). The API
+checks the cited blobs against the active bindings under the document head and
+refuses a mismatch with `409 document_link_attachments_changed`. A client whose
+local view holds no attachment row for the document may therefore cite none
+without listing; on that refusal it lists afresh and retries once.
 
 Attachment hydration isolates individual download and verification failures so
 one unavailable or invalid binding cannot suppress unrelated attachments.

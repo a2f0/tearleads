@@ -294,7 +294,6 @@ test("hasStartupContainerSyncWork detects a recorded sync failure", async () => 
       {
         attemptedAt: "2026-07-27T00:00:00.000Z",
         message: "Remote revalidation failed: container unavailable (409)",
-        status: 409,
       },
     );
     await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);
