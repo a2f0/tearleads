@@ -17,6 +17,8 @@ export function createMoveIntentSyncState(input: {
   onProjectionRequest?: () => void;
   persistence: ContainerMoveIntentSyncState["persistence"];
   projectionError?: unknown;
+  /** Serve no projection instead of throwing: the move returns nothing. */
+  projectionUnavailable?: boolean;
 }): ContainerMoveIntentSyncState {
   const execSql: ExecSql = async () => [];
   return {
@@ -28,6 +30,7 @@ export function createMoveIntentSyncState(input: {
       apiClient: {
         getContainerWriterProjection: () => {
           input.onProjectionRequest?.();
+          if (input.projectionUnavailable) return Promise.resolve(null);
           if (input.projectionError !== undefined) {
             throw input.projectionError;
           }

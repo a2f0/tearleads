@@ -55,11 +55,11 @@ export async function runQueuedDocumentMoveFixture(input: {
   beforeLink?: ((execSql: ExecSql) => Promise<void>) | undefined;
   beforeReplay?: ((execSql: ExecSql) => Promise<void>) | undefined;
   extraLocalLink?: boolean | undefined;
+  isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   containerProjectionFailure?: QueuedDocumentMoveFailure | undefined;
   /**
-   * Which container's writer-projection fetches fail with
-   * `containerProjectionFailure` (default: the trash destination). Other
-   * containers keep resolving normally.
+   * Whose writer-projection fetches fail with `containerProjectionFailure`
+   * (default: the trash destination); other containers resolve normally.
    */
   containerProjectionFailureFor?: "root" | "trash" | undefined;
   linkFailure?: QueuedDocumentMoveFailure | undefined;
@@ -446,7 +446,7 @@ export async function runQueuedDocumentMoveFixture(input: {
         isCreatePending: () => false,
         host,
         isCurrent: () => true,
-        isRemoteSyncBlocked: () => false,
+        isRemoteSyncBlocked: input.isRemoteSyncBlocked ?? (() => false),
         state,
       });
       passes.push({

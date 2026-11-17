@@ -249,6 +249,30 @@ async function resolveMoveIntentPreflight(input: {
   return { existingDocument };
 }
 
+/**
+ * Whether a destination's organization is billing-gated. The preflight asks
+ * before the request, but the gate learns of a block only from a 402, so a
+ * refused move may itself be the first one. Asked again before the refusal is
+ * recorded, it holds the intent with no error as the preflight would
+ * (sync-edge-cases row 19).
+ */
+function isMoveDestinationSyncBlocked(input: {
+  intent: DocumentMoveIntentRecord;
+  isRemoteSyncBlocked: (organizationId: string) => boolean;
+  state: DocumentMoveIntentSyncState;
+}): boolean {
+  return [
+    input.intent.targetContainerId,
+    ...(input.intent.additionalLinkContainerIds ?? []),
+  ].some((targetId) => {
+    const target = input.state.containersById.get(targetId);
+    return (
+      target !== undefined &&
+      input.isRemoteSyncBlocked(target.container.organizationId)
+    );
+  });
+}
+
 async function recordRejectedDocumentMove(input: {
   failure: DocumentMoveFailureState;
   intent: DocumentMoveIntentRecord;
@@ -378,6 +402,8 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
     });
     if (outcome === "abandoned" || !input.isCurrent()) return "abandoned";
     if (!outcome.moved) {
+      if (isMoveDestinationSyncBlocked({ ...input, intent: available.intent }))
+        return "blocked";
       await recordRejectedDocumentMove({
         failure: outcome.failure,
         intent,
