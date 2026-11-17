@@ -15,15 +15,30 @@ import { MockWorker } from "../test/helpers/mockWorker";
 import { enableSystemMonitorDeveloperMode } from "../test/helpers/systemMonitorTestPreferences";
 import { App } from "./App";
 import { APP_HOST_PROFILES } from "./host/AppHostConfig";
+import { systemMonitorModeStorageKey } from "./mini-apps/system-monitor/systemMonitorMode";
 import {
   appFeatureFlagStorageKey,
   saveAppFeatureFlag,
 } from "./providers/feature-flags/appFeatureFlags";
 
+const browser = window as typeof window & {
+  happyDOM: { setURL: (url: string) => void };
+};
+const initialUrl = window.location.href;
+
 afterEach(() => {
   cleanup();
   globalThis.localStorage.clear();
+  browser.happyDOM.setURL(initialUrl);
 });
+
+function windowTitles(pane: Element | null): Array<string | null> {
+  return [...(pane?.querySelectorAll(".window") ?? [])].map(
+    (windowElement) =>
+      windowElement.querySelector(".window-titlebar-title")?.textContent ??
+      null,
+  );
+}
 
 // A no-op WebSocket so the runtime's event socket never reaches the network in
 // these full-app smoke tests (registration/sync run offline here).
@@ -83,6 +98,63 @@ test("desktop App defaults to the tablet shell and can switch to windows", () =>
   expect(view.container.querySelectorAll(".pane-hidden .window")).toHaveLength(
     0,
   );
+  view.unmount();
+});
+
+test("switching to windows opens the URL's app in front of Explorer", async () => {
+  browser.happyDOM.setURL("http://localhost/app/system-monitor/status");
+  const view = render(
+    <App hostConfig={createTestAppHostConfig({ navigationMode: undefined })} />,
+  );
+  expect(view.container.querySelector(".window")).toBeNull();
+
+  fireEvent.click(
+    view.getByRole("button", { name: "Switch to windowed layout" }),
+  );
+
+  const pane = view.container.querySelector(".pane-left:not(.pane-hidden)");
+  expect(windowTitles(pane)).toEqual(["Explorer", "System Monitor"]);
+  const [explorer, monitor] = [
+    ...(pane?.querySelectorAll<HTMLElement>(".window") ?? []),
+  ];
+  if (!explorer || !monitor) throw new Error("Expected two windows.");
+  expect(Number(monitor.style.zIndex)).toBeGreaterThan(
+    Number(explorer.style.zIndex),
+  );
+  const statusTab = await within(monitor).findByRole("tab", { name: "Status" });
+  expect(statusTab.getAttribute("aria-selected")).toBe("true");
+  expect(window.location.pathname).toBe("/app/system-monitor/status");
+  view.unmount();
+});
+
+test("a pinned System Monitor answers its URL from the desktop", () => {
+  browser.happyDOM.setURL("http://localhost/app/system-monitor");
+  pinWindowedSystemMonitors();
+  const view = render(<App hostConfig={createTestAppHostConfig()} />);
+
+  const pane = view.container.querySelector(".pane-left:not(.pane-hidden)");
+  expect(windowTitles(pane)).toEqual(["Explorer"]);
+  expect(pane?.querySelector(".pane-content")).not.toBeNull();
+  expect(
+    globalThis.localStorage.getItem(systemMonitorModeStorageKey("left")),
+  ).toBe("pinned");
+  view.unmount();
+});
+
+test("only the workspace shown at the entry opens the URL's app", () => {
+  browser.happyDOM.setURL("http://localhost/app/system-monitor");
+  saveAppFeatureFlag(appFeatureFlagStorageKey("workspace-switcher"), "enabled");
+  const view = render(<App hostConfig={createTestAppHostConfig()} />);
+  const hiddenPane = view.container.querySelector<HTMLElement>(".pane-hidden");
+  const visiblePane = view.container.querySelector<HTMLElement>(
+    ".pane:not(.pane-hidden)",
+  );
+  if (!hiddenPane || !visiblePane)
+    throw new Error("Expected two workspace panes.");
+  expect(windowTitles(visiblePane)).toEqual(["Explorer", "System Monitor"]);
+  expect(windowTitles(hiddenPane)).toEqual([]);
+  fireEvent.click(within(visiblePane).getByRole("button", { name: "2" }));
+  expect(windowTitles(hiddenPane)).toEqual(["Explorer"]);
   view.unmount();
 });
 

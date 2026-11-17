@@ -123,9 +123,9 @@ export function Pane({
       <WindowStateProvider>
         <AppNavigationProvider
           defaultWindowEnabled={windowedVisible}
-          identityLinkLaunchEnabled={active}
           mode={navigationMode}
           launcher={MINI_APP_LAUNCHER}
+          routeWindowEnabled={active}
         >
           <MiniAppBusProvider>
             <PaneMiniAppLauncherBridge active={active} />

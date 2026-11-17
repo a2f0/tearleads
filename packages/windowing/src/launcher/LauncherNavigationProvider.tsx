@@ -39,7 +39,7 @@ import {
   type LauncherRoute,
   parseLauncherRoute,
 } from "./routePaths";
-import { useDefaultWindow } from "./useDefaultWindow";
+import { useWindowedEntryWindows } from "./useWindowedEntryWindows";
 
 export interface LauncherNavigationActions<AppId extends string = string> {
   getMiniAppHref: (
@@ -76,6 +76,11 @@ interface LauncherNavigationProviderProps extends PropsWithChildren {
    * positions or sizes. Read when a window opens.
    */
   placeWindow?: PlaceMiniAppWindow | undefined;
+  /**
+   * Whether windowed mode opens the app the browser's URL names. Defaults to
+   * true; a host with several launchers on one page enables it for one.
+   */
+  routeWindowEnabled?: boolean | undefined;
 }
 
 interface LauncherNavigationRuntime {
@@ -125,6 +130,7 @@ function LauncherNavigationWindowRuntimeBridge({
   mode,
   openMiniApp,
   placeWindow,
+  routeWindowEnabled,
   runtimeRef,
 }: {
   defaultWindowEnabled: boolean;
@@ -132,6 +138,7 @@ function LauncherNavigationWindowRuntimeBridge({
   mode: NavigationMode;
   openMiniApp: LauncherNavigationActions["openMiniApp"];
   placeWindow: PlaceMiniAppWindow | undefined;
+  routeWindowEnabled: boolean;
   runtimeRef: MutableRefObject<LauncherNavigationRuntime>;
 }) {
   const { bringToFront, create, restore, updateRoute } = useWindowActions();
@@ -157,11 +164,12 @@ function LauncherNavigationWindowRuntimeBridge({
     windows,
   ]);
 
-  useDefaultWindow({
+  useWindowedEntryWindows({
+    defaultWindowEnabled,
     definition,
-    enabled: defaultWindowEnabled,
     mode,
     openMiniApp,
+    routeWindowEnabled,
     windowCount: windows.length,
   });
 
@@ -326,8 +334,9 @@ function useLauncherNavigationActionValue(
 /**
  * Navigation for a launcher's mini-apps, in either mode. In `windowed` mode,
  * opening an app opens or raises its window (inside a
- * {@link WindowStateProvider}); in `routed` mode it navigates the browser to
- * the app's route, `/app/<app id>/…`, which the routed shell shows.
+ * {@link WindowStateProvider}), and entering the mode opens the app the
+ * browser's URL names; in `routed` mode it navigates the browser to the app's
+ * route, `/app/<app id>/…`, which the routed shell shows.
  */
 export function LauncherNavigationProvider({
   children,
@@ -335,6 +344,7 @@ export function LauncherNavigationProvider({
   definition,
   mode,
   placeWindow,
+  routeWindowEnabled = true,
 }: LauncherNavigationProviderProps) {
   const runtimeRef = useRef<LauncherNavigationRuntime>({
     actions: {
@@ -381,6 +391,7 @@ export function LauncherNavigationProvider({
           mode={mode}
           openMiniApp={actions.openMiniApp}
           placeWindow={placeWindow}
+          routeWindowEnabled={routeWindowEnabled}
           runtimeRef={runtimeRef}
         />
         {children}
