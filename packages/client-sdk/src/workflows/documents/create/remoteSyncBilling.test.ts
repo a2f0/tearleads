@@ -244,3 +244,58 @@ test("a block on writes alone still pulls a document the device already has", as
   expect(pulled.submissionCount).toBe(1);
   expect(pulled.synced).not.toBeNull();
 });
+
+test("an interrupted pull restarts while paused and leaves queued writes held", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql("held-pull-recovery");
+  const outgoingUpdateCounts: number[] = [];
+  const materializedUpdateIds: string[][] = [];
+
+  const synced = await syncRemoteDocument({
+    apiClient: createMockApiClient({
+      getDocumentWriterProjection: async () => writerProjection,
+      syncDocument: async (documentId, request) => {
+        outgoingUpdateCounts.push(request.outgoingUpdates.length);
+        const plan = await buildDocumentSyncPlan({
+          author,
+          contentKeyBundle: writerProjection.contentKeyBundle,
+          documentId,
+          documentKekTargets: writerProjection.documentKekTargets,
+          documentManifest: writerProjection.documentManifest,
+          localVersionVector: null,
+        });
+        return createSyncResponse({ ...plan, request });
+      },
+    }),
+    author,
+    documentId: writerProjection.documentId,
+    execSql,
+    // Paused: writes and routine pulls are both held.
+    isRemoteSyncBlocked: () => true,
+    localVersionVector: null,
+    minLsn: "0/1",
+    onOutgoingUpdatesMaterialized: (updateIds) => {
+      materializedUpdateIds.push([...updateIds]);
+    },
+    pendingUpdates: [createPendingUpdateRecord()],
+    // The pull's cursor expired part way, so it has to start over.
+    pullRecoveryRequired: true,
+    resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  close();
+
+  // The pull ran, read-only: the queued write was neither sent nor settled.
+  expect(outgoingUpdateCounts).toEqual([0]);
+  expect(materializedUpdateIds.flat()).toEqual([]);
+  expect(synced).not.toBeNull();
+  expect(synced?.settledPendingUpdateIds).toEqual([]);
+});
