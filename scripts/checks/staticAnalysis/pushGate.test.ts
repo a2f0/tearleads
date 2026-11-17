@@ -76,6 +76,8 @@ test("CI's check:fast runs every check the push gate runs", async () => {
     expect(script, label).toBeDefined();
     expect(covered.has(script ?? ""), label).toBe(true);
   }
+  // Too slow for the gate, so CI's Lint job is the only automatic run.
+  expect(fast).toContain("lint:architecture");
 });
 
 function stubFixture() {
