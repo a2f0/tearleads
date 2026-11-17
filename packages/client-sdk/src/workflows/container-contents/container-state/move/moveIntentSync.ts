@@ -22,6 +22,7 @@ import {
   unacknowledgedAcceptedMove,
   unpersistedAcceptedMove,
 } from "./acceptedMoveSettlement";
+import { settleRefusedContainerMove } from "./moveIntentRefusal";
 
 type MoveIntentSyncResult = "abandoned" | "blocked" | "failed" | "moved";
 
@@ -320,15 +321,11 @@ async function movePendingRemoteContainer(input: {
         return abandonAppliedMove();
       }
       if (remoteMoveApplied) return unacknowledgedAcceptedMove(syncInput);
-      await recordPendingMoveIntentError({
-        containerId: intent.containerId,
-        expectedIntentId: intent.id,
-        expectedUpdatedAt: intent.updatedAt,
-        isCurrent: syncInput.isCurrent,
-        message: "Remote container move was rejected or unavailable",
-        state,
-      });
-      return currentMoveResult(syncInput.isCurrent, "failed");
+      const { organizationId } = containerState.container;
+      return currentMoveResult(
+        syncInput.isCurrent,
+        await settleRefusedContainerMove(syncInput, organizationId),
+      );
     }
     remoteMoveApplied = true;
     const moved =

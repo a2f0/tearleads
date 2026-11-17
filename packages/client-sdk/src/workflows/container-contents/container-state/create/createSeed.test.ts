@@ -225,6 +225,7 @@ async function runReplayedSeededCreate(
     hint: MetadataHint,
   ) => Promise<CreateResult>,
   tearDownOnSeedEncrypt = false,
+  isRemoteSyncBlocked: (organizationId: string) => boolean = () => false,
 ) {
   const parent = await createParentProjection();
   const parentContainerId = parent.projection.containerId;
@@ -261,6 +262,7 @@ async function runReplayedSeededCreate(
     updatedAt: "2026-10-19T00:00:00.000Z",
   };
   const persisted: unknown[] = [];
+  const recordedErrors: string[] = [];
   let current = true;
   // The seed's payload is first read inside its encryption.
   const queuedSeed = tearDownOnSeedEncrypt
@@ -282,7 +284,9 @@ async function runReplayedSeededCreate(
       listPendingCreateIntents: async () => [intent],
       listPendingUpdates: async (_execSql, containerId) =>
         containerId === childContainerId ? [queuedSeed] : [],
-      recordCreateIntentRevisionError: async () => undefined,
+      recordCreateIntentRevisionError: async (_execSql, error) => {
+        recordedErrors.push(error.message);
+      },
     },
     locallyAcceptedMetadataUpdateIds,
     plannedMetadataDocumentIds,
@@ -332,15 +336,17 @@ async function runReplayedSeededCreate(
         },
       },
       isCurrent: () => current,
-      isRemoteSyncBlocked: () => false,
+      isRemoteSyncBlocked,
       requestRemoteReconciliation: () => undefined,
       state,
     });
     return {
       created,
       locallyAcceptedMetadataUpdateIds,
+      organizationId: parent.projection.organizationId,
       persisted,
       plannedMetadataDocumentIds,
+      recordedErrors,
       requests,
       seed,
     };
@@ -433,4 +439,39 @@ test("a container create torn down while its seed encrypts submits nothing", asy
   );
   expect(result.requests).toEqual([]);
   expect(result.persisted).toEqual([]);
+});
+
+// Sync-edge-cases row 19. The billing gate learns of a block only from a 402,
+// so the preflight passes and the refused create is itself the first signal.
+test("a replayed create refused by the organization's first 402 stays pending with no error", async () => {
+  const gateChecks: string[] = [];
+  let paymentRequired = false;
+  const result = await runReplayedSeededCreate(
+    "container-create-billing-pause",
+    () => {
+      paymentRequired = true;
+      return Promise.resolve(failure(402));
+    },
+    false,
+    (organizationId) => {
+      gateChecks.push(organizationId);
+      return paymentRequired;
+    },
+  );
+  expect(result.created).toBe(0);
+  expect(result.requests).toHaveLength(2);
+  expect(result.persisted).toEqual([]);
+  expect(result.recordedErrors).toEqual([]);
+  // Asked before the request and again after its refusal, for the same org.
+  expect(gateChecks).toEqual([result.organizationId, result.organizationId]);
+});
+
+test("a replayed create refused while the organization can sync records the refusal", async () => {
+  const result = await runReplayedSeededCreate("container-create-refused", () =>
+    Promise.resolve(failure(402)),
+  );
+  expect(result.created).toBe(0);
+  expect(result.recordedErrors).toEqual([
+    "Remote container create was rejected or unavailable",
+  ]);
 });

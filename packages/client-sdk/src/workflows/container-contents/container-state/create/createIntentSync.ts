@@ -23,6 +23,7 @@ import {
   deferTooDeepCreate,
   recordRefusedTooDeepCreate,
 } from "./createIntentDepth";
+import { settleRefusedContainerCreate } from "./createIntentRefusal";
 import {
   loadMetadataSeedUpdate,
   withPlannedMetadataDocumentId,
@@ -204,6 +205,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
 async function settleRemoteContainerCreate(input: {
   containerState: ContainerState;
   created: Awaited<ReturnType<typeof createRemoteContainer>>;
+  organizationId: string;
   syncInput: ContainerCreateIntentSyncInput;
 }): Promise<CreateIntentSyncResult> {
   const { containerState, created, syncInput } = input;
@@ -218,17 +220,10 @@ async function settleRemoteContainerCreate(input: {
     return "blocked";
   }
   if (!created) {
-    await state.persistence.recordCreateIntentRevisionError(
-      state.runtime.infra.execSql,
-      {
-        containerId: intent.containerId,
-        expectedIntentId: intent.id,
-        expectedUpdatedAt: intent.updatedAt,
-        message: "Remote container create was rejected or unavailable",
-        stillCurrent: syncInput.isCurrent,
-      },
+    return currentCreateResult(
+      syncInput.isCurrent,
+      await settleRefusedContainerCreate(syncInput, input.organizationId),
     );
-    return currentCreateResult(syncInput.isCurrent, "failed");
   }
   if (!state.containersById.has(intent.containerId)) {
     // A same-generation local delete wins; discard the remote orphan instead
@@ -327,6 +322,7 @@ async function createPendingRemoteContainer(input: {
     return await settleRemoteContainerCreate({
       containerState,
       created,
+      organizationId: parentState.container.organizationId,
       syncInput,
     });
   } catch (error) {
