@@ -1,0 +1,47 @@
+.explorer-document-history-timeline {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.explorer-document-history-transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.explorer-document-history-slider {
+  flex: 1 1 8rem;
+  min-width: 0;
+  /* The native thumb is small; the row height gives it a touch target. */
+  min-height: var(--control-height);
+}
+
+.explorer-document-history-position {
+  flex: 0 0 auto;
+  color: var(--color-muted-foreground);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.explorer-document-history-caption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-sm);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.explorer-document-history-caption span {
+  color: var(--color-muted-foreground);
+}
+
+.explorer-document-history-newer,
+.explorer-document-history-restore {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}

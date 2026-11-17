@@ -356,7 +356,7 @@ requested remote identity. That result refuses a second birth; it does not
 adopt, overwrite, or merge the alias. A host reopening a known profile must
 resolve its actual persisted local ID, use the captured workflow runtime, and
 open without creation seeds. Scope, readiness, and access checks still apply.
-See [custom document persistence](../custom-document-persistence.md).
+See [custom document persistence](../custom-document-persistence.md) and [`documents.openHistory`](./document-history.md).
 
 ### Unsaved document writes
 

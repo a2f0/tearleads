@@ -418,15 +418,19 @@ export function useExplorerOrganizationPresentation(input: {
   readonly revision: number;
   readonly scope: ExplorerOrganizationReadModelScope | null;
 } {
+  // Roster profile names label writers in document info and history, and
+  // share recipients and user grants in container info.
+  const labelsPeople =
+    input.view === "container-info" ||
+    input.view === "document-info" ||
+    input.view === "document-history";
   const demand = useExplorerOrganizationReadModelDemand({
     appData: input.appData,
-    enabled: input.view === "container-info" || input.view === "document-info",
+    enabled: labelsPeople,
   });
-  // Roster profile names label writers in document info and share
-  // recipients and user grants in container info.
   const resolveAttributionUserLabel = useExplorerAttributionUserLabels({
     appData: input.appData,
-    enabled: input.view === "container-info" || input.view === "document-info",
+    enabled: labelsPeople,
     readModelProjection: demand.projection,
     readModelRevision: demand.revision,
   });

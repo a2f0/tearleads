@@ -20,8 +20,10 @@ import {
 import { emitPersistedDocumentDeletion } from "../../stores/documents/registry";
 import {
   createDocumentsWorkflowRuntime,
+  type DocumentHistory,
   defaultDocumentsPersistence,
   deletePersistedDocument,
+  openDocumentHistory,
   reclaimDocumentOrphanBlobs,
 } from "../../workflows/documents";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
@@ -34,6 +36,17 @@ export type {
   DocumentsRuntime,
   PersistedDocumentListener,
 } from "../../stores/documents";
+
+export type {
+  DocumentHistory,
+  DocumentHistoryChange,
+  DocumentHistoryRowChange,
+  DocumentHistoryStop,
+  DocumentHistoryTextChange,
+  DocumentHistoryVersion,
+  DocumentHistoryVersionEntry,
+  DocumentHistoryView,
+} from "../../workflows/documents";
 
 export type DocumentSortDirection = DocumentSummarySortDirection;
 export type DocumentSortKey = DocumentSummarySortKey;
@@ -74,6 +87,12 @@ export interface Documents {
     input?: OpenDocumentInput | undefined,
     options?: OpenDocumentOptions | undefined,
   ): DocumentStore;
+  /**
+   * Open a read-only replay of a document's durable local history. Resolves to
+   * null while the database is not ready or the document has no history yet.
+   * The caller must `close()` the result.
+   */
+  openHistory(localId: string): Promise<DocumentHistory | null>;
   subscribe(
     listener: PersistedDocumentListener,
     options?: DocumentSubscriptionOptions | undefined,
@@ -179,6 +198,21 @@ class DocumentsService implements Documents {
         remoteSyncMode: options.remoteSyncMode,
       },
     );
+  }
+
+  async openHistory(localId: string): Promise<DocumentHistory | null> {
+    const runtime = this.workflowRuntime();
+    if (runtime.infra.dbStatus !== "ready") {
+      return null;
+    }
+
+    await this.ensureSchema(runtime.infra.execSql);
+    return openDocumentHistory({
+      documentProjectors: runtime.infra.documentProjectors,
+      execSql: runtime.infra.execSql,
+      localId,
+      persistence: defaultDocumentsPersistence,
+    });
   }
 
   subscribe(

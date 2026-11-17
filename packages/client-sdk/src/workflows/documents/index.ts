@@ -54,6 +54,20 @@ export {
   documentWriterProjectionFromCreateResponse,
 } from "./create";
 export {
+  type DocumentHistory,
+  type DocumentHistoryStop,
+  type DocumentHistoryVersion,
+  type DocumentHistoryVersionEntry,
+  type DocumentHistoryView,
+  openDocumentHistory,
+} from "./history/documentHistory";
+export {
+  type DocumentHistoryChange,
+  type DocumentHistoryRowChange,
+  type DocumentHistoryTextChange,
+  isEmptyDocumentHistoryChange,
+} from "./history/documentHistoryChange";
+export {
   importDocumentHistoryTailUpdates,
   loadPersistedDocumentContent,
   mergePersistedDocumentHistory,

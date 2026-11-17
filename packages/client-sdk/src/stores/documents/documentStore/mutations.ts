@@ -64,7 +64,7 @@ function isDocumentLocalWriteCurrent(
   );
 }
 
-function settleDocumentLocalWrite(
+export function settleDocumentLocalWrite(
   state: DocumentStoreState,
   writeGeneration: number,
 ): void {

@@ -157,7 +157,8 @@ export function useExplorerPanelState(params: {
       const route = routeState.route;
       if (
         route.view !== "document-selection" &&
-        route.view !== "document-info"
+        route.view !== "document-info" &&
+        route.view !== "document-history"
       ) {
         return loadDocumentSummary(localId);
       }
