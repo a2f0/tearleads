@@ -3,9 +3,10 @@ import {
   createDocumentWriterPublicKeyResolver,
   type DocumentRotationProofMode,
   type DocumentSyncPullContinuation,
+  RemoteDocumentService,
   readPullContinuation,
   resolveDocumentCreateAuthor,
-  syncRemoteDocument,
+  type SyncRemoteDocumentResult,
   validateDocumentSyncUpdateImports,
 } from "../../../../workflows/documents";
 
@@ -93,10 +94,7 @@ function rotationIncomingUpdateIsolation(input: {
         input.generation,
       ),
     validateIncomingUpdates: async (
-      result: Pick<
-        NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>,
-        "decryptedUpdates" | "response"
-      >,
+      result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
     ) => {
       await validateDocumentSyncUpdateImports({
         currentDocument: input.currentDocument,
@@ -138,13 +136,18 @@ async function pullVerifiedRawHistoryForRotation(input: {
 
   while (true) {
     let abandonReason: string | null = null;
-    const synced = await syncRemoteDocument({
-      apiClient: input.state.runtime.apiClient,
+    // Each page reads the live runtime, as the bag it replaced did; the key
+    // stays the one the prerequisites checked.
+    const remoteDocuments = new RemoteDocumentService({
+      api: input.state.runtime.apiClient,
+      encapsulationSecretKey: encapsulationKeyPair.secretKey,
+      execSql: input.state.runtime.infra.execSql,
+      isRemoteSyncBlocked: input.state.runtime.util.isRemoteSyncBlocked,
+    });
+    const synced = await remoteDocuments.syncRemoteDocument({
       author,
       documentId,
-      execSql: input.state.runtime.infra.execSql,
       historyMode: "raw",
-      isRemoteSyncBlocked: input.state.runtime.util.isRemoteSyncBlocked,
       localVersionVector: null,
       minLsn: input.currentRecord.lastCommitLsn ?? undefined,
       onRemoteDocumentDeleted: ({ commitPurgeProof, documentId }) =>
@@ -175,7 +178,6 @@ async function pullVerifiedRawHistoryForRotation(input: {
         runtime: input.state.runtime,
         writerKeyLabel: "writer key",
       }),
-      targetSecretKey: encapsulationKeyPair.secretKey,
       warmReferencedPrincipalPolicies:
         input.state.runtime.principalPolicies.createWarmer(),
       writerProjection,

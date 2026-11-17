@@ -25,9 +25,9 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import { isContainerCreatePending } from "../../../data/persistence/container-contents/pendingContainerCreate";
-import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { recordDocumentAuthorAccessFailure } from "../authorAccessFailure";
+import type { RemoteDocumentCollaborators } from "../remote/remoteDocumentCollaborators";
 import {
   buildDocumentCreateSeedRequest,
   documentCreateSeedFits,
@@ -40,6 +40,10 @@ import { adoptExistingRemoteDocument } from "./createAdoption";
 import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
 import { fetchContainerWriterProjectionForCreate } from "./createProjectionFetch";
 import { acknowledgeRemoteDocumentCreate } from "./createResponse";
+import type {
+  CreateRemoteDocumentRequest,
+  RemoteDocumentCreateInput,
+} from "./remoteDocumentCreateRequest";
 
 export async function buildMaterializedDocumentCreatePlan(
   input: {
@@ -207,44 +211,6 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   return refreshedProjection ? buildWithProjection(refreshedProjection) : null;
 }
 
-interface RemoteDocumentCreateInput {
-  apiClient: DocumentCreateApi;
-  author: DocumentCreateAuthor;
-  containerId: string;
-  containerProjection?: ContainerWriterProjectionResponse | undefined;
-  contentKey?: Uint8Array | undefined;
-  contentKeyEpoch?: number | undefined;
-  /**
-   * The queued row holding the new document's whole content when its first
-   * attachment must bind before it: the create does not send it but returns
-   * it signed as `deferredSeed`, for that bind to carry.
-   */
-  deferredSeedUpdate?: PendingUpdateRecord | undefined;
-  documentId?: string | undefined;
-  eventId?: string | undefined;
-  execSql: ExecSql;
-  expectedOrganizationId?: string | undefined;
-  isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
-  knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
-  /**
-   * Invoked when the create submission fails terminally (not a benign
-   * adopt/stale-target conflict) — e.g. the server denies the write. Callers
-   * persist the failure so the write queue can surface it.
-   */
-  onTerminalSubmitFailure?: DocumentCreateTerminalFailureHandler | undefined;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  /**
-   * The queued row holding the new document's whole content (see
-   * `documentCreateSeedCandidate`). The create commits it as its seed, and the
-   * caller settles the row from the response instead of syncing it.
-   */
-  seedUpdate?: PendingUpdateRecord | undefined;
-  signedAt?: string | undefined;
-  stillCurrent?: (() => boolean) | undefined;
-  targetSecretKey: Uint8Array;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}
-
 /**
  * A seed only saves the first sync. A refusal of the seeded create falls back
  * to the plain create once, so the row syncs as before and seeding adds no
@@ -391,9 +357,21 @@ async function withDeferredSeed(
     : created;
 }
 
+/** Throws when the collaborators carry no encapsulation secret key. */
 export async function createRemoteDocument(
-  input: RemoteDocumentCreateInput,
+  remote: RemoteDocumentCollaborators,
+  request: CreateRemoteDocumentRequest,
 ): Promise<CreateRemoteDocumentResult | null> {
+  if (!remote.encapsulationSecretKey) {
+    throw new Error("Remote document create requires an encapsulation key");
+  }
+  const input: RemoteDocumentCreateInput = {
+    ...request,
+    apiClient: remote.api,
+    execSql: remote.execSql,
+    isRemoteSyncBlocked: remote.isRemoteSyncBlocked,
+    targetSecretKey: remote.encapsulationSecretKey,
+  };
   // The store retries once the folder's own create settles.
   if (await isContainerCreatePending(input.execSql, input.containerId)) {
     return null;

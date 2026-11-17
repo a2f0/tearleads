@@ -16,6 +16,7 @@ import {
   createPendingUpdateRecord,
   createResponseFromRequest,
 } from "../../../../test/helpers/documentResponseFixtures";
+import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
 import {
   buildMaterializedDocumentCreatePlan,
@@ -25,7 +26,6 @@ import {
   prepareAutomaticContainerRekeys,
   requireStandaloneAncestorRepairs,
 } from "../syncRekeys/syncContainerRekeyPreparation";
-import { syncRemoteDocument } from "./index";
 
 type Fixture = Awaited<ReturnType<typeof createRotatedAncestorFixture>>;
 

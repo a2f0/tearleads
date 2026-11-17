@@ -4,7 +4,6 @@ import {
   BlobAttachmentService,
   ContainerMutationService,
   cacheReferencedPrincipalPolicies,
-  createRemoteDocument,
   unwrapContainerKekPath,
 } from "@tearleads/client-sdk";
 
@@ -33,6 +32,7 @@ import {
 import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
 import { withProjectionHistoryRecovery } from "../../../test/helpers/projectionHistoryRecovery";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { createSdkRemoteDocument as createRemoteDocument } from "../../../test/helpers/sdkRemoteDocuments";
 import { withStoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
 

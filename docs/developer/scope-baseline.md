@@ -59,7 +59,7 @@ that recovery explains how passing criteria can coexist with useful findings.
    the guide's layer diagram and ownership wording.
 3. **Clarify the common SDK creation path.** The agent found that the app uses
    `documents.open()` to create local document state and sync it later. It also
-   found lower-level root exports such as `createRemoteDocument`. A short
+   found lower-level root exports such as `RemoteDocumentService`. A short
    decision guide would let agents choose the intended entry point without
    tracing store internals. This is a discoverability proposal, not evidence
    that either API is broken.

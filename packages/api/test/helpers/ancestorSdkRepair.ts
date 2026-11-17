@@ -1,7 +1,7 @@
 import {
   ContainerMutationService,
   cacheReferencedPrincipalPolicies,
-  syncRemoteDocument,
+  type SyncRemoteDocumentRequest,
   validateDocumentSyncUpdateImports,
 } from "@tearleads/client-sdk";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -35,15 +35,18 @@ import {
   writerResolver,
 } from "./coldSdkRematerialization";
 import { withProjectionHistoryRecovery } from "./projectionHistoryRecovery";
+import {
+  type SdkRemoteDocumentCollaborators,
+  syncSdkRemoteDocument as syncRemoteDocument,
+} from "./sdkRemoteDocuments";
 
 type AncestorSdkCommon = Pick<
-  Parameters<typeof syncRemoteDocument>[0],
-  | "author"
-  | "execSql"
-  | "resolveProjectionUserKey"
-  | "targetSecretKey"
-  | "warmReferencedPrincipalPolicies"
-> & { apiClient: ReturnType<typeof createRouteSdkClient> };
+  SyncRemoteDocumentRequest,
+  "author" | "resolveProjectionUserKey" | "warmReferencedPrincipalPolicies"
+> &
+  Pick<SdkRemoteDocumentCollaborators, "execSql" | "targetSecretKey"> & {
+    apiClient: ReturnType<typeof createRouteSdkClient>;
+  };
 
 /** What every container mutation this actor signs carries per call. */
 type AncestorMutationRequest = Pick<
@@ -53,7 +56,7 @@ type AncestorMutationRequest = Pick<
 
 interface AncestorSdkContext {
   readonly close: () => void;
-  readonly execSql: Parameters<typeof syncRemoteDocument>[0]["execSql"];
+  readonly execSql: SdkRemoteDocumentCollaborators["execSql"];
   readonly common: AncestorSdkCommon;
   /** Bound to `common`'s API client, executor, and secret key. */
   readonly containers: ContainerMutationService;
@@ -248,9 +251,7 @@ export async function editColdDocumentAfterAncestorRotation(input: {
         currentDocument: document,
         decryptedUpdates,
         responseUpdates: response.updates,
-      })) satisfies Parameters<
-      typeof syncRemoteDocument
-    >[0]["validateIncomingUpdates"],
+      })) satisfies SyncRemoteDocumentRequest["validateIncomingUpdates"],
   };
   try {
     const read = await syncRemoteDocument(syncInput);

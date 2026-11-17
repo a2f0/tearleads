@@ -1,6 +1,5 @@
 import { deriveStableDocumentId } from "../../../../data/documents/shared/stableDocumentId";
 import {
-  createRemoteDocument,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   DocumentRecordRepository,
@@ -8,6 +7,7 @@ import {
   describeDocumentRevalidationFailure,
   describeDocumentSyncSubmitFailure,
   type PendingUpdateRecord,
+  RemoteDocumentService,
   resolveDocumentCreateAuthor,
   runSerializedSqlMutation,
 } from "../../../../workflows/documents";
@@ -265,8 +265,14 @@ export async function ensureRemoteDocument(
     return state.record;
 
   const writerProjectionGeneration = state.writerProjectionGeneration;
-  const created = await createRemoteDocument({
-    apiClient: runtime.apiClient,
+  // The runtime this create read before its awaits, with the pass's key.
+  const remoteDocuments = new RemoteDocumentService({
+    api: runtime.apiClient,
+    encapsulationSecretKey: encapsulationKeyPair.secretKey,
+    execSql: runtime.infra.execSql,
+    isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
+  });
+  const created = await remoteDocuments.createRemoteDocument({
     author,
     containerId: runtime.state.containerId,
     deferredSeedUpdate: seed ? undefined : deferredSeed?.update,
@@ -274,8 +280,6 @@ export async function ensureRemoteDocument(
     // create response re-sends the same id and adopts the existing remote
     // document instead of creating a duplicate.
     documentId,
-    execSql: runtime.infra.execSql,
-    isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
     onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
       state,
       generation,
@@ -283,7 +287,6 @@ export async function ensureRemoteDocument(
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     seedUpdate: seed?.update,
     stillCurrent: generationIsCurrent,
-    targetSecretKey: encapsulationKeyPair.secretKey,
     warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
       operation: policyOperation,
     }),
