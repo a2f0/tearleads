@@ -7,7 +7,7 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/document
 import { createWorkflowInputFixture } from "../../../../test/helpers/internalRuntimeFixtures";
 import { createQueuedDocumentMoveRemote } from "../../../../test/helpers/queuedDocumentMoveRemote";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { loadLocalDocumentAccessEpoch } from "../../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
+import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import {
   applyContainerDocumentTombstones,
@@ -80,7 +80,10 @@ test("a cached discovery head cannot resurrect a placement removed by a newer si
     );
     const load = createDocumentHeadLinkSetLoader(runtime);
     const store = createDocumentDiscoveryEvidenceStore(execSql);
-    const loadEpoch = (id: string) => loadLocalDocumentAccessEpoch(execSql, id);
+    const loadEpoch = (id: string) =>
+      new ContainerDocumentTombstoneHoldRepository(
+        execSql,
+      ).loadLocalDocumentAccessEpoch(id);
     const verify = createDiscoveredDocumentVerifier(
       fixture.author.organizationId,
       load,

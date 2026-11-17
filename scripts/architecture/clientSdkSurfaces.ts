@@ -69,6 +69,7 @@ export const documentStoreSurface = [
   `${sdk}/data/documents/shared/sync/documentSyncUpdateIsolation.ts`,
   `${sdk}/data/documents/shared/sync/pullContinuation.ts`,
   `${sdk}/data/documents/shared/types.ts`,
+  `${sdk}/data/persistence/documents/containerDocumentTombstoneHoldRepository.ts`,
   `${sdk}/data/persistence/documents/containerDocumentTombstoneHoldsPersistence.ts`,
   `${sdk}/data/persistence/documents/documentDiscoveryEvidencePersistence.ts`,
   `${sdk}/data/persistence/documents/documentProjectionContainers.ts`,
