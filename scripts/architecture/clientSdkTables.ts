@@ -56,7 +56,7 @@ export const principalPolicyContractsTables = ["principalGrantRetirements"];
 
 export const identityTables = ["trustedUserIdentityPins"];
 
-export const syncEngineTables = [
+export const syncCoordinationTables = [
   "organizationSyncPauseRemovals",
   "organizationSyncPauses",
 ];

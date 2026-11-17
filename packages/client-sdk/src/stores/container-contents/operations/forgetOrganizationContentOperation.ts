@@ -3,7 +3,7 @@ import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
 import {
   getOrCreateOrganizationSyncPauses,
   isRetainedWhileSyncPaused,
-} from "../../../workflows/sync";
+} from "../../../workflows/sync/coordination";
 import {
   emitPersistedDocumentDeletion,
   hasQueuedDocumentStoreWrites,
