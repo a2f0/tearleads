@@ -100,6 +100,23 @@ function storedSyncCheckpoint(
       };
 }
 
+/**
+ * The signed header commits to its target set by `targetHash`. When that is
+ * the target hash the client said it holds, the set is the one it holds, so
+ * the client refills it and re-hashes it against the signed hash.
+ */
+export function authorizationTargetsUnlessHeld(
+  writeHeader: {
+    readonly authorizationTargets: readonly DocumentContentKeyTarget[];
+    readonly header: WriteHeader;
+  },
+  expectedTargetHash: string,
+) {
+  return writeHeader.header.targetHash === expectedTargetHash
+    ? {}
+    : { authorizationTargets: [...writeHeader.authorizationTargets] };
+}
+
 function toSyncUpdate(
   update: StoredSyncUpdate,
   writeHeader: {
@@ -108,6 +125,7 @@ function toSyncUpdate(
     readonly headerHash: string;
   },
   checkpoint: SyncCheckpointMetadata | undefined,
+  expectedTargetHash: string,
 ) {
   return {
     accessEpoch: update.accessEpoch,
@@ -129,7 +147,7 @@ function toSyncUpdate(
       : { sourceVersionVector: checkpoint.sourceVersionVector }),
     createdAt: update.createdAt.toISOString(),
     writeHeader: writeHeaderRecord(writeHeader.header),
-    authorizationTargets: [...writeHeader.authorizationTargets],
+    ...authorizationTargetsUnlessHeld(writeHeader, expectedTargetHash),
   };
 }
 
@@ -140,6 +158,7 @@ type SyncEntryWriteHeaders = Awaited<
 async function toSyncResponseEntry(
   update: StoredSyncUpdate,
   writeHeaders: SyncEntryWriteHeaders,
+  expectedTargetHash: string,
 ) {
   const writeHeader = writeHeaders.get(update.id);
   if (!writeHeader) {
@@ -157,7 +176,7 @@ async function toSyncResponseEntry(
 
   return {
     sequence: update.sequence,
-    update: toSyncUpdate(update, writeHeader, checkpoint),
+    update: toSyncUpdate(update, writeHeader, checkpoint, expectedTargetHash),
     writeHeader: writeHeader.header,
   };
 }
@@ -202,6 +221,8 @@ export async function materializeSyncResponseEntriesToBytes<
 export async function listMissingSyncUpdateEntries(input: {
   readonly documentId: string;
   readonly executor: DatabaseSession;
+  /** The target hash the client holds; matching target sets are omitted. */
+  readonly expectedTargetHash: string;
   readonly localVersionVector: string | null;
   readonly minLsn?: string | undefined;
   readonly pullPage?:
@@ -240,6 +261,7 @@ export async function listMissingSyncUpdateEntries(input: {
         update,
         pageWriteHeaders ??
           (await listDocumentContentWriteHeaders([update.id], input.executor)),
+        input.expectedTargetHash,
       ),
   );
 
