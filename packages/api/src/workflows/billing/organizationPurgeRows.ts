@@ -28,7 +28,15 @@ import {
   principalStatePayloads,
   principalStates,
 } from "@tearleads/api-shared/schema";
-import { and, eq, inArray, or } from "drizzle-orm";
+import {
+  and,
+  eq,
+  inArray,
+  or,
+  type SQL,
+  type SQLWrapper,
+  sql,
+} from "drizzle-orm";
 import { forgetTransactionAccessManifestBundles } from "../../access/write/accessManifestStore";
 import { forgetPrincipalTransactionMemo } from "../../access/write/principalStateStore";
 import {
@@ -172,28 +180,38 @@ async function deleteOrganizationPrincipalRows(
   await deleteOrganizationHistoryProgress(executor, organizationId);
 }
 
+/** Text columns in byte order, the order the hint publisher writes keys. */
+function byteOrder(column: SQLWrapper): SQL {
+  return sql`${column} collate "C"`;
+}
+
 /**
  * Verification hints of the organization and of every group it ever had: the
  * live ones were just tombstoned, and a deleted group kept its hints with its
  * signed states. Purge verifies no history, so it buffers no hint to publish
- * after commit; hash-addressed index nodes and the tombstones stay.
+ * after commit; hash-addressed index nodes and the tombstones stay. The rows
+ * are locked in the key order the post-commit publisher upserts in, so purge
+ * and a concurrent publisher of the same hints cannot deadlock. A hint such a
+ * publisher inserts after this delete outlives the purge as an unused cache.
  */
 async function deleteOrganizationHistoryProgress(
   executor: DatabaseTransaction,
   organizationId: string,
 ): Promise<void> {
-  await executor
-    .delete(principalHistoryProgress)
+  const progress = principalHistoryProgress;
+  const lockedInKeyOrder = executor
+    .select({ id: progress.id })
+    .from(progress)
     .where(
       or(
         and(
-          eq(principalHistoryProgress.principalType, "organization"),
-          eq(principalHistoryProgress.principalId, organizationId),
+          eq(progress.principalType, "organization"),
+          eq(progress.principalId, organizationId),
         ),
         and(
-          eq(principalHistoryProgress.principalType, "group"),
+          eq(progress.principalType, "group"),
           inArray(
-            principalHistoryProgress.principalId,
+            progress.principalId,
             executor
               .select({ groupId: organizationGroupTombstones.groupId })
               .from(organizationGroupTombstones)
@@ -203,7 +221,17 @@ async function deleteOrganizationHistoryProgress(
           ),
         ),
       ),
-    );
+    )
+    .orderBy(
+      byteOrder(progress.principalType),
+      progress.principalId,
+      byteOrder(progress.verificationKind),
+      byteOrder(progress.inputHash),
+      byteOrder(progress.protectionId),
+      progress.version,
+    )
+    .for("update");
+  await executor.delete(progress).where(inArray(progress.id, lockedInKeyOrder));
 }
 
 /**
