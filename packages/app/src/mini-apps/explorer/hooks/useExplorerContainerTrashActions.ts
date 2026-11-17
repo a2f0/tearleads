@@ -1,5 +1,5 @@
 import { ContainerPathTooDeepError } from "@tearleads/client-sdk";
-import { useCallback } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isExplorerContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
@@ -12,6 +12,52 @@ import {
   useExplorerPurgeRun,
 } from "../purge-progress/useExplorerPurgeRun";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
+
+/** Where the Explorer points: the selected item and the detail view. */
+interface ExplorerSelectionPosition {
+  readonly routeView: string;
+  readonly selectedId: string | null;
+}
+
+/** Selects `id` only if the Explorer has not moved since it was begun. */
+export type ExplorerSelectionFollowUp = (id: string) => void;
+
+/**
+ * Moving to Trash and purging re-select the source container once the mutation
+ * settles, so the detail pane does not linger on what was removed. Those
+ * actions start from a context menu and leave the Explorer usable while the
+ * mutation runs, so a user who opens another container meanwhile must not be
+ * pulled back when it settles. Call the returned function as the action
+ * begins: the follow-up it hands back selects only while the selection and the
+ * detail view are still the ones it captured.
+ */
+export function useExplorerSelectionFollowUp(params: {
+  routeView: string;
+  selectedId: string | null;
+  selectExplorerItem: (id: string | null) => void;
+}): () => ExplorerSelectionFollowUp {
+  const { routeView, selectedId, selectExplorerItem } = params;
+  const positionRef = useRef<ExplorerSelectionPosition>({
+    routeView,
+    selectedId,
+  });
+  useLayoutEffect(() => {
+    positionRef.current = { routeView, selectedId };
+  }, [routeView, selectedId]);
+
+  return useCallback(() => {
+    const begun = positionRef.current;
+    return (id: string) => {
+      const current = positionRef.current;
+      if (
+        current.selectedId === begun.selectedId &&
+        current.routeView === begun.routeView
+      ) {
+        selectExplorerItem(id);
+      }
+    };
+  }, [selectExplorerItem]);
+}
 
 // Resolve the Trash a delete/trash-move should land in for the source
 // container's OWN organization, lazily creating only the viewer's own Trash
@@ -44,6 +90,8 @@ export async function resolveExplorerTrashDestination(params: {
 
 interface UseExplorerContainerTrashActionsParams {
   appData: RuntimeSnapshot;
+  /** Starts the re-selection a settled move makes; see the hook above. */
+  beginSelectionFollowUp: () => ExplorerSelectionFollowUp;
   explorer: ExplorerModelExplorer;
   // Runs when a purge settles so the open container listing re-queries SQLite and
   // drops destroyed rows (the recursive purge only bumps the sidebar-tree
@@ -51,7 +99,6 @@ interface UseExplorerContainerTrashActionsParams {
   onSettled: () => void;
   /** Tells the user why a move to Trash was refused (the explorer banner). */
   reportBackgroundError?: ((message: string | null) => void) | undefined;
-  selectExplorerItem: (containerId: string) => void;
 }
 
 interface ExplorerContainerTrashActions {
@@ -68,10 +115,10 @@ export function useExplorerContainerTrashActions(
 ): ExplorerContainerTrashActions {
   const {
     appData,
+    beginSelectionFollowUp,
     explorer,
     onSettled,
     reportBackgroundError,
-    selectExplorerItem,
   } = params;
 
   const purgeRun = useExplorerPurgeRun({
@@ -94,6 +141,7 @@ export function useExplorerContainerTrashActions(
 
   const moveContainerToTrash = useCallback(
     async (containerId: string) => {
+      const selectParent = beginSelectionFollowUp();
       try {
         const containerNode = explorer.nodes.find(
           (node) => node.id === containerId,
@@ -142,7 +190,7 @@ export function useExplorerContainerTrashActions(
         if (movedContainer) {
           // Re-select the folder's original parent so the detail pane does not
           // linger on the now-trashed subtree.
-          selectExplorerItem(containerNode.parentId);
+          selectParent(containerNode.parentId);
         }
 
         return movedContainer;
@@ -160,9 +208,9 @@ export function useExplorerContainerTrashActions(
     [
       appData.auth.organizationId,
       appData.util.logError,
+      beginSelectionFollowUp,
       explorer,
       reportBackgroundError,
-      selectExplorerItem,
     ],
   );
 

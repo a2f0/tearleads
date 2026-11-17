@@ -45,6 +45,7 @@ import type { ExplorerPanelState } from "./explorerPanelStateTypes";
 import {
   resolveExplorerTrashDestination,
   useExplorerContainerTrashActions,
+  useExplorerSelectionFollowUp,
 } from "./useExplorerContainerTrashActions";
 import { useExplorerDocumentModalState } from "./useExplorerDocumentModalState";
 import { useExplorerRoute } from "./useExplorerRoute";
@@ -151,6 +152,11 @@ export function useExplorerPanelState(params: {
     nodes: explorer.nodes,
     selectDocument: selection.selectDocument,
     setSelectedId: selection.setSelectedId,
+  });
+  const beginSelectionFollowUp = useExplorerSelectionFollowUp({
+    routeView: routeState.route.view,
+    selectedId: selection.selectedId,
+    selectExplorerItem: routeState.selectExplorerItem,
   });
   const loadActiveRouteDocumentSummary = useCallback(
     (localId: string) => {
@@ -278,10 +284,10 @@ export function useExplorerPanelState(params: {
   const { moveContainerToTrash, purgeRun, startContainerPurge } =
     useExplorerContainerTrashActions({
       appData,
+      beginSelectionFollowUp,
       explorer,
       onSettled: bumpDocumentListRevision,
       reportBackgroundError,
-      selectExplorerItem: routeState.selectExplorerItem,
     });
   const modalState = useExplorerDocumentModalState({
     explorer,
@@ -347,6 +353,7 @@ export function useExplorerPanelState(params: {
   const uploadManager = useExplorerUploadManager({ importDroppedFiles });
   const deleteDocument = useCallback(
     async (documentId: string, currentContainerId: string) => {
+      const selectSource = beginSelectionFollowUp();
       try {
         // Resolve the Trash for the document's OWN organization, not a single
         // global one. A document under another org's shared root must land in
@@ -380,7 +387,7 @@ export function useExplorerPanelState(params: {
           },
         );
         if (deletedDocument) {
-          routeState.selectExplorerItem(currentContainerId);
+          selectSource(currentContainerId);
         }
 
         return deletedDocument;
@@ -392,13 +399,14 @@ export function useExplorerPanelState(params: {
     [
       appData.auth.organizationId,
       appData.util.logError,
+      beginSelectionFollowUp,
       explorer,
-      routeState.selectExplorerItem,
       selectedNoteStructuralState.moveDocument,
     ],
   );
   const purgeDocument = useCallback(
     async (documentId: string, currentContainerId: string) => {
+      const selectSource = beginSelectionFollowUp();
       try {
         // Purge is the inverse of "move to trash": it only permanently destroys
         // a document that is already in trash — the root or any subfolder of it.
@@ -431,7 +439,7 @@ export function useExplorerPanelState(params: {
           // tree and linked-container map refresh too.
           bumpDocumentListRevision();
           onDocumentLinksChanged([currentContainerId]);
-          routeState.selectExplorerItem(currentContainerId);
+          selectSource(currentContainerId);
         }
 
         return purgedDocument;
@@ -443,11 +451,11 @@ export function useExplorerPanelState(params: {
     [
       appData.auth.organizationId,
       appData.util.logError,
+      beginSelectionFollowUp,
       bumpDocumentListRevision,
       explorer.nodes,
       explorer.trashSystemSlot,
       onDocumentLinksChanged,
-      routeState.selectExplorerItem,
       selectedNoteStructuralState.purgeDocument,
     ],
   );
