@@ -37,10 +37,17 @@ export type DocumentCreateFixture = DocumentCreateResponse &
 export type DocumentLinkSetFixture = DocumentLinkSetMutationResponse &
   AcknowledgedDocumentMutation;
 
+/**
+ * Fixture acknowledgements name no real bundle digest, so their authored
+ * bundles are not cached; tests of that seeding compute the digest.
+ */
+export const UNMATCHED_BUNDLE_DIGEST = "b".repeat(64);
+
 export function createResponse(
   plan: DocumentCreatePlan,
 ): DocumentCreateFixture {
   return {
+    bundleDigest: UNMATCHED_BUNDLE_DIGEST,
     id: plan.documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
     contentKeyEpoch: plan.request.contentKeyBundle.contentKeyEpoch,
@@ -94,6 +101,7 @@ export async function createResponseFromRequest(
   const targets = request.contentKeyBundle.targets.map(targetEnvelopeReference);
 
   return {
+    bundleDigest: UNMATCHED_BUNDLE_DIGEST,
     id: documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
     contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
@@ -159,6 +167,7 @@ export async function createLinkSetResponseFromRequest(
   const targets = request.contentKeyBundle.targets.map(targetEnvelopeReference);
 
   return {
+    bundleDigest: UNMATCHED_BUNDLE_DIGEST,
     id: documentId,
     contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
     eventHash,

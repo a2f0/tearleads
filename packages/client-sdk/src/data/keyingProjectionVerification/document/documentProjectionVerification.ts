@@ -18,6 +18,7 @@ import {
   observeVerifiedProjectionBundles,
   type ProjectionCheckpointContext,
 } from "../checkpoints/checkpointContext";
+import { verifyWithHeldBundleRecovery } from "../checkpoints/heldBundleRecovery";
 import { verifyContainerManifestPath } from "../container/containerPathVerification";
 import {
   addContainerWriterProjectionBundles,
@@ -295,7 +296,15 @@ function observeVerifiedDocumentProjectionBundles(
   );
 }
 
-export async function verifyDocumentWriterProjection(
+export function verifyDocumentWriterProjection(
+  input: DocumentWriterProjectionVerificationInput,
+): Promise<VerifiedDocumentLinkSetManifest> {
+  return verifyWithHeldBundleRecovery(input.execSql, input.projection, () =>
+    verifyDocumentWriterProjectionOnce(input),
+  );
+}
+
+async function verifyDocumentWriterProjectionOnce(
   input: DocumentWriterProjectionVerificationInput,
 ): Promise<VerifiedDocumentLinkSetManifest> {
   const checkpointContext = createProjectionCheckpointContext({
@@ -315,7 +324,15 @@ export async function verifyDocumentWriterProjection(
   return verified.headManifest;
 }
 
-export async function verifyDocumentWriterProjectionAuthorization(
+export function verifyDocumentWriterProjectionAuthorization(
+  input: DocumentWriterProjectionVerificationInput,
+): Promise<DocumentWriterProjectionAuthorization> {
+  return verifyWithHeldBundleRecovery(input.execSql, input.projection, () =>
+    verifyDocumentWriterProjectionAuthorizationOnce(input),
+  );
+}
+
+async function verifyDocumentWriterProjectionAuthorizationOnce(
   input: DocumentWriterProjectionVerificationInput,
 ): Promise<DocumentWriterProjectionAuthorization> {
   try {

@@ -165,6 +165,7 @@ export function reciteResponse(
   head: VerifiedContainerAccessManifest,
 ): ContainerReciteResponse {
   return {
+    bundleDigest: "b".repeat(64),
     containerId: head.state.containerId,
     organizationId: head.state.organizationId,
     parentId: head.state.parentContainerId,

@@ -43,6 +43,7 @@ export async function acknowledgeRemoteDocumentCreate(
   const persistedState =
     persistedDocumentStateFromAcknowledgement(acknowledged);
   await acknowledgeDocumentMutation({
+    bundleDigest: response.bundleDigest,
     execSql: input.execSql,
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,

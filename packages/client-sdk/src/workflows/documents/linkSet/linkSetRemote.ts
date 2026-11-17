@@ -177,6 +177,7 @@ async function completeRemoteDocumentLinkSet(input: {
   const persistedState =
     persistedDocumentStateFromAcknowledgement(acknowledged);
   await acknowledgeDocumentMutation({
+    bundleDigest: input.response.bundleDigest,
     execSql: input.execSql,
     plan: input.completedPlan,
     stillCurrent: input.stillCurrent,

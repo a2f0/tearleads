@@ -279,16 +279,30 @@ export async function loadVerifiedManifestCitations(
     limit,
   );
   if (damaged.length > 0)
-    await getClientSQLitePersistenceRuntime(execSql)
-      .runMutation(async (handle) => {
-        for (const batch of batches([...new Set(damaged)]))
-          await handle
-            .delete(bundles)
-            .where(inArray(bundles.manifestHash, batch))
-            .run();
-      })
-      .catch(() => undefined);
+    await dropVerifiedManifestBundles(execSql, damaged).catch(() => undefined);
   return cited;
+}
+
+/**
+ * Drops stored bundles so no later read cites them: damaged rows, and held
+ * bundles a projection that cited them failed to verify with. Each is then
+ * read again from the server.
+ */
+export async function dropVerifiedManifestBundles(
+  execSql: ExecSql,
+  manifestHashes: readonly string[],
+): Promise<void> {
+  if (manifestHashes.length === 0) return;
+  await ensureSqlTables(execSql, verifiedManifestBundleTables);
+  await getClientSQLitePersistenceRuntime(execSql).runMutation(
+    async (handle) => {
+      for (const batch of batches([...new Set(manifestHashes)]))
+        await handle
+          .delete(bundles)
+          .where(inArray(bundles.manifestHash, batch))
+          .run();
+    },
+  );
 }
 
 /** Cites from whichever database the signed-in identity currently uses. */

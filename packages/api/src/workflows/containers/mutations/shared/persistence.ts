@@ -10,6 +10,7 @@ import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../../../access/write/containerKekStore";
+import { servedAccessManifestBundleDigest } from "../../../../keyingProjectionBundleDigest";
 import {
   KeyingReadAccessError,
   resolveReadableContainerAccess,
@@ -364,6 +365,7 @@ export async function persistVerifiedMutation(
 
   return {
     ...(systemSlot ? { systemSlot } : {}),
+    bundleDigest: await servedAccessManifestBundleDigest(manifest),
     containerId: manifest.state.containerId,
     createdAt: container.createdAt.toISOString(),
     organizationId: manifest.state.organizationId,

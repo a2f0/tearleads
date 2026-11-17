@@ -15,6 +15,7 @@ import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../../keying/canonicalJson";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { LocallyAcknowledgedAccessManifestHead } from "../../persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { acknowledgedAuthoredBundle } from "../../persistence/verifiedCitations/authoredBundleCitation";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 
 export interface AuthoredContainerMutationHead {
@@ -168,6 +169,10 @@ export async function locallyAcknowledgedContainerMutationHead(input: {
       manifestHash: input.plan.manifestHash,
     }),
     previousManifestHash: input.plan.manifest.previousManifestHash,
+    servedBundle: await acknowledgedAuthoredBundle(
+      input.plan,
+      input.response.bundleDigest,
+    ),
   };
 }
 

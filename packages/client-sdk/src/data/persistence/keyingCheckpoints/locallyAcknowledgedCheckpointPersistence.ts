@@ -6,6 +6,7 @@ import {
   type PrincipalPolicyCheckpoint,
   verifyAccessManifestLocalCheckpoint,
 } from "@tearleads/crypto";
+import type { ServedAccessManifestBundleWireResponse } from "@tearleads/validators/util";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { loadContainerRetirementCheck } from "../principalContracts/principalGrantRetirementPersistence";
 import {
@@ -20,6 +21,11 @@ import {
 export interface LocallyAcknowledgedAccessManifestHead {
   readonly checkpoint: AccessManifestCheckpoint;
   readonly previousManifestHash: string | null;
+  /**
+   * The head's bundle as a projection serves it, when the acknowledgement's
+   * digest matched the plan; stored for citation with the checkpoint.
+   */
+  readonly servedBundle?: ServedAccessManifestBundleWireResponse | null;
 }
 
 export function locallyAuthoredAccessManifestHead(plan: {

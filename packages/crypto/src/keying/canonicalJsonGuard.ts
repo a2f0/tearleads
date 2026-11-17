@@ -115,3 +115,33 @@ export async function computeContainerKekLevelDigest(
     return null;
   }
 }
+
+/**
+ * Domain-separated SHA-256 hex of an access-manifest bundle exactly as a
+ * writer projection serves it (`event`, `manifest`, `manifestHash` and the
+ * served `state`). A mutation acknowledgement names it, so the author stores
+ * exactly the bytes a later projection would serve, and only when its own
+ * plan produces the same digest. Null when the bundle is not canonical JSON.
+ */
+export async function computeAccessManifestBundleDigest(bundle: {
+  readonly event: unknown;
+  readonly manifest: unknown;
+  readonly manifestHash: string;
+  readonly state: unknown;
+}): Promise<string | null> {
+  const served = {
+    event: bundle.event,
+    manifest: bundle.manifest,
+    manifestHash: bundle.manifestHash,
+    state: bundle.state,
+  };
+  if (!isKeyingCanonicalJson(served)) return null;
+  try {
+    return await computeKeyingDomainHash(
+      "tearleads.keying.access-manifest-bundle-citation",
+      served,
+    );
+  } catch {
+    return null;
+  }
+}

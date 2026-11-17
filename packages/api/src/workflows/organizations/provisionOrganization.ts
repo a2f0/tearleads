@@ -285,6 +285,7 @@ export interface ProvisionOrganizationOptions {
 
 export interface ProvisionedOrganization {
   organizationId: string;
+  rootBundleDigest: string;
   rootContainerId: string;
   rootMetadataAccessEpoch: number;
   rootMetadataAccessStateHash: string;
@@ -417,6 +418,7 @@ export async function provisionOrganizationInTransaction(
   );
   return {
     organizationId,
+    rootBundleDigest: rootMetadata.bundleDigest,
     rootContainerId,
     rootMetadataAccessEpoch: rootMetadata.metadataAccessEpoch,
     rootMetadataAccessStateHash: rootMetadata.metadataAccessStateHash,

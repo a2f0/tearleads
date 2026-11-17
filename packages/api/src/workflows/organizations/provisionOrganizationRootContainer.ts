@@ -12,6 +12,7 @@ import type { OrganizationProvisioningRequest } from "@tearleads/validators/requ
 import { z } from "zod";
 import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
+import { servedAccessManifestBundleDigest } from "../../keyingProjectionBundleDigest";
 import {
   readProjectionAccessEvent,
   readProjectionAccessManifest,
@@ -139,6 +140,7 @@ export async function storeInitialRootContainer(
   input: OrganizationProvisioningRequest,
   signer: RootContainerSigner,
 ): Promise<{
+  bundleDigest: string;
   metadataAccessEpoch: number;
   metadataAccessStateHash: string;
   metadataDocumentId: string;
@@ -225,6 +227,7 @@ export async function storeInitialRootContainer(
     tx,
   );
   return {
+    bundleDigest: await servedAccessManifestBundleDigest(manifest),
     metadataAccessEpoch: manifest.state.epoch,
     metadataAccessStateHash: manifest.manifestHash,
     metadataDocumentId: manifest.state.metadataDocumentId,

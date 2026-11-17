@@ -4,6 +4,7 @@ import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot
 import type { ContainerReciteRequest } from "@tearleads/validators/request";
 import type { ContainerReciteResponse } from "@tearleads/validators/response";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
+import { servedAccessManifestBundleDigest } from "../../../keyingProjectionBundleDigest";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import {
   appendOrganizationReadModelChangeInTransaction,
@@ -114,6 +115,7 @@ async function persistRecitation(
     ...(isContainerSystemSlot(container.systemSlot)
       ? { systemSlot: container.systemSlot }
       : {}),
+    bundleDigest: await servedAccessManifestBundleDigest(manifest),
     containerId: manifest.state.containerId,
     organizationId: manifest.state.organizationId,
     parentId: manifest.state.parentContainerId,

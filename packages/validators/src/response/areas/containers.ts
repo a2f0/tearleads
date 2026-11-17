@@ -85,4 +85,5 @@ export {
   encodeContainerWriterProjection,
   encodeDocumentWriterProjection,
   type HeldKekLevelDigest,
+  heldBundlesUsedBy,
 } from "../writerProjectionWire";

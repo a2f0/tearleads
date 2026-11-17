@@ -220,6 +220,28 @@ function decodeKeyingPath(
   };
 }
 
+// The bundle hashes each decoded projection took from the caller's held
+// citations rather than from the response.
+const heldBundlesByProjection = new WeakMap<object, readonly string[]>();
+
+/**
+ * The manifest hashes a decoded projection filled from held citations. A
+ * verifier that refuses such a projection drops those held bundles, so the
+ * next read fetches them from the server instead of failing the same way.
+ */
+export function heldBundlesUsedBy(projection: object): readonly string[] {
+  return heldBundlesByProjection.get(projection) ?? [];
+}
+
+function withHeldBundles<T extends object>(
+  projection: T,
+  omittedBundles: readonly string[],
+): T {
+  if (omittedBundles.length > 0)
+    heldBundlesByProjection.set(projection, [...omittedBundles]);
+  return projection;
+}
+
 /**
  * Null for any wire inconsistency or an omission `held` (bundles) or
  * `heldLevels` (KEK levels by digest) cannot fill; the caller treats either
@@ -239,7 +261,9 @@ export function decodeContainerWriterProjection(
   const path = resolve
     ? decodeKeyingPath(projection, resolve, heldLevels)
     : null;
-  return path ? { ...projection, ...path } : null;
+  return path
+    ? withHeldBundles({ ...projection, ...path }, omittedBundles)
+    : null;
 }
 
 /** See {@link decodeContainerWriterProjection}. */
@@ -265,16 +289,19 @@ export function decodeDocumentWriterProjection(
   }
   const [firstPath, ...otherPaths] = authorizingContainerPaths;
   if (!firstPath) return null;
-  return {
-    ...projection,
-    authorizingContainerPaths: [firstPath, ...otherPaths],
-    documentContainerManifestHistory:
-      projection.documentContainerManifestHistory.map(resolve),
-    documentManifest: resolve(projection.documentManifest),
-    documentManifestContainerPaths:
-      projection.documentManifestContainerPaths.map((path) =>
-        path.map(resolve),
-      ),
-    documentManifestHistory: projection.documentManifestHistory.map(resolve),
-  };
+  return withHeldBundles(
+    {
+      ...projection,
+      authorizingContainerPaths: [firstPath, ...otherPaths],
+      documentContainerManifestHistory:
+        projection.documentContainerManifestHistory.map(resolve),
+      documentManifest: resolve(projection.documentManifest),
+      documentManifestContainerPaths:
+        projection.documentManifestContainerPaths.map((path) =>
+          path.map(resolve),
+        ),
+      documentManifestHistory: projection.documentManifestHistory.map(resolve),
+    },
+    omittedBundles,
+  );
 }
