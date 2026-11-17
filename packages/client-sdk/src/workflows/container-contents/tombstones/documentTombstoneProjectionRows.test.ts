@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { deleteContainerDocumentTombstonePlacementRows } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence,
@@ -53,15 +54,19 @@ test("listContainerItemWindow drops every duplicate projection when a document i
     await readModel.replaceDocumentLinksBatch([
       { documentId: "contact-1", containerIds: ["root"] },
     ]);
-    await applyContainerDocumentTombstones(execSql, [
-      {
-        containerId: "root",
-        documentId: "contact-1",
-        accessEpoch: 1,
-        linkedContainerIds: [],
-        updatedAt: "2026-05-03T00:00:00.000Z",
-      },
-    ]);
+    await applyContainerDocumentTombstones(
+      execSql,
+      [
+        {
+          containerId: "root",
+          documentId: "contact-1",
+          accessEpoch: 1,
+          linkedContainerIds: [],
+          updatedAt: "2026-05-03T00:00:00.000Z",
+        },
+      ],
+      deleteContainerDocumentTombstonePlacementRows,
+    );
 
     const rootWindow = await readModel.listContainerItemWindow({
       containerId: "root",

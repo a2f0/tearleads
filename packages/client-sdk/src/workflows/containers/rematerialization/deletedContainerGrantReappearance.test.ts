@@ -12,7 +12,10 @@ import {
   projectionPolicySource,
 } from "../../../../test/helpers/projectionPolicyHistory";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
-import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import {
+  openPrincipalPolicyBundleReader,
+  PrincipalPolicyBundleRepository,
+} from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { recoverPublicPrincipalHistory } from "../../principals/publicHistory/recoverPublicPrincipalHistory";
 import { preparePrincipalContainerRematerializationBatch } from "./principalContainerRematerialization";
 
@@ -30,6 +33,7 @@ test("a container skipped as deleted during rotation cannot reappear under its o
     const verify = () =>
       verifyContainerWriterProjection({
         execSql: fixture.database.execSql,
+        openPrincipalPolicyBundleReader,
         projection: root,
         resolveUserKey: fixture.input.resolveTrustedUserIdentity,
         warmReferencedPrincipalPolicies:

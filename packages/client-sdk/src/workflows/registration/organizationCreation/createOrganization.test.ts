@@ -26,7 +26,7 @@ import { deriveContainerSystemSlot } from "../../container-contents/systemSlot";
 import {
   deriveOrganizationMetadataContainerSystemSlot,
   getRosterProfileDocumentLocalId,
-} from "../rosterProfileContainer";
+} from "../../organizations/rosterProfileContainer";
 import { createOrganization } from "./createOrganization";
 
 function expectCapturedRequest(

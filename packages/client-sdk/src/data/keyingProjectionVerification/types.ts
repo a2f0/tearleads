@@ -1,10 +1,16 @@
 import type {
+  PrincipalPolicyCheckpoint,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicyCurrent,
   VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
-import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
+import type {
+  PrincipalPolicyBundleResponse,
+  PrincipalStateResponse,
+  ProjectionPolicyEvidenceResponse,
+} from "@tearleads/validators/response";
 import type { PrincipalPolicyCurrentEvidence } from "../principals/principalPolicyEvidence";
+import type { ExecSql } from "../sqlite/sqlSchema";
 import type { TrustedUserIdentity } from "../trustedUserIdentity";
 
 export type ProjectionUserKey = TrustedUserIdentity;
@@ -14,6 +20,33 @@ export type ProjectionUserKeyResolver = (
 ) => Promise<ProjectionUserKey | null>;
 
 export type PrincipalPolicyCache = Map<string, PrincipalPolicyCurrentEvidence>;
+
+/**
+ * The cached principal policy bundles verification reads, supplied by the
+ * caller so verification does not depend on Principal Policy's store. Each
+ * method ensures the principal policy tables on the executor it was opened on.
+ */
+export interface PrincipalPolicyBundleReader {
+  ensurePrincipalPolicyTables(): Promise<void>;
+  loadPrincipalPolicyBundle(
+    principalType: PrincipalStateResponse["principalType"],
+    principalId: string,
+  ): Promise<PrincipalPolicyBundleResponse | null>;
+  /** The newest stored bundle containing exactly `reference`, never a guess. */
+  loadPrincipalPolicyBundleForReference(
+    reference: ReferencedPrincipalHead,
+    checkpoint: PrincipalPolicyCheckpoint | null,
+  ): Promise<PrincipalPolicyBundleResponse | null>;
+}
+
+/**
+ * Opens the bundle reader on one executor. Verification opens it on the
+ * executor each read runs on, a locked transaction handle included, so every
+ * read sees that executor's snapshot.
+ */
+export type OpenPrincipalPolicyBundleReader = (
+  execSql: ExecSql,
+) => PrincipalPolicyBundleReader;
 
 export interface PrincipalPolicyResolveRequest {
   /** Reuse authenticated local ancestry before an authorized online recovery. */

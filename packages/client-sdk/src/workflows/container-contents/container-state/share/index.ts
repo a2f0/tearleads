@@ -12,6 +12,7 @@ import {
   type ProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../../../data/keyingProjectionVerification";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 import type { ContainerContentsPersistence } from "../../containerPersistence";
 import { projectionGeneration } from "../../projectionGeneration";
@@ -208,6 +209,7 @@ async function prepareContainerStateGroupRewrapInternal(input: {
   if (input.requireExistingGrant) {
     await verifyContainerWriterProjection({
       execSql: input.runtime.infra.execSql,
+      openPrincipalPolicyBundleReader,
       projection,
       resolveUserKey: input.resolveProjectionUserKey,
       stillCurrent: input.stillCurrent,

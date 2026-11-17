@@ -9,6 +9,7 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/document
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { verifyDocumentWriterProjection } from "../document/documentProjectionVerification";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
@@ -55,6 +56,7 @@ test("an empty purge history cannot replace a pinned document with an unrelated 
   try {
     await verifyDocumentWriterProjection({
       execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
       projection: owner.writerProjection,
       resolveUserKey,
     });
@@ -63,6 +65,7 @@ test("an empty purge history cannot replace a pinned document with an unrelated 
     await expect(
       verifyDocumentPurgeProof({
         execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
         expectedDocumentId: proof.documentId,
         expectedOrganizationId: owner.author.organizationId,
         proof: {

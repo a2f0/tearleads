@@ -23,6 +23,7 @@ import { createChildContainerProjection } from "../../../../test/helpers/project
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { buildMaterializedDocumentCreatePlan } from "../../../workflows/documents/create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../../workflows/documents/linkSet";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { verifyDocumentWriterProjection } from "./documentProjectionVerification";
 
 // Dependency container paths authorize document link events, and a compromised
@@ -125,6 +126,7 @@ test("a dependency path must be a root-to-leaf ancestor chain", async () => {
     await expect(
       verifyDocumentWriterProjection({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection,
         resolveUserKey: scenario.resolveUserKey,
       }),
@@ -145,6 +147,7 @@ test("a new head citing genuine dependency paths still verifies", async () => {
   try {
     await verifyDocumentWriterProjection({
       execSql,
+      openPrincipalPolicyBundleReader,
       projection: scenario.initialProjection,
       resolveUserKey: scenario.resolveUserKey,
     });
@@ -152,6 +155,7 @@ test("a new head citing genuine dependency paths still verifies", async () => {
     await expect(
       verifyDocumentWriterProjection({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection: linkedHead,
         resolveUserKey: scenario.resolveUserKey,
       }),
@@ -176,6 +180,7 @@ test("the current head cannot be repeated in the manifest history", async () => 
     await expect(
       verifyDocumentWriterProjection({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection: {
           ...linkedHead,
           documentManifestHistory: [
@@ -353,6 +358,7 @@ test("a stale dependency path never replaces the authorizing path for its leaf",
       await expect(
         verifyDocumentWriterProjection({
           execSql: control.execSql,
+          openPrincipalPolicyBundleReader,
           projection: served(childStale),
           resolveUserKey: resolveIdentity,
         }),
@@ -370,6 +376,7 @@ test("a stale dependency path never replaces the authorizing path for its leaf",
     await expect(
       verifyDocumentWriterProjection({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection: served(childCurrent),
         resolveUserKey: resolveIdentity,
       }),

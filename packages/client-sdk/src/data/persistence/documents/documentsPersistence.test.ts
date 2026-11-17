@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { DocumentContainerProjectionRepository as Links } from "../container-contents/documentContainerProjectionPersistence";
+import {
+  deleteContainerDocumentTombstonePlacementRows,
+  DocumentContainerProjectionRepository as Links,
+} from "../container-contents/documentContainerProjectionPersistence";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence,
@@ -386,15 +389,19 @@ test("container document tombstones remove links and repair selected container",
     });
 
     await expect(
-      applyContainerDocumentTombstones(execSql, [
-        {
-          containerId: "container-a",
-          documentId: "document-1",
-          accessEpoch: 1,
-          linkedContainerIds: ["container-b"],
-          updatedAt: "2026-05-05T00:05:00.000Z",
-        },
-      ]),
+      applyContainerDocumentTombstones(
+        execSql,
+        [
+          {
+            containerId: "container-a",
+            documentId: "document-1",
+            accessEpoch: 1,
+            linkedContainerIds: ["container-b"],
+            updatedAt: "2026-05-05T00:05:00.000Z",
+          },
+        ],
+        deleteContainerDocumentTombstonePlacementRows,
+      ),
     ).resolves.toEqual([
       {
         accessStateHash: "access-state-hash-1",
@@ -418,15 +425,19 @@ test("container document tombstones remove links and repair selected container",
     });
 
     await expect(
-      applyContainerDocumentTombstones(execSql, [
-        {
-          containerId: "container-b",
-          documentId: "document-1",
-          accessEpoch: 1,
-          linkedContainerIds: [],
-          updatedAt: "2026-05-05T00:10:00.000Z",
-        },
-      ]),
+      applyContainerDocumentTombstones(
+        execSql,
+        [
+          {
+            containerId: "container-b",
+            documentId: "document-1",
+            accessEpoch: 1,
+            linkedContainerIds: [],
+            updatedAt: "2026-05-05T00:10:00.000Z",
+          },
+        ],
+        deleteContainerDocumentTombstonePlacementRows,
+      ),
     ).resolves.toEqual([
       {
         accessStateHash: "access-state-hash-1",

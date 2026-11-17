@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import {
+  CONTAINER_CREATE_INTENT_TYPE,
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
   LOCAL_INTENT_SUBJECT,
@@ -11,7 +12,6 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
-  CONTAINER_CREATE_INTENT_TYPE,
   CONTAINER_MOVE_INTENT_TYPE,
   type ContainerContentsPersistence,
   type ContainerCreateIntentErrorInput,

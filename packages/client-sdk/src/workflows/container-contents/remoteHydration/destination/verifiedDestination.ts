@@ -18,6 +18,7 @@ import {
   type HeldContainerBinding,
   listingRepeatsHeldOrdinaryBinding,
 } from "../../../../data/persistence/container-contents/containerBinding";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { verifyRuntimeGroupMetadataAuthority } from "../../../organizations/groupMetadata/runtimeGroupMetadataAuthority";
 
 import type {
@@ -173,6 +174,7 @@ async function verifyDestinationRole(input: {
   assertDestinationProjectionIdentity(projection, listed);
   const verificationInput = {
     execSql: runtime.infra.execSql,
+    openPrincipalPolicyBundleReader,
     projection,
     resolveUserKey: runtime.resolveTrustedUserIdentity,
     stillCurrent: isCurrent,

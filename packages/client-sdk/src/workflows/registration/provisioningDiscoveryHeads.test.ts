@@ -10,7 +10,7 @@ import { respondToOrganizationProvisioning } from "../../../test/helpers/organiz
 import { DocumentDiscoveryEvidenceRepository } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createDiscoveredDocumentVerifier } from "../container-contents/documentDiscovery/documentDiscoveryEvidence";
-import { createOrganization } from "../organizations/provisioning/createOrganization";
+import { createOrganization } from "./organizationCreation/createOrganization";
 
 type SeededDocument = NonNullable<
   CreateOrganizationResponse["organizationProfileDocument"]

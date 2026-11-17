@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import {
+  deleteContainerDocumentTombstonePlacementRows,
+  DocumentContainerProjectionRepository as Links,
+} from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import {
@@ -361,9 +364,11 @@ test("a hold whose placement is gone is dropped when retried", async () => {
     await seedDocumentInFolder(execSql);
     await holdFolderAt(execSql);
     await new Links(execSql).replaceDocumentLinks("doc", []);
-    await applyContainerDocumentTombstones(execSql, [
-      { ...hold("folder"), accessEpoch: 1, linkedContainerIds: [] },
-    ]);
+    await applyContainerDocumentTombstones(
+      execSql,
+      [{ ...hold("folder"), accessEpoch: 1, linkedContainerIds: [] }],
+      deleteContainerDocumentTombstonePlacementRows,
+    );
     await holdFolderAt(execSql);
 
     expect(
@@ -435,13 +440,17 @@ test("a refuted tombstone stays visible and remains retryable if the head lagged
     expect(await folderDocumentRows(execSql, readModel)).toMatchObject({
       itemCount: 1,
     });
-    await applyContainerDocumentTombstones(execSql, [
-      {
-        ...hold("folder"),
-        accessEpoch: 2,
-        linkedContainerIds: [],
-      },
-    ]);
+    await applyContainerDocumentTombstones(
+      execSql,
+      [
+        {
+          ...hold("folder"),
+          accessEpoch: 2,
+          linkedContainerIds: [],
+        },
+      ],
+      deleteContainerDocumentTombstonePlacementRows,
+    );
     expect(await new Links(execSql).listLinkedContainerIds("doc")).toEqual([]);
     expect(
       await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),

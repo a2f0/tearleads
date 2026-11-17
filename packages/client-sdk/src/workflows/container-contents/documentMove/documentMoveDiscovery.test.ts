@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import {
+  deleteContainerDocumentTombstonePlacementRows,
+  DocumentContainerProjectionRepository as Links,
+} from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   applyContainerDocumentTombstones,
@@ -75,6 +78,7 @@ test("a delayed trash tombstone preserves the latest trash intent after restore"
         linkedContainerIds: [],
         updatedAt: "2026-09-17T00:00:00.000Z",
       })),
+      deleteContainerDocumentTombstonePlacementRows,
     );
     expect(await documents.loadDocument(execSql, "moving")).toMatchObject({
       containerId: "trash",

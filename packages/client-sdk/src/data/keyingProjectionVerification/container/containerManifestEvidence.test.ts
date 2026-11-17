@@ -27,6 +27,7 @@ import {
   createTestTrustedUserIdentity,
   fixtureProjectionMember,
 } from "../../../../test/helpers/trustedUserIdentity";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { principalPolicyCacheForVerifiedPolicies } from "../principalPolicy/principalPolicyCache";
 import { verifyContainerManifestPath } from "./containerPathVerification";
@@ -212,7 +213,10 @@ test("required purge evidence reaches every recursive container predecessor", as
       servedAsCurrent: false,
       authorizationMembership: "referenced",
       bundlesByHash,
-      checkpointContext: createProjectionCheckpointContext({ execSql }),
+      checkpointContext: createProjectionCheckpointContext({
+        execSql,
+        openPrincipalPolicyBundleReader,
+      }),
       enforceLocalCheckpoints: false,
       label: "Warm cached container path",
       path: [manifestBundle(granted)],
@@ -228,7 +232,10 @@ test("required purge evidence reaches every recursive container predecessor", as
         authorizationEvidence: [],
         authorizationMembership: "referenced",
         bundlesByHash,
-        checkpointContext: createProjectionCheckpointContext({ execSql }),
+        checkpointContext: createProjectionCheckpointContext({
+          execSql,
+          openPrincipalPolicyBundleReader,
+        }),
         enforceLocalCheckpoints: false,
         label: "Cold purge container path",
         path: [manifestBundle(granted)],

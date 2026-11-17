@@ -17,6 +17,7 @@ export const clientSdkLayers: SubsystemLayers = [
   ],
   ["Identity & Session", "Keying Verification", "Principal Policy (client)"],
   [
+    "Document Projection Contracts",
     "Container Data",
     "Client Blob Storage",
     "Document Store & Sync",
