@@ -104,6 +104,9 @@ export async function verifyContainerManifestBundle(input: {
     await resolveContainerManifestVerificationParentPath(input);
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
+    // A cache hit vouches for the hash, not for this copy's state: callers
+    // read the state off the bundle they passed, so it must be the verified one.
+    assertVerifiedState(input, cached);
     assertContainerParentPathMatches({
       label: input.label,
       parentPath,
@@ -203,18 +206,22 @@ async function verifyFreshContainerManifestBundle(
   }
 
   assertSignedContainerParentPin(input, verified.value);
-  assertCanonicalEqual({
-    actual: input.bundle.state,
-    expected: readKeyingCanonicalJson(
-      verified.value.state,
-      `${input.label} state`,
-    ),
-    label: `${input.label} state`,
-  });
+  assertVerifiedState(input, verified.value);
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
   recordVerifiedBundleBytes(verified.value, input.bundle);
 
   return verified.value;
+}
+
+function assertVerifiedState(
+  input: Pick<CitedAncestorInput, "bundle" | "label">,
+  verified: VerifiedContainerAccessManifest,
+): void {
+  assertCanonicalEqual({
+    actual: input.bundle.state,
+    expected: readKeyingCanonicalJson(verified.state, `${input.label} state`),
+    label: `${input.label} state`,
+  });
 }
 
 /**

@@ -38,6 +38,20 @@ import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecesso
 
 type PolicyWarmer = ReferencedPrincipalPolicyWarmer | undefined;
 
+function assertVerifiedState(
+  input: {
+    readonly bundle: AccessManifestBundleWireResponse;
+    readonly label: string;
+  },
+  verified: VerifiedDocumentLinkSetManifest,
+): void {
+  assertCanonicalEqual({
+    actual: input.bundle.state,
+    expected: readKeyingCanonicalJson(verified.state, `${input.label} state`),
+    label: `${input.label} state`,
+  });
+}
+
 export async function verifyDocumentManifestBundle(input: {
   readonly authorizationMembership?: "current" | "referenced" | undefined;
   readonly authorizationEvidence?:
@@ -64,6 +78,8 @@ export async function verifyDocumentManifestBundle(input: {
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
+    // A cache hit vouches for the hash, not for this copy's state.
+    assertVerifiedState(input, cached);
     if (input.enforceLocalCheckpoint) {
       await verifyCachedManifestCheckpoint({
         current: cached,
@@ -139,14 +155,7 @@ export async function verifyDocumentManifestBundle(input: {
     paths: [...dependencyContainerPaths, targetContainerPath],
     used: input.usedContainerManifests,
   });
-  assertCanonicalEqual({
-    actual: input.bundle.state,
-    expected: readKeyingCanonicalJson(
-      verified.value.state,
-      `${input.label} state`,
-    ),
-    label: `${input.label} state`,
-  });
+  assertVerifiedState(input, verified.value);
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
   recordVerifiedBundleBytes(verified.value, input.bundle);
 

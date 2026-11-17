@@ -120,3 +120,38 @@ test("a cached hash never stores a later projection's different bytes", async ()
     second.close();
   }
 });
+
+test("a cache hit still refuses a copy whose state differs", async () => {
+  const fixture = await createVerificationFixture();
+  const first = await createTestExecSql("verified-bundles-warm-first");
+  const second = await createTestExecSql("verified-bundles-warm-second");
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  const verifiedByHash = new Map();
+  try {
+    await verifyContainerWriterProjection({
+      execSql: first.execSql,
+      openPrincipalPolicyBundleReader,
+      projection: fixture.projection,
+      resolveUserKey: fixture.resolveUserKey,
+      verifiedByHash,
+    });
+    // Same hash, warm cache, a parent pin the verified state does not name.
+    const repinned = {
+      ...leaf,
+      state: { ...leaf.state, parentManifestHash: "f".repeat(64) },
+    };
+    await expect(
+      verifyContainerWriterProjection({
+        execSql: second.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [repinned] },
+        resolveUserKey: fixture.resolveUserKey,
+        verifiedByHash,
+      }),
+    ).rejects.toMatchObject({ code: "hash_mismatch" });
+  } finally {
+    first.close();
+    second.close();
+  }
+});

@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
+import { createContainerManifestFixture } from "@tearleads/crypto/container-access-test-fixtures";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import type { ProjectionCheckpointContext } from "../checkpoints/checkpointContext";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
 import { readSignedContainerParentReference } from "./containerSignedParentReference";
 
@@ -79,21 +82,18 @@ test("each event pins the parent its signed bodies name", () => {
   ]);
 });
 
-test("a verified predecessor answers with its derived state", () => {
-  const verified = new Map([
-    [
-      "grant",
-      {
-        state: {
-          parentContainerId: "derived",
-          parentManifestHash: "derived-1",
-        },
-      } as unknown as VerifiedContainerAccessManifest,
-    ],
-  ]);
+test("a verified predecessor answers with its derived state", async () => {
+  const predecessor = await createContainerManifestFixture({
+    containerId: "container-1",
+    directGrants: [],
+    parentContainerId: "derived",
+    parentManifestHash: "d".repeat(64),
+  });
   const [, grant, rekey, recite] = chain;
   if (!grant || !rekey || !recite) throw new Error("chain missing");
-  expect(pinOf("recite", [rekey, recite], verified)).toEqual({
+  expect(
+    pinOf("recite", [rekey, recite], new Map([["grant", predecessor]])),
+  ).toEqual({
     parentContainerId: "derived",
     parentManifestHash: "parent-2",
   });
@@ -121,21 +121,29 @@ test("parent pins that cycle are refused before any verification", async () => {
   const bundles = [pinned("a", "b"), pinned("b", "a")];
   const [first] = bundles;
   if (!first) throw new Error("cycle fixture missing");
-  await expect(
-    verifyContainerManifestBundle({
-      bundle: first,
-      bundlesByHash: new Map(
-        bundles.map((entry) => [entry.manifestHash, entry]),
-      ),
-      checkpointContext: {} as ProjectionCheckpointContext,
-      enforceLocalCheckpoint: false,
-      label: "Cyclic manifest",
-      parentPath: [],
-      principalPolicyCache: new Map(),
-      resolveUserKey: async () => {
-        throw new Error("no signer is resolved for a cycle");
-      },
-      verifiedByHash: new Map(),
-    }),
-  ).rejects.toMatchObject({ code: "object_mismatch" });
+  const database = await createTestExecSql("parent-pin-cycle");
+  try {
+    await expect(
+      verifyContainerManifestBundle({
+        bundle: first,
+        bundlesByHash: new Map(
+          bundles.map((entry) => [entry.manifestHash, entry]),
+        ),
+        checkpointContext: createProjectionCheckpointContext({
+          execSql: database.execSql,
+          openPrincipalPolicyBundleReader,
+        }),
+        enforceLocalCheckpoint: false,
+        label: "Cyclic manifest",
+        parentPath: [],
+        principalPolicyCache: new Map(),
+        resolveUserKey: async () => {
+          throw new Error("no signer is resolved for a cycle");
+        },
+        verifiedByHash: new Map(),
+      }),
+    ).rejects.toMatchObject({ code: "object_mismatch" });
+  } finally {
+    database.close();
+  }
 });
