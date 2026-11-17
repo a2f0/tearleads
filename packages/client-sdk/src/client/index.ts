@@ -234,7 +234,10 @@ export {
   type DatabaseSnapshot,
   type DatabaseStatus,
 } from "./runtime/database";
-export { createDocumentsWorkflowRuntime } from "./runtime/documentsRuntime";
+export {
+  createDocumentsWorkflowRuntime,
+  type DocumentsWorkflowRuntimeInput,
+} from "./runtime/documentsRuntime";
 export {
   Events,
   type EventsListener,
