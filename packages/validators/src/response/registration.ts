@@ -1,9 +1,9 @@
 import type { z } from "zod";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
-import { organizationProvisioningCommittedUpdateIdsRefinement } from "../organizationProvisioningRefinements";
 import { authChallengeHexStringSchema, loosePlainObject } from "../schema";
 import {
-  addCommittedUpdateIdIssues,
+  addProvisioningResponseIssues,
+  organizationProvisioningResponseRefinements,
   organizationProvisioningResponseShape,
 } from "./organizationProvisioning";
 
@@ -11,8 +11,8 @@ export const RegistrationResponseSchema = registerJsonSchemaRuntimeRefinements(
   loosePlainObject({
     ...organizationProvisioningResponseShape,
     challenge: authChallengeHexStringSchema,
-  }).superRefine(addCommittedUpdateIdIssues),
-  [organizationProvisioningCommittedUpdateIdsRefinement],
+  }).superRefine(addProvisioningResponseIssues),
+  organizationProvisioningResponseRefinements,
 );
 
 export type RegistrationResponse = z.infer<typeof RegistrationResponseSchema>;

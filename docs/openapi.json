@@ -2469,6 +2469,7 @@
           "commitLsn": {
             "anyOf": [
               {
+                "pattern": "^[0-9A-Fa-f]{1,8}\\/[0-9A-Fa-f]{1,8}$",
                 "type": "string"
               },
               {
@@ -8898,6 +8899,7 @@
           "commitLsn": {
             "anyOf": [
               {
+                "pattern": "^[0-9A-Fa-f]{1,8}\\/[0-9A-Fa-f]{1,8}$",
                 "type": "string"
               },
               {
@@ -12154,6 +12156,14 @@
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
+          },
+          {
+            "description": "commitLsnMode \"untracked\" requires the commitLsn \"0/0\" sentinel",
+            "id": "response.untracked-commit-lsn-sentinel"
+          },
+          {
+            "description": "commitLsn \"0/0\" requires commitLsnMode \"untracked\" in the same response",
+            "id": "response.untracked-commit-lsn-mode"
           }
         ]
       }
@@ -20546,6 +20556,14 @@
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
+          },
+          {
+            "description": "commitLsnMode \"untracked\" requires the commitLsn \"0/0\" sentinel",
+            "id": "response.untracked-commit-lsn-sentinel"
+          },
+          {
+            "description": "commitLsn \"0/0\" requires commitLsnMode \"untracked\" in the same response",
+            "id": "response.untracked-commit-lsn-mode"
           }
         ]
       }

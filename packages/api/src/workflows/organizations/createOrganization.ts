@@ -16,7 +16,6 @@ import {
   type StoredCreateOrganizationResult,
 } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
-import { readCommitCheckpoint } from "../../documents/commitLsn";
 import { sha256Hex } from "../../utils/sha256";
 import {
   assertOrganizationCanSync,
@@ -34,7 +33,10 @@ import {
   toOrganizationProvisioningError,
 } from "./provisionOrganization";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
-import { toOrganizationProvisioningResponse } from "./provisionOrganizationResponse";
+import {
+  readProvisioningCommitCheckpoint,
+  toOrganizationProvisioningResponse,
+} from "./provisionOrganizationResponse";
 import { validateOrganizationProvisioningInput } from "./provisionOrganizationValidation";
 
 function nativeRestoreRequestSha256(input: CreateOrganizationRequest): string {
@@ -348,9 +350,8 @@ export async function runCreateOrganizationWorkflow(
       await finalizeReplacementDefaultOrganization(tx, input, response);
       return response;
     });
-    // Read after commit, as a document create's seed reports its position; a
-    // replay reads it anew, which still covers the original commit.
-    return { ...result, ...(await readCommitCheckpoint(db)) };
+    // A replay reads the position anew, which still covers the original commit.
+    return { ...result, ...(await readProvisioningCommitCheckpoint(db)) };
   } catch (error) {
     const provisioningError = toOrganizationProvisioningError(error);
     if (provisioningError) {

@@ -84,6 +84,20 @@ test("isRegistrationResponse", () => {
       false,
     );
   }
+  // The position is a WAL LSN or, when it could not be read, null; only the
+  // untracked mode carries the 0/0 sentinel.
+  for (const [checkpoint, valid] of [
+    [{ commitLsn: null, commitLsnMode: "tracked" }, true],
+    [{ commitLsn: "0/0", commitLsnMode: "untracked" }, true],
+    [{ commitLsn: "not-a-wal-lsn", commitLsnMode: "tracked" }, false],
+    [{ commitLsn: "0/0", commitLsnMode: "tracked" }, false],
+    [{ commitLsn: "0/16B3748", commitLsnMode: "untracked" }, false],
+  ] as const) {
+    expect(isRegistrationResponse({ ...response, ...checkpoint })).toBe(valid);
+    expect(
+      isOrganizationProvisioningResponse({ ...response, ...checkpoint }),
+    ).toBe(valid);
+  }
   expect(
     isRegistrationResponse({
       ...response,
