@@ -175,6 +175,13 @@ export async function organizationDirectoryKeying(input: {
         wrappedKey: envelope.wrappedKey,
       }),
     );
+  // Envelopes that share an encapsulation key are never re-served: rotating
+  // re-wraps for every admin, which refuses a shared key as it always has.
+  if (
+    new Set(currentEnvelopes.map((envelope) => envelope.memberKeyFingerprint))
+      .size !== currentEnvelopes.length
+  )
+    return rotatedKeying(input);
   // A key is kept only when the signer's own envelope opens it and it
   // matches the signed key. Otherwise, or without the signer's key, the write
   // rotates, which re-wraps a fresh key for every admin. Measured (best of

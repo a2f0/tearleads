@@ -277,3 +277,46 @@ test("a kept key re-serves only the signed envelope fields", async () => {
       "wrappedKey",
     ]);
 });
+
+test("retained admins sharing an encapsulation key are not re-served", async () => {
+  const a = await admin("a");
+  const { organizationKem, policy } = await directory([a]);
+  const sharedIdentity = createTestTrustedUserIdentity({
+    encapsulationKeyFingerprint: a.identity.encapsulationKeyFingerprint,
+    encapsulationPublicKey: a.kem.publicKey,
+    signingKeyFingerprint: "b-signing",
+    signingPublicKey: generateSigningSeedAndKeyPair().signingPublicKey,
+    userId: "b",
+  });
+  const shared = await createPrincipalProjectionMember(sharedIdentity, "admin");
+  const [envelope] = await wrapDekForRecipients(organizationKem.secretKey, [
+    a.kem.publicKey,
+  ]);
+  if (!envelope) throw new Error("expected an envelope");
+  const sharing: OrganizationDirectoryCurrentPolicy = {
+    ...policy,
+    currentMemberEnvelopes: {
+      envelopes: [
+        ...policy.currentMemberEnvelopes.envelopes,
+        {
+          kemCipherText: bytesToBase64(envelope.kemCipherText),
+          memberKeyFingerprint: envelope.keyFingerprint,
+          userId: "b",
+          wrappedKey: bytesToBase64(envelope.wrappedKey),
+        },
+      ],
+    },
+    currentProjection: [a.member, shared],
+  };
+  // The unchanged projection would keep the key; the shared key sends it
+  // through the full re-wrap, which refuses it.
+  await expect(
+    organizationDirectoryKeying({
+      signerUserId: "a",
+      currentPolicy: sharing,
+      currentUserSecretKey: a.kem.secretKey,
+      projection: [a.member, shared],
+      users: [a.identity, sharedIdentity],
+    }),
+  ).rejects.toThrow("Recipient public keys must be unique");
+});

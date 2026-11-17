@@ -165,15 +165,15 @@ member envelopes for the remaining members.
 
 The organization policy follows the same rule for its directory key. A
 directory write (group create, group policy commit, group delete) keeps the
-key, epoch and envelopes while the Admins projection is unchanged, and when
-admins are only added it wraps the held key for them alone. Any removal
-rotates to a fresh key wrapped for the remaining admins, so a removed admin
-never holds the current organization key
-([model](../../formal/container-keying/OrganizationDirectoryKey.md)). The
-write also rotates when the signer cannot recover the held key: its own
-envelope does not open, opens a key other than the signed one, or the writer
-does not have its encapsulation key to check. A changed
-identity for a continuing admin is not a rotation case; verifiers refuse it.
+key, epoch and envelopes while the Admins projection is unchanged, and wraps
+the held key only for added admins. Verifiers refuse a removal that keeps the
+key, and the SDK rotates to a freshly generated key for the remaining admins,
+so a removed admin never holds a current key the SDK wrote
+([model](../../formal/container-keying/OrganizationDirectoryKey.md)); as for
+every principal, verifiers compare key material only with the predecessor.
+The SDK also rotates when the signer's own envelope does not open the signed
+key, the writer lacks its encapsulation key, or retained envelopes share an
+encapsulation key. Verifiers refuse a changed identity for a continuing admin.
 
 ### Managed Grants Fail Closed
 
