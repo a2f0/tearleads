@@ -2,7 +2,7 @@ import type {
   ContainerAccessManifestState,
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principalContracts/principalPolicyEvidence";
 import type {
   createRuntimeCurrentGroupShare,
   shareRemoteContainerWithGroup,
