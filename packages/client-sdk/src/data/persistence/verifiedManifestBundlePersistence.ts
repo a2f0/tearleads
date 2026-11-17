@@ -320,7 +320,11 @@ export function suppressHeldCitations(
     evictedInGeneration.set(hash, evictionGeneration);
   }
   return () => {
+    // The drop is complete: a load that started before now may hold the
+    // dropped bytes, so it is newer than none of them.
+    evictionGeneration += 1;
     for (const hash of manifestHashes) {
+      evictedInGeneration.set(hash, evictionGeneration);
       const count = (suppressedCitations.get(hash) ?? 1) - 1;
       if (count > 0) suppressedCitations.set(hash, count);
       else suppressedCitations.delete(hash);

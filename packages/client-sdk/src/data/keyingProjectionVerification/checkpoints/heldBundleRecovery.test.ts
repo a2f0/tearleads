@@ -433,3 +433,31 @@ test("a citation load overlapping an eviction does not return the evicted row", 
     database.close();
   }
 });
+
+test("a citation load that starts during an eviction does not return the evicted row", async () => {
+  const fixture = await seededFixture();
+  const database = await createTestExecSql("held-bundle-overlap-start");
+  const wrong = toServedAccessManifestBundle({
+    ...fixture.leaf,
+    state: { ...fixture.leaf.state, directGrants: [] },
+  });
+  try {
+    await seedWrongRow(database.execSql, fixture, wrong);
+    // The eviction is under way when the load starts and ends during it.
+    const release = suppressHeldCitations([fixture.leaf.manifestHash]);
+    let released = false;
+    const execSql = new Proxy(database.execSql, {
+      apply(target, thisArg, args: unknown[]) {
+        if (!released) {
+          released = true;
+          release();
+        }
+        return Reflect.apply(target, thisArg, args);
+      },
+    });
+    expect(await loadVerifiedManifestCitations(execSql, target)).toEqual([]);
+    expect(released).toBe(true);
+  } finally {
+    database.close();
+  }
+});
