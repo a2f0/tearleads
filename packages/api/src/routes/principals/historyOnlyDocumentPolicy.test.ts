@@ -1,9 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  createRemoteDocument,
-  syncRemoteDocument,
-  validateDocumentSyncUpdateImports,
-} from "@tearleads/client-sdk";
+import { validateDocumentSyncUpdateImports } from "@tearleads/client-sdk";
 import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   wrapContentKey,
@@ -38,6 +34,10 @@ import {
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { expectPublicProjectionPolicyEvidence } from "../../../test/helpers/projectionPolicyEvidenceAssertions";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
+import {
+  createSdkRemoteDocument as createRemoteDocument,
+  syncSdkRemoteDocument as syncRemoteDocument,
+} from "../../../test/helpers/sdkRemoteDocuments";
 import { routeApp } from "../../routeApp";
 
 test("an organization member verifies a document's inaccessible sibling-container citation", async () => {

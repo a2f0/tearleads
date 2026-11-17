@@ -15,9 +15,9 @@ import {
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
+import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
-import { syncRemoteDocument } from "./index";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 
 async function pendingUpdate(text: string, id: string) {

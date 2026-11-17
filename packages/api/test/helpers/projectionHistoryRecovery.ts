@@ -1,10 +1,10 @@
 import {
   recoverProjectionPolicyHistory,
-  type syncRemoteDocument,
+  type SyncRemoteDocumentRequest,
 } from "@tearleads/client-sdk";
 
 type Warmer = NonNullable<
-  Parameters<typeof syncRemoteDocument>[0]["warmReferencedPrincipalPolicies"]
+  SyncRemoteDocumentRequest["warmReferencedPrincipalPolicies"]
 >;
 
 /** Standalone SDK fixtures own private local history protection, like a host. */

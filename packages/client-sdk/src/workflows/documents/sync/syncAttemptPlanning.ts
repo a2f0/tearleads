@@ -21,7 +21,7 @@ import {
 } from "../syncFailures/syncRepairAbandon";
 import { prepareSyncAttemptContainerRekeys } from "../syncRekeys/syncContainerRekeyPreparation";
 import { buildRemoteDocumentSyncPlan } from "../syncRekeys/syncContainerRekeys";
-import type { SyncRemoteDocumentInput } from "./readOnlySync";
+import type { RemoteDocumentSyncPass } from "./remoteDocumentSyncPass";
 
 /**
  * A write-bearing pass records through the submit handler (its queued writes
@@ -34,7 +34,7 @@ import type { SyncRemoteDocumentInput } from "./readOnlySync";
  * its 403 handling.
  */
 export function projectionFailureHandler(
-  input: SyncRemoteDocumentInput,
+  input: RemoteDocumentSyncPass,
   failureBlocksQueuedWrites: boolean,
 ): TerminalSubmitFailureHandler | undefined {
   return failureBlocksQueuedWrites
@@ -47,7 +47,7 @@ export async function planDocumentSyncAttempt(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
   pullContinuation?: DocumentSyncPullContinuation | undefined;
   regenerateQueuedCheckpoints: boolean;
-  sync: SyncRemoteDocumentInput;
+  sync: RemoteDocumentSyncPass;
   failureBlocksQueuedWrites: boolean;
   writerProjection: DocumentWriterProjectionResponse;
 }) {
