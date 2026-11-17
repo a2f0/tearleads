@@ -11,6 +11,7 @@ import {
 import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { buildInitialOrganizationPolicyRequest } from "../../src/data/principals/organizationPolicyRequest";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import { shareContainerStateWithGroup } from "../../src/workflows/container-contents/container-state/share";
 import { withDirectGroupGrant } from "../../src/workflows/container-contents/container-state/share/share.testFixtures";
@@ -22,7 +23,6 @@ import {
   createContainerContentsWorkflowRuntime,
 } from "../../src/workflows/container-contents/runtime";
 import { containerContentsOrganizationHost } from "../../src/workflows/organizations/containerContentsHost";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import { createAuthor } from "./containerFixtures";
 import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";

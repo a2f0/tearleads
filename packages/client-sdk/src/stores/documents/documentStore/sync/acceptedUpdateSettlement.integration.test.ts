@@ -11,10 +11,10 @@ import {
   type DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import {
-  createMaterializedSyncFixture,
   createResponseFromRequest,
   type DocumentCreateFixture,
 } from "../../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import {
   createEchoDocumentSyncResponse,
   createOnlineDocumentsRuntime,

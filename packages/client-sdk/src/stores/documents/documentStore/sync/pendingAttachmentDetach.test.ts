@@ -8,7 +8,7 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
 import type { BlobAttachmentSummary } from "@tearleads/validators/response";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import { attachmentContentSha256 } from "../../../../data/blobs/attachmentContentIdentity";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { addDocumentAttachments } from "../../../../data/documents/documentContent";

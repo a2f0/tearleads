@@ -14,12 +14,12 @@ import {
 import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
 import { createContainerMutationServiceFixture } from "../../../../test/helpers/containerMutationServiceFixture";
 import {
-  createMaterializedSyncFixture,
   createSignedSyncResponseUpdate,
   createSyncResponse,
   createUserContainerWrap,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import {
   ContainerKekHistoryUnavailableError,

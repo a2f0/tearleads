@@ -8,7 +8,7 @@ import {
   projectionDirectoryPayload,
   projectionHistoryPages,
   projectionPolicySource,
-} from "./projectionPolicyHistory";
+} from "./projectionPolicyPages";
 import { createReservedGroupAdvance } from "./reservedGroupAdvance";
 
 async function metadataProjection(

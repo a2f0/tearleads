@@ -1,7 +1,7 @@
 import { type AccessEvent, computeAccessEventHash } from "@tearleads/crypto";
 import type { DocumentPurgeProofResponse } from "@tearleads/validators/response";
 import { buildDocumentPurgeRequest } from "../../src/workflows/documents/purge";
-import type { createMaterializedSyncFixture } from "./documentFixtures";
+import type { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 type MaterializedSyncFixture = Awaited<
   ReturnType<typeof createMaterializedSyncFixture>

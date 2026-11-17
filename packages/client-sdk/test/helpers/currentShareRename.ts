@@ -13,7 +13,7 @@ import {
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "./projectionPolicyHistory";
+} from "./projectionPolicyPages";
 
 /** Prepare a genuine rename to publish between the share read and grant mint. */
 export async function prepareCurrentShareRename(

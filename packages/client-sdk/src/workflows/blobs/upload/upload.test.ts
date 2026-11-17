@@ -18,10 +18,8 @@ import {
   createParentProjectionUserKeyResolver,
   substituteFirstProjectionUserWrapMaterial,
 } from "../../../../test/helpers/containerFixtures";
-import {
-  createMaterializedSyncFixture,
-  createResponse,
-} from "../../../../test/helpers/documentFixtures";
+import { createResponse } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { parseBlobEncryptedBytes } from "../../../data/blobs/attachments/readers";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { readContainerState } from "../../../data/containers/shared/projection";

@@ -3,11 +3,11 @@ import { base64ToBytes } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sealContentKeyBundle } from "../../../../test/helpers/contentKeyBundleSealing";
 import {
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { wrapDocumentContentKeyForCreate } from "../../../data/documents/shared/projection";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";

@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
 import {
-  cacheReferencedPolicies,
   createPrincipalPolicyBundle,
   referencedPrincipalStateFromBundle,
-} from "../../../../test/helpers/policyCacheFixtures";
+} from "../../../../test/helpers/principalPolicyBundles";
 import { trustedUserIdentityFromResponse } from "../../../../test/helpers/trustedUserIdentity";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { cachePrincipalPolicyBundles } from "./index";

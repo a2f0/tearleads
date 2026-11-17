@@ -4,12 +4,12 @@ import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { retrySyncPlan } from "../syncFailures";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 

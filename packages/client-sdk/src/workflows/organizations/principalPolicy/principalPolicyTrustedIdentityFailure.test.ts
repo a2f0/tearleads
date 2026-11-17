@@ -22,8 +22,8 @@ import {
   createFixtureUserIdentity,
   createTestTrustedUserIdentity,
 } from "../../../../test/helpers/trustedUserIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";
 import type { TrustedUserIdentity } from "../../../data/trustedUserIdentity";
-import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import { assertGroupMembershipName } from "../groupNames/groupMembershipName";
 import { buildAddGroupUserPolicyRequest } from "../groupPolicy/groupPolicyRequests";
 import { addOrganizationGroupUser, removeOrganizationGroupUser } from "./index";

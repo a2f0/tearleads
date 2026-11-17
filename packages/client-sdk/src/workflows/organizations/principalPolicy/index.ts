@@ -14,6 +14,11 @@ import type {
   ContainerMutationResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import type { GroupPolicyNameReader } from "../../../data/principals/principalPolicyRequest";
+import {
+  buildInitialGroupPolicyRequest,
+  buildInitialMemberGroupPolicyRequest,
+} from "../../../data/principals/principalPolicyRequest";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
@@ -41,11 +46,6 @@ import {
   projectionUserIds,
   resolveRequiredUserIdentities,
 } from "../trustedOrganizationUsers";
-import type { GroupPolicyNameReader } from "./principalPolicyRequest";
-import {
-  buildInitialGroupPolicyRequest,
-  buildInitialMemberGroupPolicyRequest,
-} from "./principalPolicyRequest";
 
 export { buildInitialGroupPolicyRequest, buildInitialMemberGroupPolicyRequest };
 

@@ -1,5 +1,6 @@
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
+import { buildInitialGroupPolicyRequest } from "../../../data/principals/principalPolicyRequest";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
@@ -9,7 +10,6 @@ import {
   cacheGroupPolicy,
   type OrganizationPrincipalPolicyApi,
 } from "../groupPolicy/groupPolicyMutationContext";
-import { buildInitialGroupPolicyRequest } from "../principalPolicy/principalPolicyRequest";
 import type { OrganizationGroupSummary } from "../readModel";
 import { commitCreatedGroupToDirectory } from "./organizationGroupDirectory";
 

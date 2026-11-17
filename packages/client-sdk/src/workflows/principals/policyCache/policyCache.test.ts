@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
+import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
 import {
-  cacheReferencedPolicies,
   createPrincipalPolicyBundle,
   createSuccessorPrincipalPolicyBundle,
   createUnauthorizedSuccessorPrincipalPolicyBundle,
   predecessorBundleFromSuccessor,
   referencedPrincipalStateFromBundle,
   referencedPrincipalStateFromPolicyState,
-} from "../../../../test/helpers/policyCacheFixtures";
-import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
+} from "../../../../test/helpers/principalPolicyBundles";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("principal policy sync caches a verified referenced principal bundle and skips refetching unchanged state", async () => {

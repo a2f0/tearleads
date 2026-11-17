@@ -14,7 +14,7 @@ import {
 } from "../../../test/helpers/ancestorCitationScenario";
 import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { projectionPolicyWarmer } from "../../../test/helpers/projectionPolicyHistory";
+import { projectionPolicyWarmer } from "../../../test/helpers/projectionPolicyWarmer";
 import { openPrincipalPolicyBundleReader } from "../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "./checkpoints/checkpointContext";
 import { verifyContainerManifestPath } from "./container/containerPathVerification";

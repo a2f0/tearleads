@@ -5,7 +5,7 @@ import {
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
+import { collectPrincipalPolicySignerPublicKeys } from "../../../data/principals/principalPolicyVerification";
 import { identityPolicyFixture } from "./policyIdentity.testFixtures";
 
 test("policy signer collection rejects a signed bundle hash different from the pinned full identity", async () => {

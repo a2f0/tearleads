@@ -1,6 +1,6 @@
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { ContainerMutationAuthor } from "../../src/data/containers/shared/types";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
+import { buildInitialOrganizationPolicyRequest } from "../../src/data/principals/organizationPolicyRequest";
 import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
@@ -10,7 +10,7 @@ import {
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "./projectionPolicyHistory";
+} from "./projectionPolicyPages";
 
 export async function createProjectionPolicyEvidence(input: {
   readonly author: ContainerMutationAuthor;

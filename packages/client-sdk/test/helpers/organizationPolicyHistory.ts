@@ -9,11 +9,11 @@ import type {
   PrincipalPolicySnapshotResponse,
 } from "@tearleads/validators/response";
 import { parseOrganizationAuthorityDescriptor } from "../../src/data/principalContracts/organizationAuthorityDescriptor";
+import { buildInitialOrganizationPolicyRequest } from "../../src/data/principals/organizationPolicyRequest";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
 } from "../../src/workflows/organizations/groups/organizationGroupDirectory";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import {
   buildInitialGroupPolicyRequest,
   testGroupMetadataKey,
@@ -28,7 +28,7 @@ import {
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "./projectionPolicyHistory";
+} from "./projectionPolicyPages";
 import {
   createFixtureUserIdentity,
   createTestTrustedUserIdentity,

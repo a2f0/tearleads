@@ -13,7 +13,7 @@ import {
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 
-import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
+import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";
 import { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 // Only a re-wrap of an existing signed grant may run without the chosen group

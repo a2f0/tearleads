@@ -12,14 +12,14 @@ import {
   externalAuthorityCouldAuthorize,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../../../data/principalContracts/principalPolicyAdminSigners";
-import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
-import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
-import type { VerifiedExternalAdminPolicy } from "../externalAdminPolicy";
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
   principalPolicyStates,
-} from "../policyVerification";
+} from "../../../data/principals/principalPolicyVerification";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
+import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
+import type { VerifiedExternalAdminPolicy } from "../externalAdminPolicy";
 
 interface PrincipalPolicyValidationFailure {
   readonly code: KeyingVerificationCode;

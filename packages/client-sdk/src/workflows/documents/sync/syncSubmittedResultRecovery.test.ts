@@ -2,12 +2,12 @@ import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";

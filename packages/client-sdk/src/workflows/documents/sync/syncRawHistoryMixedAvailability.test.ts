@@ -10,11 +10,11 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sealContentKeyBundle } from "../../../../test/helpers/contentKeyBundleSealing";
 import {
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSignedSyncResponseUpdate,
   createSyncResponse,
 } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { targetEnvelopeReference } from "../../../data/documents/shared/readers";
 import {
   isDocumentSyncUpdateIsolationError,

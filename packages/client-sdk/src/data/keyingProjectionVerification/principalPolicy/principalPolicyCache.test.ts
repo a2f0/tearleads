@@ -11,7 +11,7 @@ import {
   createSuccessorPrincipalPolicyBundle,
   referencedPrincipalStateFromBundle,
   referencedPrincipalStateFromPolicyState,
-} from "../../../../test/helpers/policyCacheFixtures";
+} from "../../../../test/helpers/principalPolicyBundles";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {

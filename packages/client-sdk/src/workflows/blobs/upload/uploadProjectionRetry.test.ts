@@ -6,7 +6,7 @@ import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/blobUploadFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 
 test("uploadDocumentAttachment refetches writer projection after a stale container KEK unwrap", async () => {

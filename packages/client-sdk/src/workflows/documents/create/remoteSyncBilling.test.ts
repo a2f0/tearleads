@@ -7,12 +7,12 @@ import {
 } from "@tearleads/test-utils";
 import {
   createAuthor,
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";

@@ -9,6 +9,7 @@ import { dedupeReferencedPrincipalStates } from "../../../data/keyingProjectionV
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { principalPolicyReferenceFromBundle } from "../../../data/principalContracts/principalPolicyAdminSigners";
+import { publishVerifiedPrincipalPolicy } from "../../../data/principals/principalPolicyVerification";
 import { errorMessage } from "../../../data/shared/errorMessage";
 import {
   reportAndRethrowKeyingVerificationError,
@@ -22,7 +23,6 @@ import {
   loadOrganizationExternalAdminPolicy,
   type VerifiedExternalAdminPolicy,
 } from "../externalAdminPolicy";
-import { publishVerifiedPrincipalPolicy } from "../policyVerification";
 import {
   persistPrincipalPolicyCacheEntries,
   retryPrincipalPolicyCacheAdvance,

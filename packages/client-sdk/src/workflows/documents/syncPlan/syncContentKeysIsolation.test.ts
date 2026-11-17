@@ -8,12 +8,12 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { sealContentKeyBundle } from "../../../../test/helpers/contentKeyBundleSealing";
 import {
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSignedSyncResponseUpdate,
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { DocumentHistoryUnavailableError } from "../../../data/documents/shared/projection";
 import { targetEnvelopeReference } from "../../../data/documents/shared/readers";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";

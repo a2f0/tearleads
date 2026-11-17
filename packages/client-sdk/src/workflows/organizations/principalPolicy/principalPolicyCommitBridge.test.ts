@@ -25,7 +25,7 @@ import {
 } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
-import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
+import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";
 import { buildAddGroupUserPolicyRequest } from "../groupPolicy/groupPolicyRequests";
 import { addOrganizationGroupUser, removeOrganizationGroupUser } from "./index";
 

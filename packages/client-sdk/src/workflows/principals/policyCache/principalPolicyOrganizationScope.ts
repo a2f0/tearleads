@@ -14,13 +14,13 @@ import {
   principalHeadMatchesReference,
 } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { verifyOrganizationAdminPolicy } from "../../../data/principalContracts/principalPolicyAdminSigners";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
-import type { CurrentPrincipalPolicyReader } from "../currentPrincipalPolicyReader";
 import {
   collectPrincipalPolicySignerPublicKeys,
   publishVerifiedPrincipalPolicy,
-} from "../policyVerification";
+} from "../../../data/principals/principalPolicyVerification";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
+import type { CurrentPrincipalPolicyReader } from "../currentPrincipalPolicyReader";
 
 export interface VerifiedPolicyDirectory {
   readonly bundle: PrincipalPolicyBundleResponse;

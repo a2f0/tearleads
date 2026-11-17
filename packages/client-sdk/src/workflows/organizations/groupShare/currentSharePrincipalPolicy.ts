@@ -5,16 +5,16 @@ import {
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
+import {
+  type GroupPolicyNameReader,
+  groupPolicyNameMismatch,
+} from "../../../data/principals/principalPolicyRequest";
 import { createCurrentPrincipalMutationLease } from "../../principals/principalPolicyService";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { createSelectedCurrentGroupMetadataContainerVerifier } from "../groupMetadata/currentGroupMetadataAuthority";
 import { assertGroupMetadataBinding } from "../groupMetadata/groupMetadataBinding";
 import { createRuntimeGroupMetadataAccess } from "../groupMetadata/groupMetadataRuntime";
 import type { PrincipalMutationRecoveryApi } from "../principalMutations/principalMutationJournalManagement";
-import {
-  type GroupPolicyNameReader,
-  groupPolicyNameMismatch,
-} from "../principalPolicy/principalPolicyRequest";
 import { GroupShareNameMismatchError } from "./sharePrincipalPolicy";
 
 type CurrentShareRuntime = Parameters<

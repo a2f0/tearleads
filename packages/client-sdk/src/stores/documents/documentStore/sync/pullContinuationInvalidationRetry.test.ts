@@ -8,10 +8,8 @@ import {
 } from "@tearleads/loro";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import {
-  createMaterializedSyncFixture,
-  createSyncResponse,
-} from "../../../../../test/helpers/documentFixtures";
+import { createSyncResponse } from "../../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";

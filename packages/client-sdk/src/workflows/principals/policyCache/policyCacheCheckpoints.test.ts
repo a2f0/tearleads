@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
+import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
 import {
-  cacheReferencedPolicies,
   createPrincipalPolicyBundle,
   createSuccessorPrincipalPolicyBundle,
   predecessorBundleFromSuccessor,
   referencedPrincipalStateFromBundle,
-} from "../../../../test/helpers/policyCacheFixtures";
-import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
+} from "../../../../test/helpers/principalPolicyBundles";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 

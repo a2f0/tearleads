@@ -21,7 +21,6 @@ export {
 } from "./documentFixturePrimitives";
 export {
   createLinkSetResponseFromRequest,
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createPreparedUpdate,
   createResponse,

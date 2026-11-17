@@ -6,10 +6,10 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
 import {
-  createMaterializedSyncFixture,
   createResponse,
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { buildMaterializedDocumentCreatePlan } from "../create";

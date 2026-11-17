@@ -5,10 +5,10 @@ import type {
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import {
-  createMaterializedSyncFixture,
   createResponseFromRequest,
   type DocumentCreateFixture,
 } from "../../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import {
   createEchoDocumentSyncResponse,
   createOnlineDocumentsRuntime,

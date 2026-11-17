@@ -11,10 +11,10 @@ import type { DocumentWriterProjectionResponse } from "@tearleads/validators/res
 import { buildDocumentSyncPlan } from "../../src/workflows/documents/syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../../src/workflows/documents/syncPlan/syncPlanMaterial";
 import {
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
 } from "./documentFixtures";
+import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 export async function createLoroPendingUpdate(text: string, id?: string) {
   const doc = await createDocument(`sync-fixture:${text}`);

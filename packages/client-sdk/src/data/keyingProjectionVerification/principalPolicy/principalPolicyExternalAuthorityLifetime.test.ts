@@ -1,15 +1,15 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers/policyCacheFixtures";
 import { principalIdentityPinFixture } from "../../../../test/helpers/principalIdentityPinFixture";
+import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers/principalPolicyBundles";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
-import { buildInitialOrganizationPolicyRequest } from "../../../workflows/registration/organizationProvisioning";
 import {
   openPrincipalPolicyBundleReader,
   PrincipalPolicyBundleRepository,
 } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import { buildInitialOrganizationPolicyRequest } from "../../principals/organizationPolicyRequest";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { ProjectionVerificationCancelledError } from "../types";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";

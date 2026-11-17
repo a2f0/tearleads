@@ -8,8 +8,8 @@ import {
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-  projectionPolicyWarmer,
-} from "../../../../test/helpers/projectionPolicyHistory";
+} from "../../../../test/helpers/projectionPolicyPages";
+import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";

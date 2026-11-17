@@ -20,14 +20,14 @@ import {
   principalPolicyReferenceFromBundle,
   verifyOrganizationAdminPolicy,
 } from "../../data/principalContracts/principalPolicyAdminSigners";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
-import type { CurrentPrincipalPolicyReader } from "./currentPrincipalPolicyReader";
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
   publishVerifiedPrincipalPolicy,
-} from "./policyVerification";
+} from "../../data/principals/principalPolicyVerification";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import type { CurrentPrincipalPolicyReader } from "./currentPrincipalPolicyReader";
 
 export interface VerifiedExternalAdminPolicy {
   readonly adminBundle: PrincipalPolicyBundleResponse;

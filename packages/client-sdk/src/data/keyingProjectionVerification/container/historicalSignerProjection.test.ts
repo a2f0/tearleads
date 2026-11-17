@@ -8,7 +8,7 @@ import {
   type GroupHistoricalSignerScenario,
   linkDocument,
 } from "../../../../test/helpers/groupHistoricalSignerScenario";
-import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
+import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {

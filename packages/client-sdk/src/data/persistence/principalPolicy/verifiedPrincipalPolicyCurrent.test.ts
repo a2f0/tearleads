@@ -7,7 +7,7 @@ import {
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
-import { collectPrincipalPolicySignerPublicKeys } from "../../../workflows/principals/policyVerification";
+import { collectPrincipalPolicySignerPublicKeys } from "../../principals/principalPolicyVerification";
 import { assertBundleMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyBundle";
 import { assertCurrentMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyCurrent";
 

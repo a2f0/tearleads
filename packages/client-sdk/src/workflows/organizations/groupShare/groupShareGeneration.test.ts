@@ -16,7 +16,7 @@ import {
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
-import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
+import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";
 import { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 test("a group share does not acknowledge a policy after its generation expires during commit", async () => {

@@ -9,12 +9,12 @@ import {
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";

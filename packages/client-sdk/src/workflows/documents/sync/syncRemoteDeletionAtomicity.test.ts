@@ -5,12 +5,10 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
-import {
-  createMaterializedSyncFixture,
-  createPendingUpdateRecord,
-} from "../../../../test/helpers/documentFixtures";
+import { createPendingUpdateRecord } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
 import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 

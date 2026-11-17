@@ -12,8 +12,8 @@ import { createDomainScope } from "../../src/data/shared/domainScope";
 import type { DocumentsRuntime } from "../../src/stores/documents/types";
 import { createDocumentsWorkflowRuntime } from "../../src/workflows/documents";
 import type { BlobAttachmentBindFixture } from "./blobUploadFixtures";
-import type { createMaterializedSyncFixture } from "./documentFixtures";
 import type { DocumentCreateFixture } from "./documentResponseFixtures";
+import type { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 type MaterializedSyncFixture = Awaited<
   ReturnType<typeof createMaterializedSyncFixture>

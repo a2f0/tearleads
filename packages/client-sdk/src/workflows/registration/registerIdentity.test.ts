@@ -18,7 +18,7 @@ import { respondToRegistration } from "../../../test/helpers/organizationProvisi
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principalContracts/organizationAuthorityDescriptor";
-import { buildInitialOrganizationPolicyRequest } from "./organizationProvisioning";
+import { buildInitialOrganizationPolicyRequest } from "../../data/principals/organizationPolicyRequest";
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
 
 interface CapturedRegistrationRequest {

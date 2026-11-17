@@ -3,7 +3,6 @@ import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
@@ -13,6 +12,7 @@ import {
   decryptedUpdateText,
   persistedStateFromProjection,
 } from "../../../../test/helpers/documentSyncFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";

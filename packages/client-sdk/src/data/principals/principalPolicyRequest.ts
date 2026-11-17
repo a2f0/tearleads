@@ -23,7 +23,7 @@ import type {
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { createPrincipalProjectionMember } from "../../../data/principalContracts/principalIdentityCommitments";
+import { createPrincipalProjectionMember } from "../principalContracts/principalIdentityCommitments";
 
 interface BuildInitialGroupPolicyInput {
   readonly identityTrustDomain: string;

@@ -7,7 +7,7 @@ import {
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "../../../../test/helpers/projectionPolicyHistory";
+} from "../../../../test/helpers/projectionPolicyPages";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,

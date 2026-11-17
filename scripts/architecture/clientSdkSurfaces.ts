@@ -17,7 +17,6 @@ const principalsWorkflowSurface = [
   "historyRecovery/loadRecoveredPrincipalHistoryPage",
   "policyRepair",
   "policyRepairBudget",
-  "policyVerification",
   "recoveryOperation/principalCurrentRecoveryBatch",
   "principalPolicyHistoryReader",
   "principalPolicyService",
@@ -26,10 +25,11 @@ const principalsWorkflowSurface = [
 
 // The data/principals modules the rest of the SDK may import. Organization
 // Read Models builds group policy, membership, and journaled principal
-// mutations on them.
+// mutations on them, and registration builds the founding policies.
 const principalsDataSurface = [
   "currentPolicyReferenceResolver",
   "organizationGroupRoles",
+  "organizationPolicyRequest",
   "principalHistoryProtection",
   "principalHistoryScopeProtection",
   "principalKeyValidation",
@@ -37,6 +37,8 @@ const principalsDataSurface = [
   "principalMutationJournalRecord",
   "principalPolicyCoordinator",
   "principalPolicyCrypto",
+  "principalPolicyRequest",
+  "principalPolicyVerification",
 ].map((module) => `${sdk}/data/principals/${module}.ts`);
 
 export const documentStoreClientSurface = [`${sdk}/client/documents/index.ts`];

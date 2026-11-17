@@ -17,7 +17,7 @@ import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
 } from "./principalPolicyFixtures";
-import { projectionHistoryPages } from "./projectionPolicyHistory";
+import { projectionHistoryPages } from "./projectionPolicyPages";
 
 export async function createNewerPolicyPurgeFixture() {
   const organizationId = crypto.randomUUID();

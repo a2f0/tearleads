@@ -1,9 +1,9 @@
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { buildInitialOrganizationPolicyRequest } from "../../src/data/principals/organizationPolicyRequest";
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
 } from "../../src/workflows/containers/root/create";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import { createAuthor } from "./containerFixtures";
 import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import { createShareTestRuntime } from "./groupShareScenario";
@@ -18,7 +18,7 @@ import {
   projectionDirectoryPayload,
   projectionHistoryPages,
   projectionPolicySource,
-} from "./projectionPolicyHistory";
+} from "./projectionPolicyPages";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 export async function createCurrentGrantConfirmationFixture() {

@@ -16,9 +16,9 @@ import {
 import { createRepairWarmer } from "../../../../../test/helpers/principalPolicyRepair";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { buildInitialOrganizationPolicyRequest } from "../../../../data/principals/organizationPolicyRequest";
 import { recoverPrincipalPolicyRepair } from "../../../principals/policyRepair";
 import { PrincipalPolicyRepairBudget } from "../../../principals/policyRepairBudget";
-import { buildInitialOrganizationPolicyRequest } from "../../../registration/organizationProvisioning";
 import { repairContainerCreateFailure } from "./createSubmission";
 
 test("stale-policy repair refuses expired verification without admitting a pin", async () => {

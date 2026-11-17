@@ -15,21 +15,21 @@ import {
   principalPolicyReferenceFromBundle,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../../../data/principalContracts/principalPolicyAdminSigners";
-import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
-import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
-import {
-  collectPrincipalPolicySignerPublicKeys,
-  publishVerifiedPrincipalPolicy,
-} from "../../principals/policyVerification";
-import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
-import { assertGroupMetadataBinding } from "../groupMetadata/groupMetadataBinding";
 import {
   canonicalGroupNameKey,
   type GroupPolicyNameReader,
   readGroupPolicyPayloadName,
-} from "../principalPolicy/principalPolicyRequest";
+} from "../../../data/principals/principalPolicyRequest";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  publishVerifiedPrincipalPolicy,
+} from "../../../data/principals/principalPolicyVerification";
+import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
+import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
+import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
+import { assertGroupMetadataBinding } from "../groupMetadata/groupMetadataBinding";
 
 export interface DirectoryGroupWalkInput {
   readonly readEncryptedName?: GroupPolicyNameReader | undefined;

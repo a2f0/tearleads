@@ -9,16 +9,14 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import {
-  createMaterializedSyncFixture,
-  createResponse,
-} from "../../../../test/helpers/documentFixtures";
+import { createResponse } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { verifyPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshotVerification";
 import { createProjectionPolicyEvidence } from "../../../../test/helpers/projectionPolicyEvidence";
-import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
+import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { buildMaterializedContainerSharePlan } from "../../../workflows/containers/child/share/shareMaterialization";
 import {
   buildMaterializedDocumentCreatePlan,

@@ -2,10 +2,10 @@ import { expect, test } from "bun:test";
 import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
 import { sealContentKeyBundle } from "../../../../test/helpers/contentKeyBundleSealing";
 import {
-  createMaterializedSyncFixture,
   createSignedSyncResponseUpdate,
   createSyncResponse,
 } from "../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { targetEnvelopeReference } from "../../../data/documents/shared/readers";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {

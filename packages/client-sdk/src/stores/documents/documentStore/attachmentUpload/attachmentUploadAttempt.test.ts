@@ -3,7 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createBlobAttachmentServiceFixture } from "../../../../../test/helpers/blobAttachmentServiceFixture";
 import { createMultipartBlobStageFixture } from "../../../../../test/helpers/blobUploadFixtures";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import { initiatedStage } from "../../../../../test/helpers/multipartUpload";
 import type { BlobBytes } from "../../../../data/blobs/blobContracts";
 import type { SecurityIncidentContext } from "../../../../data/shared/securityIncidents";

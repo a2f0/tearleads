@@ -3,7 +3,7 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import {
   type GroupPolicyNameReader,
   groupPolicyNameMismatch,
-} from "../principalPolicy/principalPolicyRequest";
+} from "../../../data/principals/principalPolicyRequest";
 
 export class GroupMembershipNameMismatchError extends KeyingVerificationError {
   constructor(reason: "forbidden_characters" | "name_mismatch") {

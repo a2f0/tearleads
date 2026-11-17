@@ -6,7 +6,7 @@ import {
   verifyPrincipalPolicySnapshot,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
+import { buildInitialOrganizationPolicyRequest } from "../../src/data/principals/organizationPolicyRequest";
 import type { Signer } from "./ancestorCitationScenario";
 import { policySnapshot } from "./organizationPolicyHistory";
 import {
@@ -17,7 +17,7 @@ import {
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "./projectionPolicyHistory";
+} from "./projectionPolicyPages";
 
 /** Real signed group history, including a former administrator. */
 export async function historicalGroupPolicy(input: {

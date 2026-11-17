@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/documentFixtures";
+import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { createSuccessorPrincipalPolicyBundle } from "../../../../test/helpers/policyCacheFixtures";
+import { createSuccessorPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyBundles";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
 import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 

@@ -4,12 +4,12 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../src/workflows/documents/linkSet";
-import { createMaterializedSyncFixture } from "./documentFixtures";
 import { createDocumentPurgeProof } from "./documentPurge";
 import {
   createLinkSetResponseFromRequest,
   type DocumentLinkSetFixture,
 } from "./documentResponseFixtures";
+import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 function uniqueContainerPaths(
   paths: readonly (readonly DocumentWriterProjectionResponse["documentManifest"][])[],

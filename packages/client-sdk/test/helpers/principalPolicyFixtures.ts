@@ -9,7 +9,7 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
-import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
+import type { buildInitialOrganizationPolicyRequest } from "../../src/data/principals/organizationPolicyRequest";
 import type { buildInitialGroupPolicyRequest } from "./groupMetadata";
 
 type BundleState = Omit<

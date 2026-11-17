@@ -5,7 +5,6 @@ import type { DocumentWriterProjectionResponse } from "@tearleads/validators/res
 import { sealNextContentKeyEpoch } from "../../../../test/helpers/contentKeyBundleSealing";
 import {
   createAuthor,
-  createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSignedSyncResponseUpdate,
   createSyncResponse,
@@ -16,6 +15,7 @@ import {
   createLoroPendingUpdate,
   decryptedUpdateText,
 } from "../../../../test/helpers/documentSyncFixtures";
+import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { persistedDocumentSyncStateFromResponse } from "../../../data/documents/shared/sync/syncResponses";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

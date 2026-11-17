@@ -22,6 +22,15 @@ import {
   principalPolicyReferenceFromBundle,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../../../data/principalContracts/principalPolicyAdminSigners";
+import {
+  type GroupPolicyNameReader,
+  groupPolicyNameMismatch,
+} from "../../../data/principals/principalPolicyRequest";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  type PrincipalPolicySignerPublicKeyLoadErrorCode,
+  publishVerifiedPrincipalPolicy,
+} from "../../../data/principals/principalPolicyVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
@@ -30,16 +39,7 @@ import {
   loadOrganizationExternalAdminPolicy,
   type VerifiedExternalAdminPolicy,
 } from "../../principals/externalAdminPolicy";
-import {
-  collectPrincipalPolicySignerPublicKeys,
-  type PrincipalPolicySignerPublicKeyLoadErrorCode,
-  publishVerifiedPrincipalPolicy,
-} from "../../principals/policyVerification";
 import { assertGroupMetadataBinding } from "../groupMetadata/groupMetadataBinding";
-import {
-  type GroupPolicyNameReader,
-  groupPolicyNameMismatch,
-} from "../principalPolicy/principalPolicyRequest";
 
 export interface ContainerManagedPrincipalShareApi
   extends ContainerShareApi,
