@@ -20,6 +20,7 @@ import type { ContainerContentsProjectionUserKeyResolver } from "../projectionKe
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
+import { isMoveDestinationSyncBlocked } from "./documentMoveBillingPause";
 import {
   deniedReplayMatchesGeneration,
   markDeniedReplayGeneration,
@@ -290,6 +291,7 @@ async function settleMovedDocumentIntent<TRuntime>(input: {
   host: DocumentMoveIntentSyncHost<TRuntime>;
   intent: DocumentMoveIntentRecord;
   isCurrent: () => boolean;
+  isSyncBlocked: () => boolean;
   moved: NonNullable<Awaited<ReturnType<typeof moveRemoteContainerDocument>>>;
   state: DocumentMoveIntentSyncState;
   unavailable: boolean;
@@ -316,6 +318,8 @@ async function settleMovedDocumentIntent<TRuntime>(input: {
     return "failed";
   }
   if (moved.status === "partial") {
+    // An unlink refused by a billing pause keeps its link and no error.
+    if (input.isSyncBlocked()) return "partial";
     await recordPendingDocumentMoveIntentError({
       // An unlink refused for permissions parks like any other denied
       // move (row 7); other partials keep row 15's replay.
@@ -358,6 +362,12 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
     return preflight.result;
   }
   const { existingDocument } = preflight;
+  const isSyncBlocked = () =>
+    isMoveDestinationSyncBlocked({
+      containersById: state.containersById,
+      intent: available.intent,
+      isRemoteSyncBlocked: input.isRemoteSyncBlocked,
+    });
 
   try {
     const outcome = await moveWithVanishedContainerRefresh({
@@ -378,6 +388,7 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
     });
     if (outcome === "abandoned" || !input.isCurrent()) return "abandoned";
     if (!outcome.moved) {
+      if (isSyncBlocked()) return "blocked";
       await recordRejectedDocumentMove({
         failure: outcome.failure,
         intent,
@@ -392,6 +403,7 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
       host,
       intent,
       isCurrent: input.isCurrent,
+      isSyncBlocked,
       moved: available.deferred
         ? { ...outcome.moved, status: "partial" }
         : outcome.moved,
