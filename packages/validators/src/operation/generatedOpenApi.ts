@@ -3346,14 +3346,13 @@ export type components = {
             /** @description Document plus blob bytes. */
             totalByteLength: number;
         };
-        /** @description One organization roster entry with the user's registered keys. Display names live in the encrypted profile document. */
+        /** @description One organization roster entry with the fingerprints of the user's registered keys. Display names live in the encrypted profile document. */
         OrganizationDirectoryUserResponse: {
             createdAt: string;
             disabledAt: string | null;
             /** @description Administrator who disabled the entry, or null. */
             disabledByUserId: string | null;
             encapsulationKeyFingerprint: string;
-            encapsulationPublicKey: string;
             /** @description True for the user whose personal organization this is; they cannot be removed from it. */
             isPersonalOrganizationOwner: boolean;
             /** @description True for the caller's own entry. */
@@ -3364,7 +3363,6 @@ export type components = {
             /** @description Encrypted roster profile document, or null. */
             profileDocumentId: string | null;
             signingKeyFingerprint: string;
-            signingPublicKey: string;
             /**
              * @description `active` members have access; `disabled` entries stay visible without access.
              * @enum {string}
@@ -3385,14 +3383,10 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description One member of a group, with their registered keys when known. */
+        /** @description One member of a group and their role. */
         OrganizationGroupMemberResponse: {
-            encapsulationKeyFingerprint: string | null;
-            encapsulationPublicKey: string | null;
             /** @enum {string} */
             role: "member" | "admin";
-            signingKeyFingerprint: string | null;
-            signingPublicKey: string | null;
             userId: string;
         } & {
             [key: string]: unknown;
@@ -3585,14 +3579,12 @@ export type components = {
                         disabledAt: string | null;
                         disabledByUserId: string | null;
                         encapsulationKeyFingerprint: string;
-                        encapsulationPublicKey: string;
                         isPersonalOrganizationOwner: boolean;
                         isSelf: boolean;
                         joinedAt: string;
                         leaveRequest: components["schemas"]["OrganizationLeaveRequest"] | null;
                         profileDocumentId: string | null;
                         signingKeyFingerprint: string;
-                        signingPublicKey: string;
                         /** @enum {string} */
                         status: "active" | "disabled";
                         updatedAt: string;
@@ -3683,14 +3675,12 @@ export type components = {
                         disabledAt: string | null;
                         disabledByUserId: string | null;
                         encapsulationKeyFingerprint: string;
-                        encapsulationPublicKey: string;
                         isPersonalOrganizationOwner: boolean;
                         isSelf: boolean;
                         joinedAt: string;
                         leaveRequest: components["schemas"]["OrganizationLeaveRequest"] | null;
                         profileDocumentId: string | null;
                         signingKeyFingerprint: string;
-                        signingPublicKey: string;
                         /** @enum {string} */
                         status: "active" | "disabled";
                         updatedAt: string;

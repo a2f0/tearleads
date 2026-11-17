@@ -33,23 +33,25 @@ export type OrganizationContainerGrantSubjectType = z.infer<
   typeof OrganizationContainerGrantSubjectTypeSchema
 >;
 
+/**
+ * A roster row carries each key's fingerprint, not the key: a client takes
+ * public keys only from its trusted identity store, never from the directory.
+ */
 export const OrganizationDirectoryUserResponseShape = {
   createdAt: z.string(),
   disabledAt: z.string().nullable(),
   disabledByUserId: z.string().nullable(),
   encapsulationKeyFingerprint: z.string(),
-  encapsulationPublicKey: z.string(),
   isPersonalOrganizationOwner: z.boolean(),
   isSelf: z.boolean(),
   joinedAt: z.string(),
   /**
    * The member's pending signed request to leave, which an administrator
-   * verifies against `signingPublicKey` before acting on it.
+   * verifies against the member's trusted signing key before acting on it.
    */
   leaveRequest: OrganizationLeaveRequestSchema.nullable(),
   profileDocumentId: z.string().nullable(),
   signingKeyFingerprint: z.string(),
-  signingPublicKey: z.string(),
   status: OrganizationRosterStatusSchema,
   updatedAt: z.string(),
   userId: z.string(),
@@ -154,11 +156,7 @@ export type ListOrganizationGroupsResponse = z.infer<
 >;
 
 export const OrganizationGroupMemberResponseShape = {
-  encapsulationKeyFingerprint: z.string().nullable(),
-  encapsulationPublicKey: z.string().nullable(),
   role: OrganizationRoleSchema,
-  signingKeyFingerprint: z.string().nullable(),
-  signingPublicKey: z.string().nullable(),
   userId: z.string(),
 };
 

@@ -21,16 +21,7 @@ import type { OrganizationReadModelCoordinator } from "./organizationReadModels"
 const projectedMembers: OrganizationGroupMembersResponse = {
   organizationId,
   groupId,
-  members: [
-    {
-      userId: "projected-user",
-      role: "admin",
-      signingKeyFingerprint: "projected-signing-fingerprint",
-      signingPublicKey: "projected-signing-public-key",
-      encapsulationPublicKey: "projected-encapsulation-public-key",
-      encapsulationKeyFingerprint: "projected-encapsulation-fingerprint",
-    },
-  ],
+  members: [{ userId: "projected-user", role: "admin" }],
 };
 
 const projectedPolicyHistory = buildOrganizationGroupPolicyHistory(

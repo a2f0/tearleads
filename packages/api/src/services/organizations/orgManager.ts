@@ -20,10 +20,8 @@ import {
   OrganizationManagerError,
   OrganizationReadModelCursorError,
 } from "../../workflows/organizations/errors";
-import {
-  runDeleteOrganizationGroupWorkflow,
-  runListOrganizationGroupMembersWorkflow,
-} from "../../workflows/organizations/groups";
+import { runListOrganizationGroupMembersWorkflow } from "../../workflows/organizations/groupMembers";
+import { runDeleteOrganizationGroupWorkflow } from "../../workflows/organizations/groups";
 import { runUpdateOrganizationProfileWorkflow } from "../../workflows/organizations/profileMutation";
 import { runGetOrganizationReadModelWorkflow } from "../../workflows/organizations/readModelFeed";
 import { runUpdateOrganizationRosterEntryWorkflow } from "../../workflows/organizations/rosterMutation";

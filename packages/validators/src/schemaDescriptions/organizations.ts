@@ -357,7 +357,7 @@ describeSchema(
 
 describeSchema(
   OrganizationGroupMemberResponseSchema,
-  "One member of a group, with their registered keys when known.",
+  "One member of a group and their role.",
 );
 
 describeSchema(
@@ -367,7 +367,7 @@ describeSchema(
 
 describeSchema(
   OrganizationDirectoryUserResponseSchema,
-  "One organization roster entry with the user's registered keys. Display names live in the encrypted profile document.",
+  "One organization roster entry with the fingerprints of the user's registered keys. Display names live in the encrypted profile document.",
   {
     disabledByUserId: "Administrator who disabled the entry, or null.",
     isPersonalOrganizationOwner:

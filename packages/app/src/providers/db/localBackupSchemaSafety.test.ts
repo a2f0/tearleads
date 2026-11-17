@@ -60,6 +60,14 @@ const notesTable: SqlTableSchema = {
   name: "notes",
 };
 
+/** The newest version this build records, read from a migrated database. */
+async function currentLedgerVersion(execSql: ExecSql): Promise<number> {
+  const [{ version } = { version: null }] = await execSql(
+    `SELECT max(version) AS version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE}`,
+  );
+  return Number(version);
+}
+
 async function backupOf(execSql: ExecSql) {
   return createBackupPayload({
     blobStore: createMemoryBlobStore(),
@@ -74,6 +82,7 @@ test("restore refuses a backup from a newer local schema before replacing data",
   const target = await createTestExecSql("backup-ledger-newer-target");
   try {
     await ensureSqlTables(source.execSql, [notesTable]);
+    const current = await currentLedgerVersion(source.execSql);
     const backup = await backupOf(source.execSql);
     // A newer build's backup records a step this build does not know.
     const tables = backup.database.tables.map((table) =>
@@ -82,7 +91,7 @@ test("restore refuses a backup from a newer local schema before replacing data",
             ...table,
             rows: [
               ...table.rows,
-              { applied_at: 0, name: "future", version: 2 },
+              { applied_at: 0, name: "future", version: current + 1 },
             ],
           }
         : table,
@@ -97,7 +106,7 @@ test("restore refuses a backup from a newer local schema before replacing data",
         payload: { ...backup, database: { ...backup.database, tables } },
       }),
     ).rejects.toThrow(
-      "Local database schema version 2 is newer than this app supports (1)",
+      `Local database schema version ${current + 1} is newer than this app supports (${current})`,
     );
     expect(await target.execSql("SELECT id FROM notes")).toEqual([
       { id: "current-note" },
@@ -113,6 +122,7 @@ test("restore refuses a newer ledger spelled in another case before replacing da
   const target = await createTestExecSql("backup-ledger-case-target");
   try {
     await ensureSqlTables(source.execSql, [notesTable]);
+    const current = await currentLedgerVersion(source.execSql);
     const backup = await backupOf(source.execSql);
     const upper = LOCAL_SCHEMA_MIGRATIONS_TABLE.toUpperCase();
     // SQLite resolves the upper-case name to the same ledger table.
@@ -123,7 +133,7 @@ test("restore refuses a newer ledger spelled in another case before replacing da
             name: upper,
             rows: [
               ...table.rows,
-              { applied_at: 0, name: "future", version: 2 },
+              { applied_at: 0, name: "future", version: current + 1 },
             ],
             sql: table.sql.replace(LOCAL_SCHEMA_MIGRATIONS_TABLE, upper),
           }
@@ -139,7 +149,7 @@ test("restore refuses a newer ledger spelled in another case before replacing da
         payload: { ...backup, database: { ...backup.database, tables } },
       }),
     ).rejects.toThrow(
-      "Local database schema version 2 is newer than this app supports (1)",
+      `Local database schema version ${current + 1} is newer than this app supports (${current})`,
     );
     expect(await target.execSql("SELECT id FROM notes")).toEqual([
       { id: "current-note" },
@@ -225,13 +235,17 @@ test("restore refuses a backup this build cannot migrate before replacing data",
   }
 });
 
-test("a backup from before the ledger restores at the baseline and records it on the next ensure", async () => {
+test("a backup from before the ledger restores at the baseline and migrates on the next ensure", async () => {
   const source = await createTestExecSql("backup-ledger-legacy-source");
   const target = await createTestExecSql("backup-ledger-legacy-target");
   try {
     await source.execSql(notesTable.createSql);
     await source.execSql("INSERT INTO notes VALUES ('backup-note')");
     await ensureSqlTables(target.execSql, [notesTable]);
+    const currentLedger = await target.execSql(
+      `SELECT version, name FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
+    );
+    expect(currentLedger[0]).toEqual({ name: "baseline", version: 1 });
     await restoreBackupPayload({
       blobStore: createMemoryBlobStore(),
       execSql: target.execSql,
@@ -241,9 +255,9 @@ test("a backup from before the ledger restores at the baseline and records it on
     await ensureSqlTables(target.execSql, [notesTable]);
     expect(
       await target.execSql(
-        `SELECT version, name FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE}`,
+        `SELECT version, name FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
       ),
-    ).toEqual([{ name: "baseline", version: 1 }]);
+    ).toEqual(currentLedger);
     expect(await target.execSql("SELECT id FROM notes")).toEqual([
       { id: "backup-note" },
     ]);
@@ -267,7 +281,13 @@ test("restore refuses a backup that lists a table twice before replacing data", 
     // newer build's step into the same table.
     const duplicate = {
       ...ledgerTable,
-      rows: [{ applied_at: 0, name: "future", version: 2 }],
+      rows: [
+        {
+          applied_at: 0,
+          name: "future",
+          version: (await currentLedgerVersion(source.execSql)) + 1,
+        },
+      ],
       sql: ledgerTable.sql.replace(
         "CREATE TABLE",
         "CREATE TABLE IF NOT EXISTS",

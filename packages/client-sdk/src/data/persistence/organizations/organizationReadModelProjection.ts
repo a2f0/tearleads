@@ -69,13 +69,11 @@ interface SelectedDirectoryUser {
   readonly disabledAt: string | null;
   readonly disabledByUserId: string | null;
   readonly encapsulationKeyFingerprint: string;
-  readonly encapsulationPublicKey: string;
   readonly isPersonalOrganizationOwner: boolean;
   readonly joinedAt: string;
   readonly leaveRequest: string | null;
   readonly profileDocumentId: string | null;
   readonly signingKeyFingerprint: string;
-  readonly signingPublicKey: string;
   readonly status: string;
   readonly updatedAt: string;
   readonly userId: string;
@@ -121,8 +119,6 @@ function toDirectoryUser(
   return {
     userId: row.userId,
     signingKeyFingerprint: row.signingKeyFingerprint,
-    signingPublicKey: row.signingPublicKey,
-    encapsulationPublicKey: row.encapsulationPublicKey,
     encapsulationKeyFingerprint: row.encapsulationKeyFingerprint,
     createdAt: row.createdAt,
     isPersonalOrganizationOwner: row.isPersonalOrganizationOwner,
@@ -259,8 +255,6 @@ async function loadDirectoryRows(
       disabledByUserId: organizationReadModelDirectoryUsers.disabledByUserId,
       encapsulationKeyFingerprint:
         organizationReadModelDirectoryUsers.encapsulationKeyFingerprint,
-      encapsulationPublicKey:
-        organizationReadModelDirectoryUsers.encapsulationPublicKey,
       joinedAt: organizationReadModelDirectoryUsers.joinedAt,
       leaveRequest: organizationReadModelDirectoryUsers.leaveRequest,
       isPersonalOrganizationOwner:
@@ -268,7 +262,6 @@ async function loadDirectoryRows(
       profileDocumentId: organizationReadModelDirectoryUsers.profileDocumentId,
       signingKeyFingerprint:
         organizationReadModelDirectoryUsers.signingKeyFingerprint,
-      signingPublicKey: organizationReadModelDirectoryUsers.signingPublicKey,
       status: organizationReadModelDirectoryUsers.status,
       updatedAt: organizationReadModelDirectoryUsers.updatedAt,
       userId: organizationReadModelDirectoryUsers.userId,
