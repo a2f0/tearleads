@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  type ContainerWriterProjectionResponse,
+  rejectDecodedProjection,
+} from "@tearleads/validators/response";
 import { createTestContainerState } from "./containerState.testFixtures";
 import {
   getCachedContainerWriterProjection,
@@ -86,4 +89,29 @@ test("an undisturbed load caches its answer", async () => {
     loadContainerWriterProjectionForState({ containerState, runtime }),
   ).resolves.toBe(projection);
   expect(calls).toBe(1);
+});
+
+test("a cached projection a verifier refused is fetched again", async () => {
+  const refused = projectionFor(`access-${CONTAINER}`);
+  const fresh = projectionFor(`access-${CONTAINER}`);
+  let calls = 0;
+  const runtime = {
+    apiClient: {
+      getContainerWriterProjection: async () =>
+        ++calls === 1 ? refused : fresh,
+    },
+  } as unknown as ContainerWorkflowRuntime;
+  const containerState = createTestContainerState({
+    id: CONTAINER,
+    parentId: null,
+  });
+  await loadContainerWriterProjectionForState({ containerState, runtime });
+  expect(getCachedContainerWriterProjection(containerState)).toBe(refused);
+  // Folder creation verifies it and refuses it after it took held bundles.
+  rejectDecodedProjection(refused);
+  expect(getCachedContainerWriterProjection(containerState)).toBeNull();
+  await expect(
+    loadContainerWriterProjectionForState({ containerState, runtime }),
+  ).resolves.toBe(fresh);
+  expect(calls).toBe(2);
 });

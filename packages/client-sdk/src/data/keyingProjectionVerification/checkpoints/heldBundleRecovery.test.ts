@@ -20,7 +20,9 @@ import { openPrincipalPolicyBundleReader } from "../../persistence/principalPoli
 import {
   dropHeldManifestBundles,
   loadVerifiedManifestCitations,
+  suppressHeldCitations,
 } from "../../persistence/verifiedManifestBundlePersistence";
+import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   verifyContainerWriterProjection,
@@ -293,3 +295,55 @@ function verifyContainerWriterProjectionWithoutRecovery(
     resolveUserKey: async () => null,
   });
 }
+
+test("a held bundle whose signer cannot be resolved is dropped too", async () => {
+  const fixture = await seededFixture();
+  const { leaf } = fixture;
+  const database = await createTestExecSql("held-bundle-unknown-signer");
+  // Unavailable before its signature is checked: no key for this signer.
+  const wrong = toServedAccessManifestBundle({
+    ...leaf,
+    event: {
+      ...leaf.event,
+      event: { ...leaf.event.event, signerUserId: "unknown-signer" },
+    },
+  });
+  try {
+    const cited = await seedWrongRow(database.execSql, fixture, wrong);
+    await expect(
+      verifyContainerWriterProjection({
+        execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: cited,
+        resolveUserKey: fixture.resolveUserKey,
+      }),
+    ).rejects.toBeInstanceOf(ProjectionDependencyUnavailableError);
+    expect(
+      await loadVerifiedManifestCitations(database.execSql, target),
+    ).toEqual([]);
+  } finally {
+    database.close();
+  }
+});
+
+test("held bundles being dropped are not cited meanwhile", async () => {
+  const fixture = await seededFixture();
+  const database = await createTestExecSql("held-bundle-suppressed");
+  const wrong = toServedAccessManifestBundle({
+    ...fixture.leaf,
+    state: { ...fixture.leaf.state, directGrants: [] },
+  });
+  try {
+    await seedWrongRow(database.execSql, fixture, wrong);
+    const release = suppressHeldCitations([fixture.leaf.manifestHash]);
+    expect(
+      await loadVerifiedManifestCitations(database.execSql, target),
+    ).toEqual([]);
+    release();
+    expect(
+      await loadVerifiedManifestCitations(database.execSql, target),
+    ).toEqual([wrong]);
+  } finally {
+    database.close();
+  }
+});

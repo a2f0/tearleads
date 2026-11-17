@@ -280,7 +280,33 @@ export async function loadVerifiedManifestCitations(
   );
   if (damaged.length > 0)
     await dropVerifiedManifestBundles(execSql, damaged).catch(() => undefined);
-  return cited;
+  return cited.filter(citable);
+}
+
+// Manifest hashes whose held rows a refused read is dropping: no read cites
+// them meanwhile, so none can be rebuilt from the bytes being dropped.
+const suppressedCitations = new Map<string, number>();
+
+/** Keeps these held bundles out of citations until the release runs. */
+export function suppressHeldCitations(
+  manifestHashes: readonly string[],
+): () => void {
+  for (const hash of manifestHashes)
+    suppressedCitations.set(hash, (suppressedCitations.get(hash) ?? 0) + 1);
+  return () => {
+    for (const hash of manifestHashes) {
+      const count = (suppressedCitations.get(hash) ?? 1) - 1;
+      if (count > 0) suppressedCitations.set(hash, count);
+      else suppressedCitations.delete(hash);
+    }
+  };
+}
+
+function citable(citation: HeldProjectionCitation): boolean {
+  return (
+    !("manifestHash" in citation) ||
+    !suppressedCitations.has(citation.manifestHash)
+  );
 }
 
 /**
