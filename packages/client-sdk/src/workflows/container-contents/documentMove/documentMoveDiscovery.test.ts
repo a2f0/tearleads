@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   applyContainerDocumentTombstones,
@@ -31,7 +31,7 @@ test("a delayed trash tombstone preserves the latest trash intent after restore"
         snapshotEndVersion: "",
         text: "",
       });
-      await links.replaceDocumentLinks(execSql, id, ["trash"]);
+      await new Links(execSql).replaceDocumentLinks(id, ["trash"]);
     }
     for (const [revision, targetContainerId] of [
       "trash",
@@ -53,9 +53,13 @@ test("a delayed trash tombstone preserves the latest trash intent after restore"
         containerId: targetContainerId,
         accessEpoch: 1,
       });
-      await links.replaceDocumentLinks(execSql, "moving", [targetContainerId], {
-        moveIntentId: id,
-      });
+      await new Links(execSql).replaceDocumentLinks(
+        "moving",
+        [targetContainerId],
+        {
+          moveIntentId: id,
+        },
+      );
     }
     await applyContainerDocumentTombstones(
       execSql,
@@ -70,7 +74,7 @@ test("a delayed trash tombstone preserves the latest trash intent after restore"
     expect(await documents.loadDocument(execSql, "moving")).toMatchObject({
       containerId: "trash",
     });
-    expect(await links.listLinkedContainerIds(execSql, "moving")).toEqual([
+    expect(await new Links(execSql).listLinkedContainerIds("moving")).toEqual([
       "trash",
     ]);
     expect(await intents.listPendingMoveIntents(execSql)).toMatchObject([
@@ -79,9 +83,9 @@ test("a delayed trash tombstone preserves the latest trash intent after restore"
     expect(await documents.loadDocument(execSql, "unrelated")).toMatchObject({
       containerId: null,
     });
-    expect(await links.listLinkedContainerIds(execSql, "unrelated")).toEqual(
-      [],
-    );
+    expect(
+      await new Links(execSql).listLinkedContainerIds("unrelated"),
+    ).toEqual([]);
   } finally {
     close();
   }
@@ -105,7 +109,7 @@ test.each([
         snapshotEndVersion: "",
         text: "",
       });
-      await links.replaceDocumentLinks(execSql, "remote", ["trash"]);
+      await new Links(execSql).replaceDocumentLinks("remote", ["trash"]);
       const options: Omit<DiscoverContainerDocumentsOptions, "containerId"> = {
         ...nullContainerDocumentWatermarks,
         listContainerDocumentLanes: laneLister(async (containerId) => ({
@@ -125,16 +129,16 @@ test.each([
           ],
         })),
         replaceDocumentLinksBatch: (inputs) =>
-          links.replaceDocumentLinksBatch(execSql, inputs),
+          new Links(execSql).replaceDocumentLinksBatch(inputs),
         upsertDiscoveredDocuments: (inputs) =>
           upsertDiscoveredDocuments(execSql, inputs),
       };
       for (const containerId of [first, second]) {
         await discoverContainerDocuments({ ...options, containerId });
       }
-      expect(await links.listLinkedContainerIds(execSql, "remote")).toEqual([
-        "trash",
-      ]);
+      expect(await new Links(execSql).listLinkedContainerIds("remote")).toEqual(
+        ["trash"],
+      );
     } finally {
       close();
     }
@@ -156,7 +160,7 @@ test("discovery cannot return sequentially trashed documents to root", async () 
         snapshotEndVersion: "",
         text: id,
       });
-      await links.replaceDocumentLinks(execSql, id, ["root"]);
+      await new Links(execSql).replaceDocumentLinks(id, ["root"]);
     }
     const options: DiscoverContainerDocumentsOptions = {
       ...nullContainerDocumentWatermarks,
@@ -176,7 +180,7 @@ test("discovery cannot return sequentially trashed documents to root", async () 
         })),
       })),
       replaceDocumentLinksBatch: (inputs) =>
-        links.replaceDocumentLinksBatch(execSql, inputs),
+        new Links(execSql).replaceDocumentLinksBatch(inputs),
       upsertDiscoveredDocuments: (inputs) =>
         upsertDiscoveredDocuments(execSql, inputs),
     };
@@ -199,7 +203,7 @@ test("discovery cannot return sequentially trashed documents to root", async () 
         containerId: "trash",
         accessEpoch: 1,
       });
-      await links.replaceDocumentLinks(execSql, id, ["trash"]);
+      await new Links(execSql).replaceDocumentLinks(id, ["trash"]);
       await intents.enqueueMoveIntent(execSql, {
         documentId: id,
         localId: id,
@@ -208,7 +212,7 @@ test("discovery cannot return sequentially trashed documents to root", async () 
         replaceLinkedContainers: true,
       });
       await discover();
-      await links.replaceDocumentLinks(execSql, id, ["root", "trash"]);
+      await new Links(execSql).replaceDocumentLinks(id, ["root", "trash"]);
       expect(await rootIds()).toEqual(ids.slice(index + 1).sort());
       expect(await documents.loadDocument(execSql, id)).toMatchObject({
         containerId: "trash",

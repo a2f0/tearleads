@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createFileBackedSql } from "../../../../test/helpers/fileBackedSql";
 import { createPlacementCommitFixture } from "../../../../test/helpers/placementCommit";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -179,7 +179,9 @@ test.each(["move", "link", "unlink", "projection"] as const)(
         return intents.enqueueLinkIntent(f.db.execSql, input);
       if (operation === "unlink")
         return intents.enqueueUnlinkIntent(f.db.execSql, input);
-      return links.replaceDocumentLinks(f.db.execSql, f.documentId, ["trash"]);
+      return new Links(f.db.execSql).replaceDocumentLinks(f.documentId, [
+        "trash",
+      ]);
     };
     try {
       await documents.ensureSchema(f.db.execSql);
@@ -191,7 +193,7 @@ test.each(["move", "link", "unlink", "projection"] as const)(
         snapshotEndVersion: "",
         text: "",
       });
-      await links.replaceDocumentLinks(f.db.execSql, f.documentId, [
+      await new Links(f.db.execSql).replaceDocumentLinks(f.documentId, [
         "source-container",
       ]);
       f.db.statements.length = 0;

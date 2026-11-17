@@ -13,7 +13,7 @@ import type {
 } from "@tearleads/validators/response";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { readLinkedContainerIdsFromDocumentManifest } from "../../src/data/documents/shared/projection/projectionTargets";
-import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
@@ -465,11 +465,9 @@ export async function runQueuedDocumentMoveFixture(input: {
     const intentRows = await execSql(
       "SELECT sync_status AS syncStatus, last_error AS lastError FROM local_intents WHERE lane = 'document.placement'",
     );
-    const linkedContainerIds =
-      await sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-        execSql,
-        documentId,
-      );
+    const linkedContainerIds = await new Links(execSql).listLinkedContainerIds(
+      documentId,
+    );
     return {
       documentId,
       persistedDocument: await defaultDocumentsPersistence.loadDocument(

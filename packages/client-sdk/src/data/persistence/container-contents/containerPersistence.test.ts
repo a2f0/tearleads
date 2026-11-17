@@ -6,7 +6,7 @@ import {
   loadContainerDisplayNamesByIds,
   loadContainers,
 } from "./containerPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "./documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "./documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence } from "./documentMoveIntentPersistence";
 
 const TEST_SYSTEM_SLOT = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -137,11 +137,10 @@ test("root reconciliation folds duplicate document links into the remote root", 
 
   try {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-      execSql,
-      "document-1",
-      ["local-root", "remote-root"],
-    );
+    await new Links(execSql).replaceDocumentLinks("document-1", [
+      "local-root",
+      "remote-root",
+    ]);
     await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
       documentId: "source-document",
       localId: "source-local",
@@ -171,10 +170,7 @@ test("root reconciliation folds duplicate document links into the remote root", 
     });
 
     await expect(
-      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-        execSql,
-        "document-1",
-      ),
+      new Links(execSql).listLinkedContainerIds("document-1"),
     ).resolves.toEqual(["remote-root"]);
     await expect(
       execSql(
@@ -283,11 +279,10 @@ test("containerContents system container reconciliation adopts local rows into t
       text: "Hello",
       title: "Hello",
     });
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-      execSql,
-      "document-1",
-      ["local-system", "remote-system"],
-    );
+    await new Links(execSql).replaceDocumentLinks("document-1", [
+      "local-system",
+      "remote-system",
+    ]);
 
     await sqlContainerContentsPersistence.reconcileLocalSystemContainer(
       execSql,
@@ -317,10 +312,7 @@ test("containerContents system container reconciliation adopts local rows into t
       }),
     );
     await expect(
-      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
-        execSql,
-        "document-1",
-      ),
+      new Links(execSql).listLinkedContainerIds("document-1"),
     ).resolves.toEqual(["remote-system"]);
     await expect(
       sqlDocumentsPersistence.loadDocument(execSql, "document-local-1"),

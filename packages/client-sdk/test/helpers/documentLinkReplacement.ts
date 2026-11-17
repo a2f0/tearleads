@@ -1,5 +1,5 @@
 import { DOCUMENTS_APP_KIND } from "../../src/data/documents/documentConstants";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 
 const replacementBefore = "2026-01-01T00:00:00.000Z";
@@ -11,7 +11,7 @@ export async function seedDocumentLinkReplacement(
   execSql: ExecSql,
   writableCount: number,
 ) {
-  await links.replaceDocumentLinksBatch(execSql, []);
+  await new Links(execSql).replaceDocumentLinksBatch([]);
   await execSql(
     `WITH RECURSIVE ids(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM ids WHERE i+1 < ?)
      INSERT INTO documents (app_kind, local_id, document_id, access_epoch, updated_at)

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence as containers } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { reassignContainerDocumentsInTransaction } from "../../../data/persistence/container-contents/containerDocumentReassignment";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
@@ -131,8 +131,7 @@ test.each(["deleted", "access_revoked"] as const)(
       });
       const [original] = await intents.listPendingMoveIntents(execSql);
       if (!original) throw new Error("Missing intent");
-      await links.replaceDocumentLinks(
-        execSql,
+      await new Links(execSql).replaceDocumentLinks(
         "remote",
         ["source", "gone", "surviving"],
         { moveIntentId: original.id },
@@ -167,9 +166,9 @@ test.each(["deleted", "access_revoked"] as const)(
           expectedUpdatedAt: original.updatedAt,
         }),
       ).toBe(false);
-      expect(await links.listLinkedContainerIds(execSql, "remote")).toEqual([
-        "surviving",
-      ]);
+      expect(await new Links(execSql).listLinkedContainerIds("remote")).toEqual(
+        ["surviving"],
+      );
       expect(
         await execSql(
           "SELECT container_id AS target FROM document_intent_link_targets ORDER BY container_id",
@@ -198,9 +197,13 @@ test("deleting the only queued addition clears its intent without losing survivi
     });
     const [intent] = await intents.listPendingMoveIntents(execSql);
     if (!intent) throw new Error("Missing intent");
-    await links.replaceDocumentLinks(execSql, "remote", ["source", "gone"], {
-      moveIntentId: intent.id,
-    });
+    await new Links(execSql).replaceDocumentLinks(
+      "remote",
+      ["source", "gone"],
+      {
+        moveIntentId: intent.id,
+      },
+    );
     await containers.deleteContainer(execSql, "gone", {
       updatedAt: new Date().toISOString(),
     });
@@ -208,7 +211,7 @@ test("deleting the only queued addition clears its intent without losing survivi
     expect(await execSql("SELECT * FROM document_intent_link_targets")).toEqual(
       [],
     );
-    expect(await links.listLinkedContainerIds(execSql, "remote")).toEqual([
+    expect(await new Links(execSql).listLinkedContainerIds("remote")).toEqual([
       "source",
     ]);
   } finally {
@@ -268,7 +271,7 @@ test("revoked container access does not acknowledge a pending document unlink", 
     });
     const [original] = await intents.listPendingMoveIntents(execSql);
     if (!original) throw new Error("Missing intent");
-    await links.replaceDocumentLinks(execSql, "remote", ["source"], {
+    await new Links(execSql).replaceDocumentLinks("remote", ["source"], {
       moveIntentId: original.id,
     });
     await containers.deleteContainers(execSql, [

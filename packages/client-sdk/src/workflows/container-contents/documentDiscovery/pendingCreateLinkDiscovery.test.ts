@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { deriveStableDocumentId } from "../../../data/documents/shared/stableDocumentId";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   sqlDocumentsPersistence as documents,
   upsertDiscoveredDocuments,
@@ -29,7 +29,7 @@ test("discovery preserves pending-create links while discovering unrelated docum
       text: "private edits",
       snapshotEndVersion: "",
     });
-    await links.replaceDocumentLinks(execSql, documentId, [
+    await new Links(execSql).replaceDocumentLinks(documentId, [
       "private-container",
     ]);
     const options: DiscoverContainerDocumentsOptions = {
@@ -50,16 +50,16 @@ test("discovery preserves pending-create links while discovering unrelated docum
         })),
       })),
       replaceDocumentLinksBatch: (inputs) =>
-        links.replaceDocumentLinksBatch(execSql, inputs),
+        new Links(execSql).replaceDocumentLinksBatch(inputs),
       upsertDiscoveredDocuments: (inputs) =>
         upsertDiscoveredDocuments(execSql, inputs),
     };
     await discoverContainerDocuments(options);
-    expect(await links.listLinkedContainerIds(execSql, documentId)).toEqual([
-      "private-container",
-    ]);
+    expect(await new Links(execSql).listLinkedContainerIds(documentId)).toEqual(
+      ["private-container"],
+    );
     expect(
-      await links.listLinkedContainerIds(execSql, "unrelated-document"),
+      await new Links(execSql).listLinkedContainerIds("unrelated-document"),
     ).toEqual(["shared-container"]);
     expect(await documents.loadDocument(execSql, localId)).toMatchObject({
       containerId: "private-container",

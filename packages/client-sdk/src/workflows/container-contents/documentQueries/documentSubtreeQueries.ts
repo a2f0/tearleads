@@ -1,5 +1,5 @@
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import { containerDocumentPlacementKey } from "../../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
@@ -31,11 +31,9 @@ async function listContainerContentsDocumentIdsByContainerIds(
   for (const containerIdBatch of listContainerContentsSqlIdBatches(
     containerIds,
   )) {
-    const batchDocumentIds =
-      await sqlDocumentContainerProjectionPersistence.listDocumentIdsByContainerIds(
-        execSql,
-        containerIdBatch,
-      );
+    const batchDocumentIds = await new DocumentContainerProjectionRepository(
+      execSql,
+    ).listDocumentIdsByContainerIds(containerIdBatch);
     for (const documentId of batchDocumentIds) {
       documentIds.add(documentId);
     }
@@ -154,10 +152,9 @@ export async function listContainerContentsDocumentsForContainers(
     ),
   );
   const linkedContainerIdsByDocumentId = withoutHeldPlacements(
-    await sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
+    await new DocumentContainerProjectionRepository(
       execSql,
-      documentIds,
-    ),
+    ).listLinkedContainerIdsByDocumentIds(documentIds),
     await new ContainerDocumentTombstoneHoldRepository(
       execSql,
     ).listContainerDocumentTombstoneHoldsForDocuments(documentIds),

@@ -14,7 +14,7 @@ import {
   containerContentsSyncLane,
   sqlContainerSyncWatermarkPersistence,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { loadLinkedDocumentSummaryRow } from "../../../data/persistence/container-contents/linkedDocumentSummary";
 import {
   applyContainerDocumentTombstones as applyPersistedContainerDocumentTombstones,
@@ -361,10 +361,9 @@ async function listContainerContentsLinkedContainerIdsByDocumentIds(
     uniqueDocumentIds,
   )) {
     const batchLinkedContainerIdsByDocumentId =
-      await sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
+      await new DocumentContainerProjectionRepository(
         execSql,
-        documentIdBatch,
-      );
+      ).listLinkedContainerIdsByDocumentIds(documentIdBatch);
     for (const [
       documentId,
       linkedContainerIds,
@@ -447,10 +446,9 @@ export function createContainerDocumentQueriesFromRuntime(
       return resetPendingWriteRetryState(execSql, input);
     },
     replaceDocumentLinksBatch(inputs) {
-      return sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+      return new DocumentContainerProjectionRepository(
         execSql,
-        inputs,
-      );
+      ).replaceDocumentLinksBatch(inputs);
     },
     async saveContainerDocumentWatermark(containerId, watermark) {
       await sqlContainerSyncWatermarkPersistence.saveWatermark(

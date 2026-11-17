@@ -1,3 +1,4 @@
+export { DocumentContainerProjectionRepository } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 export {
   didRegainSyncPrerequisites,
   isDatabaseUnavailableError,
@@ -15,11 +16,6 @@ export {
   loadContainerSyncWatermark,
   saveContainerSyncWatermark,
 } from "./containerPersistence";
-export {
-  initializeDocumentLinksSchema,
-  listDocumentLinkedContainerIds,
-  replaceDocumentLinks,
-} from "./documentLinks";
 export {
   type ContainerDocumentLinkInput,
   type ContainerDocumentQueries,

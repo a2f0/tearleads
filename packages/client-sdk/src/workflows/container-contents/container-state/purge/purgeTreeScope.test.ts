@@ -6,7 +6,7 @@ import {
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import {
@@ -169,11 +169,9 @@ for (const scenario of [
         },
         { updatedAt: "2026-10-01T00:00:00.000Z" },
       );
-      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-        execSql,
-        documentId,
-        [projection.containerId],
-      );
+      await new Links(execSql).replaceDocumentLinks(documentId, [
+        projection.containerId,
+      ]);
       const root: ContainerState = {
         container: {
           id: trashId,

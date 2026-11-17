@@ -44,6 +44,7 @@ reference.
 | Principal mutation journal | `PrincipalMutationJournalRepository(execSql)` | Built from the caller's executor at each call | None |
 | Principal policy bundle storage | `PrincipalPolicyBundleRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Trusted identity pin storage | `TrustedUserIdentityPinRepository(execSql)` | Built from the caller's executor at each call | None |
+| Document container projection | `DocumentContainerProjectionRepository(execSql, now)` | Built from the caller's executor (the transaction or locked handle inside a commit) at each call | None |
 
 ## Where code goes
 

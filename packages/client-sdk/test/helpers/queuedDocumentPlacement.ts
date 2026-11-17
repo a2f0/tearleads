@@ -1,4 +1,4 @@
-import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentContainerProjectionRepository as Links } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
@@ -43,15 +43,11 @@ export async function persistQueuedDocumentPlacement(input: {
     text: "",
     title: "Queued move",
   });
-  await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-    execSql,
-    documentId,
-    [
-      ...(input.linkOnly ? [input.rootContainerId] : []),
-      input.targetContainerId,
-      ...(input.extraContainerId ? [input.extraContainerId] : []),
-    ],
-  );
+  await new Links(execSql).replaceDocumentLinks(documentId, [
+    ...(input.linkOnly ? [input.rootContainerId] : []),
+    input.targetContainerId,
+    ...(input.extraContainerId ? [input.extraContainerId] : []),
+  ]);
   if (input.linkOnly) {
     await sqlDocumentMoveIntentPersistence.enqueueLinkIntent(execSql, {
       documentId,
