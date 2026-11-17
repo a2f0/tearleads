@@ -9,6 +9,7 @@ import { createContainerMutationServiceFixture } from "../../../../../test/helpe
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification/container/containerProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
@@ -104,6 +105,7 @@ test.each(["before verification", "before insertion"])(
               advancedBeforeInsert = true;
               await verifyContainerWriterProjection({
                 execSql,
+                openPrincipalPolicyBundleReader,
                 projection: current,
                 resolveUserKey,
               });

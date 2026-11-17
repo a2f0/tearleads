@@ -7,7 +7,7 @@ import type { DocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoint
 import type { AccessManifestCheckpointAdvance } from "../../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { VerifiedManifestBundle } from "../../persistence/verifiedManifestBundlePersistence";
-import type { PrincipalPolicyCheckpointEvidence } from "../../principals/principalPolicyEvidence";
+import type { PrincipalPolicyCheckpointEvidence } from "../../principalContracts/principalPolicyEvidence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 
 function objectKey(manifest: VerifiedAccessManifestCheckpointEvidence): string {

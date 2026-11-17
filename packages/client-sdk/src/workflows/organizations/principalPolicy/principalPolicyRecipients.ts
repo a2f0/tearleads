@@ -5,7 +5,7 @@ import type {
   PrincipalProjectionMemberRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalMemberEnvelopeResponse } from "@tearleads/validators/response";
-import { assertPrincipalIdentityCommitments } from "../../../data/principals/principalIdentityCommitments";
+import { assertPrincipalIdentityCommitments } from "../../../data/principalContracts/principalIdentityCommitments";
 import type { TrustedUserIdentity } from "../../../data/trustedUserIdentity";
 
 type PrincipalRekeyRecipient = {

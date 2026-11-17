@@ -1,6 +1,6 @@
 import { readGroupMetadata } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import type { OrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
+import type { OrganizationAuthorityDescriptor } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 
 /** Built-in labels derive from the role assigned by the signed organization. */
 export function assertGroupMetadataBinding(

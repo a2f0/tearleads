@@ -5,8 +5,8 @@ import {
   type BlobAttachmentSummary,
   blobAttachmentSummaryFromStagedBind,
 } from "@tearleads/validators/response";
+import { attachmentContentSha256 } from "../../src/data/blobs/attachmentContentIdentity";
 import type { BlobBytes } from "../../src/data/blobs/blobContracts";
-import { attachmentContentSha256 } from "../../src/data/documents/attachmentContentIdentity";
 import type { DocumentAttachment } from "../../src/data/documents/documentContent";
 import { createBlobAttachmentServiceFixture } from "./blobAttachmentServiceFixture";
 import {

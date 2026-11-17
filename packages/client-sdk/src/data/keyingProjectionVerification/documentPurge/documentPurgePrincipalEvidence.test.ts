@@ -6,6 +6,7 @@ import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/pr
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { projectionPolicySource } from "../../../../test/helpers/projectionPolicyHistory";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
 test("purge rejects unrelated policy evidence before consulting its checkpoint", async () => {
@@ -37,6 +38,7 @@ test("purge rejects unrelated policy evidence before consulting its checkpoint",
     await expect(
       verifyDocumentPurgeProof({
         execSql,
+        openPrincipalPolicyBundleReader,
         expectedDocumentId: fixture.writerProjection.documentId,
         expectedOrganizationId: fixture.author.organizationId,
         proof: {

@@ -5,7 +5,7 @@ import type {
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { readCanonicalRecord } from "../../keying/canonicalJson";
-import type { PrincipalPolicyCheckpointEvidence } from "../../principals/principalPolicyEvidence";
+import type { PrincipalPolicyCheckpointEvidence } from "../../principalContracts/principalPolicyEvidence";
 import { type ExecSql, resolveCanonicalExecSql } from "../../sqlite/sqlSchema";
 import type { AuthoredContainerMutationHead } from "./mutationAcknowledgement";
 

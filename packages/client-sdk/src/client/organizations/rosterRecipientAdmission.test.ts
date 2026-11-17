@@ -5,7 +5,7 @@ import {
   createWorkflowInputFixture,
 } from "../../../test/helpers/internalRuntimeFixtures";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
-import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
+import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "../../data/trustedUserIdentity";
 import {
   evidence,

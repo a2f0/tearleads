@@ -17,11 +17,11 @@ import { persistDocumentState } from "../../documents/persistence";
 import {
   getOrganizationProfileDocumentLocalId,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
-} from "../organizationProfile";
+} from "../../organizations/organizationProfile";
 import {
   getRosterProfileDocumentLocalId,
   ROSTER_PROFILE_DOCUMENT_KIND,
-} from "../rosterProfileContainer";
+} from "../../organizations/rosterProfileContainer";
 
 test("ordinary adoption preserves edited profiles, history, access and queued writes", async () => {
   const fixture = await organizationAdoptionFixture();

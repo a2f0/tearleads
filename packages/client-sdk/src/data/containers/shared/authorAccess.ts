@@ -3,7 +3,7 @@ import {
   resolveContainerStatePathUserAccessLevel,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import type { PrincipalPolicyCheckpointEvidence } from "../../principals/principalPolicyEvidence";
+import type { PrincipalPolicyCheckpointEvidence } from "../../principalContracts/principalPolicyEvidence";
 import { readContainerState } from "./projection";
 import type { ContainerMutationAuthor } from "./types";
 

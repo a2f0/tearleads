@@ -17,6 +17,7 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildMaterializedContainerRekeyPlan } from "../child/rekey";
 import { rebaseOnDeepestAncestor } from "../child/rekey/carriedDescendantRekeys";
 import {
@@ -86,6 +87,7 @@ async function loadGrantedContainerContext(
   // pin past the group's served head would refuse the other served paths.
   await verifyContainerWriterProjection({
     execSql: input.execSql,
+    openPrincipalPolicyBundleReader,
     persistVerificationCheckpoints:
       !isSpeculativeContainerWriterProjection(projection),
     principalPolicyCache,

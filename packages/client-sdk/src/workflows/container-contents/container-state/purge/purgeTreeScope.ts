@@ -6,6 +6,7 @@ import { runWithSecurityIncidentReporting } from "../../../../data/keyingProject
 import { rethrowProjectionVerificationCancelled } from "../../../../data/keyingProjectionVerification/types";
 import { hasUnsettledDocumentPlacement } from "../../../../data/persistence/container-contents/documentPurgePlacement";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
+import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { errorMessage } from "../../../../data/shared/errorMessage";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 
@@ -55,6 +56,7 @@ async function verifiedRemoteScope(
       }
       const path = await verifyContainerWriterProjection({
         execSql: runtime.infra.execSql,
+        openPrincipalPolicyBundleReader,
         projection,
         resolveUserKey: input.resolveProjectionUserKey,
         stillCurrent: input.stillCurrent,

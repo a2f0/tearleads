@@ -11,7 +11,7 @@ import {
   type ExecSql,
   type ExecSqlClientLike,
 } from "../../../data/sqlite/sqlSchema";
-import type { OrganizationProvisioningArtifactsInput } from "../../registration/organizationProvisioning";
+import type { OrganizationProvisioningArtifactsInput } from "../organizationProvisioning";
 import { transitionOrganizationCreation } from "./organizationCreationState";
 import { removeOrganizationProvisioningAttempt } from "./organizationProvisioningAttempt";
 

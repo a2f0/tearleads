@@ -18,7 +18,8 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
-import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principals/principalPolicyEvidence";
+import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principalContracts/principalPolicyEvidence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 /** Both paths have been verified; a readable proof does not authorize a link. */
@@ -78,6 +79,7 @@ export async function verifyDocumentLinkSetCurrentPolicies(
     ]) {
       await collectContainerWriterProjectionPrincipalPolicies({
         execSql: input.execSql,
+        openPrincipalPolicyBundleReader,
         principalPolicyCache: input.principalPolicyCache,
         projection,
         resolveUserKey: input.resolveProjectionUserKey,

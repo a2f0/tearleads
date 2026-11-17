@@ -42,7 +42,6 @@ export const organizationReadModelTables = [
 ];
 
 export const principalPolicyTables = [
-  "principalGrantRetirements",
   "principalHistoryEntries",
   "principalHistoryNodes",
   "principalHistoryPrefixes",
@@ -53,9 +52,11 @@ export const principalPolicyTables = [
   "principalPolicyBundles",
 ];
 
+export const principalPolicyContractsTables = ["principalGrantRetirements"];
+
 export const identityTables = ["trustedUserIdentityPins"];
 
-export const syncEngineTables = [
+export const syncCoordinationTables = [
   "organizationSyncPauseRemovals",
   "organizationSyncPauses",
 ];

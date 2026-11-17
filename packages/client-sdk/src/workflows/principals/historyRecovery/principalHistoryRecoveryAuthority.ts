@@ -2,7 +2,7 @@ import {
   KeyingVerificationError,
   type PrincipalPolicyHistoryVerifier,
 } from "@tearleads/crypto";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { PrincipalHistoryEvidenceUnavailableError } from "./principalHistoryRecoveryReferences";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 

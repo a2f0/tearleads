@@ -8,6 +8,7 @@ import type {
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { asc, desc } from "drizzle-orm";
+import type { OpenPrincipalPolicyBundleReader } from "../../keyingProjectionVerification/types";
 import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
 import { principalHistoryEvidenceTables } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import {
@@ -19,7 +20,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import type { AcknowledgedPrincipalGrantRetirements } from "../principalKeys/principalGrantRetirementPersistence";
+import type { AcknowledgedPrincipalGrantRetirements } from "../principalContracts/principalGrantRetirementPersistence";
 import {
   type PrincipalKeyEnvelopeCandidate,
   selectPrincipalKeyEnvelopeCandidates,
@@ -322,3 +323,7 @@ export class PrincipalPolicyBundleRepository {
     await runtime.transaction(body, { behavior: "immediate" });
   }
 }
+
+/** The bundle store Keying Verification reads, opened on one executor. */
+export const openPrincipalPolicyBundleReader: OpenPrincipalPolicyBundleReader =
+  (execSql) => new PrincipalPolicyBundleRepository(execSql);

@@ -29,7 +29,7 @@ import type {
   ContainerWriterProjectionResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import type { PrincipalPolicyCurrentEvidence } from "../../principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../../principalContracts/principalPolicyEvidence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import type { ContainerMutationRequestOptions } from "./mutationRequestOptions";
 import type { ContainerReciteApi } from "./reciteApi";

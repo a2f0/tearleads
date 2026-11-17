@@ -9,7 +9,7 @@ import {
 import { isReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import {
   principalHistoryEvidenceScopeId,
   principalHistoryPrefixProtection,

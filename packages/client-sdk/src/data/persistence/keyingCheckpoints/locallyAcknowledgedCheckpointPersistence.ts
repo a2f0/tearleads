@@ -7,7 +7,7 @@ import {
   verifyAccessManifestLocalCheckpoint,
 } from "@tearleads/crypto";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { loadContainerRetirementCheck } from "../principalKeys/principalGrantRetirementPersistence";
+import { loadContainerRetirementCheck } from "../principalContracts/principalGrantRetirementPersistence";
 import {
   accessManifestObjectKey,
   loadAccessManifestCheckpointRows,

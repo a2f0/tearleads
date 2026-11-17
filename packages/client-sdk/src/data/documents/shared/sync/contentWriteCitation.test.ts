@@ -16,6 +16,7 @@ import {
 } from "../../../../../test/helpers/ancestorCitationScenario";
 import { verifyDocumentWriterProjectionAuthorization } from "../../../keyingProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { openPrincipalPolicyBundleReader } from "../../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { documentWriteAuthorizationForHeader } from "./syncResponseAuthorization";
 
 test("historical content writes retain a grant added after the leaf parent pin", async () => {
@@ -117,6 +118,7 @@ test("historical content writes retain a grant added after the leaf parent pin",
   try {
     const source = await verifyDocumentWriterProjectionAuthorization({
       execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
       projection,
       resolveUserKey: scenario.resolveUserKey,
     });

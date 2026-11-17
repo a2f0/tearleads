@@ -6,8 +6,8 @@ import {
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { attachmentContentSha256 } from "../../../../data/blobs/attachmentContentIdentity";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
-import { attachmentContentSha256 } from "../../../../data/documents/attachmentContentIdentity";
 import { addDocumentAttachments } from "../../../../data/documents/documentContent";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { applyStoredAttachmentRemoval } from "../../../../data/persistence/documents/internal/attachmentStagingPersistence";

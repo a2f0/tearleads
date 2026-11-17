@@ -13,7 +13,7 @@ import {
   wrapContainerKeyToRootUser,
 } from "../../../../data/containers/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectionVerification";
-import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principalContracts/principalPolicyEvidence";
 
 function findPrincipalPolicy(input: {
   operationLabel: string;

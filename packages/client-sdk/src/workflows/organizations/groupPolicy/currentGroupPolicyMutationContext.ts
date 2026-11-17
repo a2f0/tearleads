@@ -6,7 +6,7 @@ import {
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { requireOrganizationGroupHead } from "../../../data/principals/organizationAuthorityDescriptor";
+import { requireOrganizationGroupHead } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { PrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
 import { createSelectedCurrentGroupMetadataContainerVerifier } from "../groupMetadata/currentGroupMetadataAuthority";

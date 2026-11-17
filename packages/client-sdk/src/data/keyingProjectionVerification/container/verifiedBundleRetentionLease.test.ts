@@ -11,7 +11,10 @@ import {
 } from "../../../../test/helpers/projectionPolicyHistory";
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";
-import { PrincipalPolicyBundleRepository } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
+import {
+  openPrincipalPolicyBundleReader,
+  PrincipalPolicyBundleRepository,
+} from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { accessManifestCheckpoints } from "../../sqlite/schema/keyingCheckpointSchema";
 import { verifiedAccessManifestBundles } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
@@ -78,6 +81,7 @@ for (const [entry, verify] of verifiers) {
       }) as ExecSql;
       const error = await verify({
         execSql,
+        openPrincipalPolicyBundleReader,
         projection,
         stillCurrent: () => true,
         // Current policies warm as usual; the projection's history lease is

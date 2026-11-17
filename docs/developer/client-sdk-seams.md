@@ -49,6 +49,7 @@ reference.
 | Document discovery evidence | `DocumentDiscoveryEvidenceRepository(execSql, now)` | One per discovery pass, built by `discoverContainerDocumentLanesForRuntime` | None |
 | Principal mutation journal | `PrincipalMutationJournalRepository(execSql)` | Built from the caller's executor at each call | None |
 | Principal policy bundle storage | `PrincipalPolicyBundleRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Principal policy bundles read by verification | `OpenPrincipalPolicyBundleReader` (`openPrincipalPolicyBundleReader`), the host for Keying Verification's bundle reads | `openPrincipalPolicyBundleReader`, which builds `PrincipalPolicyBundleRepository` on the executor each read uses; every verifier caller passes it | None |
 | Trusted identity pin storage | `TrustedUserIdentityPinRepository(execSql)` | Built from the caller's executor at each call | None |
 | Document container projection | `DocumentContainerProjectionRepository(execSql, now)` | Built from the caller's executor (the transaction or locked handle inside a commit) at each call | None |
 | Organization read models | `OrganizationReadModelRepository(execSql, now)` | Built from the caller's executor at each call | None |
@@ -72,6 +73,7 @@ rejects any other file there.
   [`containers/`](../../packages/client-sdk/src/data/containers/),
   [`documents/`](../../packages/client-sdk/src/data/documents/),
   [`principals/`](../../packages/client-sdk/src/data/principals/),
+  [`principalContracts/`](../../packages/client-sdk/src/data/principalContracts/),
   [`sync/`](../../packages/client-sdk/src/data/sync/),
   [`trustedUserIdentity/`](../../packages/client-sdk/src/data/trustedUserIdentity/))
   hold that domain's contracts and helpers.
@@ -92,7 +94,7 @@ rejects any other file there.
   [`sync/`](../../packages/client-sdk/src/data/sync/) are internal to stores. A
   store reaches a module there through the matching workflow facade, such as
   [`workflows/blobs`](../../packages/client-sdk/src/workflows/blobs/) or
-  [`workflows/sync`](../../packages/client-sdk/src/workflows/sync/).
+  [`workflows/sync/coordination.ts`](../../packages/client-sdk/src/workflows/sync/coordination.ts).
 
 In [`workflows/`](../../packages/client-sdk/src/workflows/), the root holds only
 its [`README`](../../packages/client-sdk/src/workflows/README.md). Each folder
@@ -172,7 +174,9 @@ earn their ports.
 Do not wrap single-implementation code in an interface. Principal-policy
 persistence spans about thirteen modules with one SQLite implementation, and
 tests already run against in-memory SQLite; a store port there would add
-indirection without a second adapter.
+indirection without a second adapter. The verifier's bundle reader below is a
+host interface for dependency direction, not a store port, and it covers only
+the three reads verification makes.
 
 Do not replace a fake that exercises trust-boundary code. Tests that serve
 [policy pages](../principal-history-transport.md) from a `Bun.serve` fake run
@@ -197,6 +201,12 @@ needs a decision only an upper one can make. Recovery records acknowledged
 principal currents, but only the organization workflows that authored a
 mutation can check its receipt, so they pass those checks in as
 `PrincipalAcknowledgementChecks` rather than recovery importing them.
+
+Keying Verification reads cached principal policy bundles but sits below
+Principal Policy, so its callers pass `openPrincipalPolicyBundleReader` in.
+Verification opens the `PrincipalPolicyBundleReader` on the executor each read
+runs on, a locked transaction handle included, so every read keeps that
+executor's snapshot.
 
 State that a lower layer also writes lives in a neutral lower module, reached by
 upper layers through a [`workflows/`](../../packages/client-sdk/src/workflows/)

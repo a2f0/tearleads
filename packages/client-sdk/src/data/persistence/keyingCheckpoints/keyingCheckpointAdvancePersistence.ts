@@ -12,7 +12,7 @@ import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSche
 import { principalPolicyTables } from "../../sqlite/schema/principalPolicySchema";
 import { verifiedManifestBundleTables } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { loadContainerRetirementCheck } from "../principalKeys/principalGrantRetirementPersistence";
+import { loadContainerRetirementCheck } from "../principalContracts/principalGrantRetirementPersistence";
 import {
   type VerifiedManifestBundle,
   type VerifiedManifestBundleRow,

@@ -14,7 +14,7 @@ import { loadOrganizationFounder } from "../../persistence/organizationFounderPe
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
-} from "../../principals/organizationAuthorityDescriptor";
+} from "../../principalContracts/organizationAuthorityDescriptor";
 import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 
 async function fixture() {

@@ -7,6 +7,7 @@ import {
   tombstoneAfter,
 } from "../../../../test/helpers/tombstoneBatches";
 import { SQLITE_BOUND_VARIABLE_BUDGET } from "../../sqlite/sqliteBindBudget";
+import { deleteContainerDocumentTombstonePlacementRows } from "../container-contents/documentContainerProjectionPersistence";
 import { applyContainerDocumentTombstones } from "./documentsPersistence";
 
 for (const size of [199, 200]) {
@@ -16,7 +17,11 @@ for (const size of [199, 200]) {
     try {
       const inputs = await seedTombstoneBatch(execSql, size);
       statements.length = 0;
-      const summaries = await applyContainerDocumentTombstones(execSql, inputs);
+      const summaries = await applyContainerDocumentTombstones(
+        execSql,
+        inputs,
+        deleteContainerDocumentTombstonePlacementRows,
+      );
       const writes = statements.filter(({ sql }) =>
         /^update "document_projection"/i.test(sql),
       );
@@ -80,7 +85,11 @@ test("complete large tombstone apply bounds placement guards and preserves effec
     if (!first) throw new Error("Missing input");
     inputs.push({ ...first, containerId: "listing-only" }, { ...first });
     statements.length = 0;
-    const summaries = await applyContainerDocumentTombstones(execSql, inputs);
+    const summaries = await applyContainerDocumentTombstones(
+      execSql,
+      inputs,
+      deleteContainerDocumentTombstonePlacementRows,
+    );
     expect(summaries).toHaveLength(1001);
     const expected = await db.execSql(
       `SELECT local_id, document_id, container_id, updated_at FROM document_projection
