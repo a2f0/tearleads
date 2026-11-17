@@ -11,15 +11,15 @@ import {
   dataUsage,
   organizationPrincipalPolicy,
   principalPolicy,
-} from "../../../../test/helpers/organizationReadModelFixtures";
+} from "../../../../test/helpers/data/organizationReadModelFixtures";
 import {
   organizationReadModelFailure,
   organizationReadModelGroupsDelta,
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
   organizationReadModelUserId,
-} from "../../../../test/helpers/organizationReadModelProjectionFixtures";
-import { createRejectingExecSql } from "../../../../test/helpers/rejectingExecSql";
+} from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
+import { createRejectingExecSql } from "../../../../test/helpers/data/rejectingExecSql";
 import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
 import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
 import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";

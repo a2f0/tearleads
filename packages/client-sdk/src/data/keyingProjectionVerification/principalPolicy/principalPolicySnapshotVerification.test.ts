@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/data/principalPolicySnapshots";
 import {
   enforcePrincipalPolicySnapshotCheckpoints,
   verifyPrincipalPolicySnapshots,
-} from "../../../../test/helpers/principalPolicySnapshotVerification";
+} from "../../../../test/helpers/data/principalPolicySnapshotVerification";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   openPrincipalPolicyBundleReader,

@@ -9,7 +9,7 @@ import type {
 } from "../../src/data/keyingProjectionVerification/types";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { recoverProjectionPolicyHistory } from "../../src/workflows/principals/publicHistory/recoverProjectionPolicyHistory";
-import { projectionHistoryPages } from "./projectionPolicyPages";
+import { projectionHistoryPages } from "./data/projectionPolicyPages";
 
 export function projectionPolicyWarmer(input: {
   readonly bundles: readonly PrincipalPolicyBundleResponse[];

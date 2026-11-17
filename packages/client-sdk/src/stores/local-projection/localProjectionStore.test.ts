@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import { waitFor } from "../../../test/helpers/waitFor";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import { DocumentContainerProjectionRepository as Links } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { upsertDiscoveredDocuments } from "../../data/persistence/documents/documentsPersistence";
 import type { DomainScope } from "../../data/shared/domainScope";

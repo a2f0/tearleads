@@ -5,11 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { runContainerRemovalBounds } from "../../../../test/helpers/containerRemovalBounds";
+import { runContainerRemovalBounds } from "../../../../test/helpers/data/containerRemovalBounds";
 
 const fixturePath = fileURLToPath(
   new URL(
-    "../../../../test/helpers/containerRemovalBounds.ts",
+    "../../../../test/helpers/data/containerRemovalBounds.ts",
     import.meta.url,
   ),
 );

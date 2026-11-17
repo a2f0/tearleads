@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
-import { createMutationResponseFromRequest } from "../../../../../test/helpers/containerFixtures";
 import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/currentShareMetadata";
+import { createMutationResponseFromRequest } from "../../../../../test/helpers/data/containerFixtures";
 import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification";
 import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {

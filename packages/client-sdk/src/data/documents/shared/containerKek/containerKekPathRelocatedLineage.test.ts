@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createParentProjectionUserKeyResolver } from "../../../../../test/helpers/containerFixtures";
+import { createParentProjectionUserKeyResolver } from "../../../../../test/helpers/data/containerFixtures";
 import {
   relocatedChildHistory,
   servingForgedKeyring,

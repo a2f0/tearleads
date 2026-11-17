@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
-import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
+import { createPublicHistoryFixture } from "../../../../test/helpers/data/publicPrincipalHistory";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { writePrincipalPolicyBundleInTransaction } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";

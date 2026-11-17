@@ -4,7 +4,7 @@ import {
   documentWriterProjectionFromCreateResponse,
 } from "../../src/workflows/documents/create";
 import { createRotatedAncestorFixture } from "./ancestorRotationRecovery";
-import { createResponseFromRequest } from "./documentResponseFixtures";
+import { createResponseFromRequest } from "./data/documentResponseFixtures";
 
 export async function documentWithStaleAncestors() {
   const fixture = await createRotatedAncestorFixture();

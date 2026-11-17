@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createParentProjection } from "../../../../test/helpers/containerFixtures";
+import { createParentProjection } from "../../../../test/helpers/data/containerFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { assertDocumentWriterProjectionConsistent } from "../../documents/shared/projection";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";

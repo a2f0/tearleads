@@ -10,7 +10,7 @@ import {
   createPreparedUpdate,
   createSyncFixture,
   projectionPathRefs,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 
 test("buildDocumentSyncPlan signs document write headers with the current access boundary", async () => {

@@ -12,8 +12,8 @@ import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "./containerFixtures";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
+} from "./data/containerFixtures";
+import { createTestTrustedUserIdentity } from "./data/trustedUserIdentity";
 
 /**
  * root -> intermediate -> leaf, with only `leaf` shared (write) to a peer and

@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createAuthor,
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../../test/helpers/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
+} from "../../../../../test/helpers/data/containerFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/data/trustedUserIdentity";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../../test/helpers/remoteDocumentServiceFixture";
-import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,

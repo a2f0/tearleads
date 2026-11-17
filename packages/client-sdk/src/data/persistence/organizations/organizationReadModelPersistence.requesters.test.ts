@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { dataUsage } from "../../../../test/helpers/organizationReadModelFixtures";
+import { dataUsage } from "../../../../test/helpers/data/organizationReadModelFixtures";
 import {
   organizationReadModelDelta as delta,
   organizationReadModelDirectory as directory,
@@ -8,7 +8,7 @@ import {
   organizationReadModelGroups as groups,
   locallyUnnamedGroups,
   organizationReadModelSnapshot as snapshot,
-} from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
+} from "../../../../test/helpers/data/organizationReadModelPersistenceFixtures";
 import { OrganizationDataUsageRepository } from "./organizationDataUsagePersistence";
 import { subscribeOrganizationReadModelInvalidation } from "./organizationReadModelInvalidation";
 

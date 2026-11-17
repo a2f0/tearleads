@@ -10,11 +10,11 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 
 test("createRemoteDocument gates writes by the resolved container organization", async () => {

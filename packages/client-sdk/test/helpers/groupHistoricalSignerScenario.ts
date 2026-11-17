@@ -33,9 +33,9 @@ import {
   ORGANIZATION_ID,
   type Signer,
   successor,
-} from "./ancestorCitationScenario";
+} from "./data/ancestorCitationScenario";
+import { createTestTrustedUserIdentity } from "./data/trustedUserIdentity";
 import { historicalGroupPolicy } from "./historicalGroupPolicy";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 // A group admin signs a child head and a document link, then is removed from
 // the group; the root adopts the successor policy. A cold device receives the

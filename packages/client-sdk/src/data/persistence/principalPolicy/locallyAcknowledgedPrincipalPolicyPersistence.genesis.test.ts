@@ -7,11 +7,11 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/data/groupMetadata";
 import {
   policyBundleFromInitialRequest,
   signedPrincipalPolicyBundle,
-} from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 

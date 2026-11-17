@@ -2,8 +2,8 @@ import { beforeAll, expect, test } from "bun:test";
 import {
   createRecoveryFixture,
   signedRecoveryHistory,
-} from "../../../../test/helpers/principalHistoryRecovery";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalHistoryRecovery";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { isProjectionVerificationCancelledError } from "../../../data/keyingProjectionVerification/types";
 import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
 import { clearRemoteSyncState } from "../../sync/remoteReset";

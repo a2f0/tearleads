@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createAuthor,
   createMutationResponseFromRequest,
@@ -8,8 +9,7 @@ import {
   createParentProjectionUserKeyResolver,
   createRecipientIdentityResolver,
   SIGNED_AT,
-} from "../../../../../test/helpers/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
+} from "../../../../../test/helpers/data/containerFixtures";
 
 test("shareRemoteContainer rejects a response that drops the unchanged keyring", async () => {
   const parent = await createParentProjection();

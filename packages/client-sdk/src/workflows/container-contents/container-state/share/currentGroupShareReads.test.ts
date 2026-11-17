@@ -1,13 +1,13 @@
 import { beforeAll, expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
-import { createAuthor } from "../../../../../test/helpers/containerFixtures";
+import { createAuthor } from "../../../../../test/helpers/data/containerFixtures";
+import { createLocalAuthorityRecoveryFixture } from "../../../../../test/helpers/data/principalAuthorityLocal";
+import { principalPolicyHead } from "../../../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
 import { createShareTestRuntime } from "../../../../../test/helpers/groupShareScenario";
-import { createLocalAuthorityRecoveryFixture } from "../../../../../test/helpers/principalAuthorityLocal";
 import { signedAuthorityRecoveryHistory } from "../../../../../test/helpers/principalAuthorityRecovery";
-import { principalPolicyHead } from "../../../../../test/helpers/principalPolicyFixtures";
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
-import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
 import { createTestContainerState } from "../containerState.testFixtures";
 import { containerStateHasCurrentGroupGrant } from "./groupGrantVerification";
 import { resolveCurrentGroupKeyEpoch } from "./groupShareEpoch";

@@ -24,22 +24,22 @@ import { defaultDocumentsPersistence } from "../../src/workflows/documents";
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
 import { RemoteDocumentService } from "../../src/workflows/documents/remote/remoteDocumentService";
 import { containerContentsOrganizationHost } from "../../src/workflows/organizations/containerContentsHost";
-import { createAuthor, createResponse } from "./documentFixtures";
-import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
-import { queuedDocumentMoveLocalState } from "./queuedDocumentMoveLocalState";
+import { createAuthor, createResponse } from "./data/documentFixtures";
 import {
   createQueuedDocumentMoveRemote,
   type QueuedDocumentMoveFailure,
   type QueuedDocumentMovePass,
-} from "./queuedDocumentMoveRemote";
+} from "./data/queuedDocumentMoveRemote";
+import { createTestTrustedUserIdentity } from "./data/trustedUserIdentity";
+import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
+import { queuedDocumentMoveLocalState } from "./queuedDocumentMoveLocalState";
 import {
   createQueuedDocumentPlacementHost,
   persistQueuedDocumentPlacement,
   unlinkQueuedDocumentPlacement,
 } from "./queuedDocumentPlacement";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
-export type { QueuedDocumentMoveFailure } from "./queuedDocumentMoveRemote";
+export type { QueuedDocumentMoveFailure } from "./data/queuedDocumentMoveRemote";
 
 export async function runQueuedDocumentMoveFixture(input: {
   absentLocalContainerIds?: readonly string[];

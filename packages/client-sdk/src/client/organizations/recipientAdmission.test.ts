@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { createFixtureUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { createFixtureUserIdentity } from "../../../test/helpers/data/trustedUserIdentity";
 import type { SecurityIncidentContext } from "../../data/shared/securityIncidents";
 import {
   isReportedRosterVouchedRecipient,

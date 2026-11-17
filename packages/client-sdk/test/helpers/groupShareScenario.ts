@@ -23,19 +23,19 @@ import {
   createContainerContentsWorkflowRuntime,
 } from "../../src/workflows/container-contents/runtime";
 import { containerContentsOrganizationHost } from "../../src/workflows/organizations/containerContentsHost";
-import { createAuthor } from "./containerFixtures";
-import { buildInitialGroupPolicyRequest } from "./groupMetadata";
-import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
+import { createAuthor } from "./data/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "./data/groupMetadata";
+import { createSuccessorGroupPolicyBundle } from "./data/groupPolicyFixtures";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "./principalPolicyFixtures";
+} from "./data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "./data/trustedUserIdentity";
 import {
   repairPolicyPages,
   repairProtectionLease,
 } from "./principalPolicyRepair";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 type ShareAuthor = Awaited<ReturnType<typeof createAuthor>>;
 type KemKeyPair = ReturnType<typeof generateKemSeedAndKeyPair>;

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { countingExecSql } from "../../../../test/helpers/statementCounting";
+import { countingExecSql } from "../../../../test/helpers/data/statementCounting";
 import { verifiedManifestBundleTables } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../sqlite/sqlSchema";

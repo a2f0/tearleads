@@ -3,12 +3,12 @@ import type {
   DocumentContentKeyBundleResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
-import { sealNextContentKeyEpoch } from "../../../../test/helpers/contentKeyBundleSealing";
+import { sealNextContentKeyEpoch } from "../../../../test/helpers/data/contentKeyBundleSealing";
 import {
   createSignedSyncResponseUpdate,
   createSyncResponse,
   writerKeyResolver,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { persistedDocumentSyncStateFromResponse } from "../../../data/documents/shared/responses";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";

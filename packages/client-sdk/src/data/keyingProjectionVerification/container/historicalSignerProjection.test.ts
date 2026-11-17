@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { grantBy } from "../../../../test/helpers/ancestorCitationScenario";
+import { grantBy } from "../../../../test/helpers/data/ancestorCitationScenario";
 import {
   childWriterProjection,
   createGroupHistoricalSignerScenario,

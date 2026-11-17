@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { apiVersionHeaderName } from "@tearleads/validators/operation";
-import { quietLogger } from "../../../test/helpers/clientTestSupport";
+import { quietLogger } from "../../../test/helpers/data/clientTestSupport";
 import { Tearleads } from "../../Tearleads";
 import { ApiVersion } from "./apiVersion";
 

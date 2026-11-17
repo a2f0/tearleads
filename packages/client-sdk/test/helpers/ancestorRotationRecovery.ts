@@ -11,7 +11,7 @@ import { buildMaterializedContainerRekeyPlan } from "../../src/workflows/contain
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "./containerFixtures";
+} from "./data/containerFixtures";
 
 export async function createRotatedAncestorFixture() {
   const root = await createParentProjection();

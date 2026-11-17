@@ -8,10 +8,10 @@ import {
   createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
-import { createResponseFromRequest } from "../../../../test/helpers/documentResponseFixtures";
+import { createAuthor } from "../../../../test/helpers/data/documentFixturePrimitives";
+import { createResponseFromRequest } from "../../../../test/helpers/data/documentResponseFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { enforceAccessManifestCheckpoints } from "../../../data/keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createRecoveryFixture,
   signedRecoveryHistory,
-} from "../../../../test/helpers/principalHistoryRecovery";
+} from "../../../../test/helpers/data/principalHistoryRecovery";
 import { createPrincipalHistoryProtectionCustody } from "../../../client/runtime/principalHistoryProtection";
 import {
   principalHistoryEntries,

@@ -2,8 +2,8 @@ import { beforeAll, expect, test } from "bun:test";
 import {
   createRecoveryFixture,
   signedRecoveryHistory,
-} from "../../../../test/helpers/principalHistoryRecovery";
-import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
+} from "../../../../test/helpers/data/principalHistoryRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
 import { principalHistoryEntries } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";

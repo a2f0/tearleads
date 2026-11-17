@@ -9,7 +9,7 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import { isPrincipalPolicyStateChainEntryResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
 import {
   principalHistoryEntries,
   principalHistoryEvidenceTables,

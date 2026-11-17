@@ -8,11 +8,11 @@ import {
 } from "@tearleads/crypto";
 import { asContainerMutationFixture } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createMutationResponseFromRequest,
   createParentProjectionUserKeyResolver,
-} from "../../../../../test/helpers/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
+} from "../../../../../test/helpers/data/containerFixtures";
 import {
   CHILD_ID,
   forgedEpoch1Entry,

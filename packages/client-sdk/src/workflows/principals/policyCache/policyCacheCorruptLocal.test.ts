@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
 import {
   createPrincipalPolicyBundle,
   referencedPrincipalStateFromBundle,
-} from "../../../../test/helpers/principalPolicyBundles";
+} from "../../../../test/helpers/data/principalPolicyBundles";
+import { cacheReferencedPolicies } from "../../../../test/helpers/policyCacheFixtures";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("principal policy sync hard-fails without fetching or repairing an invalid exact match", async () => {

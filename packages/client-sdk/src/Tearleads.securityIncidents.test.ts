@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { quietLogger } from "../test/helpers/clientTestSupport";
+import { quietLogger } from "../test/helpers/data/clientTestSupport";
 import {
   identityLinkFixture,
   LINK_TRUST_DOMAIN,

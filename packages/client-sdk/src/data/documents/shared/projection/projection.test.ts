@@ -4,7 +4,7 @@ import {
   createWrappedProjection,
   fixtureHash,
   getOnlyTarget,
-} from "../../../../../test/helpers/documentFixtures";
+} from "../../../../../test/helpers/data/documentFixtures";
 import { unwrapContainerKekPath } from "./index";
 
 test("deriveDocumentCreateTargets uses the leaf projection manifest and KEK", async () => {

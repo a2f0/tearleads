@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { captureStatements } from "../../../../test/helpers/statementCapture";
+import { captureStatements } from "../../../../test/helpers/data/statementCapture";
 import {
   seedTombstoneBatch,
   seedTombstoneGuards,
   tombstoneAfter,
-} from "../../../../test/helpers/tombstoneBatches";
+} from "../../../../test/helpers/data/tombstoneBatches";
 import { SQLITE_BOUND_VARIABLE_BUDGET } from "../../sqlite/sqliteBindBudget";
 import { deleteContainerDocumentTombstonePlacementRows } from "../container-contents/documentContainerProjectionPersistence";
 import { applyContainerDocumentTombstones } from "./documentsPersistence";

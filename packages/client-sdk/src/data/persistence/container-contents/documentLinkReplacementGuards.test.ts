@@ -5,8 +5,8 @@ import {
   readReplacementLinks,
   replacementId,
   seedDocumentLinkReplacement,
-} from "../../../../test/helpers/documentLinkReplacement";
-import { captureStatements } from "../../../../test/helpers/statementCapture";
+} from "../../../../test/helpers/data/documentLinkReplacement";
+import { captureStatements } from "../../../../test/helpers/data/statementCapture";
 import { DocumentContainerProjectionRepository as Links } from "./documentContainerProjectionPersistence";
 
 for (const moveIntentId of ["other-move", "owned-move"]) {

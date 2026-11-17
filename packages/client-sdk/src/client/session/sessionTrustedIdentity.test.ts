@@ -6,8 +6,8 @@ import {
   createSqlClient,
   noIdentityChange,
   setGeneratedIdentity,
-} from "../../../test/helpers/clientTestSupport";
-import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
+} from "../../../test/helpers/data/clientTestSupport";
+import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { createIdentity } from "../identity";
 import { Database } from "../runtime/database";
 import { createSession } from "./index";

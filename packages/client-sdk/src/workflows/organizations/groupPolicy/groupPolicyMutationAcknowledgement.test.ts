@@ -20,16 +20,16 @@ import type {
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/data/groupMetadata";
 import {
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
   policyReceiptFromBundle,
-} from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   createFixtureUserIdentity,
   createTestTrustedUserIdentity,
-} from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/trustedUserIdentity";
 import {
   acknowledgeGroupPolicyBundle,
   acknowledgeGroupPolicyState,

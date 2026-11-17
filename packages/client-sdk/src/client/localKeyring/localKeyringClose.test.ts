@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createFakeIndexedDb } from "../../../test/helpers/localKeyringFakes";
+import { createFakeIndexedDb } from "../../../test/helpers/data/localKeyringFakes";
 import {
   createBrowserLocalKeyring,
   createLocalKeyring,

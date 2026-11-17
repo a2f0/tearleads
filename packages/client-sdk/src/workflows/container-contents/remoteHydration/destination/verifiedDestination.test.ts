@@ -8,10 +8,10 @@ import type { ContainerWriterProjectionResponse } from "@tearleads/validators/re
 import {
   createContainerRevokeManifestFixture,
   createParentProjection,
-} from "../../../../../test/helpers/containerFixtures";
+} from "../../../../../test/helpers/data/containerFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/data/trustedUserIdentity";
+import { withTestExecSql } from "../../../../../test/helpers/data/withTestExecSql";
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
-import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
-import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
 import type { SecurityIncidentContext } from "../../../../data/shared/securityIncidents";
 import {

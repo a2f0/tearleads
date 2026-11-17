@@ -3,7 +3,7 @@ import { verifyDocumentPurgeProofBaseline } from "../../src/data/keyingProjectio
 import { KeyingCheckpointRepository } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
-import { grantBy, verifyPath } from "./ancestorCitationScenario";
+import { grantBy, verifyPath } from "./data/ancestorCitationScenario";
 import { createDocumentPurgeProof } from "./documentPurge";
 import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 

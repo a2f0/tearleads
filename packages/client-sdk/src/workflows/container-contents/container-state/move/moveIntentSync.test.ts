@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { waitFor } from "../../../../../test/helpers/waitFor";
+import { waitFor } from "../../../../../test/helpers/data/waitFor";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   type ContainerMoveIntentRecord,

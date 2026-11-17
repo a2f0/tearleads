@@ -1,11 +1,11 @@
 import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { ORGANIZATION_PRESENTATION_ERROR_CODES } from "@tearleads/validators/response";
+import { organizationReadModelSnapshot } from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
 import {
   createOrganizationHistoryPageFixture,
   organizationHistoryPage,
 } from "../../../../test/helpers/organizationHistoryPage";
-import { organizationReadModelSnapshot } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
 import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";

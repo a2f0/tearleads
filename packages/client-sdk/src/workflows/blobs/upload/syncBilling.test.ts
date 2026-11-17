@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/blobAttachmentServiceFixture";
-import { createMultipartBlobStageFixture } from "../../../../test/helpers/blobUploadFixtures";
+import { createMultipartBlobStageFixture } from "../../../../test/helpers/data/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 

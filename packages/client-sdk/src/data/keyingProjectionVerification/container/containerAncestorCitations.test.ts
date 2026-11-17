@@ -10,7 +10,7 @@ import {
   ORGANIZATION_ID,
   ROOT_ID,
   verifyPath,
-} from "../../../../test/helpers/ancestorCitationScenario";
+} from "../../../../test/helpers/data/ancestorCitationScenario";
 import { verifiedCitedHead } from "./containerAncestorCitations";
 
 // A child manifest pins the parent it was created under, and successors

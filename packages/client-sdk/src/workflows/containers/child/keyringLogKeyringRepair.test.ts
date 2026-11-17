@@ -4,7 +4,7 @@ import {
   makeEpochBridge,
   makeEpochKeys,
   makeLogEpoch,
-} from "../../../../test/helpers/keyringRotationFixtures";
+} from "../../../../test/helpers/data/keyringRotationFixtures";
 import { rebuildKeyringEntriesFromLog } from "../../../data/documents/shared/containerKek/keyringRebuild";
 
 test("a served keyring recovers across two severed bridges at once", async () => {

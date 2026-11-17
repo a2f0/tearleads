@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { waitFor } from "../../../test/helpers/waitFor";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import { markContainerForced } from "./idleBackfill";
 import { createInitialDocumentProbe } from "./initialDocumentProbe";
 import { sweepKnownContainers } from "./knownContainerSweep";

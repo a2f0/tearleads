@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { principalIdentityPinFixture } from "../../../../test/helpers/principalIdentityPinFixture";
-import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers/principalPolicyBundles";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
+import { principalIdentityPinFixture } from "../../../../test/helpers/data/principalIdentityPinFixture";
+import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers/data/principalPolicyBundles";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/data/principalPolicySnapshots";
 import {
   openPrincipalPolicyBundleReader,
   PrincipalPolicyBundleRepository,

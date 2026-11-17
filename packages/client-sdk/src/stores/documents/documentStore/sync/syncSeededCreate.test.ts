@@ -10,7 +10,7 @@ import {
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { createResponseFromRequest } from "../../../../../test/helpers/documentResponseFixtures";
+import { createResponseFromRequest } from "../../../../../test/helpers/data/documentResponseFixtures";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import { createProbeRuntime } from "../../../../../test/helpers/remoteSyncWait";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";

@@ -4,16 +4,16 @@ import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../test/helpers/containerFixtures";
-import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
+} from "../../../../test/helpers/data/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/data/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
   policyReceiptFromBundle,
   principalPolicyHead,
-} from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";

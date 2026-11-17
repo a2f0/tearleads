@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import { waitFor } from "../../../test/helpers/waitFor";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import { createDomainScope } from "../../data/shared/domainScope";
 import { createContainerContentsTestRuntime } from "../../stores/container-contents/runtime.testFixtures";
 import type {

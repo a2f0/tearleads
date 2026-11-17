@@ -6,7 +6,7 @@ import {
   KeyingVerificationError,
   toFingerprint,
 } from "@tearleads/crypto";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { rewrapProjectionMemberEnvelopes } from "./principalPolicyRecipients";
 
 test("rotations refuse recipient identities that do not match the continuing member commitment", async () => {

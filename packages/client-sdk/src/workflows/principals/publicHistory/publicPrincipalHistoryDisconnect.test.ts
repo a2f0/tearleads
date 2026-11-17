@@ -3,8 +3,8 @@ import {
   computePrincipalStateHash,
   signPrincipalState,
 } from "@tearleads/crypto";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
-import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
+import { createPublicHistoryFixture } from "../../../../test/helpers/data/publicPrincipalHistory";
 import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { recoverPublicPrincipalHistory } from "./recoverPublicPrincipalHistory";
 

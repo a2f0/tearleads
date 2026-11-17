@@ -6,13 +6,13 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { buildInitialGroupPolicyRequest } from "../../../test/helpers/groupMetadata";
+import { buildInitialGroupPolicyRequest } from "../../../test/helpers/data/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+} from "../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/data/trustedUserIdentity";
 import { buildInitialOrganizationPolicyRequest } from "../../data/principals/organizationPolicyRequest";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 import { loadOrganizationExternalAdminPolicy } from "./externalAdminPolicy";

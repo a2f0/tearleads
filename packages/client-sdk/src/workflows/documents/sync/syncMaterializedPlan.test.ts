@@ -10,16 +10,16 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
   substituteFirstProjectionUserWrapMaterial,
-} from "../../../../test/helpers/containerFixtures";
+} from "../../../../test/helpers/data/containerFixtures";
 import {
   createAuthor,
   createLinkSetResponseFromRequest,
   createPendingUpdateRecord,
   createResponse,
   writerProjectionEvidence,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {

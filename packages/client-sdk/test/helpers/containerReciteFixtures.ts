@@ -25,7 +25,7 @@ import { buildContainerRecitePlan } from "../../src/workflows/containers/child/r
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "./containerFixtures";
+} from "./data/containerFixtures";
 import { createChildContainerProjection } from "./projectionHierarchy";
 
 export async function createContainerReciteScenario(extraChildren = 0) {

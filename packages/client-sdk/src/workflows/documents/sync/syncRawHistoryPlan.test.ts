@@ -11,7 +11,7 @@ import {
   createSyncFixture,
   createSyncResponse,
   writerKeyResolver,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { InvalidDocumentSyncPullContinuationError } from "../../../data/documents/shared/sync/syncPagination";

@@ -13,7 +13,7 @@ import { createUploadedAttachmentFixture } from "./blobHydrationFixture";
 import {
   createLinkSetResponseFromRequest,
   writerProjectionEvidence,
-} from "./documentFixtures";
+} from "./data/documentFixtures";
 import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 export async function createRelinkScopeFixture() {

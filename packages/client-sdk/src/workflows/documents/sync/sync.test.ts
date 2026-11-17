@@ -2,14 +2,14 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { sealNextContentKeyEpoch } from "../../../../test/helpers/contentKeyBundleSealing";
+import { sealNextContentKeyEpoch } from "../../../../test/helpers/data/contentKeyBundleSealing";
 import {
   createAuthor,
   createPendingUpdateRecord,
   createSignedSyncResponseUpdate,
   createSyncResponse,
   writerKeyResolver,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import {
   createLoroPendingUpdate,

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createPublicHistoryFixture } from "../../../../test/helpers/data/publicPrincipalHistory";
 import { recoverPublicPrincipalHistory } from "../../../workflows/principals/publicHistory/recoverPublicPrincipalHistory";
 import { selectPublicPrincipalHistory } from "../../../workflows/principals/publicHistory/selectPublicPrincipalHistory";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";

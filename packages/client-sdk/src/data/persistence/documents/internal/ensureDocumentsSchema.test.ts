@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { countingExecSql } from "../../../../../test/helpers/statementCounting";
+import { countingExecSql } from "../../../../../test/helpers/data/statementCounting";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import { sqlContainerContentsPersistence } from "../../container-contents/containerContentsPersistence";
 import { ensureDocumentsSchema } from "./ensureDocumentsSchema";

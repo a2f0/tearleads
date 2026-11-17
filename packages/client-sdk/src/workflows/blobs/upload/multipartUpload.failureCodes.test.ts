@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
-import { initiatedStage } from "../../../../test/helpers/multipartUpload";
+import { initiatedStage } from "../../../../test/helpers/data/multipartUpload";
 import type { BlobEncryptionPlan } from "../../../data/blobs/attachments/crypto";
 import type { BlobAttachmentApi } from "../../../data/blobs/attachments/types";
 import { stageMultipartBlobAttachment } from "./multipartUpload";

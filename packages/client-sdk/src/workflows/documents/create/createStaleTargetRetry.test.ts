@@ -10,10 +10,10 @@ import {
 } from "@tearleads/test-utils";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
-import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
-import { createResponseFromRequest } from "../../../../test/helpers/documentResponseFixtures";
+import { createAuthor } from "../../../../test/helpers/data/documentFixturePrimitives";
+import { createResponseFromRequest } from "../../../../test/helpers/data/documentResponseFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { isStaleDocumentCreateTargetConflict } from "./index";
 

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { manifestBundle } from "../../../../test/helpers/ancestorCitationScenario";
+import { manifestBundle } from "../../../../test/helpers/data/ancestorCitationScenario";
 import { createPurgeCurrencyFixture } from "../../../../test/helpers/documentPurgeCurrency";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";

@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { readTestGroupName } from "../../../../test/helpers/groupMetadata";
-import { createGroupNameDirectory } from "../../../../test/helpers/groupNameDirectory";
-import { createFixtureUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { readTestGroupName } from "../../../../test/helpers/data/groupMetadata";
+import { createGroupNameDirectory } from "../../../../test/helpers/data/groupNameDirectory";
+import { createFixtureUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import type { GroupPolicyNameReader } from "../../../data/principals/principalPolicyRequest";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
 import { loadOrganizationExternalAdminPolicy } from "../../principals/externalAdminPolicy";

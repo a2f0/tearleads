@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
+import { withTestExecSql } from "../../../../../test/helpers/data/withTestExecSql";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence as persistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";

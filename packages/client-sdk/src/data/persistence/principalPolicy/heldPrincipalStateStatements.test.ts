@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { createSuccessorPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyBundles";
-import { countingExecSql } from "../../../../test/helpers/statementCounting";
+import { createSuccessorPrincipalPolicyBundle } from "../../../../test/helpers/data/principalPolicyBundles";
+import { countingExecSql } from "../../../../test/helpers/data/statementCounting";
 import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 
 test("held states read an indexed predecessor or exact head with one bundle statement", async () => {

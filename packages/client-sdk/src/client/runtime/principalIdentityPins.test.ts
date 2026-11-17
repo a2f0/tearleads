@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import {
   quietLogger,
   setGeneratedIdentity,
-} from "../../../test/helpers/clientTestSupport";
-import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
+} from "../../../test/helpers/data/clientTestSupport";
+import { principalIdentityPinFixture } from "../../../test/helpers/data/principalIdentityPinFixture";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { collectPrincipalPolicySignerPublicKeys } from "../../data/principals/principalPolicyVerification";

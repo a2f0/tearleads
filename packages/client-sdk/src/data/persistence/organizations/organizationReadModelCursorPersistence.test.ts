@@ -4,7 +4,7 @@ import {
   organizationReadModelDelta as delta,
   organizationReadModelGroups as groups,
   organizationReadModelSnapshot as snapshot,
-} from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
+} from "../../../../test/helpers/data/organizationReadModelPersistenceFixtures";
 import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 test("another identity applying shared lanes does not make this requester current", async () => {

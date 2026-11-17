@@ -5,7 +5,7 @@ import {
   entry,
   hash,
   remember,
-} from "../../../../test/helpers/verifiedCitationReads";
+} from "../../../../test/helpers/data/verifiedCitationReads";
 import { verifiedAccessManifestBundles as bundles } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import { createExecSql } from "../../sqlite/sqlSchema";
 import { loadVerifiedManifestCitations } from "../verifiedManifestBundlePersistence";

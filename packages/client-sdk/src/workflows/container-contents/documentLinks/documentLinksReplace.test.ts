@@ -11,9 +11,9 @@ import {
   createAuthor,
   createLinkSetResponseFromRequest,
   createResponse,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../../documents/create";

@@ -4,7 +4,7 @@ import {
   createNoopSqlClient,
   quietLogger,
   setGeneratedIdentity,
-} from "../test/helpers/clientTestSupport";
+} from "../test/helpers/data/clientTestSupport";
 import { Database, Tearleads } from ".";
 import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import type { DocumentProjectorDefinition } from "./data/documents";

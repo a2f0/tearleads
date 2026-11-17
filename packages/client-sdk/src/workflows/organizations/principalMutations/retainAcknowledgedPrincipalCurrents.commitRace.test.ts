@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { recoverScopedPrincipalPolicyHistory } from "../../principals/historyRecovery/recoverScopedPrincipalPolicyHistory";

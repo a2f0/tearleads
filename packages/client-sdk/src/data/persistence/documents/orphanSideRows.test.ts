@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   insertQueuedUpdateRows,
   QUEUED_UPDATES_SQL,
-} from "../../../../test/helpers/queuedUpdateRows";
+} from "../../../../test/helpers/data/queuedUpdateRows";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 import { deleteOrphanedDocumentSideRows } from "./internal/orphanSideRows";
 import {

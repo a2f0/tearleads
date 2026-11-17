@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { verifyPrincipalPolicyBundle } from "@tearleads/crypto";
-import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
+import { principalIdentityPinFixture } from "../../../test/helpers/data/principalIdentityPinFixture";
 import {
   createFixtureUserIdentity,
   fixtureProjectionMember,
-} from "../../../test/helpers/trustedUserIdentity";
+} from "../../../test/helpers/data/trustedUserIdentity";
 import { createProjectionUserKeyResolver } from "../keyingProjectionVerification/userKeyResolver";
 import { collectPrincipalPolicySignerPublicKeys } from "./principalPolicyVerification";
 

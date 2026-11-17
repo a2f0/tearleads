@@ -9,8 +9,8 @@ import {
   createSqlClient,
   noIdentityChange,
   setGeneratedIdentity,
-} from "../../../test/helpers/clientTestSupport";
-import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
+} from "../../../test/helpers/data/clientTestSupport";
+import { respondToOrganizationProvisioning } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { clientSqlTables, containers } from "../../data/sqlite/schema";
 import { organizationProvisioningAttempts } from "../../data/sqlite/schema/organizationProvisioningAttemptSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";

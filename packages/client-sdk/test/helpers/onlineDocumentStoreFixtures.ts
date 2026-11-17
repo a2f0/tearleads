@@ -11,8 +11,8 @@ import { deleteDocumentPlacements } from "../../src/data/persistence/container-c
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import type { DocumentsRuntime } from "../../src/stores/documents/types";
 import { createDocumentsWorkflowRuntime } from "../../src/workflows/documents";
-import type { BlobAttachmentBindFixture } from "./blobUploadFixtures";
-import type { DocumentCreateFixture } from "./documentResponseFixtures";
+import type { BlobAttachmentBindFixture } from "./data/blobUploadFixtures";
+import type { DocumentCreateFixture } from "./data/documentResponseFixtures";
 import type { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 type MaterializedSyncFixture = Awaited<

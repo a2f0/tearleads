@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { waitFor } from "../../../test/helpers/waitFor";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import type { DomainScope } from "../../data/shared/domainScope";
 import type { PurgeProgress } from "../../workflows/container-contents/container-state/purge/purgeProgress";
 import { createContainerContentsStore } from "./containerContentsStore";

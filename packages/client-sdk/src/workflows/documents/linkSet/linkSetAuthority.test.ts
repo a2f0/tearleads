@@ -4,11 +4,11 @@ import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../test/helpers/containerFixtures";
+} from "../../../../test/helpers/data/containerFixtures";
 import {
   createResponse,
   writerProjectionEvidence,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";

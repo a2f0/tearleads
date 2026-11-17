@@ -4,11 +4,11 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../src/workflows/documents/linkSet";
-import { createDocumentPurgeProof } from "./documentPurge";
 import {
   createLinkSetResponseFromRequest,
   type DocumentLinkSetFixture,
-} from "./documentResponseFixtures";
+} from "./data/documentResponseFixtures";
+import { createDocumentPurgeProof } from "./documentPurge";
 import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 
 function uniqueContainerPaths(

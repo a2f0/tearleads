@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "../../../../test/helpers/projectionPolicyPages";
+} from "../../../../test/helpers/data/projectionPolicyPages";
+import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { mergeProjectionPolicyEvidence } from "./mergeProjectionPolicyEvidence";
 import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";

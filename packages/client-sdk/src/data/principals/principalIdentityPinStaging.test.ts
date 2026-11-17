@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { verifyPrincipalPolicyBundle } from "@tearleads/crypto";
-import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
+import { principalIdentityPinFixture } from "../../../test/helpers/data/principalIdentityPinFixture";
 import {
   createFixtureUserIdentity,
   fixtureProjectionMember,
-} from "../../../test/helpers/trustedUserIdentity";
+} from "../../../test/helpers/data/trustedUserIdentity";
 import { DatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import { createIdentityLink } from "../trustedUserIdentity/identityLink";
 import { collectPrincipalPolicySignerPublicKeys } from "./principalPolicyVerification";

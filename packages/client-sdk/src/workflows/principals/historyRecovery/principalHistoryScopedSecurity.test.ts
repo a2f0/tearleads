@@ -1,13 +1,13 @@
 import { beforeAll, expect, test } from "bun:test";
 import {
+  principalPolicyHead,
+  signedPrincipalPolicyBundle,
+} from "../../../../test/helpers/data/principalPolicyFixtures";
+import {
   AUTHORITY_RECOVERY_SETUP_TIMEOUT_MS,
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../../test/helpers/principalAuthorityRecovery";
-import {
-  principalPolicyHead,
-  signedPrincipalPolicyBundle,
-} from "../../../../test/helpers/principalPolicyFixtures";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,

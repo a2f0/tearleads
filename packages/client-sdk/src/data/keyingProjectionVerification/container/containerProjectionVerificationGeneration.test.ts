@@ -7,8 +7,8 @@ import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
+import { createAuthor } from "../../../../test/helpers/data/documentFixturePrimitives";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { ProjectionVerificationCancelledError } from "../types";
 import { verifyContainerWriterProjection } from "./containerProjectionVerification";

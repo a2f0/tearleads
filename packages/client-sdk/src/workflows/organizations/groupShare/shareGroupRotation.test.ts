@@ -15,14 +15,14 @@ import {
   ROOT_CONTAINER_ID,
   setUpAdminGroupRoot,
 } from "../../../../test/helpers/adminGroupRoot";
-import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
+import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { projectionHistoryPages } from "../../../../test/helpers/data/projectionPolicyPages";
 import {
   repairPolicyPages,
   repairProtectionLease,
 } from "../../../../test/helpers/principalPolicyRepair";
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
-import { projectionHistoryPages } from "../../../../test/helpers/projectionPolicyPages";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import { heldContainerSnapshot } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";

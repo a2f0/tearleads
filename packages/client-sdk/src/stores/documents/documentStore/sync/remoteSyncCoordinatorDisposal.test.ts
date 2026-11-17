@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { waitFor } from "../../../../../test/helpers/data/waitFor";
 import {
   createProbeRuntime,
   settleWithin,
 } from "../../../../../test/helpers/remoteSyncWait";
-import { waitFor } from "../../../../../test/helpers/waitFor";
 import {
   disposeDomainSyncCoordinator,
   getDomainSyncCoordinatorSnapshot,

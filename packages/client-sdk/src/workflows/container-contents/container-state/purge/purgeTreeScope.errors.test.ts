@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
+import { withTestExecSql } from "../../../../../test/helpers/data/withTestExecSql";
 import { assertProjectionVerificationCurrent } from "../../../../data/keyingProjectionVerification/types";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";

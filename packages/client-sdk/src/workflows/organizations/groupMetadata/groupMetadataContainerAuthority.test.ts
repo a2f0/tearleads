@@ -8,8 +8,8 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
-} from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { buildOrganizationProvisioningArtifacts } from "../../registration/organizationProvisioning";
 import { createGroupMetadataContainerVerifier } from "./groupMetadataContainerAuthority";
 

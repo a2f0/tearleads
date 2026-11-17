@@ -2,14 +2,14 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { createMutationResponseFromRequest } from "../../../../../test/helpers/containerFixtures";
-import { repairPolicyPages } from "../../../../../test/helpers/principalPolicyRepair";
-import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
+import { createMutationResponseFromRequest } from "../../../../../test/helpers/data/containerFixtures";
 import {
   projectionDirectoryPayload,
   projectionHistoryPages,
   projectionPolicySource,
-} from "../../../../../test/helpers/projectionPolicyPages";
+} from "../../../../../test/helpers/data/projectionPolicyPages";
+import { repairPolicyPages } from "../../../../../test/helpers/principalPolicyRepair";
+import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createReservedGroupAdvance } from "../../../../../test/helpers/reservedGroupAdvance";
 import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";

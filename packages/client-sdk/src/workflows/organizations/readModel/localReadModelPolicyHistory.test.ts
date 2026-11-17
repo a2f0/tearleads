@@ -4,11 +4,11 @@ import type {
   OrganizationReadModelSnapshotResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
-import { organizationPrincipalPolicy } from "../../../../test/helpers/organizationReadModelFixtures";
+import { organizationPrincipalPolicy } from "../../../../test/helpers/data/organizationReadModelFixtures";
 import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
-} from "../../../../test/helpers/organizationReadModelProjectionFixtures";
+} from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
 import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildOrganizationPolicyHistory } from "../policyHistory/policyHistoryReadModel";

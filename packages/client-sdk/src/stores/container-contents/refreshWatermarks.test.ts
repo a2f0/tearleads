@@ -4,7 +4,7 @@ import {
   createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import { waitFor } from "../../../test/helpers/waitFor";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import { createDomainScope } from "../../data/shared/domainScope";
 import {
   disposeDomainSyncCoordinator,

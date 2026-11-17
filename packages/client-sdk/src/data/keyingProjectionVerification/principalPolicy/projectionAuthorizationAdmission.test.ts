@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createContainerManifestFixture } from "@tearleads/crypto/container-access-test-fixtures";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { manifestBundle } from "../../../../test/helpers/ancestorCitationScenario";
+import { manifestBundle } from "../../../../test/helpers/data/ancestorCitationScenario";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
-import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";

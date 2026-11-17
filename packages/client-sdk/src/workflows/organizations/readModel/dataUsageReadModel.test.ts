@@ -5,7 +5,7 @@ import { ORGANIZATION_PRESENTATION_ERROR_CODES } from "@tearleads/validators/res
 import {
   dataUsage,
   organizationId,
-} from "../../../../test/helpers/organizationReadModelFixtures";
+} from "../../../../test/helpers/data/organizationReadModelFixtures";
 import {
   loadLocalOrganizationDataUsage,
   reconcileOrganizationDataUsage,

@@ -6,7 +6,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
   createUserContainerWrap,
-} from "../../../../test/helpers/containerFixtures";
+} from "../../../../test/helpers/data/containerFixtures";
 import {
   createChildContainerProjection,
   moveContainerProjection,

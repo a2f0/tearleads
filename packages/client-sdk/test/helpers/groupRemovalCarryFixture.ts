@@ -19,14 +19,14 @@ import {
 import {
   buildInitialGroupPolicyRequest,
   testGroupMetadataKey,
-} from "./groupMetadata";
+} from "./data/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "./principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
+} from "./data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "./data/trustedUserIdentity";
 
 function signerPublicKeys(input: {
   signerUserId: string;

@@ -4,8 +4,8 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
-import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
+import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
+import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { hydrateStoredContainerState } from "../container-contents/storedContainerState";
 import { bootstrapRootContainer } from "./bootstrapRootContainer";

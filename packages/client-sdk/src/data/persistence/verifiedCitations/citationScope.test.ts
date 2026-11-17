@@ -5,7 +5,7 @@ import {
   NOW,
   ORGANIZATION,
   remember,
-} from "../../../../test/helpers/verifiedCitationReads";
+} from "../../../../test/helpers/data/verifiedCitationReads";
 import { pendingDocumentDiscoveries } from "../../sqlite/schema/documentDiscoveryEvidenceSchema";
 import { documentContainerProjection } from "../../sqlite/schema/documentProjectionSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";

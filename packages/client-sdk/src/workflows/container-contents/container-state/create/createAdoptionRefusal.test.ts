@@ -3,7 +3,7 @@ import {
   createAdoptionScenario,
   runListedCreateAdoption,
 } from "../../../../../test/helpers/containerCreateAdoption";
-import { tamperFirstProjectionEventSignature } from "../../../../../test/helpers/containerFixtures";
+import { tamperFirstProjectionEventSignature } from "../../../../../test/helpers/data/containerFixtures";
 import { CONTAINER_CREATE_ADOPTION_REFUSED } from "./createAdoption";
 
 // A failed adoption is recorded on its own intent and never stops the lane's

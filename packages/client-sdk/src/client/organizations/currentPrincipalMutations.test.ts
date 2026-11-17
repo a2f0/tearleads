@@ -4,15 +4,15 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
+import {
+  policyBundleAfterMutation,
+  policyReceiptFromBundle,
+} from "../../../test/helpers/data/principalPolicyFixtures";
 import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
-import {
-  policyBundleAfterMutation,
-  policyReceiptFromBundle,
-} from "../../../test/helpers/principalPolicyFixtures";
 import { withPrincipalPolicies } from "../../../test/helpers/principalPolicyServiceFixture";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalGrantRetirements } from "../../data/sqlite/schema/principalGrantRetirementSchema";

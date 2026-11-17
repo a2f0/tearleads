@@ -4,7 +4,7 @@ import {
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
 } from "@tearleads/crypto";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { collectPrincipalPolicySignerPublicKeys } from "../../../data/principals/principalPolicyVerification";
 import { identityPolicyFixture } from "./policyIdentity.testFixtures";
 

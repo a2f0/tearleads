@@ -2,11 +2,11 @@ import { expect, test } from "bun:test";
 import {
   createRecoveryFixture,
   signedRecoveryHistory,
-} from "../../../../test/helpers/principalHistoryRecovery";
+} from "../../../../test/helpers/data/principalHistoryRecovery";
 import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
-} from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
 import { recoverPrincipalPolicyHistory } from "../../../workflows/principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 

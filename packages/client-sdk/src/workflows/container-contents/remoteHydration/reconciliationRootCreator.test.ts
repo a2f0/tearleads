@@ -4,10 +4,10 @@ import {
   KeyingVerificationError,
   toFingerprint,
 } from "@tearleads/crypto";
-import { createParentProjection } from "../../../../test/helpers/containerFixtures";
+import { createParentProjection } from "../../../../test/helpers/data/containerFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
+import { withTestExecSql } from "../../../../test/helpers/data/withTestExecSql";
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
 import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";

@@ -4,11 +4,11 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/data/groupMetadata";
 import {
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
 import { commitGroupPolicyMutation } from "./groupPolicyMutationContext";
 
 for (const kind of ["cancelled", "outcome-unknown"] as const) {

@@ -4,11 +4,11 @@ import {
   signPrincipalState,
 } from "@tearleads/crypto";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
-import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
-} from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   encodeOrganizationAuthorityDescriptor,

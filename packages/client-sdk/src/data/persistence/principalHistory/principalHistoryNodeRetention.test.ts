@@ -3,9 +3,9 @@ import { isNotNull } from "drizzle-orm";
 import {
   createRecoveryFixture,
   signedRecoveryHistory,
-} from "../../../../test/helpers/principalHistoryRecovery";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
+} from "../../../../test/helpers/data/principalHistoryRecovery";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createPublicHistoryFixture } from "../../../../test/helpers/data/publicPrincipalHistory";
 import { loadRecoveredPrincipalHistoryPage } from "../../../workflows/principals/historyRecovery/loadRecoveredPrincipalHistoryPage";
 import { recoverPrincipalPolicyHistory } from "../../../workflows/principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { recoverPublicPrincipalHistory } from "../../../workflows/principals/publicHistory/recoverPublicPrincipalHistory";

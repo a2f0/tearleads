@@ -13,8 +13,8 @@ import type {
   ProvisionedSystemContainerRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
-import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
-import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
+import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
+import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principalContracts/organizationAuthorityDescriptor";

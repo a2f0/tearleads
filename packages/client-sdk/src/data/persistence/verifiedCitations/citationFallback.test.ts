@@ -7,7 +7,7 @@ import {
   NOW,
   ORGANIZATION,
   remember,
-} from "../../../../test/helpers/verifiedCitationReads";
+} from "../../../../test/helpers/data/verifiedCitationReads";
 import { localIntentTables } from "../../sqlite/schema";
 import { containers } from "../../sqlite/schema/containerSchema";
 import {

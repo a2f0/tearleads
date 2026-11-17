@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
 } from "../../../test/helpers/internalRuntimeFixtures";
-import { waitFor } from "../../../test/helpers/waitFor";
 import type { BlobStore } from "../../data/blobs/blobContracts";
 import { createDomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

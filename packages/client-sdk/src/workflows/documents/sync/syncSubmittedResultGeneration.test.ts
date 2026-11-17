@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createPendingUpdateRecord,
   createSyncResponse,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import {
   createFullHistoryRotationSnapshot,
   createStaleBundleSyncFixture,

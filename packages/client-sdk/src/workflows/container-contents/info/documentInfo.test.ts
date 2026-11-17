@@ -4,7 +4,7 @@ import {
   createBlobContentKeyBundle,
   createBlobTargets,
   createDocumentWriterProjection,
-} from "../../../../test/helpers/documentInfoFixtures";
+} from "../../../../test/helpers/data/documentInfoFixtures";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { loadDocumentInfo } from "./documentInfo";

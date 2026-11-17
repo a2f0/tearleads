@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createScenario,
   manifestBundle,
-} from "../../../../test/helpers/ancestorCitationScenario";
+} from "../../../../test/helpers/data/ancestorCitationScenario";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { verifyPurgeContainerPaths } from "./documentPurgeProofVerification";

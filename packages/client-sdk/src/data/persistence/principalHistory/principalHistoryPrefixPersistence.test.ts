@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
 import { isProjectionVerificationCancelledError } from "../../keyingProjectionVerification/types";
 import { principalHistoryPrefixes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalKeyEnvelopeArchive } from "../../sqlite/schema/principalHistoryRetentionSchema";

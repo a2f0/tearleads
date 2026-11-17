@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import {
   createAuthenticatedRuntime,
   ROOT_CONTAINER_ID,
   TEST_SYSTEM_SLOT,
   withReadyStore,
 } from "../../../test/helpers/deviceFirstSystemContainer";
-import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/shared/domainScope";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";

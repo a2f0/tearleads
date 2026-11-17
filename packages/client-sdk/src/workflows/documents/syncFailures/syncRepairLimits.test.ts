@@ -5,7 +5,7 @@ import type {
   ContainerKekResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
+import { createMutationResponseFromRequest } from "../../../../test/helpers/data/containerFixtures";
 import { withStaleDocument } from "../../../../test/helpers/syncRepairBoundary";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import {

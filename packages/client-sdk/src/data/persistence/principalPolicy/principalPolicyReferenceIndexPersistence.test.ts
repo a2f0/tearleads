@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { createSuccessorPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyBundles";
+import { createSuccessorPrincipalPolicyBundle } from "../../../../test/helpers/data/principalPolicyBundles";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 import { indexPrincipalPolicyBundleInTransaction } from "./principalPolicyReferenceIndexPersistence";

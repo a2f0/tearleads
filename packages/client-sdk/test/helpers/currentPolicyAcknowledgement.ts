@@ -5,13 +5,13 @@ import { buildSetGroupContainerGrantPolicyRequest } from "../../src/workflows/or
 import { buildOrganizationGroupDirectoryPolicyRequest } from "../../src/workflows/organizations/groups/organizationGroupDirectory";
 import { recoverScopedPrincipalPolicyHistory } from "../../src/workflows/principals/historyRecovery/recoverScopedPrincipalPolicyHistory";
 import {
+  policyBundleAfterMutation,
+  principalPolicyHead,
+} from "./data/principalPolicyFixtures";
+import {
   createAuthorityRecoveryFixture,
   type signedAuthorityRecoveryHistory,
 } from "./principalAuthorityRecovery";
-import {
-  policyBundleAfterMutation,
-  principalPolicyHead,
-} from "./principalPolicyFixtures";
 
 export async function currentPolicyAcknowledgementFixture(
   history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>,

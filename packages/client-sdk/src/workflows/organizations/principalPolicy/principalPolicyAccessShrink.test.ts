@@ -4,9 +4,9 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
-import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/data/groupMetadata";
+import { policyBundleFromInitialRequest } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { buildGroupAccessSetShrinkPolicyRequest } from "../groupPolicy/groupPolicyRequests";
 
 test("access-set shrink preserves membership while rotating the group key", async () => {

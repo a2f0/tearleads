@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { principalMutationJournalFixture } from "../../../../test/helpers/principalMutationJournalFixture";
+import { principalMutationJournalFixture } from "../../../../test/helpers/data/principalMutationJournalFixture";
 import { PrincipalMutationJournalRepository } from "../../../data/persistence/principalMutationJournalPersistence";
 import { principalMutationJournalScopeId } from "../../../data/principals/principalMutationJournal";
 import { readJournaledPrincipalMutation } from "./principalMutationJournalManagement";

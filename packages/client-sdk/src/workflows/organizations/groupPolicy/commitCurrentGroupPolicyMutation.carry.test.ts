@@ -2,16 +2,16 @@ import { expect, test } from "bun:test";
 import { createMockRequestFailure } from "@tearleads/test-utils";
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
+  policyBundleAfterMutation,
+  policyReceiptFromBundle,
+} from "../../../../test/helpers/data/principalPolicyFixtures";
+import {
   createRemovalFixture,
   echoMutation,
   mutationObjectIds,
   stubRekeyRequest,
 } from "../../../../test/helpers/groupRemovalCarryFixture";
 import { createAuthorityRecoveryFixture } from "../../../../test/helpers/principalAuthorityRecovery";
-import {
-  policyBundleAfterMutation,
-  policyReceiptFromBundle,
-} from "../../../../test/helpers/principalPolicyFixtures";
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import { createRuntimeCurrentGroupMutation } from "../principalMutations/runtimeCurrentGroupMutation";

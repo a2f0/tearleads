@@ -5,9 +5,9 @@ import type {
   OrganizationReadModelGroupMembershipResponse,
   OrganizationReadModelSnapshotResponse,
 } from "@tearleads/validators/response";
-import { dataUsage } from "../../../../test/helpers/organizationReadModelFixtures";
-import { organizationReadModelDirectoryUser } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
-import { withSqliteBindBudget } from "../../../../test/helpers/sqliteBindBudgetGuard";
+import { dataUsage } from "../../../../test/helpers/data/organizationReadModelFixtures";
+import { organizationReadModelDirectoryUser } from "../../../../test/helpers/data/organizationReadModelPersistenceFixtures";
+import { withSqliteBindBudget } from "../../../../test/helpers/data/sqliteBindBudgetGuard";
 import { OrganizationDataUsageRepository } from "./organizationDataUsagePersistence";
 import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 

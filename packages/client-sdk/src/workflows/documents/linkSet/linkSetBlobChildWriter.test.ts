@@ -11,14 +11,14 @@ import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../test/helpers/containerFixtures";
+} from "../../../../test/helpers/data/containerFixtures";
 import {
   createLinkSetResponseFromRequest,
   createResponse,
   writerProjectionEvidence,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import {
   buildMaterializedContainerCreatePlan,

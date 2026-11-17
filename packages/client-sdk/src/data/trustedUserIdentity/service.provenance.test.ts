@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createPin } from "../../../test/helpers/trustedUserIdentityPin";
+import { createPin } from "../../../test/helpers/data/trustedUserIdentityPin";
 import { TrustedUserIdentityPinMismatchError } from "../persistence/identity/trustedUserIdentityPinModel";
 import { TrustedUserIdentityPinRepository } from "../persistence/identity/trustedUserIdentityPinRepository";
 import { DatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";

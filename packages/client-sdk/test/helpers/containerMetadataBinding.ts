@@ -17,9 +17,9 @@ import {
   childContainerWriterProjectionFromCreatePlan,
 } from "../../src/workflows/containers/child/create";
 import { containerContentsOrganizationHost } from "../../src/workflows/organizations/containerContentsHost";
-import { createParentProjection } from "./containerFixtures";
+import { createParentProjection } from "./data/containerFixtures";
+import { createTestTrustedUserIdentityResolver } from "./data/trustedUserIdentity";
 import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
-import { createTestTrustedUserIdentityResolver } from "./trustedUserIdentity";
 
 export async function createMetadataBindingFixture(execSql: ExecSql) {
   const parent = await createParentProjection();

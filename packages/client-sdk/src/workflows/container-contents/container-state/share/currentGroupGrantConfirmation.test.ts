@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createCurrentGrantConfirmationFixture } from "../../../../../test/helpers/currentGrantConfirmation";
-import { principalPolicyHead } from "../../../../../test/helpers/principalPolicyFixtures";
+import { principalPolicyHead } from "../../../../../test/helpers/data/principalPolicyFixtures";
 import { createTestContainerState } from "../containerState.testFixtures";
 import { containerStateHasCurrentGroupGrant } from "./groupGrantVerification";
 

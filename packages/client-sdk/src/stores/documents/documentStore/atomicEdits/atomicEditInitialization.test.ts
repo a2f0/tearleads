@@ -4,7 +4,7 @@ import {
   createAtomicEditFixture,
   ensureAtomicEditStoreReady,
 } from "../../../../../test/helpers/atomicEditCoverage";
-import { openFileBackedSql } from "../../../../../test/helpers/fileBackedSql";
+import { openFileBackedSql } from "../../../../../test/helpers/data/fileBackedSql";
 import { sqlDocumentsPersistence as documents } from "../../../../data/persistence/documents/documentsPersistence";
 import { createExecSql } from "../../../../data/sqlite/sqlSchema";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";

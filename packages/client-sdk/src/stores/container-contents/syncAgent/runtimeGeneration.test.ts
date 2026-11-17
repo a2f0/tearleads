@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { waitFor } from "../../../../test/helpers/waitFor";
+import { waitFor } from "../../../../test/helpers/data/waitFor";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { defaultContainerContentsPersistence } from "../../../workflows/container-contents/containerPersistence";
 import { captureContainerWriteGeneration } from "../remoteWrites/writeGeneration";

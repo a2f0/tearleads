@@ -3,7 +3,7 @@ import {
   createFakePlan,
   createMultipartApi,
   DEFAULT_CHUNK_SIZE,
-} from "../../../../test/helpers/multipartUpload";
+} from "../../../../test/helpers/data/multipartUpload";
 import {
   BLOB_TRANSFER_CONCURRENCY,
   type BlobTransferPermit,

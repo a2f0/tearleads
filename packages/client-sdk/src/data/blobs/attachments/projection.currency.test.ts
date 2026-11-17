@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createRotatedAncestorFixture } from "../../../../test/helpers/ancestorRotationRecovery";
-import { createResponseFromRequest } from "../../../../test/helpers/documentResponseFixtures";
+import { createResponseFromRequest } from "../../../../test/helpers/data/documentResponseFixtures";
 import {
   buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,

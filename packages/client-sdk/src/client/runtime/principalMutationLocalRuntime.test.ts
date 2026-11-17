@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { quietLogger } from "../../../test/helpers/clientTestSupport";
+import { quietLogger } from "../../../test/helpers/data/clientTestSupport";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { didContainerWriteRuntimeChange } from "../../stores/container-contents/remoteWrites/writeGeneration";

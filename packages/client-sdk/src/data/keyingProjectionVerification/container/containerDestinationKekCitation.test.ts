@@ -12,8 +12,8 @@ import {
   type ContainerKekWireLevel,
   containerKekWireLevel,
 } from "@tearleads/validators/response";
-import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
+import { createAuthor } from "../../../../test/helpers/data/documentFixturePrimitives";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import { loadVerifiedManifestCitations } from "../../persistence/verifiedManifestBundlePersistence";

@@ -8,7 +8,7 @@ import {
   locallyUnnamedGroups,
   organizationReadModelOrganizationPolicy as organizationPolicy,
   organizationReadModelSnapshot as snapshot,
-} from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
+} from "../../../../test/helpers/data/organizationReadModelPersistenceFixtures";
 import { subscribeOrganizationReadModelInvalidation } from "./organizationReadModelInvalidation";
 import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 

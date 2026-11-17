@@ -11,13 +11,13 @@ import {
   parseOrganizationAuthorityDescriptor,
 } from "../../src/data/principalContracts/organizationAuthorityDescriptor";
 import { PrincipalPolicyService } from "../../src/workflows/principals/principalPolicyService";
-import { createHistoricalPolicyPurgeFixture } from "./documentPurgeHistoricalPolicy";
-import { createAuthorityRecoveryFixture } from "./principalAuthorityRecovery";
 import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
-} from "./principalPolicyFixtures";
-import { projectionHistoryPages } from "./projectionPolicyPages";
+} from "./data/principalPolicyFixtures";
+import { projectionHistoryPages } from "./data/projectionPolicyPages";
+import { createHistoricalPolicyPurgeFixture } from "./documentPurgeHistoricalPolicy";
+import { createAuthorityRecoveryFixture } from "./principalAuthorityRecovery";
 
 export async function createNewerPolicyPurgeFixture() {
   const organizationId = crypto.randomUUID();

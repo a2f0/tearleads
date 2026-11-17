@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createParentProjection } from "../../../../test/helpers/containerFixtures";
+import { createParentProjection } from "../../../../test/helpers/data/containerFixtures";
 import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
-} from "../../../../test/helpers/organizationReadModelProjectionFixtures";
+} from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
 import {
   ensureContainerTables,
   saveContainer,

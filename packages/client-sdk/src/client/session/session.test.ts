@@ -4,8 +4,8 @@ import {
   createSqlClient,
   quietLogger,
   setGeneratedIdentity,
-} from "../../../test/helpers/clientTestSupport";
-import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
+} from "../../../test/helpers/data/clientTestSupport";
+import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { Database } from "../runtime/database";

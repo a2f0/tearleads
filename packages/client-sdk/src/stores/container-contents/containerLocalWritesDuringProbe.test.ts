@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import {
   ROOT_CONTAINER_ID,
   TEST_SYSTEM_SLOT,
   withReadyStore,
 } from "../../../test/helpers/deviceFirstSystemContainer";
-import { waitFor } from "../../../test/helpers/waitFor";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 
 test("a stalled explicit system-container probe cannot block ordinary local folder writes", async () => {

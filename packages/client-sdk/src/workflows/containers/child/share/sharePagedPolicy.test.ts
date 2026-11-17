@@ -7,7 +7,7 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { ContainerMutationRequestSchema } from "@tearleads/validators/request";
-import { principalPolicyHead } from "../../../../../test/helpers/principalPolicyFixtures";
+import { principalPolicyHead } from "../../../../../test/helpers/data/principalPolicyFixtures";
 import {
   createPrincipalReciteFixture,
   ROOT_CONTAINER_ID,

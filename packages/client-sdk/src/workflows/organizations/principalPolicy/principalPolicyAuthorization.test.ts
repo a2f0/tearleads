@@ -10,15 +10,15 @@ import {
   buildInitialGroupPolicyRequest,
   readTestGroupName,
   testGroupMetadataKey,
-} from "../../../../test/helpers/groupMetadata";
+} from "../../../../test/helpers/data/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
   policyReceiptFromBundle,
   principalPolicyHead,
-} from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import type {
   AddOrganizationGroupUserInput,
   RemoveOrganizationGroupUserInput,

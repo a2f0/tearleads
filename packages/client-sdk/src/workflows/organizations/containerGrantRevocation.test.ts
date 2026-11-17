@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createContainerMutationServiceFixture } from "../../../test/helpers/containerMutationServiceFixture";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
-} from "../../../test/helpers/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../test/helpers/containerMutationServiceFixture";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+} from "../../../test/helpers/data/containerFixtures";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/data/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { revokeOrganizationContainerGrant } from "./containerGrantRevocation";

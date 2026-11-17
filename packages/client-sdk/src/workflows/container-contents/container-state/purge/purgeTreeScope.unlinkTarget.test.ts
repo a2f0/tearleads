@@ -8,10 +8,10 @@ import {
 import {
   createLinkSetResponseFromRequest,
   writerProjectionEvidence,
-} from "../../../../../test/helpers/documentFixtures";
+} from "../../../../../test/helpers/data/documentFixtures";
+import { withTestExecSql } from "../../../../../test/helpers/data/withTestExecSql";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
-import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence as persistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";

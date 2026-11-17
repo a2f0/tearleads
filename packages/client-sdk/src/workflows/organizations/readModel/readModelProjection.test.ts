@@ -5,14 +5,14 @@ import {
   ORGANIZATION_READ_MODEL_ERROR_CODES,
   type OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
-import { dataUsage } from "../../../../test/helpers/organizationReadModelFixtures";
+import { dataUsage } from "../../../../test/helpers/data/organizationReadModelFixtures";
 import {
   organizationReadModelFailure,
   organizationReadModelGroupsDelta,
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
   organizationReadModelUserId,
-} from "../../../../test/helpers/organizationReadModelProjectionFixtures";
+} from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
 import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
 import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import {

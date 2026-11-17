@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair, unwrapDek } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
+import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/data/groupPolicyFixtures";
 import {
   createRecoveryFixture,
   signedRecoveryHistory,
-} from "../../../../test/helpers/principalHistoryRecovery";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/data/principalHistoryRecovery";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { recoverPrincipalPolicyHistory } from "../../../workflows/principals/historyRecovery/recoverPrincipalPolicyHistory";
 import {
   principalHistoryRetentionTables,

@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { unwrapContainerKekParentWrap } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import { writerKeyResolver } from "../../../../test/helpers/documentFixtures";
+import { writerKeyResolver } from "../../../../test/helpers/data/documentFixtures";
 import {
   createPendingUpdateRecord,
   createResponseFromRequest,
-} from "../../../../test/helpers/documentResponseFixtures";
+} from "../../../../test/helpers/data/documentResponseFixtures";
 import { createInaccessibleStaleIntermediateFixture } from "../../../../test/helpers/inaccessibleStaleIntermediate";
 import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";

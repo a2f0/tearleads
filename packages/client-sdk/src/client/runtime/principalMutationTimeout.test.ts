@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { quietLogger } from "../../../test/helpers/clientTestSupport";
-import { principalMutationJournalFixture } from "../../../test/helpers/principalMutationJournalFixture";
+import { quietLogger } from "../../../test/helpers/data/clientTestSupport";
+import { principalMutationJournalFixture } from "../../../test/helpers/data/principalMutationJournalFixture";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { PrincipalMutationJournalRepository } from "../../data/persistence/principalMutationJournalPersistence";
 import { sealPrincipalMutation } from "../../data/principals/principalMutationJournal";

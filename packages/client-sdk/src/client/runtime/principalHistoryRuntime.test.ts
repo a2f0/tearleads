@@ -4,7 +4,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   quietLogger,
   setGeneratedIdentity,
-} from "../../../test/helpers/clientTestSupport";
+} from "../../../test/helpers/data/clientTestSupport";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";

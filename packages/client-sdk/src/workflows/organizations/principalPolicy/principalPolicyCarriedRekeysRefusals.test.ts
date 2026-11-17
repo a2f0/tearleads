@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMockRequestFailure } from "@tearleads/test-utils";
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
-import { readTestGroupName } from "../../../../test/helpers/groupMetadata";
+import { readTestGroupName } from "../../../../test/helpers/data/groupMetadata";
 import {
   createRemovalFixture,
   mutationObjectIds,

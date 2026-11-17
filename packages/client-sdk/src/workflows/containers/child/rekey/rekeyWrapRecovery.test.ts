@@ -10,12 +10,12 @@ import {
   asContainerMutationFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../../test/helpers/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
+} from "../../../../../test/helpers/data/containerFixtures";
 import { manifestHistoryEpochIds } from "../../../../data/documents/shared/containerKek/containerKekPathHistory";
 import {
   HistoricalWrapUnavailableError,

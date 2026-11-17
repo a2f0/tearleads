@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createTransportFaultHarness } from "@tearleads/test-utils";
-import { quietLogger } from "../../../test/helpers/clientTestSupport";
+import { quietLogger } from "../../../test/helpers/data/clientTestSupport";
 import { Tearleads } from "../../Tearleads";
 import { createBrowserNetworkStatusSource, Network } from "./network";
 

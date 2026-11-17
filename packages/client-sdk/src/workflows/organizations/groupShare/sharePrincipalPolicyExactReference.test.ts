@@ -2,18 +2,18 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { createAuthor } from "../../../../test/helpers/containerFixtures";
+import { createAuthor } from "../../../../test/helpers/data/containerFixtures";
 import {
   buildInitialGroupPolicyRequest,
   readTestGroupName,
-} from "../../../../test/helpers/groupMetadata";
-import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
+} from "../../../../test/helpers/data/groupMetadata";
+import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/data/groupPolicyFixtures";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";

@@ -6,7 +6,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/data/trustedUserIdentity";
 import { identityLinkFixture } from "../../data/trustedUserIdentity/identityLink.testFixtures";
 import { createUserIdentities } from "./userIdentities";
 

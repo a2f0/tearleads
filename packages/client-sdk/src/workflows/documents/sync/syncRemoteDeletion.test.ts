@@ -6,11 +6,11 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
-import { createContainerRevokeManifestFixture } from "../../../../test/helpers/containerFixtures";
+import { createContainerRevokeManifestFixture } from "../../../../test/helpers/data/containerFixtures";
 import {
   createPendingUpdateRecord,
   fixtureHash,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";

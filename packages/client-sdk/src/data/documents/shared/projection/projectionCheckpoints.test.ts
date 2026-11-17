@@ -16,9 +16,9 @@ import type {
 import {
   createContainerRevokeManifestFixture,
   createParentProjection,
-} from "../../../../../test/helpers/containerFixtures";
-import { createResponse } from "../../../../../test/helpers/documentFixtures";
-import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
+} from "../../../../../test/helpers/data/containerFixtures";
+import { createResponse } from "../../../../../test/helpers/data/documentFixtures";
+import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
 import { buildMaterializedDocumentCreatePlan } from "../../../../workflows/documents/create";
 import { verifyDocumentWriterProjection } from "../../../keyingProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../persistence/keyingCheckpoints/keyingCheckpointRepository";

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { captureStatements } from "../../../../test/helpers/statementCapture";
-import { countingExecSql } from "../../../../test/helpers/statementCounting";
+import { captureStatements } from "../../../../test/helpers/data/statementCapture";
+import { countingExecSql } from "../../../../test/helpers/data/statementCounting";
 import { SQLITE_BOUND_VARIABLE_BUDGET } from "../../sqlite/sqliteBindBudget";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { ContainerDocumentTombstoneHoldRepository } from "./containerDocumentTombstoneHoldRepository";

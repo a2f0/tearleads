@@ -4,7 +4,7 @@ import {
   organizationReadModelDelta as delta,
   organizationReadModelGroups as groups,
   organizationReadModelSnapshot as snapshot,
-} from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
+} from "../../../../test/helpers/data/organizationReadModelPersistenceFixtures";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../principals/principalPolicyCoordinator";
 import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 

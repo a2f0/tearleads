@@ -6,12 +6,12 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { TEST_LEAVE_REQUEST_MEMBERS_HEAD } from "../../../../test/helpers/leaveRequestFixtures";
+import { TEST_LEAVE_REQUEST_MEMBERS_HEAD } from "../../../../test/helpers/data/leaveRequestFixtures";
 import {
   organizationReadModelDirectory as directory,
   organizationReadModelDirectoryUser as directoryUser,
   organizationReadModelSnapshot as snapshot,
-} from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
+} from "../../../../test/helpers/data/organizationReadModelPersistenceFixtures";
 import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 const ORGANIZATION_ID = "6a1f3c2e-8d4b-4f6a-9c1e-2b3d4e5f6a7b";

@@ -14,9 +14,9 @@ import {
   principalPolicyBundleFromInitialGroupRequest,
   principalPolicyBundleFromInitialOrganizationRequest,
 } from "../../src/workflows/registration/registrationPrincipalPolicyPersistence";
-import { execSqlClientFromExecSql } from "./execSqlClient";
-import { respondToOrganizationProvisioning } from "./organizationProvisioningResponder";
-import { signedPrincipalPolicyBundle } from "./principalPolicyFixtures";
+import { execSqlClientFromExecSql } from "./data/execSqlClient";
+import { respondToOrganizationProvisioning } from "./data/organizationProvisioningResponder";
+import { signedPrincipalPolicyBundle } from "./data/principalPolicyFixtures";
 import { createFounder } from "./provisionedPrincipalHistoryFixtures";
 
 /** Local persistence seam: the response is an echo, not a real API commit. */

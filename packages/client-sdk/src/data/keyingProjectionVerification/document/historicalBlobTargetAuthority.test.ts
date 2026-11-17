@@ -11,7 +11,7 @@ import { createWriteHeaderFixture } from "@tearleads/crypto/write-header-test-fi
 import {
   createScenario,
   grantBy,
-} from "../../../../test/helpers/ancestorCitationScenario";
+} from "../../../../test/helpers/data/ancestorCitationScenario";
 import { resolveEventContainerPaths } from "./documentDependencyPaths";
 
 test("historical blob writes require complete citations even for a direct leaf writer", async () => {

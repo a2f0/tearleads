@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { principalMutationJournalFixture } from "../../../test/helpers/principalMutationJournalFixture";
+import { principalMutationJournalFixture } from "../../../test/helpers/data/principalMutationJournalFixture";
 import {
   openPrincipalMutation,
   sealPrincipalMutation,

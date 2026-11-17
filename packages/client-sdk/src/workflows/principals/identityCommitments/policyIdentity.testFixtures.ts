@@ -3,8 +3,8 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers/principalPolicyBundles";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers/data/principalPolicyBundles";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import { buildInitialGroupPolicyRequest } from "../../../data/principals/principalPolicyRequest";
 
 export async function identityPolicyFixture() {

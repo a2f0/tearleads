@@ -3,7 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { and, asc, eq } from "drizzle-orm";
-import { createSuccessorPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyBundles";
+import { createSuccessorPrincipalPolicyBundle } from "../../../../test/helpers/data/principalPolicyBundles";
 import { principalPolicyBundleStates } from "../../principalContracts/principalPolicyStates";
 import { principalPolicyBundleReferences } from "../../sqlite/schema";
 import {

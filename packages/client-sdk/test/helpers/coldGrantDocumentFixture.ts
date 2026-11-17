@@ -22,8 +22,8 @@ import {
   type createAuthor,
   createPendingUpdateRecord,
   fixtureHash,
-} from "./documentFixtures";
-import type { rotateRootKekKeyringFixture } from "./keyringRotationFixtures";
+} from "./data/documentFixtures";
+import type { rotateRootKekKeyringFixture } from "./data/keyringRotationFixtures";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
 

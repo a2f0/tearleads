@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   makeEpochKeys,
   makeLogEpoch,
-} from "../../../../test/helpers/keyringRotationFixtures";
+} from "../../../../test/helpers/data/keyringRotationFixtures";
 import { rebuildKeyringEntriesFromLog } from "../../../data/documents/shared/containerKek/keyringRebuild";
 
 for (const count of [1, 3]) {

@@ -4,7 +4,7 @@ import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
   createPendingUpdateRecord,
   writerKeyResolver,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import {
   createReadOnlyResponseFixture,

@@ -5,7 +5,7 @@ import {
   encodeVersionVector,
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
-import { openSharedDocumentPersistenceConnections } from "../../../../test/helpers/sharedDocumentPersistence";
+import { openSharedDocumentPersistenceConnections } from "../../../../test/helpers/data/sharedDocumentPersistence";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 import { loadStoredDocumentWithHistoryRestoreState } from "./internal/documentHistoryStatePersistence";
 import { loadStoredDocumentStoreState } from "./internal/documentStoreStatePersistence";

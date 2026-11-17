@@ -9,12 +9,12 @@ import { captureAcknowledgedPrincipalPredecessor } from "../../src/workflows/pri
 import type { RecoverPrincipalPolicyHistoryOptions } from "../../src/workflows/principals/historyRecovery/principalHistoryRecoveryTypes";
 import { recoverScopedPrincipalPolicyHistory } from "../../src/workflows/principals/historyRecovery/recoverScopedPrincipalPolicyHistory";
 import { currentPolicyAcknowledgementFixture } from "./currentPolicyAcknowledgement";
-import type { signedAuthorityRecoveryHistory } from "./principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
   policyReceiptFromBundle,
   principalPolicyHead,
-} from "./principalPolicyFixtures";
+} from "./data/principalPolicyFixtures";
+import type { signedAuthorityRecoveryHistory } from "./principalAuthorityRecovery";
 
 export async function currentPolicyPublicationFixture(
   history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>,

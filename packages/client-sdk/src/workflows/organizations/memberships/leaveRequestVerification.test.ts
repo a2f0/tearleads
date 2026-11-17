@@ -5,11 +5,11 @@ import {
   signOrganizationLeaveRequest,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { TEST_LEAVE_REQUEST_MEMBERS_HEAD } from "../../../../test/helpers/leaveRequestFixtures";
+import { TEST_LEAVE_REQUEST_MEMBERS_HEAD } from "../../../../test/helpers/data/leaveRequestFixtures";
 import {
   organizationReadModelDirectory as directory,
   organizationReadModelDirectoryUser as directoryUser,
-} from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
+} from "../../../../test/helpers/data/organizationReadModelPersistenceFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../data/trustedUserIdentity/testFixtures";
 import type { OrganizationDirectoryAndGroups } from "../readModel";
 import type { LeaveRequestMembershipCheck } from "./leaveRequestMembership";

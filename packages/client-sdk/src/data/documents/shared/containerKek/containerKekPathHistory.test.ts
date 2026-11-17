@@ -12,12 +12,12 @@ import type {
   DocumentContentKeyBundleResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { fixtureHash } from "../../../../../test/helpers/documentFixtures";
+import { fixtureHash } from "../../../../../test/helpers/data/documentFixtures";
 import {
   type KeyringRotationFixture,
   rotateRootKekKeyringFixture,
   tamperSealedKeyring,
-} from "../../../../../test/helpers/keyringRotationFixtures";
+} from "../../../../../test/helpers/data/keyringRotationFixtures";
 import {
   ContainerKekHistoryUnavailableError,
   collectContainerKeksForDocumentSync,

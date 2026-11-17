@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createNoopSqlClient,
   quietLogger,
-} from "../test/helpers/clientTestSupport";
+} from "../test/helpers/data/clientTestSupport";
 import { type SessionSnapshot, Tearleads } from ".";
 
 describe("Tearleads", () => {

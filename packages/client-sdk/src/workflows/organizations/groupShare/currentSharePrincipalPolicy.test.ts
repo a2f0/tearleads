@@ -1,8 +1,8 @@
 import { beforeAll, expect, test } from "bun:test";
-import { readTestGroupName } from "../../../../test/helpers/groupMetadata";
-import { createLocalAuthorityRecoveryFixture } from "../../../../test/helpers/principalAuthorityLocal";
+import { readTestGroupName } from "../../../../test/helpers/data/groupMetadata";
+import { createLocalAuthorityRecoveryFixture } from "../../../../test/helpers/data/principalAuthorityLocal";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { withPrincipalPolicies } from "../../../../test/helpers/principalPolicyServiceFixture";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { PrincipalHistoryProtectionLease } from "../../../data/principals/principalHistoryProtection";

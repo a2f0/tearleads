@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
-import { retentionBatchFixture } from "../../../../test/helpers/principalRetentionBatch";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
+import { retentionBatchFixture } from "../../../../test/helpers/data/principalRetentionBatch";
 import { principalHistoryNodes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 

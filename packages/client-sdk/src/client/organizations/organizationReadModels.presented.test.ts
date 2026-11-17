@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
-  createInternalRuntimeFixture,
-  createWorkflowInputFixture,
-} from "../../../test/helpers/internalRuntimeFixtures";
-import {
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
   organizationReadModelUserId,
-} from "../../../test/helpers/organizationReadModelProjectionFixtures";
+} from "../../../test/helpers/data/organizationReadModelProjectionFixtures";
+import {
+  createInternalRuntimeFixture,
+  createWorkflowInputFixture,
+} from "../../../test/helpers/internalRuntimeFixtures";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 

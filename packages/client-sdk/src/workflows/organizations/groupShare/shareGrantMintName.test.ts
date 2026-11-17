@@ -3,15 +3,15 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
-} from "../../../../test/helpers/containerFixtures";
-import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
+} from "../../../../test/helpers/data/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/data/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
+} from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
+import { withTestExecSql } from "../../../../test/helpers/data/withTestExecSql";
 
 import { buildInitialOrganizationPolicyRequest } from "../../../data/principals/organizationPolicyRequest";
 import { shareRemoteContainerWithGroup } from "./shareWithGroup";

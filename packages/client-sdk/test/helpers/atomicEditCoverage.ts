@@ -10,7 +10,7 @@ import { runDocumentOrphanMaintenance } from "../../src/stores/documents/documen
 import { createDocumentStoreState } from "../../src/stores/documents/documentStore/state";
 import { captureDocumentStoreSyncGeneration } from "../../src/stores/documents/documentStore/sync/syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "../../src/stores/documents/documentStore/sync/syncOutgoingCoverage";
-import { createFileBackedSql, openFileBackedSql } from "./fileBackedSql";
+import { createFileBackedSql, openFileBackedSql } from "./data/fileBackedSql";
 import { createCoverageFixture } from "./syncOutgoingCoverage";
 
 export async function createAtomicEditFixture(name: string) {

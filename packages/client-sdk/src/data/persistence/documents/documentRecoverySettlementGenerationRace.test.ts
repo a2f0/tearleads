@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { openSharedDocumentPersistenceConnections } from "../../../../test/helpers/sharedDocumentPersistence";
+import { openSharedDocumentPersistenceConnections } from "../../../../test/helpers/data/sharedDocumentPersistence";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
 test("recovery generation fences stale conflict and response settlement", async () => {

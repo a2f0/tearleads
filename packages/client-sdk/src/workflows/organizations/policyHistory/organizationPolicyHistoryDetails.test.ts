@@ -1,13 +1,13 @@
 import { afterEach, expect, test } from "bun:test";
 import { computePrincipalStatePayloadCiphertextHash } from "@tearleads/crypto";
 import {
+  projectionDirectoryPayload,
+  projectionPolicySource,
+} from "../../../../test/helpers/data/projectionPolicyPages";
+import {
   createOrganizationHistoryPageFixture,
   organizationHistoryPage,
 } from "../../../../test/helpers/organizationHistoryPage";
-import {
-  projectionDirectoryPayload,
-  projectionPolicySource,
-} from "../../../../test/helpers/projectionPolicyPages";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,

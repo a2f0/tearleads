@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { quietLogger } from "../test/helpers/clientTestSupport";
+import { quietLogger } from "../test/helpers/data/clientTestSupport";
 import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import { loadContainers } from "./data/persistence/container-contents/containerPersistence";
 import { Tearleads } from "./Tearleads";

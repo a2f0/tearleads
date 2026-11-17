@@ -4,9 +4,9 @@ import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/valida
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../../test/helpers/containerFixtures";
-import { createTestGroupMetadataProjection } from "../../../../../test/helpers/groupMetadataProjection";
-import { createGroupNameDirectory } from "../../../../../test/helpers/groupNameDirectory";
+} from "../../../../../test/helpers/data/containerFixtures";
+import { createTestGroupMetadataProjection } from "../../../../../test/helpers/data/groupMetadataProjection";
+import { createGroupNameDirectory } from "../../../../../test/helpers/data/groupNameDirectory";
 import {
   repairPolicyPages,
   repairProtectionLease,

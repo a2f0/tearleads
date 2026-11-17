@@ -13,16 +13,16 @@ import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
 } from "../../src/workflows/containers/root/create";
-import { createAuthor, SIGNED_AT } from "./containerFixtures";
-import { buildInitialGroupPolicyRequest } from "./groupMetadata";
-import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
-import { policyBundleFromInitialRequest } from "./principalPolicyFixtures";
-import { createProjectionPolicyEvidence } from "./projectionPolicyEvidence";
-import { projectionPolicyWarmer } from "./projectionPolicyWarmer";
+import { createAuthor, SIGNED_AT } from "./data/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "./data/groupMetadata";
+import { createSuccessorGroupPolicyBundle } from "./data/groupPolicyFixtures";
+import { policyBundleFromInitialRequest } from "./data/principalPolicyFixtures";
+import { createProjectionPolicyEvidence } from "./data/projectionPolicyEvidence";
 import {
   createFixtureUserIdentity,
   createTestTrustedUserIdentity,
-} from "./trustedUserIdentity";
+} from "./data/trustedUserIdentity";
+import { projectionPolicyWarmer } from "./projectionPolicyWarmer";
 
 export const GROUP_ID = "admins-group";
 export const ORGANIZATION_ID = "organization-1";

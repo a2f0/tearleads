@@ -1,7 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import { createMockRequestFailure } from "@tearleads/test-utils";
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
-import { principalMutationJournalFixture } from "../../../../test/helpers/principalMutationJournalFixture";
+import { principalMutationJournalFixture } from "../../../../test/helpers/data/principalMutationJournalFixture";
 import { submitGroupPolicyCommit } from "./submitGroupPolicyCommit";
 
 test("compound enrollment reports required key repair without splitting the write", async () => {

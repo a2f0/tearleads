@@ -8,7 +8,7 @@ import {
 import {
   createLinkSetResponseFromRequest,
   writerProjectionEvidence,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { insertQueuedUpdateRows } from "../../../../test/helpers/queuedUpdateRows";
+import { insertQueuedUpdateRows } from "../../../../test/helpers/data/queuedUpdateRows";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { sqlContainerContentsPersistence as persistence } from "./containerContentsPersistence";
 

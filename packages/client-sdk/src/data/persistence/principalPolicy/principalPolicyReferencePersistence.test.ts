@@ -5,7 +5,7 @@ import {
   createSuccessorPrincipalPolicyBundle,
   referencedPrincipalStateFromBundle,
   referencedPrincipalStateFromPolicyState,
-} from "../../../../test/helpers/principalPolicyBundles";
+} from "../../../../test/helpers/data/principalPolicyBundles";
 import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 
 test("exact principal policy lookup loads a current head", async () => {

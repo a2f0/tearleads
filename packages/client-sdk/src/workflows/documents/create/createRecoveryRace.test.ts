@@ -12,9 +12,9 @@ import type { DocumentWriterProjectionResponse } from "@tearleads/validators/res
 import {
   createAuthor,
   createResponseFromRequest,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { documentWriterProjectionFromCreateResponse } from "./index";
 

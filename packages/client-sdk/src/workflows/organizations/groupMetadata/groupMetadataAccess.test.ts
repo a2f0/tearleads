@@ -5,10 +5,10 @@ import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/valida
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
-} from "../../../../test/helpers/containerFixtures";
-import { createTestGroupMetadataProjection } from "../../../../test/helpers/groupMetadataProjection";
-import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+} from "../../../../test/helpers/data/containerFixtures";
+import { createTestGroupMetadataProjection } from "../../../../test/helpers/data/groupMetadataProjection";
+import { policyBundleFromInitialRequest } from "../../../../test/helpers/data/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
 import {
   ensureContainerTables,
   saveContainer,

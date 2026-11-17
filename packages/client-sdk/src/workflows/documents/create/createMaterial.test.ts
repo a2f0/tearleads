@@ -7,7 +7,7 @@ import { isDocumentCreateRequest } from "@tearleads/validators/request";
 import {
   createAuthor,
   createWrappedProjection,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 
 import { buildMaterializedDocumentCreatePlan } from "./index";
 

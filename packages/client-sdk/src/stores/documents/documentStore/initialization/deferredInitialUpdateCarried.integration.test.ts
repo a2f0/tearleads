@@ -8,11 +8,12 @@ import type { BlobAttachmentSummary } from "@tearleads/validators/response";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
-} from "../../../../../test/helpers/blobUploadFixtures";
+} from "../../../../../test/helpers/data/blobUploadFixtures";
 import {
   createResponseFromRequest,
   type DocumentCreateFixture,
-} from "../../../../../test/helpers/documentFixtures";
+} from "../../../../../test/helpers/data/documentFixtures";
+import { waitFor } from "../../../../../test/helpers/data/waitFor";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/materializedSyncFixture";
 import {
   attachmentSummaryFromBind,
@@ -20,7 +21,6 @@ import {
   createOnlineDocumentsRuntime,
   createStoredDocumentWriterProjection,
 } from "../../../../../test/helpers/onlineDocumentStoreFixtures";
-import { waitFor } from "../../../../../test/helpers/waitFor";
 import {
   defaultDocumentsPersistence,
   listPendingDocumentUpdates,

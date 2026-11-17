@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { waitFor } from "../../../test/helpers/waitFor";
+import { waitFor } from "../../../test/helpers/data/waitFor";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import {
   deleteDocumentPlacements,

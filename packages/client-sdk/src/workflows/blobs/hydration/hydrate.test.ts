@@ -10,7 +10,7 @@ import {
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
-} from "../../../../test/helpers/blobUploadFixtures";
+} from "../../../../test/helpers/data/blobUploadFixtures";
 import { attachmentContentSha256 } from "../../../data/blobs/attachmentContentIdentity";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import type { DocumentAttachment } from "../../../data/documents/documentContent";

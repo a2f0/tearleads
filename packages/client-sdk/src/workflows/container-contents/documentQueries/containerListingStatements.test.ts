@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { countingExecSql } from "../../../../test/helpers/statementCounting";
+import { countingExecSql } from "../../../../test/helpers/data/statementCounting";
 import { sqlContainerContentsPersistence as containers } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { selectContainerMetadataRecord } from "../../../data/persistence/container-contents/containerMetadataRows";
 import { loadContainers } from "../../../data/persistence/container-contents/containerPersistence";

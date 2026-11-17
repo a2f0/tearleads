@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { retentionBatchFixture } from "../../../../test/helpers/principalRetentionBatch";
+import { retentionBatchFixture } from "../../../../test/helpers/data/principalRetentionBatch";
 import { principalHistoryNodes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import { sqliteInsertBatchSize } from "../../sqlite/sqliteBindBudget";
 import { releasePrincipalHistoryRoots } from "./principalHistoryRootOwnership";

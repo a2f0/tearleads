@@ -1,14 +1,14 @@
 import { beforeAll, expect, test } from "bun:test";
 import { toFingerprint } from "@tearleads/crypto";
+import {
+  policyBundleAfterMutation,
+  policyReceiptFromBundle,
+} from "../../../test/helpers/data/principalPolicyFixtures";
 import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
-import {
-  policyBundleAfterMutation,
-  policyReceiptFromBundle,
-} from "../../../test/helpers/principalPolicyFixtures";
 import { KeyingCheckpointRepository } from "../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principalContracts/organizationAuthorityDescriptor";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";

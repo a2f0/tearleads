@@ -4,7 +4,7 @@ import { createContainerManifestFixture } from "@tearleads/crypto/container-acce
 import {
   createScenario,
   grantBy,
-} from "../../../../test/helpers/ancestorCitationScenario";
+} from "../../../../test/helpers/data/ancestorCitationScenario";
 import { resolveEventContainerPaths } from "./documentDependencyPaths";
 
 function index(manifests: readonly VerifiedContainerAccessManifest[]) {

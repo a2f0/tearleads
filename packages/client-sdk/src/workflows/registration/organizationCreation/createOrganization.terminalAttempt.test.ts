@@ -8,7 +8,7 @@ import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import type { CreateOrganizationResponse } from "@tearleads/validators/response";
-import { respondToOrganizationProvisioning } from "../../../../test/helpers/organizationProvisioningResponder";
+import { respondToOrganizationProvisioning } from "../../../../test/helpers/data/organizationProvisioningResponder";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
   createExecSql,

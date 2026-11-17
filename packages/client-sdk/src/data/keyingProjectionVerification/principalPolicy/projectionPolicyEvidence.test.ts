@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import { computePrincipalStatePayloadCiphertextHash } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
-import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
+import { principalPolicyHead } from "../../../../test/helpers/data/principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
-} from "../../../../test/helpers/projectionPolicyPages";
+} from "../../../../test/helpers/data/projectionPolicyPages";
+import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyWarmer";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { loadOrganizationFounder } from "../../persistence/organizationFounderPersistence";

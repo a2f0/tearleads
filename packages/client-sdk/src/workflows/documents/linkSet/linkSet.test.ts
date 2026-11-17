@@ -12,7 +12,7 @@ import {
   fixtureHash,
   getOnlyTarget,
   writerProjectionEvidence,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
 import { unwrapDocumentContentKeyTarget } from "../../../data/documents/shared/projection";
 import { buildMaterializedDocumentCreatePlan } from "../create";

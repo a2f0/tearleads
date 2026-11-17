@@ -6,15 +6,15 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
 import {
   createAuthor,
   createMutationResponseFromRequest,
   createParentProjection,
   createRecipientIdentityResolver,
   SIGNED_AT,
-} from "../../../../../test/helpers/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
-import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
+} from "../../../../../test/helpers/data/containerFixtures";
+import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
 
 test("shareRemoteContainer replaces stale wraps when re-sharing a user", async () => {
   const existingUserId = "user-2";

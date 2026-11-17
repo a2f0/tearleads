@@ -1,8 +1,8 @@
 import { beforeAll, expect, test } from "bun:test";
 import { principalPolicyMatchesReference } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
-import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
+import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
+import { createPublicHistoryFixture } from "../../../../test/helpers/data/publicPrincipalHistory";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalHistoryEntries } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { PrincipalHistoryEvidenceUnavailableError } from "../historyRecovery/principalHistoryRecoveryReferences";

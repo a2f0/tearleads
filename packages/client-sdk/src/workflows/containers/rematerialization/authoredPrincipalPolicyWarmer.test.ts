@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
-import { currentGroupMutationInput } from "../../../../test/helpers/currentGroupMutation";
-import { principalMutationJournalFixture } from "../../../../test/helpers/principalMutationJournalFixture";
+import { currentGroupMutationInput } from "../../../../test/helpers/data/currentGroupMutation";
+import { principalMutationJournalFixture } from "../../../../test/helpers/data/principalMutationJournalFixture";
 import { withAuthoredPrincipalPolicies } from "./authoredPrincipalPolicyWarmer";
 
 async function fixture() {

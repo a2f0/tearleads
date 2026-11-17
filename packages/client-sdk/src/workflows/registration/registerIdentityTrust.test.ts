@@ -4,7 +4,7 @@ import {
   generateSigningSeedAndKeyPair,
   KeyingVerificationError,
 } from "@tearleads/crypto";
-import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
+import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
 
 type RegisterUserParameters = Parameters<RegistrationApi["registerUser"]>;

@@ -13,10 +13,10 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
-} from "../../../../test/helpers/documentFixtures";
+} from "../../../../test/helpers/data/documentFixtures";
+import { principalRepairEvidence } from "../../../../test/helpers/data/principalRepairEvidence";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/materializedSyncFixture";
-import { principalRepairEvidence } from "../../../../test/helpers/principalRepairEvidence";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
 import type { DocumentSyncPlan } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";

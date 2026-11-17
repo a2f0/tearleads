@@ -5,9 +5,9 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancestorRotationRecovery";
-import { createContainerServer } from "../../../../../test/helpers/containerMutationServer";
 import { createContainerMutationServiceFixture } from "../../../../../test/helpers/containerMutationServiceFixture";
-import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
+import { createContainerServer } from "../../../../../test/helpers/data/containerMutationServer";
+import { createTestTrustedUserIdentity } from "../../../../../test/helpers/data/trustedUserIdentity";
 import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKek/containerKekCurrency";
 
 // #2340 finding 1. With nothing shared beneath it, a chain may sit lazily stale
