@@ -201,7 +201,7 @@ test("a valid copy with different bytes verifies afresh from a warm cache", asyn
   }
 });
 
-test("a bundle changed while its signer resolves is neither verified nor stored", async () => {
+test("a bundle changed while its signer resolves is refused and not stored", async () => {
   const fixture = await createVerificationFixture();
   const database = await createTestExecSql("verified-bundles-snapshot");
   const [leaf] = fixture.projection.path;
@@ -209,16 +209,19 @@ test("a bundle changed while its signer resolves is neither verified nor stored"
   const live = structuredClone(leaf);
   const original = toServedAccessManifestBundle(leaf);
   try {
-    await verifyContainerWriterProjection({
-      execSql: database.execSql,
-      openPrincipalPolicyBundleReader,
-      projection: { ...fixture.projection, path: [live] },
-      // The served object changes while verification awaits its signer.
-      resolveUserKey: async (userId) => {
-        Reflect.set(live.event.event, "signature", "AAAA");
-        return fixture.resolveUserKey(userId);
-      },
-    });
+    await expect(
+      verifyContainerWriterProjection({
+        execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [live] },
+        // The served object changes while verification awaits its signer:
+        // here the key a child would wrap its new key to.
+        resolveUserKey: async (userId) => {
+          Reflect.set(live.state, "containerKeyPublicKey", "substituted");
+          return fixture.resolveUserKey(userId);
+        },
+      }),
+    ).rejects.toMatchObject({ code: "hash_mismatch" });
     const stored = await loadVerifiedManifestCitations(
       database.execSql,
       target,

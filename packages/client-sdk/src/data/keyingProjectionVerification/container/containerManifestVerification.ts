@@ -17,6 +17,7 @@ import {
   verifyCachedManifestCheckpoint,
 } from "../checkpoints/manifestCheckpointVerification";
 import {
+  assertUnchangedSinceVerification,
   matchesVerifiedBundleBytes,
   recordVerifiedBundleBytes,
 } from "../checkpoints/verifiedBundleBytes";
@@ -216,6 +217,8 @@ async function verifyFreshContainerManifestBundle(
   assertVerifiedState(input, verified.value);
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
   recordVerifiedBundleBytes(verified.value, input.bundle);
+  assertUnchangedSinceVerification(verified.value, served.bundle, input.label);
+  assertVerifiedState(served, verified.value);
 
   return verified.value;
 }

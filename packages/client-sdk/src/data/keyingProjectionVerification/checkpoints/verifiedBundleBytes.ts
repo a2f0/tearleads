@@ -1,4 +1,5 @@
 import {
+  KeyingVerificationError,
   readKeyingCanonicalJson,
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
@@ -43,4 +44,22 @@ export function matchesVerifiedBundleBytes(
 ): boolean {
   const recorded = verifiedBundleBytes.get(verified);
   return recorded !== undefined && recorded === canonicalBytes(bundle);
+}
+
+/**
+ * Verification checks a copy taken before its first await; the caller reads
+ * the bundle it passed, so on return that bundle must still be the copy
+ * verification accepted.
+ */
+export function assertUnchangedSinceVerification(
+  verified: object,
+  bundle: AccessManifestBundleWireResponse,
+  label: string,
+): void {
+  if (!matchesVerifiedBundleBytes(verified, bundle)) {
+    throw new KeyingVerificationError(
+      "hash_mismatch",
+      `${label} changed while it was verified`,
+    );
+  }
 }

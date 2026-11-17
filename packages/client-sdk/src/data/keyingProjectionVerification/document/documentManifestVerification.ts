@@ -22,6 +22,7 @@ import {
   verifyCachedManifestCheckpoint,
 } from "../checkpoints/manifestCheckpointVerification";
 import {
+  assertUnchangedSinceVerification,
   matchesVerifiedBundleBytes,
   recordVerifiedBundleBytes,
 } from "../checkpoints/verifiedBundleBytes";
@@ -96,10 +97,13 @@ export async function verifyDocumentManifestBundle(input: {
   }
   // Verify and record one copy taken before the first await, so the bytes
   // recorded as verified are exactly the bytes verified.
-  return verifyFreshDocumentManifestBundle({
+  const verified = await verifyFreshDocumentManifestBundle({
     ...input,
     bundle: structuredClone(input.bundle),
   });
+  assertUnchangedSinceVerification(verified, input.bundle, input.label);
+  assertVerifiedState(input, verified);
+  return verified;
 }
 
 async function verifyFreshDocumentManifestBundle(
