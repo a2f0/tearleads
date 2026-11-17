@@ -87,7 +87,7 @@ test("the purge acknowledgement delete searches by container", async () => {
           manifestHash: `manifest-${index}`,
           principalId: rowUuid("9a0c0000", Math.floor(index / 10)),
           principalType: "group" as const,
-          requestJson: "{}",
+          requestSha256: "0".repeat(64),
           responseJson: "{}",
           stateHash: `state-${Math.floor(index / 10)}`,
         })),
