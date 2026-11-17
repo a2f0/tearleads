@@ -38,7 +38,7 @@ function documentBundle() {
   };
 }
 
-test("a bundle changed after a successful comparison is not stored", async () => {
+test("a bundle that matched is frozen as the verified copy", async () => {
   const checkpoint: AccessManifestCheckpoint = {
     objectKind: "document",
     objectId: "document-1",
@@ -51,9 +51,9 @@ test("a bundle changed after a successful comparison is not stored", async () =>
   recordVerifiedBundleBytes(verified, original);
   const live = documentBundle();
   expect(matchesVerifiedBundleBytes(verified, live)).toBe(true);
-  // The same object changes after the comparison it passed.
-  Reflect.set(live.event.event, "signature", "changed");
-  Reflect.set(live.state, "linkedContainerIds", ["container-2"]);
+  // The same object can no longer change after the comparison it passed.
+  expect(Reflect.set(live.event.event, "signature", "changed")).toBe(false);
+  expect(Reflect.set(live.state, "linkedContainerIds", [])).toBe(false);
   const database = await createTestExecSql("verified-bundle-snapshot");
   try {
     const context = createProjectionCheckpointContext({
@@ -63,14 +63,6 @@ test("a bundle changed after a successful comparison is not stored", async () =>
     observeVerifiedProjectionBundles(
       context,
       new Map([[MANIFEST_HASH, live]]),
-      new Map([[MANIFEST_HASH, verified]]),
-    );
-    // Nothing remembers the earlier match: the changed bytes are compared
-    // again and refused, and nothing else is stored in their place.
-    expect(context.verifiedBundles).toEqual([]);
-    observeVerifiedProjectionBundles(
-      context,
-      new Map([[MANIFEST_HASH, documentBundle()]]),
       new Map([[MANIFEST_HASH, verified]]),
     );
     expect(context.verifiedBundles).toEqual([

@@ -233,7 +233,7 @@ test("a bundle changed while its signer resolves is refused and not stored", asy
   }
 });
 
-test("a warm hit refuses a bundle changed during its checkpoint read", async () => {
+test("a warm hit's bundle cannot change during its checkpoint read", async () => {
   const fixture = await createVerificationFixture();
   const first = await createTestExecSql("verified-bundles-checkpoint-first");
   const second = await createTestExecSql("verified-bundles-checkpoint-second");
@@ -241,7 +241,7 @@ test("a warm hit refuses a bundle changed during its checkpoint read", async () 
   if (!leaf) throw new Error("fixture path missing");
   const verifiedByHash = new Map();
   const live = structuredClone(leaf);
-  let changed = false;
+  const attempts: boolean[] = [];
   try {
     await verifyContainerWriterProjection({
       execSql: first.execSql,
@@ -250,24 +250,27 @@ test("a warm hit refuses a bundle changed during its checkpoint read", async () 
       resolveUserKey: fixture.resolveUserKey,
       verifiedByHash,
     });
-    const execSql: typeof second.execSql = async (...args) => {
-      const [sql] = args;
-      if (!changed && String(sql).includes("checkpoint")) {
-        changed = true;
-        Reflect.set(live.state, "containerKeyPublicKey", "substituted");
-      }
-      return second.execSql(...args);
-    };
-    await expect(
-      verifyContainerWriterProjection({
+    const execSql = new Proxy(second.execSql, {
+      apply(target, thisArg, args: unknown[]) {
+        if (attempts.length === 0 && String(args[0]).includes("checkpoint"))
+          attempts.push(
+            Reflect.set(live.state, "containerKeyPublicKey", "substituted"),
+          );
+        return Reflect.apply(target, thisArg, args);
+      },
+    });
+    expect(
+      await verifyContainerWriterProjection({
         execSql,
         openPrincipalPolicyBundleReader,
         projection: { ...fixture.projection, path: [live] },
         resolveUserKey: fixture.resolveUserKey,
         verifiedByHash,
       }),
-    ).rejects.toMatchObject({ code: "hash_mismatch" });
-    expect(changed).toBe(true);
+    ).toHaveLength(1);
+    // The hit froze the copy it vouched for before the read awaited.
+    expect(attempts).toEqual([false]);
+    expect(live.state).toEqual(leaf.state);
   } finally {
     first.close();
     second.close();

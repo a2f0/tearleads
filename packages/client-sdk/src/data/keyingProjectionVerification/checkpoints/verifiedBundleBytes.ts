@@ -37,13 +37,42 @@ export function recordVerifiedBundleBytes(
   if (bytes !== null) verifiedBundleBytes.set(verified, bytes);
 }
 
-/** Whether `bundle` is byte-identical to the one `verified` came from. */
+// Bundles frozen here after they matched a verified result. A frozen bundle
+// of plain data can no longer change, so every later comparison against the
+// same result is answered without serializing it again, and a caller reading
+// it reads exactly the bytes verification accepted.
+const frozenMatches = new WeakMap<object, object>();
+
+/** Whether every value under `value` is a plain data property. */
+function isPlainData(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return true;
+  return Object.values(Object.getOwnPropertyDescriptors(value)).every(
+    (descriptor) => "value" in descriptor && isPlainData(descriptor.value),
+  );
+}
+
+function deepFreeze(value: unknown): void {
+  if (typeof value !== "object" || value === null) return;
+  Object.freeze(value);
+  for (const child of Object.values(value)) deepFreeze(child);
+}
+
+/**
+ * Whether `bundle` is byte-identical to the one `verified` came from. A
+ * plain-data bundle that matches is frozen, so it stays the verified copy.
+ */
 export function matchesVerifiedBundleBytes(
   verified: object,
   bundle: AccessManifestBundleWireResponse,
 ): boolean {
+  if (frozenMatches.get(bundle) === verified) return true;
   const recorded = verifiedBundleBytes.get(verified);
-  return recorded !== undefined && recorded === canonicalBytes(bundle);
+  const matches = recorded !== undefined && recorded === canonicalBytes(bundle);
+  if (matches && isPlainData(bundle)) {
+    deepFreeze(bundle);
+    frozenMatches.set(bundle, verified);
+  }
+  return matches;
 }
 
 /**
