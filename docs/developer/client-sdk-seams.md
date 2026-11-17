@@ -35,6 +35,7 @@ reference.
 | Domain sync lanes | `getOrCreateDomainSyncCoordinator(domainScope)` | One coordinator per domain scope | None |
 | Identity change preparation | `IdentityChangePreparation` | `Blobs` prepares a store and returns a commit that only assigns state | No-op preparation in identity/session tests |
 | Blob attachment I/O | `BlobAttachmentService` (`runtime.blobAttachments`) | One per documents runtime, built by `createDocumentsWorkflowRuntime` | Constructed over a fake API in tests |
+| Remote document operations | `RemoteDocumentService` | Built by Container Contents link and purge callers from the runtime snapshot they read, per call | Constructed over a fake API in tests |
 | Remote container mutations | `ContainerMutationService` | One per runtime snapshot, built where a mutation reads it: Container Contents' writer context and the organizations grant revocation | Constructed over a fake API in tests, through `createContainerMutationServiceFixture` |
 | Keying checkpoint storage | `KeyingCheckpointRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Principal history storage | `PrincipalHistoryRepository(execSql, now)` | Built from the caller's executor at each call | None |

@@ -63,7 +63,6 @@ export {
   createLinkSetAttachmentReuse,
   type LinkSetAttachmentReuse,
 } from "./linkSet/linkSetBlobRewraps";
-export { relinkRemoteDocument } from "./linkSet/linkSetRemote";
 export {
   enqueuePendingDocumentUpdate,
   listPendingDocumentUpdates,
@@ -93,15 +92,14 @@ export {
   type DocumentProjectionUserKeyResolver,
   didDocumentProjectionKeyRuntimeChange,
 } from "./projectionKeys";
-export {
-  buildDocumentPurgeRequest,
-  purgeRemoteDocument,
-} from "./purge";
+export { buildDocumentPurgeRequest } from "./purge";
 export {
   type DiscardedDocumentShellResult,
   deletePersistedDocument,
   discardPersistedDocumentToShell,
 } from "./purge/persistedDocumentRemoval";
+export type { RemoteDocumentServiceApi } from "./remote/remoteDocumentCollaborators";
+export { RemoteDocumentService } from "./remote/remoteDocumentService";
 export {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntime,
