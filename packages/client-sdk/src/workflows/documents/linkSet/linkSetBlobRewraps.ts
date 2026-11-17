@@ -202,11 +202,13 @@ async function listRelinkBindings(
   >,
   documentId: string,
 ): Promise<BlobAttachmentSummary[]> {
+  // An operation that ended before or while listing cancels instead of
+  // failing. The shared listing still reports its own failed request.
+  assertProjectionVerificationCurrent(input.stillCurrent);
   const bindings = await input.apiClient.listDocumentAttachments(
     documentId,
     input.refreshListing ? { refresh: true } : undefined,
   );
-  // An operation that ended while listing cancels instead of failing.
   assertProjectionVerificationCurrent(input.stillCurrent);
   // The API refuses the link unless every active binding is rewrapped, so an
   // unavailable listing (offline, or a 409 while a bind is mid-flight) is a

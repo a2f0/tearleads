@@ -125,7 +125,7 @@ export function linkSetAttemptEvent(input: {
       };
 }
 
-export function isSpeculativeRewrapSource(
+function isSpeculativeRewrapSource(
   source: LinkSetRewrapSource | null,
 ): boolean {
   return source === "reused" || source === "skipped";
@@ -134,7 +134,8 @@ export function isSpeculativeRewrapSource(
 /**
  * The server's binding check refused rewraps cited without listing: a coded
  * attachment-set refusal, or for re-cited envelopes the uncoded content-key
- * epoch refusal.
+ * epoch refusal. The code ships with the server's check in one contract
+ * (greenfield), so no older server's uncoded mismatch is recognized here.
  */
 function refusedSpeculativeRewraps(
   source: LinkSetRewrapSource | null,
