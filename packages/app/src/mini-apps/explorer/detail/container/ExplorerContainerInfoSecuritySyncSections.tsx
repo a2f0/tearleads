@@ -26,19 +26,30 @@ import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import {
   EXPLORER_LABELS,
   getExplorerContainerInfoEventLabel,
-  getExplorerContainerInfoGrantSummaryLabel,
   getExplorerContainerInfoManifestHistoryLabel,
   getExplorerContainerInfoPathSummaryLabel,
-  getExplorerContainerInfoRecipientSummaryLabel,
 } from "../../labels";
 import { compactId } from "../compactId";
 import { ExplorerInfoIdRow } from "../ExplorerInfoIdRow";
+import {
+  getSecurityPathDetail,
+  getSecurityPathGrantSummary,
+  getSecurityPathKey,
+  getSecurityPathRecipientSummary,
+  getSyncCursorDetail,
+  getSyncCursorKey,
+  getSyncCursorLaneId,
+  type SecurityPathEntry,
+  type SyncCursor,
+} from "../row-detail/containerInfoRowDetails";
+import {
+  type ExplorerInfoRowDetail,
+  ExplorerInfoRowDetailButton,
+  type ExplorerInfoRowDetailOpeners,
+  useExplorerInfoRowDetail,
+} from "../row-detail/ExplorerInfoRowDetail";
 
 type ContainerRemoteInfo = NonNullable<ContainerInfo["remoteInfo"]>;
-type SecurityPathEntry = NonNullable<
-  ContainerRemoteInfo["security"]
->["path"][number];
-type SyncCursor = ContainerRemoteInfo["syncCursors"][number];
 
 type FoldableColumn = { readonly id: string; readonly label: string };
 
@@ -75,32 +86,50 @@ function getFoldableColumns(
   }));
 }
 
-function FoldableInfoTable(params: {
+/** Every row opens its detail: its full fields, with ids that copy. */
+function FoldableInfoTable<TRow>(params: {
   ariaLabel: string;
+  getDetail: (row: TRow) => ExplorerInfoRowDetail;
+  getKey: (row: TRow) => string;
   primary: FoldableColumn;
-  renderRows: (compact: boolean) => ReactNode;
+  renderRow: (
+    row: TRow,
+    compact: boolean,
+    openers: ExplorerInfoRowDetailOpeners,
+  ) => ReactNode;
+  rows: ReadonlyArray<TRow>;
   secondary: ReadonlyArray<FoldableColumn>;
 }) {
-  const { ariaLabel, primary, renderRows, secondary } = params;
+  const { ariaLabel, getDetail, getKey, primary, rows, secondary } = params;
   const { compact, frameRef, rowHeight } = useMiniAppCompactTableFrame();
   const columns = useMemo(
     () => getFoldableColumns(primary, secondary, compact),
     [compact, primary, secondary],
   );
+  const { detailOverlay, getRowDetailOpeners } = useExplorerInfoRowDetail({
+    getDetail,
+    getKey,
+    rows,
+  });
 
   return (
-    <MiniAppTableFrame
-      className={classNames(
-        compact &&
-          "mini-app-table-frame--compact mini-app-table-frame--two-line",
-      )}
-      ref={frameRef}
-      style={getMiniAppVirtualFrameStyle(rowHeight)}
-    >
-      <MiniAppTable aria-label={ariaLabel} columns={columns}>
-        {renderRows(compact)}
-      </MiniAppTable>
-    </MiniAppTableFrame>
+    <>
+      <MiniAppTableFrame
+        className={classNames(
+          compact &&
+            "mini-app-table-frame--compact mini-app-table-frame--two-line",
+        )}
+        ref={frameRef}
+        style={getMiniAppVirtualFrameStyle(rowHeight)}
+      >
+        <MiniAppTable aria-label={ariaLabel} columns={columns}>
+          {rows.map((row) =>
+            params.renderRow(row, compact, getRowDetailOpeners(row)),
+          )}
+        </MiniAppTable>
+      </MiniAppTableFrame>
+      {detailOverlay}
+    </>
   );
 }
 
@@ -115,20 +144,6 @@ const SECURITY_PATH_SECONDARY_COLUMNS = [
   { id: "epoch", label: EXPLORER_LABELS.containerInfoSecurityKeyEpochRow },
   { id: "recipients", label: EXPLORER_LABELS.containerInfoRecipientsColumn },
 ] as const;
-
-function getRecipientSummary(entry: SecurityPathEntry): string {
-  return getExplorerContainerInfoRecipientSummaryLabel({
-    recipientTargetCount: entry.recipientTargetCount,
-    wrapCount: entry.wrapCount,
-  });
-}
-
-function getGrantSummary(entry: SecurityPathEntry): string {
-  return getExplorerContainerInfoGrantSummaryLabel({
-    directGrantCount: entry.directGrantCount,
-    referencedPrincipalCount: entry.referencedPrincipalCount,
-  });
-}
 
 function getSecurityPathSecondaryFields(
   entry: SecurityPathEntry,
@@ -150,7 +165,7 @@ function getSecurityPathSecondaryFields(
     },
     {
       ...recipients,
-      text: `${getRecipientSummary(entry)} · ${getGrantSummary(entry)}`,
+      text: `${getSecurityPathRecipientSummary(entry)} · ${getSecurityPathGrantSummary(entry)}`,
     },
   ];
 }
@@ -159,14 +174,22 @@ function SecurityPathRow(params: {
   compact: boolean;
   containerName: string;
   entry: SecurityPathEntry;
+  openers: ExplorerInfoRowDetailOpeners;
 }) {
-  const { compact, containerName, entry } = params;
+  const { compact, containerName, entry, openers } = params;
+  const detailButton = (
+    <ExplorerInfoRowDetailButton
+      onOpen={openers.openFromControl}
+      text={containerName}
+      title={entry.containerId}
+    />
+  );
   if (compact) {
     return (
-      <MiniAppTableRow>
+      <MiniAppTableRow interactive onActivate={openers.openFromRow}>
         <MiniAppCompactTableCell
           primary={[
-            { id: "path", text: containerName, title: entry.containerId },
+            { content: detailButton, id: "path", title: entry.containerId },
           ]}
           secondary={getSecurityPathSecondaryFields(entry)}
         />
@@ -175,12 +198,8 @@ function SecurityPathRow(params: {
   }
 
   return (
-    <MiniAppTableRow>
-      <MiniAppTableCell>
-        <MiniAppTableText title={entry.containerId}>
-          {containerName}
-        </MiniAppTableText>
-      </MiniAppTableCell>
+    <MiniAppTableRow interactive onActivate={openers.openFromRow}>
+      <MiniAppTableCell>{detailButton}</MiniAppTableCell>
       <MiniAppTableCell>
         <MiniAppTableText title={entry.manifestHash}>
           {compactId(entry.manifestHash)}
@@ -198,8 +217,12 @@ function SecurityPathRow(params: {
         </MiniAppTableText>
       </MiniAppTableCell>
       <MiniAppTableCell>
-        <MiniAppTableText>{getRecipientSummary(entry)}</MiniAppTableText>
-        <MiniAppTableText>{getGrantSummary(entry)}</MiniAppTableText>
+        <MiniAppTableText>
+          {getSecurityPathRecipientSummary(entry)}
+        </MiniAppTableText>
+        <MiniAppTableText>
+          {getSecurityPathGrantSummary(entry)}
+        </MiniAppTableText>
       </MiniAppTableCell>
     </MiniAppTableRow>
   );
@@ -255,6 +278,8 @@ export function ExplorerContainerInfoSecuritySection(params: {
   if (!security) {
     return null;
   }
+  const getName = (entry: SecurityPathEntry) =>
+    containerNamesById.get(entry.containerId) ?? compactId(entry.containerId);
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.containerInfoSecurityHeading}>
@@ -264,20 +289,19 @@ export function ExplorerContainerInfoSecuritySection(params: {
       </MiniAppInfoHeading>
       <FoldableInfoTable
         ariaLabel={EXPLORER_LABELS.containerInfoPathHeading}
+        getDetail={(entry) => getSecurityPathDetail(entry, getName(entry))}
+        getKey={getSecurityPathKey}
         primary={SECURITY_PATH_PRIMARY_COLUMN}
-        renderRows={(compact) =>
-          security.path.map((entry) => (
-            <SecurityPathRow
-              compact={compact}
-              containerName={
-                containerNamesById.get(entry.containerId) ??
-                compactId(entry.containerId)
-              }
-              entry={entry}
-              key={`${entry.containerId}:${entry.manifestHash}`}
-            />
-          ))
-        }
+        renderRow={(entry, compact, openers) => (
+          <SecurityPathRow
+            compact={compact}
+            containerName={getName(entry)}
+            entry={entry}
+            key={getSecurityPathKey(entry)}
+            openers={openers}
+          />
+        )}
+        rows={security.path}
         secondary={SECURITY_PATH_SECONDARY_COLUMNS}
       />
     </MiniAppInfoSection>
@@ -347,14 +371,30 @@ function SyncCursorCursorCell(params: { cursor: SyncCursor }) {
   );
 }
 
-function SyncCursorRow(params: { compact: boolean; cursor: SyncCursor }) {
-  const { compact, cursor } = params;
-  const laneTitle = `${cursor.laneKind}:${cursor.laneId}`;
+function SyncCursorRow(params: {
+  compact: boolean;
+  cursor: SyncCursor;
+  openers: ExplorerInfoRowDetailOpeners;
+}) {
+  const { compact, cursor, openers } = params;
+  const laneId = getSyncCursorLaneId(cursor);
   if (compact) {
     return (
-      <MiniAppTableRow>
+      <MiniAppTableRow interactive onActivate={openers.openFromRow}>
         <MiniAppCompactTableCell
-          primary={[{ id: "lane", text: cursor.label, title: laneTitle }]}
+          primary={[
+            {
+              content: (
+                <ExplorerInfoRowDetailButton
+                  onOpen={openers.openFromControl}
+                  text={cursor.label}
+                  title={laneId}
+                />
+              ),
+              id: "lane",
+              title: laneId,
+            },
+          ]}
           secondary={getSyncCursorSecondaryFields(cursor)}
         />
       </MiniAppTableRow>
@@ -362,13 +402,14 @@ function SyncCursorRow(params: { compact: boolean; cursor: SyncCursor }) {
   }
 
   return (
-    <MiniAppTableRow>
+    <MiniAppTableRow interactive onActivate={openers.openFromRow}>
       <MiniAppTableCell>
-        <MiniAppTableText>{cursor.label}</MiniAppTableText>
-        <MiniAppTableText title={laneTitle}>
-          <code>
-            {cursor.laneKind}/{cursor.laneId}
-          </code>
+        <ExplorerInfoRowDetailButton
+          onOpen={openers.openFromControl}
+          text={cursor.label}
+        />
+        <MiniAppTableText title={laneId}>
+          <code>{laneId}</code>
         </MiniAppTableText>
       </MiniAppTableCell>
       <SyncCursorCursorCell cursor={cursor} />
@@ -390,16 +431,18 @@ export function ExplorerContainerInfoSyncCursorsSection(params: {
     >
       <FoldableInfoTable
         ariaLabel={EXPLORER_LABELS.containerInfoSyncCursorsHeading}
+        getDetail={getSyncCursorDetail}
+        getKey={getSyncCursorKey}
         primary={SYNC_CURSOR_PRIMARY_COLUMN}
-        renderRows={(compact) =>
-          params.remoteInfo.syncCursors.map((cursor) => (
-            <SyncCursorRow
-              compact={compact}
-              cursor={cursor}
-              key={`${cursor.laneKind}:${cursor.laneId}`}
-            />
-          ))
-        }
+        renderRow={(cursor, compact, openers) => (
+          <SyncCursorRow
+            compact={compact}
+            cursor={cursor}
+            key={getSyncCursorKey(cursor)}
+            openers={openers}
+          />
+        )}
+        rows={params.remoteInfo.syncCursors}
         secondary={SYNC_CURSOR_SECONDARY_COLUMNS}
       />
     </MiniAppInfoSection>

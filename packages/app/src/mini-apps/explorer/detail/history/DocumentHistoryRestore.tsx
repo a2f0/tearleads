@@ -15,8 +15,8 @@ import {
   MiniAppModalForm,
   MiniAppModalPanel,
   MiniAppStatus,
+  useModalEscapeAndFocusRestore,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { useModalEscapeAndFocusRestore } from "../../../../document-types/shared/useModalEscapeAndFocusRestore";
 import {
   IDLE_DOCUMENT_HISTORY_RESTORE,
   transitionDocumentHistoryRestore,
