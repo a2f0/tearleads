@@ -121,7 +121,8 @@ test("organization purge statements do not grow with its blobs", async () => {
   // Budget: PGlite / PostgreSQL. Dereferencing the blobs is one update per
   // batch of 500 (61 / 63); locking each batch in UUID order first, so the
   // update cannot deadlock with a reclaim chunk, adds one lock: 62 / 64.
-  expect(one).toBeLessThanOrEqual(64);
+  // Deleting the purged principals' history progress adds one: 63 / 65.
+  expect(one).toBeLessThanOrEqual(65);
 });
 
 test("organization blob reclaim statements do not grow with its blobs", async () => {
