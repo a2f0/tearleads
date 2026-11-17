@@ -255,11 +255,17 @@ export function deriveDecodedProjection<T extends object>(
   return to;
 }
 
+// The exact held bytes refused projections took: any other projection
+// rebuilt from the same bytes is refused with them.
+const rejectedHeldBytes = new Set<string>();
+
 /** Marks a decoded projection refused, so no cache serves it again. */
 export function rejectDecodedProjection(projection: object): void {
   rejectedProjections.add(projection);
   const origin = decodedOrigins.get(projection);
   if (origin) rejectedProjections.add(origin);
+  for (const bundle of heldBundlesUsedBy(projection))
+    rejectedHeldBytes.add(JSON.stringify(bundle));
 }
 
 /**
@@ -272,7 +278,11 @@ export function isRejectedDecodedProjection(projection: unknown): boolean {
   const origin = decodedOrigins.get(projection);
   return (
     rejectedProjections.has(projection) ||
-    (origin !== undefined && rejectedProjections.has(origin))
+    (origin !== undefined && rejectedProjections.has(origin)) ||
+    (rejectedHeldBytes.size > 0 &&
+      heldBundlesUsedBy(projection).some((bundle) =>
+        rejectedHeldBytes.has(JSON.stringify(bundle)),
+      ))
   );
 }
 

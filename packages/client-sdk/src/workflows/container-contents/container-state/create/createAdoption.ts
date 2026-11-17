@@ -49,6 +49,7 @@ async function verifyAdoptableProjection(input: {
   readonly projection: ContainerWriterProjectionResponse;
   readonly sessionUserId: string;
   readonly state: ContainerCreateIntentSyncState;
+  readonly stillCurrent: () => boolean;
 }): Promise<AdoptedContainerPlacement> {
   const { projection } = input;
   if (
@@ -66,6 +67,7 @@ async function verifyAdoptableProjection(input: {
     openPrincipalPolicyBundleReader,
     projection,
     resolveUserKey: input.state.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies:
       input.state.runtime.principalPolicies.createWarmer(),
   });
@@ -112,6 +114,7 @@ async function assertContainerCreateAdoptable(input: {
   readonly containerId: string;
   readonly expectedOrganizationId: string;
   readonly state: ContainerCreateIntentSyncState;
+  readonly stillCurrent: () => boolean;
 }): Promise<AdoptedContainerPlacement> {
   const { runtime } = input.state;
   const sessionUserId = runtime.auth.userId;
@@ -142,6 +145,7 @@ async function assertContainerCreateAdoptable(input: {
 
 function verifyListedContainerCreate(input: {
   readonly intent: ContainerCreateIntentSyncInput["intent"];
+  readonly isCurrent: () => boolean;
   readonly parentState: ContainerState;
   readonly state: ContainerCreateIntentSyncState;
 }): Promise<AdoptedContainerPlacement> {
@@ -151,7 +155,12 @@ function verifyListedContainerCreate(input: {
   };
   return input.state.verifyCreateAdoption
     ? input.state.verifyCreateAdoption(adoption)
-    : assertContainerCreateAdoptable({ ...adoption, state: input.state });
+    : assertContainerCreateAdoptable({
+        ...adoption,
+        state: input.state,
+        // A superseded intent leaves shared caches alone.
+        stillCurrent: input.isCurrent,
+      });
 }
 
 /** Settles a verified adoption against the row hydration installed. */
@@ -238,6 +247,7 @@ export async function syncListedContainerCreate(input: {
   try {
     placement = await verifyListedContainerCreate({
       intent,
+      isCurrent,
       parentState,
       state,
     });

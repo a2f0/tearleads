@@ -277,3 +277,28 @@ test("a projection derived from a decoded one answers for it", () => {
   expect(isRejectedDecodedProjection(decoded)).toBe(true);
   expect(isRejectedDecodedProjection(intermediate)).toBe(true);
 });
+
+test("refusing a projection refuses others rebuilt from the same held bytes", () => {
+  const wire = encodeContainerWriterProjection(
+    containerProjection(),
+    new Set(["root"]),
+  );
+  // Bytes no other test in this file refuses.
+  const root = bundle("root");
+  const held = toServedAccessManifestBundle({
+    ...root,
+    event: { ...root.event, eventHash: "shared-held-bytes" },
+  });
+  const decode = () =>
+    decodeContainerWriterProjection(
+      jsonRoundTrip(wire),
+      new Map([["root", structuredClone(held)]]),
+    );
+  // Two reads, each with its own copy of the same held bundle.
+  const first = decode();
+  const second = decode();
+  if (!first || !second) throw new Error("projection did not decode");
+  expect(isRejectedDecodedProjection(second)).toBe(false);
+  rejectDecodedProjection(first);
+  expect(isRejectedDecodedProjection(second)).toBe(true);
+});
