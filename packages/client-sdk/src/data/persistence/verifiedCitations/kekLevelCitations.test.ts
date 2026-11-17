@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { computeContainerKekLevelDigest } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import type { ContainerKekWireLevel } from "@tearleads/validators/response";
+import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 import { eq } from "drizzle-orm";
 import { containerTables } from "../../sqlite/schema";
 import { containers } from "../../sqlite/schema/containerSchema";
@@ -23,12 +24,14 @@ function hash(index: number): string {
 
 function bundleEntry(manifestHash: string, objectId: string, epoch: number) {
   return {
-    bundle: {
+    // Stored as served; these test bundles name no object kind, so serving
+    // leaves their state as is.
+    bundle: toServedAccessManifestBundle({
       event: { body: { epoch }, event: { objectId }, eventHash: `e${epoch}` },
       manifest: { objectId, epoch },
       manifestHash,
       state: { epoch },
-    },
+    }),
     checkpoint: {
       objectKind: "container",
       organizationId: ORGANIZATION,

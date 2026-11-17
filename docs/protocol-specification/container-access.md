@@ -108,13 +108,32 @@ once, in a `bundles` map keyed by manifest hash. Every manifest position cites
 that map by hash: the container `path`, each KEK's `containerManifestHistory`,
 and, for documents, every authorizing path, `documentManifest`,
 `documentManifestHistory`, `documentContainerManifestHistory`, and each
-`documentManifestContainerPaths` row. Bundles are the stored bytes, so no signed
-bytes change. A cited hash without a bundle, a bundle stored under a key other
-than its own `manifestHash`, or a bundle nothing cites is a response-shape
-failure. The client resolves every citation to its own copy of the bundle
-before any cache or verifier sees the projection, then verifies the result,
-recomputing each cited manifest's hash before any position that cites it is
-trusted.
+`documentManifestContainerPaths` row. A served bundle is the stored signed
+event, body and manifest with a reduced `state`: the derived fields the
+bundle's own signed bytes name are left off, namely the version, object id,
+organization, epoch, predecessor and event hash the hash-committed manifest
+carries, and for a container the key epoch and public key its signed body
+carries. Exactly those fields are omitted. The state keeps every other field:
+a container's parent pin, metadata document, system slot, direct grants and
+principal heads, and a document's linked containers. The parent pin appears
+only in a create or move body and the others only as hashes in the manifest,
+so filling them back would need the predecessor chain; the principal heads,
+which every container manifest names in full, are kept as served state for
+now. No signed bytes change. A
+cited hash without a bundle, a bundle stored under a key other than its own
+`manifestHash`, or a bundle nothing cites is a response-shape failure. The
+client resolves every citation to its own copy of the bundle before any cache
+or verifier sees the projection and fills each omitted field back from that
+bundle's manifest and body; a served copy of such a field never overrides the
+signed one. The verifier then derives the state from the recursively verified
+predecessor and requires the completed state to equal it, recomputes each cited
+manifest's hash before any position that cites it is trusted, resolves a
+container's parent path from the parent pin its signed bodies name rather than
+the served state, and selects cited ancestors by the manifest's object id.
+Document purge proofs carry the full stored state: a purge may verify the
+document head as a hash-only snapshot. Clients built before this served shape
+cannot decode it; it ships as a greenfield flag day with no compatibility path
+(#2903).
 
 A projection GET may send `x-known-manifests`: up to 48 unique typed digests of
 bytes the device durably holds verified. `m:<hash>` names a manifest bundle by

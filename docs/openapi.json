@@ -2161,7 +2161,7 @@
               "type": "string"
             },
             "additionalProperties": {
-              "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+              "$ref": "#/components/schemas/ServedAccessManifestBundleWireResponse"
             },
             "description": "Signed manifest bundles keyed by manifest hash."
           },
@@ -4121,7 +4121,7 @@
               "type": "string"
             },
             "additionalProperties": {
-              "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+              "$ref": "#/components/schemas/ServedAccessManifestBundleWireResponse"
             },
             "description": "Signed manifest bundles keyed by manifest hash."
           },
@@ -11140,6 +11140,38 @@
         ],
         "additionalProperties": {},
         "description": "A page of RevenueCat deliveries that matched no organization or that the handler ignored."
+      },
+      "ServedAccessManifestBundleWireResponse": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/AccessEventBundleWireResponse"
+          },
+          "manifest": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
+          },
+          "manifestHash": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Hash of the canonical manifest; other responses cite the manifest by this value."
+          },
+          "state": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {},
+            "description": "The derived state without the fields the hash-committed manifest and, for a container, the signed body name in full (version, object id, organization, epoch, predecessor, event hash, key epoch and public key). It keeps a container's parent pin, metadata document, system slot, direct grants and referenced principal heads, and a document's linked containers."
+          }
+        },
+        "required": [
+          "event",
+          "manifest",
+          "manifestHash",
+          "state"
+        ],
+        "additionalProperties": {},
+        "description": "A signed access manifest with the event that produced it, as a writer projection serves it: the state omits what the bundle's own signed bytes name, which clients fill back from those bytes."
       },
       "SessionFailureResponse": {
         "type": "object",

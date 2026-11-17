@@ -4,8 +4,10 @@ import type {
   WriterProjectionTarget,
 } from "@tearleads/api-client";
 import { toFingerprint } from "@tearleads/crypto";
-import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import { KNOWN_MANIFEST_HINT_LIMIT } from "@tearleads/validators/util";
+import {
+  KNOWN_MANIFEST_HINT_LIMIT,
+  type ServedAccessManifestBundleWireResponse,
+} from "@tearleads/validators/util";
 import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { containerTables, localIntentTables } from "../sqlite/schema";
 import {
@@ -42,7 +44,8 @@ export const MAX_VERIFIED_MANIFEST_BUNDLES = 1024;
 const STATEMENT_BATCH = 200;
 
 interface VerifiedBundle {
-  readonly bundle: AccessManifestBundleWireResponse;
+  /** The served bytes; the decoded state is rebuilt from them on refill. */
+  readonly bundle: ServedAccessManifestBundleWireResponse;
   readonly checkpoint: {
     readonly objectKind: string;
     readonly organizationId: string;

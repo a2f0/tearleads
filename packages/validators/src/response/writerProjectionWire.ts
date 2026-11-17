@@ -1,4 +1,9 @@
-import type { AccessManifestBundleWireResponse } from "../util";
+import {
+  type AccessManifestBundleWireResponse,
+  completeServedAccessManifestBundle,
+  type ServedAccessManifestBundleWireResponse,
+  toServedAccessManifestBundle,
+} from "../util";
 import {
   type ContainerKekResponse,
   type ContainerKekWireLevel,
@@ -16,26 +21,29 @@ import {
 } from "./documentMutation";
 
 type Bundle = AccessManifestBundleWireResponse;
+type ServedBundle = ServedAccessManifestBundleWireResponse;
 type HeldLevels = ReadonlyMap<string, ContainerKekWireLevel>;
 
 /**
  * Collects each distinct manifest once. Every slot a server fills for one
  * hash comes from the same stored row, and the client verifies the bundle it
  * receives wherever that hash is cited, so the first occurrence stands. A
- * hash the request declared known is cited but not served.
+ * hash the request declared known is cited but not served. A served bundle's
+ * state leaves out what its own signed bytes name; decoding fills it back.
  */
 function bundleCitations(known: ReadonlySet<string>) {
-  const byHash = new Map<string, Bundle>();
+  const byHash = new Map<string, ServedBundle>();
   const omitted = new Set<string>();
   return {
     cite(bundle: Bundle): string {
       const hash = bundle.manifestHash;
       if (known.has(hash)) omitted.add(hash);
-      else if (!byHash.has(hash)) byHash.set(hash, bundle);
+      else if (!byHash.has(hash))
+        byHash.set(hash, toServedAccessManifestBundle(bundle));
       return hash;
     },
     // fromEntries defines own data properties, even for a "__proto__" key.
-    bundles: (): Record<string, Bundle> => Object.fromEntries(byHash),
+    bundles: (): Record<string, ServedBundle> => Object.fromEntries(byHash),
     omitted: (): string[] => [...omitted],
   };
 }
@@ -132,19 +140,25 @@ export function encodeDocumentWriterProjection(
 /**
  * Served bundles plus the exact held bytes for each omitted hash. An omission
  * the caller cannot fill from `held` (which carries only what its request
- * cited) makes the response unusable. Each cited position receives its own
+ * cited) makes the response unusable. Each bundle's state gets back the
+ * fields its own signed bytes name. Each cited position receives its own
  * copy, as when every slot carried its own JSON.
  */
 function bundleResolver(
-  bundles: Record<string, Bundle>,
+  bundles: Record<string, ServedBundle>,
   omittedBundles: readonly string[],
-  held: ReadonlyMap<string, Bundle>,
+  held: ReadonlyMap<string, ServedBundle>,
 ): ((hash: string) => Bundle) | null {
-  const byHash = new Map(Object.entries(bundles));
+  const byHash = new Map(
+    Object.entries(bundles).map(
+      ([hash, bundle]) =>
+        [hash, completeServedAccessManifestBundle(bundle)] as const,
+    ),
+  );
   for (const hash of omittedBundles) {
     const bundle = held.get(hash);
     if (bundle?.manifestHash !== hash) return null;
-    byHash.set(hash, bundle);
+    byHash.set(hash, completeServedAccessManifestBundle(bundle));
   }
   return (hash: string): Bundle => {
     const bundle = byHash.get(hash);
@@ -213,7 +227,7 @@ function decodeKeyingPath(
  */
 export function decodeContainerWriterProjection(
   value: unknown,
-  held: ReadonlyMap<string, Bundle> = new Map(),
+  held: ReadonlyMap<string, ServedBundle> = new Map(),
   heldLevels: HeldLevels = new Map(),
 ): ContainerWriterProjectionResponse | null {
   const parsed = ContainerWriterProjectionWireResponseSchema.safeParse(value);
@@ -231,7 +245,7 @@ export function decodeContainerWriterProjection(
 /** See {@link decodeContainerWriterProjection}. */
 export function decodeDocumentWriterProjection(
   value: unknown,
-  held: ReadonlyMap<string, Bundle> = new Map(),
+  held: ReadonlyMap<string, ServedBundle> = new Map(),
   heldLevels: HeldLevels = new Map(),
 ): DocumentWriterProjectionResponse | null {
   const parsed = DocumentWriterProjectionWireResponseSchema.safeParse(value);

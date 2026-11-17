@@ -5,6 +5,7 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { containerKekWireLevel } from "@tearleads/validators/response";
+import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 import { createAuthor } from "../../../../test/helpers/data/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
@@ -45,12 +46,13 @@ test("a verified projection's bundles and KEK levels become citable", async () =
       projection: fixture.projection,
       resolveUserKey: fixture.resolveUserKey,
     });
-    // Each verified level first, in its wire form, then the bundles.
+    // Each verified level first, in its wire form, then the bundles as
+    // served: the decoded state is rebuilt from them, never stored.
     expect(
       await loadVerifiedManifestCitations(database.execSql, target),
     ).toEqual([
       ...fixture.projection.containerKeks.map(containerKekWireLevel),
-      ...fixture.projection.path,
+      ...fixture.projection.path.map(toServedAccessManifestBundle),
     ]);
   } finally {
     database.close();
@@ -97,21 +99,261 @@ test("a cached hash never stores a later projection's different bytes", async ()
       resolveUserKey: fixture.resolveUserKey,
       verifiedByHash,
     });
-    // Same manifest hash, different bytes: the shared cache recognizes the
-    // hash, but these bytes were never verified.
-    const tampered = { ...leaf, state: { ...leaf.state, epoch: 99 } };
-    await verifyContainerWriterProjection({
-      execSql: second.execSql,
-      openPrincipalPolicyBundleReader,
-      projection: { ...fixture.projection, path: [tampered] },
-      resolveUserKey: fixture.resolveUserKey,
-      verifiedByHash,
-    }).catch(() => undefined);
+    // Same manifest hash, different signed bytes: the shared cache
+    // recognizes the hash, but these bytes were never verified, so they are
+    // verified afresh and refused.
+    const tampered = {
+      ...leaf,
+      event: {
+        ...leaf.event,
+        event: { ...leaf.event.event, signature: "AAAA" },
+      },
+    };
+    await expect(
+      verifyContainerWriterProjection({
+        execSql: second.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [tampered] },
+        resolveUserKey: fixture.resolveUserKey,
+        verifiedByHash,
+      }),
+    ).rejects.toMatchObject({ code: "signature_mismatch" });
     expect(
       await loadVerifiedManifestCitations(second.execSql, target),
-    ).not.toContainEqual(tampered);
+    ).not.toContainEqual(toServedAccessManifestBundle(tampered));
   } finally {
     first.close();
     second.close();
+  }
+});
+
+test("a cache hit still refuses a copy whose state differs", async () => {
+  const fixture = await createVerificationFixture();
+  const first = await createTestExecSql("verified-bundles-warm-first");
+  const second = await createTestExecSql("verified-bundles-warm-second");
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  const verifiedByHash = new Map();
+  try {
+    await verifyContainerWriterProjection({
+      execSql: first.execSql,
+      openPrincipalPolicyBundleReader,
+      projection: fixture.projection,
+      resolveUserKey: fixture.resolveUserKey,
+      verifiedByHash,
+    });
+    // Same hash and served bytes, warm cache, but a state field the served
+    // form leaves off (it is completed from the signed manifest) differs.
+    const repinned = { ...leaf, state: { ...leaf.state, epoch: 99 } };
+    await expect(
+      verifyContainerWriterProjection({
+        execSql: second.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [repinned] },
+        resolveUserKey: fixture.resolveUserKey,
+        verifiedByHash,
+      }),
+    ).rejects.toMatchObject({ code: "hash_mismatch" });
+  } finally {
+    first.close();
+    second.close();
+  }
+});
+
+test("a valid copy with different bytes verifies afresh from a warm cache", async () => {
+  const fixture = await createVerificationFixture();
+  const databases = await Promise.all(
+    ["primed", "variant", "repeat"].map((name) =>
+      createTestExecSql(`verified-bundles-${name}`),
+    ),
+  );
+  const [primed, variant, repeat] = databases;
+  const [leaf] = fixture.projection.path;
+  if (!leaf || !primed || !variant || !repeat) throw new Error("fixture");
+  // A field the event reader does not keep: a cold verification accepts it,
+  // so a cache primed with the original bytes must too, and must keep it.
+  const noted = {
+    ...leaf,
+    event: { ...leaf.event, event: { ...leaf.event.event, note: "kept" } },
+  };
+  const verifiedByHash = new Map();
+  const verify = (
+    database: { readonly execSql: typeof primed.execSql },
+    path: readonly (typeof leaf)[],
+  ) =>
+    verifyContainerWriterProjection({
+      execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
+      projection: { ...fixture.projection, path: [...path] },
+      resolveUserKey: fixture.resolveUserKey,
+      verifiedByHash,
+    });
+  try {
+    expect(await verify(primed, [leaf])).toHaveLength(1);
+    expect(await verify(variant, [noted])).toHaveLength(1);
+    expect(
+      await loadVerifiedManifestCitations(variant.execSql, target),
+    ).toContainEqual(toServedAccessManifestBundle(noted));
+    // The same bytes again are a cache hit.
+    expect(await verify(repeat, [noted])).toHaveLength(1);
+  } finally {
+    for (const database of databases) database.close();
+  }
+});
+
+test("a bundle changed while its signer resolves is refused and not stored", async () => {
+  const fixture = await createVerificationFixture();
+  const database = await createTestExecSql("verified-bundles-snapshot");
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  const live = structuredClone(leaf);
+  const original = toServedAccessManifestBundle(leaf);
+  try {
+    await expect(
+      verifyContainerWriterProjection({
+        execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [live] },
+        // The served object changes while verification awaits its signer:
+        // here the key a child would wrap its new key to.
+        resolveUserKey: async (userId) => {
+          Reflect.set(live.state, "containerKeyPublicKey", "substituted");
+          return fixture.resolveUserKey(userId);
+        },
+      }),
+    ).rejects.toMatchObject({ code: "hash_mismatch" });
+    const stored = await loadVerifiedManifestCitations(
+      database.execSql,
+      target,
+    );
+    expect(stored).not.toContainEqual(toServedAccessManifestBundle(live));
+    expect(stored).not.toContainEqual(original);
+  } finally {
+    database.close();
+  }
+});
+
+test("a warm hit's bundle cannot change during its checkpoint read", async () => {
+  const fixture = await createVerificationFixture();
+  const first = await createTestExecSql("verified-bundles-checkpoint-first");
+  const second = await createTestExecSql("verified-bundles-checkpoint-second");
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  const verifiedByHash = new Map();
+  const live = structuredClone(leaf);
+  const attempts: boolean[] = [];
+  try {
+    await verifyContainerWriterProjection({
+      execSql: first.execSql,
+      openPrincipalPolicyBundleReader,
+      projection: fixture.projection,
+      resolveUserKey: fixture.resolveUserKey,
+      verifiedByHash,
+    });
+    const execSql = new Proxy(second.execSql, {
+      apply(target, thisArg, args: unknown[]) {
+        if (attempts.length === 0 && String(args[0]).includes("checkpoint"))
+          attempts.push(
+            Reflect.set(live.state, "containerKeyPublicKey", "substituted"),
+          );
+        return Reflect.apply(target, thisArg, args);
+      },
+    });
+    expect(
+      await verifyContainerWriterProjection({
+        execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [live] },
+        resolveUserKey: fixture.resolveUserKey,
+        verifiedByHash,
+      }),
+    ).toHaveLength(1);
+    // The hit froze the copy it vouched for before the read awaited.
+    expect(attempts).toEqual([false]);
+    expect(live.state).toEqual(leaf.state);
+  } finally {
+    first.close();
+    second.close();
+  }
+});
+
+test("a bundle whose ignored fields cannot be serialized still verifies", async () => {
+  const fixture = await createVerificationFixture();
+  const database = await createTestExecSql("verified-bundles-unserializable");
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  const noted = {
+    ...leaf,
+    event: { ...leaf.event, event: { ...leaf.event.event, note: -0 } },
+  };
+  try {
+    expect(
+      await verifyContainerWriterProjection({
+        execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [noted] },
+        resolveUserKey: fixture.resolveUserKey,
+      }),
+    ).toHaveLength(1);
+    // Unrecorded, but still frozen as the copy verification accepted: the
+    // key a child would wrap to cannot change afterwards.
+    expect(Reflect.set(noted.state, "containerKeyPublicKey", "other")).toBe(
+      false,
+    );
+  } finally {
+    database.close();
+  }
+});
+
+test("an unrecorded bundle changed while its signer resolves is refused", async () => {
+  const fixture = await createVerificationFixture();
+  const database = await createTestExecSql(
+    "verified-bundles-unrecorded-change",
+  );
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  // An ignored field that cannot be serialized keeps the bytes unrecorded.
+  const live = structuredClone(leaf);
+  Reflect.set(live.event.event, "note", -0);
+  try {
+    await expect(
+      verifyContainerWriterProjection({
+        execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [live] },
+        resolveUserKey: async (userId) => {
+          Reflect.set(live.event.event, "signature", "AAAA");
+          return fixture.resolveUserKey(userId);
+        },
+      }),
+    ).rejects.toThrow("changed while it was verified");
+  } finally {
+    database.close();
+  }
+});
+
+test("verification compares the caller's bundle with the copy it verified", async () => {
+  const fixture = await createVerificationFixture();
+  const database = await createTestExecSql("verified-bundles-envelope-change");
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  const live = structuredClone(leaf);
+  try {
+    // The signature is checked before the signer lookup awaits, and no later
+    // step reads it again: only the comparison with the verified copy sees
+    // this change.
+    await expect(
+      verifyContainerWriterProjection({
+        execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [live] },
+        resolveUserKey: async (userId) => {
+          Reflect.set(live.event.event, "signature", "AAAA");
+          return fixture.resolveUserKey(userId);
+        },
+      }),
+    ).rejects.toThrow("changed while it was verified");
+  } finally {
+    database.close();
   }
 });

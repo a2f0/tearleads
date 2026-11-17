@@ -7,7 +7,6 @@ import {
   verifyContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import { readCanonicalRecord } from "../../keying/canonicalJson";
 import {
   assertCanonicalEqual,
   verifyAccessEventBundle,
@@ -17,10 +16,13 @@ import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
 } from "../checkpoints/manifestCheckpointVerification";
-import { recordVerifiedBundleBytes } from "../checkpoints/verifiedBundleBytes";
-import { readKeyingVerificationShape } from "../error";
+import {
+  assertUnchangedSinceVerification,
+  matchesVerifiedBundleBytes,
+  recordVerifiedBundleBytes,
+} from "../checkpoints/verifiedBundleBytes";
 import { collectReferencedPrincipalPolicies } from "../principalPolicy/principalPolicyVerification";
-import { readAccessManifest, readRecordNullableString } from "../readers";
+import { readAccessManifest } from "../readers";
 import type {
   PrincipalPolicyCache,
   ProjectionUserKeyResolver,
@@ -31,6 +33,11 @@ import {
   type CitedLineageInput,
   resolveCitedAncestorPath,
 } from "./containerAncestorCitations";
+import {
+  assertSignedContainerParentPin,
+  readContainerEventBodyParentReference,
+  readSignedContainerParentReference,
+} from "./containerSignedParentReference";
 
 async function collectManifestAuthorizationPolicies(input: {
   readonly authorizationEvidence: readonly PrincipalPolicyAuthorization[];
@@ -100,7 +107,11 @@ export async function verifyContainerManifestBundle(input: {
   const parentPath =
     await resolveContainerManifestVerificationParentPath(input);
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
-  if (cached) {
+  // A cache hit vouches for the bytes it verified: a copy that differs is
+  // verified afresh, so a warm cache neither vouches for bytes no
+  // verification saw nor refuses a copy a cold one would accept.
+  if (cached && matchesVerifiedBundleBytes(cached, input.bundle)) {
+    assertVerifiedState(input, cached);
     assertContainerParentPathMatches({
       label: input.label,
       parentPath,
@@ -113,6 +124,9 @@ export async function verifyContainerManifestBundle(input: {
         localCheckpoints: input.checkpointContext.localCheckpoints,
         verifiedManifests: input.verifiedByHash,
       });
+      // The caller reads this bundle on return, after the checkpoint read.
+      assertUnchangedSinceVerification(cached, input.bundle, input.label);
+      assertVerifiedState(input, cached);
     }
     return cached;
   }
@@ -138,9 +152,12 @@ export async function verifyContainerManifestBundle(input: {
 type CitedAncestorInput = Parameters<typeof verifyContainerManifestBundle>[0];
 
 async function verifyFreshContainerManifestBundle(
-  input: CitedAncestorInput,
+  served: CitedAncestorInput,
   parentPath: readonly VerifiedContainerAccessManifest[],
 ): Promise<VerifiedContainerAccessManifest> {
+  // Verify and record one copy taken before the first await, so the bytes
+  // recorded as verified are exactly the bytes verified.
+  const input = { ...served, bundle: structuredClone(served.bundle) };
   const event = await verifyAccessEventBundle(input);
   const manifest = readAccessManifest(
     input.bundle.manifest,
@@ -199,18 +216,30 @@ async function verifyFreshContainerManifestBundle(
     );
   }
 
-  assertCanonicalEqual({
-    actual: input.bundle.state,
-    expected: readKeyingCanonicalJson(
-      verified.value.state,
-      `${input.label} state`,
-    ),
-    label: `${input.label} state`,
-  });
+  assertSignedContainerParentPin(input, verified.value);
+  assertVerifiedState(input, verified.value);
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
   recordVerifiedBundleBytes(verified.value, input.bundle);
+  assertUnchangedSinceVerification(
+    verified.value,
+    served.bundle,
+    input.label,
+    input.bundle,
+  );
+  assertVerifiedState(served, verified.value);
 
   return verified.value;
+}
+
+function assertVerifiedState(
+  input: Pick<CitedAncestorInput, "bundle" | "label">,
+  verified: VerifiedContainerAccessManifest,
+): void {
+  assertCanonicalEqual({
+    actual: input.bundle.state,
+    expected: readKeyingCanonicalJson(verified.state, `${input.label} state`),
+    label: `${input.label} state`,
+  });
 }
 
 /**
@@ -345,48 +374,6 @@ function assertContainerParentPathMatches(input: {
   }
 }
 
-interface ContainerParentReference {
-  parentContainerId: string | null;
-  parentManifestHash: string | null;
-}
-
-function readParentReference(
-  value: unknown,
-  label: string,
-): ContainerParentReference {
-  return readKeyingVerificationShape(() => {
-    const record = readCanonicalRecord(value, label);
-
-    return {
-      parentContainerId: readRecordNullableString(
-        record,
-        "parentContainerId",
-        label,
-      ),
-      parentManifestHash: readRecordNullableString(
-        record,
-        "parentManifestHash",
-        label,
-      ),
-    };
-  });
-}
-
-function readContainerManifestParentReference(
-  bundle: AccessManifestBundleWireResponse,
-  label: string,
-): ContainerParentReference {
-  return readParentReference(bundle.state, `${label} state`);
-}
-
-/** The parent a create or move body pins, read from the signed body. */
-function readContainerEventBodyParentReference(
-  event: VerifiedContainerAccessManifest["event"],
-  label: string,
-): ContainerParentReference {
-  return readParentReference(event.body, `${label} event body`);
-}
-
 async function resolveContainerManifestVerificationParentPath(input: {
   readonly authorizationEvidence?:
     | readonly PrincipalPolicyAuthorization[]
@@ -397,16 +384,25 @@ async function resolveContainerManifestVerificationParentPath(input: {
   readonly label: string;
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
   readonly principalPolicyCache: PrincipalPolicyCache;
+  // Bundles whose parent this chain of pins is already resolving.
+  readonly resolvingParents?: Set<string> | undefined;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
 }): Promise<readonly VerifiedContainerAccessManifest[]> {
+  const resolvingParents = input.resolvingParents ?? new Set<string>();
+  if (resolvingParents.has(input.bundle.manifestHash)) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      `${input.label} parent pins form a cycle`,
+    );
+  }
   // Descendants keep the parent manifest hash they were created or moved under;
   // a later parent share/rekey must not require rewriting descendant manifests.
   const { parentContainerId, parentManifestHash } =
-    readContainerManifestParentReference(input.bundle, input.label);
+    readSignedContainerParentReference(input);
   if (parentContainerId === null || parentManifestHash === null) {
     return [];
   }
@@ -425,13 +421,18 @@ async function resolveContainerManifestVerificationParentPath(input: {
     return input.parentPath;
   }
 
-  const parentParentPath = await resolveContainerManifestVerificationParentPath(
-    {
+  resolvingParents.add(input.bundle.manifestHash);
+  let parentParentPath: readonly VerifiedContainerAccessManifest[];
+  try {
+    parentParentPath = await resolveContainerManifestVerificationParentPath({
       ...input,
       bundle: parentBundle,
       label: `${input.label} parent manifest`,
-    },
-  );
+      resolvingParents,
+    });
+  } finally {
+    resolvingParents.delete(input.bundle.manifestHash);
+  }
   const verifiedParent = await verifyContainerManifestBundle({
     ...input,
     bundle: parentBundle,
