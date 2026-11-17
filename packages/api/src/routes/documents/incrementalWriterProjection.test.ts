@@ -1,10 +1,6 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import {
-  ContainerMutationService,
-  createRemoteDocument,
-  syncRemoteDocument,
-} from "@tearleads/client-sdk";
+import { ContainerMutationService } from "@tearleads/client-sdk";
 import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   wrapContentKey,
@@ -26,6 +22,10 @@ import {
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
+import {
+  createSdkRemoteDocument as createRemoteDocument,
+  syncSdkRemoteDocument as syncRemoteDocument,
+} from "../../../test/helpers/sdkRemoteDocuments";
 import { withStoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
 

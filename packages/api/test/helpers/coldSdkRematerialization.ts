@@ -1,8 +1,6 @@
 import {
   buildMaterializedContainerRekeyPlan,
   cacheReferencedPrincipalPolicies,
-  createRemoteDocument,
-  syncRemoteDocument,
   validateDocumentSyncUpdateImports,
 } from "@tearleads/client-sdk";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -37,6 +35,10 @@ import {
   projectionRouteHistory,
   projectionRouteRequest,
 } from "./projectionRouteHistory";
+import {
+  createSdkRemoteDocument as createRemoteDocument,
+  syncSdkRemoteDocument as syncRemoteDocument,
+} from "./sdkRemoteDocuments";
 import {
   decodeServedContainerProjection,
   decodeServedDocumentProjection,

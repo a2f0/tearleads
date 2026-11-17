@@ -4,9 +4,9 @@ import type {
 } from "@tearleads/crypto";
 import { computeUserIdentityBundleFingerprint } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
+import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

@@ -1,4 +1,4 @@
-import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import { createRuntimeCurrentSharePrincipalPolicy } from "../../../organizations/groupShare";
 import type { ContainerWorkflowRuntime } from "../types";
 

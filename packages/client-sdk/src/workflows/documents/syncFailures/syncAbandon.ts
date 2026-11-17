@@ -1,12 +1,12 @@
 import type { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
-import type { SyncRemoteDocumentInput } from "../sync/readOnlySync";
+import type { RemoteDocumentSyncPass } from "../sync/remoteDocumentSyncPass";
 import { traceAncestorRepairAbandoned } from "../sync/syncTrace";
 import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
 
 /** The ways a sync pass gives up without failing: writes stay queued. */
 type AbandonedSyncInput = Pick<
-  SyncRemoteDocumentInput,
+  RemoteDocumentSyncPass,
   "documentId" | "onSyncAbandoned" | "onSyncTrace" | "onTerminalSubmitFailure"
 >;
 

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createUploadedAttachmentFixture } from "../../../../test/helpers/blobHydration";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { prepareDocumentLinkBlobRewraps } from "./linkSetBlobRewraps";
 
 // The API refuses a link unless every active binding is rewrapped, so a

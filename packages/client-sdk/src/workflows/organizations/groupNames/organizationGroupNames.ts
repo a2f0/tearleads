@@ -1,5 +1,5 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { OrganizationDirectoryAndGroups } from "../readModel";
 import { hydrateCurrentOrganizationGroupNames } from "./currentOrganizationGroupNames";
 import type { DirectoryGroupWalkInput } from "./groupNameUniqueness";

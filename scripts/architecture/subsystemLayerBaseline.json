@@ -64,9 +64,6 @@
     "packages/client-sdk/src/workflows/blobs/upload/index.ts",
     "packages/client-sdk/src/workflows/blobs/verification/attachmentKeyAuthenticator.ts"
   ],
-  "packages/client-sdk/src/data/keyingProjectionVerification/dependencyUnavailable.ts": [
-    "packages/client-sdk/src/data/trustedUserIdentity/apiAdapter.ts"
-  ],
   "packages/client-sdk/src/data/keyingProjectionVerification/error.ts": [
     "packages/client-sdk/src/client/identity/userIdentities.ts",
     "packages/client-sdk/src/client/securityIncidents/index.ts",

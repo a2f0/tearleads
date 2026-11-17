@@ -16,8 +16,8 @@ import type {
   MaterializedDocumentCreatePlan,
 } from "../../../data/documents/shared/types";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { nullOnProjectionVerificationCancellation } from "../../../data/keyingProjectionVerification/types";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { adoptExistingRemoteDocument } from "./createAdoption";
 import { documentWriterProjectionFromCreateResponse } from "./createProjection";

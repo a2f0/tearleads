@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
+import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { createRemoteDocument } from "./index";
 
 // A folder whose create has not settled can carry a listed identity that
 // adoption has not verified, or has refused. A document created in it would

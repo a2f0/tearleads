@@ -3,7 +3,7 @@ import {
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
-import { ProjectionDependencyUnavailableError } from "../dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import {
   assertProjectionVerificationCurrent,
   type ReferencedPrincipalPolicyWarmer,

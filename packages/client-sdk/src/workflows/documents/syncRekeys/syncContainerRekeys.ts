@@ -2,7 +2,7 @@ import type { DocumentWriterProjectionResponse } from "@tearleads/validators/res
 import type { MaterializedContainerRekeyPlan } from "../../../data/containers/shared/types";
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
-import type { SyncRemoteDocumentInput } from "../sync/readOnlySync";
+import type { RemoteDocumentSyncPass } from "../sync/remoteDocumentSyncPass";
 import { DocumentSyncPreparationRequiredError } from "../syncFailures/syncRepairAbandon";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 import { buildAutomaticContainerRekeys } from "./syncAutomaticContainerRekeys";
@@ -20,7 +20,7 @@ export async function buildRemoteDocumentSyncPlan(input: {
   pullCursor?: string | undefined;
   projection: DocumentWriterProjectionResponse;
   regenerateQueuedCheckpoints: boolean;
-  sync: SyncRemoteDocumentInput;
+  sync: RemoteDocumentSyncPass;
 }) {
   // Repairing this document's own container moves its key target hash, which
   // marks the content-key bundle stale. Only a pass that can build a rotation

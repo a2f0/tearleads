@@ -6,9 +6,9 @@ import {
   organizationHistoryPage,
 } from "../../../../test/helpers/organizationHistoryPage";
 import { organizationReadModelSnapshot } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { loadLocalOrganizationPolicyHistory } from "../readModel/localReadModelDetails";
 import {

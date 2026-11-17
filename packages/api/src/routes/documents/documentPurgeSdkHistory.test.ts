@@ -1,6 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import { syncRemoteDocument } from "@tearleads/client-sdk";
 import { createTestExecSql, createTestUser } from "@tearleads/test-utils";
 import {
   isDocumentLinkSetMutationResponse,
@@ -29,6 +28,7 @@ import {
 import { createPagedColdPolicyWarmer } from "../../../test/helpers/pagedColdPolicyWarmer";
 import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
+import { syncSdkRemoteDocument as syncRemoteDocument } from "../../../test/helpers/sdkRemoteDocuments";
 import { routeApp } from "../../routeApp";
 
 test("a fresh and then pinned SDK accepts API purge history with an old group-only citation", async () => {

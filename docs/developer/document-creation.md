@@ -31,9 +31,11 @@ persistence, or SDK workflow internals.
 
 ## Custom workflow hosts
 
-`createRemoteDocument` is a lower-level public workflow for hosts that supply
-the database executor, crypto and verification inputs, API ports, and
-persistence callbacks themselves. It constructs, submits, and acknowledges the
+`RemoteDocumentService.createRemoteDocument` is a lower-level public workflow
+for hosts that supply the database executor, crypto and verification inputs,
+API ports, and persistence callbacks themselves. The service binds the API
+client, executor, encapsulation secret key, and `isRemoteSyncBlocked`; each
+call carries the rest. It constructs, submits, and acknowledges the
 signed creation request. A non-null result is a verified creation or adoption
 of a previously committed create after a lost response. `null` means no result
 was adopted by this invocation; it does not establish whether the server
@@ -58,7 +60,8 @@ for the control flow and callback contract.
 material for a custom workflow. It does not submit or persist the document.
 Choose this only when the host owns those remaining steps.
 
-Both are [named exports](client-sdk/public-api.md#public-api-entry-points) of
+`RemoteDocumentService` and `buildMaterializedDocumentCreatePlan` are
+[named exports](client-sdk/public-api.md#public-api-entry-points) of
 `@tearleads/client-sdk`; use the package root rather than private
 [`src/`](../../packages/client-sdk/src/) paths. The
 [workflow contract](../../packages/client-sdk/src/workflows/README.md) describes

@@ -8,8 +8,8 @@ import {
   deletePersistedDocument,
   type ExecSql,
   type PendingUpdateRecord,
+  RemoteDocumentService,
   resolveDocumentCreateAuthor,
-  syncRemoteDocument,
   validateDocumentSyncUpdateImports,
 } from "../../../../workflows/documents";
 import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
@@ -139,8 +139,14 @@ function runRemoteDocumentSync(
   const runtime = state.runtime;
   const writerProjectionGenerationAtStart = state.writerProjectionGeneration;
   state.awaitingAncestorRepair = false;
-  return syncRemoteDocument({
-    apiClient: runtime.apiClient,
+  // The generation's API client and executor with the pass's key.
+  const remoteDocuments = new RemoteDocumentService({
+    api: runtime.apiClient,
+    encapsulationSecretKey: input.encapsulationKeyPair.secretKey,
+    execSql: runtime.infra.execSql,
+    isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
+  });
+  return remoteDocuments.syncRemoteDocument({
     author,
     // Heal a stale content-key bundle from this full-history snapshot. Rotation
     // settlement disables this: it may submit only the ordinary local stream.
@@ -151,8 +157,6 @@ function runRemoteDocumentSync(
             exportFullHistorySnapshot(currentDoc),
         }),
     documentId,
-    execSql: runtime.infra.execSql,
-    isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     onRemoteDocumentDeleted: ({ commitPurgeProof, documentId }) =>
@@ -202,7 +206,6 @@ function runRemoteDocumentSync(
       writerKeyLabel: "writer key",
     }),
     stillCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
-    targetSecretKey: input.encapsulationKeyPair.secretKey,
     validateIncomingUpdates: (result) =>
       validateDocumentSyncUpdateImports({
         currentDocument: currentDoc,

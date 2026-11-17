@@ -192,10 +192,41 @@ the author, ids, projection key resolver, policy warmer, `stillCurrent`, and
 `containers` service in place of `apiClient`, `execSql`,
 `encapsulationKeyPair`, and `reportSecurityIncident`.
 
+### Remote document service
+
+`RemoteDocumentService` replaces the free `syncRemoteDocument` and
+`createRemoteDocument` exports, and `SyncRemoteDocumentRequest` replaces
+`SyncRemoteDocumentInput`. Construct it from one runtime snapshot's
+collaborators, then call the methods of the same names with what varies per
+call:
+
+```ts
+const remoteDocuments = new RemoteDocumentService({
+  api: apiClient,
+  encapsulationSecretKey, // null until the identity has one
+  execSql,
+  isRemoteSyncBlocked, // optional organization gate
+});
+await remoteDocuments.syncRemoteDocument({
+  author,
+  documentId,
+  localVersionVector,
+  resolveProjectionUserKey,
+  resolveWriterPublicKey,
+  validateIncomingUpdates,
+});
+```
+
+Both methods throw when the service has no encapsulation secret key. Requests
+no longer accept `apiClient`, `execSql`, `targetSecretKey`, or
+`isRemoteSyncBlocked`; the author, ids, callbacks, `onSyncTrace`, projection
+key resolver, policy warmer, and `stillCurrent` stay per call.
+
 ### Sync and container recitation
 
-Loop `syncRemoteDocument(...)`; resume with `readPullContinuation(...)` and
-validate via `validateDocumentSyncUpdateImports(...)`. Inline callbacks pass
+Loop `remoteDocuments.syncRemoteDocument(...)`; resume with
+`readPullContinuation(...)` and validate via
+`validateDocumentSyncUpdateImports(...)`. Inline callbacks pass
 `verification` to `buildMaterializedContainerRekeyPlan(...)`, including
 chains; sync derives successor targets and coded retries. Preserve
 `KeyingVerificationError`; missing [raw-history](../../raw-document-history-recovery.md)

@@ -6,7 +6,7 @@ import {
 import { readPullContinuation } from "../../../../data/documents/shared/sync/syncPagination";
 import type {
   DocumentSyncPullContinuation,
-  syncRemoteDocument,
+  SyncRemoteDocumentResult,
 } from "../../../../workflows/documents";
 import { persistDocument } from "../persistence";
 import type { DocumentState, DocumentStoreState } from "../state";
@@ -29,7 +29,7 @@ export async function installRebuiltDocument(input: {
   generation: DocumentStoreSyncGeneration;
   rebuiltDoc: DocumentState;
   state: DocumentStoreState;
-  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
+  synced: SyncRemoteDocumentResult;
   /** `state.writerProjectionGeneration` when the recovery pull started. */
   writerProjectionGeneration: number;
 }): Promise<{

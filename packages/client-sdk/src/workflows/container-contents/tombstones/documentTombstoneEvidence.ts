@@ -4,11 +4,11 @@ import {
 } from "@tearleads/validators/response";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { reportKeyingVerificationErrorInCauseChain } from "../../../data/keyingProjectionVerification/error";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
 import type { DocumentPurgeCheckpoint } from "../../../data/persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import type {
