@@ -38,8 +38,8 @@ import type { ContainerSyncTombstoneReason } from "./shared";
  *   organization has one personal root container.
  * - `organizationId, systemSlot where systemSlot is not null` keeps each
  *   system slot unique per organization.
- * - `parentId` supports direct child lookups and move validation.
- * - `(parentId, updatedAt, id)` supports parent-container sync lanes.
+ * - `(parentId, updatedAt, id)` supports parent-container sync lanes, direct
+ *   child lookups, and move validation.
  * - `(organizationId, depth, updatedAt, id)` keeps depth indexed for tree
  *   traversal and depth-bounded maintenance.
  */
@@ -72,7 +72,6 @@ export const containers = pgTable(
       table.updatedAt,
       table.id,
     ),
-    index("containers_parent_depth_idx").on(table.parentId, table.depth),
   ],
 );
 
