@@ -6,7 +6,7 @@ import { readSignedContainerParentReference } from "./containerSignedParentRefer
 function bundle(
   manifestHash: string,
   previousManifestHash: string | null,
-  body: Record<string, unknown>,
+  body: { readonly eventType: string } & Record<string, unknown>,
 ): AccessManifestBundleWireResponse {
   return {
     event: {
