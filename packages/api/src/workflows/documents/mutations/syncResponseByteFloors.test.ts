@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import { Buffer } from "node:buffer";
 import { db } from "@tearleads/api-shared/postgres";
+import { documentContentWriteHeaders } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import { isDocumentCreateResponse } from "@tearleads/validators/response";
+import { inArray } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../../test/helpers/authenticate";
 import { withDocumentMutationArtifacts } from "../../../../test/helpers/documentAcknowledgementFixture";
@@ -64,10 +66,33 @@ test("served sync entries carry at least their byte floors plus only fixed-size 
     db,
     entries.map((entry) => String(Reflect.get(entry, "id"))),
   );
+  // A floor bounds what a page loads, which includes a target set the
+  // response omits because the client holds it; restore it before measuring.
+  const storedTargets = new Map(
+    (
+      await db
+        .select({
+          id: documentContentWriteHeaders.updateId,
+          targets: documentContentWriteHeaders.authorizationTargets,
+        })
+        .from(documentContentWriteHeaders)
+        .where(
+          inArray(
+            documentContentWriteHeaders.updateId,
+            entries.map((entry) => String(Reflect.get(entry, "id"))),
+          ),
+        )
+    ).map((row) => [row.id, row.targets]),
+  );
   const slack = entries.map((entry) => {
-    const floor = floors.get(String(Reflect.get(entry, "id")));
+    const id = String(Reflect.get(entry, "id"));
+    const floor = floors.get(id);
     invariant(floor !== undefined, "expected a floor for every served update");
-    return Buffer.byteLength(JSON.stringify(entry), "utf8") - floor;
+    const loaded =
+      "authorizationTargets" in entry
+        ? entry
+        : { ...entry, authorizationTargets: storedTargets.get(id) };
+    return Buffer.byteLength(JSON.stringify(loaded), "utf8") - floor;
   });
   expect(slack.length).toBeGreaterThanOrEqual(3);
   // What a floor leaves out is keys, ids, epochs, and timestamps: measured

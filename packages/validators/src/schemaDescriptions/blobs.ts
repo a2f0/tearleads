@@ -276,7 +276,8 @@ describeSchema(
     documentManifestHash:
       "Document link-set manifest head the binding was made under.",
     previousBindingId: "Binding this one replaced, or null.",
-    writeAuthorization: "Key targets the blob's write was authorized against.",
+    writeAuthorization:
+      "Key targets the blob's write was authorized against. Its `targets` are omitted when its `blobKeyTargetHash` equals `blobKekTargets.blobKeyTargetHash`; the reader refills them from `blobKekTargets.targets` and re-hashes them.",
     writeHeader: "The blob's signed write header.",
   },
 );

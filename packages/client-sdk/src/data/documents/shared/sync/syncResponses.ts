@@ -29,7 +29,10 @@ import type {
   PersistedDocumentSyncState,
 } from "../types";
 import type { DocumentSyncPlan } from "./documentSyncTypes";
-import { documentWriteAuthorizationForHeader } from "./syncResponseAuthorization";
+import {
+  authorizationTargetsForUpdate,
+  documentWriteAuthorizationForHeader,
+} from "./syncResponseAuthorization";
 import type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
 
 // Remote-primary databases without a portable WAL position use the zero LSN
@@ -234,7 +237,7 @@ async function assertDocumentSyncResponseWriteHeaderSignature(input: {
 
   const documentAuthorization = await documentWriteAuthorizationForHeader({
     allowMissingAuthorization: isAcceptedOutgoingSyncUpdate(plan, update),
-    authorizationTargets: update.authorizationTargets,
+    authorizationTargets: authorizationTargetsForUpdate(update, plan),
     dependencyManifestHashes: header.dependencyManifestHashes,
     contentKeyBundle: input.contentKeyBundle,
     manifestHash: header.accessManifestHash,

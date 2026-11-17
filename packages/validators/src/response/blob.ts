@@ -87,7 +87,7 @@ export type BlobContentKeyBundleResponse = z.infer<
   typeof BlobContentKeyBundleResponseSchema
 >;
 
-export const BlobKekTargetsResponseSchema = loosePlainObject({
+const blobKekTargetsShape = {
   activeBindingIds: arraySchema(z.string()),
   blobAccessManifestHash: z.string(),
   blobId: z.string(),
@@ -97,11 +97,24 @@ export const BlobKekTargetsResponseSchema = loosePlainObject({
   linkedContainerManifestHashes: arraySchema(z.string()),
   organizationId: z.string(),
   targets: arraySchema(plainObjectSchema),
-});
+};
+
+export const BlobKekTargetsResponseSchema =
+  loosePlainObject(blobKekTargetsShape);
 
 export type BlobKekTargetsResponse = z.infer<
   typeof BlobKekTargetsResponseSchema
 >;
+
+/**
+ * The target set a blob's write was authorized against. `targets` is omitted
+ * when `blobKeyTargetHash` equals the listing's current `blobKekTargets`
+ * hash: the reader refills it from that set and re-hashes it.
+ */
+const BlobWriteAuthorizationResponseSchema = loosePlainObject({
+  ...blobKekTargetsShape,
+  targets: arraySchema(plainObjectSchema).optional(),
+});
 
 export const BlobAttachmentSummarySchema = loosePlainObject({
   bindingEvent: AccessEventBundleWireResponseSchema,
@@ -112,7 +125,7 @@ export const BlobAttachmentSummarySchema = loosePlainObject({
   documentManifestHash: z.string(),
   previousBindingId: z.string().nullable(),
   slotId: z.string(),
-  writeAuthorization: BlobKekTargetsResponseSchema,
+  writeAuthorization: BlobWriteAuthorizationResponseSchema,
   writeHeader: plainObjectSchema,
 });
 
