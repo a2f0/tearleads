@@ -51,10 +51,11 @@ export async function oweContainerMetadataRead(
  * Requeue reads a previous run still owed for the containers now loaded, and
  * returns how many. A debt for a container no longer held is dropped: a
  * container that returns is re-attached without key bundles, so it is read
- * anyway.
+ * anyway. Work stops once `isCurrent` reports a replaced store or database.
  */
 export async function restoreOwedContainerMetadataReads(
   state: MetadataRevalidationState,
+  isCurrent: () => boolean,
 ): Promise<number> {
   const { execSql } = state.runtime.infra;
   const heldDocumentIds = new Set(
@@ -62,6 +63,7 @@ export async function restoreOwedContainerMetadataReads(
   );
   let restored = 0;
   for (const documentId of await listContainerMetadataRevalidations(execSql)) {
+    if (!isCurrent()) return restored;
     if (heldDocumentIds.has(documentId)) {
       queueMetadataRead(state, documentId);
       restored += 1;

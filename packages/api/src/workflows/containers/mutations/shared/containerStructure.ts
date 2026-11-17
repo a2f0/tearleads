@@ -205,7 +205,7 @@ export async function persistContainerStructure(
     destinationParent.depth,
   );
 
-  await executor.execute(sql`
+  const moved = await executor.execute(sql`
     with recursive subtree as (
       select
         ${containers.id} as id,
@@ -230,14 +230,26 @@ export async function persistContainerStructure(
         from subtree
         where subtree.id = ${containers.id}
       ),
-      updated_at = ${updatedAt}
+      updated_at = ${advancedTimestampExpression(containers.updatedAt, updatedAt)}
     where ${containers.id} in (select id from subtree)
+    returning
+      ${containers.id} as "id",
+      to_char(${containers.updatedAt}, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "updatedAt"
   `);
+  // Report the stored timestamp, which a trailing clock can leave later than
+  // this writer's.
+  const movedRow = moved.rows.find(
+    (row) => Reflect.get(row, "id") === state.containerId,
+  );
+  const storedUpdatedAt = movedRow ? Reflect.get(movedRow, "updatedAt") : null;
 
   return {
     ...container,
     depth: destinationParent.depth + 1,
     parentId: state.parentContainerId,
-    updatedAt,
+    updatedAt:
+      typeof storedUpdatedAt === "string"
+        ? new Date(storedUpdatedAt)
+        : updatedAt,
   };
 }

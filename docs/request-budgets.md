@@ -76,7 +76,7 @@ unless noted.
 | [`packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx`](../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx) | Upload one small image from Explorer | 6 | One document create, one multipart stage, one part upload, one attachment binding that carries the first content update and acknowledges its KEK targets by hash, no sync; one organization-policy read shared by the create and the bind's sync drain; no per-part authorization or stage-completion request; 38,000 request and 2,300 response bytes, plus the bytes of the one allowed root projection read when it happens |
 | [`DualPaneProvider.activePeerRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx) | An active peer reconciles an ungranted custom-group change | Exactly 4 | One read-model read, two organization-policy reads and one group-policy read; no container or document request and no Admins-policy read |
 | [`DeviceFirstOfflineRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DeviceFirstOfflineRequestVolume.test.tsx) | Offline folder create, cached note edit, and move to Trash | 0 each | After reconnect the queued create, link and unlink commit |
-| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged | 26 | Two user folders and two notes; fresh SDK and SQLite worker; no replayed writes |
+| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged | 28 | Two user folders and two notes; fresh SDK and SQLite worker; no replayed writes |
 | [`PaneReconnectRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx) | Reconnect without pending work / after one peer folder create | 25 / 33 | Disconnect costs zero; one WebSocket ticket and one memberships read each; no write-bearing syncs |
 
 [`DualPaneProvider.sidebarReloadBudget.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.sidebarReloadBudget.test.tsx)
@@ -169,15 +169,18 @@ be remeasured and documented when an optimization changes the baseline.
 | `GET /principals/organization/:organizationId/policy` | 2 | 3 | 5 |
 | `GET /principals/group/:groupId/policy` | 0 | 0 | 0 |
 | `GET /principals/history` | 1 | 0 | 0 |
-| `GET /containers/:containerId/writer-projection` | 3 | 1 | 2 |
+| `GET /containers/:containerId/writer-projection` | 5 | 1 | 2 |
 | `GET /documents/:documentId/writer-projection` | 3 | 3 | 4 |
 | `POST /documents/:documentId/sync` (all read-only) | 9 | 11 | 12 |
-| **Total** | **26** | **25** | **33** |
+| **Total** | **28** | **25** | **33** |
 
 Three of the syncs in each column are
 [owed container metadata reads](./client-sync-ordering.md#container-metadata-under-lost-hints):
 the setup wrote into Canary A, Canary B and Contacts after they were last
-listed, so the first re-list shows them changed (23, 22 and 30 before).
+listed, so the first re-list shows them changed. That re-list also starts every
+lane from its beginning; on restart, each held folder it lists drops its cached
+writer projection, which costs two more folder projection reads (23, 22 and 30
+before).
 
 Each canary also rejects data mutations and non-200 responses, checks for
 delayed follow-up traffic before other UI actions, and tears down the pane.

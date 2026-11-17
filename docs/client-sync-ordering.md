@@ -118,25 +118,29 @@ which the container tree listing reports. Recovery uses that:
 
 - Owing a read. When a listing shows a container this client already holds
   with an `updatedAt` later than the server timestamp it last recorded, the
-  container's metadata document is owed one read. Listing timestamps carry
-  three or six fractional digits and are compared at microseconds; a missing or
+  container's metadata document is owed one read. Timestamps are compared at
+  microseconds, whatever fraction width they arrive with; a missing or
   unreadable timestamp counts as changed.
-- Strictly advancing timestamps. The API advances a container's `updatedAt` to
-  the write time, or one microsecond past its stored value when that is not
-  later, so a write in the same millisecond, or on an instance whose clock
-  trails the last writer's, still moves it.
+- Strictly advancing timestamps. Every write that touches a container,
+  including each row of a moved subtree, advances its `updatedAt` to the write
+  time, or one millisecond past the stored value when that is not later. A
+  write in the same millisecond, or on an instance whose clock trails the last
+  writer's, therefore still moves the millisecond timestamp listings send.
 - Durability. Hydration queues the forced read in memory and then writes it to
   `container_metadata_revalidations`, before it records the new timestamp and
-  lane watermark. A restart that interrupts the read reloads the debt instead
-  of losing the evidence.
+  lane watermark. A store's first sync pass requeues what a previous run still
+  owed, so a restart that interrupts the read reloads the debt instead of
+  losing the evidence.
 - Settling. A completed sync pulls every update the client lacks, so it settles
   the debt, unless a newer signal queued the document while the read was in
   flight. A pass that resumes an earlier paginated pull reads only up to that
   pull's upper bound, so it settles nothing; a fresh pull afterwards does.
-- Coverage. Reconnect and restart re-list the root lane and every held lane, so
-  either one recovers a lost metadata hint. The forced read uses the stored
-  commit position as its floor, as a hint-forced read does, and never waits on
-  another device.
+- Coverage. Reconnect and restart re-list the root lane and every held lane
+  from its start, so either one recovers a lost metadata hint. A lane
+  watermark is not trusted here: a folder written by an instance with a
+  trailing clock can sort below the watermark a sibling set.
+- No-brick. The forced read uses the stored commit position as its floor, as
+  a hint-forced read does, and never waits on another device.
 
 The container timestamp also moves for writes to documents in the folder and
 for moves that touch it, and the listing cannot tell those apart from a

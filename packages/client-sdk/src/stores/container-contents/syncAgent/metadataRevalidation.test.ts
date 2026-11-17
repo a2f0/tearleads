@@ -55,7 +55,7 @@ test("an owed metadata read survives a restart until a read pays it", async () =
 
     // A new process starts with empty memory and requeues the debt.
     const after = storeState(execSql);
-    expect(await restoreOwedContainerMetadataReads(after)).toBe(1);
+    expect(await restoreOwedContainerMetadataReads(after, () => true)).toBe(1);
     expect([...after.metadataDocumentIdsNeedingSync]).toEqual(["metadata-1"]);
     expect(after.metadataSyncSignalSeqById.get("metadata-1")).toBe(1);
 
@@ -75,9 +75,9 @@ test("an owed metadata read survives a restart until a read pays it", async () =
       execSql,
     });
     expect(await listContainerMetadataRevalidations(execSql)).toEqual([]);
-    expect(await restoreOwedContainerMetadataReads(storeState(execSql))).toBe(
-      0,
-    );
+    expect(
+      await restoreOwedContainerMetadataReads(storeState(execSql), () => true),
+    ).toBe(0);
   } finally {
     close();
   }
@@ -89,8 +89,23 @@ test("startup drops a debt for a container it no longer holds", async () => {
     await oweContainerMetadataRead(storeState(execSql), "metadata-1");
     await oweContainerMetadataRead(storeState(execSql), "metadata-gone");
     const after = storeState(execSql);
-    expect(await restoreOwedContainerMetadataReads(after)).toBe(1);
+    expect(await restoreOwedContainerMetadataReads(after, () => true)).toBe(1);
     expect([...after.metadataDocumentIdsNeedingSync]).toEqual(["metadata-1"]);
+    expect(await listContainerMetadataRevalidations(execSql)).toEqual([
+      "metadata-1",
+    ]);
+  } finally {
+    close();
+  }
+});
+
+test("a restore that a store replacement overtakes queues nothing", async () => {
+  const { close, execSql } = await openDatabase();
+  try {
+    await oweContainerMetadataRead(storeState(execSql), "metadata-1");
+    const stale = storeState(execSql);
+    expect(await restoreOwedContainerMetadataReads(stale, () => false)).toBe(0);
+    expect([...stale.metadataDocumentIdsNeedingSync]).toEqual([]);
     expect(await listContainerMetadataRevalidations(execSql)).toEqual([
       "metadata-1",
     ]);

@@ -21,7 +21,10 @@ import {
 } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
 
-test("reconnect preserves child watermarks while an explicit refresh resets them", async () => {
+// The re-list after an acknowledged connection recovers hints lost while
+// disconnected, so it does not trust a child-lane watermark: a folder written
+// by an instance with a trailing clock can sort below one a sibling set.
+test("reconnect and an explicit refresh both list child lanes from the start", async () => {
   const { execSql, close } = await createTestExecSql("refresh-watermarks");
   const domainScope = createDomainScope();
   const childWatermarks: unknown[] = [];
@@ -68,11 +71,8 @@ test("reconnect preserves child watermarks while an explicit refresh resets them
       "Reconnect did not refresh child lane",
     );
     await waitForDomainSyncCoordinatorToSettle(domainScope);
-    expect(
-      childWatermarks.every(
-        (value) => JSON.stringify(value) === JSON.stringify(watermark),
-      ),
-    ).toBe(true);
+    expect(childWatermarks).toContain(null);
+    expect(childWatermarks).not.toContainEqual(watermark);
     childWatermarks.length = 0;
     await store.refresh();
     expect(childWatermarks).toContain(null);

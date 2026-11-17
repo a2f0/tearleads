@@ -21,13 +21,13 @@ local metadata version survive, and startup requeues the debt.
 | `PeerEdit` | a peer's accepted metadata write, which advances the container through `touchAcceptedSyncTargets` and `advancedTimestampExpression` and publishes a hint that reaches only connected, subscribed clients |
 | `OtherTouch` | `touchContainers` for a write into the folder, or `touchContainerStructure` for a structural move |
 | `Acknowledge` | `consumePendingContainerContentsReconnectRefresh` after the interest acknowledgement advances the connection generation |
-| `BeginListing` | `refreshAllRemoteHydration` re-listing the root lane and every held lane |
+| `BeginListing` | `refreshAllRemoteHydration` re-listing the root lane and every held lane from its start (`resetAllLaneWatermarks`) |
 | `OweListedRead` | `remoteContainerChangedSince` in `updateExistingRemoteContainerState`, then `oweContainerMetadataRead` and `requestContainerMetadataRevalidation` |
 | `RecordListedStamp` | the hydration write in `updateExistingRemoteContainerState` recording `serverUpdatedAt` and the lane watermark |
 | `BeginRead` | `syncSingleContainerMetadata` snapshotting the signal sequence before its forced read |
 | `ResumeRead` | a pass whose metadata record still holds a pull continuation (`currentMetadataPullContinuation`), reading up to an earlier pull's bound |
 | `FinishRead` | `clearMetadataSyncQueueIfUnchanged` and `settleOwedContainerMetadataRead` after the pull |
-| `Start` | `restoreOwedContainerMetadataReads` during store initialization |
+| `Start` | `restoreOwedContainerMetadataReads` on a store's first sync pass |
 
 `EvidenceRetained` requires that while the client is behind, something still
 obliges a read. That is a durable debt, a timestamp the next re-list will see
@@ -41,7 +41,8 @@ Five guards are parameters with registered negative controls:
 
 - `StrictTimestamps = FALSE` lets an edit leave the stored timestamp unchanged,
   as a write in the same millisecond or from an instance whose clock trails
-  would without `advancedTimestampExpression`, violating `EvidenceRetained`.
+  would without `advancedTimestampExpression`, which advances every touched
+  row by at least one millisecond, violating `EvidenceRetained`.
 - `SettleResumedPull = TRUE` lets a pass that resumed an earlier pull settle a
   debt for an edit past that pull's bound, violating `EvidenceRetained`.
 - `OweBeforeRecord = FALSE` records the listed timestamp before owing the read.

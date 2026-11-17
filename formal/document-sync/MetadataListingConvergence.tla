@@ -209,7 +209,7 @@ Crash ==
                  listedStamp, listChanged, recorded, owedDurable, seq,
                  localVer, readVer, readSeq, readResumed>>
 
-\* restoreOwedContainerMetadataReads during store initialization.
+\* restoreOwedContainerMetadataReads on a store's first sync pass.
 Start ==
   /\ ~up
   /\ up' = TRUE

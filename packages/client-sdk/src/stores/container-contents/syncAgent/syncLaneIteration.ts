@@ -1,3 +1,4 @@
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { syncPendingContainerCreateIntents } from "../../../workflows/container-contents/container-state/create/createIntentSync";
 import { syncPendingContainerMoveIntents } from "../../../workflows/container-contents/container-state/move/moveIntentSync";
 import {
@@ -22,7 +23,10 @@ import {
   recoverStoreStaleRoot,
 } from "../documentWork/documentRecovery";
 import { createAcceptedMoveRetry } from "./acceptedMoveRetry";
-import { settleOwedContainerMetadataRead } from "./metadataRevalidation";
+import {
+  restoreOwedContainerMetadataReads,
+  settleOwedContainerMetadataRead,
+} from "./metadataRevalidation";
 import {
   bumpMetadataSyncSeq,
   clearMetadataSyncQueueIfUnchanged,
@@ -160,11 +164,7 @@ async function syncSingleContainerMetadata(input: {
     input;
   const metadataDocumentId = containerState.record.documentId;
   const readExecSql = state.runtime.infra.execSql;
-  // A pass that resumes an earlier pull reads only up to that pull's upper
-  // bound, which can predate a signal raised since; it keeps the signal.
-  const resumesEarlierPull =
-    currentMetadataPullContinuation(containerState) !== null ||
-    containerState.record.pullContinuationRecoveryRequired === true;
+  const resumesEarlierPull = resumesEarlierMetadataPull(containerState);
   // Snapshot this signal before the GET so a mid-pass event survives clearing.
   const consumedSeqById = new Map<string, number>();
   if (typeof metadataDocumentId === "string") {
@@ -210,31 +210,107 @@ async function syncSingleContainerMetadata(input: {
     return;
   }
 
-  for (const id of new Set([metadataDocumentId, synced.record.documentId])) {
-    if (typeof id !== "string" || resumesEarlierPull) continue;
-    clearMetadataSyncQueueIfUnchanged({
-      consumedSeqById,
-      id,
-      needingSync: state.metadataDocumentIdsNeedingSync,
-      seqById: state.metadataSyncSignalSeqById,
-    });
-    // The sync pulled every update this client lacked, so a read a listing
-    // owed is paid unless a newer signal queued the document again.
-    if (!isCurrent()) return;
-    await settleOwedContainerMetadataRead(state, {
-      documentId: id,
-      execSql: readExecSql,
-    });
-  }
+  const stillCurrent = await settleConsumedMetadataSignals({
+    consumedSeqById,
+    documentIds: [metadataDocumentId, synced.record.documentId],
+    isCurrent,
+    readExecSql,
+    resumesEarlierPull,
+    state,
+  });
+  if (!stillCurrent) return;
   // syncContainerMetadataState settles its detached candidate into this live
   // object while preserving any metadata edit that completed or queued during
   // the remote pass. Do not install its returned detached record again here:
   // doing so would overwrite that preserved live edit.
   host.updateSnapshot();
 
-  if (synced.shouldRequestFollowupSync) {
+  // A resumed pull that kept an owed read hands it to a fresh pull next pass.
+  if (
+    synced.shouldRequestFollowupSync ||
+    (resumesEarlierPull && isQueuedForRead(state, metadataDocumentId))
+  ) {
     requestContainerContentsStoreSync(state);
   }
+}
+
+/**
+ * A pass that resumes an earlier pull reads only up to that pull's upper
+ * bound, which can predate a signal raised since.
+ */
+function resumesEarlierMetadataPull(containerState: ContainerState): boolean {
+  return (
+    currentMetadataPullContinuation(containerState) !== null ||
+    containerState.record.pullContinuationRecoveryRequired === true
+  );
+}
+
+function isQueuedForRead(
+  state: ContainerContentsStoreSyncState,
+  documentId: string | null | undefined,
+): boolean {
+  return (
+    typeof documentId === "string" &&
+    state.metadataDocumentIdsNeedingSync.has(documentId)
+  );
+}
+
+/**
+ * Clears the signals a completed metadata sync consumed and settles any read
+ * a listing owed: the sync pulled every update this client lacked, unless a
+ * newer signal queued the document again. A pass that resumed an earlier pull
+ * settles nothing. Returns false once the pass is no longer current.
+ */
+async function settleConsumedMetadataSignals(input: {
+  consumedSeqById: ReadonlyMap<string, number>;
+  documentIds: ReadonlyArray<string | null | undefined>;
+  isCurrent: () => boolean;
+  readExecSql: ExecSql;
+  resumesEarlierPull: boolean;
+  state: ContainerContentsStoreSyncState;
+}): Promise<boolean> {
+  if (input.resumesEarlierPull) return true;
+  for (const id of new Set(input.documentIds)) {
+    if (typeof id !== "string") continue;
+    clearMetadataSyncQueueIfUnchanged({
+      consumedSeqById: input.consumedSeqById,
+      id,
+      needingSync: input.state.metadataDocumentIdsNeedingSync,
+      seqById: input.state.metadataSyncSignalSeqById,
+    });
+    if (!input.isCurrent()) return false;
+    await settleOwedContainerMetadataRead(input.state, {
+      documentId: id,
+      execSql: input.readExecSql,
+    });
+  }
+  return true;
+}
+
+/**
+ * Syncs each held container's metadata, after requeueing reads a previous run
+ * still owed. Returns false once the pass is no longer current.
+ */
+async function syncEveryContainerMetadata(
+  input: Omit<
+    Parameters<typeof syncSingleContainerMetadata>[0],
+    "containerState"
+  > & {
+    isCreatePending: (containerId: string) => boolean;
+  },
+): Promise<boolean> {
+  const { isCurrent, state } = input;
+  if (!state.owedMetadataReadsRestored) {
+    await restoreOwedContainerMetadataReads(state, isCurrent);
+    if (!isCurrent()) return false;
+    state.owedMetadataReadsRestored = true;
+  }
+  for (const containerState of Array.from(state.containersById.values())) {
+    if (input.isCreatePending(containerState.container.id)) continue;
+    await syncSingleContainerMetadata({ ...input, containerState });
+    if (!isCurrent()) return false;
+  }
+  return true;
 }
 
 /**
@@ -325,17 +401,14 @@ export async function runContainerContentsStoreSyncIteration(
     requestContainerContentsStoreSync(state);
   }
 
-  for (const containerState of Array.from(state.containersById.values())) {
-    if (isCreatePending(containerState.container.id)) continue;
-    await syncSingleContainerMetadata({
-      ...input,
-      containerState,
-      encapsulationKeyPair,
-      isCurrent,
-    });
-    if (!isCurrent()) {
-      return;
-    }
+  const metadataSynced = await syncEveryContainerMetadata({
+    ...input,
+    encapsulationKeyPair,
+    isCreatePending,
+    isCurrent,
+  });
+  if (!metadataSynced) {
+    return;
   }
 
   // Root adoption notifies session consumers synchronously. Let container

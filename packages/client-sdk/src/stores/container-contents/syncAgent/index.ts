@@ -23,7 +23,6 @@ import { getContainerContentsStoreLogLabel } from "../logLabel";
 import { createRemoteContainerIngestionController } from "../remoteEvents/remoteContainerIngestion";
 import { handleContainerContentsRemoteEvents } from "../remoteEvents/remoteEventSync";
 import { consumePendingContainerContentsReconnectRefresh } from "../state";
-import { restoreOwedContainerMetadataReads } from "./metadataRevalidation";
 import type {
   ContainerContentsStoreSyncAgent,
   ContainerContentsStoreSyncState,
@@ -82,11 +81,6 @@ async function initializeContainerContentsStore(input: {
   for (const containerState of localContainerStates) {
     state.containersById.set(containerState.container.id, containerState);
   }
-  const owedMetadataReads = await restoreOwedContainerMetadataReads(state);
-  if (!isCurrent()) {
-    return;
-  }
-
   state.initialized = true;
 
   const shouldScheduleStaleRootRecovery =
@@ -129,7 +123,6 @@ async function initializeContainerContentsStore(input: {
     const hasStartupWork =
       shouldScheduleStaleRootRecovery ||
       hasPendingRestorationSweep ||
-      owedMetadataReads > 0 ||
       (await hasStartupContainerSyncWork(state));
     if (!isCurrent() || !hasStartupWork) {
       return;
@@ -146,7 +139,9 @@ async function initializeContainerContentsStore(input: {
 function waitForStaleLocalRefreshBeforeInitialization(input: {
   handleRemoteEvents: () => void;
   host: RemoteContainerHydrationHost;
-  refreshAfterReconnect: () => Promise<boolean>;
+  refreshAfterReconnect: (options: {
+    resetAllLaneWatermarks: true;
+  }) => Promise<boolean>;
   resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
@@ -185,7 +180,9 @@ function waitForStaleLocalRefreshBeforeInitialization(input: {
 function ensureContainerContentsStoreInitialized(input: {
   handleRemoteEvents: () => void;
   host: RemoteContainerHydrationHost;
-  refreshAfterReconnect: () => Promise<boolean>;
+  refreshAfterReconnect: (options: {
+    resetAllLaneWatermarks: true;
+  }) => Promise<boolean>;
   resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;

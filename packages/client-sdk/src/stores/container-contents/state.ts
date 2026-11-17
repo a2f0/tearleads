@@ -101,6 +101,7 @@ export function createContainerContentsStoreState(
     logLabel,
     metadataDocumentIdsNeedingSync: new Set(),
     metadataSyncSignalSeqById: new Map(),
+    owedMetadataReadsRestored: false,
     persistence,
     plannedMetadataDocumentIds: new Set(),
     remoteHydrationPromise: null,
@@ -171,6 +172,7 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.locallyAcceptedMetadataUpdateIds = new Set();
   state.metadataDocumentIdsNeedingSync = new Set();
   state.metadataSyncSignalSeqById = new Map();
+  state.owedMetadataReadsRestored = false;
   state.plannedMetadataDocumentIds = new Set();
   state.rootLaneHydrated = false;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);
@@ -290,16 +292,22 @@ export function updateContainerContentsStoreRuntime(
   }
 }
 
+/**
+ * The re-list after an acknowledged connection is how a hint lost while
+ * disconnected is recovered, so it lists every lane from its start: a folder
+ * whose timestamp moved can still sort below a lane watermark a sibling set,
+ * when the instance that wrote it had a trailing clock.
+ */
 export function consumePendingContainerContentsReconnectRefresh(
   state: {
     remoteReconnectRefreshPending: boolean;
     snapshot: { ready: boolean };
   },
-  refresh: () => Promise<boolean>,
+  refresh: (options: { resetAllLaneWatermarks: true }) => Promise<boolean>,
 ): void {
   if (!state.snapshot.ready || !state.remoteReconnectRefreshPending) return;
   state.remoteReconnectRefreshPending = false;
-  void refresh().then(
+  void refresh({ resetAllLaneWatermarks: true }).then(
     (refreshed) => {
       if (!refreshed) state.remoteReconnectRefreshPending = true;
     },

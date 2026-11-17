@@ -29,13 +29,13 @@ export function jsonByteFloorExpression(expression: SQLWrapper): SQL {
   return sql`octet_length(replace(replace(${expression}::text, ', ', ','), ': ', ':'))`;
 }
 
-// A timestamp column moved to `at`, or one microsecond past its stored value
+// A timestamp column moved to `at`, or one millisecond past its stored value
 // when `at` is not later: a write in the same millisecond, or on an instance
 // whose clock trails the one that last wrote the row. Every write therefore
-// advances the column strictly, so a client comparing listed timestamps or a
-// lane watermark sees each one.
+// advances the column strictly, by at least the millisecond that listings
+// report, so a client comparing listed timestamps sees each one.
 export function advancedTimestampExpression(column: SQLWrapper, at: Date): SQL {
-  return sql`greatest(${column} + interval '1 microsecond', ${at.toISOString()}::timestamp)`;
+  return sql`greatest(${column} + interval '1 millisecond', ${at.toISOString()}::timestamp)`;
 }
 
 // PostgreSQL now() is fixed at transaction start. Lifecycle deadlines that

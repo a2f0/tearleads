@@ -6,6 +6,7 @@ import invariant from "invariant";
 import { registerOrganization } from "../../../../../test/helpers/organizationPurge";
 import {
   compareSyncTimestamps,
+  syncItemTimestamp,
   syncTimestampExpression,
 } from "../../../../services/containers/syncTimestamp";
 import { touchContainers } from "./documentRows";
@@ -16,10 +17,11 @@ async function listedTimestamp(containerId: string): Promise<string> {
     .from(containers)
     .where(eq(containers.id, containerId));
   invariant(row, "expected the container");
-  return row.at;
+  // The millisecond form both listing endpoints send for an item.
+  return syncItemTimestamp(row.at);
 }
 
-test("every container touch strictly advances the timestamp a listing reports", async () => {
+test("every container touch strictly advances the millisecond timestamp a listing sends", async () => {
   const organizationId = await registerOrganization();
   const [container] = await db
     .select({ id: containers.id })
