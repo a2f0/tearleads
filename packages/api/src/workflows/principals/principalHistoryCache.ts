@@ -34,9 +34,8 @@ interface ProgressBuffer {
   readonly discarded: Map<string, string>;
   /**
    * Stored hints already read in this transaction, by scope and version
-   * bound. A transaction that reads hints never writes the hint table (writes
-   * are deferred to the root executor after commit; organization purge, which
-   * reads none, deletes them), so a repeat read could only differ by a
+   * bound. Transactions never write the hint table (writes are deferred to
+   * the root executor after commit), so a repeat read could only differ by a
    * hint another transaction committed meanwhile. Hints are untrusted and are
    * restored and finished on every use, so reuse changes at most how much
    * history is re-walked.
