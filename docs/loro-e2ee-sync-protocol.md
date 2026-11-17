@@ -398,9 +398,9 @@ If an attachment mutation succeeds:
 - requested binding replacements/detaches are persisted
 - when no active binding references a blob, the mutation stamps
   `dereferencedAt` and starts the garbage-collection grace period
-- a bind during the grace period revives the blob; otherwise GC locks and
-  rechecks it before pruning the live row, content-key material, write header,
-  and detached bindings
+- a bind during the grace period revives the blob; otherwise GC locks it (with
+  the rest of its batch, in id order) and rechecks it before pruning the live
+  row, content-key material, write header, and detached bindings
 - `blob_audit_objects` retains the storage key as durable physical-object
   deletion work until maintenance records a successful deletion
 - affected blob key targets are recomputed and persisted

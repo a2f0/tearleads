@@ -25,11 +25,15 @@ When a signed attachment mutation deactivates an
   content-key material remain live
 - if no active binding references the old blob, the same transaction stamps
   `blobs.dereferencedAt`, starting the garbage-collection grace period
-- after the grace period, GC locks the blob and rechecks active reachability; a
-  rebind revives it, otherwise GC prunes the blob row, blob content-key epochs,
-  blob content-key target rows,
+- after the grace period, GC locks a batch of up to 500 candidate blobs in id
+  order (the order every blob-row lock follows) and then rechecks active
+  reachability; a rebind revives a blob, otherwise GC prunes the blob row, blob
+  content-key epochs, blob content-key target rows,
   [write headers](./glossary/content.md#signed-write-header), and detached
-  binding rows
+  binding rows for the whole batch in one transaction
+- a blob whose registry metadata does not match its live row is left in place
+  without blocking the rest of its batch; when a batch transaction fails, GC
+  retries each of its candidates in its own transaction
 - a failed live-state reclaim records `blobs.reclaimAttemptedAt`; maintenance
   reserves capacity for new work and retries without changing the original
   `dereferencedAt` lifecycle timestamp
