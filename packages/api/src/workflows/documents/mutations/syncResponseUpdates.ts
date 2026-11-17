@@ -250,7 +250,7 @@ export async function listMissingSyncUpdateEntries(input: {
         minLsn: input.minLsn,
       });
   // A page already fits its response byte floors, which count each entry's
-  // write header and checkpoint, so its write headers
+  // write header, authorization targets, and checkpoint, so its write headers
   // load as one set. An unpaged listing has no such bound. Checkpoints ride on
   // the update rows.
   const pageWriteHeaders = page?.writeHeaders;

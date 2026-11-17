@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
+import { signWriteHeader } from "@tearleads/crypto";
 import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import {
   createFixtureBinding,
   createUploadedAttachmentFixture,
 } from "../../../../test/helpers/workflows/blobHydration";
+import { readWriteHeader } from "../../../data/documents/shared/readers";
 
 async function decryptWith(
   fixture: Awaited<ReturnType<typeof createUploadedAttachmentFixture>>,
@@ -53,14 +55,20 @@ test("an omitted write target set behind another hash fails closed", async () =>
   ).rejects.toThrow("Attachment blob write authorization lacks its targets");
 });
 
-test("a refilled target set the signed hash does not cover fails closed", async () => {
+test("a refilled target set the signed header does not commit to fails closed", async () => {
   const fixture = await createUploadedAttachmentFixture();
   const binding = withoutWriteTargets(createFixtureBinding(fixture));
-  // The current set claims the write's hash but lists other targets.
+  // The writer signs a header committing to another target hash; the listing
+  // still claims the write's hash matches the current set.
+  const { signature: _signature, ...unsigned } = readWriteHeader(
+    binding.writeHeader,
+    "Uploaded blob write header",
+  );
+  const writeHeader = await signWriteHeader(
+    { ...unsigned, targetHash: "f".repeat(64) },
+    fixture.author.signerPrivateKey,
+  );
   await expect(
-    decryptWith(fixture, {
-      ...binding,
-      blobKekTargets: { ...binding.blobKekTargets, targets: [] },
-    }),
-  ).rejects.toThrow();
+    decryptWith(fixture, { ...binding, writeHeader: { ...writeHeader } }),
+  ).rejects.toThrow("write header target hash does not match expected hash");
 });

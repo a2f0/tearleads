@@ -16,7 +16,10 @@ import {
 import { verifyDocumentWriterProjectionAuthorization } from "../../../keyingProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../../../persistence/principalPolicy/principalPolicyBundleRepository";
-import { documentWriteAuthorizationForHeader } from "./syncResponseAuthorization";
+import {
+  authorizationTargetsForUpdate,
+  documentWriteAuthorizationForHeader,
+} from "./syncResponseAuthorization";
 
 test("a new-to-device document head and its historical write retain cited ancestor authority", async () => {
   const scenario = await createScenario();
@@ -137,6 +140,38 @@ test("a new-to-device document head and its historical write retain cited ancest
       targetHash,
     });
     if (!authorization) throw new Error("Expected historical authorization");
+    // An update served without its target set is refilled from the bundle
+    // this sync expected; it authorizes only a header committing to that set.
+    const plan = {
+      documentId,
+      documentWriterAuthorization: source,
+      organizationId,
+      sourceContentKeyBundle: contentKeyBundle,
+    };
+    const refilled = authorizationTargetsForUpdate({}, plan);
+    const refilledInput = {
+      allowMissingAuthorization: false,
+      authorizationTargets: refilled,
+      contentKeyBundle,
+      dependencyManifestHashes: [
+        root1.manifestHash,
+        child1.manifestHash,
+      ].sort(),
+      manifestHash: document.manifestHash,
+      plan,
+    };
+    expect(
+      await documentWriteAuthorizationForHeader({
+        ...refilledInput,
+        targetHash,
+      }),
+    ).toEqual(authorization);
+    await expect(
+      documentWriteAuthorizationForHeader({
+        ...refilledInput,
+        targetHash: "a-target-hash-the-sync-did-not-expect",
+      }),
+    ).rejects.toThrow("write targets are not canonical");
     expect(
       authorization.authorizingContainerPaths
         .find((path) => path.at(-1)?.manifestHash === child1.manifestHash)

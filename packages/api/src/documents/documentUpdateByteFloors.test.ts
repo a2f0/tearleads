@@ -130,9 +130,10 @@ test("response byte floors count the UTF-8 bytes of every variable-size part", a
     ]),
   ).toEqual(
     new Map([
-      // Authorization targets are left out: the response omits a set the
-      // client already holds, so they are no lower bound.
-      [ordinary.id, stringBytes + jsonBytes(header)],
+      [
+        ordinary.id,
+        stringBytes + jsonBytes(header) + jsonBytes(authorizationTargets),
+      ],
       [checkpoint.id, stringBytes + bytes(sourceVersionVector)],
     ]),
   );
@@ -150,6 +151,13 @@ const largeParts = {
       authorizationTargets: [],
       documentId,
       header: { writerDeviceId: "d".repeat(4_096) },
+      updateId: id,
+    }),
+  "authorization target list": (documentId: string, id: string) =>
+    storeWriteHeader({
+      authorizationTargets: [{ containerId: "c".repeat(4_096) }],
+      documentId,
+      header: {},
       updateId: id,
     }),
 };
