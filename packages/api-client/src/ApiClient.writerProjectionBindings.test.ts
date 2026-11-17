@@ -55,7 +55,6 @@ function relabeledContainerProjection(
       {
         ...leaf,
         manifest: { ...leaf.manifest, objectId: id },
-        state: { ...leaf.state, containerId: id },
       },
     ],
   };
@@ -73,7 +72,6 @@ function relabeledDocumentProjection(
     documentManifest: {
       ...projection.documentManifest,
       manifest: { ...projection.documentManifest.manifest, objectId: id },
-      state: { ...projection.documentManifest.state, documentId: id },
     },
   };
 }
@@ -122,9 +120,11 @@ testApiClient(
         ...relabeled,
         path: [{ ...leaf, manifest: substituted.path[0]?.manifest ?? {} }],
       },
-      "leaf state containerId": {
+      "leaf manifest objectKind": {
         ...relabeled,
-        path: [{ ...leaf, state: substituted.path[0]?.state ?? {} }],
+        path: [
+          { ...leaf, manifest: { ...leaf.manifest, objectKind: "document" } },
+        ],
       },
       "leaf KEK containerId": {
         ...relabeled,
@@ -209,11 +209,14 @@ testApiClient(
           manifest: substituted.documentManifest.manifest,
         },
       },
-      "manifest state documentId": {
+      "manifest objectKind": {
         ...relabeled,
         documentManifest: {
           ...relabeled.documentManifest,
-          state: substituted.documentManifest.state,
+          manifest: {
+            ...relabeled.documentManifest.manifest,
+            objectKind: "container",
+          },
         },
       },
       "KEK targets documentId": {

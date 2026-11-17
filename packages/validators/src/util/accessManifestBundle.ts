@@ -38,6 +38,39 @@ export type AccessManifestBundleWireResponse = z.infer<
   typeof AccessManifestBundleWireResponseSchema
 >;
 
+/**
+ * A bundle as a writer projection serves it: the signed event and the
+ * manifest, without the derived state. The client rebuilds the state from
+ * the signed bodies along the served predecessor chain when it decodes the
+ * projection, and the verifier requires it to equal the state it derives.
+ */
+export const ServedAccessManifestBundleWireResponseSchema = loosePlainObject({
+  event: AccessEventBundleWireResponseSchema,
+  manifest: plainObjectSchema,
+  manifestHash: nonEmptyStringSchema,
+});
+
+export type ServedAccessManifestBundleWireResponse = z.infer<
+  typeof ServedAccessManifestBundleWireResponseSchema
+>;
+
+/** Every field a projection serves: the bundle without its derived state. */
+export function toServedAccessManifestBundle(
+  bundle: ServedAccessManifestBundleWireResponse,
+): ServedAccessManifestBundleWireResponse {
+  return {
+    event: bundle.event,
+    manifest: bundle.manifest,
+    manifestHash: bundle.manifestHash,
+  };
+}
+
+export function isServedAccessManifestBundleWireResponse(
+  value: unknown,
+): value is ServedAccessManifestBundleWireResponse {
+  return ServedAccessManifestBundleWireResponseSchema.safeParse(value).success;
+}
+
 export function isAccessEventBundleWireResponse(
   value: unknown,
 ): value is AccessEventBundleWireResponse {

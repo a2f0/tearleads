@@ -1,13 +1,14 @@
 import { computeContainerKekLevelDigest } from "@tearleads/crypto";
 import {
-  type AccessManifestBundleWireResponse,
   type ContainerKekWireLevel,
-  isAccessManifestBundleWireResponse,
   isContainerKekWireLevel,
 } from "@tearleads/validators/response";
 import {
+  isServedAccessManifestBundleWireResponse,
   isSha256HexString,
   KNOWN_MANIFEST_HINT_LIMIT,
+  type ServedAccessManifestBundleWireResponse,
+  toServedAccessManifestBundle,
 } from "@tearleads/validators/util";
 
 /** Citation only saves bytes: a source slower than this sends the read uncited. */
@@ -30,7 +31,7 @@ export interface WriterProjectionTarget {
 
 /** A held access-manifest bundle or a held container KEK level. */
 export type HeldProjectionCitation =
-  | AccessManifestBundleWireResponse
+  | ServedAccessManifestBundleWireResponse
   | ContainerKekWireLevel;
 
 /**
@@ -48,7 +49,7 @@ export interface VerifiedManifestCitations {
 
 /** The exact bytes one request cites: bundles by hash, levels by digest. */
 export interface HeldProjectionCitations {
-  readonly bundles: Map<string, AccessManifestBundleWireResponse>;
+  readonly bundles: Map<string, ServedAccessManifestBundleWireResponse>;
   readonly kekLevels: Map<string, ContainerKekWireLevel>;
 }
 
@@ -100,11 +101,14 @@ async function prepareHeldCitations(
     try {
       if (isContainerKekWireLevel(entry)) levels.push(structuredClone(entry));
       else if (
-        isAccessManifestBundleWireResponse(entry) &&
+        isServedAccessManifestBundleWireResponse(entry) &&
         isSha256HexString(entry.manifestHash) &&
         !held.bundles.has(entry.manifestHash)
       )
-        held.bundles.set(entry.manifestHash, structuredClone(entry));
+        held.bundles.set(
+          entry.manifestHash,
+          structuredClone(toServedAccessManifestBundle(entry)),
+        );
     } catch {
       // An uncloneable entry is skipped; its bytes simply travel.
     }

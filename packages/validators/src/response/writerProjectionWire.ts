@@ -1,4 +1,8 @@
-import type { AccessManifestBundleWireResponse } from "../util";
+import {
+  type AccessManifestBundleWireResponse,
+  type ServedAccessManifestBundleWireResponse,
+  toServedAccessManifestBundle,
+} from "../util";
 import {
   type ContainerKekResponse,
   type ContainerKekWireLevel,
@@ -16,26 +20,47 @@ import {
 } from "./documentMutation";
 
 type Bundle = AccessManifestBundleWireResponse;
+type ServedBundle = ServedAccessManifestBundleWireResponse;
 type HeldLevels = ReadonlyMap<string, ContainerKekWireLevel>;
+
+/**
+ * Rebuilds the derived state of every served bundle from the signed bodies
+ * along its served predecessor chain; null for a bundle it cannot rebuild.
+ * The client supplies it, because the rule lives with the verifier.
+ */
+export type ManifestStateReconstructor = (
+  bundles: ReadonlyMap<string, ServedBundle>,
+) => ReadonlyMap<string, Record<string, unknown> | null>;
+
+/** What a client decodes a writer projection with. */
+export interface WriterProjectionDecoding {
+  /** Exact held bytes for each hash the request cited as held. */
+  readonly held?: ReadonlyMap<string, ServedBundle> | undefined;
+  /** Exact held KEK levels by the digest the request cited. */
+  readonly heldLevels?: HeldLevels | undefined;
+  readonly reconstructStates: ManifestStateReconstructor;
+}
 
 /**
  * Collects each distinct manifest once. Every slot a server fills for one
  * hash comes from the same stored row, and the client verifies the bundle it
  * receives wherever that hash is cited, so the first occurrence stands. A
- * hash the request declared known is cited but not served.
+ * hash the request declared known is cited but not served. A served bundle
+ * carries no derived state: the client rebuilds it from the signed bodies.
  */
 function bundleCitations(known: ReadonlySet<string>) {
-  const byHash = new Map<string, Bundle>();
+  const byHash = new Map<string, ServedBundle>();
   const omitted = new Set<string>();
   return {
     cite(bundle: Bundle): string {
       const hash = bundle.manifestHash;
       if (known.has(hash)) omitted.add(hash);
-      else if (!byHash.has(hash)) byHash.set(hash, bundle);
+      else if (!byHash.has(hash))
+        byHash.set(hash, toServedAccessManifestBundle(bundle));
       return hash;
     },
     // fromEntries defines own data properties, even for a "__proto__" key.
-    bundles: (): Record<string, Bundle> => Object.fromEntries(byHash),
+    bundles: (): Record<string, ServedBundle> => Object.fromEntries(byHash),
     omitted: (): string[] => [...omitted],
   };
 }
@@ -132,26 +157,30 @@ export function encodeDocumentWriterProjection(
 /**
  * Served bundles plus the exact held bytes for each omitted hash. An omission
  * the caller cannot fill from `held` (which carries only what its request
- * cited) makes the response unusable. Each cited position receives its own
- * copy, as when every slot carried its own JSON.
+ * cited) makes the response unusable. Each bundle gets the state rebuilt
+ * from the signed chain; one that cannot be rebuilt gets an empty state,
+ * which every reader and the verifier refuse as they would a malformed one.
+ * Each cited position receives its own copy, as when every slot carried its
+ * own JSON.
  */
 function bundleResolver(
-  bundles: Record<string, Bundle>,
+  bundles: Record<string, ServedBundle>,
   omittedBundles: readonly string[],
-  held: ReadonlyMap<string, Bundle>,
+  decoding: WriterProjectionDecoding,
 ): ((hash: string) => Bundle) | null {
   const byHash = new Map(Object.entries(bundles));
   for (const hash of omittedBundles) {
-    const bundle = held.get(hash);
+    const bundle = decoding.held?.get(hash);
     if (bundle?.manifestHash !== hash) return null;
-    byHash.set(hash, bundle);
+    byHash.set(hash, toServedAccessManifestBundle(bundle));
   }
+  const states = decoding.reconstructStates(byHash);
   return (hash: string): Bundle => {
     const bundle = byHash.get(hash);
     if (!bundle) {
       throw new Error(`manifest ${hash} is cited without a bundle`);
     }
-    return structuredClone(bundle);
+    return structuredClone({ ...bundle, state: states.get(hash) ?? {} });
   };
 }
 
@@ -213,17 +242,16 @@ function decodeKeyingPath(
  */
 export function decodeContainerWriterProjection(
   value: unknown,
-  held: ReadonlyMap<string, Bundle> = new Map(),
-  heldLevels: HeldLevels = new Map(),
+  decoding: WriterProjectionDecoding,
 ): ContainerWriterProjectionResponse | null {
   const parsed = ContainerWriterProjectionWireResponseSchema.safeParse(value);
   if (!parsed.success) {
     return null;
   }
   const { bundles, omittedBundles, ...projection } = parsed.data;
-  const resolve = bundleResolver(bundles, omittedBundles, held);
+  const resolve = bundleResolver(bundles, omittedBundles, decoding);
   const path = resolve
-    ? decodeKeyingPath(projection, resolve, heldLevels)
+    ? decodeKeyingPath(projection, resolve, decoding.heldLevels ?? new Map())
     : null;
   return path ? { ...projection, ...path } : null;
 }
@@ -231,18 +259,18 @@ export function decodeContainerWriterProjection(
 /** See {@link decodeContainerWriterProjection}. */
 export function decodeDocumentWriterProjection(
   value: unknown,
-  held: ReadonlyMap<string, Bundle> = new Map(),
-  heldLevels: HeldLevels = new Map(),
+  decoding: WriterProjectionDecoding,
 ): DocumentWriterProjectionResponse | null {
   const parsed = DocumentWriterProjectionWireResponseSchema.safeParse(value);
   if (!parsed.success) {
     return null;
   }
   const { bundles, omittedBundles, ...projection } = parsed.data;
-  const resolve = bundleResolver(bundles, omittedBundles, held);
+  const resolve = bundleResolver(bundles, omittedBundles, decoding);
   if (!resolve) {
     return null;
   }
+  const heldLevels = decoding.heldLevels ?? new Map();
   const authorizingContainerPaths: ContainerKeyingPathResponse[] = [];
   for (const path of projection.authorizingContainerPaths) {
     const decoded = decodeKeyingPath(path, resolve, heldLevels);

@@ -10,6 +10,7 @@ import { formatKnownManifestHints } from "@tearleads/validators/util";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
 import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
+import { reconstructServedManifestStates } from "./servedManifestStates";
 import type {
   OperationRequestFn,
   OperationRequestResultFn,
@@ -60,13 +61,18 @@ function readProjection<T>(
   context: PrincipalHistoryRequestContext,
 ): Promise<RequestResult<T>> {
   const container = input.kind === "container";
+  const decoding = {
+    held: held.bundles,
+    heldLevels: held.kekLevels,
+    reconstructStates: reconstructServedManifestStates,
+  };
   return principalHistoryRequest(runtime, {
     path: input.path,
     validator: input.validator,
     decode: (value) =>
       container
-        ? decodeContainerWriterProjection(value, held.bundles, held.kekLevels)
-        : decodeDocumentWriterProjection(value, held.bundles, held.kekLevels),
+        ? decodeContainerWriterProjection(value, decoding)
+        : decodeDocumentWriterProjection(value, decoding),
     method: "GET",
     context,
     operation: container
@@ -79,8 +85,9 @@ function readProjection<T>(
  * Preparation and body deadlines sit inside the projection read. The wire
  * cites each manifest bundle by hash and may cite a held KEK level by digest;
  * decoding resolves every citation, from the response or from the exact bytes
- * this request declared held, before any validator, cache, or verifier sees
- * the projection. A response this device
+ * this request declared held, and rebuilds each bundle's derived state from
+ * the signed chain, before any validator, cache, or verifier sees the
+ * projection. A response this device
  * cannot rebuild fails closed into one complete, hint-free refetch.
  */
 async function citedProjectionRead<T>(

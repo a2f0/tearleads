@@ -1,5 +1,8 @@
 import type { VerifiedAccessEvent } from "./accessEventTypes";
-import { normalizeContainerAccessManifestState } from "./containerAccessState";
+import {
+  type ContainerAccessPredecessorState,
+  containerAccessStateAfterEvent,
+} from "./containerAccessSuccessor";
 import type {
   ContainerAccessEventBody,
   ContainerAccessLevel,
@@ -84,16 +87,8 @@ export type ContainerAccessManifestDerivationInput = {
   readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 };
 
-type ContainerAccessManifestTransitionBase = Omit<
-  ContainerAccessManifestState,
-  | "containerKeyEpochId"
-  | "containerKeyPublicKey"
-  | "directGrants"
-  | "referencedPrincipalHeads"
->;
-
 export interface PreviousContainerAccessTransition {
-  readonly nextBase: ContainerAccessManifestTransitionBase;
+  readonly previous: ContainerAccessPredecessorState;
   readonly previousState: ContainerAccessManifestState;
 }
 
@@ -146,21 +141,12 @@ export function deriveContainerCreateManifestState(
     });
   }
 
-  return normalizeContainerAccessManifestState({
-    version: 1,
-    containerId: event.event.objectId,
-    organizationId: event.event.organizationId,
-    epoch: 1,
-    previousManifestHash: null,
+  return containerAccessStateAfterEvent({
+    body,
     eventHash: event.eventHash,
-    parentContainerId: body.parentContainerId,
-    parentManifestHash: body.parentManifestHash,
-    metadataDocumentId: body.metadataDocumentId,
-    systemSlot: body.systemSlot,
-    containerKeyEpochId: body.containerKeyEpochId,
-    containerKeyPublicKey: body.containerKeyPublicKey,
-    directGrants: body.directGrants,
-    referencedPrincipalHeads: body.referencedPrincipalHeads,
+    objectId: event.event.objectId,
+    organizationId: event.event.organizationId,
+    previous: null,
   });
 }
 
@@ -189,21 +175,25 @@ export function preparePreviousContainerAccessTransition(
     path: input.previousContainerPath,
   });
 
-  const previousState = previousManifest.state;
-
   return {
-    previousState,
-    nextBase: {
-      version: 1,
-      containerId: previousState.containerId,
-      organizationId: previousState.organizationId,
-      epoch: previousState.epoch + 1,
-      previousManifestHash: previousManifest.manifestHash,
-      eventHash: event.eventHash,
-      parentContainerId: previousState.parentContainerId,
-      parentManifestHash: previousState.parentManifestHash,
-      metadataDocumentId: previousState.metadataDocumentId,
-      systemSlot: previousState.systemSlot,
+    previous: {
+      manifestHash: previousManifest.manifestHash,
+      state: previousManifest.state,
     },
+    previousState: previousManifest.state,
   };
+}
+
+/** The state an authorized successor event commits to. */
+export function deriveContainerSuccessorState(
+  input: ContainerAccessManifestDerivationInput,
+  previous: PreviousContainerAccessTransition,
+): ContainerAccessManifestState {
+  return containerAccessStateAfterEvent({
+    body: input.body,
+    eventHash: input.event.eventHash,
+    objectId: input.event.event.objectId,
+    organizationId: input.event.event.organizationId,
+    previous: previous.previous,
+  });
 }

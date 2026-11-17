@@ -2378,7 +2378,7 @@ export type components = {
         ContainerWriterProjectionWireResponse: {
             /** @description Signed manifest bundles keyed by manifest hash. */
             bundles: {
-                [key: string]: components["schemas"]["AccessManifestBundleWireResponse"];
+                [key: string]: components["schemas"]["ServedAccessManifestBundleWireResponse"];
             };
             containerId: string;
             /** @description One KEK level for each manifest in `path`. */
@@ -3026,7 +3026,7 @@ export type components = {
             })[];
             /** @description Signed manifest bundles keyed by manifest hash. */
             bundles: {
-                [key: string]: components["schemas"]["AccessManifestBundleWireResponse"];
+                [key: string]: components["schemas"]["ServedAccessManifestBundleWireResponse"];
             };
             contentKeyBundle: components["schemas"]["DocumentContentKeyBundleResponse"];
             /**
@@ -4688,6 +4688,17 @@ export type components = {
             events: components["schemas"]["RootRevenuecatEventResponse"][];
             /** @description Opaque cursor for the next page, or null at the end. */
             nextCursor: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A signed access manifest with the event that produced it, without the derived state: clients rebuild that from the signed bodies along the served predecessor chain and verify it. */
+        ServedAccessManifestBundleWireResponse: {
+            event: components["schemas"]["AccessEventBundleWireResponse"];
+            manifest: {
+                [key: string]: unknown;
+            };
+            /** @description Hash of the canonical manifest; other responses cite the manifest by this value. */
+            manifestHash: string;
         } & {
             [key: string]: unknown;
         };

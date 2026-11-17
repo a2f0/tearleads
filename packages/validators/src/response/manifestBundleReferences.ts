@@ -5,17 +5,18 @@ import {
   nonEmptyStringSchema,
   plainRecordSchema,
 } from "../schema";
-import { AccessManifestBundleWireResponseSchema } from "../util";
+import { ServedAccessManifestBundleWireResponseSchema } from "../util";
 
 /**
  * A writer projection names each access manifest by hash. The bundle for a
  * hash travels once, in `bundles`, however many lists cite it, or not at all
- * when the request cited it as already held (`omittedBundles`).
+ * when the request cited it as already held (`omittedBundles`). A served
+ * bundle omits the derived state, which the client rebuilds as it decodes.
  */
 export const ManifestHashReferenceSchema = nonEmptyStringSchema;
 
 export const ManifestBundlesSchema = plainRecordSchema(
-  AccessManifestBundleWireResponseSchema,
+  ServedAccessManifestBundleWireResponseSchema,
 );
 
 export const OmittedManifestBundlesSchema = arraySchema(

@@ -34,6 +34,7 @@ import {
   MultipartBlobPartDescriptorSchema,
   MultipartBlobPartUploadSchema,
   MultipartBlobPartUploadSourceSchema,
+  ServedAccessManifestBundleWireResponseSchema,
 } from "../util";
 
 describeSchema(
@@ -52,6 +53,15 @@ describeSchema(
     manifestHash:
       "Hash of the canonical manifest; other responses cite the manifest by this value.",
     state: "Derived structural state the manifest commits to.",
+  },
+);
+
+describeSchema(
+  ServedAccessManifestBundleWireResponseSchema,
+  "A signed access manifest with the event that produced it, without the derived state: clients rebuild that from the signed bodies along the served predecessor chain and verify it.",
+  {
+    manifestHash:
+      "Hash of the canonical manifest; other responses cite the manifest by this value.",
   },
 );
 

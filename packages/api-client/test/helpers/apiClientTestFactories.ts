@@ -52,7 +52,8 @@ function createContainerManifestBundle(): ContainerWriterProjectionResponse["pat
     },
     manifest: { objectId: "container-1", objectKind: "container" },
     manifestHash: "container-manifest-hash",
-    state: { containerId: "container-1" },
+    // A fake event rebuilds no state: a decoded projection carries this one.
+    state: {},
   };
 }
 
@@ -163,7 +164,10 @@ export function createDocumentPurgeRequest(): DocumentPurgeRequest {
 }
 
 export function createDocumentPurgeResponse(): DocumentPurgeResponse {
-  const authorizingContainer = createContainerManifestBundle();
+  const authorizingContainer = {
+    ...createContainerManifestBundle(),
+    state: { containerId: "container-1" },
+  };
   return {
     authorizingContainerPath: [authorizingContainer],
     documentContainerManifestHistory: [],
@@ -217,7 +221,7 @@ export function createDocumentLinkSetMutationResponse(): DocumentLinkSetMutation
       },
       manifest: { objectId: "document-1", objectKind: "document" },
       manifestHash: "document-manifest-hash",
-      state: { documentId: "document-1" },
+      state: {},
     },
     contentKeyBundle: {
       documentId: "document-1",

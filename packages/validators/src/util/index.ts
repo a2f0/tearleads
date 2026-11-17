@@ -10,6 +10,10 @@ export {
   isAccessManifestBundleWireArray,
   isAccessManifestBundleWireResponse,
   isOptionalAccessManifestBundleWireArray,
+  isServedAccessManifestBundleWireResponse,
+  type ServedAccessManifestBundleWireResponse,
+  ServedAccessManifestBundleWireResponseSchema,
+  toServedAccessManifestBundle,
 } from "./accessManifestBundle";
 export {
   MAX_INITIATE_PART_UPLOADS,

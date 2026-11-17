@@ -282,7 +282,7 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // document projection and a policy read). 27.3 KB sent and 22.4 KB
       // received; keep about 10% headroom.
       total: 5,
-      bodyBytes: { request: 30_000, response: 25_000 },
+      bodyBytes: { request: 30_000, response: 21_500 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
@@ -324,7 +324,7 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // it: 16.6 KB sent (34.3 KB before). Syncs no longer echo the bundle and
       // KEK targets the request named: 40.7 KB received (44.3 KB before); keep
       // about 10% headroom.
-      bodyBytes: { request: 18_500, response: 45_000 },
+      bodyBytes: { request: 18_500, response: 40_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 4,
         "GET /principals/group/:groupId/policy": 0,
@@ -363,7 +363,7 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // syncs no longer echo the bundle and KEK targets the request named:
       // 53.2 KB received (56.7 KB before); keep about 10% headroom. The move
       // cites its parent KEK state: 16.8 KB sent (20.6 KB before).
-      bodyBytes: { request: 18_500, response: 59_000 },
+      bodyBytes: { request: 18_500, response: 48_500 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 3,
         "GET /principals/group/:groupId/policy": 0,

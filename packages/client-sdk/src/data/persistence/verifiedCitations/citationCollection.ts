@@ -4,9 +4,9 @@ import type {
 } from "@tearleads/api-client";
 import { toFingerprint } from "@tearleads/crypto";
 import {
-  type AccessManifestBundleWireResponse,
-  isAccessManifestBundleWireResponse,
-} from "@tearleads/validators/response";
+  isServedAccessManifestBundleWireResponse,
+  type ServedAccessManifestBundleWireResponse,
+} from "@tearleads/validators/util";
 import { and, asc, desc, eq, ne, notInArray } from "drizzle-orm";
 import { verifiedAccessManifestBundles as bundles } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import type { ClientSQLiteDatabase } from "../../sqlite/sqlitePersistenceRuntime";
@@ -22,7 +22,7 @@ import { lineageKekLevels } from "./levelCitationRows";
 
 async function readStoredBundle(
   row: StoredBundleRow,
-): Promise<AccessManifestBundleWireResponse | null> {
+): Promise<ServedAccessManifestBundleWireResponse | null> {
   if (
     (await toFingerprint(new TextEncoder().encode(row.bundleJson))) !==
     row.bundleDigest
@@ -30,7 +30,7 @@ async function readStoredBundle(
     return null;
   try {
     const bundle: unknown = JSON.parse(row.bundleJson);
-    return isAccessManifestBundleWireResponse(bundle) &&
+    return isServedAccessManifestBundleWireResponse(bundle) &&
       bundle.manifestHash === row.manifestHash
       ? bundle
       : null;

@@ -2,17 +2,27 @@ import {
   readKeyingCanonicalJson,
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
+import {
+  type ServedAccessManifestBundleWireResponse,
+  toServedAccessManifestBundle,
+} from "@tearleads/validators/util";
 
-// The exact bytes each manifest was verified from, keyed by the verified
-// result. A later projection can hit the same verified hash while serving
-// different bytes; only bytes that were themselves verified may be stored
-// for citation.
+// The exact served bytes each manifest was verified from, keyed by the
+// verified result. A later projection can hit the same verified hash while
+// serving different bytes; only bytes that were themselves verified may be
+// stored for citation. The decoded state is rebuilt from these bytes, so it
+// is neither compared nor stored.
 const verifiedBundleBytes = new WeakMap<object, string>();
 
-function canonicalBytes(bundle: unknown): string | null {
+function canonicalBytes(
+  bundle: ServedAccessManifestBundleWireResponse,
+): string | null {
   try {
     return serializeKeyingCanonicalJson(
-      readKeyingCanonicalJson(bundle, "Verified manifest bundle"),
+      readKeyingCanonicalJson(
+        toServedAccessManifestBundle(bundle),
+        "Verified manifest bundle",
+      ),
     );
   } catch {
     return null;
@@ -22,7 +32,7 @@ function canonicalBytes(bundle: unknown): string | null {
 /** Remember the bundle a fresh verification accepted for `verified`. */
 export function recordVerifiedBundleBytes(
   verified: object,
-  bundle: unknown,
+  bundle: ServedAccessManifestBundleWireResponse,
 ): void {
   const bytes = canonicalBytes(bundle);
   if (bytes !== null) verifiedBundleBytes.set(verified, bytes);
@@ -31,7 +41,7 @@ export function recordVerifiedBundleBytes(
 /** Whether `bundle` is byte-identical to the one `verified` came from. */
 export function matchesVerifiedBundleBytes(
   verified: object,
-  bundle: unknown,
+  bundle: ServedAccessManifestBundleWireResponse,
 ): boolean {
   const recorded = verifiedBundleBytes.get(verified);
   return recorded !== undefined && recorded === canonicalBytes(bundle);

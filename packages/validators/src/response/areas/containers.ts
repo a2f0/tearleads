@@ -85,4 +85,6 @@ export {
   encodeContainerWriterProjection,
   encodeDocumentWriterProjection,
   type HeldKekLevelDigest,
+  type ManifestStateReconstructor,
+  type WriterProjectionDecoding,
 } from "../writerProjectionWire";

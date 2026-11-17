@@ -19,16 +19,17 @@ import {
 // invalid response, so a server cannot redirect a create, move, share, rekey,
 // or content-key re-wrap onto an object it substituted. The top-level id is a
 // mutable label, so the binding also covers the hash-committed manifest object
-// id, the manifest state the SDK later verifies, and the nested KEK and
-// content-key bundle ids a relabeled projection would still carry.
+// kind and id (the SDK derives the state's id from the same signed event) and
+// the nested KEK and content-key bundle ids a relabeled projection would still
+// carry.
 function manifestDescribes(
-  bundle: { manifest: Record<string, unknown>; state: Record<string, unknown> },
-  stateKey: "containerId" | "documentId",
+  bundle: { manifest: Record<string, unknown> },
+  objectKind: "container" | "document",
   id: string,
 ): boolean {
   return (
-    Reflect.get(bundle.manifest, "objectId") === id &&
-    Reflect.get(bundle.state, stateKey) === id
+    Reflect.get(bundle.manifest, "objectKind") === objectKind &&
+    Reflect.get(bundle.manifest, "objectId") === id
   );
 }
 
@@ -42,7 +43,7 @@ function containerProjectionDescribes(
     projection.containerId === containerId &&
     leaf !== undefined &&
     leafKek !== undefined &&
-    manifestDescribes(leaf, "containerId", containerId) &&
+    manifestDescribes(leaf, "container", containerId) &&
     leafKek.containerId === containerId &&
     Reflect.get(leafKek.keyEpoch, "containerId") === containerId &&
     (leafKek.keyring === null || leafKek.keyring.containerId === containerId)
@@ -71,7 +72,7 @@ export const documentWriterProjection = {
     return (value: unknown): value is DocumentWriterProjectionResponse =>
       isDocumentWriterProjectionResponse(value) &&
       value.documentId === documentId &&
-      manifestDescribes(value.documentManifest, "documentId", documentId) &&
+      manifestDescribes(value.documentManifest, "document", documentId) &&
       value.documentKekTargets.documentId === documentId &&
       value.contentKeyBundle.documentId === documentId &&
       value.authorizingContainerPaths.every((projection) =>

@@ -31,6 +31,10 @@ import {
   type CitedLineageInput,
   resolveCitedAncestorPath,
 } from "./containerAncestorCitations";
+import {
+  assertSignedContainerParentPin,
+  readSignedContainerParentReference,
+} from "./containerSignedParentReference";
 
 async function collectManifestAuthorizationPolicies(input: {
   readonly authorizationEvidence: readonly PrincipalPolicyAuthorization[];
@@ -199,6 +203,7 @@ async function verifyFreshContainerManifestBundle(
     );
   }
 
+  assertSignedContainerParentPin(input, verified.value);
   assertCanonicalEqual({
     actual: input.bundle.state,
     expected: readKeyingCanonicalJson(
@@ -372,13 +377,6 @@ function readParentReference(
   });
 }
 
-function readContainerManifestParentReference(
-  bundle: AccessManifestBundleWireResponse,
-  label: string,
-): ContainerParentReference {
-  return readParentReference(bundle.state, `${label} state`);
-}
-
 /** The parent a create or move body pins, read from the signed body. */
 function readContainerEventBodyParentReference(
   event: VerifiedContainerAccessManifest["event"],
@@ -406,7 +404,7 @@ async function resolveContainerManifestVerificationParentPath(input: {
   // Descendants keep the parent manifest hash they were created or moved under;
   // a later parent share/rekey must not require rewriting descendant manifests.
   const { parentContainerId, parentManifestHash } =
-    readContainerManifestParentReference(input.bundle, input.label);
+    readSignedContainerParentReference(input);
   if (parentContainerId === null || parentManifestHash === null) {
     return [];
   }

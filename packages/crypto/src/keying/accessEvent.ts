@@ -111,7 +111,7 @@ function normalizeUnsignedAccessEvent(value: unknown): UnsignedAccessEvent {
   };
 }
 
-function normalizeAccessEvent(value: unknown): AccessEvent {
+export function normalizeAccessEvent(value: unknown): AccessEvent {
   const record = assertExactKeys(
     value,
     [

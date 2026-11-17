@@ -95,7 +95,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // heads, not policies (the commit 73 KB -> 3.5 KB): 0.58 MB received. Public
   // history reads naming a held head receive no current state: 0.54 MB
   // received; keep about 10% headroom.
-  bodyBytes: { request: 160_000, response: 595_000 },
+  bodyBytes: { request: 160_000, response: 530_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,

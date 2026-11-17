@@ -39,7 +39,7 @@ function projection(): ContainerWriterProjectionResponse {
       {
         ...kek,
         containerManifestHistory: [
-          { ...leaf, manifestHash: GENESIS, state: { epoch: 0 } },
+          { ...leaf, manifestHash: GENESIS, manifest: { epoch: 0 } },
         ],
       },
     ],

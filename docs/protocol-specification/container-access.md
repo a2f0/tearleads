@@ -108,13 +108,22 @@ once, in a `bundles` map keyed by manifest hash. Every manifest position cites
 that map by hash: the container `path`, each KEK's `containerManifestHistory`,
 and, for documents, every authorizing path, `documentManifest`,
 `documentManifestHistory`, `documentContainerManifestHistory`, and each
-`documentManifestContainerPaths` row. Bundles are the stored bytes, so no signed
-bytes change. A cited hash without a bundle, a bundle stored under a key other
-than its own `manifestHash`, or a bundle nothing cites is a response-shape
-failure. The client resolves every citation to its own copy of the bundle
-before any cache or verifier sees the projection, then verifies the result,
-recomputing each cited manifest's hash before any position that cites it is
-trusted.
+`documentManifestContainerPaths` row. A served bundle is the stored signed
+event, body and manifest; it omits the derived state the API stores beside
+them, so no signed bytes change. A cited hash without a bundle, a bundle stored
+under a key other than its own `manifestHash`, or a bundle nothing cites is a
+response-shape failure. The client resolves every citation to its own copy of
+the bundle before any cache or verifier sees the projection, and rebuilds each
+bundle's state from the signed bodies along its served predecessor chain (a
+create or initial link from its body, every later event from its predecessor's
+state and its own body). The rebuilt state is unverified, as a served one was:
+the verifier then derives the state from the recursively verified predecessor,
+requires the two to be equal, recomputes each cited manifest's hash before any
+position that cites it is trusted, and resolves a container's parent path from
+the parent its signed bodies pin, never from the decoded state. A bundle whose
+chain is not served or does not parse decodes with an empty state, which
+verification refuses. Document purge proofs still carry the stored state with
+each bundle: a purge may verify the document head as a hash-only snapshot.
 
 A projection GET may send `x-known-manifests`: up to 48 unique typed digests of
 bytes the device durably holds verified. `m:<hash>` names a manifest bundle by

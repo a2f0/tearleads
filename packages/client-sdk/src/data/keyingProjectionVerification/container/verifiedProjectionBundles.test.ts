@@ -5,6 +5,7 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { containerKekWireLevel } from "@tearleads/validators/response";
+import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 import { createAuthor } from "../../../../test/helpers/data/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
@@ -45,12 +46,13 @@ test("a verified projection's bundles and KEK levels become citable", async () =
       projection: fixture.projection,
       resolveUserKey: fixture.resolveUserKey,
     });
-    // Each verified level first, in its wire form, then the bundles.
+    // Each verified level first, in its wire form, then the bundles as
+    // served: the decoded state is rebuilt from them, never stored.
     expect(
       await loadVerifiedManifestCitations(database.execSql, target),
     ).toEqual([
       ...fixture.projection.containerKeks.map(containerKekWireLevel),
-      ...fixture.projection.path,
+      ...fixture.projection.path.map(toServedAccessManifestBundle),
     ]);
   } finally {
     database.close();
@@ -97,9 +99,9 @@ test("a cached hash never stores a later projection's different bytes", async ()
       resolveUserKey: fixture.resolveUserKey,
       verifiedByHash,
     });
-    // Same manifest hash, different bytes: the shared cache recognizes the
-    // hash, but these bytes were never verified.
-    const tampered = { ...leaf, state: { ...leaf.state, epoch: 99 } };
+    // Same manifest hash, different served bytes: the shared cache
+    // recognizes the hash, but these bytes were never verified.
+    const tampered = { ...leaf, event: { ...leaf.event, extra: true } };
     await verifyContainerWriterProjection({
       execSql: second.execSql,
       openPrincipalPolicyBundleReader,
@@ -109,7 +111,7 @@ test("a cached hash never stores a later projection's different bytes", async ()
     }).catch(() => undefined);
     expect(
       await loadVerifiedManifestCitations(second.execSql, target),
-    ).not.toContainEqual(tampered);
+    ).not.toContainEqual(toServedAccessManifestBundle(tampered));
   } finally {
     first.close();
     second.close();

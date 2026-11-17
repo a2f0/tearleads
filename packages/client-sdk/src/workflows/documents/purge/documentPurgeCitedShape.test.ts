@@ -58,8 +58,8 @@ test("a malformed unverified purge citation records one integrity incident", asy
   ];
   proof.documentContainerManifestHistory.push({
     ...root,
+    manifest: { ...root.manifest, objectId: 47 },
     manifestHash: citedHash,
-    state: { ...(root.state as object), containerId: 47 },
   });
   const database = await createTestExecSql("purge-unverified-citation");
   const incidents: unknown[] = [];
