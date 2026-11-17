@@ -15,8 +15,8 @@ import type { DocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoint
 import { PrincipalAuthorizationCheckpointUnavailableError } from "../../persistence/keyingCheckpoints/principalAuthorizationCheckpoints";
 import type { VerifiedManifestBundle } from "../../persistence/verifiedManifestBundlePersistence";
 import type { PrincipalPolicyCheckpointEvidence } from "../../principals/principalPolicyEvidence";
+import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import { ProjectionDependencyUnavailableError } from "../dependencyUnavailable";
 import { projectionLifetimeGuard } from "../projectionLifetimes";
 import { assertProjectionVerificationCurrent } from "../types";
 import {

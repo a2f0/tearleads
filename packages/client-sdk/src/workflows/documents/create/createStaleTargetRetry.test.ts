@@ -13,7 +13,7 @@ import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
 import { createResponseFromRequest } from "../../../../test/helpers/documentResponseFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import {
   createRemoteDocument,
   isStaleDocumentCreateTargetConflict,

@@ -14,7 +14,7 @@ import {
   createResponseFromRequest,
 } from "../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import {
   createRemoteDocument,
   documentWriterProjectionFromCreateResponse,
