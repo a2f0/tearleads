@@ -33,6 +33,7 @@ import type {
 import { insertRemoteContainerState } from "./insertRemoteContainer";
 import {
   applyRemoteContainerTimestamps,
+  remoteContainerChangedSince,
   remoteContainerHydrationSaveOptions,
   resolveRemoteContainerHydrationLocalUpdatedAt,
 } from "./remoteContainerTimestamps";
@@ -166,6 +167,30 @@ function installUpdatedRemoteContainerState(
     host.requestDocumentPriming?.();
 }
 
+/**
+ * A clean metadata document is read only when a hint names it, and a hint sent
+ * while this client was offline or not yet subscribed is lost. The container's
+ * timestamp moves with every write to its metadata document, so a listing
+ * showing it moved may carry such an edit: owe the read before this hydration
+ * advances the recorded timestamp and lane watermark past that evidence.
+ */
+async function oweMetadataReadIfChanged(
+  host: RemoteContainerHydrationHost,
+  existingState: ContainerState,
+  remoteContainer: RemoteContainer,
+): Promise<void> {
+  if (
+    remoteContainerChangedSince(
+      remoteContainer,
+      existingState.container.serverUpdatedAt,
+    )
+  ) {
+    await host.requestMetadataRevalidation?.(
+      remoteContainer.metadataDocumentId,
+    );
+  }
+}
+
 async function updateExistingRemoteContainerState(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
@@ -196,6 +221,7 @@ async function updateExistingRemoteContainerState(input: {
     previousLocalUpdatedAt,
     remoteContainer,
   });
+  await oweMetadataReadIfChanged(host, existingState, remoteContainer);
   const nextState = createUpdatedRemoteContainerState(
     existingState,
     remoteContainer,

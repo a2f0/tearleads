@@ -66,7 +66,11 @@ test("a settled pane reconnects with no pending local work", async () => {
   const requests = await measureWorkflowRequests({
     label: "reconnect without pending work",
     budget: {
-      total: 22,
+      // The reconnect re-list shows Canary A, Canary B and Contacts moved since
+      // this client last listed them (its own seeding wrote into them), so each
+      // metadata document is read once in case a lost hint carried an edit
+      // (measured 25, 22 before).
+      total: 25,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
@@ -78,7 +82,7 @@ test("a settled pane reconnects with no pending local work", async () => {
         "GET /principals/history": 0,
         "GET /containers/:containerId/writer-projection": 1,
         "GET /documents/:documentId/writer-projection": 3,
-        "POST /documents/:documentId/sync": 8,
+        "POST /documents/:documentId/sync": 11,
       },
     },
     mutations: [],
@@ -158,7 +162,9 @@ test("reconnect discovers one folder created by a peer while disconnected", asyn
   const requests = await measureWorkflowRequests({
     label: "reconnect after peer folder create",
     budget: {
-      total: 30,
+      // Includes one metadata read per folder the re-list shows moved since
+      // this client last listed it (measured 33, 30 before).
+      total: 33,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
@@ -170,7 +176,7 @@ test("reconnect discovers one folder created by a peer while disconnected", asyn
         "GET /principals/history": 0,
         "GET /containers/:containerId/writer-projection": 2,
         "GET /documents/:documentId/writer-projection": 4,
-        "POST /documents/:documentId/sync": 9,
+        "POST /documents/:documentId/sync": 12,
       },
     },
     mutations: [],

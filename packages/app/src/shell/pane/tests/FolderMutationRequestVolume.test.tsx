@@ -322,9 +322,12 @@ test("folder creation, document linking, unlinking and trash have separate reque
     budget: {
       // A parent-only hint must refresh the root lane independently. A
       // hydration pass's pages share one directory discovery. Moving an
-      // ungranted folder no longer stamps the grants lane (measured 10, 11
-      // before).
-      total: 10,
+      // ungranted folder no longer stamps the grants lane. The refreshed lane
+      // lists a container whose timestamp moved since this client last listed
+      // it (its own writes advance timestamps without telling it), so that
+      // metadata document is read once in case a lost hint carried an edit
+      // (measured 11, 10 before).
+      total: 11,
       // The move cites the destination parent's KEK state instead of carrying
       // it: 16.6 KB sent (34.3 KB before). Syncs no longer echo the bundle and
       // KEK targets the request named: 40.7 KB received (44.3 KB before); keep
@@ -340,7 +343,7 @@ test("folder creation, document linking, unlinking and trash have separate reque
         "GET /organizations/:organizationId/read-model": 0,
         "POST /containers/:containerId/move": 1,
         "POST /containers/parent-lanes/query": 2,
-        "POST /documents/:documentId/sync": 1,
+        "POST /documents/:documentId/sync": 2,
       },
     },
     mutations: [
@@ -362,8 +365,11 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // Root reconciliation now completes and verifies the remaining system
       // slot, alongside the moved folder and destination root. No duplicate
       // reads; a hydration pass discovers the directory once, and the
-      // ungranted move stamps no grants (measured 11, 12 before).
-      total: 11,
+      // ungranted move stamps no grants. The move advanced the timestamps of
+      // both parents, Trash and the root, without telling this client, so
+      // each parent's metadata document is read once in case a lost hint
+      // carried an edit (measured 13, 11 before).
+      total: 13,
       // Projection reads cite the KEK levels the device holds by digest, and
       // syncs no longer echo the bundle and KEK targets the request named:
       // 53.2 KB received (56.7 KB before); keep about 10% headroom. The move
@@ -379,7 +385,7 @@ test("folder creation, document linking, unlinking and trash have separate reque
         "GET /organizations/:organizationId/read-model": 0,
         "POST /containers/:containerId/move": 1,
         "POST /containers/parent-lanes/query": 1,
-        "POST /documents/:documentId/sync": 1,
+        "POST /documents/:documentId/sync": 3,
       },
     },
     mutations: [

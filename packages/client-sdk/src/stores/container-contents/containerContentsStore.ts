@@ -41,6 +41,7 @@ import {
   type ContainerContentsStoreSyncAgent,
   createContainerContentsStoreSyncAgent,
 } from "./syncAgent";
+import { oweContainerMetadataRead } from "./syncAgent/metadataRevalidation";
 import { findRootContainerState } from "./systemContainers/systemContainerLookup";
 import type {
   ContainerContentsStore,
@@ -107,6 +108,8 @@ function createContainerContentsStoreSyncHost(
     requestDocumentPriming: () => {
       state.documentStoresNeedPriming = true;
     },
+    requestMetadataRevalidation: (metadataDocumentId) =>
+      oweContainerMetadataRead(state, metadataDocumentId),
     updateSnapshot: () => updateContainerContentsSnapshot(state),
   };
 }

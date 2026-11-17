@@ -123,6 +123,22 @@ export const dormantMetadataSweepRequests = sqliteTable(
   ],
 );
 
+/**
+ * Container metadata documents a listing showed may have moved since this
+ * client last read them, and that still owe a read. A hint lost before this
+ * client subscribed, or while it was offline, is otherwise never recovered for
+ * a clean metadata document. Written before the listing's timestamps and lane
+ * watermark advance, so a restart before the read still owes it.
+ */
+export const containerMetadataRevalidations = sqliteTable(
+  "container_metadata_revalidations",
+  {
+    documentId: text("document_id").notNull(),
+    requestedAt: text("requested_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.documentId] })],
+);
+
 export const containerTableSchemas: ReadonlyArray<SqlTableSchema> = [
   {
     ...defineSqlTableSchema(containers),
@@ -132,12 +148,14 @@ export const containerTableSchemas: ReadonlyArray<SqlTableSchema> = [
     ...defineSqlTableSchema(containerHydrationTombstones),
     requiredColumns: ["cleared"],
   },
+  defineSqlTableSchema(containerMetadataRevalidations),
   defineSqlTableSchema(dormantContainerMetadata),
   defineSqlTableSchema(dormantMetadataSweepRequests),
   defineSqlTableSchema(supersededContainerBindings),
 ];
 
 export const containerSQLiteSchema = {
+  containerMetadataRevalidations,
   containers,
   containerHydrationTombstones,
   dormantContainerMetadata,

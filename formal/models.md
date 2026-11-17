@@ -217,6 +217,18 @@ state. See the
 [production mapping and model boundary](./document-sync/RestartProbeConvergence.md)
 for the action seams, fairness assumptions, and excluded blob-hydration layer.
 
+### Container Metadata Under Lost Hints
+
+[`document-sync/MetadataListingConvergence.tla`](./document-sync/MetadataListingConvergence.tla)
+models a client holding a container metadata document at a recorded position
+while a peer's edit hint is lost: offline, closed, or before its interest is
+acknowledged. Each acknowledged connection's re-list compares the listed
+container timestamp with the recorded one and owes a read, in memory and
+durably, before recording the new timestamp. TLC checks that some evidence of
+an unread edit always survives, through crashes and reads in flight, and that
+the client eventually holds the server's version. See the
+[production mapping and negative controls](./document-sync/MetadataListingConvergence.md).
+
 ### Epoch Advances Without a Covering Baseline
 
 [`document-sync/EmptyFrontierUnlink.tla`](./document-sync/EmptyFrontierUnlink.tla)

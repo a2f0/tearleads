@@ -100,7 +100,11 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
   const requests = await measureWorkflowRequests({
     label: "persisted pane restart",
     budget: {
-      total: 23,
+      // The first connection's re-list shows three folders moved since the
+      // last listing before shutdown (the seeding wrote into them), so each
+      // metadata document is read once in case a lost hint carried an edit
+      // (measured 26, 23 before).
+      total: 26,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
@@ -112,7 +116,7 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
         "GET /principals/history": 1,
         "GET /containers/:containerId/writer-projection": 3,
         "GET /documents/:documentId/writer-projection": 3,
-        "POST /documents/:documentId/sync": 6,
+        "POST /documents/:documentId/sync": 9,
       },
     },
     mutations: [],

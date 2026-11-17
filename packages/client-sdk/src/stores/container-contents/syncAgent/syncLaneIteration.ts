@@ -21,6 +21,7 @@ import {
   recoverStoreStaleRoot,
 } from "../documentWork/documentRecovery";
 import { createAcceptedMoveRetry } from "./acceptedMoveRetry";
+import { settleOwedContainerMetadataRead } from "./metadataRevalidation";
 import {
   bumpMetadataSyncSeq,
   clearMetadataSyncQueueIfUnchanged,
@@ -210,6 +211,9 @@ async function syncSingleContainerMetadata(input: {
         needingSync: state.metadataDocumentIdsNeedingSync,
         seqById: state.metadataSyncSignalSeqById,
       });
+      // The sync pulled every update this client lacked, so a read a listing
+      // owed is paid unless a newer signal queued the document again.
+      await settleOwedContainerMetadataRead(state, id);
     }
   }
   // syncContainerMetadataState settles its detached candidate into this live

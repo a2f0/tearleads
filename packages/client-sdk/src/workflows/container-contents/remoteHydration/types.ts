@@ -160,6 +160,13 @@ export interface RemoteContainerHydrationHost {
     },
   ) => Promise<PersistContainerStateResult>;
   requestDocumentPriming?: (() => void) | undefined;
+  /**
+   * Owe a metadata document one remote read, durably, before hydration
+   * advances the timestamps and lane watermark that revealed it.
+   */
+  requestMetadataRevalidation?:
+    | ((metadataDocumentId: string) => Promise<void>)
+    | undefined;
   updateSnapshot: () => void;
 }
 
