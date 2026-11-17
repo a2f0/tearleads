@@ -4,7 +4,7 @@ import type {
   SecurityIncidentContext,
   SecurityIncidentReporter,
 } from "../shared/securityIncidents";
-import { isDatabaseUnavailableError } from "../sync/databaseUnavailable";
+import { isDatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
 import { rethrowProjectionVerificationCancelled } from "./types";
 

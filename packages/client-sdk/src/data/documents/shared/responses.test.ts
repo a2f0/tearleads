@@ -14,7 +14,7 @@ import {
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
 import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlan/syncPlanMaterial";
-import { DatabaseUnavailableError } from "../../sync/databaseUnavailable";
+import { DatabaseUnavailableError } from "../../sqlite/availability/databaseUnavailable";
 import { buildDocumentCreatePlan } from "./events";
 import {
   persistedDocumentCreateStateFromResponse,

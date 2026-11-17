@@ -8,8 +8,8 @@ import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectio
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
+import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import {
   type StagedUserIdentityResolver,
   type TrustedUserIdentityResolver,
