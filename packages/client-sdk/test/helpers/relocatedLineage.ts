@@ -10,14 +10,13 @@ import {
 } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
-import { rekeyRemoteContainer } from "../../src/workflows/containers/child/rekey/rekeyRemote";
-import { shareRemoteContainer } from "../../src/workflows/containers/child/share";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
   createRecipientIdentityResolver,
 } from "./containerFixtures";
+import { createContainerMutationServiceFixture } from "./containerMutationServiceFixture";
 import { createChildContainerProjection } from "./projectionHierarchy";
 
 export const CHILD_ID = "lineage-child";
@@ -49,22 +48,23 @@ async function shareChildWithGrantee(input: {
     userId === GRANTEE_ID ? resolveGrantee(userId) : resolveParent(userId);
   const childKek = input.child.projection.containerKeks.at(-1);
   if (!childKek) throw new Error("Expected the child KEK");
-  const shared = await shareRemoteContainer({
+  const shared = await createContainerMutationServiceFixture({
     reportSecurityIncident: async () => {},
-    accessLevel: "read",
-    apiClient: {
+    api: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => input.child.projection,
       shareContainer: async (_containerId, request) =>
         createMutationResponseFromRequest(request, input.child.projection),
     },
+    execSql: input.execSql,
+    resolveTrustedUserIdentity: resolveGrantee,
+    encapsulationSecretKey: input.parent.secretKey,
+  }).shareRemoteContainer({
+    accessLevel: "read",
     author: input.parent.author,
     containerId: CHILD_ID,
-    execSql: input.execSql,
     recipientUserId: GRANTEE_ID,
     resolveProjectionUserKey,
-    resolveTrustedUserIdentity: resolveGrantee,
-    targetSecretKey: input.parent.secretKey,
   });
   if (!shared) throw new Error("Expected the child to be shared");
   const projection: ContainerWriterProjectionResponse = {
@@ -115,19 +115,20 @@ export async function relocatedChildHistory(
   const resolveProjectionUserKey =
     shared?.resolveProjectionUserKey ??
     createParentProjectionUserKeyResolver(parent);
-  const rekeyed = await rekeyRemoteContainer({
+  const rekeyed = await createContainerMutationServiceFixture({
     reportSecurityIncident: async () => {},
-    apiClient: {
+    api: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => epoch1Projection,
       rekeyContainer: async (_containerId, request) =>
         createMutationResponseFromRequest(request, epoch1Projection),
     },
+    execSql: database.execSql,
+    encapsulationSecretKey: parent.secretKey,
+  }).rekeyRemoteContainer({
     author: parent.author,
     containerId: CHILD_ID,
-    execSql: database.execSql,
     resolveProjectionUserKey,
-    targetSecretKey: parent.secretKey,
   });
   const rootKek = epoch1Projection.containerKeks[0];
   const epoch1Kek = epoch1Projection.containerKeks.at(-1);

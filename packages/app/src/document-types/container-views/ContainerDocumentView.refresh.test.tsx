@@ -14,7 +14,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { useState } from "react";
-import { getDocumentTypeDefinition } from "../../registry";
+import { getDocumentTypeDefinition } from "../registry";
 import { ContainerDocumentView } from "./ContainerDocumentView";
 
 afterEach(cleanup);

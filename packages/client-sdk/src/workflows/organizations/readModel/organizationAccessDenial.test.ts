@@ -12,7 +12,7 @@ import {
   organizationReadModelUserId,
 } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createRejectingExecSql } from "../../../../test/helpers/rejectingExecSql";
-import { loadOrganizationDataUsageProjection } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
+import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   loadLocalOrganizationDataUsage,
@@ -105,11 +105,9 @@ test("read-model denial invalidates a delayed usage success", async () => {
     });
     await expect(delayedUsage).resolves.toBeNull();
     await expect(
-      loadOrganizationDataUsageProjection(
+      new OrganizationDataUsageRepository(
         execSql,
-        organizationId,
-        requesterUserId,
-      ),
+      ).loadOrganizationDataUsageProjection(organizationId, requesterUserId),
     ).resolves.toBeNull();
     await expect(
       loadLocalOrganizationDataUsage({
@@ -170,11 +168,9 @@ test("usage denial remains authoritative when durable cleanup fails", async () =
       }),
     ).resolves.toBeNull();
     await expect(
-      loadOrganizationDataUsageProjection(
+      new OrganizationDataUsageRepository(
         execSql,
-        organizationId,
-        requesterUserId,
-      ),
+      ).loadOrganizationDataUsageProjection(organizationId, requesterUserId),
     ).resolves.toEqual({ ...dataUsage, organizationId });
     expect(errors).toHaveLength(1);
     expect(errors[0]?.[0]).toBe(

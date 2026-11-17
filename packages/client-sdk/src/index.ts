@@ -379,6 +379,7 @@ export type {
   RecoveryFolder,
 } from "./workflows/container-contents";
 export {
+  ContainerSyncWatermarkRepository,
   createContainerContentsDocumentsRuntime,
   createContainerContentsProjectionUserKeyResolver,
   createContainerContentsStoreWorkflowRuntime,
@@ -392,16 +393,15 @@ export {
   listBlobInfo,
   listDocumentLinkedContainerIds,
   loadContainerInfo,
-  loadContainerSyncWatermark,
   loadDocumentAttributionRanges,
   loadDocumentInfo,
   replaceDocumentLinks,
-  saveContainerSyncWatermark,
   syncedContainerDocumentObjectSyncState,
 } from "./workflows/container-contents";
 export type {
   AggregatedContainerKekLog,
   ContainerMutationAuthor,
+  ContainerMutationCollaborators,
   ContainerReciteApi,
   ContainerWriteRefusal,
   KeyringRebuildResult,
@@ -414,21 +414,17 @@ export {
   ContainerKekRepairInaccessibleError,
   ContainerKekRepairRequiredError,
   ContainerKeyringOverrideStaleError,
+  ContainerMutationService,
   ContainerPathTooDeepError,
   classifyContainerWriteRefusal,
   containerWriterProjectionFromRekeyPlan,
-  createRemoteContainer,
   fetchContainerKekLog,
   HistoricalWrapUnavailableError,
   type HistoricalWrapUnavailableReason,
   isProjectionVerificationCancelledError,
-  moveRemoteContainer,
   rebuildKeyringEntriesFromLog,
   recoverKeyringEntryFromWraps,
-  rekeyRemoteContainer,
-  revokeRemoteContainer,
   rootContainerWriterProjectionFromCreatePlan,
-  shareRemoteContainer,
 } from "./workflows/containers";
 export type {
   DocumentBirthResult,

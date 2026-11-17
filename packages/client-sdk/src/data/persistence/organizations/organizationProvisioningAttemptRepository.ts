@@ -21,13 +21,25 @@ interface OrganizationProvisioningAttemptRecord {
   readonly serializedArtifacts: string;
 }
 
-export const sqlOrganizationProvisioningAttemptPersistence = {
+/**
+ * Organization provisioning attempts, bound to one executor and clock: the
+ * signed artifacts a replacement or creation reuses after a crash, keyed by the
+ * organization it replaces or the user's creation intent.
+ */
+export class OrganizationProvisioningAttemptRepository {
+  private readonly execSql: ExecSql;
+  private readonly now: () => Date;
+
+  constructor(execSql: ExecSql, now: () => Date = () => new Date()) {
+    this.execSql = execSql;
+    this.now = now;
+  }
+
   async load(
-    execSql: ExecSql,
     replacedOrganizationId: string,
   ): Promise<OrganizationProvisioningAttemptRecord | null> {
-    await ensureSqlTables(execSql, organizationProvisioningAttemptTables);
-    const [stored] = await getClientSQLitePersistenceRuntime(execSql)
+    await ensureSqlTables(this.execSql, organizationProvisioningAttemptTables);
+    const [stored] = await getClientSQLitePersistenceRuntime(this.execSql)
       .db.select({
         replacedOrganizationId:
           organizationProvisioningAttempts.replacedOrganizationId,
@@ -45,16 +57,15 @@ export const sqlOrganizationProvisioningAttemptPersistence = {
         ),
       );
     return stored ?? null;
-  },
+  }
 
   async loadOrSave(
-    execSql: ExecSql,
     candidate: OrganizationProvisioningAttemptRecord & {
       readonly creationIntent?: string | undefined;
     },
     canSave?: (() => boolean) | undefined,
   ): Promise<OrganizationProvisioningAttemptRecord | null> {
-    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    return runSerializedSqlMutation(this.execSql, async (lockedExecSql) => {
       await ensureSqlTables(
         lockedExecSql,
         organizationProvisioningAttemptTables,
@@ -63,7 +74,7 @@ export const sqlOrganizationProvisioningAttemptPersistence = {
       const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
       await db
         .insert(organizationProvisioningAttempts)
-        .values({ ...candidate, createdAt: new Date().toISOString() })
+        .values({ ...candidate, createdAt: this.now().toISOString() })
         .onConflictDoNothing()
         .run();
       const [stored] = await db
@@ -96,10 +107,9 @@ export const sqlOrganizationProvisioningAttemptPersistence = {
       }
       return stored;
     });
-  },
+  }
 
   async remove(
-    execSql: ExecSql,
     input: {
       organizationId?: string | undefined;
       replacedOrganizationId: string;
@@ -107,9 +117,9 @@ export const sqlOrganizationProvisioningAttemptPersistence = {
     },
     canCommit?: (() => boolean) | undefined,
   ): Promise<boolean> {
-    await ensureSqlTables(execSql, organizationProvisioningAttemptTables);
+    await ensureSqlTables(this.execSql, organizationProvisioningAttemptTables);
     if (canCommit && !canCommit()) return false;
-    const runtime = getClientSQLitePersistenceRuntime(execSql);
+    const runtime = getClientSQLitePersistenceRuntime(this.execSql);
     const remove = async (tx: ClientSQLiteTransactionScope) => {
       await tx
         .delete(organizationProvisioningAttempts)
@@ -137,5 +147,5 @@ export const sqlOrganizationProvisioningAttemptPersistence = {
       return true;
     }
     return (await runtime.guardedTransaction(remove, canCommit)).committed;
-  },
-};
+  }
+}

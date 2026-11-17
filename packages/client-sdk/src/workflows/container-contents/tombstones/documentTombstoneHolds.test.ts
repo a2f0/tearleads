@@ -2,14 +2,10 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import {
   HELD_TOMBSTONE_RETRY_INTERVAL_MS,
   heldTombstoneRetryDelayMs,
-  holdContainerDocumentTombstones,
-  listContainerDocumentTombstoneHolds,
-  listKnownContainerDocumentPlacements,
-  listRetryableHeldContainerDocumentTombstones,
-  refuteContainerDocumentTombstoneHolds,
 } from "../../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import {
   applyContainerDocumentTombstones,
@@ -24,6 +20,14 @@ import {
 } from "../documentQueries/documentQueries.testFixtures";
 import { listContainerContentsDocumentsForContainers } from "../documentQueries/documentSubtreeQueries";
 
+const holds = (execSql: ExecSql) =>
+  new ContainerDocumentTombstoneHoldRepository(execSql);
+const holdsAt = (execSql: ExecSql, instant: string | number | Date) =>
+  new ContainerDocumentTombstoneHoldRepository(
+    execSql,
+    () => new Date(instant),
+  );
+
 const at = "2026-09-20T00:00:00.000Z";
 const later = new Date(
   Date.parse(at) + HELD_TOMBSTONE_RETRY_INTERVAL_MS + 1_000,
@@ -33,6 +37,10 @@ const hold = (containerId: string, documentId = "doc") => ({
   documentId,
   updatedAt: at,
 });
+
+/** One held tombstone on "folder", stamped at `at`. */
+const holdFolderAt = (execSql: ExecSql) =>
+  holdsAt(execSql, at).holdContainerDocumentTombstones([hold("folder")]);
 
 async function seedDocumentInFolder(execSql: ExecSql) {
   await defaultContainerContentsPersistence.ensureSchema(execSql);
@@ -95,7 +103,7 @@ test("a held tombstone hides the placement from every container read without del
       subtreeLinks: ["folder"],
     });
 
-    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    await holdFolderAt(execSql);
 
     expect(await folderDocumentRows(execSql, readModel)).toEqual({
       itemCount: 0,
@@ -110,16 +118,19 @@ test("a held tombstone hides the placement from every container read without del
       containerId: "folder",
     });
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["folder", "other"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds([
+        "folder",
+        "other",
+      ]),
     ).toMatchObject([
       { attempts: 1, containerId: "folder", documentId: "doc" },
     ]);
 
-    await refuteContainerDocumentTombstoneHolds(execSql, [
+    await holds(execSql).refuteContainerDocumentTombstoneHolds([
       { containerId: "folder", documentId: "doc" },
     ]);
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
     ).toMatchObject([
       { containerId: "folder", documentId: "doc", hidden: false, attempts: 1 },
     ]);
@@ -157,7 +168,9 @@ test("a hidden linked placement stays hidden while the primary placement shows",
       ).totalCount;
     expect(await sharedCount()).toBe(1);
 
-    await holdContainerDocumentTombstones(execSql, [hold("shared")], at);
+    await holdsAt(execSql, at).holdContainerDocumentTombstones([
+      hold("shared"),
+    ]);
 
     expect(await sharedCount()).toBe(0);
     // The subtree read hides the held placement even when it is not one of
@@ -176,7 +189,7 @@ test("a held tombstone is retried after a backoff that doubles per attempt", asy
   const { close, execSql } = await createTestExecSql("tombstone-hold-backoff");
   try {
     await seedDocumentInFolder(execSql);
-    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    await holdFolderAt(execSql);
     expect(heldTombstoneRetryDelayMs(1)).toBe(HELD_TOMBSTONE_RETRY_INTERVAL_MS);
     expect(heldTombstoneRetryDelayMs(3)).toBe(
       4 * HELD_TOMBSTONE_RETRY_INTERVAL_MS,
@@ -186,45 +199,41 @@ test("a held tombstone is retried after a backoff that doubles per attempt", asy
     );
 
     expect(
-      await listRetryableHeldContainerDocumentTombstones(
+      await holdsAt(
         execSql,
-        ["folder"],
-        new Date(Date.parse(at) + 1_000),
-      ),
+        Date.parse(at) + 1_000,
+      ).listRetryableHeldContainerDocumentTombstones(["folder"]),
     ).toEqual([]);
     expect(
-      await listRetryableHeldContainerDocumentTombstones(
+      await holdsAt(
         execSql,
-        ["folder"],
         later,
-      ),
+      ).listRetryableHeldContainerDocumentTombstones(["folder"]),
     ).toEqual([hold("folder")]);
 
     // A second failed attempt doubles the wait before the next one.
     const secondAttempt = later.toISOString();
-    await holdContainerDocumentTombstones(
-      execSql,
-      [hold("folder")],
-      secondAttempt,
-    );
+    await holdsAt(execSql, secondAttempt).holdContainerDocumentTombstones([
+      hold("folder"),
+    ]);
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
     ).toMatchObject([{ attempts: 2, updatedAt: secondAttempt }]);
     expect(
-      await listRetryableHeldContainerDocumentTombstones(
+      await new ContainerDocumentTombstoneHoldRepository(
         execSql,
-        ["folder"],
-        new Date(later.getTime() + HELD_TOMBSTONE_RETRY_INTERVAL_MS + 1_000),
-      ),
+        () =>
+          new Date(later.getTime() + HELD_TOMBSTONE_RETRY_INTERVAL_MS + 1_000),
+      ).listRetryableHeldContainerDocumentTombstones(["folder"]),
     ).toEqual([]);
     expect(
-      await listRetryableHeldContainerDocumentTombstones(
+      await new ContainerDocumentTombstoneHoldRepository(
         execSql,
-        ["folder"],
-        new Date(
-          later.getTime() + 2 * HELD_TOMBSTONE_RETRY_INTERVAL_MS + 1_000,
-        ),
-      ),
+        () =>
+          new Date(
+            later.getTime() + 2 * HELD_TOMBSTONE_RETRY_INTERVAL_MS + 1_000,
+          ),
+      ).listRetryableHeldContainerDocumentTombstones(["folder"]),
     ).toEqual([hold("folder")]);
   } finally {
     close();
@@ -235,7 +244,7 @@ test("a listing that links the placement again releases its hold", async () => {
   const { close, execSql } = await createTestExecSql("tombstone-hold-relisted");
   try {
     const readModel = await seedDocumentInFolder(execSql);
-    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    await holdFolderAt(execSql);
     expect((await folderDocumentRows(execSql, readModel)).itemCount).toBe(0);
 
     await readModel.replaceDocumentLinksBatch([
@@ -243,7 +252,7 @@ test("a listing that links the placement again releases its hold", async () => {
     ]);
 
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
     ).toEqual([]);
     expect((await folderDocumentRows(execSql, readModel)).itemCount).toBe(1);
   } finally {
@@ -255,29 +264,24 @@ test("a deferred hold does not advance the retry backoff", async () => {
   const { close, execSql } = await createTestExecSql("tombstone-hold-deferred");
   try {
     await seedDocumentInFolder(execSql);
-    await holdContainerDocumentTombstones(
-      execSql,
-      [{ ...hold("folder"), deferred: true }],
-      at,
-    );
+    await holdsAt(execSql, at).holdContainerDocumentTombstones([
+      { ...hold("folder"), deferred: true },
+    ]);
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
     ).toMatchObject([{ attempts: 0 }]);
-    await holdContainerDocumentTombstones(
-      execSql,
+    await holdsAt(execSql, later.toISOString()).holdContainerDocumentTombstones(
       [{ ...hold("folder"), deferred: true }],
-      later.toISOString(),
     );
     // Neither the attempt count nor the last-attempt time advances.
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
     ).toMatchObject([{ attempts: 0, updatedAt: at }]);
     expect(
-      await listRetryableHeldContainerDocumentTombstones(
+      await holdsAt(
         execSql,
-        ["folder"],
         later,
-      ),
+      ).listRetryableHeldContainerDocumentTombstones(["folder"]),
     ).toEqual([hold("folder")]);
   } finally {
     close();
@@ -288,12 +292,12 @@ test("deleting the document locally clears its holds", async () => {
   const { close, execSql } = await createTestExecSql("tombstone-hold-delete");
   try {
     await seedDocumentInFolder(execSql);
-    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    await holdFolderAt(execSql);
 
     await documents.deleteDocument(execSql, "doc-local");
 
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
     ).toEqual([]);
   } finally {
     close();
@@ -313,10 +317,10 @@ test("a placement owned by a pending move intent is never held", async () => {
       targetContainerId: "trash",
     });
 
-    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    await holdFolderAt(execSql);
 
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
     ).toEqual([]);
   } finally {
     close();
@@ -329,7 +333,7 @@ test("a local move releases the holds on the document it relinks", async () => {
   );
   try {
     await seedDocumentInFolder(execSql);
-    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    await holdFolderAt(execSql);
     await new DocumentMoveIntentRepository(execSql).enqueueMoveIntent({
       documentId: "doc",
       id: "intent-1",
@@ -344,7 +348,7 @@ test("a local move releases the holds on the document it relinks", async () => {
     });
 
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
     ).toEqual([]);
   } finally {
     close();
@@ -355,22 +359,21 @@ test("a hold whose placement is gone is dropped when retried", async () => {
   const { close, execSql } = await createTestExecSql("tombstone-hold-orphan");
   try {
     await seedDocumentInFolder(execSql);
-    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    await holdFolderAt(execSql);
     await links.replaceDocumentLinks(execSql, "doc", []);
     await applyContainerDocumentTombstones(execSql, [
       { ...hold("folder"), accessEpoch: 1, linkedContainerIds: [] },
     ]);
-    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    await holdFolderAt(execSql);
 
     expect(
-      await listRetryableHeldContainerDocumentTombstones(
+      await holdsAt(
         execSql,
-        ["folder"],
         later,
-      ),
+      ).listRetryableHeldContainerDocumentTombstones(["folder"]),
     ).toEqual([]);
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
     ).toEqual([]);
   } finally {
     close();
@@ -393,7 +396,7 @@ test("only placements with a local link row or primary count as known", async ()
     });
 
     expect(
-      await listKnownContainerDocumentPlacements(execSql, [
+      await holds(execSql).listKnownContainerDocumentPlacements([
         { containerId: "folder", documentId: "doc" },
         { containerId: "never", documentId: "doc" },
         { containerId: "primary-only", documentId: "other" },
@@ -412,27 +415,22 @@ test("a refuted tombstone stays visible and remains retryable if the head lagged
   const { close, execSql } = await createTestExecSql("tombstone-refuted-retry");
   try {
     const readModel = await seedDocumentInFolder(execSql);
-    await holdContainerDocumentTombstones(
-      execSql,
-      [{ ...hold("folder"), refuted: true }],
-      at,
-    );
+    await holdsAt(execSql, at).holdContainerDocumentTombstones([
+      { ...hold("folder"), refuted: true },
+    ]);
     expect(await folderDocumentRows(execSql, readModel)).toMatchObject({
       itemCount: 1,
       sidebarIds: ["doc"],
       subtreeIds: ["doc"],
     });
     expect(
-      await listRetryableHeldContainerDocumentTombstones(
+      await holdsAt(
         execSql,
-        ["folder"],
         later,
-      ),
+      ).listRetryableHeldContainerDocumentTombstones(["folder"]),
     ).toEqual([hold("folder")]);
-    await holdContainerDocumentTombstones(
-      execSql,
+    await holdsAt(execSql, later.toISOString()).holdContainerDocumentTombstones(
       [hold("folder")],
-      later.toISOString(),
     );
     expect(await folderDocumentRows(execSql, readModel)).toMatchObject({
       itemCount: 1,
@@ -446,7 +444,7 @@ test("a refuted tombstone stays visible and remains retryable if the head lagged
     ]);
     expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([]);
     expect(
-      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+      await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
     ).toEqual([]);
   } finally {
     close();
@@ -459,7 +457,7 @@ test("a document with every placement held remains available in orphan recovery"
   );
   try {
     const readModel = await seedDocumentInFolder(execSql);
-    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    await holdFolderAt(execSql);
     expect(
       await readModel.hasOrphanedDocuments({ currentOrganizationId: null }),
     ).toBe(true);

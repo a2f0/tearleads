@@ -13,10 +13,7 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
-import {
-  loadOrganizationDataUsageProjection,
-  saveOrganizationDataUsageProjection,
-} from "../../../data/persistence/organizations/organizationDataUsagePersistence";
+import { OrganizationDataUsageRepository } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
 import { applyOrganizationReadModelResponse } from "../../../data/persistence/organizations/organizationReadModelPersistence";
 import {
   loadLocalOrganizationDirectoryAndGroups,
@@ -159,8 +156,9 @@ for (const status of [403, 404] as const) {
 
     try {
       await seedProjection(execSql);
-      await saveOrganizationDataUsageProjection({
+      await new OrganizationDataUsageRepository(
         execSql,
+      ).saveOrganizationDataUsageProjection({
         requesterUserId: currentUserId,
         response: { ...dataUsage, organizationId },
       });
@@ -191,11 +189,9 @@ for (const status of [403, 404] as const) {
         }),
       ).resolves.toBeNull();
       await expect(
-        loadOrganizationDataUsageProjection(
+        new OrganizationDataUsageRepository(
           execSql,
-          organizationId,
-          currentUserId,
-        ),
+        ).loadOrganizationDataUsageProjection(organizationId, currentUserId),
       ).resolves.toBeNull();
       expect(reported).toBe(false);
     } finally {

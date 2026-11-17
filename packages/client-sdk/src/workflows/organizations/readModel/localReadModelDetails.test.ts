@@ -12,7 +12,7 @@ import {
   saveContainer,
 } from "../../../data/persistence/container-contents/containerPersistence";
 import { applyOrganizationReadModelResponse } from "../../../data/persistence/organizations/organizationReadModelPersistence";
-import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationGroupContainers,
@@ -340,12 +340,9 @@ test("local group policy history requires an exact projected policy head", async
         response: policySnapshot({ bundle }),
       }),
     ).resolves.toBe("applied");
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      CREATED_AT,
-      ORGANIZATION_ID,
-    );
+    ).savePrincipalPolicyBundle(bundle, ORGANIZATION_ID);
 
     const common = {
       currentUserId: CURRENT_USER_ID,
@@ -390,12 +387,9 @@ test("local group policy history rejects a stale stored policy bundle", async ()
         }),
       }),
     ).resolves.toBe("applied");
-    await savePrincipalPolicyBundle(
+    await new PrincipalPolicyBundleRepository(
       execSql,
-      bundle,
-      CREATED_AT,
-      ORGANIZATION_ID,
-    );
+    ).savePrincipalPolicyBundle(bundle, ORGANIZATION_ID);
 
     await expect(
       loadLocalOrganizationGroupPolicyHistory({

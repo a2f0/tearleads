@@ -115,23 +115,28 @@ export async function projectionWithCurrentAncestors(input: {
       input.containerId,
       projection,
     );
-    const repaired = await rekeyRemoteContainer({
-      apiClient: {
-        getContainerWriterProjection: (containerId) =>
-          input.apiClient.getContainerWriterProjection(containerId),
-        reciteContainer: (...args) => input.apiClient.reciteContainer(...args),
-        rekeyContainer: rekeyContainer.bind(input.apiClient),
-        ...boundRekeyResult(input.apiClient),
+    const repaired = await rekeyRemoteContainer(
+      {
+        api: {
+          getContainerWriterProjection: (containerId) =>
+            input.apiClient.getContainerWriterProjection(containerId),
+          reciteContainer: (...args) =>
+            input.apiClient.reciteContainer(...args),
+          rekeyContainer: rekeyContainer.bind(input.apiClient),
+          ...boundRekeyResult(input.apiClient),
+        },
+        encapsulationSecretKey: input.targetSecretKey,
+        execSql: input.execSql,
+        reportSecurityIncident: input.reportSecurityIncident,
       },
-      author: input.author,
-      containerId: staleLevelId,
-      execSql: input.execSql,
-      reportSecurityIncident: input.reportSecurityIncident,
-      resolveProjectionUserKey: input.resolveProjectionUserKey,
-      stillCurrent: input.stillCurrent,
-      targetSecretKey: input.targetSecretKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    }).catch((error: unknown) => {
+      {
+        author: input.author,
+        containerId: staleLevelId,
+        resolveProjectionUserKey: input.resolveProjectionUserKey,
+        stillCurrent: input.stillCurrent,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      },
+    ).catch((error: unknown) => {
       const outOfReach =
         error instanceof ContainerAuthorAccessError ||
         error instanceof ContainerKekTargetUnreachableError;

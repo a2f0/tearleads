@@ -6,7 +6,7 @@ import {
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/policyCacheFixtures";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 
 test("an unreachable policy signer defers caching without an incident", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -38,7 +38,10 @@ test("an unreachable policy signer defers caching without an incident", async ()
     expect(incidents).toEqual([]);
     expect(logs.some((entry) => entry.includes("fetch failed"))).toBe(true);
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();
@@ -69,7 +72,10 @@ test("a signer the server says does not exist is still integrity evidence", asyn
     expect(incidents).toHaveLength(1);
     expect(incidents[0]).toMatchObject({ code: "missing_dependency" });
     await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      new PrincipalPolicyBundleRepository(execSql).loadPrincipalPolicyBundle(
+        "group",
+        "group-1",
+      ),
     ).resolves.toBeNull();
   } finally {
     close();

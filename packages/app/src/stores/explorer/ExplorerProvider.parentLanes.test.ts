@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerContentsSyncLane as createExplorerContainerContentsSyncLane,
   createContainerParentSyncLane as createExplorerContainerParentSyncLane,
   createContainerContentsStore as createExplorerStore,
@@ -7,9 +8,7 @@ import {
   defaultContainerContentsPersistence as defaultExplorerPersistence,
   initializeDocumentLinksSchema as initializeExplorerDocumentLinksSchema,
   listDocumentLinkedContainerIds as listExplorerDocumentLinkedContainerIds,
-  loadContainerSyncWatermark as loadExplorerContainerSyncWatermark,
   replaceDocumentLinks as replaceExplorerDocumentLinks,
-  saveContainerSyncWatermark as saveExplorerContainerSyncWatermark,
 } from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
@@ -163,15 +162,16 @@ test("explorer sync retries failed parent lane batches without advancing their w
       "Explorer sync did not stop the failed parent lane batch.",
     );
 
+    const watermarks = new ContainerSyncWatermarkRepository(
+      runtime.infra.execSql,
+    );
     await expect(
-      loadExplorerContainerSyncWatermark(
-        runtime.infra.execSql,
+      watermarks.loadWatermark(
         createExplorerContainerParentSyncLane("parent-a"),
       ),
     ).resolves.toBeNull();
     await expect(
-      loadExplorerContainerSyncWatermark(
-        runtime.infra.execSql,
+      watermarks.loadWatermark(
         createExplorerContainerParentSyncLane("parent-b"),
       ),
     ).resolves.toBeNull();
@@ -188,8 +188,7 @@ test("explorer sync retries failed parent lane batches without advancing their w
     );
 
     await expect(
-      loadExplorerContainerSyncWatermark(
-        runtime.infra.execSql,
+      watermarks.loadWatermark(
         createExplorerContainerParentSyncLane("parent-a"),
       ),
     ).resolves.toEqual({
@@ -197,8 +196,7 @@ test("explorer sync retries failed parent lane batches without advancing their w
       updatedAt: TEST_SYNC_TIMESTAMP,
     });
     await expect(
-      loadExplorerContainerSyncWatermark(
-        runtime.infra.execSql,
+      watermarks.loadWatermark(
         createExplorerContainerParentSyncLane("parent-b"),
       ),
     ).resolves.toEqual({
@@ -321,24 +319,24 @@ test("explorer sync applies container tombstones before advancing the parent wat
       "remote-document",
       ["archive-container", "child-container"],
     );
-    await saveExplorerContainerSyncWatermark(
+    const watermarks = new ContainerSyncWatermarkRepository(
       runtime.infra.execSql,
+    );
+    await watermarks.saveWatermark(
       createExplorerContainerParentSyncLane("child-container"),
       {
         id: "previous-child-lane",
         updatedAt: "2026-05-04T00:00:00.000Z",
       },
     );
-    await saveExplorerContainerSyncWatermark(
-      runtime.infra.execSql,
+    await watermarks.saveWatermark(
       createExplorerContainerContentsSyncLane("child-container"),
       {
         id: "previous-document-lane",
         updatedAt: "2026-05-04T00:00:00.000Z",
       },
     );
-    await saveExplorerContainerSyncWatermark(
-      runtime.infra.execSql,
+    await watermarks.saveWatermark(
       createExplorerContainerParentSyncLane("grandchild-container"),
       {
         id: "previous-grandchild-lane",
@@ -378,8 +376,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
         .nodes.some((node) => node.id === "grandchild-container"),
     ).toBe(false);
     await expect(
-      loadExplorerContainerSyncWatermark(
-        runtime.infra.execSql,
+      watermarks.loadWatermark(
         createExplorerContainerParentSyncLane("root-container"),
       ),
     ).resolves.toEqual({
@@ -387,20 +384,17 @@ test("explorer sync applies container tombstones before advancing the parent wat
       updatedAt: "2026-05-05T00:00:02.000Z",
     });
     await expect(
-      loadExplorerContainerSyncWatermark(
-        runtime.infra.execSql,
+      watermarks.loadWatermark(
         createExplorerContainerParentSyncLane("child-container"),
       ),
     ).resolves.toBeNull();
     await expect(
-      loadExplorerContainerSyncWatermark(
-        runtime.infra.execSql,
+      watermarks.loadWatermark(
         createExplorerContainerContentsSyncLane("child-container"),
       ),
     ).resolves.toBeNull();
     await expect(
-      loadExplorerContainerSyncWatermark(
-        runtime.infra.execSql,
+      watermarks.loadWatermark(
         createExplorerContainerParentSyncLane("grandchild-container"),
       ),
     ).resolves.toBeNull();

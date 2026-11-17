@@ -1,9 +1,6 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import {
-  rekeyRemoteContainer,
-  shareRemoteContainer,
-} from "@tearleads/client-sdk";
+import { ContainerMutationService } from "@tearleads/client-sdk";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { createEncryptedColdDocument } from "../../../test/helpers/coldSdkRematerialization";
 import { createLeafWriterAncestorEdit } from "../../../test/helpers/leafWriterAncestorEdit";
@@ -30,11 +27,13 @@ for (const accessLevel of ["write", "read"] as const) {
     apiClient.setAuthToken(tree.owner.token);
     const writerApi = new ApiClient(server.url.origin);
     writerApi.setAuthToken(writer.token);
-    const ownerSdk = {
-      ...context.common,
-      apiClient,
+    const ownerContainers = new ContainerMutationService({
+      api: apiClient,
+      encapsulationSecretKey: context.common.targetSecretKey,
+      execSql: context.common.execSql,
       reportSecurityIncident: async () => undefined,
-    };
+      resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
+    });
     try {
       const writable = await tree.createChild(tree.rootId);
       const otherParent = await tree.createChild(tree.rootId);
@@ -52,18 +51,16 @@ for (const accessLevel of ["write", "read"] as const) {
         targetContainerId: readable,
       });
       expect(
-        await shareRemoteContainer({
-          ...ownerSdk,
-          resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
+        await ownerContainers.shareRemoteContainer({
+          ...context.mutation,
           containerId: writable,
           accessLevel,
           recipientUserId: writer.userId,
         }),
       ).not.toBeNull();
       expect(
-        await shareRemoteContainer({
-          ...ownerSdk,
-          resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
+        await ownerContainers.shareRemoteContainer({
+          ...context.mutation,
           containerId: readable,
           accessLevel: "read",
           recipientUserId: writer.userId,
@@ -72,7 +69,10 @@ for (const accessLevel of ["write", "read"] as const) {
       // The read-only target itself becomes stale. The writer still has document
       // write authority through its other link, but cannot sign this target's rekey.
       expect(
-        await rekeyRemoteContainer({ ...ownerSdk, containerId: otherParent }),
+        await ownerContainers.rekeyRemoteContainer({
+          ...context.mutation,
+          containerId: otherParent,
+        }),
       ).not.toBeNull();
       const edit = await createLeafWriterAncestorEdit({
         apiClient: writerApi,
@@ -96,7 +96,10 @@ for (const accessLevel of ["write", "read"] as const) {
         // The same queued update can proceed as soon as a capable member repairs
         // that target. The writer was never revoked from the document.
         expect(
-          await rekeyRemoteContainer({ ...ownerSdk, containerId: readable }),
+          await ownerContainers.rekeyRemoteContainer({
+            ...context.mutation,
+            containerId: readable,
+          }),
         ).not.toBeNull();
         const written = await edit.attemptWrite();
         expect(written?.settledPendingUpdateIds).toContain(edit.updateId);

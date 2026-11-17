@@ -6,15 +6,22 @@ import type {
 } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { createDomainScope } from "../../../data/shared/domainScope";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
-  loadContainerSyncWatermark,
 } from "../containerPersistence";
 import { hydrateRemoteContainers } from "./index";
 import type { ContainerState, RemoteContainerHydrationState } from "./types";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
+
+function loadRootWatermark(execSql: ExecSql) {
+  return new ContainerSyncWatermarkRepository(execSql).loadWatermark(
+    createContainerParentSyncLane(null),
+  );
+}
 
 const signedDirectory = await createSignedContainerDirectory(
   ["failed", "trailing", "independent-new-container"].map((id) => ({
@@ -124,9 +131,7 @@ test("a failed page upsert does not checkpoint or skip trailing containers", asy
     await expect(
       defaultContainerContentsPersistence.containerExists(execSql, "trailing"),
     ).resolves.toBe(true);
-    await expect(
-      loadContainerSyncWatermark(execSql, createContainerParentSyncLane(null)),
-    ).resolves.toBeNull();
+    await expect(loadRootWatermark(execSql)).resolves.toBeNull();
     expect(state.rootLaneHydrated).not.toBe(true);
   } finally {
     await close();
@@ -204,9 +209,7 @@ test("a fetched page cannot resurrect a container deleted before apply", async (
         existingState.container.id,
       ),
     ).resolves.toBe(false);
-    await expect(
-      loadContainerSyncWatermark(execSql, createContainerParentSyncLane(null)),
-    ).resolves.toBeNull();
+    await expect(loadRootWatermark(execSql)).resolves.toBeNull();
     expect(state.rootLaneHydrated).not.toBe(true);
   } finally {
     await close();
@@ -269,9 +272,7 @@ test("a fetched page cannot overwrite a container mutated in place during fetch"
     });
 
     expect(existingState.record.documentId).toBe(replacementDocumentId);
-    await expect(
-      loadContainerSyncWatermark(execSql, createContainerParentSyncLane(null)),
-    ).resolves.toBeNull();
+    await expect(loadRootWatermark(execSql)).resolves.toBeNull();
   } finally {
     await close();
   }
@@ -351,9 +352,7 @@ test("a stale page item does not starve an independent new container", async () 
         newContainer.id,
       ),
     ).resolves.toBe(true);
-    await expect(
-      loadContainerSyncWatermark(execSql, createContainerParentSyncLane(null)),
-    ).resolves.toBeNull();
+    await expect(loadRootWatermark(execSql)).resolves.toBeNull();
   } finally {
     await close();
   }
@@ -435,9 +434,7 @@ test("a stale tombstone cannot delete a container restored during fetch", async 
         restoredState.container.id,
       ),
     ).resolves.toBe(true);
-    await expect(
-      loadContainerSyncWatermark(execSql, createContainerParentSyncLane(null)),
-    ).resolves.toBeNull();
+    await expect(loadRootWatermark(execSql)).resolves.toBeNull();
   } finally {
     await close();
   }

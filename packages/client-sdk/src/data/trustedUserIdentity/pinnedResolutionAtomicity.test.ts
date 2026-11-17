@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { principalIdentityPinFixture } from "../../../test/helpers/principalIdentityPinFixture";
 import { createPin } from "../../../test/helpers/trustedUserIdentityPin";
-import { compareOrInsertTrustedUserIdentityPin } from "../persistence/trustedUserIdentityPinPersistence";
+import { TrustedUserIdentityPinRepository } from "../persistence/identity/trustedUserIdentityPinRepository";
 
 test("a staged scope that conflicts on its second pin commits none of its first sights", async () => {
   const fixture = await principalIdentityPinFixture(2);
@@ -18,8 +18,9 @@ test("a staged scope that conflicts on its second pin commits none of its first 
           for (const userId of userIds) await resolve(userId);
           // Another SDK instance on this database pins the second user under
           // different keys after this scope staged both first sights.
-          await compareOrInsertTrustedUserIdentityPin({
-            execSql: fixture.execSql,
+          await new TrustedUserIdentityPinRepository(
+            fixture.execSql,
+          ).compareOrInsertTrustedUserIdentityPin({
             pin: createPin({
               identityTrustDomain: second.identity.identityTrustDomain,
               userId: second.identity.userId,

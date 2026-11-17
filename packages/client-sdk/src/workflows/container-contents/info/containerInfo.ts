@@ -11,10 +11,10 @@ import {
 import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
 import {
   type ContainerSyncWatermarkLane,
+  ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
   containerParentSyncLane,
   containerSyncWatermarkLaneKey,
-  sqlContainerSyncWatermarkPersistence,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { containers } from "../../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
@@ -221,16 +221,11 @@ async function loadContainerSyncCursors(input: {
   parentId: string | null;
 }): Promise<ContainerInfoSyncCursor[]> {
   const cursorDefinitions = getContainerSyncCursorDefinitions(input);
-  let records: Awaited<
-    ReturnType<typeof sqlContainerSyncWatermarkPersistence.loadWatermarkRecords>
-  > = [];
-  if (input.execSql) {
-    await sqlContainerSyncWatermarkPersistence.ensureSchema(input.execSql);
-    records = await sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(
-      input.execSql,
-      cursorDefinitions.map(({ lane }) => lane),
-    );
-  }
+  const records = input.execSql
+    ? await new ContainerSyncWatermarkRepository(
+        input.execSql,
+      ).loadWatermarkRecords(cursorDefinitions.map(({ lane }) => lane))
+    : [];
 
   return cursorDefinitions.map((definition, index) => {
     const { laneId, laneKind } = containerSyncWatermarkLaneKey(definition.lane);

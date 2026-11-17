@@ -10,9 +10,9 @@ import {
   saveContainer,
 } from "../../../data/persistence/container-contents/containerPersistence";
 import {
+  ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
   containerParentSyncLane,
-  sqlContainerSyncWatermarkPersistence,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import {
   buildMaterializedContainerCreatePlan,
@@ -27,24 +27,19 @@ test("loadContainerInfo reads direct grants, organization groups, and local sync
   const parent = await createParentProjection();
 
   try {
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(
-      execSql,
-      containerParentSyncLane(null),
-      {
-        id: parent.projection.containerId,
-        updatedAt: "2026-05-15T12:00:00.000Z",
-      },
-    );
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(
-      execSql,
+    const watermarks = new ContainerSyncWatermarkRepository(execSql);
+    await watermarks.saveWatermark(containerParentSyncLane(null), {
+      id: parent.projection.containerId,
+      updatedAt: "2026-05-15T12:00:00.000Z",
+    });
+    await watermarks.saveWatermark(
       containerParentSyncLane(parent.projection.containerId),
       {
         id: "child-container",
         updatedAt: "2026-05-15T12:05:00.000Z",
       },
     );
-    await sqlContainerSyncWatermarkPersistence.saveWatermark(
-      execSql,
+    await watermarks.saveWatermark(
       containerContentsSyncLane(parent.projection.containerId),
       {
         id: "document-1",

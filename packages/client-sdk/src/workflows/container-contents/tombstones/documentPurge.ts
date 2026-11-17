@@ -8,7 +8,8 @@ import {
   type DocumentsPersistence,
   defaultDocumentsPersistence,
   deletePersistedDocument,
-  purgeRemoteDocument,
+  RemoteDocumentService,
+  type RemoteDocumentServiceApi,
   reclaimDocumentOrphanBlobs,
   resolveDocumentCreateAuthor,
 } from "../../documents";
@@ -17,14 +18,11 @@ import type { SubtreePurgeRoot } from "../../documents/purge/subtreePurgeScope";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 
-type ContainerDocumentPurgeApi = Pick<
-  ContainerContentsWorkflowRuntime["apiClient"],
-  | "getPrincipalPolicyPages"
-  | "getProjectionPolicyHistoryPages"
-  | "getDocumentPurgeProof"
-  | "getDocumentWriterProjectionResult"
-  | "purgeDocument"
->;
+type ContainerDocumentPurgeApi = RemoteDocumentServiceApi &
+  Pick<
+    ContainerContentsWorkflowRuntime["apiClient"],
+    "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
+  >;
 type DocumentPurgeResult =
   | DocumentPurgeResponse
   | {
@@ -142,14 +140,18 @@ export async function purgeRemoteContainerDocument(
       return null;
     }
     let deleted = false;
-    const response = await purgeRemoteDocument({
-      apiClient: runtime.apiClient,
+    const remoteDocuments = new RemoteDocumentService({
+      api: runtime.apiClient,
+      encapsulationSecretKey:
+        runtime.crypto.encapsulationKeyPair?.secretKey ?? null,
+      execSql: runtime.infra.execSql,
+    });
+    const response = await remoteDocuments.purgeRemoteDocument({
       beforeSubmit: input.beforeSubmit,
       author,
       documentId,
       expectedSubtreeRoot: input.expectedSubtreeRoot,
       stillCurrent: input.stillCurrent,
-      execSql: runtime.infra.execSql,
       onVerifiedPurge: async ({ commitPurgeProof }) => {
         deleted = await commitVerifiedDocumentPurge({
           commitPurgeProof,

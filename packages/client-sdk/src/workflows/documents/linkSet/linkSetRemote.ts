@@ -31,6 +31,7 @@ import {
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { recordDocumentAuthorAccessFailure } from "../authorAccessFailure";
 import type { SubtreePurgeRoot } from "../purge/subtreePurgeScope";
+import type { RemoteDocumentCollaborators } from "../remote/remoteDocumentCollaborators";
 import { completeLinkSetMutationRequest } from "../rotationBaseline";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";
 import {
@@ -174,7 +175,31 @@ async function completeRemoteDocumentLinkSet(input: {
   };
 }
 
-type RelinkRemoteDocumentInput = Parameters<typeof relinkRemoteDocument>[0];
+/** What varies per link or unlink leg; the collaborators bind the rest. */
+export interface RelinkRemoteDocumentRequest {
+  /** Shared by the legs of one move or trash workflow. */
+  attachmentReuse?: LinkSetAttachmentReuse | undefined;
+  beforeSubmit?: (() => Promise<boolean>) | undefined;
+  author: DocumentCreateAuthor;
+  contentKey?: Uint8Array | undefined;
+  documentId: string;
+  expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
+  eventId?: string | undefined;
+  onFailure?: DocumentLinkSetFailureHandler | undefined;
+  operation: DocumentLinkSetMutationOperation;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  rotationSnapshot?: Uint8Array | undefined;
+  signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
+  targetContainerId: string;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
+}
+
+interface RelinkRemoteDocumentInput extends RelinkRemoteDocumentRequest {
+  apiClient: DocumentLinkSetMutationApi;
+  execSql: ExecSql;
+  targetSecretKey: Uint8Array;
+}
 
 /** What one leg signed, so the workflow can reuse or retry it. */
 interface LinkSetLegAttempt {
@@ -188,27 +213,21 @@ interface LinkSetLegAttempt {
  * once, as a leg without reuse would have; that first failure is not
  * reported.
  */
-export async function relinkRemoteDocument(input: {
-  /** Shared by the legs of one move or trash workflow. */
-  attachmentReuse?: LinkSetAttachmentReuse | undefined;
-  beforeSubmit?: (() => Promise<boolean>) | undefined;
-  apiClient: DocumentLinkSetMutationApi;
-  author: DocumentCreateAuthor;
-  contentKey?: Uint8Array | undefined;
-  documentId: string;
-  expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
-  eventId?: string | undefined;
-  execSql: ExecSql;
-  onFailure?: DocumentLinkSetFailureHandler | undefined;
-  operation: DocumentLinkSetMutationOperation;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  rotationSnapshot?: Uint8Array | undefined;
-  signedAt?: string | undefined;
-  stillCurrent?: (() => boolean) | undefined;
-  targetContainerId: string;
-  targetSecretKey: Uint8Array;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<RelinkRemoteDocumentResult | null> {
+export async function relinkRemoteDocument(
+  remote: RemoteDocumentCollaborators,
+  request: RelinkRemoteDocumentRequest,
+): Promise<RelinkRemoteDocumentResult | null> {
+  if (!remote.encapsulationSecretKey) {
+    throw new Error(
+      "Remote document link-set mutation requires an encapsulation key",
+    );
+  }
+  const input: RelinkRemoteDocumentInput = {
+    ...request,
+    apiClient: remote.api,
+    execSql: remote.execSql,
+    targetSecretKey: remote.encapsulationSecretKey,
+  };
   const reuse = input.attachmentReuse;
   const failures: DocumentLinkSetMutationFailure[] = [];
   const attempt: LinkSetLegAttempt = { reused: false, rewraps: null };

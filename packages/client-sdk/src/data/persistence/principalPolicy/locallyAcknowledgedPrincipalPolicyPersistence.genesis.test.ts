@@ -13,10 +13,7 @@ import {
   signedPrincipalPolicyBundle,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import {
-  persistLocallyAcknowledgedPrincipalPolicyBundles,
-  seedLocallyAcknowledgedPrincipalPolicyBundles,
-} from "./locallyAcknowledgedPrincipalPolicyPersistence";
+import { PrincipalPolicyBundleRepository } from "./principalPolicyBundleRepository";
 
 async function policyFixture() {
   const signing = generateSigningSeedAndKeyPair();
@@ -111,13 +108,10 @@ test.each([
     try {
       const fixture = await policyFixture();
       const sibling = await policyFixture();
-      const options = {
-        execSql,
-        organizationId: "registration-organization",
-        updatedAt: "2026-10-01T00:00:00.000Z",
-      };
+      const repository = new PrincipalPolicyBundleRepository(execSql);
+      const options = { organizationId: "registration-organization" };
       let current = fixture.bundle;
-      await persistLocallyAcknowledgedPrincipalPolicyBundles({
+      await repository.persistLocallyAcknowledgedPrincipalPolicyBundles({
         ...options,
         entries: [entry(current)],
       });
@@ -135,14 +129,14 @@ test.each([
             },
           ],
         );
-        await persistLocallyAcknowledgedPrincipalPolicyBundles({
+        await repository.persistLocallyAcknowledgedPrincipalPolicyBundles({
           ...options,
           entries: [entry(current)],
         });
       }
       // A newer pin bypasses ordinary checkpoint verification. Neither malformed
       // genesis case may hide in that retained-policy branch.
-      await seedLocallyAcknowledgedPrincipalPolicyBundles({
+      await repository.seedLocallyAcknowledgedPrincipalPolicyBundles({
         ...options,
         entries: [entry(fixture.bundle)],
       });
@@ -157,13 +151,15 @@ test.each([
         version,
         prevStateHash,
       );
-      const error = await seedLocallyAcknowledgedPrincipalPolicyBundles({
-        ...options,
-        entries: [entry(sibling.bundle), entry(malformed)],
-      }).then(
-        () => null,
-        (cause: unknown) => cause,
-      );
+      const error = await repository
+        .seedLocallyAcknowledgedPrincipalPolicyBundles({
+          ...options,
+          entries: [entry(sibling.bundle), entry(malformed)],
+        })
+        .then(
+          () => null,
+          (cause: unknown) => cause,
+        );
       expect(error).toMatchObject({
         name: "KeyingVerificationError",
         code: "invalid_shape",

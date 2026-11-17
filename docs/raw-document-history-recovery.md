@@ -46,7 +46,9 @@ preliminary raw reconstruction therefore imports only queued ordinary local
 deltas and must contain the exact live operation history before settlement (it
 may also contain concurrent remote work). The deterministic operation-log
 identity type-tags binary, string, and structural values so distinct operation
-payloads cannot collapse to the same serialized identity. It detects a forged
+payloads cannot collapse to the same serialized identity. Each change's
+recorded commit time is part of that identity, so the same operations under
+different times are a different history. It detects a forged
 checkpoint that reuses genuine version-vector identities, and per-row range
 comparison proves that each queued binary delta contains the live document's
 exact operations. The comparison reconstructs a partial peer range from its
