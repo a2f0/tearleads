@@ -127,9 +127,11 @@ test("a pause set larger than SQLite binds persists whole", async () => {
   }
 });
 
-test("a failed pause read is reported and does not stop a store from starting", async () => {
+test("a failed pause read lets a store start and holds every organization until a read succeeds", async () => {
   const domainScope = createDomainScope();
+  const pauses = getOrCreateOrganizationSyncPauses(domainScope);
   const logs: string[] = [];
+  expect(pauses.holdsSync("org-a")).toBe(false);
 
   await loadOrganizationSyncPausesBeforeSync({
     domainScope,
@@ -140,16 +142,19 @@ test("a failed pause read is reported and does not stop a store from starting", 
   });
 
   expect(logs).toEqual(["Sync: could not read the organization sync pauses"]);
-  // A later read can still succeed.
+  // Which organizations are paused is unknown, so none may sync.
+  expect(pauses.holdsSync("org-a")).toBe(true);
+  expect(pauses.isOrganizationPaused("org-a")).toBe(false);
+
   const { close, execSql } = await createTestExecSql(
     "organization-sync-pauses-retry",
   );
   try {
-    await getOrCreateOrganizationSyncPauses(domainScope).load(execSql);
-    expect(
-      getOrCreateOrganizationSyncPauses(domainScope).pausedOrganizationIds()
-        .size,
-    ).toBe(0);
+    await pauses.load(execSql);
+    expect(pauses.holdsSync("org-a")).toBe(false);
+    await pauses.replace(execSql, ["org-a"]);
+    expect(pauses.holdsSync("org-a")).toBe(true);
+    expect(pauses.holdsSync("org-b")).toBe(false);
   } finally {
     close();
   }

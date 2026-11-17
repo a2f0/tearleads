@@ -382,7 +382,7 @@ function runtimeInputUtilities(
       isRemoteSyncBlocked: (organizationId, direction = "push") =>
         getOrCreateOrganizationSyncPauses(
           dependencies.getDomainScope(),
-        ).isOrganizationPaused(organizationId) ||
+        ).holdsSync(organizationId) ||
         (direction === "push" &&
           (dependencies.syncBillingGate?.isBlockedForOrganization(
             organizationId,

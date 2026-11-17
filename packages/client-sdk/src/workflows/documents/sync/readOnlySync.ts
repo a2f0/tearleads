@@ -350,7 +350,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
   }
   // The persisted manifest names the organization, so a held pull stops
   // here without a request.
-  if (isRoutinePullHeld(input, plan)) {
+  if (isRoutinePullHeld(input, plan.organizationId)) {
     return { kind: "completed", result: abandonBlockedSync(input) };
   }
   const submitted = await submitDocumentSync({

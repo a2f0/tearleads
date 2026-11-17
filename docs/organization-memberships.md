@@ -85,13 +85,22 @@ While an organization is paused, a device:
   in flight when the organization pauses stops at its next write, each one
   re-checking under the SQLite mutation lock, and saves no watermark, so the
   listing after a resume cannot skip what this one did not apply;
-- holds the routine pull of each document it has already pulled, deciding
-  from the document's stored manifest without a request. A document's first
-  pull still runs, so one the device has listed can still be opened, and so
-  does an explicit read of a document's history;
-- keeps syncing the organization's metadata root, a parentless system
-  container, so a device that has never synced the organization still lists
-  and names it and can resume it.
+- holds the start of each routine pull of a document it has already pulled,
+  deciding from the document's stored manifest without a request. A
+  document's first pull still runs, so one the device has listed can still be
+  opened; a pull that has fetched a page runs to its end, so no document is
+  left half pulled; and so does an explicit read of a document's history;
+- keeps listing the organization's metadata root, a parentless system
+  container, and its documents, so a device that has never synced the
+  organization still lists and names it and can resume it. Those documents
+  are held like any other once pulled, so a rename made during the pause
+  arrives on resume.
+
+The sync lanes read the pauses from memory, loaded from
+`organization_sync_pauses` before a store first syncs. If that read fails, the
+store still opens and takes local edits, but the device cannot tell which
+organizations to hold, so it holds them all until a later read succeeds and
+then re-drives every lane.
 
 A pause is the member's own choice about their devices, not a statement about
 access. Container tombstones in a listed page still apply, so a folder that was

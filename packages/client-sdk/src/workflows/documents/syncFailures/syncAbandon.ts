@@ -11,22 +11,24 @@ type AbandonedSyncInput = Pick<
 >;
 
 /**
- * Whether a held organization stops this read-only pass. Only the routine
- * pull of a document the device has already pulled is held: a first pull
- * still runs, so a document the device has listed can still be opened, and
- * so does an explicit read of raw history.
+ * Whether a held organization stops this read-only pass. Only the start of a
+ * routine pull of a document the device has already pulled is held. A first
+ * pull still runs, so a document the device has listed can still be opened;
+ * a pull that has fetched a page runs to its end, first pull or not, so no
+ * document is left half pulled; and so does an explicit read of raw history.
  */
 export function isRoutinePullHeld(
-  input: Pick<RemoteDocumentSyncPass, "historyMode" | "isRemoteSyncBlocked">,
-  plan: {
-    readonly organizationId: string;
-    readonly request: { readonly minLsn?: string | undefined };
-  },
+  input: Pick<
+    RemoteDocumentSyncPass,
+    "historyMode" | "isRemoteSyncBlocked" | "minLsn" | "pullContinuation"
+  >,
+  organizationId: string,
 ): boolean {
   return (
     input.historyMode !== "raw" &&
-    plan.request.minLsn !== undefined &&
-    (input.isRemoteSyncBlocked?.(plan.organizationId, "pull") ?? false)
+    input.pullContinuation === undefined &&
+    input.minLsn !== undefined &&
+    (input.isRemoteSyncBlocked?.(organizationId, "pull") ?? false)
   );
 }
 

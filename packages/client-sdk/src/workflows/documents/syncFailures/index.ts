@@ -232,8 +232,9 @@ async function submitDocumentSyncAttempt(input: {
 
 export async function submitDocumentSyncAttemptIfAllowed(
   input: Parameters<typeof submitDocumentSyncAttempt>[0] & {
-    historyMode?: "raw" | undefined;
     isRemoteSyncBlocked?: WorkflowRuntimeUtilInput["isRemoteSyncBlocked"];
+    /** The pass's pull position, which decides whether a pause holds it. */
+    pull?: Parameters<typeof isRoutinePullHeld>[0] | undefined;
     onOutgoingUpdatesMaterialized?:
       | ((updateIds: readonly string[]) => void)
       | undefined;
@@ -242,8 +243,8 @@ export async function submitDocumentSyncAttemptIfAllowed(
 ): Promise<DocumentSyncAttemptSubmission> {
   const {
     failureBlocksQueuedWrites,
-    historyMode,
     isRemoteSyncBlocked,
+    pull,
     onOutgoingUpdatesMaterialized,
     ...submissionInput
   } = input;
@@ -252,7 +253,10 @@ export async function submitDocumentSyncAttemptIfAllowed(
     (input.plan.request.containerRekeys?.length ?? 0) > 0;
   const blocked = hasRemoteWrites
     ? isRemoteSyncBlocked?.(input.plan.organizationId)
-    : isRoutinePullHeld({ historyMode, isRemoteSyncBlocked }, input.plan);
+    : isRoutinePullHeld(
+        { ...pull, isRemoteSyncBlocked },
+        input.plan.organizationId,
+      );
   if (blocked) return "blocked";
   if (input.stillCurrent?.() === false) return "cancelled";
 

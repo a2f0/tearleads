@@ -10,6 +10,7 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../sqlite/sqlSchema";
+import { requestAllDomainSyncLanes } from "./syncCoordinator";
 
 /** The container fields the pause rule reads. */
 export interface OrganizationSyncPauseSubject {
@@ -19,10 +20,11 @@ export interface OrganizationSyncPauseSubject {
 }
 
 /**
- * Whether a container keeps syncing while its organization is paused: only
+ * Whether a container keeps listing while its organization is paused: only
  * the organization's parentless system root, the metadata root every Members
  * recipient reads, so a device that has never synced the organization still
- * lists it and can resume it.
+ * lists it and can resume it. Its documents are held like any other once
+ * pulled.
  */
 function syncsWhileOrganizationPaused(
   container: OrganizationSyncPauseSubject,
@@ -44,6 +46,13 @@ export interface OrganizationSyncPauses {
   /** Loads the persisted set once; concurrent and later calls share it. */
   load(execSql: ExecSql): Promise<void>;
   isOrganizationPaused(organizationId: string): boolean;
+  /**
+   * Whether the organization's uploads and document pulls are held: it is
+   * paused, or the last read of the persisted set failed. A device that
+   * cannot read its pauses cannot tell which organizations to hold, so it
+   * holds them all, leaving local edits queued, until a read succeeds.
+   */
+  holdsSync(organizationId: string): boolean;
   /**
    * Whether sync skips this container: every container of a paused
    * organization except its metadata root. The session's active organization
@@ -110,9 +119,12 @@ class OrganizationSyncPauseRepository {
   }
 }
 
-function createOrganizationSyncPauses(): OrganizationSyncPauses {
+function createOrganizationSyncPauses(
+  domainScope: DomainScope,
+): OrganizationSyncPauses {
   let paused: ReadonlySet<string> = new Set();
   let loading: Promise<void> | null = null;
+  let unreadable = false;
   let replacing: Promise<void> = Promise.resolve();
   let exclusive: Promise<void> = Promise.resolve();
   const listeners = new Set<() => void>();
@@ -127,17 +139,25 @@ function createOrganizationSyncPauses(): OrganizationSyncPauses {
         .then(
           (stored) => {
             paused = stored;
+            if (unreadable) {
+              // Writes held while the set could not be read left their lanes
+              // idle, so every lane is re-driven.
+              unreadable = false;
+              requestAllDomainSyncLanes(domainScope);
+            }
             if (stored.size > 0) notify();
           },
           (error: unknown) => {
             // Let a later call retry a failed read.
             loading = null;
+            unreadable = true;
             throw error;
           },
         );
       return loading;
     },
     isOrganizationPaused: (organizationId) => paused.has(organizationId),
+    holdsSync: (organizationId) => unreadable || paused.has(organizationId),
     isContainerPaused: (container) =>
       paused.has(container.organizationId) &&
       !syncsWhileOrganizationPaused(container),
@@ -191,8 +211,9 @@ const pausesByScope = new WeakMap<DomainScope, OrganizationSyncPauses>();
 /**
  * Loads the scope's paused organizations before a store starts syncing, since
  * its sync lanes read them synchronously. A failed read is reported and never
- * keeps the store from starting; hydration and discovery load the set again
- * before they fetch.
+ * keeps the store from starting: the store opens and takes local edits, and
+ * every organization's sync stays held (see `holdsSync`) until a later read,
+ * such as the one hydration and discovery make before they fetch, succeeds.
  */
 export async function loadOrganizationSyncPausesBeforeSync(input: {
   readonly domainScope: DomainScope;
@@ -214,7 +235,7 @@ export function getOrCreateOrganizationSyncPauses(
 ): OrganizationSyncPauses {
   let pauses = pausesByScope.get(domainScope);
   if (!pauses) {
-    pauses = createOrganizationSyncPauses();
+    pauses = createOrganizationSyncPauses(domainScope);
     pausesByScope.set(domainScope, pauses);
   }
   return pauses;
