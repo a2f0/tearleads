@@ -8,7 +8,8 @@ import {
   type DocumentLinkSetFailureHandler,
   type LinkSetAttachmentReuse,
   type RelinkRemoteDocumentResult,
-  relinkRemoteDocument,
+  RemoteDocumentService,
+  type RemoteDocumentServiceApi,
   resolveDocumentCreateAuthor,
 } from "../../documents";
 import type { SubtreePurgeRoot } from "../../documents/purge/subtreePurgeScope";
@@ -18,11 +19,9 @@ import {
 } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 
-export type ContainerDocumentLinkApi = Parameters<
-  typeof relinkRemoteDocument
->[0]["apiClient"];
+export type ContainerDocumentLinkApi = RemoteDocumentServiceApi;
 type ContainerDocumentLinkOperation = Parameters<
-  typeof relinkRemoteDocument
+  RemoteDocumentService["relinkRemoteDocument"]
 >[0]["operation"];
 type RemoteDocumentPersistedState =
   RelinkRemoteDocumentResult["persistedState"];
@@ -136,23 +135,25 @@ export async function relinkRemoteContainerDocument(input: {
     });
     return null;
   }
+  const remoteDocuments = new RemoteDocumentService({
+    api: runtime.apiClient,
+    encapsulationSecretKey: targetSecretKey,
+    execSql,
+  });
 
   try {
-    const result = await relinkRemoteDocument({
+    const result = await remoteDocuments.relinkRemoteDocument({
       attachmentReuse: input.attachmentReuse,
       beforeSubmit: input.beforeSubmit,
-      apiClient: runtime.apiClient,
       author,
       documentId,
       expectedSubtreeRoot: input.expectedSubtreeRoot,
-      execSql,
       onFailure: input.onFailure,
       operation,
       resolveProjectionUserKey,
       rotationSnapshot: input.rotationSnapshot,
       stillCurrent: input.isCurrent,
       targetContainerId,
-      targetSecretKey,
       warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
         runtime,
         { operation: input.policyOperation },

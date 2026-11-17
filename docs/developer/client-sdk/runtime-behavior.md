@@ -69,8 +69,8 @@ checkpoints or creates current key material. Terminal
 `historicalProof: true` to defer currency enforcement until all signed artifacts
 have authenticated; this option alone is not permission to admit a selection.
 Only the complete purge commit admits its public observations together with
-local document teardown, under the original lifetime guard. Standalone
-`purgeRemoteDocument` and deletion handlers accept
+local document teardown, under the original lifetime guard. Requests to
+`RemoteDocumentService.purgeRemoteDocument` and deletion handlers accept
 `warmReferencedPrincipalPolicies` and `stillCurrent` for that purpose.
 For a newer local policy pin, purge also calls `resolveReference` with
 `preferLocalHistory: true`: reuse authenticated local ancestry, then recover

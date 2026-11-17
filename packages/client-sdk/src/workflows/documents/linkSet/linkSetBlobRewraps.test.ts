@@ -21,13 +21,13 @@ import {
   createUploadedAttachmentFixture,
 } from "../../../../test/helpers/blobHydration";
 import { createLinkSetResponseFromRequest } from "../../../../test/helpers/documentFixtures";
+import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/remoteDocumentServiceFixture";
 import { contentKeyTargetReference } from "../../../data/blobs/attachments/readers";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { decryptDocumentAttachmentBlob } from "../../blobs/hydration/decrypt";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
-import { relinkRemoteDocument } from "./linkSetRemote";
 
 async function currentBinding(
   binding: BlobAttachmentSummary,
@@ -82,8 +82,8 @@ test("a signed link carries attachment keys usable with only the destination KEK
   });
   const binding = createFixtureBinding(fixture);
   const primed: DocumentWriterProjectionResponse[] = [];
-  const result = await relinkRemoteDocument({
-    apiClient: createMockApiClient({
+  const result = await createRemoteDocumentServiceFixture({
+    api: createMockApiClient({
       getContainerWriterProjection: async () => target,
       getDocumentWriterProjection: async () => fixture.writerProjection,
       listDocumentAttachments: async () => [binding],
@@ -99,13 +99,14 @@ test("a signed link carries attachment keys usable with only the destination KEK
         primed.push(projection);
       },
     }),
+    encapsulationSecretKey: fixture.secretKey,
+    execSql: fixture.execSql,
+  }).relinkRemoteDocument({
     author: fixture.author,
     documentId: fixture.writerProjection.documentId,
-    execSql: fixture.execSql,
     operation: "link",
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
     targetContainerId: target.containerId,
-    targetSecretKey: fixture.secretKey,
   });
   if (!result || !primed[0])
     throw new Error("Expected signed link and primed projection");
