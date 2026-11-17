@@ -168,7 +168,8 @@ directory write (group create, group policy commit, group delete) keeps the
 key, epoch and envelopes while the Admins projection is unchanged, and wraps
 the held key only for added admins. Verifiers refuse a removal that keeps the
 key, and the SDK rotates to a freshly generated key for the remaining admins,
-so a removed admin never holds a current key the SDK wrote
+so a removed admin never holds a current key the SDK wrote unless it holds a
+remaining admin's own KEM secret
 ([model](../../formal/container-keying/OrganizationDirectoryKey.md)); as for
 every principal, verifiers compare key material only with the predecessor.
 The SDK also rotates when the signer's own envelope does not open the signed

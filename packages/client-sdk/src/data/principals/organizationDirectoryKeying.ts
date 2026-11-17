@@ -120,6 +120,13 @@ async function assertGrownRecipients(
   }
 }
 
+/**
+ * A fresh key wrapped for every admin of the successor. A removed admin that
+ * holds a retained admin's KEM secret still opens that admin's envelope: no
+ * directory key can exclude it, and refusing the removal would let a
+ * directory an honest server serves block it, so that case belongs to the
+ * retained admin's own identity key rotation.
+ */
 async function rotatedKeying(input: {
   readonly currentPolicy: OrganizationDirectoryCurrentPolicy;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
