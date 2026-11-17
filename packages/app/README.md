@@ -40,6 +40,9 @@ and the chrome conventions across desktop, tablet, and phone.
 [Contact addresses](src/document-types/contact/README.md) documents the shared
 Contacts/Explorer editor, repeated Loro records, and attribution boundaries.
 
+[Document history](src/stores/document-history/README.md) documents Explorer's
+History view: replaying a document's changes and restoring a past version.
+
 The regular app offers **Start Screensaver** from the bare-desktop context
 menu, the desktop Start menu, and the routed taskbar. It runs the shared
 grayscale lasers animation on demand; there is no idle timer. Without a PIN,

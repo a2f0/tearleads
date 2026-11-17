@@ -1,7 +1,7 @@
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";
-import { invalidateDocumentSyncPullContinuation } from "../records";
+import { DocumentRecordRepository } from "../records";
 import type { DocumentsPersistence } from "../types";
 
 export async function invalidateStoredDocumentPullContinuation(
@@ -13,13 +13,12 @@ export async function invalidateStoredDocumentPullContinuation(
   return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
     getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
       async () => {
-        const invalidated = await invalidateDocumentSyncPullContinuation(
+        const invalidated = await new DocumentRecordRepository(
           lockedExecSql,
-          {
-            ...input,
-            appKind: DOCUMENTS_APP_KIND,
-          },
-        );
+        ).invalidateDocumentSyncPullContinuation({
+          ...input,
+          appKind: DOCUMENTS_APP_KIND,
+        });
         if (!invalidated) return null;
         const record = await loadDocument(lockedExecSql, input.localId);
         if (!record) return null;

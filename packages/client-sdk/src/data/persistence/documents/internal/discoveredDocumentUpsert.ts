@@ -17,7 +17,7 @@ import {
   hasDocumentPurgeCheckpointInTransaction,
   listPurgedDocumentIdsInTransaction,
 } from "../../keyingCheckpoints/documentPurgeCheckpointPersistence";
-import { findLocalIdByDocumentId, findLocalIdsByDocumentIds } from "../records";
+import { DocumentRecordRepository } from "../records";
 import type { StoredDocumentRecord } from "../types";
 import {
   discoveredDocumentPlacement,
@@ -87,11 +87,9 @@ async function upsertDiscoveredDocumentWithExec(
   if (await hasDocumentPurgeCheckpointInTransaction(tx, input.documentId)) {
     throw purgedDocumentError();
   }
-  const existingLocalId = await findLocalIdByDocumentId(
+  const existingLocalId = await new DocumentRecordRepository(
     execSql,
-    DOCUMENTS_APP_KIND,
-    input.documentId,
-  );
+  ).findLocalIdByDocumentId(DOCUMENTS_APP_KIND, input.documentId);
   const localId = existingLocalId ?? input.documentId;
   const pendingLocalId = pendingCreates.get(input.documentId);
   if (!existingLocalId && pendingLocalId) {
@@ -161,11 +159,9 @@ async function resolveDiscoveryTargets(
 ): Promise<DiscoveryTarget[] | null> {
   const documentIds = inputs.map((input) => input.documentId);
   const purged = await listPurgedDocumentIdsInTransaction(tx, documentIds);
-  const existingLocalIds = await findLocalIdsByDocumentIds(
+  const existingLocalIds = await new DocumentRecordRepository(
     execSql,
-    DOCUMENTS_APP_KIND,
-    documentIds,
-  );
+  ).findLocalIdsByDocumentIds(DOCUMENTS_APP_KIND, documentIds);
   const targets: DiscoveryTarget[] = [];
   const pendingLocalIds = new Set<string>();
   for (const input of inputs) {

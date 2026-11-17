@@ -322,6 +322,8 @@ export function createDocumentStoreFacade(
     requestSync: () => targetStore.requestSync(),
     relink: (input) => targetStore.relink(input),
     rebindTo: (store) => connectTarget(store),
+    restoreContent: (content, options) =>
+      targetStore.restoreContent(content, options),
     setStructuredFields: (kind, patch, options) =>
       targetStore.setStructuredFields(kind, patch, options),
     setText: (value: string) => targetStore.setText(value),

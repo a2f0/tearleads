@@ -14,7 +14,7 @@ import type {
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { readLinkedContainerIdsFromDocumentManifest } from "../../src/data/documents/shared/projection/projectionTargets";
 import { DocumentContainerProjectionRepository as Links } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { syncPendingDocumentMoveIntents } from "../../src/workflows/container-contents/documentMove/documentMoveIntentSync";
@@ -460,8 +460,8 @@ export async function runQueuedDocumentMoveFixture(input: {
       0,
     );
 
-    const pendingIntents =
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    const intents = new DocumentMoveIntentRepository(execSql);
+    const pendingIntents = await intents.listPendingMoveIntents();
     const intentRows = await execSql(
       "SELECT sync_status AS syncStatus, last_error AS lastError FROM local_intents WHERE lane = 'document.placement'",
     );

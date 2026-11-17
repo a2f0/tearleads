@@ -11,6 +11,7 @@ import {
   getFoldedSecondaryTexts,
   mockPhoneRoutedLayout,
 } from "../../../../../test/helpers/compactTableFold";
+import { readKeyValueRows } from "../../../../../test/helpers/keyValueRows";
 import { formatByteLength } from "../../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
@@ -189,7 +190,7 @@ test("document info attachment rows match duplicate bindings one-to-one", () => 
   expect(view.getByText(/^remote$/)).toBeTruthy();
 });
 
-test("folded attachment rows keep state, size, and time, and the name opens the blob", () => {
+test("folded attachment rows keep state, size, and time, and open the slot, blob, and blob browser", () => {
   const restoreLayout = mockPhoneRoutedLayout();
   const opened: Array<{ blobId?: string | null | undefined }> = [];
   const updatedAt = "2026-06-20T10:00:00.000Z";
@@ -234,8 +235,34 @@ test("folded attachment rows keep state, size, and time, and the name opens the 
       ],
     ]);
 
+    // The folded row has no room for the slot and blob ids, so two
+    // attachments that differ only by slot would read the same.
+    expect(table.textContent).not.toContain("slot-1");
     fireEvent.click(within(table).getByRole("button", { name: "photo.png" }));
+    expect(opened).toEqual([]);
+
+    const dialog = view.getByRole("dialog", {
+      name: EXPLORER_LABELS.infoRowDetailAttachmentTitle,
+    });
+    expect(readKeyValueRows(dialog)).toEqual({
+      [EXPLORER_LABELS.documentInfoAttachmentNameColumn]: "photo.png",
+      [EXPLORER_LABELS.documentInfoAttachmentKindColumn]: "local",
+      [EXPLORER_LABELS.documentInfoAttachmentSlotColumn]: "slot-1",
+      [EXPLORER_LABELS.documentInfoAttachmentBlobColumn]: "blob-local",
+      [EXPLORER_LABELS.infoRowDetailStorageKeyRow]: "storage-1",
+      [EXPLORER_LABELS.infoRowDetailBindingRow]: "-",
+      [EXPLORER_LABELS.documentInfoAttachmentSizeColumn]: formatByteLength(12),
+      [EXPLORER_LABELS.documentInfoAttachmentTimeColumn]: `${formatMiniAppDateTime(updatedAt)} (${updatedAt})`,
+    });
+
+    // Folded there is no Blob column: the detail leads to the blob browser.
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: EXPLORER_LABELS.infoRowDetailOpenBlobAction,
+      }),
+    );
     expect(opened).toEqual([{ blobId: "blob-local" }]);
+    expect(view.queryByRole("dialog")).toBeNull();
   } finally {
     restoreLayout();
   }

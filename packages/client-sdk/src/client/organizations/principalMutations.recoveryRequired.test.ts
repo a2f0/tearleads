@@ -28,6 +28,7 @@ for (const missing of ["custody", "pages"] as const) {
         },
       );
       const input = {
+        identityTrustDomain: "https://api.example.test",
         runtime: f.runtime,
         groupId: "group-1",
         expectedGroupName: "Operators",

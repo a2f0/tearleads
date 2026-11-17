@@ -11,7 +11,7 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import {
-  enqueueDocumentPendingUpdate,
+  DocumentRecordRepository,
   type PendingUpdateFields,
 } from "../documents/records";
 import {
@@ -202,8 +202,7 @@ async function enqueuePendingUpdate(
   pendingUpdate: PendingUpdateFields | undefined,
 ): Promise<void> {
   if (!pendingUpdate) return;
-  await enqueueDocumentPendingUpdate(
-    execSql,
+  await new DocumentRecordRepository(execSql).enqueueDocumentPendingUpdate(
     getContainerMetadataScope(containerId),
     pendingUpdate,
   );

@@ -1,0 +1,20 @@
+/** Get Info's row detail: the dialog a table row opens with its full fields. */
+export const EXPLORER_INFO_ROW_DETAIL_LABELS = {
+  infoRowDetailAttachmentTitle: "Attachment",
+  infoRowDetailBindingRow: "Binding",
+  infoRowDetailContainerIdRow: "Container ID",
+  infoRowDetailContainerRow: "Container",
+  infoRowDetailEditRangeTitle: "Edit Range",
+  infoRowDetailEventHashRow: "Event Hash",
+  infoRowDetailGrantsRow: "Grants",
+  infoRowDetailKeyEpochIdRow: "Key Epoch ID",
+  infoRowDetailLaneIdRow: "Lane ID",
+  infoRowDetailManifestHashRow: "Manifest Hash",
+  infoRowDetailOpenBlobAction: "Open in Blob Browser",
+  infoRowDetailPathEntryTitle: "Path Entry",
+  infoRowDetailStorageKeyRow: "Storage Key",
+  infoRowDetailSyncCursorTitle: "Sync Cursor",
+  infoRowDetailWatermarkIdRow: "Watermark ID",
+  infoRowDetailWriterKeyRow: "Writer Key",
+  infoRowDetailWriterUserIdRow: "Writer User ID",
+} as const;

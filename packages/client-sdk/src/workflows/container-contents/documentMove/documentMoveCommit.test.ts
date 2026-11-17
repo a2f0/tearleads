@@ -6,7 +6,7 @@ import {
 } from "../../../../test/helpers/internalRuntimeFixtures";
 import { createContainerContents } from "../../../client/containerContents";
 import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRemoteHistoryFixture } from "../../../stores/documents/documentStore/documentStore.testFixtures";
@@ -95,9 +95,11 @@ test.each([false, true])(
       expect(
         await new Links(execSql).listLinkedContainerIds(documentId),
       ).toEqual([expectedContainer]);
-      expect(await intents.listPendingMoveIntents(execSql)).toHaveLength(
-        failProjection ? 0 : 1,
-      );
+      expect(
+        await new DocumentMoveIntentRepository(
+          execSql,
+        ).listPendingMoveIntents(),
+      ).toHaveLength(failProjection ? 0 : 1);
       expect(published).toEqual(failProjection ? [] : ["trash"]);
       expect(placementChanges).toEqual(failProjection ? [] : [true]);
     } finally {

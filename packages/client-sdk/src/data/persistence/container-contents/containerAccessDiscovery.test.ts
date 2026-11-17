@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createDocumentDiscoveryEvidenceStore } from "../documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../documents/documentDiscoveryEvidencePersistence";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 import {
+  ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
   containerParentSyncLane,
-  sqlContainerSyncWatermarkPersistence as watermarks,
 } from "./containerSyncWatermarkPersistence";
 
 for (const [from, to, commit] of [
@@ -53,13 +53,14 @@ for (const [from, to, commit] of [
       const unrelated = containerContentsSyncLane("unrelated");
       const parent = containerParentSyncLane(container.id);
       const cursor = { id: "document", updatedAt: "2026-01-01T00:00:00.000Z" };
+      const watermarks = new ContainerSyncWatermarkRepository(execSql);
       for (const selected of [lane, unrelated, parent]) {
-        await watermarks.recordLaneFetch(execSql, selected, {
+        await watermarks.recordLaneFetch(selected, {
           checked: true,
           watermark: cursor,
         });
       }
-      const evidence = createDocumentDiscoveryEvidenceStore(execSql);
+      const evidence = new DocumentDiscoveryEvidenceRepository(execSql);
       const generation = await evidence.begin();
       const candidate = {
         accessEpoch: 1,
@@ -98,15 +99,13 @@ for (const [from, to, commit] of [
         });
       expect(result.committed).toBe(commit);
       const reset = commit && from !== (to ?? "read");
-      expect(await watermarks.loadWatermark(execSql, lane)).toEqual(
+      expect(await watermarks.loadWatermark(lane)).toEqual(
         reset ? null : cursor,
       );
-      const [check] = await watermarks.loadCheckRecords(execSql, [lane]);
+      const [check] = await watermarks.loadCheckRecords([lane]);
       expect(check === null).toBe(reset);
-      expect(await watermarks.loadWatermark(execSql, unrelated)).toEqual(
-        cursor,
-      );
-      expect(await watermarks.loadWatermark(execSql, parent)).toEqual(cursor);
+      expect(await watermarks.loadWatermark(unrelated)).toEqual(cursor);
+      expect(await watermarks.loadWatermark(parent)).toEqual(cursor);
       expect(await evidence.isCurrent(generation)).toBe(!reset);
       expect(await evidence.hasPending([container.id])).toBe(!reset);
       expect(await evidence.hasPending(["unrelated"])).toBe(true);

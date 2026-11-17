@@ -35,6 +35,7 @@ export function createRemovedDocumentStore(
     requestRemoteSyncAndWait: async () => false,
     requestSync: () => undefined,
     relink: async () => null,
+    restoreContent: async () => false,
     setStructuredFields: refuse,
     setText: refuse,
     subscribe: () => () => undefined,

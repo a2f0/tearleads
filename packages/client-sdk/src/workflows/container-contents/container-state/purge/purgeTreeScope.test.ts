@@ -7,7 +7,7 @@ import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpe
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
 import { DocumentContainerProjectionRepository as Links } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import {
   buildMaterializedContainerCreatePlan,
@@ -55,7 +55,7 @@ for (const scenario of [
       const documentId = crypto.randomUUID();
       const localId = crypto.randomUUID();
       const queueRestore = () =>
-        sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+        new DocumentMoveIntentRepository(execSql).enqueueMoveIntent({
           documentId,
           localId,
           sourceContainerId: projection.containerId,

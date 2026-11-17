@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { clientSqlTables } from "../../../data/sqlite/schema";
 import { accessManifestCheckpoints } from "../../../data/sqlite/schema/keyingCheckpointSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
@@ -30,7 +30,7 @@ test("discovery uses the replacement organization's pin while retaining the old 
         updatedAt: "2026-09-28",
       },
     ]);
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     const head = {
       organizationId: "new-org",
       accessEpoch: 1,
@@ -92,7 +92,7 @@ test("obsolete discovery caches require a fresh database without changing old ro
     await execSql(
       "INSERT INTO document_discovery_heads VALUES ('doc', 'head', 1, '[]')",
     );
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     await expect(store.loadHead("doc", "head")).rejects.toThrow(
       "Local database schema for document_discovery_heads is obsolete; reset the local database before continuing",
     );

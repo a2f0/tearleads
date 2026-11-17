@@ -1,7 +1,5 @@
-import {
-  createContainerParentSyncLane,
-  loadContainerSyncWatermark,
-} from "../../containerPersistence";
+import { ContainerSyncWatermarkRepository } from "../../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
+import { createContainerParentSyncLane } from "../../containerPersistence";
 import { createContainerStateFingerprint } from "../remoteContainers/containerStateFingerprint";
 import type {
   ContainerParentHydrationLane,
@@ -18,7 +16,9 @@ async function prepareContainerParentLanePage(input: {
   const syncLane = createContainerParentSyncLane(lane.parentId);
   const watermark =
     lane.watermark === undefined
-      ? await loadContainerSyncWatermark(state.runtime.infra.execSql, syncLane)
+      ? await new ContainerSyncWatermarkRepository(
+          state.runtime.infra.execSql,
+        ).loadWatermark(syncLane)
       : lane.watermark;
   return {
     lane,

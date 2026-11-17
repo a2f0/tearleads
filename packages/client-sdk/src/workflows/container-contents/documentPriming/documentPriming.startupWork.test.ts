@@ -1,9 +1,13 @@
 import { expect, test } from "bun:test";
 import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { hasStartupDocumentSyncWork } from "./index";
+
+const moveIntents = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 // Every unsynced move intent is durable startup work, whatever its status:
 // pending replays directly, blocked re-checks its healed condition, and
@@ -14,7 +18,7 @@ test("any unsynced move intent counts as startup sync work", async () => {
   try {
     expect(await hasStartupDocumentSyncWork(execSql)).toBe(false);
 
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "startup-remote",
       localId: "startup-doc",
       replaceLinkedContainers: false,
@@ -23,14 +27,14 @@ test("any unsynced move intent counts as startup sync work", async () => {
     });
     expect(await hasStartupDocumentSyncWork(execSql)).toBe(true);
 
-    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+    await moveIntents(execSql).recordMoveIntentError({
       blocked: true,
       documentId: "startup-remote",
       message: "destination not synced yet",
     });
     expect(await hasStartupDocumentSyncWork(execSql)).toBe(true);
 
-    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+    await moveIntents(execSql).recordMoveIntentError({
       denied: true,
       documentId: "startup-remote",
       message: "denied",

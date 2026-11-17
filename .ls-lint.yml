@@ -28,7 +28,7 @@ ls:
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
 
   packages/app/src/mini-apps/explorer/detail/*:
-    .dir: regex:(blob|container|document|recovery|sync)
+    .dir: regex:(blob|container|document|history|recovery|row-detail|sync)
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-17
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-8
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3

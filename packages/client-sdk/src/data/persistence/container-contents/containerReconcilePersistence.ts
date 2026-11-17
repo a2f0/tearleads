@@ -1,4 +1,5 @@
 import { documentPlacementIntentTables } from "../../sqlite/schema";
+import { containerSyncWatermarkTables } from "../../sqlite/schema/containerSyncWatermarkSchema";
 import {
   documentContainerProjectionTables,
   documentProjectionTables,
@@ -17,7 +18,6 @@ import {
   reparentLocalContainerChildren,
   updateReparentedDescendantContainers,
 } from "./containerStructuralRepair";
-import { sqlContainerSyncWatermarkPersistence } from "./containerSyncWatermarkPersistence";
 
 type ContainerReconcilePersistence = Pick<
   ContainerContentsPersistence,
@@ -80,7 +80,7 @@ export const containerReconcilePersistence: ContainerReconcilePersistence = {
       ]);
       await ensureContainerTables(lockedExecSql);
       await ensureDocumentTables(lockedExecSql);
-      await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
+      await ensureSqlTables(lockedExecSql, containerSyncWatermarkTables);
       if (input.stillCurrent?.() === false) {
         return;
       }
@@ -129,7 +129,7 @@ export const containerReconcilePersistence: ContainerReconcilePersistence = {
       ]);
       await ensureContainerTables(lockedExecSql);
       await ensureDocumentTables(lockedExecSql);
-      await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
+      await ensureSqlTables(lockedExecSql, containerSyncWatermarkTables);
       if (input.stillCurrent?.() === false) {
         return;
       }

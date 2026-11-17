@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import type { ExecSql } from "../../sqlite/sqlSchema";
 import { sqlDocumentsPersistence } from "../documents/documentsPersistence";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 import {
@@ -7,7 +8,10 @@ import {
   loadContainers,
 } from "./containerPersistence";
 import { DocumentContainerProjectionRepository as Links } from "./documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence } from "./documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "./documentMoveIntentPersistence";
+
+const moveIntents = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 const TEST_SYSTEM_SLOT = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
@@ -141,20 +145,20 @@ test("root reconciliation folds duplicate document links into the remote root", 
       "local-root",
       "remote-root",
     ]);
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "source-document",
       localId: "source-local",
       sourceContainerId: "local-root",
       targetContainerId: "other-container",
     });
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+    await moveIntents(execSql).enqueueMoveIntent({
       documentId: "target-document",
       localId: "target-local",
       sourceContainerId: "other-container",
       targetContainerId: "local-root",
     });
     for (const documentId of ["source-document", "target-document"]) {
-      await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+      await moveIntents(execSql).recordMoveIntentError({
         blocked: true,
         documentId,
         message: "stale root",

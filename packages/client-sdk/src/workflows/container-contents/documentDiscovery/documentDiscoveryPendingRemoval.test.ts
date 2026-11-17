@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import {
   discoverContainerDocuments,
   laneLister,
@@ -23,7 +23,7 @@ const candidate = {
 test("discovery drops only pending hints for a tombstoned listing lane", async () => {
   const { execSql, close } = await createTestExecSql("pending-removal-single");
   try {
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     const verify = createDiscoveredDocumentVerifier(
       "org",
       async () => null,
@@ -70,7 +70,7 @@ test("discovery drops only pending hints for a tombstoned listing lane", async (
 test("an older listing tombstone cannot erase a newer pending discovery", async () => {
   const { execSql, close } = await createTestExecSql("pending-removal-order");
   try {
-    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const store = new DocumentDiscoveryEvidenceRepository(execSql);
     const older = await store.begin();
     const newer = await store.begin();
     await store.stage([candidate], newer);

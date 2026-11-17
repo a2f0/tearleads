@@ -215,3 +215,143 @@ for (const entry of TABLES) {
     await expectUnfolded(getInfoTable(page, entry.table));
   });
 }
+
+// A folded row truncates or drops values its wide columns show, and both keep
+// full ids in tooltips a touch screen never shows. Every row of these tables
+// opens a detail dialog instead. Grants are left out: a grant row opens its
+// group or user.
+const DETAIL_TABLES = TABLES.filter((entry) => entry.table !== "grants");
+
+interface DrawnRowDetail {
+  /** The dialog's fields, in order. */
+  labels: string[];
+  /** Each value the row holds that the dialog does not draw. */
+  missing: string[];
+  /** How many values the row holds. */
+  values: number;
+}
+
+/**
+ * Compares a row with the dialog it opened, both read in one pass so a sync
+ * that refreshes a cursor cannot land between them. A row holds each text it
+ * draws and each value in a tooltip; a text shortened with an ellipsis stands
+ * for the full value in its tooltip. Each must be a field of the dialog. Runs
+ * in the page, so it is self-contained.
+ */
+function measureRowDetail(row: Element): DrawnRowDetail {
+  const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+  // Whole fields, not a search of the dialog's text: a storage key contains
+  // its slot id, which must not stand in for the Slot field. A time is drawn
+  // as "<as its row shows it> (<as recorded>)", so both halves count.
+  const shown = new Set(
+    Array.from(dialog?.querySelectorAll("dd") ?? []).flatMap((field) => {
+      const text = (field.textContent ?? "").trim();
+      return [text, ...text.replace(/\)$/u, "").split(" (")];
+    }),
+  );
+  const texts: string[] = [];
+  const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    texts.push((node.textContent ?? "").trim());
+  }
+  const tooltips = Array.from(
+    row.querySelectorAll("[title]"),
+    (titled) => titled.getAttribute("title") ?? "",
+  );
+  const values = new Set([
+    ...texts.filter((text) => !text.includes("...")),
+    // A tooltip can join several values: "<name> · <user id> · <key>".
+    ...tooltips.flatMap((tooltip) => tooltip.split(/\s+/u)),
+  ]);
+  values.delete("");
+  values.delete("·");
+
+  return {
+    labels: Array.from(
+      dialog?.querySelectorAll("dt") ?? [],
+      (label) => label.textContent ?? "",
+    ),
+    missing: Array.from(values).filter((value) => !shown.has(value)),
+    values: values.size,
+  };
+}
+
+interface DrawnDialog {
+  /** Each value drawn wider than the room it has. */
+  clipped: string[];
+  labels: string[];
+  /** How far the dialog reaches past the viewport on any side, in px. */
+  overhang: number;
+}
+
+/** Runs in the page, so it is self-contained. */
+function measureDialog(dialog: Element): DrawnDialog {
+  const box = dialog.getBoundingClientRect();
+  return {
+    clipped: Array.from(dialog.querySelectorAll("dd"))
+      .filter((value) => value.scrollWidth > value.clientWidth + 1)
+      .map((value) => value.textContent ?? ""),
+    labels: Array.from(
+      dialog.querySelectorAll("dt"),
+      (label) => label.textContent ?? "",
+    ),
+    overhang: Math.round(
+      Math.max(
+        0,
+        -box.left,
+        -box.top,
+        box.right - window.innerWidth,
+        box.bottom - window.innerHeight,
+      ),
+    ),
+  };
+}
+
+async function firstRow(table: Locator): Promise<Locator> {
+  await expect(table).toBeVisible({ timeout: 30_000 });
+  const row = getInfoTableRows(table).first();
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  return row;
+}
+
+for (const entry of DETAIL_TABLES) {
+  test(`${entry.name}: a folded row opens every value its wide row holds`, async () => {
+    // Wide, the row shows every value (some only in a tooltip), so the dialog
+    // it opens there is measured against it.
+    await page.setViewportSize(WIDE_VIEWPORT);
+    await entry.open();
+    const wideRow = await firstRow(getInfoTable(page, entry.table));
+    // The last cell is plain text in every table, so this is the row's own
+    // click rather than a control's (an attachment's Blob button leaves).
+    await wideRow.locator("td").last().click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    const wide = await wideRow.evaluate(measureRowDetail);
+    expect(wide.values).toBeGreaterThan(2);
+    expect(wide.missing).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+
+    // On a phone the same dialog opens from a tap anywhere on the folded row,
+    // here its second line, and draws every field whole inside the screen.
+    for (const width of PHONE_WIDTHS) {
+      await page.setViewportSize({ ...PHONE_VIEWPORT, width });
+      await entry.open();
+      const table = getInfoTable(page, entry.table);
+      const row = await firstRow(table);
+      await expectFolded(table);
+      const rowBox = await row.boundingBox();
+      if (!rowBox) throw new Error("The folded row is not drawn");
+      await row.click({
+        position: { x: rowBox.width / 2, y: rowBox.height - 10 },
+      });
+      await expect(dialog).toBeVisible();
+      const drawn = await dialog.evaluate(measureDialog);
+      expect(drawn.labels).toEqual(wide.labels);
+      expect(drawn.clipped).toEqual([]);
+      expect(drawn.overhang).toBe(0);
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
+      await expect(dialog).toBeHidden();
+    }
+  });
+}

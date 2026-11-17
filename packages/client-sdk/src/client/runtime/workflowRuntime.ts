@@ -64,7 +64,6 @@ export interface Runtime {
 }
 
 export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
-  readonly identityTrustDomain: string | null;
   readonly apiClient: PrincipalMutationApi;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly withPrincipalHistoryProtection?:
@@ -73,6 +72,8 @@ export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
 }
 
 export interface InternalRuntime {
+  /** Resolved once by the composition root; constant for the client's life. */
+  readonly identityTrustDomain: string | null;
   identityLinks: Pick<
     TrustedUserIdentityService,
     | "createLink"
@@ -218,6 +219,7 @@ export function createRuntime(
   );
 
   return {
+    identityTrustDomain: dependencies.identityTrustDomain,
     identityLinks: trustedUserIdentityService,
     retirePrincipalHistoryProtection: historyProtection.retire,
     get sessionGeneration() {
@@ -433,7 +435,6 @@ function createRuntimeInputFactory(
     util = runtimeInputUtilities(dependencies, util);
 
     return {
-      identityTrustDomain: dependencies.identityTrustDomain,
       apiClient: bindMutationApi(),
       auth,
       crypto,

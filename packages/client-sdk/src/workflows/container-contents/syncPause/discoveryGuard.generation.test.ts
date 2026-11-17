@@ -2,12 +2,14 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { resetAccessDiscovery } from "../../../data/persistence/container-contents/containerAccessDiscovery";
 import {
+  ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
-  sqlContainerSyncWatermarkPersistence as watermarks,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
-import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { containerSyncWatermarkTables } from "../../../data/sqlite/schema/containerSyncWatermarkSchema";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
+import { ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import {
   discoverContainerDocuments,
   laneLister,
@@ -19,8 +21,9 @@ import { guardDocumentDiscoveryWrites } from "./discoveryGuard";
 test("discovery cannot restore a cursor after a permission change", async () => {
   const { execSql, close } = await createTestExecSql("discovery-access-race");
   try {
-    await watermarks.ensureSchema(execSql);
-    const evidence = createDocumentDiscoveryEvidenceStore(execSql);
+    await ensureSqlTables(execSql, containerSyncWatermarkTables);
+    const watermarks = new ContainerSyncWatermarkRepository(execSql);
+    const evidence = new DocumentDiscoveryEvidenceRepository(execSql);
     const cursor = { id: "document", updatedAt: "2026-01-01T00:00:00.000Z" };
     const container = {
       id: "shared",
@@ -80,20 +83,14 @@ test("discovery cannot restore a cursor after a permission change", async () => 
     const staleResult = await discover();
     expect(reset).toBe(false);
     expect(
-      await watermarks.loadWatermark(
-        execSql,
-        containerContentsSyncLane(container.id),
-      ),
+      await watermarks.loadWatermark(containerContentsSyncLane(container.id)),
     ).toBeNull();
     expect(staleResult).toBeNull();
     // A subsequent listing may advance normally; the guard must not freeze
     // discovery after it discards the stale write.
     await discover();
     expect(
-      await watermarks.loadWatermark(
-        execSql,
-        containerContentsSyncLane(container.id),
-      ),
+      await watermarks.loadWatermark(containerContentsSyncLane(container.id)),
     ).toEqual(cursor);
   } finally {
     close();

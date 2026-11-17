@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
 import { DocumentContainerProjectionRepository as Links } from "../container-contents/documentContainerProjectionPersistence";
-import { createDocumentDiscoveryEvidenceStore } from "./documentDiscoveryEvidencePersistence";
+import { DocumentDiscoveryEvidenceRepository } from "./documentDiscoveryEvidencePersistence";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence,
@@ -17,7 +17,7 @@ async function bookkeepingFixture(name: string) {
   await sqlDocumentsPersistence.ensureSchema(counted.execSql);
   // Warm the link and evidence table ensures so they are not counted.
   await new Links(counted.execSql).replaceDocumentLinksBatch([]);
-  const evidence = createDocumentDiscoveryEvidenceStore(counted.execSql);
+  const evidence = new DocumentDiscoveryEvidenceRepository(counted.execSql);
   await evidence.isCurrent(0);
   return { ...sqlite, counted, evidence };
 }

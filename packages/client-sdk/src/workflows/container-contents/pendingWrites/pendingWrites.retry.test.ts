@@ -3,16 +3,16 @@ import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import {
-  hasRecordedTerminalSyncFailures,
-  listDocumentPendingUpdates,
-  recordDocumentSyncFailure,
-} from "../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import { documentHistoryUpdates } from "../../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { resetPendingWriteRetryState } from "./index";
+
+const moveIntents = (execSql: ExecSql) =>
+  new DocumentMoveIntentRepository(execSql);
 
 const LOCAL_ID = "retry-doc";
 
@@ -25,6 +25,7 @@ const LOCAL_ID = "retry-doc";
 // it resets the budget and clears the parked failure row.
 test("manual retry resets the re-key budget and clears the failure row", async () => {
   const { close, execSql } = await createTestExecSql("pending-retry-reset");
+  const records = new DocumentRecordRepository(execSql);
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
@@ -37,8 +38,7 @@ test("manual retry resets the re-key budget and clears the failure row", async (
     await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
       await db.update(documentHistoryUpdates).set({ rekeyCount: 5 });
     });
-    await recordDocumentSyncFailure(
-      execSql,
+    await records.recordDocumentSyncFailure(
       { appKind: DOCUMENTS_APP_KIND, localId: LOCAL_ID },
       {
         attemptedAt: new Date().toISOString(),
@@ -53,12 +53,12 @@ test("manual retry resets the re-key budget and clears the failure row", async (
       objectKind: "document",
     });
 
-    const [pending] = await listDocumentPendingUpdates(execSql, {
+    const [pending] = await records.listDocumentPendingUpdates({
       appKind: DOCUMENTS_APP_KIND,
       localId: LOCAL_ID,
     });
     expect(pending?.rekeyCount).toBe(0);
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(false);
   } finally {
     close();
   }
@@ -66,6 +66,7 @@ test("manual retry resets the re-key budget and clears the failure row", async (
 
 test("container retry resets the metadata scope's budget and failure row", async () => {
   const { close, execSql } = await createTestExecSql("pending-retry-container");
+  const records = new DocumentRecordRepository(execSql);
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     // Container metadata re-keys through the same recovery path, so its
@@ -85,8 +86,7 @@ test("container retry resets the metadata scope's budget and failure row", async
         rekeyCount: 5,
       });
     });
-    await recordDocumentSyncFailure(
-      execSql,
+    await records.recordDocumentSyncFailure(
       { appKind: CONTAINER_METADATA_APP_KIND, localId: "retry-container" },
       {
         attemptedAt: new Date().toISOString(),
@@ -101,12 +101,12 @@ test("container retry resets the metadata scope's budget and failure row", async
       objectKind: "container",
     });
 
-    const [pending] = await listDocumentPendingUpdates(execSql, {
+    const [pending] = await records.listDocumentPendingUpdates({
       appKind: CONTAINER_METADATA_APP_KIND,
       localId: "retry-container",
     });
     expect(pending?.rekeyCount).toBe(0);
-    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+    expect(await records.hasRecordedTerminalSyncFailures()).toBe(false);
   } finally {
     close();
   }
@@ -123,14 +123,14 @@ test("manual retry un-parks only that document's denied move", async () => {
       ["retry-remote", LOCAL_ID],
       ["other-remote", "other-doc"],
     ] as const) {
-      await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      await moveIntents(execSql).enqueueMoveIntent({
         documentId: doc,
         localId: local,
         replaceLinkedContainers: false,
         sourceContainerId: "from",
         targetContainerId: "to",
       });
-      await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+      await moveIntents(execSql).recordMoveIntentError({
         denied: true,
         documentId: doc,
         message: "denied",
@@ -144,13 +144,11 @@ test("manual retry un-parks only that document's denied move", async () => {
     });
 
     expect(
-      (
-        await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql)
-      ).map((intent) => intent.documentId),
+      (await moveIntents(execSql).listPendingMoveIntents()).map(
+        (intent) => intent.documentId,
+      ),
     ).toEqual(["retry-remote"]);
-    expect(
-      await sqlDocumentMoveIntentPersistence.hasDeniedMoveIntents(execSql),
-    ).toBe(true);
+    expect(await moveIntents(execSql).hasDeniedMoveIntents()).toBe(true);
   } finally {
     close();
   }
@@ -186,8 +184,7 @@ test("a deferred-tail-only scope counts as queued work on retry", async () => {
         accessEpoch: 1,
         pendingBaseVersion: pendingBase,
       });
-      await recordDocumentSyncFailure(
-        execSql,
+      await new DocumentRecordRepository(execSql).recordDocumentSyncFailure(
         { appKind: DOCUMENTS_APP_KIND, localId: local },
         {
           attemptedAt: new Date().toISOString(),

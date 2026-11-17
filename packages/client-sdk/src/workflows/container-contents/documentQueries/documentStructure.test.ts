@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultDocumentsPersistence } from "../../documents";
@@ -290,7 +290,7 @@ test("moveDocumentLink queues synced document moves and applies the local projec
       new Links(execSql).listLinkedContainerIds("document-1"),
     ).resolves.toEqual(["trash-container"]);
     await expect(
-      sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
+      new DocumentMoveIntentRepository(execSql).listPendingMoveIntents(),
     ).resolves.toMatchObject([
       {
         documentId: "document-1",

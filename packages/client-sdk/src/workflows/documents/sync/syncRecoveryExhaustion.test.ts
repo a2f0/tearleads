@@ -18,11 +18,9 @@ import {
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import {
-  enqueueDocumentPendingUpdate,
+  DocumentRecordRepository,
   ensureDocumentTables,
-  listDocumentPendingUpdates,
   MAX_PENDING_UPDATE_REKEYS,
-  rekeyDocumentPendingUpdate,
 } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
@@ -58,31 +56,30 @@ test("an exhausted row prevents mixed recovery from hot-looping", async () => {
     writerProjection,
   } = await createMaterializedSyncFixture();
   await ensureDocumentTables(execSql);
+  const records = new DocumentRecordRepository(execSql);
   const scope = { appKind: "documents", localId: "mixed-exhaustion" };
-  await enqueueDocumentPendingUpdate(
-    execSql,
+  await records.enqueueDocumentPendingUpdate(
     scope,
     await pendingUpdateFields("exhausted half"),
   );
-  let pendingUpdates = await listDocumentPendingUpdates(execSql, scope);
+  let pendingUpdates = await records.listDocumentPendingUpdates(scope);
   let exhaustedUpdate = pendingUpdates[0];
   if (!exhaustedUpdate) {
     throw new Error("Expected an enqueued pending update");
   }
   for (let attempt = 0; attempt < MAX_PENDING_UPDATE_REKEYS; attempt += 1) {
-    await rekeyDocumentPendingUpdate(execSql, exhaustedUpdate.id);
-    pendingUpdates = await listDocumentPendingUpdates(execSql, scope);
+    await records.rekeyDocumentPendingUpdate(exhaustedUpdate.id);
+    pendingUpdates = await records.listDocumentPendingUpdates(scope);
     exhaustedUpdate = pendingUpdates[0];
     if (!exhaustedUpdate) {
       throw new Error("Expected the re-keyed pending update");
     }
   }
-  await enqueueDocumentPendingUpdate(
-    execSql,
+  await records.enqueueDocumentPendingUpdate(
     scope,
     await pendingUpdateFields("recoverable half"),
   );
-  pendingUpdates = await listDocumentPendingUpdates(execSql, scope);
+  pendingUpdates = await records.listDocumentPendingUpdates(scope);
 
   const synced = await syncRemoteDocument({
     apiClient: createMockApiClient({

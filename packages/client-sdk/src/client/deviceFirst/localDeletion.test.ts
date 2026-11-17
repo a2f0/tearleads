@@ -9,9 +9,9 @@ import type { BlobStore } from "../../data/blobs/blobContracts";
 import { createDomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
+  ContainerSyncWatermarkRepository,
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
-  markContainerSyncLaneChecked,
 } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStoreWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import { defaultDocumentsPersistence } from "../../workflows/documents";
@@ -36,8 +36,7 @@ async function seedCachedDocuments(execSql: ExecSql): Promise<void> {
     },
     null,
   );
-  await markContainerSyncLaneChecked(
-    execSql,
+  await new ContainerSyncWatermarkRepository(execSql).markChecked(
     createContainerParentSyncLane(null),
   );
 

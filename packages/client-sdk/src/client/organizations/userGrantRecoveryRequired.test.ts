@@ -47,6 +47,7 @@ for (const missing of ["custody", "pages"] as const) {
     });
     try {
       const outcome = await revokeOrganizationGrant({
+        identityTrustDomain: "https://api.example.test",
         runtime: {
           ...f.runtime,
           apiClient,

@@ -39,12 +39,17 @@ reference.
 | Remote container mutations | `ContainerMutationService` | One per runtime snapshot, built where a mutation reads it: Container Contents' writer context and the organizations grant revocation | Constructed over a fake API in tests, through `createContainerMutationServiceFixture` |
 | Keying checkpoint storage | `KeyingCheckpointRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Principal history storage | `PrincipalHistoryRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Document move intents | `DocumentMoveIntentRepository(execSql, now)` | Built from the caller's executor (the relink transaction's inside its commit) at each call | None |
+| Organization data usage | `OrganizationDataUsageRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Container sync watermarks | `ContainerSyncWatermarkRepository(execSql, now)` | Built from the caller's executor (the locked one inside a mutation) at each call | None |
 | Organization provisioning attempts | `OrganizationProvisioningAttemptRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Container document tombstone holds | `ContainerDocumentTombstoneHoldRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Document discovery evidence | `DocumentDiscoveryEvidenceRepository(execSql, now)` | One per discovery pass, built by `discoverContainerDocumentLanesForRuntime` | None |
 | Principal mutation journal | `PrincipalMutationJournalRepository(execSql)` | Built from the caller's executor at each call | None |
 | Principal policy bundle storage | `PrincipalPolicyBundleRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Trusted identity pin storage | `TrustedUserIdentityPinRepository(execSql)` | Built from the caller's executor at each call | None |
 | Document container projection | `DocumentContainerProjectionRepository(execSql, now)` | Built from the caller's executor (the transaction or locked handle inside a commit) at each call | None |
+| Document records | `DocumentRecordRepository(execSql, now)` | Built from the caller's executor (the locked handle inside a mutation) at each call | None |
 
 ## Where code goes
 
