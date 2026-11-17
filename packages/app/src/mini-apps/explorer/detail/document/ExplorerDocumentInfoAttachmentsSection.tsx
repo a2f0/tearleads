@@ -19,168 +19,20 @@ import {
 } from "../../../../components/mini-app/MiniAppTable";
 import { getMiniAppVirtualFrameStyle } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import { classNames } from "../../../../components/shared/classNames";
-import { formatByteLength } from "../../../../utils/formatByteLength";
-import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
+import { EXPLORER_LABELS } from "../../labels";
 import {
-  EXPLORER_LABELS,
-  getExplorerDocumentInfoAttachmentKindLabel,
-} from "../../labels";
-import { compactId } from "../compactId";
-
-export type OpenBlobBrowserRoute = (input?: {
-  blobId?: string | null | undefined;
-  storageKey?: string | null | undefined;
-}) => void;
-
-type DocumentInfoAttachment = DocumentInfo["attachments"][number];
-type DocumentInfoRemoteAttachmentBinding = NonNullable<
-  DocumentInfo["remoteInfo"]
->["activeAttachmentBindings"][number];
-
-interface LocalDocumentInfoAttachmentRow {
-  attachment: DocumentInfoAttachment;
-  remoteBinding: DocumentInfoRemoteAttachmentBinding | null;
-  state: "local" | "local-remote" | "pending";
-}
-
-interface RemoteDocumentInfoAttachmentRow {
-  binding: DocumentInfoRemoteAttachmentBinding;
-  state: "remote";
-}
-
-function getAttachmentRemoteBindingKey(input: {
-  blobId: string | null;
-  slotId: string;
-}): string | null {
-  return input.blobId ? `${input.slotId}\u0000${input.blobId}` : null;
-}
-
-function getExplorerDocumentInfoAttachmentRows(input: {
-  attachments: ReadonlyArray<DocumentInfoAttachment>;
-  remoteBindings: ReadonlyArray<DocumentInfoRemoteAttachmentBinding>;
-}): {
-  localRows: LocalDocumentInfoAttachmentRow[];
-  remoteRows: RemoteDocumentInfoAttachmentRow[];
-} {
-  const matchedRemoteBindingIds = new Set<string>();
-  const remoteBindingsByKey = new Map<
-    string,
-    DocumentInfoRemoteAttachmentBinding[]
-  >();
-
-  for (const binding of input.remoteBindings) {
-    const key = getAttachmentRemoteBindingKey(binding);
-    if (key) {
-      const bindings = remoteBindingsByKey.get(key);
-      if (bindings) {
-        bindings.push(binding);
-      } else {
-        remoteBindingsByKey.set(key, [binding]);
-      }
-    }
-  }
-
-  const localRows = input.attachments.map(
-    (attachment): LocalDocumentInfoAttachmentRow => {
-      const key =
-        attachment.attachmentKind === "local"
-          ? getAttachmentRemoteBindingKey(attachment)
-          : null;
-      const bindings = key ? remoteBindingsByKey.get(key) : null;
-      const remoteBinding = bindings?.shift() ?? null;
-      if (remoteBinding) {
-        matchedRemoteBindingIds.add(remoteBinding.bindingId);
-      }
-
-      return {
-        attachment,
-        remoteBinding,
-        state: remoteBinding ? "local-remote" : attachment.attachmentKind,
-      };
-    },
-  );
-
-  return {
-    localRows,
-    remoteRows: input.remoteBindings
-      .filter((binding) => !matchedRemoteBindingIds.has(binding.bindingId))
-      .map((binding) => ({ binding, state: "remote" })),
-  };
-}
-
-/** One attachment row as shown, whichever side (local or remote) it came from. */
-interface AttachmentDisplayRow {
-  blob: {
-    disabled: boolean;
-    label: string;
-    open: () => void;
-    title?: string | undefined;
-  };
-  key: string;
-  kind: { text: string; title?: string | undefined };
-  name: { text: string; title: string };
-  size: string;
-  slot: { text: string; title: string };
-  time: { text: string; title?: string | undefined };
-}
-
-function getLocalAttachmentDisplayRow(
-  row: LocalDocumentInfoAttachmentRow,
-  openBlobBrowserRoute: OpenBlobBrowserRoute,
-): AttachmentDisplayRow {
-  const { attachment, remoteBinding } = row;
-  const time = attachment.createdAt ?? attachment.updatedAt;
-  return {
-    blob: {
-      disabled: !attachment.blobId && !attachment.storageKey,
-      label: compactId(attachment.blobId ?? attachment.storageKey),
-      open: () =>
-        openBlobBrowserRoute({
-          blobId: attachment.blobId,
-          storageKey: attachment.storageKey,
-        }),
-      title: attachment.blobId ?? undefined,
-    },
-    key: `${row.state}:${attachment.slotId}:${attachment.blobId ?? ""}:${attachment.storageKey}`,
-    kind: {
-      text: getExplorerDocumentInfoAttachmentKindLabel(row.state),
-      title: remoteBinding?.bindingId ?? undefined,
-    },
-    name: {
-      text: attachment.name ?? attachment.mimeType ?? "-",
-      title: remoteBinding
-        ? `${attachment.storageKey} ${remoteBinding.bindingId}`
-        : attachment.storageKey,
-    },
-    size: formatByteLength(attachment.byteLength),
-    slot: { text: compactId(attachment.slotId), title: attachment.slotId },
-    time: {
-      text: formatMiniAppDateTime(time, { emptyFallback: "-" }),
-      title: time ?? undefined,
-    },
-  };
-}
-
-function getRemoteAttachmentDisplayRow(
-  row: RemoteDocumentInfoAttachmentRow,
-  openBlobBrowserRoute: OpenBlobBrowserRoute,
-): AttachmentDisplayRow {
-  const { binding } = row;
-  return {
-    blob: {
-      disabled: false,
-      label: compactId(binding.blobId),
-      open: () => openBlobBrowserRoute({ blobId: binding.blobId }),
-      title: binding.blobId,
-    },
-    key: `remote:${binding.bindingId}`,
-    kind: { text: getExplorerDocumentInfoAttachmentKindLabel(row.state) },
-    name: { text: compactId(binding.bindingId), title: binding.bindingId },
-    size: "-",
-    slot: { text: compactId(binding.slotId), title: binding.slotId },
-    time: { text: "-" },
-  };
-}
+  ExplorerInfoRowDetailButton,
+  type ExplorerInfoRowDetailOpeners,
+  useExplorerInfoRowDetail,
+} from "../row-detail/ExplorerInfoRowDetail";
+import {
+  type AttachmentDisplayRow,
+  getAttachmentDetail,
+  getExplorerDocumentInfoAttachmentRows,
+  getLocalAttachmentDisplayRow,
+  getRemoteAttachmentDisplayRow,
+  type OpenBlobBrowserRoute,
+} from "./explorerDocumentInfoAttachmentRows";
 
 /**
  * The folded row's muted second line: State · Size · Time as one joined field,
@@ -200,9 +52,9 @@ const ATTACHMENT_SECONDARY_LABEL = ATTACHMENT_SECONDARY_COLUMNS.join(
 );
 
 /**
- * Folded, the name leads (as the open-in-blob-browser button when there is a
- * blob) over State · Size · Time. Unfolded, the six columns stay in their
- * original order.
+ * Folded, the name leads over State · Size · Time. Unfolded, the six columns
+ * stay in their original order. Either way the name opens the row's detail,
+ * which holds the slot and blob ids a folded row has no room for.
  */
 function getAttachmentColumns(
   compact: boolean,
@@ -236,6 +88,10 @@ function getAttachmentColumns(
   ];
 }
 
+function getAttachmentRowKey(row: AttachmentDisplayRow): string {
+  return row.key;
+}
+
 function AttachmentBlobButton(params: { row: AttachmentDisplayRow }) {
   const { blob } = params.row;
   return (
@@ -245,26 +101,17 @@ function AttachmentBlobButton(params: { row: AttachmentDisplayRow }) {
   );
 }
 
-function getAttachmentPrimaryField(
-  row: AttachmentDisplayRow,
-): MiniAppCompactTableField {
-  if (row.blob.disabled) {
-    return { id: "name", ...row.name };
-  }
-
-  // Folded there is no Blob column, so the name carries the same
-  // open-in-blob-browser action the unfolded Blob button does.
-  return {
-    content: (
-      <MiniAppTableActionButton onClick={row.blob.open}>
-        <MiniAppTableText title={row.name.title}>
-          {row.name.text}
-        </MiniAppTableText>
-      </MiniAppTableActionButton>
-    ),
-    id: "name",
-    title: row.name.title,
-  };
+function AttachmentNameButton(params: {
+  openers: ExplorerInfoRowDetailOpeners;
+  row: AttachmentDisplayRow;
+}) {
+  return (
+    <ExplorerInfoRowDetailButton
+      onOpen={params.openers.openFromControl}
+      text={params.row.name.text}
+      title={params.row.name.title}
+    />
+  );
 }
 
 function getAttachmentSecondaryField(
@@ -283,14 +130,21 @@ function getAttachmentSecondaryField(
 
 function AttachmentRow(params: {
   compact: boolean;
+  openers: ExplorerInfoRowDetailOpeners;
   row: AttachmentDisplayRow;
 }) {
-  const { compact, row } = params;
+  const { compact, openers, row } = params;
   if (compact) {
     return (
-      <MiniAppTableRow>
+      <MiniAppTableRow interactive onActivate={openers.openFromRow}>
         <MiniAppCompactTableCell
-          primary={[getAttachmentPrimaryField(row)]}
+          primary={[
+            {
+              content: <AttachmentNameButton openers={openers} row={row} />,
+              id: "name",
+              title: row.name.title,
+            },
+          ]}
           secondary={[getAttachmentSecondaryField(row)]}
         />
       </MiniAppTableRow>
@@ -298,7 +152,7 @@ function AttachmentRow(params: {
   }
 
   return (
-    <MiniAppTableRow>
+    <MiniAppTableRow interactive onActivate={openers.openFromRow}>
       <MiniAppTableCell>
         <MiniAppTableText title={row.kind.title}>
           {row.kind.text}
@@ -313,9 +167,7 @@ function AttachmentRow(params: {
         <AttachmentBlobButton row={row} />
       </MiniAppTableCell>
       <MiniAppTableCell>
-        <MiniAppTableText title={row.name.title}>
-          {row.name.text}
-        </MiniAppTableText>
+        <AttachmentNameButton openers={openers} row={row} />
       </MiniAppTableCell>
       <MiniAppTableCell>
         <MiniAppTableText>{row.size}</MiniAppTableText>
@@ -334,25 +186,38 @@ function AttachmentsTable(params: {
 }) {
   const { compact, frameRef, rowHeight } = useMiniAppCompactTableFrame();
   const columns = useMemo(() => getAttachmentColumns(compact), [compact]);
+  const { detailOverlay, getRowDetailOpeners } = useExplorerInfoRowDetail({
+    getDetail: getAttachmentDetail,
+    getKey: getAttachmentRowKey,
+    rows: params.rows,
+  });
 
   return (
-    <MiniAppTableFrame
-      className={classNames(
-        compact &&
-          "mini-app-table-frame--compact mini-app-table-frame--two-line",
-      )}
-      ref={frameRef}
-      style={getMiniAppVirtualFrameStyle(rowHeight)}
-    >
-      <MiniAppTable
-        aria-label={EXPLORER_LABELS.documentInfoAttachmentsHeading}
-        columns={columns}
+    <>
+      <MiniAppTableFrame
+        className={classNames(
+          compact &&
+            "mini-app-table-frame--compact mini-app-table-frame--two-line",
+        )}
+        ref={frameRef}
+        style={getMiniAppVirtualFrameStyle(rowHeight)}
       >
-        {params.rows.map((row) => (
-          <AttachmentRow compact={compact} key={row.key} row={row} />
-        ))}
-      </MiniAppTable>
-    </MiniAppTableFrame>
+        <MiniAppTable
+          aria-label={EXPLORER_LABELS.documentInfoAttachmentsHeading}
+          columns={columns}
+        >
+          {params.rows.map((row) => (
+            <AttachmentRow
+              compact={compact}
+              key={row.key}
+              openers={getRowDetailOpeners(row)}
+              row={row}
+            />
+          ))}
+        </MiniAppTable>
+      </MiniAppTableFrame>
+      {detailOverlay}
+    </>
   );
 }
 
