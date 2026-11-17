@@ -232,3 +232,67 @@ test("a bundle changed while its signer resolves is refused and not stored", asy
     database.close();
   }
 });
+
+test("a warm hit refuses a bundle changed during its checkpoint read", async () => {
+  const fixture = await createVerificationFixture();
+  const first = await createTestExecSql("verified-bundles-checkpoint-first");
+  const second = await createTestExecSql("verified-bundles-checkpoint-second");
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  const verifiedByHash = new Map();
+  const live = structuredClone(leaf);
+  let changed = false;
+  try {
+    await verifyContainerWriterProjection({
+      execSql: first.execSql,
+      openPrincipalPolicyBundleReader,
+      projection: fixture.projection,
+      resolveUserKey: fixture.resolveUserKey,
+      verifiedByHash,
+    });
+    const execSql: typeof second.execSql = async (...args) => {
+      const [sql] = args;
+      if (!changed && String(sql).includes("checkpoint")) {
+        changed = true;
+        Reflect.set(live.state, "containerKeyPublicKey", "substituted");
+      }
+      return second.execSql(...args);
+    };
+    await expect(
+      verifyContainerWriterProjection({
+        execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [live] },
+        resolveUserKey: fixture.resolveUserKey,
+        verifiedByHash,
+      }),
+    ).rejects.toMatchObject({ code: "hash_mismatch" });
+    expect(changed).toBe(true);
+  } finally {
+    first.close();
+    second.close();
+  }
+});
+
+test("a bundle whose ignored fields cannot be serialized still verifies", async () => {
+  const fixture = await createVerificationFixture();
+  const database = await createTestExecSql("verified-bundles-unserializable");
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  const noted = {
+    ...leaf,
+    event: { ...leaf.event, event: { ...leaf.event.event, note: -0 } },
+  };
+  try {
+    expect(
+      await verifyContainerWriterProjection({
+        execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [noted] },
+        resolveUserKey: fixture.resolveUserKey,
+      }),
+    ).toHaveLength(1);
+  } finally {
+    database.close();
+  }
+});

@@ -124,6 +124,9 @@ export async function verifyContainerManifestBundle(input: {
         localCheckpoints: input.checkpointContext.localCheckpoints,
         verifiedManifests: input.verifiedByHash,
       });
+      // The caller reads this bundle on return, after the checkpoint read.
+      assertUnchangedSinceVerification(cached, input.bundle, input.label);
+      assertVerifiedState(input, cached);
     }
     return cached;
   }

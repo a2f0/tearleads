@@ -56,6 +56,9 @@ export function assertUnchangedSinceVerification(
   bundle: AccessManifestBundleWireResponse,
   label: string,
 ): void {
+  // Bytes that could not be serialized were never recorded (nor stored for
+  // citation); the completed state check still covers such a bundle.
+  if (!verifiedBundleBytes.has(verified)) return;
   if (!matchesVerifiedBundleBytes(verified, bundle)) {
     throw new KeyingVerificationError(
       "hash_mismatch",
