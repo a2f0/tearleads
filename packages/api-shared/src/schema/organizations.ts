@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -306,11 +307,14 @@ export const organizationBillingStripeSeats = pgTable(
     uniqueIndex("organization_billing_stripe_seats_item_idx").on(
       table.subscriptionItemId,
     ),
-    index("organization_billing_stripe_seats_due_idx").on(
-      table.nextAttemptAt,
-      table.leaseExpiresAt,
-      table.organizationId,
-    ),
+    // Only a bound row can be claimed; an unbound row stays due forever, so
+    // indexing it would make every claim and probe walk unbound rows. The
+    // claim and ops-health reads repeat these three terms literally.
+    index("organization_billing_stripe_seats_due_idx")
+      .on(table.nextAttemptAt, table.leaseExpiresAt, table.organizationId)
+      .where(
+        sql`${table.subscriptionId} is not null and ${table.subscriptionItemId} is not null and ${table.priceId} is not null`,
+      ),
   ],
 );
 
@@ -352,11 +356,6 @@ export const organizationBillingSeatAssignments = pgTable(
       table.organizationId,
       table.userId,
       table.releasedAt,
-    ),
-    index("organization_billing_seat_assignments_org_period_idx").on(
-      table.organizationId,
-      table.billingPeriodStartsAt,
-      table.billingPeriodEndsAt,
     ),
   ],
 );
@@ -400,11 +399,6 @@ export const organizationBillingSeatEvents = pgTable(
       table.organizationId,
       table.sourceType,
       table.sourceId,
-    ),
-    index("organization_billing_seat_events_org_period_idx").on(
-      table.organizationId,
-      table.billingPeriodStartsAt,
-      table.billingPeriodEndsAt,
     ),
   ],
 );

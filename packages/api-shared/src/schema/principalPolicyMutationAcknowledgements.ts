@@ -32,11 +32,13 @@ export const principalPolicyMutationAcknowledgements = pgTable(
       table.stateHash,
       table.batchIndex,
     ),
+    // Leads with the container so an organization purge deletes by
+    // container through it; reads by principal and state use the batch index.
     uniqueIndex("principal_policy_mutation_acks_container_idx").on(
+      table.containerId,
       table.principalType,
       table.principalId,
       table.stateHash,
-      table.containerId,
     ),
   ],
 );

@@ -102,6 +102,7 @@ test("client sqlite schema creates tables and indexes", async () => {
       "document_projection_document_idx",
       "document_projection_orphan_organization_idx",
       "documents_app_document_idx",
+      "documents_deferred_tail_idx",
       "dormant_container_metadata_organization_idx",
       "local_intents_lane_status_created_idx",
       "organization_provisioning_creation_intent_idx",
@@ -310,6 +311,15 @@ test("client sqlite schema creates tables and indexes", async () => {
     expect(
       await readIndexColumns(execSql, "documents_app_document_idx"),
     ).toEqual(["app_kind", "document_id"]);
+    expect(
+      readRecordValue(documentIndexes, "documents_deferred_tail_idx"),
+    ).toEqual({
+      partial: 1,
+      unique: 0,
+    });
+    expect(
+      await readIndexColumns(execSql, "documents_deferred_tail_idx"),
+    ).toEqual(["app_kind", "local_id"]);
 
     // Queued update ids are unique while queued; settled rows clear theirs.
     const updateLogIndexes = await readIndexList(
