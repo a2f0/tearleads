@@ -79,6 +79,7 @@ export {
   type ContainerUnavailableErrorCode,
 } from "../containerUnavailableError";
 export {
+  acceptDecodedProjection,
   containerKekWireLevel,
   decodeContainerWriterProjection,
   decodeDocumentWriterProjection,

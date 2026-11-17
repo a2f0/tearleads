@@ -135,8 +135,9 @@ async function assertContainerCreateAdoptable(input: {
       sessionUserId,
     });
   } catch (error) {
-    // Never re-serve a cached projection that failed verification.
-    if (isKeyingVerificationError(error)) {
+    // Never re-serve a cached projection that failed verification; a
+    // superseded adoption leaves its successor's cache entry alone.
+    if (isKeyingVerificationError(error) && input.stillCurrent()) {
       runtime.apiClient.evictContainerWriterProjection(input.containerId);
     }
     throw error;

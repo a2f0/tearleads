@@ -1,5 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import {
+  acceptDecodedProjection,
   heldBundlesUsedBy,
   rejectDecodedProjection,
 } from "@tearleads/validators/response";
@@ -59,7 +60,10 @@ async function runWithHeldBundleRecovery<T>(
   recovers: (error: unknown) => boolean,
 ): Promise<T> {
   try {
-    return await run();
+    const result = await run();
+    // Held bytes this projection verified with are good for other reads.
+    acceptDecodedProjection(input.projection);
+    return result;
   } catch (error) {
     const held = heldBundlesUsedBy(input.projection);
     // A superseded request changes no shared cache state.

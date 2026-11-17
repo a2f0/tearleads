@@ -9,6 +9,7 @@ import { toServedAccessManifestBundle } from "../util";
 import type { ContainerWriterProjectionResponse } from "./container";
 import type { DocumentWriterProjectionResponse } from "./documentMutation";
 import {
+  acceptDecodedProjection,
   decodeContainerWriterProjection,
   decodeDocumentWriterProjection,
   deriveDecodedProjection,
@@ -301,4 +302,9 @@ test("refusing a projection refuses others rebuilt from the same held bytes", ()
   expect(isRejectedDecodedProjection(second)).toBe(false);
   rejectDecodedProjection(first);
   expect(isRejectedDecodedProjection(second)).toBe(true);
+  // Once a read verifies with those bytes again, others may reuse them.
+  const third = decode();
+  if (!third) throw new Error("projection did not decode");
+  acceptDecodedProjection(third);
+  expect(isRejectedDecodedProjection(decode())).toBe(false);
 });

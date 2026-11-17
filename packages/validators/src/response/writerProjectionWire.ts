@@ -273,6 +273,16 @@ export function rejectDecodedProjection(projection: object): void {
  * refused: refusing any projection built from a decoded one refuses every
  * other projection built from it too.
  */
+/**
+ * A projection whose held bundles just verified: those bytes are good again
+ * for every other projection rebuilt from them.
+ */
+export function acceptDecodedProjection(projection: object): void {
+  if (rejectedHeldBytes.size === 0) return;
+  for (const bundle of heldBundlesUsedBy(projection))
+    rejectedHeldBytes.delete(JSON.stringify(bundle));
+}
+
 export function isRejectedDecodedProjection(projection: unknown): boolean {
   if (typeof projection !== "object" || projection === null) return false;
   const origin = decodedOrigins.get(projection);
