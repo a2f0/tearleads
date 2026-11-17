@@ -6,7 +6,7 @@ import {
   policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
-import { parseOrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
+import { parseOrganizationAuthorityDescriptor } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import { captureAcknowledgedPrincipalPredecessor } from "../../principals/acknowledgements/acknowledgedPrincipalPredecessor";
 import { groupPolicyMutationHead } from "../groupPolicy/groupPolicyMutationHead";

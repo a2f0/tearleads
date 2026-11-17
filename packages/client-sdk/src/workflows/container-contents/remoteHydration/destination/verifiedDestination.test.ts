@@ -18,6 +18,7 @@ import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
 } from "../../../containers/child/create";
+import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import { localOnlyRootState } from "../localRootState.testFixtures";
 import { upsertRemoteContainerState } from "../remoteContainers/remoteContainerState";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
@@ -49,6 +50,7 @@ for (const [signedSlot, listedSlot] of [
         containersById: new Map(),
         persistence: sqlContainerContentsPersistence,
         runtime: withPrincipalPolicies({
+          organizations: containerContentsOrganizationHost,
           apiClient: {
             getContainerWriterProjection: async () => {
               projectionReads += 1;
@@ -149,6 +151,7 @@ test("an acknowledged root created by another identity is never the merge target
       containersById: new Map([[localRoot.container.id, localRoot]]),
       persistence: sqlContainerContentsPersistence,
       runtime: withPrincipalPolicies({
+        organizations: containerContentsOrganizationHost,
         apiClient: {
           getContainerWriterProjection: async () => {
             projectionReads += 1;
@@ -292,6 +295,7 @@ test("a root head at a later epoch binds the epoch-1 creator through its served 
       containersById: new Map(),
       persistence: sqlContainerContentsPersistence,
       runtime: withPrincipalPolicies({
+        organizations: containerContentsOrganizationHost,
         apiClient: {
           getContainerWriterProjection: async () => projection,
           getCurrentPrincipalPolicy: async () => null,

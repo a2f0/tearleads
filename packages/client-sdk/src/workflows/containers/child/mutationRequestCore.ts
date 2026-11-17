@@ -16,7 +16,7 @@ import {
   readCanonicalRecord,
   readCanonicalRecords,
 } from "../../../data/keying/canonicalJson";
-import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principalContracts/principalPolicyEvidence";
 
 export function readCanonicalRecordOrNull(
   value: unknown,

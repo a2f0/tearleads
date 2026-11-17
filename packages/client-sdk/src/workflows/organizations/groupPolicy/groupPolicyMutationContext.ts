@@ -14,7 +14,7 @@ import type {
   PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
-import { requireOrganizationGroupHead } from "../../../data/principals/organizationAuthorityDescriptor";
+import { requireOrganizationGroupHead } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import {

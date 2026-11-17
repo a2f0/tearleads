@@ -3,7 +3,7 @@ import type {
   PrincipalPolicyHistorySourceResponse,
   ProjectionPolicyEvidenceResponse,
 } from "@tearleads/validators/response";
-import { principalHeadMatchesReference } from "../../principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../principalContracts/organizationAuthorityDescriptor";
 
 function newer(
   previous: PrincipalPolicyHistorySourceResponse | null | undefined,

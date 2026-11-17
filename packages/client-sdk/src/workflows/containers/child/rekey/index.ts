@@ -40,7 +40,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../../data/keyingProjectionVerification";
-import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principalContracts/principalPolicyEvidence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   sealRotationKeyring,

@@ -15,7 +15,12 @@ export const clientSdkLayers: SubsystemLayers = [
     "Sync Coordination",
     "Security Incident Detection",
   ],
-  ["Identity & Session", "Keying Verification", "Principal Policy (client)"],
+  [
+    "Identity & Session",
+    "Principal Policy Contracts",
+    "Keying Verification",
+    "Principal Policy (client)",
+  ],
   [
     "Document Projection Contracts",
     "Container Data",
@@ -25,6 +30,13 @@ export const clientSdkLayers: SubsystemLayers = [
   ],
   ["Organization Read Models", "Client Registration", "Sync Engine"],
   [
+    "Identity & Session Client",
+    "Security Incident Client",
+    "Blob Storage Client",
+    "Document Store Client",
+    "Organization Client",
+    "Container Contents Client",
+    "Device-First Sync Client",
     "Local Keyring",
     "Client Purchases",
     "Root Console Client",

@@ -1,4 +1,4 @@
-import { createListenerSet } from "./listenerSet";
+import { createListenerSet } from "../../data/shared/listenerSet";
 export type SyncBillingGateListener = (organizationId: string | null) => void;
 
 /**

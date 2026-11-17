@@ -20,13 +20,13 @@ import {
   repairPolicyPages,
   repairProtectionLease,
 } from "../../../../../test/helpers/principalPolicyRepair";
+import { createContainerContentsWorkflowRuntime } from "../../../../client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { buildInitialOrganizationPolicyRequest } from "../../../registration/organizationProvisioning";
-import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { createRemoteContainer } from "../remote";
 import {
   CONTAINER_ALREADY_COMMITTED,

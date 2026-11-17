@@ -4,8 +4,8 @@ import { PrincipalPolicyBundleRepository } from "../../../data/persistence/princ
 import {
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
-} from "../../../data/principals/organizationAuthorityDescriptor";
-import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
+} from "../../../data/principalContracts/organizationAuthorityDescriptor";
+import { principalPolicyReferenceFromBundle } from "../../../data/principalContracts/principalPolicyAdminSigners";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import { verifyDirectoryGroup } from "../groupNames/groupNameUniqueness";
 import { loadGroupNameDirectoryAuthority } from "../groupNames/organizationGroupNamePolicies";

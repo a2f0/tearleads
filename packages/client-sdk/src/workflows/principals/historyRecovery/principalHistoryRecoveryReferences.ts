@@ -6,7 +6,7 @@ import {
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 
 export interface PrincipalHistorySelectionOptions

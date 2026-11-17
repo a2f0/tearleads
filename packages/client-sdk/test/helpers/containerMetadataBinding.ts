@@ -16,6 +16,7 @@ import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
 } from "../../src/workflows/containers/child/create";
+import { containerContentsOrganizationHost } from "../../src/workflows/organizations/containerContentsHost";
 import { createParentProjection } from "./containerFixtures";
 import { withPrincipalPolicies } from "./principalPolicyServiceFixture";
 import { createTestTrustedUserIdentityResolver } from "./trustedUserIdentity";
@@ -41,6 +42,7 @@ export async function createMetadataBindingFixture(execSql: ExecSql) {
     containersById: new Map(),
     persistence: sqlContainerContentsPersistence,
     runtime: withPrincipalPolicies({
+      organizations: containerContentsOrganizationHost,
       apiClient: {
         evictContainerWriterProjection: () => {
           projectionEvictions += 1;

@@ -4,6 +4,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { containerContentsOrganizationHost } from "../../src/workflows/organizations/containerContentsHost";
 import { createWorkflowInputFixture } from "./internalRuntimeFixtures";
 import { repairProtectionLease } from "./principalPolicyRepair";
 
@@ -39,6 +40,7 @@ export async function missingPrincipalRecoveryFixture(
       execSql,
       auth: { organizationId, userId: "remaining-admin" },
     }),
+    organizations: containerContentsOrganizationHost,
     crypto: {
       signingKeyPair,
       signingFingerprint: await toFingerprint(signingKeyPair.signingPublicKey),

@@ -2,6 +2,7 @@ import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import type { DomainScope } from "../../data/shared/domainScope";
+import { createListenerSet } from "../../data/shared/listenerSet";
 import {
   runWithSecurityIncidentReporting,
   type SecurityIncidentReporter,
@@ -13,7 +14,11 @@ import {
   type TrustedUserIdentityResolver,
   type TrustedUserIdentityService,
 } from "../../data/trustedUserIdentity";
-import type { ContainerContentsRootAdopter } from "../../workflows/container-contents";
+import type {
+  ContainerContentsOrganizationHost,
+  ContainerContentsRootAdopter,
+} from "../../workflows/container-contents";
+import { containerContentsOrganizationHost } from "../../workflows/organizations/containerContentsHost";
 import { PrincipalPolicyService } from "../../workflows/principals/principalPolicyService";
 import {
   createProvisionedStatePrimer,
@@ -33,7 +38,6 @@ import { acknowledgedSessionRoot } from "../session/sessionRootAuthority";
 import type { Session, SessionSnapshot } from "../session/sessionTypes";
 import type { Database } from "./database";
 import type { Events } from "./events";
-import { createListenerSet } from "./listenerSet";
 import type { Network } from "./network";
 import {
   createPrincipalHistoryProtectionCustody,
@@ -89,6 +93,7 @@ export interface InternalRuntime {
   retirePrincipalHistoryProtection(): void;
   readonly sessionGeneration: number;
   readonly adoptRootContainer: ContainerContentsRootAdopter;
+  readonly containerContentsOrganizations: ContainerContentsOrganizationHost;
   readonly publicRuntime: Runtime;
   boundUserId(signingKeyFingerprint: string): Promise<string | null>;
   pinLocalUserIdentity(
@@ -229,6 +234,7 @@ export function createRuntime(
     },
     adoptRootContainer: (input) =>
       adoptSessionRootContainer(dependencies, input),
+    containerContentsOrganizations: containerContentsOrganizationHost,
     boundUserId: (signingKeyFingerprint) =>
       trustedUserIdentityService.boundUserId(signingKeyFingerprint),
     async pinLocalUserIdentity(userId, candidate) {

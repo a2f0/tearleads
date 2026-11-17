@@ -1,6 +1,7 @@
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import type { ContainerMoveIntentRecord } from "../../containerPersistence";
 import type { ContainerState } from "../../remoteHydration";
 import type { ContainerMoveIntentSyncState } from "../types";
@@ -23,6 +24,7 @@ export function createMoveIntentSyncState(input: {
     persistence: input.persistence,
     resolveProjectionUserKey: async () => null,
     runtime: withPrincipalPolicies({
+      organizations: containerContentsOrganizationHost,
       apiClient: {
         getContainerWriterProjection: () => {
           input.onProjectionRequest?.();

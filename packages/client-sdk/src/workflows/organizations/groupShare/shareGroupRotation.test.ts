@@ -32,8 +32,8 @@ import { PrincipalPolicyBundleRepository } from "../../../data/persistence/princ
 import { containerStateHasCurrentGroupGrant } from "../../container-contents/container-state/share/groupGrantVerification";
 import type { ContainerWorkflowRuntime } from "../../container-contents/container-state/types";
 import type { ContainerState } from "../../container-contents/remoteHydration";
-
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
+import { containerContentsOrganizationHost } from "../containerContentsHost";
 import { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 test("current group grant verification returns false when projection verification expires", async () => {
@@ -49,6 +49,7 @@ test("current group grant verification returns false when projection verificatio
   let current = true;
   const runtime = withPrincipalPolicies(
     {
+      organizations: containerContentsOrganizationHost,
       apiClient: {
         ...projectionHistoryPages(projectionBundles),
         getPrincipalPolicyPages: repairPolicyPages(projectionBundles),

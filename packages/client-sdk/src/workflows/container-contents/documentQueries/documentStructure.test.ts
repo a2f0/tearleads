@@ -8,6 +8,7 @@ import { DocumentMoveIntentRepository } from "../../../data/persistence/containe
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultDocumentsPersistence } from "../../documents";
+import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import {
   activateDocumentLink,
   canMutateDocumentLink,
@@ -25,6 +26,7 @@ function createRuntime(
   apiClient: DocumentStructuralMutationRuntime["apiClient"] = {} as DocumentStructuralMutationRuntime["apiClient"],
 ): DocumentStructuralMutationRuntime {
   return withPrincipalPolicies({
+    organizations: containerContentsOrganizationHost,
     apiClient,
     auth: {
       isAuthenticated: true,

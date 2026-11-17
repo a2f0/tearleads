@@ -3,7 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
-} from "../../../data/principals/organizationAuthorityDescriptor";
+} from "../../../data/principalContracts/organizationAuthorityDescriptor";
 
 /** Couple supplied group receipts to the directory acknowledged in the same batch. */
 export function assertAcknowledgedDirectoryBindings(

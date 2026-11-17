@@ -4,7 +4,7 @@ import {
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { assertSelectedPolicyCommitments } from "../../../data/principals/principalIdentityCommitments";
+import { assertSelectedPolicyCommitments } from "../../../data/principalContracts/principalIdentityCommitments";
 import { PrincipalHistoryEvidenceUnavailableError } from "../historyRecovery/principalHistoryRecoveryReferences";
 import type {
   PublicPrincipalHistoryOptions,

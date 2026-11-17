@@ -13,7 +13,7 @@ import { containerManifestRef } from "../../../data/containers/shared/projection
 import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import type { HeldContainerHead } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
-import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principals/principalPolicyEvidence";
+import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principalContracts/principalPolicyEvidence";
 
 export function referencedRecitationPolicies(
   path: readonly HeldContainerHead[],

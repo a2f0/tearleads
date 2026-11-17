@@ -6,8 +6,8 @@ import {
 } from "@tearleads/crypto";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { principalPolicyReferenceFromBundle } from "../../src/data/principalContracts/principalPolicyAdminSigners";
 import type { PrincipalHistoryProtectionLease } from "../../src/data/principals/principalHistoryProtection";
-import { principalPolicyReferenceFromBundle } from "../../src/data/principals/principalPolicyAdminSigners";
 import type {
   ExecSql,
   ExecSqlClientLike,

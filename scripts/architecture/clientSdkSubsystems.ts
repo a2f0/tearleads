@@ -1,18 +1,26 @@
 import {
+  blobStorageClientSurface,
   blobStorageSurface,
+  containerContentsClientSurface,
   containerContentsSurface,
   containerDataSurface,
+  deviceFirstClientSurface,
   documentProjectionContractsSurface,
+  documentStoreClientSurface,
   documentStoreSurface,
+  identitySessionClientSurface,
   identitySurface,
   keyingVerificationSurface,
   localKeyringSurface,
+  organizationClientSurface,
   organizationReadModelSurface,
+  principalPolicyContractsSurface,
   principalPolicySurface,
   purchasesSurface,
   registrationSurface,
   rootConsoleSurface,
   runtimeRootSurface,
+  securityIncidentClientSurface,
   securityIncidentSurface,
   syncCoordinationSurface,
   syncEngineSurface,
@@ -25,6 +33,7 @@ import {
   identityTables,
   keyingVerificationTables,
   organizationReadModelTables,
+  principalPolicyContractsTables,
   principalPolicyTables,
   securityIncidentTables,
   syncCoordinationTables,
@@ -50,7 +59,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     package: "client-sdk",
     responsibility:
       "Client-side document open/list/delete, the per-scope document store, document workflow operations, persisted-document registry, document summary/sync contracts, and their SQLite persistence.",
-    seam: "tearleads.documents facade; workflows/documents",
+    seam: "workflows/documents",
     paths: [
       `${sdk}/workflows/documents/`,
       `${sdk}/data/documents/attachmentContentIdentity.ts`,
@@ -68,23 +77,84 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/data/documents/index.ts`,
       `${sdk}/data/persistence/documents/`,
       `${sdk}/stores/documents/`,
-      `${sdk}/client/documents/`,
     ],
     surface: documentStoreSurface,
     tables: documentStoreTables,
     readableTables: documentStoreReadableTables,
   },
   {
+    name: "Document Store Client",
+    package: "client-sdk",
+    responsibility:
+      "The tearleads.documents facade: document open/list/delete over the per-scope document store for the host.",
+    seam: "tearleads.documents facade",
+    paths: [`${sdk}/client/documents/`],
+    surface: documentStoreClientSurface,
+  },
+  {
+    name: "Container Contents Client",
+    package: "client-sdk",
+    responsibility:
+      "The tearleads.containerContents facade: container tree, document discovery, and pending-write read models for product UI.",
+    seam: "tearleads.containerContents facade",
+    paths: [`${sdk}/client/containerContents/`],
+    surface: containerContentsClientSurface,
+  },
+  {
+    name: "Organization Client",
+    package: "client-sdk",
+    responsibility:
+      "The tearleads.organizations facade: org read models, memberships, and share-recipient admission for the host.",
+    seam: "tearleads.organizations facade",
+    paths: [`${sdk}/client/organizations/`],
+    surface: organizationClientSurface,
+  },
+  {
+    name: "Blob Storage Client",
+    package: "client-sdk",
+    responsibility:
+      "The tearleads.blobs facade: active blob store selection for the host.",
+    seam: "tearleads.blobs facade",
+    paths: [`${sdk}/client/blobs/`],
+    surface: blobStorageClientSurface,
+  },
+  {
+    name: "Device-First Sync Client",
+    package: "client-sdk",
+    responsibility:
+      "The tearleads.deviceFirst facade: device-first local projection and background reconciliation for the host.",
+    seam: "tearleads.deviceFirst facade",
+    paths: [`${sdk}/client/deviceFirst/`],
+    surface: deviceFirstClientSurface,
+  },
+  {
+    name: "Identity & Session Client",
+    package: "client-sdk",
+    responsibility:
+      "The tearleads.identity/session/userIdentities facades: identity keypairs, sessions, and auth context for the host.",
+    seam: "tearleads.identity/session/userIdentities facades",
+    paths: [`${sdk}/client/identity/`, `${sdk}/client/session/`],
+    surface: identitySessionClientSurface,
+  },
+  {
+    name: "Security Incident Client",
+    package: "client-sdk",
+    responsibility:
+      "The tearleads.securityIncidents facade: incident listing and host notifications.",
+    seam: "tearleads.securityIncidents facade; onSecurityIncident callback",
+    paths: [`${sdk}/client/securityIncidents/`],
+    surface: securityIncidentClientSurface,
+  },
+  {
     name: "Container Contents",
     package: "client-sdk",
     responsibility:
       "Container tree projections, container metadata documents, document discovery/links/queries, blob info, sync-state read models for product UI, and their SQLite persistence.",
-    seam: "tearleads.containerContents facade; workflows/container-contents",
+    seam: "workflows/container-contents",
     paths: [
       `${sdk}/workflows/container-contents/`,
       `${sdk}/data/persistence/container-contents/`,
       `${sdk}/stores/container-contents/`,
-      `${sdk}/client/containerContents/`,
     ],
     surface: containerContentsSurface,
     tables: containerContentsTables,
@@ -104,12 +174,8 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     package: "client-sdk",
     responsibility:
       "Active blob store selection (ephemeral vs identity-namespaced), OPFS/memory byte stores, encrypted envelopes, attachment content crypto and events, and blob workflow operations.",
-    seam: "tearleads.blobs facade; workflows/blobs; blobContracts",
-    paths: [
-      `${sdk}/workflows/blobs/`,
-      `${sdk}/data/blobs/`,
-      `${sdk}/client/blobs/`,
-    ],
+    seam: "workflows/blobs; blobContracts",
+    paths: [`${sdk}/workflows/blobs/`, `${sdk}/data/blobs/`],
     surface: blobStorageSurface,
   },
   {
@@ -117,11 +183,10 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     package: "client-sdk",
     responsibility:
       "Org directory/groups/grants/usage/user-detail read models and their SQLite persistence, roster/profile mutations, and group container shares for the client.",
-    seam: "tearleads.organizations facade; workflows/organizations",
+    seam: "workflows/organizations",
     paths: [
       `${sdk}/workflows/organizations/`,
       `${sdk}/data/persistence/organizations/`,
-      `${sdk}/client/organizations/`,
     ],
     surface: organizationReadModelSurface,
     tables: organizationReadModelTables,
@@ -167,25 +232,23 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     package: "client-sdk",
     responsibility:
       "Device-first local projection, background reconciliation, and the remote sync-state reset, built on the Sync Coordination primitives.",
-    seam: "tearleads.deviceFirst facade; sync workflow facade snapshots",
+    seam: "sync workflow facade snapshots",
     paths: [
       `${sdk}/workflows/sync/index.ts`,
       `${sdk}/workflows/sync/remoteReset.ts`,
       `${sdk}/workflows/sync/remoteResetScope.ts`,
       `${sdk}/sync/`,
       `${sdk}/stores/local-projection/`,
-      `${sdk}/client/deviceFirst/`,
     ],
     surface: syncEngineSurface,
   },
   {
     name: "Identity & Session",
     package: "client-sdk",
-    responsibility: "Identity keys, sessions, and TOFU-pinned user identities.",
-    seam: "identity/session/userIdentities; TOFU gateway",
+    responsibility:
+      "Identity persistence and the TOFU-pinned user identity gateway.",
+    seam: "TOFU gateway",
     paths: [
-      `${sdk}/client/identity/`,
-      `${sdk}/client/session/`,
       `${sdk}/data/trustedUserIdentity/`,
       `${sdk}/data/persistence/identity/`,
     ],
@@ -217,6 +280,19 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       "The local SQLite executor, Drizzle schema, transaction serialization, and the @tearleads/client-sdk/sqlite public worker-runtime entry point.",
     seam: "@tearleads/client-sdk/sqlite subpath; data/sqlite",
     paths: [`${sdk}/data/sqlite/`, `${sdk}/sqlite/`],
+  },
+  {
+    name: "Principal Policy Contracts",
+    package: "client-sdk",
+    responsibility:
+      "The principal-policy contracts verification builds on: organization authority descriptors, policy evidence and state selection, full member identity commitment checks, admin-signer resolution, and the grant retirements acknowledged policies record.",
+    seam: "data/principalContracts modules; principalGrantRetirementPersistence",
+    paths: [
+      `${sdk}/data/principalContracts/`,
+      `${sdk}/data/persistence/principalContracts/`,
+    ],
+    surface: principalPolicyContractsSurface,
+    tables: principalPolicyContractsTables,
   },
   {
     name: "Sync Coordination",
@@ -253,10 +329,9 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     name: "Security Incident Detection",
     package: "client-sdk",
     responsibility:
-      "Durable, redacted detection records and host notifications for terminal client trust-boundary verification failures.",
-    seam: "tearleads.securityIncidents facade; onSecurityIncident callback",
+      "Durable, redacted detection records for terminal client trust-boundary verification failures.",
+    seam: "data/shared/securityIncidents",
     paths: [
-      `${sdk}/client/securityIncidents/`,
       `${sdk}/data/shared/securityIncidents.ts`,
       `${sdk}/data/persistence/securityIncidentPersistence.ts`,
     ],
@@ -267,13 +342,14 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     name: "SDK Shared Utilities",
     package: "client-sdk",
     responsibility:
-      "Helpers every layer uses with no subsystem of their own: error messages, record readers, User Timing measures, timestamp selection, and the workflow runtime input contract.",
+      "Helpers every layer uses with no subsystem of their own: error messages, record readers, User Timing measures, the listener-set subscription primitive, timestamp selection, and the workflow runtime input contract.",
     seam: "direct import",
     paths: [
       `${sdk}/data/shared/dependencyUnavailable.ts`,
       `${sdk}/data/shared/errorMessage.ts`,
       `${sdk}/data/shared/recordReaders.ts`,
       `${sdk}/data/shared/userTiming.ts`,
+      `${sdk}/data/shared/listenerSet.ts`,
       `${sdk}/data/persistence/latestTimestamp.ts`,
       `${sdk}/workflows/shared/`,
     ],

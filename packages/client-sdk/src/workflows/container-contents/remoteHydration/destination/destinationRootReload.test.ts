@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { MetadataRootBehindDirectoryError } from "../../../organizations/groupMetadata/groupMetadataErrors";
+import {
+  MetadataRootBehindDirectoryError,
+  withMetadataRootReload,
+} from "../../../organizations/groupMetadata/groupMetadataErrors";
 import { resolveWithMetadataRootReload } from "./destinationRootReload";
 
 interface ResolveInput {
@@ -30,6 +33,7 @@ test("a stale prefetched root is reread from the server, not reused", async () =
       () => {
         evictions += 1;
       },
+      withMetadataRootReload,
     ),
   ).resolves.toBe("verified-role");
   expect(reads).toEqual(["stale-prefetched-root", undefined]);
@@ -44,6 +48,7 @@ test("a destination root still behind after the reread is an incident", async ()
       { prefetchedProjection: "stale-prefetched-root" },
       resolve,
       () => {},
+      withMetadataRootReload,
     ),
   ).rejects.toBeInstanceOf(KeyingVerificationError);
   expect(reads).toEqual(["stale-prefetched-root", undefined]);

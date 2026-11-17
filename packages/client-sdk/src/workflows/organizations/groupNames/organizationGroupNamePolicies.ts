@@ -5,8 +5,8 @@ import { PrincipalPolicyBundleRepository } from "../../../data/persistence/princ
 import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
-} from "../../../data/principals/organizationAuthorityDescriptor";
-import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
+} from "../../../data/principalContracts/organizationAuthorityDescriptor";
+import { principalPolicyReferenceFromBundle } from "../../../data/principalContracts/principalPolicyAdminSigners";
 import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
 import { loadOrganizationExternalAdminPolicy } from "../../principals/externalAdminPolicy";
 import type { DirectoryGroupWalkInput } from "./groupNameUniqueness";

@@ -4,7 +4,7 @@ import {
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import { createCurrentPrincipalMutationLease } from "../../principals/principalPolicyService";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { createSelectedCurrentGroupMetadataContainerVerifier } from "../groupMetadata/currentGroupMetadataAuthority";

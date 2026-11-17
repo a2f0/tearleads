@@ -11,21 +11,21 @@ import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
-} from "../../principals/organizationAuthorityDescriptor";
+} from "../../principalContracts/organizationAuthorityDescriptor";
 import {
   assertPrincipalIdentityCommitments,
   publishVerifiedPolicyBundle,
-} from "../../principals/principalIdentityCommitments";
+} from "../../principalContracts/principalIdentityCommitments";
 import {
   organizationAdminExternalAuthority,
   principalPolicyReferenceFromBundle,
   verifyOrganizationAdminPolicy,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
-} from "../../principals/principalPolicyAdminSigners";
+} from "../../principalContracts/principalPolicyAdminSigners";
 import {
   type PrincipalPolicyCurrentEvidence,
   principalPolicyEvidenceEntries,
-} from "../../principals/principalPolicyEvidence";
+} from "../../principalContracts/principalPolicyEvidence";
 import {
   observePrincipalPolicy,
   type ProjectionCheckpointContext,

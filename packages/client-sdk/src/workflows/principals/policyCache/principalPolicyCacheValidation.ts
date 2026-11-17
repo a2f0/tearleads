@@ -11,7 +11,7 @@ import type {
 import {
   externalAuthorityCouldAuthorize,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
-} from "../../../data/principals/principalPolicyAdminSigners";
+} from "../../../data/principalContracts/principalPolicyAdminSigners";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { VerifiedExternalAdminPolicy } from "../externalAdminPolicy";

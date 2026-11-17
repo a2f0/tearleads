@@ -1,4 +1,4 @@
-import { createListenerSet } from "./listenerSet";
+import { createListenerSet } from "../../data/shared/listenerSet";
 export type NetworkListener = (online: boolean) => void;
 export type NetworkMode = "automatic" | "online" | "offline";
 

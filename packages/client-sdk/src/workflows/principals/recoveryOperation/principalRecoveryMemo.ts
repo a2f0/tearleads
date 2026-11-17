@@ -4,7 +4,7 @@ import {
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { principalHeadMatchesReference } from "../../../data/principalContracts/organizationAuthorityDescriptor";
 import type { RecoveredPrincipalPolicyHistory } from "../historyRecovery/principalHistoryRecoveryTypes";
 import { recoverPrincipalPolicyHistory } from "../historyRecovery/recoverPrincipalPolicyHistory";
 import {
