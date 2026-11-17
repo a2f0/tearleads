@@ -104,6 +104,8 @@ async function runLinkLeg(
   name: string,
   input: {
     readonly refusals: readonly DocumentLinkSetMutationFailure[];
+    /** The retry's document projection read fails as the operation ends. */
+    readonly retryProjectionFailsAndEnds?: boolean;
     /** The 1-based submission during which the operation stops being current. */
     readonly stopsBeingCurrentAt?: number;
     readonly view: LocalView;
@@ -121,6 +123,7 @@ async function runLinkLeg(
     submissions: 0,
   };
   let current = true;
+  let projectionReads = 0;
   try {
     const result = await createRemoteDocumentServiceFixture({
       api: createMockApiClient({
@@ -131,11 +134,27 @@ async function runLinkLeg(
         },
         getContainerWriterProjection: async () => leg.sibling,
         getDocumentWriterProjection: async () => leg.writerProjection,
+        getDocumentWriterProjectionResult: async () => {
+          projectionReads += 1;
+          if (!input.retryProjectionFailsAndEnds || projectionReads < 2)
+            return { data: leg.writerProjection, ok: true as const };
+          current = false;
+          return linkSetRefusal(
+            documentId,
+            { code: undefined, message: "Unavailable", status: 503 },
+            () => {
+              counts.hostReports += 1;
+            },
+          );
+        },
         primeDocumentWriterProjection: () => {},
-        linkDocumentResult: async (requestDocumentId, request) => {
+        // Like the API client, a refusal reports itself unless asked not to.
+        linkDocumentResult: async (requestDocumentId, request, options) => {
           const refusal = input.refusals[counts.submissions];
           counts.submissions += 1;
           if (counts.submissions === input.stopsBeingCurrentAt) current = false;
+          if (refusal && options?.reportErrors !== false)
+            counts.hostReports += 1;
           return refusal
             ? linkSetRefusal(requestDocumentId, refusal, () => {
                 counts.hostReports += 1;
@@ -252,6 +271,21 @@ test("a refusal after the operation stopped being current is dropped", async () 
   const run = await runLinkLeg("skipped-listing-refused-stale", {
     refusals: [ATTACHMENTS_CHANGED],
     stopsBeingCurrentAt: 1,
+    view: "empty",
+  });
+  expect(run).toMatchObject({
+    failures: [],
+    hostReports: 0,
+    listings: 0,
+    submissions: 1,
+  });
+  expect(run.result).toBeNull();
+});
+
+test("a retry whose projection read fails after the operation ended is dropped", async () => {
+  const run = await runLinkLeg("skipped-listing-retry-projection-stale", {
+    refusals: [ATTACHMENTS_CHANGED],
+    retryProjectionFailsAndEnds: true,
     view: "empty",
   });
   expect(run).toMatchObject({

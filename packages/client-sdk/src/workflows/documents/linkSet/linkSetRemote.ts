@@ -18,7 +18,6 @@ import type {
   DocumentCreateAuthor,
   DocumentLinkSetFailureHandler,
   DocumentLinkSetMutationApi,
-  DocumentLinkSetMutationFailure,
   DocumentLinkSetMutationOperation,
   RelinkRemoteDocumentResult,
 } from "../../../data/documents/shared/types";
@@ -99,7 +98,7 @@ function reportLinkSetFailure(
 }
 
 interface LinkSetProjectionFetch<TProjection> {
-  failure: DocumentLinkSetMutationFailure | null;
+  failure: LinkSetSubmitFailure | null;
   projection: TProjection | null;
 }
 
@@ -116,11 +115,11 @@ async function fetchLinkSetProjection<TProjection>(input: {
   if (result.ok) {
     return { failure: null, projection: result.data };
   }
-  result.report();
   return {
     failure: {
       code: result.code,
       message: result.message,
+      report: result.report,
       status: result.status,
     },
     projection: null,
@@ -316,11 +315,13 @@ async function relinkRemoteDocumentOnce(
     fetchLinkSetContainerProjection(input.apiClient, input.targetContainerId),
   ]);
   if (!writerFetch.projection || !targetContainerFetch.projection) {
+    // A failure the operation no longer waits for is not reported.
+    if (input.stillCurrent?.() === false) return null;
     for (const failure of orderedProjectionFailures([
       writerFetch.failure,
       targetContainerFetch.failure,
     ])) {
-      input.onFailure?.(failure);
+      reportLinkSetFailure(input, failure);
     }
     return null;
   }
@@ -378,10 +379,10 @@ async function relinkRemoteDocumentOnce(
 // delivered last, so a single-slot consumer keeps the denial that parks the
 // move (row 7) while the accumulator still sees both.
 function orderedProjectionFailures(
-  failures: readonly (DocumentLinkSetMutationFailure | null)[],
-): DocumentLinkSetMutationFailure[] {
+  failures: readonly (LinkSetSubmitFailure | null)[],
+): LinkSetSubmitFailure[] {
   const present = failures.filter(
-    (failure): failure is DocumentLinkSetMutationFailure => failure !== null,
+    (failure): failure is LinkSetSubmitFailure => failure !== null,
   );
   return [
     ...present.filter((failure) => failure.status !== 403),
