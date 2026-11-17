@@ -309,6 +309,26 @@ function attachmentBindingDocumentId(
   );
 }
 
+/**
+ * The listing omits the write's target set when its hash equals the current
+ * set's, so refill it from `blobKekTargets`; verification re-hashes it against
+ * the write authorization and the signed header. Any other omission fails.
+ */
+function writeAuthorizationWithTargets(
+  binding: DecryptDocumentAttachmentBlobInput["binding"],
+): BlobKekTargetsResponse | undefined {
+  const { blobKekTargets, writeAuthorization } = binding;
+  if (!writeAuthorization) return undefined;
+  if (writeAuthorization.targets)
+    return { ...writeAuthorization, targets: writeAuthorization.targets };
+  if (
+    !blobKekTargets ||
+    writeAuthorization.blobKeyTargetHash !== blobKekTargets.blobKeyTargetHash
+  )
+    throw new Error("Attachment blob write authorization lacks its targets");
+  return { ...writeAuthorization, targets: blobKekTargets.targets };
+}
+
 async function assertBlobWriteHeaderVerified(input: {
   readonly authorization: DocumentWriterProjectionAuthorization | undefined;
   readonly binding: DecryptDocumentAttachmentBlobInput["binding"];
@@ -336,7 +356,7 @@ async function assertBlobWriteHeaderVerified(input: {
   });
   const blobKekTargets = await verifiedBlobKekTargetsForBinding({
     binding: input.binding,
-    projection: input.binding.writeAuthorization,
+    projection: writeAuthorizationWithTargets(input.binding),
     // The signed binding proves which slot exposes the blob now. Writer
     // authorization describes the older target set committed when the bytes
     // were written, so a later valid binding need not appear in that set.

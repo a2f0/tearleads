@@ -142,7 +142,7 @@ describeSchema(
   {
     accessEpoch: "Content-key epoch the update was written at.",
     authorizationTargets:
-      "Container KEK targets the write was authorized against.",
+      "Container KEK targets the write was authorized against. Omitted when the write header's `targetHash` equals the request's `expectedTargetHash`; the client refills them from the content-key bundle it holds and re-hashes them against the signed hash.",
     authorFingerprint: "Signing key fingerprint of the writer.",
     checkpointKind: "`rotate_baseline` when the update is a rotation baseline.",
     checkpointPayloadKind: "`full_history_snapshot` for a rotation baseline.",

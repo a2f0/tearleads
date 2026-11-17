@@ -1824,8 +1824,22 @@ export type components = {
             /** @description Binding this one replaced, or null. */
             previousBindingId: string | null;
             slotId: string;
-            /** @description Key targets the blob's write was authorized against. */
-            writeAuthorization: components["schemas"]["BlobKekTargetsResponse"];
+            /** @description Key targets the blob's write was authorized against. Its `targets` are omitted when its `blobKeyTargetHash` equals `blobKekTargets.blobKeyTargetHash`; the reader refills them from `blobKekTargets.targets` and re-hashes them. */
+            writeAuthorization: {
+                activeBindingIds: string[];
+                blobAccessManifestHash: string;
+                blobId: string;
+                blobKeyTargetHash: string;
+                documentManifestHashes: string[];
+                linkedContainerKeyEpochIds: string[];
+                linkedContainerManifestHashes: string[];
+                organizationId: string;
+                targets?: {
+                    [key: string]: unknown;
+                }[];
+            } & {
+                [key: string]: unknown;
+            };
             /** @description The blob's signed write header. */
             writeHeader: {
                 [key: string]: unknown;
@@ -2720,7 +2734,7 @@ export type components = {
             [key: string]: unknown;
         };
         /** @description A machine-readable reason a document mutation was refused. */
-        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_unlink_rotation_baseline_stale";
+        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_link_attachments_changed" | "document_unlink_rotation_baseline_stale";
         /** @description A refused document create, link, unlink, or purge. */
         DocumentMutationFailureResponse: {
             code?: components["schemas"]["DocumentMutationErrorCode"];
@@ -2946,8 +2960,8 @@ export type components = {
             accessEpoch: number;
             /** @description Signing key fingerprint of the writer. */
             authorFingerprint: string;
-            /** @description Container KEK targets the write was authorized against. */
-            authorizationTargets: ({
+            /** @description Container KEK targets the write was authorized against. Omitted when the write header's `targetHash` equals the request's `expectedTargetHash`; the client refills them from the content-key bundle it holds and re-hashes them against the signed hash. */
+            authorizationTargets?: ({
                 containerId: string;
                 containerKeyEpoch: number;
                 containerKeyEpochId: string;

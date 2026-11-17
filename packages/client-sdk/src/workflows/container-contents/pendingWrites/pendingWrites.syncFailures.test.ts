@@ -68,7 +68,6 @@ test("a recorded terminal failure surfaces as an errored queue item", async () =
     await records.recordDocumentSyncFailure(DOCUMENT_SCOPE, {
       attemptedAt: T2,
       message: "Write access denied by the server (403)",
-      status: 403,
     });
 
     const items = await listPendingWrites(execSql);
@@ -125,7 +124,6 @@ test("a failure with no pending work surfaces as its own queue item", async () =
     await records.recordDocumentSyncFailure(DOCUMENT_SCOPE, {
       attemptedAt: T2,
       message: "Remote revalidation failed: container unavailable (409)",
-      status: 409,
     });
 
     const items = await listPendingWrites(execSql);
@@ -199,7 +197,6 @@ test("a metadata quarantine with no pending updates stays visible", async () => 
       {
         attemptedAt: T2,
         message: "Incoming metadata update failed validation",
-        status: null,
       },
     );
 
@@ -304,7 +301,6 @@ test("retry keeps a failure-only row and clears it with queued work", async () =
       {
         attemptedAt: T2,
         message: "Remote revalidation failed: container unavailable (409)",
-        status: 409,
       },
     );
 

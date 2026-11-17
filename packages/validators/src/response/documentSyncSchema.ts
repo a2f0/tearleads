@@ -79,7 +79,7 @@ export const DocumentSyncUpdateResponseSchema =
       accessEpoch: positiveIntegerSchema,
       authorizationTargets: nonEmptyArraySchema(
         DocumentContentKeyTargetResponseSchema,
-      ),
+      ).optional(),
       authorFingerprint: z.string(),
       checkpointKind: z
         .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND)

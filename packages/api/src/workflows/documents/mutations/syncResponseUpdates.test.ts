@@ -7,6 +7,7 @@ import {
 } from "@tearleads/loro";
 import {
   authenticateSyncCheckpointForResponse,
+  authorizationTargetsUnlessHeld,
   materializeSyncResponseEntriesToBytes,
   type SyncCheckpointMetadata,
 } from "./syncResponseUpdates";
@@ -237,4 +238,28 @@ test("metadata entries materialize only through the first byte overflow", async 
 
   expect(entries).toEqual([first]);
   expect(loaded).toEqual([1, 2]);
+});
+
+test("an update omits the target set the client holds and carries any other", () => {
+  const authorizationTargets = [
+    {
+      containerId: "container",
+      containerKeyEpoch: 1,
+      containerKeyEpochId: "container-epoch",
+      containerManifestHash: "container-manifest",
+    },
+  ];
+  const writeHeader = (targetHash: string) => ({
+    authorizationTargets,
+    header: { targetHash } as Parameters<
+      typeof authorizationTargetsUnlessHeld
+    >[0]["header"],
+  });
+  expect(authorizationTargetsUnlessHeld(writeHeader("held"), "held")).toEqual(
+    {},
+  );
+  const carried = authorizationTargetsUnlessHeld(writeHeader("older"), "held");
+  expect(carried).toEqual({ authorizationTargets });
+  // A copy, so the response never aliases the stored set.
+  expect(carried.authorizationTargets).not.toBe(authorizationTargets);
 });

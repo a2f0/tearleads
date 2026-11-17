@@ -198,16 +198,20 @@ Blob reads use:
 Attachment listing requires document read access through a linked container path
 and returns one row per active binding: its `bindingId`, `blobId`, `slotId`,
 signed binding event, blob write header and authorization, KEK targets, and
-`contentKeyBundle`. The content-key bundle is loaded from the blob key-package
-tables, not from the encrypted blob bytes. Blob reads require read access
-through at least one active binding's document. The download route returns the
-blob id, byte length, and SHA-256 plus a `source`: a five-minute signed
-object-store URL, or `kind: "api"` when the store cannot sign. The `/bytes`
-route streams committed encrypted bytes as `application/octet-stream` with blob
-id, byte length, and SHA-256 digest headers. The app combines the attachment
-listing's blob content-key bundle with verified document/container access
-material to unwrap the blob [content key](../glossary/keys.md#content-key) and decrypt
-the committed bytes.
+`contentKeyBundle`. The write authorization omits its `targets` when its
+`blobKeyTargetHash` (the hash the signed header commits to) equals the row's
+current `blobKekTargets.blobKeyTargetHash`; the reader refills them from
+`blobKekTargets.targets` and verifies them against both hashes, and an omission
+under any other hash fails closed. The content-key bundle is loaded from the
+blob key-package tables, not from the encrypted blob bytes. Blob reads require
+read access through at least one active binding's document. The download route
+returns the blob id, byte length, and SHA-256 plus a `source`: a five-minute
+signed object-store URL, or `kind: "api"` when the store cannot sign. The
+`/bytes` route streams committed encrypted bytes as `application/octet-stream`
+with blob id, byte length, and SHA-256 digest headers. The app combines the
+attachment listing's blob content-key bundle with verified document/container
+access material to unwrap the blob [content
+key](../glossary/keys.md#content-key) and decrypt the committed bytes.
 
 The stored blob wrap set and current access-target projection are distinct.
 Container rotation does not rotate immutable blob ciphertext: a cold reader may
@@ -218,7 +222,11 @@ separately. The API retains prior envelope sets by target hash; updating the
 latest set never deletes an issued historical wrap. Link/unlink events carry
 signed `blobRewraps` and atomically install destination envelopes with the
 document's new links (see
-[document link protocol](../document-link-and-sync-protocol.md)).
+[document link protocol](../document-link-and-sync-protocol.md)). The API
+checks the cited blobs against the active bindings under the document head and
+refuses a mismatch with `409 document_link_attachments_changed`. A client whose
+local view holds no attachment row for the document may therefore cite none
+without listing; on that refusal it lists afresh and retries once.
 
 Attachment hydration isolates individual download and verification failures so
 one unavailable or invalid binding cannot suppress unrelated attachments.

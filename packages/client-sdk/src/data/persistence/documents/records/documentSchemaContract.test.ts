@@ -18,9 +18,11 @@ test.each([
       "document-schema-flag-day",
     );
     try {
+      // A database from before the migration ledger also still has the
+      // column local schema step 3 drops.
       const obsoleteSql = documentsTable.createSql.replace(
         `  ${definition},\n`,
-        "",
+        '  "sync_failure_status" INTEGER,\n',
       );
       expect(obsoleteSql).not.toContain(definition);
       await execSql(obsoleteSql);
