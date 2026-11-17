@@ -219,6 +219,7 @@ export interface DocumentLinkSetMutationApi {
   getBlobBytes(blobId: string): Promise<BlobBytesResponse | null>;
   listDocumentAttachments(
     documentId: string,
+    options?: { readonly refresh?: boolean },
   ): Promise<ListDocumentAttachmentsResponse | null>;
   getContainerWriterProjection(
     containerId: string,

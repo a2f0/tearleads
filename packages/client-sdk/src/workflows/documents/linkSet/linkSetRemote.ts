@@ -3,10 +3,11 @@ import type {
   DocumentLinkAccessEventBody,
 } from "@tearleads/crypto";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
-import type {
-  ContainerWriterProjectionResponse,
-  DocumentLinkSetMutationResponse,
-  DocumentWriterProjectionResponse,
+import {
+  type ContainerWriterProjectionResponse,
+  DOCUMENT_MUTATION_ERROR_CODES,
+  type DocumentLinkSetMutationResponse,
+  type DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
   acknowledgedDocumentLinkSetMutation,
@@ -28,6 +29,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
+import { documentMayHaveAttachments } from "../../../data/persistence/documents/documentAttachmentPresence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { recordDocumentAuthorAccessFailure } from "../authorAccessFailure";
 import type { SubtreePurgeRoot } from "../purge/subtreePurgeScope";
@@ -201,17 +203,48 @@ interface RelinkRemoteDocumentInput extends RelinkRemoteDocumentRequest {
   targetSecretKey: Uint8Array;
 }
 
-/** What one leg signed, so the workflow can reuse or retry it. */
+/**
+ * What one leg signed, so the workflow can reuse or retry it. A first attempt
+ * may cite rewraps without a fresh listing: the previous leg's envelopes
+ * (`reused`), or none because the local view holds no attachment (`skipped`).
+ * A retry always lists (`listed`), bypassing any cached listing.
+ */
 interface LinkSetLegAttempt {
+  readonly listing: "speculative" | "fresh";
   rewraps: DocumentLinkAccessEventBody["blobRewraps"] | null;
-  reused: boolean;
+  source: "listed" | "reused" | "skipped" | null;
+}
+
+function createLinkSetLegAttempt(
+  listing: LinkSetLegAttempt["listing"],
+): LinkSetLegAttempt {
+  return { listing, rewraps: null, source: null };
+}
+
+function isSpeculativeAttempt(attempt: LinkSetLegAttempt): boolean {
+  return attempt.source === "reused" || attempt.source === "skipped";
 }
 
 /**
- * A leg that re-cited the previous leg's envelopes and was refused with an
- * uncoded 409 (the attachment set or its key epoch moved) lists and retries
- * once, as a leg without reuse would have; that first failure is not
- * reported.
+ * The server's binding check refused rewraps this attempt cited without
+ * listing: a coded attachment-set refusal, or for re-cited envelopes the
+ * uncoded content-key epoch refusal.
+ */
+function refusedSpeculativeRewraps(
+  attempt: LinkSetLegAttempt,
+  failure: DocumentLinkSetMutationFailure,
+): boolean {
+  if (failure.status !== 409) return false;
+  if (failure.code === DOCUMENT_MUTATION_ERROR_CODES.linkAttachmentsChanged)
+    return true;
+  return attempt.source === "reused" && failure.code === undefined;
+}
+
+/**
+ * A leg that cited rewraps without listing and was refused because the
+ * attachment set (or a re-cited key epoch) moved lists and retries once, as a
+ * leg that listed would have; that first failure is not reported. The retry
+ * lists, so it cannot be refused for the same stale view again.
  */
 export async function relinkRemoteDocument(
   remote: RemoteDocumentCollaborators,
@@ -230,9 +263,9 @@ export async function relinkRemoteDocument(
   };
   const reuse = input.attachmentReuse;
   const failures: DocumentLinkSetMutationFailure[] = [];
-  const attempt: LinkSetLegAttempt = { reused: false, rewraps: null };
+  const attempt = createLinkSetLegAttempt("speculative");
   const result = await relinkRemoteDocumentOnce(input, attempt, (failure) => {
-    if (attempt.reused) failures.push(failure);
+    if (isSpeculativeAttempt(attempt)) failures.push(failure);
     else input.onFailure?.(failure);
   }).catch((error: unknown) => {
     // A leg that threw may have committed before failing: list again next.
@@ -240,18 +273,16 @@ export async function relinkRemoteDocument(
     throw error;
   });
   if (reuse) reuse.committed = result ? attempt.rewraps : null;
-  if (result || !attempt.reused) return result;
-  // The attachment-set and key-epoch refusals are uncoded 409s; a coded one
-  // (stale state, an unavailable container) keeps its own recovery path.
+  if (result || !isSpeculativeAttempt(attempt)) return result;
+  // Any other refusal (stale state, an unavailable container) keeps its own
+  // recovery path.
   if (
-    !failures.some(
-      (failure) => failure.status === 409 && failure.code === undefined,
-    )
+    !failures.some((failure) => refusedSpeculativeRewraps(attempt, failure))
   ) {
     for (const failure of failures) input.onFailure?.(failure);
     return null;
   }
-  const retry: LinkSetLegAttempt = { reused: false, rewraps: null };
+  const retry = createLinkSetLegAttempt("fresh");
   const retried = await relinkRemoteDocumentOnce(input, retry, (failure) =>
     input.onFailure?.(failure),
   );
@@ -351,6 +382,35 @@ function orderedProjectionFailures(
   ];
 }
 
+/**
+ * Rewraps a first attempt may sign without listing: the previous leg's
+ * envelopes, or none when the local view holds no attachment for the
+ * document. The server's binding check at commit refuses either if stale.
+ */
+async function speculativeBlobRewraps(
+  input: RelinkRemoteDocumentInput,
+  writerProjection: DocumentWriterProjectionResponse,
+  targets: readonly DocumentContentKeyTarget[],
+): Promise<{
+  readonly rewraps: DocumentLinkAccessEventBody["blobRewraps"];
+  readonly source: "reused" | "skipped";
+} | null> {
+  const committed = input.attachmentReuse?.committed;
+  const reused = committed
+    ? reuseCommittedBlobRewraps({
+        committed,
+        documentId: writerProjection.documentId,
+        targets,
+      })
+    : null;
+  if (reused) return { rewraps: reused, source: "reused" };
+  if (
+    await documentMayHaveAttachments(input.execSql, writerProjection.documentId)
+  )
+    return null;
+  return { rewraps: [], source: "skipped" };
+}
+
 function prepareRemoteLinkSetMutation(
   input: RelinkRemoteDocumentInput & {
     resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -363,23 +423,23 @@ function prepareRemoteLinkSetMutation(
   const prepareBlobRewraps = async (
     targets: readonly DocumentContentKeyTarget[],
   ) => {
-    const committed = input.attachmentReuse?.committed;
-    const reused = committed
-      ? reuseCommittedBlobRewraps({
-          committed,
-          documentId: writerProjection.documentId,
-          targets,
-        })
-      : null;
-    attempt.reused = reused !== null;
-    attempt.rewraps =
-      reused ??
-      (await prepareDocumentLinkBlobRewraps({
-        ...input,
-        targets,
-        targetContainerProjection,
-        writerProjection,
-      }));
+    const speculative =
+      attempt.listing === "speculative"
+        ? await speculativeBlobRewraps(input, writerProjection, targets)
+        : null;
+    if (speculative) {
+      attempt.source = speculative.source;
+      attempt.rewraps = speculative.rewraps;
+      return attempt.rewraps;
+    }
+    attempt.source = "listed";
+    attempt.rewraps = await prepareDocumentLinkBlobRewraps({
+      ...input,
+      refreshListing: attempt.listing === "fresh",
+      targets,
+      targetContainerProjection,
+      writerProjection,
+    });
     return attempt.rewraps;
   };
   return recordDocumentAuthorAccessFailure(

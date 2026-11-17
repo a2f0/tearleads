@@ -141,16 +141,18 @@ test("folder creation, document linking, unlinking and trash have separate reque
       await expectNote(pane, folder, true);
       await expectNote(pane, "/", true);
     },
-    // Link-set writes read the complete binding frontier before signing rewraps.
-    // 9.6 KB sent and 0.6 KB received; keep about 10% headroom.
+    // The device holds the document and no attachment row for it, so the
+    // link cites no blob rewraps without listing; the server's binding check
+    // at commit would refuse a stale view (measured 2, 3 before). 9.6 KB sent
+    // and 0.6 KB received; keep about 10% headroom.
     budget: {
-      total: 3,
+      total: 2,
       bodyBytes: { request: 10_500, response: 700 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
-        "GET /documents/:documentId/attachments": 1,
+        "GET /documents/:documentId/attachments": 0,
         "POST /documents/:documentId/link": 1,
       },
     },
@@ -239,15 +241,17 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // Validate history before accepting the local unlink; its durable
       // intent's replay reuses that proof while the document is unchanged
       // (measured 6, 8 before). A restart, a change, or the server's
-      // stale-baseline refusal proves again. 17.9 KB sent and 30.2 KB
-      // received (44.3 KB before); keep about 10% headroom.
-      total: 6,
+      // stale-baseline refusal proves again. No attachment listing: the
+      // device holds no attachment row for the document (measured 5, 6
+      // before). 17.9 KB sent and 30.2 KB received (44.3 KB before); keep
+      // about 10% headroom.
+      total: 5,
       bodyBytes: { request: 20_000, response: 33_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 2,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
-        "GET /documents/:documentId/attachments": 1,
+        "GET /documents/:documentId/attachments": 0,
         "GET /documents/:documentId/writer-projection": 1,
         "POST /documents/:documentId/sync": 1,
         "POST /documents/:documentId/unlink": 1,
@@ -272,22 +276,23 @@ test("folder creation, document linking, unlinking and trash have separate reque
       await expectNote(pane, "Trash", true);
     },
     budget: {
-      // The link and unlink legs share one directory discovery and one
-      // attachment listing: the unlink re-cites the envelopes the link
-      // committed. The first write into Trash reads its projection (21.5 KB),
-      // which bootstrap no longer reads because provisioning seeds its role.
-      // The unchanged document still holds the proof the unlink above
-      // recorded, so the unlink leg reuses it: no sync and no document
-      // projection. Measured 5 (main 8; the reused proof saves the sync, the
-      // document projection and a policy read). 27.3 KB sent and 22.4 KB
-      // received; keep about 10% headroom.
-      total: 5,
+      // The link and unlink legs share one directory discovery; the link
+      // cites no rewraps without listing (the device holds no attachment row
+      // for the document) and the unlink re-cites what the link committed.
+      // The first write into Trash reads its projection (21.5 KB), which
+      // bootstrap no longer reads because provisioning seeds its role. The
+      // unchanged document still holds the proof the unlink above recorded,
+      // so the unlink leg reuses it: no sync and no document projection.
+      // Measured 4 (5 with the listing; main 8 before the reused proof saved
+      // the sync, the document projection and a policy read). 27.3 KB sent
+      // and 22.4 KB received; keep about 10% headroom.
+      total: 4,
       bodyBytes: { request: 30_000, response: 25_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
-        "GET /documents/:documentId/attachments": 1,
+        "GET /documents/:documentId/attachments": 0,
         "GET /containers/:containerId/writer-projection": 1,
         "GET /documents/:documentId/writer-projection": 0,
         "POST /documents/:documentId/link": 1,

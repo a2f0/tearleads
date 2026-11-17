@@ -58,9 +58,10 @@ export function createLinkSetAttachmentReuse(): LinkSetAttachmentReuse {
  * was authenticated or wrapped by this device before that leg signed it, so a
  * reuse propagates no key to a new scope; any target the previous leg did not
  * wrap returns null and the leg lists and authenticates as usual. A bind or
- * detach in between, a content-key epoch change, or a re-entered retired
- * target (the API keeps its stored wrap over the fresh one) makes the API
- * refuse with an uncoded 409, and the caller re-lists once.
+ * detach in between makes the API refuse with a coded 409
+ * (`document_link_attachments_changed`); a content-key epoch change or a
+ * re-entered retired target (the API keeps its stored wrap over the fresh one)
+ * with an uncoded one. The caller re-lists once.
  */
 export function reuseCommittedBlobRewraps(input: {
   committed: BlobRewraps;
@@ -102,11 +103,16 @@ export function reuseCommittedBlobRewraps(input: {
   return rewraps.sort(compareBlobIds);
 }
 
-/** Authenticate the existing bytes before propagating their DEK to a new scope. */
+/**
+ * Authenticate the existing bytes before propagating their DEK to a new scope.
+ * `refreshListing` bypasses a cached listing, after the server refused a leg
+ * because its attachments changed.
+ */
 export async function prepareDocumentLinkBlobRewraps(
   input: {
     apiClient: DocumentLinkSetMutationApi;
     execSql: ExecSql;
+    refreshListing?: boolean | undefined;
     targetContainerProjection: ContainerWriterProjectionResponse;
     targetSecretKey: Uint8Array;
     targets: readonly DocumentContentKeyTarget[];
@@ -114,14 +120,7 @@ export async function prepareDocumentLinkBlobRewraps(
   } & ProjectionVerificationOptions,
 ): Promise<DocumentLinkAccessEventBody["blobRewraps"]> {
   const documentId = input.writerProjection.documentId;
-  const bindings = await input.apiClient.listDocumentAttachments(documentId);
-  // The API refuses the link unless every active binding is rewrapped, so an
-  // unavailable listing (offline, or a 409 while a bind is mid-flight) is a
-  // retryable availability failure of this mutation, not integrity evidence.
-  if (!bindings)
-    throw new ProjectionDependencyUnavailableError(
-      "Document attachments are unavailable for relinking",
-    );
+  const bindings = await listRelinkBindings(input, documentId);
   assertProjectionVerificationCurrent(input.stillCurrent);
   if (bindings.length === 0) return [];
   const keks = await collectRelinkKeks(input);
@@ -195,6 +194,27 @@ export async function prepareDocumentLinkBlobRewraps(
     assertProjectionVerificationCurrent(input.stillCurrent);
   }
   return [...rewrapByBlob.values()].sort(compareBlobIds);
+}
+
+async function listRelinkBindings(
+  input: Pick<
+    Parameters<typeof prepareDocumentLinkBlobRewraps>[0],
+    "apiClient" | "refreshListing"
+  >,
+  documentId: string,
+): Promise<BlobAttachmentSummary[]> {
+  const bindings = await input.apiClient.listDocumentAttachments(
+    documentId,
+    input.refreshListing ? { refresh: true } : undefined,
+  );
+  // The API refuses the link unless every active binding is rewrapped, so an
+  // unavailable listing (offline, or a 409 while a bind is mid-flight) is a
+  // retryable availability failure of this mutation, not integrity evidence.
+  if (!bindings)
+    throw new ProjectionDependencyUnavailableError(
+      "Document attachments are unavailable for relinking",
+    );
+  return bindings;
 }
 
 async function wrapBlobKeyForTarget(input: {

@@ -3212,6 +3212,10 @@
           },
           {
             "type": "string",
+            "const": "document_link_attachments_changed"
+          },
+          {
+            "type": "string",
             "const": "document_unlink_rotation_baseline_stale"
           }
         ],

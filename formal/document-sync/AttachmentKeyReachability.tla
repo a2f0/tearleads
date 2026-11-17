@@ -45,6 +45,17 @@ PrepareLink ==
   /\ UNCHANGED <<bindings, linked, epoch, wraps, issued, hydrated, relinkRejected,
                   unlinkRejected>>
 
+(* A device whose local view holds no attachment row cites none without     *)
+(* listing. When that view is stale, the binding frontier check refuses the *)
+(* commit and the client lists (PrepareLink) before retrying.               *)
+PrepareLinkWithoutListing ==
+  /\ phase \in {"idle", "prepared"}
+  /\ observedBindings' = {} /\ observedEpoch' = epoch
+  /\ planned' = {}
+  /\ phase' = "prepared"
+  /\ UNCHANGED <<bindings, linked, epoch, wraps, issued, hydrated, relinkRejected,
+                  cachedWraps, cacheValid, unlinkRejected>>
+
 CommitLink ==
   /\ phase = "prepared" /\ observedEpoch = epoch
   /\ ~CheckBindingFrontier \/ observedBindings = bindings
@@ -125,7 +136,8 @@ TypeOK ==
   /\ {cacheValid, unlinkRejected} \subseteq BOOLEAN
 
 Idle == UNCHANGED vars
-Next == Idle \/ BindSecond \/ PrepareLink \/ CommitLink \/ UnlinkSource \/ RelinkSource \/ Hydrate
+Next == Idle \/ BindSecond \/ PrepareLink \/ PrepareLinkWithoutListing
+        \/ CommitLink \/ UnlinkSource \/ RelinkSource \/ Hydrate
         \/ (\E c \in Containers : Rekey(c))
 LinkedDocumentCanUnlink ==
   (phase = "linked" /\ linked = Containers) ~>
