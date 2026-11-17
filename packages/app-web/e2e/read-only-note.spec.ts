@@ -38,6 +38,8 @@ async function createExplorerNote(page: Page): Promise<Locator> {
   const newDocument = window.getByRole("button", { name: "New Document" });
   await expect(newDocument).toBeEnabled({ timeout: 60_000 });
   await loggedIn;
+  await window.getByRole("menuitem", { name: "View", exact: true }).click();
+  await window.getByRole("menuitem", { name: "Show Sidebar" }).click();
   await newDocument.click();
   await window.getByRole("button", { name: "Note", exact: true }).click();
   const editor = window.getByRole("textbox", { name: "Notes editor" });
