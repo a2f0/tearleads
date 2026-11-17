@@ -14,6 +14,7 @@ import {
 } from "../../../../../test/helpers/documentFixtures";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import type {
@@ -173,6 +174,7 @@ test("a store durably invalidates a regressed cursor before a failed fresh retry
         signingPublicKey: fixture.signingPublicKey,
       },
     },
+    deleteDocumentPlacements,
     infra: {
       blobStore: createMemoryBlobStore(),
       dbStatus: "ready",

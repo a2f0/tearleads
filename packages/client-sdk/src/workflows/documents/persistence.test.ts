@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createDocumentProjectorRegistry } from "../../data/documents";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import type {
   StoredDocumentRecord as DocumentRecord,
   DocumentsPersistence,
@@ -175,22 +176,17 @@ test("persistDocumentState ensures client projection tables once per executor an
     },
   ]);
   const currentDoc = await createDocument("projection-schema-cache");
-  await persistDocumentState({
+  const input = () => ({
     currentDoc,
     currentRecord,
+    deleteDocumentPlacements,
     documentProjectors,
     execSql,
     localId: "local-document",
     persistence,
   });
-  await persistDocumentState({
-    currentDoc,
-    currentRecord,
-    documentProjectors,
-    execSql,
-    localId: "local-document",
-    persistence,
-  });
+  await persistDocumentState(input());
+  await persistDocumentState(input());
 
   expect(
     statements.filter((statement) =>
@@ -225,6 +221,7 @@ test("guarded persistence aborts before claiming or reading the durable row", as
     canStartDurableMutation: () => false,
     currentDoc,
     currentRecord: null,
+    deleteDocumentPlacements,
     documentProjectors: createDocumentProjectorRegistry([]),
     execSql: createNoopExecSql(),
     localId: "local-document",
@@ -285,6 +282,7 @@ test("a persist without an explicit frontier retains the stored one", async () =
   await persistDocumentState({
     currentDoc,
     currentRecord,
+    deleteDocumentPlacements,
     documentProjectors: createDocumentProjectorRegistry([]),
     execSql: createNoopExecSql(),
     localId: "local-document",
@@ -342,6 +340,7 @@ test("local writes preserve pull progress until the security context changes", a
   const common = {
     currentDoc,
     currentRecord,
+    deleteDocumentPlacements,
     documentProjectors: createDocumentProjectorRegistry([]),
     execSql: createNoopExecSql(),
     localId: currentRecord.id,
@@ -405,6 +404,7 @@ test("a missing container projection does not delete a canonical document", asyn
     await persistDocumentState({
       currentDoc,
       currentRecord,
+      deleteDocumentPlacements,
       documentProjectors: createDocumentProjectorRegistry([]),
       execSql: createNoopExecSql(),
       localId: "local-document",
@@ -431,6 +431,7 @@ test("guarded deletion aborts before reading or deleting the durable row", async
 
   const deleted = await deletePersistedDocument({
     canStartDurableMutation: () => false,
+    deleteDocumentPlacements,
     documentProjectors: createDocumentProjectorRegistry([]),
     execSql: createNoopExecSql(),
     localId: "local-document",
@@ -473,6 +474,7 @@ test("a guard that goes stale while queued refuses the deletion", async () => {
   });
   const queuedDeletion = deletePersistedDocument({
     canStartDurableMutation: () => canDelete,
+    deleteDocumentPlacements,
     documentProjectors: createDocumentProjectorRegistry([]),
     execSql,
     localId: "local-document",

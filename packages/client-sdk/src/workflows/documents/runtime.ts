@@ -3,6 +3,7 @@ import {
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
+import type { DocumentPlacementCleanup } from "../../data/persistence/documents/documentsPersistence";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import {
   requireTrustedUserIdentityResolver,
@@ -57,6 +58,7 @@ export interface DocumentsWorkflowRuntimeInput
     | PrincipalHistoryProtectionLease
     | undefined;
   readonly apiClient: ApiClient;
+  readonly deleteDocumentPlacements: DocumentPlacementCleanup;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
@@ -64,6 +66,7 @@ export interface DocumentsWorkflowRuntimeInput
 export interface DocumentsWorkflowRuntimeSnapshot
   extends DocumentsWorkflowRuntimeInputGroups {
   readonly apiClient: ApiClient;
+  readonly deleteDocumentPlacements: DocumentPlacementCleanup;
   readonly principalPolicies: PrincipalPolicyService;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
@@ -73,6 +76,8 @@ export interface DocumentsWorkflowRuntime
   readonly apiClient: ApiClient;
   /** Bound to this snapshot's API client, executor, and key material. */
   readonly blobAttachments: BlobAttachmentService;
+  /** Container Contents' placement cleanup, bound by the composition root. */
+  readonly deleteDocumentPlacements: DocumentPlacementCleanup;
   /** Bound to this snapshot's API client, executor, and history custody. */
   readonly principalPolicies: PrincipalPolicyService;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
@@ -111,6 +116,7 @@ export function createDocumentsWorkflowRuntimeFromSnapshot(
     }),
     auth: snapshot.auth,
     crypto: snapshot.crypto,
+    deleteDocumentPlacements: snapshot.deleteDocumentPlacements,
     infra,
     principalPolicies: snapshot.principalPolicies,
     resolveTrustedUserIdentity: requireTrustedUserIdentityResolver(

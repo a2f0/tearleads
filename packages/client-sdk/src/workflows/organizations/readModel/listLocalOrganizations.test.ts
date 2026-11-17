@@ -12,6 +12,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { execSqlClientFromExecSql } from "../../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { organizationReadModelTables } from "../../../data/sqlite/schema";
 import { organizationReadModelState } from "../../../data/sqlite/schema/organizationReadModelSchema";
@@ -65,7 +66,11 @@ async function rekeyProfileDocumentToServerId(input: {
     localId: aliasRecord.documentId,
     snapshot: bytesToBase64(exportFullHistorySnapshot(profileDoc)),
   });
-  await sqlDocumentsPersistence.deleteDocument(input.execSql, aliasLocalId);
+  await sqlDocumentsPersistence.deleteDocument(
+    input.execSql,
+    aliasLocalId,
+    deleteDocumentPlacements,
+  );
   return { documentId: aliasRecord.documentId };
 }
 
@@ -369,6 +374,7 @@ test("listLocalOrganizations returns a null name for a foreign org whose profile
       getOrganizationProfileDocumentLocalId({
         organizationId: org.organizationId,
       }),
+      deleteDocumentPlacements,
     );
 
     const organizations = await listLocalOrganizations({ execSql });

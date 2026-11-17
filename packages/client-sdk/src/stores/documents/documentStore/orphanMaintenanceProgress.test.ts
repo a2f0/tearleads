@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   createDocumentsWorkflowRuntime,
@@ -39,6 +40,7 @@ test("discard finishes while a later reclaim batch waits for byte storage", asyn
       signingFingerprint: null,
       signingKeyPair: null,
     },
+    deleteDocumentPlacements,
     infra: {
       blobStore,
       dbStatus: "ready",

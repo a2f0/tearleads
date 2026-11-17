@@ -3,6 +3,7 @@ import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence as persistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
+import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../../data/persistence/documents/documentsPersistence";
 import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";
@@ -146,6 +147,7 @@ for (const race of [
                     lockedExecSql,
                     expected,
                     deleteProjection,
+                    deleteDocumentPlacements,
                   );
                 },
               },

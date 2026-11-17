@@ -10,6 +10,7 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { persistDocumentState } from "../persistence";
 
@@ -83,6 +84,7 @@ test("a local edit saves in a fixed number of statements", async () => {
         persistDocumentState({
           currentDoc: f.doc,
           currentRecord: record,
+          deleteDocumentPlacements,
           documentProjectors: defaultDocumentProjectorRegistry,
           execSql: f.counted.execSql,
           historyUpdateOrigin: "local",
@@ -130,6 +132,7 @@ test("a pulled page saves in the same statements at 1 and 64 updates", async () 
           clearSyncFailure: true,
           currentDoc: f.doc,
           currentRecord: record,
+          deleteDocumentPlacements,
           documentProjectors: defaultDocumentProjectorRegistry,
           execSql: f.counted.execSql,
           expectedSyncState: { pullContinuation: consumed, record },

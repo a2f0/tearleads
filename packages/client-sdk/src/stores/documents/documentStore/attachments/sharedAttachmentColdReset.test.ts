@@ -10,6 +10,7 @@ import { attachmentContentSha256 } from "../../../../data/blobs/attachmentConten
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { addDocumentAttachments } from "../../../../data/documents/documentContent";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { applyStoredAttachmentRemoval } from "../../../../data/persistence/documents/internal/attachmentStagingPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import {
@@ -119,6 +120,7 @@ async function withResetRuntime(
       signingFingerprint: null,
       signingKeyPair: null,
     },
+    deleteDocumentPlacements,
     infra: {
       blobStore,
       dbStatus: "ready",

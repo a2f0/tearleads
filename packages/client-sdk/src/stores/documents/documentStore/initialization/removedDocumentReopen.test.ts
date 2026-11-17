@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents";
+import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import {
   defaultDocumentsPersistence,
@@ -49,6 +50,7 @@ test("an editor reopening a removed document does not recreate it while paused",
     // A paused organization's cleanup removes the document under the editor.
     expect(
       await deletePersistedDocument({
+        deleteDocumentPlacements,
         documentProjectors: runtime.infra.documentProjectors,
         execSql,
         localId: LOCAL_ID,
@@ -111,6 +113,7 @@ test("after a restart, reopening a removed document waits for the resume", async
           localId: LOCAL_ID,
           organizationId: "org-paused",
         }),
+      deleteDocumentPlacements,
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
       expectedRecord: (await loadRow()) ?? undefined,

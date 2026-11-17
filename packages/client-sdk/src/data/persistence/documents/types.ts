@@ -9,6 +9,7 @@ import type {
 import type { DocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import type { DocumentBirthResult } from "./documentBirthResult";
+import type { DocumentDeletionPort } from "./documentDeletionPort";
 import type { DocumentOrphanBlobPersistence } from "./orphanBlobPersistence";
 import type { QueuedPendingUpdateReplacementPort } from "./queuedUpdateReplacementPort";
 import type {
@@ -139,7 +140,8 @@ export interface DocumentSummaryList {
 }
 
 export interface DocumentsPersistence
-  extends QueuedPendingUpdateReplacementPort {
+  extends QueuedPendingUpdateReplacementPort,
+    DocumentDeletionPort<StoredDocumentRecord> {
   readonly orphanBlobs: DocumentOrphanBlobPersistence;
   /**
    * The adapter guarantees that recovery checkpoint replacement, selection of
@@ -374,29 +376,6 @@ export interface DocumentsPersistence
       updatedAt?: string;
     },
   ) => Promise<string>;
-  deleteDocument: (execSql: ExecSql, localId: string) => Promise<void>;
-  /**
-   * Delete the canonical row and every side row only when its security identity
-   * and container placement still match the captured record. The comparison,
-   * deletes, and client
-   * projection callback must share one write transaction.
-   */
-  deleteDocumentIfMatches: (
-    execSql: ExecSql,
-    expectedRecord: StoredDocumentRecord,
-    deleteClientProjection: (transactionExecSql: ExecSql) => Promise<void>,
-  ) => Promise<boolean>;
-  /**
-   * Delete orphaned side rows only if the canonical document is still absent.
-   * The absence check, row cleanup, and client projection callback must share
-   * one write transaction so a concurrent create is preserved.
-   */
-  deleteDocumentSideRowsIfAbsent: (
-    execSql: ExecSql,
-    localId: string,
-    expectedDocumentId: string | null,
-    deleteClientProjection: (transactionExecSql: ExecSql) => Promise<void>,
-  ) => Promise<boolean>;
   upsertDiscoveredDocument: (
     execSql: ExecSql,
     input: DiscoveredDocumentInput,

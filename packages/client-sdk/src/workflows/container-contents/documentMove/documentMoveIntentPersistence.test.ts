@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { defaultDocumentsPersistence } from "../../documents";
 
@@ -41,6 +42,7 @@ test.each(["move", "link"] as const)(
       await defaultDocumentsPersistence.deleteDocument(
         execSql,
         "local-document",
+        deleteDocumentPlacements,
       );
 
       expect(await moveIntents.listPendingMoveIntents()).toEqual([]);

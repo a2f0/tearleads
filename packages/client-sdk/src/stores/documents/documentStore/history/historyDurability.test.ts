@@ -12,6 +12,7 @@ import {
   satisfiesVersionVector,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { DOCUMENT_HISTORY_COMPACTION_MAX_ROWS } from "../../../../data/persistence/documents/records/documentHistoryPersistence";
 import { setDocumentText } from "../mutations";
@@ -441,7 +442,11 @@ test("deleting a document deletes its history checkpoint and tail", async () => 
       ),
     ).not.toBeNull();
 
-    await sqlDocumentsPersistence.deleteDocument(execSql, "deleted-doc");
+    await sqlDocumentsPersistence.deleteDocument(
+      execSql,
+      "deleted-doc",
+      deleteDocumentPlacements,
+    );
     expect(
       await sqlDocumentsPersistence.loadHistoryRestoreState?.(
         execSql,

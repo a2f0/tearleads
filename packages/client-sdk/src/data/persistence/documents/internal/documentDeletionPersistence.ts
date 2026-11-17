@@ -19,10 +19,7 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../../sqlite/sqlSchema";
-import {
-  deleteDocumentPlacementIntentsInTransaction,
-  deleteDocumentPlacementRowsByDocumentIds,
-} from "../../container-contents/documentContainerProjectionPersistence";
+import type { DocumentPlacementCleanup } from "../documentDeletionPort";
 import { DocumentRecordRepository } from "../records";
 import type { StoredDocumentRecord } from "../types";
 import { sameCanonicalDocumentSecurityIdentity } from "./documentRecordIdentity";
@@ -30,6 +27,7 @@ import { getDocumentScope } from "./documentRows";
 import { queueDocumentAttachmentBlobReclaims } from "./orphanSideRows";
 
 async function deleteStoredDocumentRows(input: {
+  deleteDocumentPlacements: DocumentPlacementCleanup;
   existingDocumentId: string | null;
   localId: string;
   lockedExecSql: ExecSql;
@@ -58,9 +56,7 @@ async function deleteStoredDocumentRows(input: {
     .where(eq(documentAttachmentBlobProjection.localId, localId))
     .run();
   if (existingDocumentId) {
-    // Placement rows and their tombstone holds, then queued placement intents.
-    await deleteDocumentPlacementRowsByDocumentIds(tx, [existingDocumentId]);
-    await deleteDocumentPlacementIntentsInTransaction(tx, existingDocumentId);
+    await input.deleteDocumentPlacements(tx, existingDocumentId);
   }
   const scope = getDocumentScope(localId);
   const records = new DocumentRecordRepository(lockedExecSql);
@@ -97,6 +93,7 @@ async function hasAnotherDocumentAlias(input: {
 export async function deleteStoredDocument(
   execSql: ExecSql,
   localId: string,
+  deleteDocumentPlacements: DocumentPlacementCleanup,
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await ensureDocumentDeletionTables(lockedExecSql);
@@ -109,6 +106,7 @@ export async function deleteStoredDocument(
           localId,
         });
         await deleteStoredDocumentRows({
+          deleteDocumentPlacements,
           existingDocumentId: existingDocument?.documentId ?? null,
           localId,
           lockedExecSql,
@@ -124,6 +122,7 @@ export async function deleteStoredDocumentIfMatches(
   execSql: ExecSql,
   expectedRecord: StoredDocumentRecord,
   deleteClientProjection: (transactionExecSql: ExecSql) => Promise<void>,
+  deleteDocumentPlacements: DocumentPlacementCleanup,
 ): Promise<boolean> {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await ensureDocumentDeletionTables(lockedExecSql);
@@ -162,6 +161,7 @@ export async function deleteStoredDocumentIfMatches(
           return false;
         }
         await deleteStoredDocumentRows({
+          deleteDocumentPlacements,
           existingDocumentId: existingDocument.documentId ?? null,
           localId: expectedRecord.id,
           lockedExecSql,
@@ -180,6 +180,7 @@ export async function deleteStoredDocumentSideRowsIfAbsent(
   localId: string,
   expectedDocumentId: string | null,
   deleteClientProjection: (transactionExecSql: ExecSql) => Promise<void>,
+  deleteDocumentPlacements: DocumentPlacementCleanup,
 ): Promise<boolean> {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await ensureDocumentDeletionTables(lockedExecSql);
@@ -204,6 +205,7 @@ export async function deleteStoredDocumentSideRowsIfAbsent(
         }
 
         await deleteStoredDocumentRows({
+          deleteDocumentPlacements,
           existingDocumentId: expectedDocumentId,
           localId,
           lockedExecSql,

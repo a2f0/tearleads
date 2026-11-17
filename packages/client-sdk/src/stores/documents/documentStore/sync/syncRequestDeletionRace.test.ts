@@ -11,6 +11,7 @@ import {
   createDocumentProjectorRegistry,
   defaultDocumentProjectorRegistry,
 } from "../../../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createDomainScope } from "../../../../data/shared/domainScope";
@@ -90,6 +91,7 @@ test("an old-document deletion cannot erase another pane's relink", async () => 
       },
     );
     const runtime = {
+      deleteDocumentPlacements,
       infra: {
         documentProjectors: defaultDocumentProjectorRegistry,
         execSql: first.runtime.execSql,
@@ -181,6 +183,7 @@ test("an interrupted verified purge rolls back its checkpoint and local deletion
       record.documentId,
     );
     const runtime = {
+      deleteDocumentPlacements,
       infra: {
         documentProjectors: createDocumentProjectorRegistry([]),
         execSql,

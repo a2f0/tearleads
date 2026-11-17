@@ -65,6 +65,7 @@ import type {
 } from "./types";
 
 export { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
+export type { DocumentPlacementCleanup } from "./documentDeletionPort";
 export type { PendingUpdateRecord, QueuedPendingUpdateRecord } from "./records";
 export type {
   AttachmentRemovalRows,

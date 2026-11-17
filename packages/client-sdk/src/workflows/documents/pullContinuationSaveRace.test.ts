@@ -11,6 +11,7 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPersistedDocumentContent } from "./historyContent";
 import { persistDocumentState } from "./persistence";
@@ -79,6 +80,7 @@ test("a stale local save rebases content before adopting advanced pull progress"
     const saved = await persistDocumentState({
       currentDoc: localDocument,
       currentRecord: staleRecord,
+      deleteDocumentPlacements,
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
       historyUpdateOrigin: "local",
@@ -162,6 +164,7 @@ test("a local write queued behind a relink cannot enter the replacement history"
     const saved = await persistDocumentState({
       currentDoc: staleDoc,
       currentRecord: staleRecord,
+      deleteDocumentPlacements,
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
       historyUpdateOrigin: "local",
@@ -249,6 +252,7 @@ test("an out-of-order document page cannot replace a later pane's progress", asy
     const settled = await persistDocumentState({
       currentDoc: stalePageDoc,
       currentRecord: staleRecord,
+      deleteDocumentPlacements,
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
       expectedSyncState: {
@@ -331,6 +335,7 @@ test("a sync settlement cannot overwrite another pane's newer content frontiers"
     const settled = await persistDocumentState({
       currentDoc: staleDoc,
       currentRecord: staleRecord,
+      deleteDocumentPlacements,
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
       expectedSyncState: {
@@ -402,6 +407,7 @@ test("a page-one response cannot restore a relinked and rekeyed document", async
     const settled = await persistDocumentState({
       currentDoc: staleDoc,
       currentRecord: staleRecord,
+      deleteDocumentPlacements,
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
       expectedSyncState: { pullContinuation: null, record: staleRecord },

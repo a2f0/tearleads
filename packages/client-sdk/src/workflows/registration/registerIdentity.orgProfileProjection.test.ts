@@ -13,6 +13,7 @@ import {
   type DocumentProjectorDefinition,
   readStringDocumentField,
 } from "../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   DOCUMENTS_APP_KIND,
   sqlDocumentsPersistence,
@@ -193,6 +194,7 @@ test("a later save cannot overwrite the fallback title", async () => {
     await persistDocumentState({
       currentDoc: doc,
       currentRecord: record,
+      deleteDocumentPlacements,
       documentProjectors: [],
       execSql,
       localId,

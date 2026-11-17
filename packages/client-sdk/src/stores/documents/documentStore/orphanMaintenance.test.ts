@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { BlobStore } from "../../../data/blobs/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   createDocumentsWorkflowRuntime,
@@ -29,6 +30,7 @@ function createMaintenanceRuntime(
       signingFingerprint: null,
       signingKeyPair: null,
     },
+    deleteDocumentPlacements,
     infra: {
       blobStore,
       dbStatus: "ready",

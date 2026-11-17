@@ -1,5 +1,7 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import type { DocumentPlacementCleanup } from "../../data/persistence/documents/documentsPersistence";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import type { DomainScope } from "../../data/shared/domainScope";
 import { createListenerSet } from "../../data/shared/listenerSet";
@@ -93,6 +95,7 @@ export interface InternalRuntime {
   retirePrincipalHistoryProtection(): void;
   readonly sessionGeneration: number;
   readonly adoptRootContainer: ContainerContentsRootAdopter;
+  readonly deleteDocumentPlacements: DocumentPlacementCleanup;
   readonly containerContentsOrganizations: ContainerContentsOrganizationHost;
   readonly publicRuntime: Runtime;
   boundUserId(signingKeyFingerprint: string): Promise<string | null>;
@@ -234,6 +237,7 @@ export function createRuntime(
     },
     adoptRootContainer: (input) =>
       adoptSessionRootContainer(dependencies, input),
+    deleteDocumentPlacements,
     containerContentsOrganizations: containerContentsOrganizationHost,
     boundUserId: (signingKeyFingerprint) =>
       trustedUserIdentityService.boundUserId(signingKeyFingerprint),

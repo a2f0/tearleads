@@ -5,6 +5,7 @@ import {
   QUEUED_UPDATES_SQL,
 } from "../../../../../test/helpers/queuedUpdateRows";
 import { DocumentSyncUpdateIsolationError } from "../../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
 import { runSerializedSqlMutation } from "../../../../data/sqlite/sqlExec";
@@ -186,6 +187,7 @@ test("a null-scoped orphan destroys on authoritative deletion", async () => {
       record,
       resolveProjectionUserKey,
       runtime: {
+        deleteDocumentPlacements,
         infra: { documentProjectors: null, execSql },
         state: { containerId: null, domainScope: "scope" },
         util: { log: () => undefined },
@@ -312,6 +314,7 @@ test("a handler racing authoritative deletion records nothing", async () => {
       record,
       resolveProjectionUserKey,
       runtime: {
+        deleteDocumentPlacements,
         infra: { documentProjectors: null, execSql },
         state: { containerId: null, domainScope: "scope" },
         util: { log: () => undefined },

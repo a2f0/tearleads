@@ -11,6 +11,7 @@ import {
   type ContainerMetadataRecord,
   sqlContainerContentsPersistence,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   type AuthoredDiscoveryHead,
   primeAuthoredDocumentDiscoveryHeads,
@@ -341,6 +342,7 @@ export async function persistInitialDocumentBootstrap(
   await persistDocumentState({
     currentDoc: doc,
     currentRecord: null,
+    deleteDocumentPlacements,
     documentProjectors: input.documentProjectors ?? [],
     execSql,
     localId: input.localId,

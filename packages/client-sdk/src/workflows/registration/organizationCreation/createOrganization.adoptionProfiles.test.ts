@@ -11,6 +11,7 @@ import {
   writeStoredDocumentFields,
 } from "../../../data/documents/documentKinds";
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { loadPersistedDocumentContent } from "../../documents/historyContent";
 import { persistDocumentState } from "../../documents/persistence";
@@ -55,6 +56,7 @@ test("ordinary adoption preserves edited profiles, history, access and queued wr
       await persistDocumentState({
         currentDoc: doc,
         currentRecord: null,
+        deleteDocumentPlacements,
         documentProjectors: [],
         execSql,
         localId: profile.id,

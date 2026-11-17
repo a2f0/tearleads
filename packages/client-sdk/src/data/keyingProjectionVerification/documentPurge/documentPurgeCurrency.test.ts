@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { createPurgeCurrencyFixture } from "../../../../test/helpers/documentPurgeCurrency";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
+import { deleteDocumentPlacements } from "../../persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../persistence/documents/documentsPersistence";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { runWithSecurityIncidentReporting } from "../../shared/securityIncidents";
@@ -97,6 +98,7 @@ for (const [label, index] of [
           execSql,
           original,
           verified.commitCheckpoints,
+          deleteDocumentPlacements,
         ),
       ).rejects.toMatchObject({
         name: "ProjectionDependencyUnavailableError",

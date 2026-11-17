@@ -8,6 +8,7 @@ import {
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { Tearleads } from "../../Tearleads";
 import {
   createContainerContentsDocumentsRuntime,
@@ -55,7 +56,10 @@ function adaptedLease(internalRuntime: InternalRuntime, adapter: Adapter) {
       : adapter === "direct"
         ? input
         : adapter === "documents"
-          ? createDocumentsWorkflowRuntimeFromSnapshot(input)
+          ? createDocumentsWorkflowRuntimeFromSnapshot({
+              ...input,
+              deleteDocumentPlacements,
+            })
           : adapter === "containers"
             ? containers()
             : createContainerContentsDocumentsRuntime(containers(), null);

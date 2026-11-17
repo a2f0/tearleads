@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   deleteContainerDocumentTombstonePlacementRows,
+  deleteDocumentPlacements,
   DocumentContainerProjectionRepository as Links,
 } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
@@ -297,7 +298,11 @@ test("deleting the document locally clears its holds", async () => {
     await seedDocumentInFolder(execSql);
     await holdFolderAt(execSql);
 
-    await documents.deleteDocument(execSql, "doc-local");
+    await documents.deleteDocument(
+      execSql,
+      "doc-local",
+      deleteDocumentPlacements,
+    );
 
     expect(
       await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),
@@ -442,13 +447,7 @@ test("a refuted tombstone stays visible and remains retryable if the head lagged
     });
     await applyContainerDocumentTombstones(
       execSql,
-      [
-        {
-          ...hold("folder"),
-          accessEpoch: 2,
-          linkedContainerIds: [],
-        },
-      ],
+      [{ ...hold("folder"), accessEpoch: 2, linkedContainerIds: [] }],
       deleteContainerDocumentTombstonePlacementRows,
     );
     expect(await new Links(execSql).listLinkedContainerIds("doc")).toEqual([]);

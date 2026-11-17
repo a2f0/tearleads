@@ -3,6 +3,7 @@ import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import { createClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { SqlArrayRow, SqlRow } from "../../sqlite/sqlSchema";
+import { deleteDocumentPlacements } from "../container-contents/documentContainerProjectionPersistence";
 import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
@@ -208,6 +209,7 @@ test("discovery cannot recreate a document after its purge checkpoint commits", 
           policies: [],
         });
       },
+      deleteDocumentPlacements,
     );
     await purgeLocked;
 
