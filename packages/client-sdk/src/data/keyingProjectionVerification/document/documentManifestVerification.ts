@@ -100,11 +100,17 @@ export async function verifyDocumentManifestBundle(input: {
   }
   // Verify and record one copy taken before the first await, so the bytes
   // recorded as verified are exactly the bytes verified.
+  const snapshot = structuredClone(input.bundle);
   const verified = await verifyFreshDocumentManifestBundle({
     ...input,
-    bundle: structuredClone(input.bundle),
+    bundle: snapshot,
   });
-  assertUnchangedSinceVerification(verified, input.bundle, input.label);
+  assertUnchangedSinceVerification(
+    verified,
+    input.bundle,
+    input.label,
+    snapshot,
+  );
   assertVerifiedState(input, verified);
   return verified;
 }

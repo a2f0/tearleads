@@ -4,13 +4,12 @@ import {
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 
-// The exact served bytes each manifest was verified from, keyed by the
-// verified result. A later projection can hit the same verified hash while
-// serving different bytes; only bytes that were themselves verified may be
-// stored for citation. The decoded state is rebuilt from these bytes, so it
-// is neither compared nor stored.
+// The exact bundle each manifest was verified from (signed event, body,
+// manifest and the completed state), keyed by the verified result. A later
+// projection can hit the same verified hash with different bytes or a
+// different completed state; only what was itself verified may answer from
+// the cache or be stored for citation (in its served form).
 const verifiedBundleBytes = new WeakMap<object, string>();
 
 function canonicalBytes(
@@ -19,13 +18,34 @@ function canonicalBytes(
   try {
     return serializeKeyingCanonicalJson(
       readKeyingCanonicalJson(
-        toServedAccessManifestBundle(bundle),
+        {
+          event: bundle.event,
+          manifest: bundle.manifest,
+          manifestHash: bundle.manifestHash,
+          state: bundle.state,
+        },
         "Verified manifest bundle",
       ),
     );
   } catch {
     return null;
   }
+}
+
+/** Plain-data equality that keeps distinctions JSON cannot carry (`-0`). */
+function sameData(left: unknown, right: unknown): boolean {
+  if (typeof left !== "object" || left === null) return Object.is(left, right);
+  if (typeof right !== "object" || right === null) return false;
+  if (Array.isArray(left) !== Array.isArray(right)) return false;
+  const keys = Object.keys(left);
+  return (
+    keys.length === Object.keys(right).length &&
+    keys.every(
+      (key) =>
+        Object.hasOwn(right, key) &&
+        sameData(Reflect.get(left, key), Reflect.get(right, key)),
+    )
+  );
 }
 
 /** Remember the bundle a fresh verification accepted for `verified`. */
@@ -84,15 +104,17 @@ export function assertUnchangedSinceVerification(
   verified: object,
   bundle: AccessManifestBundleWireResponse,
   label: string,
+  snapshot?: AccessManifestBundleWireResponse,
 ): void {
-  // Bytes that could not be serialized were never recorded (nor stored for
-  // citation): the completed state check covers such a bundle, and it is
-  // frozen all the same, so it stays the copy verification accepted.
-  if (!verifiedBundleBytes.has(verified)) {
-    if (isPlainData(bundle)) deepFreeze(bundle);
-    return;
-  }
-  if (!matchesVerifiedBundleBytes(verified, bundle)) {
+  // A bundle that could not be serialized was never recorded (nor stored for
+  // citation): it must equal the copy verification checked, and it is frozen
+  // all the same, so it stays that copy.
+  const unchanged = verifiedBundleBytes.has(verified)
+    ? matchesVerifiedBundleBytes(verified, bundle)
+    : snapshot !== undefined && sameData(bundle, snapshot);
+  if (unchanged && !verifiedBundleBytes.has(verified) && isPlainData(bundle))
+    deepFreeze(bundle);
+  if (!unchanged) {
     throw new KeyingVerificationError(
       "hash_mismatch",
       `${label} changed while it was verified`,

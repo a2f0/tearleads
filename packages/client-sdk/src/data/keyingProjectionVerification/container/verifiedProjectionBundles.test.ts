@@ -304,3 +304,30 @@ test("a bundle whose ignored fields cannot be serialized still verifies", async 
     database.close();
   }
 });
+
+test("an unrecorded bundle changed while its signer resolves is refused", async () => {
+  const fixture = await createVerificationFixture();
+  const database = await createTestExecSql(
+    "verified-bundles-unrecorded-change",
+  );
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  // An ignored field that cannot be serialized keeps the bytes unrecorded.
+  const live = structuredClone(leaf);
+  Reflect.set(live.event.event, "note", -0);
+  try {
+    await expect(
+      verifyContainerWriterProjection({
+        execSql: database.execSql,
+        openPrincipalPolicyBundleReader,
+        projection: { ...fixture.projection, path: [live] },
+        resolveUserKey: async (userId) => {
+          Reflect.set(live.event.event, "signature", "AAAA");
+          return fixture.resolveUserKey(userId);
+        },
+      }),
+    ).rejects.toThrow("changed while it was verified");
+  } finally {
+    database.close();
+  }
+});

@@ -361,6 +361,9 @@ test("a cached cited ancestor is re-verified only when its served bytes differ",
     },
   };
   expect(await resolve(resigned)).toEqual([resigned]);
+  // The same served bytes with a completed state the cache never verified.
+  const restated = { ...served, state: { ...served.state, epoch: 99 } };
+  expect(await resolve(restated)).toEqual([restated]);
   // The bytes the cache verified: answered from the cache.
   expect(await resolve(served)).toEqual([]);
 });

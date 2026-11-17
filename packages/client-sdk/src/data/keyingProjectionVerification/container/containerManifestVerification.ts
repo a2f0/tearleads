@@ -220,7 +220,12 @@ async function verifyFreshContainerManifestBundle(
   assertVerifiedState(input, verified.value);
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
   recordVerifiedBundleBytes(verified.value, input.bundle);
-  assertUnchangedSinceVerification(verified.value, served.bundle, input.label);
+  assertUnchangedSinceVerification(
+    verified.value,
+    served.bundle,
+    input.label,
+    input.bundle,
+  );
   assertVerifiedState(served, verified.value);
 
   return verified.value;
