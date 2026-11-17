@@ -1,4 +1,3 @@
-import { reconstructServedManifestStates } from "@tearleads/api-client";
 import {
   type ContainerWriterProjectionResponse,
   type DocumentWriterProjectionResponse,
@@ -10,9 +9,7 @@ import {
 export function decodeServedContainerProjection(
   value: unknown,
 ): ContainerWriterProjectionResponse {
-  const projection = decodeContainerWriterProjection(value, {
-    reconstructStates: reconstructServedManifestStates,
-  });
+  const projection = decodeContainerWriterProjection(value);
   if (!projection) {
     throw new Error("Expected a served container writer projection");
   }
@@ -23,9 +20,7 @@ export function decodeServedContainerProjection(
 export function decodeServedDocumentProjection(
   value: unknown,
 ): DocumentWriterProjectionResponse {
-  const projection = decodeDocumentWriterProjection(value, {
-    reconstructStates: reconstructServedManifestStates,
-  });
+  const projection = decodeDocumentWriterProjection(value);
   if (!projection) {
     throw new Error("Expected a served document writer projection");
   }

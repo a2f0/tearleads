@@ -1,9 +1,0 @@
-# #2903 (U28, P16): writer projections stop serving the derived bundle state,
-# which clients rebuild from the signed chain. Greenfield flag day, no old
-# clients. Remove this entry once main includes the stateless served bundle.
-GET /containers/{containerId}/writer-projection removed the required property `bundles/additionalProperties/state` from the response with the `200` status
-
-# #2903 (U28, P16): writer projections stop serving the derived bundle state,
-# which clients rebuild from the signed chain. Greenfield flag day, no old
-# clients. Remove this entry once main includes the stateless served bundle.
-GET /documents/{documentId}/writer-projection removed the required property `bundles/additionalProperties/state` from the response with the `200` status

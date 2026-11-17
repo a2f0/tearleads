@@ -360,14 +360,15 @@ async function resolveContainerManifestVerificationParentPath(input: {
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
   readonly principalPolicyCache: PrincipalPolicyCache;
   // Bundles whose parent this chain of pins is already resolving.
-  readonly resolvingParents?: ReadonlySet<string> | undefined;
+  readonly resolvingParents?: Set<string> | undefined;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
 }): Promise<readonly VerifiedContainerAccessManifest[]> {
-  if (input.resolvingParents?.has(input.bundle.manifestHash)) {
+  const resolvingParents = input.resolvingParents ?? new Set<string>();
+  if (resolvingParents.has(input.bundle.manifestHash)) {
     throw new KeyingVerificationError(
       "object_mismatch",
       `${input.label} parent pins form a cycle`,
@@ -395,17 +396,18 @@ async function resolveContainerManifestVerificationParentPath(input: {
     return input.parentPath;
   }
 
-  const parentParentPath = await resolveContainerManifestVerificationParentPath(
-    {
+  resolvingParents.add(input.bundle.manifestHash);
+  let parentParentPath: readonly VerifiedContainerAccessManifest[];
+  try {
+    parentParentPath = await resolveContainerManifestVerificationParentPath({
       ...input,
       bundle: parentBundle,
       label: `${input.label} parent manifest`,
-      resolvingParents: new Set([
-        ...(input.resolvingParents ?? []),
-        input.bundle.manifestHash,
-      ]),
-    },
-  );
+      resolvingParents,
+    });
+  } finally {
+    resolvingParents.delete(input.bundle.manifestHash);
+  }
   const verifiedParent = await verifyContainerManifestBundle({
     ...input,
     bundle: parentBundle,

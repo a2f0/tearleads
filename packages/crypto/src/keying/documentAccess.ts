@@ -18,11 +18,10 @@ import type {
 import { makeVerifiedDocumentLinkSetManifest } from "./documentAccessTypes";
 import { assertDocumentBlobRewrapScope } from "./documentBlobRewraps";
 import { assertDocumentLinkSetCitationScope } from "./documentCitationScope";
-import { deriveDocumentLinkSetManifest } from "./documentLinkSetManifest";
 import {
-  type DocumentLinkSetPredecessorState,
-  documentLinkSetStateAfterEvent,
-} from "./documentLinkSetSuccessor";
+  deriveDocumentLinkSetManifest,
+  normalizeDocumentLinkSetManifestState,
+} from "./documentLinkSetManifest";
 import type { PrincipalPolicyAuthorization as Policy } from "./principalPolicyTypes";
 import { runVerifier, throwVerification } from "./shared";
 import type { KeyingVerificationResult } from "./verificationError";
@@ -42,7 +41,7 @@ type DocumentLinkSetManifestDerivationInput = {
 };
 
 interface PreviousDocumentLinkSetTransition {
-  readonly previous: DocumentLinkSetPredecessorState;
+  readonly nextBase: Omit<DocumentLinkSetManifestState, "linkedContainerIds">;
   readonly previousState: DocumentLinkSetManifestState;
 }
 
@@ -97,25 +96,16 @@ function preparePreviousDocumentLinkSetTransition(
 
   assertDocumentLinkSetCitationScope(input);
   return {
-    previous: {
-      manifestHash: previousManifest.manifestHash,
-      state: previousManifest.state,
-    },
     previousState: previousManifest.state,
+    nextBase: {
+      version: 1,
+      documentId: previousManifest.state.documentId,
+      organizationId: previousManifest.state.organizationId,
+      epoch: previousManifest.state.epoch + 1,
+      previousManifestHash: previousManifest.manifestHash,
+      eventHash: event.eventHash,
+    },
   };
-}
-
-function deriveDocumentLinkSetState(
-  input: DocumentLinkSetManifestDerivationInput,
-  previous: PreviousDocumentLinkSetTransition | null,
-): DocumentLinkSetManifestState {
-  return documentLinkSetStateAfterEvent({
-    body: input.body,
-    eventHash: input.event.eventHash,
-    objectId: input.event.event.objectId,
-    organizationId: input.event.event.organizationId,
-    previous: previous?.previous ?? null,
-  });
 }
 
 function deriveInitialDocumentLinkSetManifestState(
@@ -147,7 +137,15 @@ function deriveInitialDocumentLinkSetManifestState(
     principalPolicies: input.principalPolicies,
   });
 
-  return deriveDocumentLinkSetState(input, null);
+  return normalizeDocumentLinkSetManifestState({
+    version: 1,
+    documentId: input.event.event.objectId,
+    organizationId: input.event.event.organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash: input.event.eventHash,
+    linkedContainerIds: [body.containerId],
+  });
 }
 
 function deriveDocumentLinkManifestState(
@@ -182,7 +180,13 @@ function deriveDocumentLinkManifestState(
     principalPolicies: input.principalPolicies,
   });
 
-  return deriveDocumentLinkSetState(input, previous);
+  return normalizeDocumentLinkSetManifestState({
+    ...previous.nextBase,
+    linkedContainerIds: [
+      ...previous.previousState.linkedContainerIds,
+      body.containerId,
+    ],
+  });
 }
 
 function deriveDocumentUnlinkManifestState(
@@ -229,7 +233,10 @@ function deriveDocumentUnlinkManifestState(
     principalPolicies: input.principalPolicies,
   });
 
-  return deriveDocumentLinkSetState(input, previous);
+  return normalizeDocumentLinkSetManifestState({
+    ...previous.nextBase,
+    linkedContainerIds: remainingLinkedContainerIds,
+  });
 }
 
 function deriveDocumentLinkSetManifestStateFromEvent(

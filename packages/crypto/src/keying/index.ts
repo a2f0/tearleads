@@ -7,11 +7,6 @@ export { MAX_CONTAINER_KEY_EPOCH } from "@tearleads/validators/util";
 export * from "./accessEvent";
 export * from "./accessEventTypes";
 export * from "./accessManifestSnapshot";
-export {
-  type ReconstructedAccessManifestState,
-  reconstructServedAccessManifestStates,
-  type ServedAccessManifestBundle,
-} from "./accessManifestStateReconstruction";
 export * from "./accessManifestTypes";
 export { ACCESS_MANIFEST_VERIFICATION_REVISION } from "./accessManifestVerificationRevision";
 export * from "./accessManifestVerificationTypes";

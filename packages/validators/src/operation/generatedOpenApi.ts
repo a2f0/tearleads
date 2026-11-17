@@ -4691,7 +4691,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A signed access manifest with the event that produced it, without the derived state: clients rebuild that from the signed bodies along the served predecessor chain and verify it. */
+        /** @description A signed access manifest with the event that produced it, as a writer projection serves it: the state omits what the bundle's own signed bytes name, which clients fill back from those bytes. */
         ServedAccessManifestBundleWireResponse: {
             event: components["schemas"]["AccessEventBundleWireResponse"];
             manifest: {
@@ -4699,6 +4699,10 @@ export type components = {
             };
             /** @description Hash of the canonical manifest; other responses cite the manifest by this value. */
             manifestHash: string;
+            /** @description Derived state fields the bundle's signed bytes do not name: parent pin, metadata document, system slot and grants for a container; linked containers for a document. */
+            state: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };

@@ -8,7 +8,6 @@ import {
   isSha256HexString,
   KNOWN_MANIFEST_HINT_LIMIT,
   type ServedAccessManifestBundleWireResponse,
-  toServedAccessManifestBundle,
 } from "@tearleads/validators/util";
 
 /** Citation only saves bytes: a source slower than this sends the read uncited. */
@@ -105,10 +104,7 @@ async function prepareHeldCitations(
         isSha256HexString(entry.manifestHash) &&
         !held.bundles.has(entry.manifestHash)
       )
-        held.bundles.set(
-          entry.manifestHash,
-          structuredClone(toServedAccessManifestBundle(entry)),
-        );
+        held.bundles.set(entry.manifestHash, structuredClone(entry));
     } catch {
       // An uncloneable entry is skipped; its bytes simply travel.
     }

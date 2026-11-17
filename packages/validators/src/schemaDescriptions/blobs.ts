@@ -58,10 +58,12 @@ describeSchema(
 
 describeSchema(
   ServedAccessManifestBundleWireResponseSchema,
-  "A signed access manifest with the event that produced it, without the derived state: clients rebuild that from the signed bodies along the served predecessor chain and verify it.",
+  "A signed access manifest with the event that produced it, as a writer projection serves it: the state omits what the bundle's own signed bytes name, which clients fill back from those bytes.",
   {
     manifestHash:
       "Hash of the canonical manifest; other responses cite the manifest by this value.",
+    state:
+      "Derived state fields the bundle's signed bytes do not name: parent pin, metadata document, system slot and grants for a container; linked containers for a document.",
   },
 );
 

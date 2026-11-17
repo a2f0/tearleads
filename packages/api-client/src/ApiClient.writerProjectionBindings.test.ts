@@ -26,20 +26,6 @@ import { ApiClient } from "./ApiClient";
 
 const REQUESTED = "requested-object";
 
-/** The bundle under another id: its signed event, manifest and rebuilt state. */
-function relabeledBundle(
-  bundle: ContainerWriterProjectionResponse["path"][number],
-  stateKey: "containerId" | "documentId",
-  id: string,
-): ContainerWriterProjectionResponse["path"][number] {
-  return {
-    ...bundle,
-    event: { ...bundle.event, event: { ...bundle.event.event, objectId: id } },
-    manifest: { ...bundle.manifest, objectId: id },
-    state: { ...bundle.state, [stateKey]: id },
-  };
-}
-
 function relabeledContainerProjection(
   projection: ContainerWriterProjectionResponse,
   id: string,
@@ -66,7 +52,11 @@ function relabeledContainerProjection(
     ],
     path: [
       ...projection.path.slice(0, -1),
-      relabeledBundle(leaf, "containerId", id),
+      {
+        ...leaf,
+        manifest: { ...leaf.manifest, objectId: id },
+        state: { ...leaf.state, containerId: id },
+      },
     ],
   };
 }
@@ -80,11 +70,11 @@ function relabeledDocumentProjection(
     contentKeyBundle: { ...projection.contentKeyBundle, documentId: id },
     documentId: id,
     documentKekTargets: { ...projection.documentKekTargets, documentId: id },
-    documentManifest: relabeledBundle(
-      projection.documentManifest,
-      "documentId",
-      id,
-    ),
+    documentManifest: {
+      ...projection.documentManifest,
+      manifest: { ...projection.documentManifest.manifest, objectId: id },
+      state: { ...projection.documentManifest.state, documentId: id },
+    },
   };
 }
 
@@ -132,24 +122,6 @@ testApiClient(
         ...relabeled,
         path: [{ ...leaf, manifest: substituted.path[0]?.manifest ?? {} }],
       },
-      "leaf manifest objectKind": {
-        ...relabeled,
-        path: [
-          { ...leaf, manifest: { ...leaf.manifest, objectKind: "document" } },
-        ],
-      },
-      "leaf signed event objectId": {
-        ...relabeled,
-        path: [
-          {
-            ...leaf,
-            event: {
-              ...leaf.event,
-              event: { ...leaf.event.event, objectId: substituted.containerId },
-            },
-          },
-        ],
-      },
       "leaf KEK containerId": {
         ...relabeled,
         containerKeks: [{ ...leafKek, containerId: substituted.containerId }],
@@ -170,6 +142,15 @@ testApiClient(
     for (const [binding, served] of Object.entries(variants)) {
       expect(await fetchContainerProjection(served), binding).toBeNull();
     }
+    // A served state cannot name another container: the decoded state takes
+    // its id from the hash-committed manifest.
+    const restated = await fetchContainerProjection({
+      ...relabeled,
+      path: [{ ...leaf, state: substituted.path[0]?.state ?? {} }],
+    });
+    expect(restated?.path.at(-1)?.state).toMatchObject({
+      containerId: REQUESTED,
+    });
   },
 );
 
@@ -233,29 +214,6 @@ testApiClient(
           manifest: substituted.documentManifest.manifest,
         },
       },
-      "manifest objectKind": {
-        ...relabeled,
-        documentManifest: {
-          ...relabeled.documentManifest,
-          manifest: {
-            ...relabeled.documentManifest.manifest,
-            objectKind: "container",
-          },
-        },
-      },
-      "signed event objectId": {
-        ...relabeled,
-        documentManifest: {
-          ...relabeled.documentManifest,
-          event: {
-            ...relabeled.documentManifest.event,
-            event: {
-              ...relabeled.documentManifest.event.event,
-              objectId: substituted.documentId,
-            },
-          },
-        },
-      },
       "KEK targets documentId": {
         ...relabeled,
         documentKekTargets: substituted.documentKekTargets,
@@ -274,5 +232,15 @@ testApiClient(
     for (const [binding, served] of Object.entries(variants)) {
       expect(await fetchDocumentProjection(served), binding).toBeNull();
     }
+    const restated = await fetchDocumentProjection({
+      ...relabeled,
+      documentManifest: {
+        ...relabeled.documentManifest,
+        state: substituted.documentManifest.state,
+      },
+    });
+    expect(restated?.documentManifest.state).toMatchObject({
+      documentId: REQUESTED,
+    });
   },
 );

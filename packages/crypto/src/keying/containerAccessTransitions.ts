@@ -1,8 +1,12 @@
 import { MAX_CONTAINER_RECITATION_EPOCH } from "./containerAccessReciteBody";
 import {
+  normalizeContainerAccessManifestState,
+  removeContainerDirectGrant,
+  upsertContainerDirectGrant,
+} from "./containerAccessState";
+import {
   type ContainerAccessManifestDerivationInput,
   deriveContainerCreateManifestState,
-  deriveContainerSuccessorState,
   type PreviousContainerAccessTransition,
   preparePreviousContainerAccessTransition,
 } from "./containerAccessTransitionBase";
@@ -16,6 +20,10 @@ import type {
 } from "./containerAccessTypes";
 import { requireContainerPathCurrentParent } from "./containerParentAuthority";
 import { requireContainerPathUserAccess } from "./containerPathAccess";
+import {
+  removeReferencedPrincipalHead,
+  upsertReferencedPrincipalHead,
+} from "./containerPrincipalReferences";
 import { throwVerification } from "./shared";
 
 function assertContainerAccessEventDomain(
@@ -71,15 +79,32 @@ function deriveUnrotatedContainerManifestState(
     );
   }
 
-  return deriveContainerSuccessorState(input, previous);
+  return normalizeContainerAccessManifestState({
+    ...previous.nextBase,
+    containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
+    directGrants:
+      body.eventType === "container.recite"
+        ? previous.previousState.directGrants
+        : upsertContainerDirectGrant(
+            previous.previousState.directGrants,
+            body.grant,
+          ),
+    referencedPrincipalHeads:
+      body.eventType === "container.grant" && body.referencedPrincipalHead
+        ? upsertReferencedPrincipalHead(
+            previous.previousState.referencedPrincipalHeads,
+            body.referencedPrincipalHead,
+          )
+        : previous.previousState.referencedPrincipalHeads,
+  });
 }
 
-/** A rotation re-cites its parent's current head, signed; a root cites none. */
-function assertRotationParentCitation(
+function rotationParentCitation(
   input: ContainerAccessManifestDerivationInput,
   body: ContainerRekeyAccessEventBody | ContainerRevokeAccessEventBody,
   previous: PreviousContainerAccessTransition,
-): void {
+): string | null {
   const parentId = previous.previousState.parentContainerId;
   if (parentId === null) {
     if (body.parentManifestHash !== null)
@@ -87,7 +112,7 @@ function assertRotationParentCitation(
         "object_mismatch",
         "root rotation must not cite a parent",
       );
-    return;
+    return null;
   }
   requireContainerPathCurrentParent({
     label: body.eventType,
@@ -107,6 +132,7 @@ function assertRotationParentCitation(
       "container rotation requires its signed parent citation",
     );
   }
+  return body.parentManifestHash;
 }
 
 function deriveContainerRevokeManifestState(
@@ -134,8 +160,20 @@ function deriveContainerRevokeManifestState(
     );
   }
 
-  assertRotationParentCitation(input, body, previous);
-  return deriveContainerSuccessorState(input, previous);
+  return normalizeContainerAccessManifestState({
+    ...previous.nextBase,
+    parentManifestHash: rotationParentCitation(input, body, previous),
+    containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
+    directGrants: removeContainerDirectGrant(
+      previous.previousState.directGrants,
+      body,
+    ),
+    referencedPrincipalHeads: removeReferencedPrincipalHead(
+      previous.previousState.referencedPrincipalHeads,
+      body,
+    ),
+  });
 }
 
 function deriveContainerRekeyManifestState(
@@ -162,8 +200,14 @@ function deriveContainerRekeyManifestState(
     );
   }
 
-  assertRotationParentCitation(input, body, previous);
-  return deriveContainerSuccessorState(input, previous);
+  return normalizeContainerAccessManifestState({
+    ...previous.nextBase,
+    parentManifestHash: rotationParentCitation(input, body, previous),
+    containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
+    directGrants: previous.previousState.directGrants,
+    referencedPrincipalHeads: body.referencedPrincipalHeads,
+  });
 }
 
 function deriveContainerMoveManifestState(
@@ -234,7 +278,15 @@ function deriveContainerMoveManifestState(
     );
   }
 
-  return deriveContainerSuccessorState(input, previous);
+  return normalizeContainerAccessManifestState({
+    ...previous.nextBase,
+    parentContainerId: body.parentContainerId,
+    parentManifestHash: body.parentManifestHash,
+    containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
+    directGrants: previous.previousState.directGrants,
+    referencedPrincipalHeads: previous.previousState.referencedPrincipalHeads,
+  });
 }
 
 export function deriveContainerAccessManifestStateFromEvent(

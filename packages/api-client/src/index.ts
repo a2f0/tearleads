@@ -29,7 +29,6 @@ export type {
   UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";
 export { describeMultipartBlobPart } from "./routes/blobs/multipartUpload";
-export { reconstructServedManifestStates } from "./servedManifestStates";
 export type {
   HttpMethod,
   ListDocumentEditAttributionRangesOptions,

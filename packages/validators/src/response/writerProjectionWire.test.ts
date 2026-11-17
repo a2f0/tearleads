@@ -18,22 +18,6 @@ function bundle(manifestHash: string) {
   return { ...createAccessManifestBundle(), manifestHash };
 }
 
-function servedBundle(manifestHash: string) {
-  const { state: _state, ...served } = bundle(manifestHash);
-  return served;
-}
-
-const REBUILT_STATE = createAccessManifestBundle().state;
-
-/** Rebuilds every served bundle's state as the fixture's stored state. */
-function decoding(held?: ReadonlyMap<string, unknown>) {
-  return {
-    held: held as ReadonlyMap<string, ReturnType<typeof servedBundle>>,
-    reconstructStates: (bundles: ReadonlyMap<string, unknown>) =>
-      new Map([...bundles.keys()].map((hash) => [hash, REBUILT_STATE])),
-  };
-}
-
 function containerProjection(): ContainerWriterProjectionResponse {
   const fixture = createContainerWriterProjectionResponse();
   const [kek] = fixture.containerKeks;
@@ -83,13 +67,10 @@ test("each distinct manifest travels once and every position cites it", () => {
     ["root", "leaf"],
     ["root", "leaf-genesis"],
   ]);
-  expect(decodeDocumentWriterProjection(wire, decoding())).toEqual(
-    documentProjection(),
-  );
+  expect(decodeDocumentWriterProjection(wire)).toEqual(documentProjection());
   expect(
     decodeContainerWriterProjection(
       jsonRoundTrip(encodeContainerWriterProjection(containerProjection())),
-      decoding(),
     ),
   ).toEqual(containerProjection());
 });
@@ -97,7 +78,6 @@ test("each distinct manifest travels once and every position cites it", () => {
 test("decoded positions are independent copies of one bundle", () => {
   const decoded = decodeContainerWriterProjection(
     jsonRoundTrip(encodeContainerWriterProjection(containerProjection())),
-    decoding(),
   );
   const root = decoded?.path[0];
   const cited = decoded?.containerKeks[1]?.containerManifestHistory[0];
@@ -106,39 +86,6 @@ test("decoded positions are independent copies of one bundle", () => {
   expect(cited).not.toBe(root);
   Reflect.set(root.state, "mutated", true);
   expect(cited.state).not.toHaveProperty("mutated");
-});
-
-test("served bundles omit the derived state, which decoding rebuilds", () => {
-  const wire = jsonRoundTrip(
-    encodeContainerWriterProjection(containerProjection(), new Set(["root"])),
-  );
-  const served = Reflect.get(Object(wire), "bundles");
-  expect(served.leaf).toEqual(servedBundle("leaf"));
-  for (const value of Object.values(Object(served)))
-    expect(value).not.toHaveProperty("state");
-
-  // The rebuilder sees only stateless bytes, held ones included; a bundle
-  // it cannot rebuild makes the response undecodable, so it is refetched.
-  const seen: unknown[] = [];
-  const rebuild = (missing: string | null) =>
-    decodeContainerWriterProjection(wire, {
-      held: new Map([["root", servedBundle("root")]]),
-      reconstructStates: (bundles) => {
-        seen.push(...bundles.values());
-        return new Map(
-          [...bundles.keys()]
-            .filter((hash) => hash !== missing)
-            .map((hash) => [hash, { epoch: hash.length }]),
-        );
-      },
-    });
-  expect(rebuild("root")).toBeNull();
-  expect(rebuild(null)?.path.map((entry) => entry.state)).toEqual([
-    { epoch: 4 },
-    { epoch: 4 },
-  ]);
-  expect(seen).toHaveLength(8);
-  for (const value of seen) expect(value).not.toHaveProperty("state");
 });
 
 test("an inconsistent bundle map fails closed", () => {
@@ -158,19 +105,12 @@ test("an inconsistent bundle map fails closed", () => {
     ),
   ]) {
     expect(
-      decodeContainerWriterProjection(
-        jsonRoundTrip({ ...wire, bundles }),
-        decoding(),
-      ),
+      decodeContainerWriterProjection(jsonRoundTrip({ ...wire, bundles })),
     ).toBeNull();
   }
-  expect(
-    decodeContainerWriterProjection(jsonRoundTrip(wire), decoding()),
-  ).not.toBeNull();
+  expect(decodeContainerWriterProjection(jsonRoundTrip(wire))).not.toBeNull();
   // A decoded projection is not accepted as the wire shape.
-  expect(
-    decodeContainerWriterProjection(containerProjection(), decoding()),
-  ).toBeNull();
+  expect(decodeContainerWriterProjection(containerProjection())).toBeNull();
 });
 
 test("a document's bundle map must cover every cited list", () => {
@@ -179,13 +119,11 @@ test("a document's bundle map must cover every cited list", () => {
   expect(
     decodeDocumentWriterProjection(
       jsonRoundTrip({ ...wire, bundles: withoutHistory }),
-      decoding(),
     ),
   ).toBeNull();
   expect(
     decodeDocumentWriterProjection(
       jsonRoundTrip({ ...wire, documentManifest: "missing" }),
-      decoding(),
     ),
   ).toBeNull();
 });
@@ -206,19 +144,19 @@ test("a request's known hashes are cited but not served", () => {
     "leaf-genesis",
   ]);
   // Rebuilding needs the exact bytes the request cited.
-  expect(decodeDocumentWriterProjection(wire, decoding())).toBeNull();
+  expect(decodeDocumentWriterProjection(wire)).toBeNull();
   const held = new Map([
-    ["root", servedBundle("root")],
-    ["leaf-genesis", servedBundle("leaf-genesis")],
+    ["root", bundle("root")],
+    ["leaf-genesis", bundle("leaf-genesis")],
   ]);
-  expect(decodeDocumentWriterProjection(wire, decoding(held))).toEqual(
+  expect(decodeDocumentWriterProjection(wire, held)).toEqual(
     documentProjection(),
   );
   // A held bundle stored under another hash fills nothing.
   expect(
     decodeDocumentWriterProjection(
       wire,
-      decoding(new Map([...held, ["root", servedBundle("other")]])),
+      new Map([...held, ["root", bundle("other")]]),
     ),
   ).toBeNull();
 });
@@ -228,10 +166,10 @@ test("an omission must be cited, unique, and not also served", () => {
     containerProjection(),
     new Set(["root"]),
   );
-  const held = new Map([["root", servedBundle("root")]]);
-  expect(
-    decodeContainerWriterProjection(jsonRoundTrip(wire), decoding(held)),
-  ).toEqual(containerProjection());
+  const held = new Map([["root", bundle("root")]]);
+  expect(decodeContainerWriterProjection(jsonRoundTrip(wire), held)).toEqual(
+    containerProjection(),
+  );
   for (const omittedBundles of [
     ["root", "root"],
     ["root", "uncited"],
@@ -240,15 +178,64 @@ test("an omission must be cited, unique, and not also served", () => {
     expect(
       decodeContainerWriterProjection(
         jsonRoundTrip({ ...wire, omittedBundles }),
-        decoding(new Map([...held, ["leaf", servedBundle("leaf")]])),
+        new Map([...held, ["leaf", bundle("leaf")]]),
       ),
     ).toBeNull();
   }
   const { omittedBundles: _omitted, ...withoutOmissions } = wire;
   expect(
-    decodeContainerWriterProjection(
-      jsonRoundTrip(withoutOmissions),
-      decoding(held),
-    ),
+    decodeContainerWriterProjection(jsonRoundTrip(withoutOmissions), held),
   ).toBeNull();
+});
+
+test("a served state omits what the bundle's signed bytes name", () => {
+  const signed = {
+    event: {
+      body: {
+        eventType: "container.grant",
+        containerKeyEpochId: "epoch-1",
+        containerKeyPublicKey: "public-key",
+      },
+      event: { signature: "signed-event" },
+      eventHash: "event-hash",
+    },
+    manifest: {
+      version: 1,
+      objectKind: "container",
+      objectId: "container-1",
+      organizationId: "organization-1",
+      epoch: 2,
+      previousManifestHash: "previous-hash",
+      eventHash: "event-hash",
+    },
+    manifestHash: "root",
+  };
+  const stored = {
+    ...signed,
+    state: {
+      version: 1,
+      containerId: "container-1",
+      organizationId: "organization-1",
+      epoch: 2,
+      previousManifestHash: "previous-hash",
+      eventHash: "event-hash",
+      containerKeyEpochId: "epoch-1",
+      containerKeyPublicKey: "public-key",
+      directGrants: [],
+    },
+  };
+  const projection = { ...containerProjection(), path: [stored] };
+  const [kek] = projection.containerKeks;
+  if (!kek) throw new Error("fixture KEK missing");
+  projection.containerKeks = [{ ...kek, containerManifestHistory: [] }];
+  const wire = jsonRoundTrip(encodeContainerWriterProjection(projection));
+  expect(Reflect.get(Reflect.get(Object(wire), "bundles"), "root")).toEqual({
+    ...signed,
+    state: { directGrants: [] },
+  });
+  expect(decodeContainerWriterProjection(wire)?.path).toEqual([stored]);
+  // The signed bytes win over a served copy of the same field.
+  const forged = Object(jsonRoundTrip(wire));
+  Reflect.set(forged.bundles.root.state, "containerKeyPublicKey", "forged");
+  expect(decodeContainerWriterProjection(forged)?.path).toEqual([stored]);
 });

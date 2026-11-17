@@ -1,5 +1,6 @@
 import {
   type AccessManifestBundleWireResponse,
+  completeServedAccessManifestBundle,
   type ServedAccessManifestBundleWireResponse,
   toServedAccessManifestBundle,
 } from "../util";
@@ -24,29 +25,11 @@ type ServedBundle = ServedAccessManifestBundleWireResponse;
 type HeldLevels = ReadonlyMap<string, ContainerKekWireLevel>;
 
 /**
- * Rebuilds the derived state of every served bundle from the signed bodies
- * along its served predecessor chain; null for a bundle it cannot rebuild.
- * The client supplies it, because the rule lives with the verifier.
- */
-export type ManifestStateReconstructor = (
-  bundles: ReadonlyMap<string, ServedBundle>,
-) => ReadonlyMap<string, Record<string, unknown> | null>;
-
-/** What a client decodes a writer projection with. */
-export interface WriterProjectionDecoding {
-  /** Exact held bytes for each hash the request cited as held. */
-  readonly held?: ReadonlyMap<string, ServedBundle> | undefined;
-  /** Exact held KEK levels by the digest the request cited. */
-  readonly heldLevels?: HeldLevels | undefined;
-  readonly reconstructStates: ManifestStateReconstructor;
-}
-
-/**
  * Collects each distinct manifest once. Every slot a server fills for one
  * hash comes from the same stored row, and the client verifies the bundle it
  * receives wherever that hash is cited, so the first occurrence stands. A
- * hash the request declared known is cited but not served. A served bundle
- * carries no derived state: the client rebuilds it from the signed bodies.
+ * hash the request declared known is cited but not served. A served bundle's
+ * state leaves out what its own signed bytes name; decoding fills it back.
  */
 function bundleCitations(known: ReadonlySet<string>) {
   const byHash = new Map<string, ServedBundle>();
@@ -157,32 +140,28 @@ export function encodeDocumentWriterProjection(
 /**
  * Served bundles plus the exact held bytes for each omitted hash. An omission
  * the caller cannot fill from `held` (which carries only what its request
- * cited), or a bundle whose state cannot be rebuilt from the signed chain
- * the response serves, makes the response unusable: the caller refetches
- * without hints, and an honest server always serves every bundle's chain.
- * Each cited position receives its own copy, as when every slot carried its
- * own JSON.
+ * cited) makes the response unusable. Each bundle's state gets back the
+ * fields its own signed bytes name. Each cited position receives its own
+ * copy, as when every slot carried its own JSON.
  */
 function bundleResolver(
   bundles: Record<string, ServedBundle>,
   omittedBundles: readonly string[],
-  decoding: WriterProjectionDecoding,
+  held: ReadonlyMap<string, ServedBundle>,
 ): ((hash: string) => Bundle) | null {
-  const byHash = new Map(Object.entries(bundles));
+  const byHash = new Map(
+    Object.entries(bundles).map(
+      ([hash, bundle]) =>
+        [hash, completeServedAccessManifestBundle(bundle)] as const,
+    ),
+  );
   for (const hash of omittedBundles) {
-    const bundle = decoding.held?.get(hash);
+    const bundle = held.get(hash);
     if (bundle?.manifestHash !== hash) return null;
-    byHash.set(hash, toServedAccessManifestBundle(bundle));
-  }
-  const states = decoding.reconstructStates(byHash);
-  const rebuilt = new Map<string, Bundle>();
-  for (const [hash, bundle] of byHash) {
-    const state = states.get(hash);
-    if (!state) return null;
-    rebuilt.set(hash, { ...bundle, state });
+    byHash.set(hash, completeServedAccessManifestBundle(bundle));
   }
   return (hash: string): Bundle => {
-    const bundle = rebuilt.get(hash);
+    const bundle = byHash.get(hash);
     if (!bundle) {
       throw new Error(`manifest ${hash} is cited without a bundle`);
     }
@@ -248,16 +227,17 @@ function decodeKeyingPath(
  */
 export function decodeContainerWriterProjection(
   value: unknown,
-  decoding: WriterProjectionDecoding,
+  held: ReadonlyMap<string, ServedBundle> = new Map(),
+  heldLevels: HeldLevels = new Map(),
 ): ContainerWriterProjectionResponse | null {
   const parsed = ContainerWriterProjectionWireResponseSchema.safeParse(value);
   if (!parsed.success) {
     return null;
   }
   const { bundles, omittedBundles, ...projection } = parsed.data;
-  const resolve = bundleResolver(bundles, omittedBundles, decoding);
+  const resolve = bundleResolver(bundles, omittedBundles, held);
   const path = resolve
-    ? decodeKeyingPath(projection, resolve, decoding.heldLevels ?? new Map())
+    ? decodeKeyingPath(projection, resolve, heldLevels)
     : null;
   return path ? { ...projection, ...path } : null;
 }
@@ -265,18 +245,18 @@ export function decodeContainerWriterProjection(
 /** See {@link decodeContainerWriterProjection}. */
 export function decodeDocumentWriterProjection(
   value: unknown,
-  decoding: WriterProjectionDecoding,
+  held: ReadonlyMap<string, ServedBundle> = new Map(),
+  heldLevels: HeldLevels = new Map(),
 ): DocumentWriterProjectionResponse | null {
   const parsed = DocumentWriterProjectionWireResponseSchema.safeParse(value);
   if (!parsed.success) {
     return null;
   }
   const { bundles, omittedBundles, ...projection } = parsed.data;
-  const resolve = bundleResolver(bundles, omittedBundles, decoding);
+  const resolve = bundleResolver(bundles, omittedBundles, held);
   if (!resolve) {
     return null;
   }
-  const heldLevels = decoding.heldLevels ?? new Map();
   const authorizingContainerPaths: ContainerKeyingPathResponse[] = [];
   for (const path of projection.authorizingContainerPaths) {
     const decoded = decodeKeyingPath(path, resolve, heldLevels);

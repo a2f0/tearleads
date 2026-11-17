@@ -10,10 +10,6 @@ export {
   isAccessManifestBundleWireArray,
   isAccessManifestBundleWireResponse,
   isOptionalAccessManifestBundleWireArray,
-  isServedAccessManifestBundleWireResponse,
-  type ServedAccessManifestBundleWireResponse,
-  ServedAccessManifestBundleWireResponseSchema,
-  toServedAccessManifestBundle,
 } from "./accessManifestBundle";
 export {
   MAX_INITIATE_PART_UPLOADS,
@@ -117,6 +113,13 @@ export {
   ML_KEM1024_PUBLIC_KEY_BYTES,
   SHA256_HEX_LENGTH,
 } from "./protocol";
+export {
+  completeServedAccessManifestBundle,
+  isServedAccessManifestBundleWireResponse,
+  type ServedAccessManifestBundleWireResponse,
+  ServedAccessManifestBundleWireResponseSchema,
+  toServedAccessManifestBundle,
+} from "./servedManifestBundle";
 export {
   CANONICAL_SIGNED_AT_PATTERN,
   isCanonicalSignedAt,

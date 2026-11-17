@@ -21,10 +21,6 @@ import type {
   PrincipalPolicyBundleResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
-import {
-  servedContainerGenesis,
-  servedDocumentGenesis,
-} from "./servedBundleFixtures";
 
 export function createContainerMutationRequest(): ContainerMutationRequest {
   return {
@@ -48,7 +44,16 @@ export function createContainerCreateWithMetadataDocumentRequest(): ContainerCre
 }
 
 function createContainerManifestBundle(): ContainerWriterProjectionResponse["path"][number] {
-  return servedContainerGenesis("container-1");
+  return {
+    event: {
+      event: { eventType: "container.create" },
+      body: { eventType: "container.create" },
+      eventHash: "container-event-hash",
+    },
+    manifest: { objectId: "container-1", objectKind: "container" },
+    manifestHash: "container-manifest-hash",
+    state: { containerId: "container-1" },
+  };
 }
 
 function createContainerKek(): ContainerWriterProjectionResponse["containerKeks"][number] {
@@ -158,10 +163,7 @@ export function createDocumentPurgeRequest(): DocumentPurgeRequest {
 }
 
 export function createDocumentPurgeResponse(): DocumentPurgeResponse {
-  const authorizingContainer = {
-    ...createContainerManifestBundle(),
-    state: { containerId: "container-1" },
-  };
+  const authorizingContainer = createContainerManifestBundle();
   return {
     authorizingContainerPath: [authorizingContainer],
     documentContainerManifestHistory: [],
@@ -207,7 +209,16 @@ export function createDocumentLinkSetMutationResponse(): DocumentLinkSetMutation
     eventHash: "document-event-hash",
     manifestHash: "document-manifest-hash",
     targetHash: "target-hash",
-    accessManifest: servedDocumentGenesis("document-1"),
+    accessManifest: {
+      event: {
+        event: { eventType: "document.link" },
+        body: { eventType: "document.link" },
+        eventHash: "document-event-hash",
+      },
+      manifest: { objectId: "document-1", objectKind: "document" },
+      manifestHash: "document-manifest-hash",
+      state: { documentId: "document-1" },
+    },
     contentKeyBundle: {
       documentId: "document-1",
       contentKeyEpoch: 1,
