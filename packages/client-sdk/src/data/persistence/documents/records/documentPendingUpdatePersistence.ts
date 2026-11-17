@@ -14,8 +14,6 @@ import {
   documents,
 } from "../../../sqlite/schema/documentRecordSchema";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
-import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
-import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type {
   DocumentScope,
   PendingUpdateFields,
@@ -100,11 +98,10 @@ export async function hasQueuedDocumentUpdates(
   return ids.length > 0;
 }
 
-export async function listDocumentPendingUpdates(
-  execSql: ExecSql,
+export async function selectDocumentPendingUpdates(
+  db: Pick<ClientSQLiteTransactionScope, "select">,
   scope: DocumentScope,
 ): Promise<QueuedPendingUpdateRecord[]> {
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select({
       id: documentHistoryUpdates.updateId,
@@ -181,63 +178,19 @@ export function queuedUpdateRow(input: {
  * Queue an update that has no history-tail role: container metadata (its
  * content is its checkpoint) and full-state re-uploads after a remote reset.
  */
-export async function enqueueDocumentPendingUpdate(
-  execSql: ExecSql,
-  scope: DocumentScope,
-  pendingUpdate: PendingUpdateFields,
-): Promise<string> {
-  const updateId = crypto.randomUUID();
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await db
-      .insert(documentHistoryUpdates)
-      .values(
-        queuedUpdateRow({
-          createdAt: new Date().toISOString(),
-          origin: OUTBOX_ORIGIN,
-          pendingUpdate,
-          scope,
-          updateId,
-        }),
-      )
-      .run();
-  });
-  return updateId;
-}
-
-/**
- * Append a locally authored update to the history tail AND queue it, as one
- * row in one transaction. A crash can therefore never leave the op restorable
- * from history while missing from the outgoing queue, where a null-marker
- * restore would classify it as covered and never send it.
- */
-export async function enqueueDocumentPendingUpdateWithHistory(
-  execSql: ExecSql,
-  scope: DocumentScope,
-  pendingUpdate: PendingUpdateFields,
-  options?: {
-    expectedDocumentId: string | null;
-    expectedRecoveryGeneration: number;
+export async function insertDocumentPendingUpdateInTransaction(
+  tx: Pick<ClientSQLiteTransactionScope, "insert">,
+  input: {
+    createdAt: string;
+    pendingUpdate: PendingUpdateFields;
+    scope: DocumentScope;
+    updateId: string;
   },
-): Promise<string | null> {
-  const createdAt = new Date().toISOString();
-  return getClientSQLitePersistenceRuntime(execSql).transaction(
-    async (tx) => {
-      if (
-        options &&
-        !(await documentWriteFenceMatchesInTransaction(tx, scope, options))
-      ) {
-        return null;
-      }
-
-      return insertDocumentPendingUpdateWithHistoryInTransaction({
-        createdAt,
-        pendingUpdate,
-        scope,
-        tx,
-      });
-    },
-    { behavior: "immediate" },
-  );
+): Promise<void> {
+  await tx
+    .insert(documentHistoryUpdates)
+    .values(queuedUpdateRow({ ...input, origin: OUTBOX_ORIGIN }))
+    .run();
 }
 
 export async function insertDocumentPendingUpdateWithHistoryInTransaction(input: {
@@ -285,49 +238,26 @@ export async function insertDocumentPendingUpdateWithHistoryInTransaction(input:
  */
 export const MAX_PENDING_UPDATE_REKEYS = 5;
 
-/**
- * Reset the durable re-key budget for every queued update in a scope. The
- * cap exists to stop a server that keeps conflicting fresh ids from driving
- * a network-speed loop — but a budget burned during an unrelated outage
- * (e.g. yesterday's stale-bundle deadlock 409ing every submit) should not be
- * terminal forever. An explicit manual retry is the deliberate, rate-limited
- * signal that conditions changed, so it gets a fresh budget.
- */
-export async function resetDocumentPendingUpdateRekeyBudget(
-  execSql: ExecSql,
-  scope: DocumentScope,
-): Promise<void> {
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await db
-      .update(documentHistoryUpdates)
-      .set({ rekeyCount: 0 })
-      .where(queuedInScope(scope));
-  });
-}
-
-export async function rekeyDocumentPendingUpdate(
-  execSql: ExecSql,
+/** Re-key one queued row below the bound; true when the UPDATE matched it. */
+export async function rekeyDocumentPendingUpdateInTransaction(
+  tx: Pick<ClientSQLiteTransactionScope, "update">,
   id: string,
-): Promise<string | null> {
-  const nextId = crypto.randomUUID();
-  let rekeyed = false;
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    const updated = await db
-      .update(documentHistoryUpdates)
-      .set({
-        updateId: nextId,
-        rekeyCount: sql`${documentHistoryUpdates.rekeyCount} + 1`,
-      })
-      .where(
-        and(
-          eq(documentHistoryUpdates.updateId, id),
-          lt(documentHistoryUpdates.rekeyCount, MAX_PENDING_UPDATE_REKEYS),
-        ),
-      )
-      .returning({ id: documentHistoryUpdates.updateId });
-    rekeyed = updated.length > 0;
-  });
-  return rekeyed ? nextId : null;
+  nextId: string,
+): Promise<boolean> {
+  const updated = await tx
+    .update(documentHistoryUpdates)
+    .set({
+      updateId: nextId,
+      rekeyCount: sql`${documentHistoryUpdates.rekeyCount} + 1`,
+    })
+    .where(
+      and(
+        eq(documentHistoryUpdates.updateId, id),
+        lt(documentHistoryUpdates.rekeyCount, MAX_PENDING_UPDATE_REKEYS),
+      ),
+    )
+    .returning({ id: documentHistoryUpdates.updateId });
+  return updated.length > 0;
 }
 
 /**
@@ -371,13 +301,11 @@ async function unqueueSelectedUpdates(
 }
 
 /** Settle one queued update by id, whatever its scope. */
-export async function settleDocumentPendingUpdate(
-  execSql: ExecSql,
+export async function settleDocumentPendingUpdateInTransaction(
+  tx: QueueStatement,
   id: string,
 ): Promise<void> {
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await unqueueSelectedUpdates(db, eq(documentHistoryUpdates.updateId, id));
-  });
+  await unqueueSelectedUpdates(tx, eq(documentHistoryUpdates.updateId, id));
 }
 
 /**
@@ -391,13 +319,4 @@ export async function unqueueDocumentScopesInTransaction(
 ): Promise<void> {
   if (scopes.length === 0) return;
   await unqueueSelectedUpdates(tx, or(...scopes.map(queuedInScope)));
-}
-
-export async function unqueueDocumentPendingUpdates(
-  execSql: ExecSql,
-  scope: DocumentScope,
-): Promise<void> {
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await unqueueDocumentScopesInTransaction(db, [scope]);
-  });
 }

@@ -3,10 +3,7 @@ import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import {
-  clearDocumentSyncFailure,
-  recordDocumentSyncFailure,
-} from "../../../data/persistence/documents/records";
+import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   ContainerSyncWatermarkRepository,
@@ -287,12 +284,12 @@ test("hasStartupContainerSyncWork detects a recorded sync failure", async () => 
   const { close, execSql, state } = await createStartupWorkFixture(
     "startup-work-sync-failure",
   );
+  const records = new DocumentRecordRepository(execSql);
   try {
     await saveSettledTestDocument({ execSql, id: "refused-doc", seed: "s9" });
     await expect(hasStartupContainerSyncWork(state)).resolves.toBe(false);
 
-    await recordDocumentSyncFailure(
-      execSql,
+    await records.recordDocumentSyncFailure(
       { appKind: "documents", localId: "refused-doc" },
       {
         attemptedAt: "2026-07-27T00:00:00.000Z",
@@ -302,7 +299,7 @@ test("hasStartupContainerSyncWork detects a recorded sync failure", async () => 
     );
     await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);
 
-    await clearDocumentSyncFailure(execSql, {
+    await records.clearDocumentSyncFailure({
       appKind: "documents",
       localId: "refused-doc",
     });

@@ -18,11 +18,9 @@ import {
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import {
-  enqueueDocumentPendingUpdate,
+  DocumentRecordRepository,
   ensureDocumentTables,
-  listDocumentPendingUpdates,
   MAX_PENDING_UPDATE_REKEYS,
-  rekeyDocumentPendingUpdate,
 } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
@@ -41,6 +39,8 @@ beforeEach(async () => {
 });
 
 afterEach(() => closeExecSql());
+
+const records = () => new DocumentRecordRepository(execSql);
 
 async function createLoroPendingUpdateFields(text: string) {
   const doc = await createDocument(`rekey-fixture:${text}`);
@@ -63,12 +63,11 @@ test("syncRemoteDocument re-keys pending conflicts recovery cannot settle", asyn
   } = await createMaterializedSyncFixture();
   await ensureDocumentTables(execSql);
   const scope = { appKind: "documents", localId: "wedged-document" };
-  await enqueueDocumentPendingUpdate(
-    execSql,
+  await records().enqueueDocumentPendingUpdate(
     scope,
     await createLoroPendingUpdateFields("wedged update"),
   );
-  const [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+  const [pendingUpdate] = await records().listDocumentPendingUpdates(scope);
   if (!pendingUpdate) {
     throw new Error("Expected an enqueued pending update");
   }
@@ -124,7 +123,7 @@ test("syncRemoteDocument re-keys pending conflicts recovery cannot settle", asyn
 
   expect(submittedOutgoingCounts).toEqual([1, 0]);
   expect(synced?.settledPendingUpdateIds).toEqual([]);
-  const rekeyed = await listDocumentPendingUpdates(execSql, scope);
+  const rekeyed = await records().listDocumentPendingUpdates(scope);
   expect(rekeyed).toHaveLength(1);
   expect(rekeyed[0]?.id).not.toBe(pendingUpdate.id);
   // Re-keying reports as progress so sync lanes re-arm and submit the new id.
@@ -146,15 +145,14 @@ test("an exhausted pending update surfaces terminally and survives the pass", as
   } = await createMaterializedSyncFixture();
   await ensureDocumentTables(execSql);
   const scope = { appKind: "documents", localId: "exhausted-document" };
-  await enqueueDocumentPendingUpdate(
-    execSql,
+  await records().enqueueDocumentPendingUpdate(
     scope,
     await createLoroPendingUpdateFields("exhausted update"),
   );
-  let [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+  let [pendingUpdate] = await records().listDocumentPendingUpdates(scope);
   for (let attempt = 0; attempt < MAX_PENDING_UPDATE_REKEYS; attempt += 1) {
-    await rekeyDocumentPendingUpdate(execSql, pendingUpdate?.id ?? "");
-    [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+    await records().rekeyDocumentPendingUpdate(pendingUpdate?.id ?? "");
+    [pendingUpdate] = await records().listDocumentPendingUpdates(scope);
   }
   if (!pendingUpdate) {
     throw new Error("Expected the capped pending update");
@@ -216,7 +214,7 @@ test("an exhausted pending update surfaces terminally and survives the pass", as
   expect(terminalFailures).toEqual([
     `Update conflict recovery gave up after ${MAX_PENDING_UPDATE_REKEYS} re-key attempts (1 update)`,
   ]);
-  const [unchanged] = await listDocumentPendingUpdates(execSql, scope);
+  const [unchanged] = await records().listDocumentPendingUpdates(scope);
   expect(unchanged).toMatchObject({
     id: pendingUpdate.id,
     rekeyCount: MAX_PENDING_UPDATE_REKEYS,
@@ -284,12 +282,11 @@ test("a projection refusal after recovery stays write-bearing", async () => {
   } = await createMaterializedSyncFixture();
   await ensureDocumentTables(execSql);
   const scope = { appKind: "documents", localId: "recovering-document" };
-  await enqueueDocumentPendingUpdate(
-    execSql,
+  await records().enqueueDocumentPendingUpdate(
     scope,
     await createLoroPendingUpdateFields("recovering update"),
   );
-  const [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+  const [pendingUpdate] = await records().listDocumentPendingUpdates(scope);
   if (!pendingUpdate) {
     throw new Error("Expected an enqueued pending update");
   }
@@ -359,12 +356,11 @@ test("a terminal failure after recovery still records durably", async () => {
   } = await createMaterializedSyncFixture();
   await ensureDocumentTables(execSql);
   const scope = { appKind: "documents", localId: "denied-after-recovery" };
-  await enqueueDocumentPendingUpdate(
-    execSql,
+  await records().enqueueDocumentPendingUpdate(
     scope,
     await createLoroPendingUpdateFields("denied update"),
   );
-  const [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+  const [pendingUpdate] = await records().listDocumentPendingUpdates(scope);
   if (!pendingUpdate) {
     throw new Error("Expected an enqueued pending update");
   }
@@ -421,12 +417,11 @@ test("a denied cursor pull records the failure blocking deferred writes", async 
   } = await createMaterializedSyncFixture();
   await ensureDocumentTables(execSql);
   const scope = { appKind: "documents", localId: "denied-cursor-pull" };
-  await enqueueDocumentPendingUpdate(
-    execSql,
+  await records().enqueueDocumentPendingUpdate(
     scope,
     await createLoroPendingUpdateFields("deferred cursor update"),
   );
-  const [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+  const [pendingUpdate] = await records().listDocumentPendingUpdates(scope);
   if (!pendingUpdate) throw new Error("Expected an enqueued pending update");
   const submittedRequests: Array<{
     outgoingUpdateCount: number;

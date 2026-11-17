@@ -5,21 +5,7 @@ import {
 } from "../../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";
-import {
-  enqueueDocumentPendingUpdateWithHistory,
-  listDocumentPendingUpdates,
-  rekeyDocumentPendingUpdate,
-  replaceDocumentQueuedUpdates,
-  settleDocumentPendingUpdate,
-  unqueueDocumentPendingUpdates,
-} from "../records";
-import {
-  appendDocumentHistoryUpdates,
-  listDocumentHistoryTailEntries,
-  loadDocumentHistoryRestoreState,
-  readDocumentHistoryTailSize,
-  replaceDocumentHistoryCheckpoint,
-} from "../records/documentHistoryPersistence";
+import { DocumentRecordRepository } from "../records";
 import type { DocumentsPersistence } from "../types";
 import {
   buildPendingAttachmentRow,
@@ -54,10 +40,12 @@ type DocumentSyncQueuePersistence = Pick<
 
 export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
   async listPendingUpdates(execSql, localId) {
-    return listDocumentPendingUpdates(execSql, getDocumentScope(localId));
+    return new DocumentRecordRepository(execSql).listDocumentPendingUpdates(
+      getDocumentScope(localId),
+    );
   },
   async rekeyPendingUpdate(execSql, id) {
-    return rekeyDocumentPendingUpdate(execSql, id);
+    return new DocumentRecordRepository(execSql).rekeyDocumentPendingUpdate(id);
   },
   async listPendingAttachments(execSql, localId) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
@@ -109,41 +97,45 @@ export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
     return rows.map(mapLocalAttachmentRecord);
   },
   async appendHistoryUpdates(execSql, input) {
-    await appendDocumentHistoryUpdates(
-      execSql,
+    await new DocumentRecordRepository(execSql).appendDocumentHistoryUpdates(
       getDocumentScope(input.localId),
       input.updates,
       input.origin,
     );
   },
   async loadHistoryRestoreState(execSql, localId) {
-    return loadDocumentHistoryRestoreState(execSql, getDocumentScope(localId));
+    return new DocumentRecordRepository(
+      execSql,
+    ).loadDocumentHistoryRestoreState(getDocumentScope(localId));
   },
   async readHistoryTailSize(execSql, localId) {
-    return readDocumentHistoryTailSize(execSql, getDocumentScope(localId));
+    return new DocumentRecordRepository(execSql).readDocumentHistoryTailSize(
+      getDocumentScope(localId),
+    );
   },
   async listHistoryTailEntries(execSql, localId) {
-    return listDocumentHistoryTailEntries(execSql, getDocumentScope(localId));
+    return new DocumentRecordRepository(execSql).listDocumentHistoryTailEntries(
+      getDocumentScope(localId),
+    );
   },
   async replaceHistoryCheckpoint(execSql, input) {
-    await replaceDocumentHistoryCheckpoint(
+    await new DocumentRecordRepository(
       execSql,
-      getDocumentScope(input.localId),
-      {
-        coveredTailIds: input.coveredTailIds,
-        endVersionVector: input.endVersionVector,
-        ...(input.force === undefined ? {} : { force: input.force }),
-        snapshot: input.snapshot,
-        ...(input.stillCurrent === undefined
-          ? {}
-          : { stillCurrent: input.stillCurrent }),
-      },
-    );
+    ).replaceDocumentHistoryCheckpoint(getDocumentScope(input.localId), {
+      coveredTailIds: input.coveredTailIds,
+      endVersionVector: input.endVersionVector,
+      ...(input.force === undefined ? {} : { force: input.force }),
+      snapshot: input.snapshot,
+      ...(input.stillCurrent === undefined
+        ? {}
+        : { stillCurrent: input.stillCurrent }),
+    });
   },
   async enqueuePendingUpdate(execSql, pendingUpdate, options) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      const pendingUpdateId = await enqueueDocumentPendingUpdateWithHistory(
+      const pendingUpdateId = await new DocumentRecordRepository(
         lockedExecSql,
+      ).enqueueDocumentPendingUpdateWithHistory(
         getDocumentScope(pendingUpdate.localId),
         pendingUpdate,
         options,
@@ -153,8 +145,7 @@ export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
   },
   async replaceQueuedPendingUpdates(execSql, { localId, ...replacement }) {
     return runSerializedSqlMutation(execSql, (lockedExecSql) =>
-      replaceDocumentQueuedUpdates(
-        lockedExecSql,
+      new DocumentRecordRepository(lockedExecSql).replaceDocumentQueuedUpdates(
         getDocumentScope(localId),
         replacement,
       ),
@@ -258,15 +249,16 @@ export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
   },
   async deletePendingUpdate(execSql, id) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await settleDocumentPendingUpdate(lockedExecSql, id);
+      await new DocumentRecordRepository(
+        lockedExecSql,
+      ).settleDocumentPendingUpdate(id);
     });
   },
   async deletePendingUpdates(execSql, localId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await unqueueDocumentPendingUpdates(
+      await new DocumentRecordRepository(
         lockedExecSql,
-        getDocumentScope(localId),
-      );
+      ).unqueueDocumentPendingUpdates(getDocumentScope(localId));
     });
   },
   async deletePendingAttachment(execSql, localId, slotId, storageKey) {

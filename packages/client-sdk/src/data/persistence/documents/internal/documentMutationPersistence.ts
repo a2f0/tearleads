@@ -13,10 +13,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";
-import {
-  appendDocumentHistoryUpdates,
-  replaceDocumentHistoryCheckpoint,
-} from "../records/documentHistoryPersistence";
+import { DocumentRecordRepository } from "../records";
 import {
   insertDocumentPendingUpdateWithHistoryInTransaction,
   settleQueuedDocumentUpdatesInTransaction,
@@ -143,6 +140,7 @@ async function appendMutationHistory(
   input: Parameters<DocumentsPersistence["commitDocumentMutation"]>[1],
   tx: ClientSQLiteTransactionScope,
 ): Promise<void> {
+  const records = new DocumentRecordRepository(execSql);
   if (input.historyCheckpoint) {
     const coveredLocalState = input.historyCheckpoint.pruneCoveredLocalState
       ? await findCoveredRecoveryLocalState(
@@ -167,8 +165,7 @@ async function appendMutationHistory(
       input.document.id,
       coveredLocalState.checkpointIds,
     );
-    const checkpointReplaced = await replaceDocumentHistoryCheckpoint(
-      execSql,
+    const checkpointReplaced = await records.replaceDocumentHistoryCheckpoint(
       { appKind: DOCUMENTS_APP_KIND, localId: input.document.id },
       {
         ...input.historyCheckpoint,
@@ -184,8 +181,7 @@ async function appendMutationHistory(
     }
   }
   if (input.historyUpdates && input.historyUpdates.length > 0) {
-    await appendDocumentHistoryUpdates(
-      execSql,
+    await records.appendDocumentHistoryUpdates(
       { appKind: DOCUMENTS_APP_KIND, localId: input.document.id },
       input.historyUpdates,
       input.historyUpdateOrigin ?? "local",
