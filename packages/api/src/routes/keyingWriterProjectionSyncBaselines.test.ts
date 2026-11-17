@@ -96,7 +96,9 @@ test("POST /documents/:documentId/sync records a baseline once across a retried 
     .select({ targets: documentContentWriteHeaders.authorizationTargets })
     .from(documentContentWriteHeaders)
     .where(eq(documentContentWriteHeaders.updateId, updateId));
-  expect(storedHeader?.targets).toEqual(created.documentKekTargets.targets);
+  expect(storedHeader?.targets as unknown).toEqual(
+    created.documentKekTargets.targets,
+  );
   const [[syncedDocumentRow], [syncedContainerRow]] = await Promise.all([
     db
       .select({ updatedAt: documents.updatedAt })
