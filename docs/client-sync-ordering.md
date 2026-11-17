@@ -140,8 +140,10 @@ document create's seed does, and the client stores that position as
 roster-profile, organization-metadata and system container metadata documents
 and the roster and organization profile documents. Those documents therefore
 skip their first scheduled pass, and the first read that does run sends the
-position as `minLsn`. A provisioning replay reads the position anew, which
-still covers the original commit.
+position as `minLsn`. A replayed `POST /organizations` and a provisioning whose
+position could not be read after commit return `commitLsn: null`: a replay's
+artifacts can be older than the organization now, so the client reads each
+seeded document once.
 
 Document update hints must carry `containerIds`; an unscoped event is rejected.
 A scoped remote event reconciles its known containers for discovery and

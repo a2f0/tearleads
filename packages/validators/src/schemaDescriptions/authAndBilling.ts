@@ -121,7 +121,7 @@ describeSchema(
     rootMetadataAccessStateHash:
       "Access state hash of the root container's metadata document.",
     commitLsn:
-      "Commit LSN read after the provisioning committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read.",
+      "Commit LSN read after the provisioning committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read. Null on a replay, whose artifacts can be older than the organization now, or when the position could not be read.",
     commitLsnMode:
       "`tracked` for a durable backend position; `untracked` with the `0/0` sentinel when the backend cannot report one.",
   },

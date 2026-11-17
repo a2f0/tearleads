@@ -2463,7 +2463,7 @@ export type components = {
         };
         /** @description Acknowledges a new organization by the ids and hashes of what it created. */
         CreateOrganizationResponse: {
-            /** @description Commit LSN read after the provisioning committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read. */
+            /** @description Commit LSN read after the provisioning committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read. Null on a replay, whose artifacts can be older than the organization now, or when the position could not be read. */
             commitLsn: string | null;
             /** @description `tracked` for a durable backend position; `untracked` with the `0/0` sentinel when the backend cannot report one. */
             commitLsnMode: "tracked" | "untracked";
@@ -4206,7 +4206,7 @@ export type components = {
         RegistrationResponse: {
             /** @description Sign-in challenge to sign and send to `POST /auth/verify`, so the new identity can sign in without another request. */
             challenge: string;
-            /** @description Commit LSN read after the provisioning committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read. */
+            /** @description Commit LSN read after the provisioning committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read. Null on a replay, whose artifacts can be older than the organization now, or when the position could not be read. */
             commitLsn: string | null;
             /** @description `tracked` for a durable backend position; `untracked` with the `0/0` sentinel when the backend cannot report one. */
             commitLsnMode: "tracked" | "untracked";

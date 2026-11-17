@@ -2476,7 +2476,7 @@
                 "type": "null"
               }
             ],
-            "description": "Commit LSN read after the provisioning committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read."
+            "description": "Commit LSN read after the provisioning committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read. Null on a replay, whose artifacts can be older than the organization now, or when the position could not be read."
           },
           "commitLsnMode": {
             "anyOf": [
@@ -8906,7 +8906,7 @@
                 "type": "null"
               }
             ],
-            "description": "Commit LSN read after the provisioning committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read."
+            "description": "Commit LSN read after the provisioning committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read. Null on a replay, whose artifacts can be older than the organization now, or when the position could not be read."
           },
           "commitLsnMode": {
             "anyOf": [
