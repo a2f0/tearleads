@@ -10,34 +10,32 @@ import {
 } from "@tearleads/windowing";
 import { type PropsWithChildren, useMemo } from "react";
 import { isMiniAppId, type MiniAppId } from "../mini-apps/types";
-import { IdentityLinkLaunchBridge } from "./IdentityLinkLaunchBridge";
 
 // The windowing launcher's navigation, bound to the app's mini-app ids.
 
 interface AppNavigationProviderProps extends PropsWithChildren {
   defaultWindowEnabled?: boolean | undefined;
-  identityLinkLaunchEnabled?: boolean | undefined;
   launcher: LauncherDefinition<MiniAppId>;
   mode: NavigationMode;
+  // Whether this pane's windowed desktop opens the app the URL names, such as
+  // an incoming identity link. Only the active pane does.
+  routeWindowEnabled?: boolean | undefined;
 }
 
 export function AppNavigationProvider({
   children,
   defaultWindowEnabled,
-  identityLinkLaunchEnabled = true,
   launcher,
   mode,
+  routeWindowEnabled = true,
 }: AppNavigationProviderProps) {
   return (
     <LauncherNavigationProvider
       defaultWindowEnabled={defaultWindowEnabled}
       definition={launcher}
       mode={mode}
+      routeWindowEnabled={defaultWindowEnabled !== false && routeWindowEnabled}
     >
-      <IdentityLinkLaunchBridge
-        enabled={defaultWindowEnabled !== false && identityLinkLaunchEnabled}
-        mode={mode}
-      />
       {children}
     </LauncherNavigationProvider>
   );
