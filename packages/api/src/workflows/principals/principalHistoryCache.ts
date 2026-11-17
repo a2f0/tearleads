@@ -23,7 +23,9 @@ type ProgressRow = NonNullable<
   Awaited<ReturnType<typeof selectPrincipalHistoryProgress>>
 >;
 type Selection = Parameters<typeof selectPrincipalHistoryProgress>[1];
-type ProgressInput = Parameters<typeof upsertPrincipalHistoryProgress>[1];
+type ProgressInput = Parameters<
+  typeof upsertPrincipalHistoryProgress
+>[1][number];
 interface ProgressBuffer {
   readonly resets: Map<string, Selection>;
   readonly nodes: Map<string, PrincipalHistoryIndexNode>;
@@ -79,8 +81,9 @@ function transactionBuffer(
       await upsertPrincipalHistoryIndexNodes(completion.root, [
         ...buffer.nodes.values(),
       ]);
-      for (const row of buffer.saved.values())
-        await upsertPrincipalHistoryProgress(completion.root, row);
+      await upsertPrincipalHistoryProgress(completion.root, [
+        ...buffer.saved.values(),
+      ]);
     }
   }, reportBackgroundFailure);
   return buffer;
@@ -197,7 +200,7 @@ export async function saveBufferedPrincipalHistoryProgress(
   input: ProgressInput,
 ): Promise<void> {
   const buffer = transactionBuffer(executor);
-  if (!buffer) return upsertPrincipalHistoryProgress(executor, input);
+  if (!buffer) return upsertPrincipalHistoryProgress(executor, [input]);
   buffer.saved.set(JSON.stringify([scopeKey(input), input.version]), {
     ...input,
     id: crypto.randomUUID(),

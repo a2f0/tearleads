@@ -101,8 +101,11 @@ async function signGroupSuccessor(actor: TestUser, groupId: string) {
 // 133 / 137. Once policy writes acknowledged heads instead of re-reading the
 // stored bundle: 114 / 116 and 127 / 131. Batched history and verified
 // projection handoffs plus the two identity-registry verification reads now
-// measure 89 and 109 on PGlite. PostgreSQL keeps its two / four transaction-
-// control allowances; admission reads remain at every original guard.
+// measure 89 and 109 on PGlite. Skipping the held read-model head relock,
+// reusing roster sync's Members reachability for seats and publishing the
+// history progress rows in one upsert: 86 and 105. PostgreSQL keeps its two /
+// four transaction-control allowances; admission reads remain at every
+// original guard.
 test("group create and group policy commit stay within their statement budgets", async () => {
   const actor = createTestUser();
   await registerUser(actor);
@@ -130,9 +133,9 @@ test("group create and group policy commit stay within their statement budgets",
   );
 
   expect(create).toBeLessThanOrEqual(
-    89 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    86 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
   expect(commit).toBeLessThanOrEqual(
-    109 + (getDefaultApiDatabaseKind() === "postgres" ? 4 : 0),
+    105 + (getDefaultApiDatabaseKind() === "postgres" ? 4 : 0),
   );
 });

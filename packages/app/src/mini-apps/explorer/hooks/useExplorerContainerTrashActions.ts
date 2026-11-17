@@ -1,5 +1,5 @@
 import { ContainerPathTooDeepError } from "@tearleads/client-sdk";
-import { useCallback } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isExplorerContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
@@ -11,7 +11,55 @@ import {
   type ExplorerPurgeRun,
   useExplorerPurgeRun,
 } from "../purge-progress/useExplorerPurgeRun";
+import { type ExplorerRoute, formatExplorerRouteSegments } from "../routes";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
+
+/** Selects `id` only if the Explorer has not moved since it was begun. */
+export type ExplorerSelectionFollowUp = (id: string) => void;
+
+/**
+ * Moving to Trash and purging re-select the source container once the mutation
+ * settles, so the detail pane does not linger on what was removed. Those
+ * actions start from a context menu and leave the Explorer usable while the
+ * mutation runs, so a user who opens another container or document meanwhile
+ * must not be pulled back when it settles, and one who leaves the Explorer
+ * must not have it reopened (in the routed shell, selecting navigates to the
+ * Explorer's route). Call the returned function as the action begins: the
+ * follow-up it hands back selects only while the Explorer is still mounted at
+ * the position it captured, never after any move, even one back to it.
+ */
+export function useExplorerSelectionFollowUp(params: {
+  route: ExplorerRoute;
+  selectedId: string | null;
+  selectExplorerItem: (id: string | null) => void;
+}): () => ExplorerSelectionFollowUp {
+  const { route, selectedId, selectExplorerItem } = params;
+  // Every id the route carries, so the same document opened through another
+  // container (a linked document keeps its local id) still counts as a move.
+  const position = JSON.stringify([
+    selectedId,
+    formatExplorerRouteSegments(route, selectedId),
+  ]);
+  // A fresh object on every position change, compared by identity, so moving
+  // away and back still retires a pending follow-up; null while the Explorer
+  // is not mounted.
+  const positionRef = useRef<{ readonly position: string } | null>(null);
+  useLayoutEffect(() => {
+    positionRef.current = { position };
+    return () => {
+      positionRef.current = null;
+    };
+  }, [position]);
+
+  return useCallback(() => {
+    const begun = positionRef.current;
+    return (id: string) => {
+      if (begun !== null && positionRef.current === begun) {
+        selectExplorerItem(id);
+      }
+    };
+  }, [selectExplorerItem]);
+}
 
 // Resolve the Trash a delete/trash-move should land in for the source
 // container's OWN organization, lazily creating only the viewer's own Trash
@@ -44,6 +92,8 @@ export async function resolveExplorerTrashDestination(params: {
 
 interface UseExplorerContainerTrashActionsParams {
   appData: RuntimeSnapshot;
+  /** Starts the re-selection a settled move makes; see the hook above. */
+  beginSelectionFollowUp: () => ExplorerSelectionFollowUp;
   explorer: ExplorerModelExplorer;
   // Runs when a purge settles so the open container listing re-queries SQLite and
   // drops destroyed rows (the recursive purge only bumps the sidebar-tree
@@ -51,7 +101,6 @@ interface UseExplorerContainerTrashActionsParams {
   onSettled: () => void;
   /** Tells the user why a move to Trash was refused (the explorer banner). */
   reportBackgroundError?: ((message: string | null) => void) | undefined;
-  selectExplorerItem: (containerId: string) => void;
 }
 
 interface ExplorerContainerTrashActions {
@@ -68,10 +117,10 @@ export function useExplorerContainerTrashActions(
 ): ExplorerContainerTrashActions {
   const {
     appData,
+    beginSelectionFollowUp,
     explorer,
     onSettled,
     reportBackgroundError,
-    selectExplorerItem,
   } = params;
 
   const purgeRun = useExplorerPurgeRun({
@@ -94,6 +143,7 @@ export function useExplorerContainerTrashActions(
 
   const moveContainerToTrash = useCallback(
     async (containerId: string) => {
+      const selectParent = beginSelectionFollowUp();
       try {
         const containerNode = explorer.nodes.find(
           (node) => node.id === containerId,
@@ -142,7 +192,7 @@ export function useExplorerContainerTrashActions(
         if (movedContainer) {
           // Re-select the folder's original parent so the detail pane does not
           // linger on the now-trashed subtree.
-          selectExplorerItem(containerNode.parentId);
+          selectParent(containerNode.parentId);
         }
 
         return movedContainer;
@@ -160,9 +210,9 @@ export function useExplorerContainerTrashActions(
     [
       appData.auth.organizationId,
       appData.util.logError,
+      beginSelectionFollowUp,
       explorer,
       reportBackgroundError,
-      selectExplorerItem,
     ],
   );
 

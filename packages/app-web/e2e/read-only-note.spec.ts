@@ -59,7 +59,13 @@ async function moveNoteToTrashAndOpenIt(page: Page, window: Locator) {
     .locator(".explorer-sidebar-item")
     .filter({ hasText: "Trash" })
     .click();
-  await window.getByRole("button", { name: NOTE_TEXT, exact: true }).click();
+  // Open the note from the Trash listing. The sidebar also lists it under the
+  // open Trash once that container's documents load, so a window-wide lookup
+  // races two same-named buttons.
+  await window
+    .getByRole("table", { name: "Items in Trash", exact: true })
+    .getByRole("button", { name: NOTE_TEXT, exact: true })
+    .click();
 }
 
 test("a note in the Trash is plain text that cannot take a caret", async ({
