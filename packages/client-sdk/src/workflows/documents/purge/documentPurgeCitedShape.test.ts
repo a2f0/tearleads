@@ -8,7 +8,6 @@ import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 import { fixtureHash } from "../../../../test/helpers/data/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/workflows/documentPurge";
 import { createPurgeChainFixture } from "../../../../test/helpers/workflows/documentPurgeChain";
@@ -122,8 +121,12 @@ test("a pinned purge head served with compact state records one integrity incide
     await expect(
       verifyDocumentPurgeProof({ ...input, proof: retry }),
     ).resolves.toBeDefined();
-    // The compact state a writer projection serves cannot stand in for the
-    // full stored state a snapshot is verified from.
+    // The compact state a writer projection serves (a document's linked
+    // containers alone) cannot stand in for the full stored state a snapshot
+    // is verified from.
+    const head = fixture.proof.documentManifest;
+    const { linkedContainerIds } = head.state;
+    const compactHead = { ...head, state: { linkedContainerIds } };
     await expect(
       runWithSecurityIncidentReporting(
         async (error) => {
@@ -137,12 +140,7 @@ test("a pinned purge head served with compact state records one integrity incide
         () =>
           verifyDocumentPurgeProof({
             ...input,
-            proof: {
-              ...retry,
-              documentManifest: toServedAccessManifestBundle(
-                fixture.proof.documentManifest,
-              ),
-            },
+            proof: { ...retry, documentManifest: compactHead },
           }),
       ),
     ).rejects.toMatchObject({

@@ -160,34 +160,43 @@ test("a cache hit still refuses a copy whose state differs", async () => {
   }
 });
 
-test("a copy verified cold verifies again from a warm cache", async () => {
+test("a valid copy with different bytes verifies afresh from a warm cache", async () => {
   const fixture = await createVerificationFixture();
-  const first = await createTestExecSql("verified-bundles-repeat-first");
-  const second = await createTestExecSql("verified-bundles-repeat-second");
+  const databases = await Promise.all(
+    ["primed", "variant", "repeat"].map((name) =>
+      createTestExecSql(`verified-bundles-${name}`),
+    ),
+  );
+  const [primed, variant, repeat] = databases;
   const [leaf] = fixture.projection.path;
-  if (!leaf) throw new Error("fixture path missing");
-  // A field the event reader does not keep: fresh verification accepts it,
-  // so citing the same bytes again must too.
-  const served = {
+  if (!leaf || !primed || !variant || !repeat) throw new Error("fixture");
+  // A field the event reader does not keep: a cold verification accepts it,
+  // so a cache primed with the original bytes must too, and must keep it.
+  const noted = {
     ...leaf,
     event: { ...leaf.event, event: { ...leaf.event.event, note: "kept" } },
   };
-  const projection = { ...fixture.projection, path: [served] };
   const verifiedByHash = new Map();
+  const verify = (
+    database: { readonly execSql: typeof primed.execSql },
+    path: readonly (typeof leaf)[],
+  ) =>
+    verifyContainerWriterProjection({
+      execSql: database.execSql,
+      openPrincipalPolicyBundleReader,
+      projection: { ...fixture.projection, path: [...path] },
+      resolveUserKey: fixture.resolveUserKey,
+      verifiedByHash,
+    });
   try {
-    for (const database of [first, second]) {
-      expect(
-        await verifyContainerWriterProjection({
-          execSql: database.execSql,
-          openPrincipalPolicyBundleReader,
-          projection,
-          resolveUserKey: fixture.resolveUserKey,
-          verifiedByHash,
-        }),
-      ).toHaveLength(1);
-    }
+    expect(await verify(primed, [leaf])).toHaveLength(1);
+    expect(await verify(variant, [noted])).toHaveLength(1);
+    expect(
+      await loadVerifiedManifestCitations(variant.execSql, target),
+    ).toContainEqual(toServedAccessManifestBundle(noted));
+    // The same bytes again are a cache hit.
+    expect(await verify(repeat, [noted])).toHaveLength(1);
   } finally {
-    first.close();
-    second.close();
+    for (const database of databases) database.close();
   }
 });

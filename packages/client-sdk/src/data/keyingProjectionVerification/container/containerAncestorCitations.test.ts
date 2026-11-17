@@ -7,11 +7,15 @@ import {
   checkpointChildAt,
   createScenario,
   grantBy,
+  manifestBundle,
   ORGANIZATION_ID,
   ROOT_ID,
   verifyPath,
 } from "../../../../test/helpers/data/ancestorCitationScenario";
-import { verifiedCitedHead } from "./containerAncestorCitations";
+import {
+  resolveCitedAncestorPath,
+  verifiedCitedHead,
+} from "./containerAncestorCitations";
 
 // A child manifest pins the parent it was created under, and successors
 // inherit that pin, so a member revoked from an ancestor could keep signing
@@ -324,4 +328,27 @@ test("a served ancestor head older than the one a head cites is a rollback", asy
   } finally {
     close();
   }
+});
+
+test("a served cited ancestor goes through the verifier even when its hash is cached", async () => {
+  const scenario = await createScenario();
+  const { root1 } = scenario;
+  const verifiedByHash = new Map([[root1.manifestHash, root1]]);
+  const served = manifestBundle(root1);
+  const checked: unknown[] = [];
+  // The verifier's cache answers only for the bytes it verified, so a warm
+  // cache treats a served ancestor as a cold device does.
+  const path = await resolveCitedAncestorPath({
+    bundlesByHash: new Map([[root1.manifestHash, served]]),
+    event: scenario.child1.event,
+    label: "Cited ancestors",
+    parentContainerId: ROOT_ID,
+    verifiedByHash,
+    verifyHistoryBundle: async (bundle) => {
+      checked.push(bundle);
+      return root1;
+    },
+  });
+  expect(path).toEqual([root1]);
+  expect(checked).toEqual([served]);
 });

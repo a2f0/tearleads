@@ -2,10 +2,8 @@ import {
   readKeyingCanonicalJson,
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
-import {
-  type ServedAccessManifestBundleWireResponse,
-  toServedAccessManifestBundle,
-} from "@tearleads/validators/util";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 
 // The exact served bytes each manifest was verified from, keyed by the
 // verified result. A later projection can hit the same verified hash while
@@ -15,7 +13,7 @@ import {
 const verifiedBundleBytes = new WeakMap<object, string>();
 
 function canonicalBytes(
-  bundle: ServedAccessManifestBundleWireResponse,
+  bundle: AccessManifestBundleWireResponse,
 ): string | null {
   try {
     return serializeKeyingCanonicalJson(
@@ -32,7 +30,7 @@ function canonicalBytes(
 /** Remember the bundle a fresh verification accepted for `verified`. */
 export function recordVerifiedBundleBytes(
   verified: object,
-  bundle: ServedAccessManifestBundleWireResponse,
+  bundle: AccessManifestBundleWireResponse,
 ): void {
   const bytes = canonicalBytes(bundle);
   if (bytes !== null) verifiedBundleBytes.set(verified, bytes);
@@ -41,7 +39,7 @@ export function recordVerifiedBundleBytes(
 /** Whether `bundle` is byte-identical to the one `verified` came from. */
 export function matchesVerifiedBundleBytes(
   verified: object,
-  bundle: ServedAccessManifestBundleWireResponse,
+  bundle: AccessManifestBundleWireResponse,
 ): boolean {
   const recorded = verifiedBundleBytes.get(verified);
   return recorded !== undefined && recorded === canonicalBytes(bundle);

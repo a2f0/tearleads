@@ -102,18 +102,20 @@ async function resolveCitedManifest(
   manifestHash: string,
   containerId: string,
 ): Promise<VerifiedContainerAccessManifest> {
-  const verified = input.verifiedByHash.get(manifestHash);
-  if (verified) return verified;
+  // A served ancestor goes through the verifier, whose cache answers only for
+  // the bytes it verified, so a warm cache accepts what a cold one would.
   const bundle = input.bundlesByHash.get(manifestHash);
-  if (!bundle) {
-    throw new KeyingVerificationError(
-      "missing_dependency",
-      `${input.label} cites a head of container ${containerId} that the projection does not serve`,
+  if (bundle) {
+    return input.verifyHistoryBundle(
+      bundle,
+      `${input.label} cited ancestor ${containerId}`,
     );
   }
-  return input.verifyHistoryBundle(
-    bundle,
-    `${input.label} cited ancestor ${containerId}`,
+  const verified = input.verifiedByHash.get(manifestHash);
+  if (verified) return verified;
+  throw new KeyingVerificationError(
+    "missing_dependency",
+    `${input.label} cites a head of container ${containerId} that the projection does not serve`,
   );
 }
 

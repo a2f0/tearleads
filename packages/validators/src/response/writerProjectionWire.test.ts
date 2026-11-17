@@ -5,6 +5,7 @@ import {
   createDocumentWriterProjectionResponse,
   jsonRoundTrip,
 } from "../operation/openApiTestFixtures";
+import { toServedAccessManifestBundle } from "../util";
 import type { ContainerWriterProjectionResponse } from "./container";
 import type { DocumentWriterProjectionResponse } from "./documentMutation";
 import {
@@ -146,8 +147,8 @@ test("a request's known hashes are cited but not served", () => {
   // Rebuilding needs the exact bytes the request cited.
   expect(decodeDocumentWriterProjection(wire)).toBeNull();
   const held = new Map([
-    ["root", bundle("root")],
-    ["leaf-genesis", bundle("leaf-genesis")],
+    ["root", toServedAccessManifestBundle(bundle("root"))],
+    ["leaf-genesis", toServedAccessManifestBundle(bundle("leaf-genesis"))],
   ]);
   expect(decodeDocumentWriterProjection(wire, held)).toEqual(
     documentProjection(),
@@ -156,7 +157,10 @@ test("a request's known hashes are cited but not served", () => {
   expect(
     decodeDocumentWriterProjection(
       wire,
-      new Map([...held, ["root", bundle("other")]]),
+      new Map([
+        ...held,
+        ["root", toServedAccessManifestBundle(bundle("other"))],
+      ]),
     ),
   ).toBeNull();
 });
@@ -166,7 +170,9 @@ test("an omission must be cited, unique, and not also served", () => {
     containerProjection(),
     new Set(["root"]),
   );
-  const held = new Map([["root", bundle("root")]]);
+  const held = new Map([
+    ["root", toServedAccessManifestBundle(bundle("root"))],
+  ]);
   expect(decodeContainerWriterProjection(jsonRoundTrip(wire), held)).toEqual(
     containerProjection(),
   );
@@ -178,7 +184,10 @@ test("an omission must be cited, unique, and not also served", () => {
     expect(
       decodeContainerWriterProjection(
         jsonRoundTrip({ ...wire, omittedBundles }),
-        new Map([...held, ["leaf", bundle("leaf")]]),
+        new Map([
+          ...held,
+          ["leaf", toServedAccessManifestBundle(bundle("leaf"))],
+        ]),
       ),
     ).toBeNull();
   }

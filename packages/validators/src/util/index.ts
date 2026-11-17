@@ -118,6 +118,7 @@ export {
   isServedAccessManifestBundleWireResponse,
   type ServedAccessManifestBundleWireResponse,
   ServedAccessManifestBundleWireResponseSchema,
+  type ServedManifestState,
   toServedAccessManifestBundle,
 } from "./servedManifestBundle";
 export {

@@ -1,5 +1,6 @@
-import type { z } from "zod";
+import { z } from "zod";
 import { isPlainObject } from "../isPlainObject";
+import { registerJsonSchemaView } from "../jsonSchema";
 import {
   loosePlainObject,
   nonEmptyStringSchema,
@@ -9,6 +10,16 @@ import {
   AccessEventBundleWireResponseSchema,
   type AccessManifestBundleWireResponse,
 } from "./accessManifestBundle";
+
+/**
+ * A served bundle's reduced state. It is deliberately not a state record, so
+ * TypeScript refuses a served bundle wherever a full one is required (a purge
+ * proof, a verifier input); `completeServedAccessManifestBundle` is the one
+ * conversion that reads it.
+ */
+export interface ServedManifestState {
+  readonly servedManifestState?: never;
+}
 
 /**
  * A bundle as a writer projection serves it. Its `state` carries only what the
@@ -23,7 +34,10 @@ export const ServedAccessManifestBundleWireResponseSchema = loosePlainObject({
   event: AccessEventBundleWireResponseSchema,
   manifest: plainObjectSchema,
   manifestHash: nonEmptyStringSchema,
-  state: plainObjectSchema,
+  state: registerJsonSchemaView(
+    z.custom<ServedManifestState>(isPlainObject),
+    z.looseObject({}),
+  ),
 });
 
 export type ServedAccessManifestBundleWireResponse = z.infer<
@@ -88,7 +102,10 @@ export function toServedAccessManifestBundle(
 export function completeServedAccessManifestBundle(
   bundle: ServedAccessManifestBundleWireResponse,
 ): AccessManifestBundleWireResponse {
-  const state: Record<string, unknown> = { ...bundle.state };
+  const served: unknown = bundle.state;
+  const state: Record<string, unknown> = isPlainObject(served)
+    ? { ...served }
+    : {};
   for (const [field, source, key] of signedStateFields(bundle)) {
     const value = Reflect.get(source, key);
     if (value === undefined) delete state[field];
