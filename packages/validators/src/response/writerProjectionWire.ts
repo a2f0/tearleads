@@ -233,6 +233,23 @@ export function heldBundlesUsedBy(projection: object): readonly ServedBundle[] {
   return heldBundlesByProjection.get(projection) ?? [];
 }
 
+// Decoded projections a verifier refused after they took held bundles: a
+// cache must not hand one out again.
+const rejectedProjections = new WeakSet<object>();
+
+/** Marks a decoded projection refused, so no cache serves it again. */
+export function rejectDecodedProjection(projection: object): void {
+  rejectedProjections.add(projection);
+}
+
+export function isRejectedDecodedProjection(projection: unknown): boolean {
+  return (
+    typeof projection === "object" &&
+    projection !== null &&
+    rejectedProjections.has(projection)
+  );
+}
+
 function withHeldBundles<T extends object>(
   projection: T,
   omittedBundles: readonly string[],

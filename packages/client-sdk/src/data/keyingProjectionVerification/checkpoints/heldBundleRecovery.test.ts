@@ -7,6 +7,7 @@ import {
 import {
   decodeContainerWriterProjection,
   encodeContainerWriterProjection,
+  isRejectedDecodedProjection,
 } from "@tearleads/validators/response";
 import {
   isServedAccessManifestBundleWireResponse,
@@ -20,7 +21,6 @@ import {
   dropHeldManifestBundles,
   loadVerifiedManifestCitations,
 } from "../../persistence/verifiedManifestBundlePersistence";
-import { ProjectionDependencyUnavailableError } from "../../shared/dependencyUnavailable";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   verifyContainerWriterProjection,
@@ -59,7 +59,7 @@ function jsonRoundTrip(value: unknown): unknown {
   return JSON.parse(JSON.stringify(value));
 }
 
-test("a wrong seeded bundle is dropped and the next read verifies", async () => {
+test("a wrong seeded bundle is refused once, dropped, and the next read verifies", async () => {
   const fixture = await seededFixture();
   const { leaf } = fixture;
   const database = await createTestExecSql("held-bundle-recovery");
@@ -112,9 +112,11 @@ test("a wrong seeded bundle is dropped and the next read verifies", async () => 
       ),
       held,
     );
-    await expect(verify(cited)).rejects.toBeInstanceOf(
-      ProjectionDependencyUnavailableError,
-    );
+    await expect(verify(cited)).rejects.toMatchObject({
+      name: "KeyingVerificationError",
+    });
+    // No cache may serve the refused projection again.
+    expect(isRejectedDecodedProjection(cited)).toBe(true);
     // Dropped, so the next read cites nothing and the server serves the leaf.
     expect(
       await loadVerifiedManifestCitations(database.execSql, target),
@@ -229,7 +231,7 @@ test("a held bundle naming a principal head that does not exist is dropped too",
         projection: cited,
         resolveUserKey: fixture.resolveUserKey,
       }),
-    ).rejects.toBeInstanceOf(ProjectionDependencyUnavailableError);
+    ).rejects.toMatchObject({ name: "KeyingVerificationError" });
     expect(
       await loadVerifiedManifestCitations(database.execSql, target),
     ).toEqual([]);
@@ -270,7 +272,7 @@ test("a refused cited read keeps a newer row and drops nothing once stale", asyn
         projection: cited,
         resolveUserKey: fixture.resolveUserKey,
       }),
-    ).rejects.toBeInstanceOf(ProjectionDependencyUnavailableError);
+    ).rejects.toMatchObject({ name: "KeyingVerificationError" });
     expect(
       await loadVerifiedManifestCitations(database.execSql, target),
     ).toContainEqual(toServedAccessManifestBundle(leaf));
