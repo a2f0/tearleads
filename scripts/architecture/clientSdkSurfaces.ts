@@ -56,6 +56,7 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/contentRecordKeys.ts`,
   `${sdk}/data/documents/shared/crypto.ts`,
   `${sdk}/data/documents/shared/events.ts`,
+  `${sdk}/data/documents/shared/projection/freshProjectionRetry.ts`,
   `${sdk}/data/documents/shared/projection/projectionVerificationOptions.ts`,
   `${sdk}/data/documents/shared/readers.ts`,
   `${sdk}/data/documents/shared/responses.ts`,
