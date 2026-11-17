@@ -7,6 +7,7 @@ export const EXPLORER_WRITE_QUEUE_LABELS = {
   writeQueueBillingPausedMessage: "Billing is pausing sync for",
   writeQueueBlockedStatus: "Blocked",
   writeQueueContainerType: "Folder",
+  writeQueueCopyAction: "Copy",
   writeQueueCreateOperation: "remote create",
   writeQueueDeferredUpdateOperation: "deferred Loro update",
   writeQueueRevalidationOperation: "remote refresh refused",
