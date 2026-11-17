@@ -8,6 +8,7 @@ import {
   defaultDocumentProjectorRegistry,
 } from "../../../data/documents/documentKinds";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import {
   type DocumentsPersistence,
@@ -292,6 +293,7 @@ test("local-only purge refuses a document adopted before its transactional delet
           lockedExecSql,
           expectedRecord,
           deleteClientProjection,
+          deleteDocumentPlacements,
         );
       },
     };

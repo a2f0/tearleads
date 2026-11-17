@@ -10,6 +10,7 @@ import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge
 import { waitFor } from "../../../../test/helpers/waitFor";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { openDocumentStore } from "../../../stores/documents";
@@ -386,6 +387,7 @@ test("an undiscovered probe requires a signed purge proof to destroy local state
         signingFingerprint,
         signingKeyPair,
       },
+      deleteDocumentPlacements,
       infra: {
         blobStore: createMemoryBlobStore(),
         dbStatus: "ready",

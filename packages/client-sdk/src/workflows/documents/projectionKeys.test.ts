@@ -5,6 +5,7 @@ import {
 } from "@tearleads/crypto";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../data/shared/domainScope";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 import {
@@ -70,6 +71,7 @@ test("document runtime normalization preserves trusted resolver identity", () =>
       signingFingerprint: null,
       signingKeyPair: null,
     },
+    deleteDocumentPlacements,
     infra: {
       blobStore: {} as DocumentsWorkflowRuntimeInput["infra"]["blobStore"],
       dbStatus: "idle",

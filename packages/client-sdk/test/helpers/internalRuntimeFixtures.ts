@@ -5,6 +5,7 @@ import type {
 } from "../../src/client/runtime/workflowRuntime";
 import type { BlobStore } from "../../src/data/blobs/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
 import type { PrincipalHistoryProtectionLease } from "../../src/data/principals/principalHistoryProtection";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import { UnverifiedUserIdentityError } from "../../src/data/trustedUserIdentity";
@@ -104,6 +105,7 @@ export function createInternalRuntimeFixture(
   return {
     identityTrustDomain: "https://api.example.test",
     adoptRootContainer: overrides.adoptRootContainer ?? (() => false),
+    deleteDocumentPlacements,
     identityLinks: {
       loadAdmissionPin: async () => null,
       resolvePinned: async () => null,

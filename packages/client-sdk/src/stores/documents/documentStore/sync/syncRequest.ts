@@ -65,6 +65,7 @@ export async function deleteUpstreamDeletedDocument(
     const deletionStarted = await deletePersistedDocument({
       beforeDeleteInTransaction: commitPurgeProof,
       canStartDurableMutation: canDeleteCapturedDocument,
+      deleteDocumentPlacements: state.runtime.deleteDocumentPlacements,
       documentProjectors: state.runtime.infra.documentProjectors,
       execSql: generation.execSql,
       expectedRecord: requestRecord,

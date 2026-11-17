@@ -135,7 +135,7 @@ function unlinkedDocumentPlacementRows(
 }
 
 /** Removes a deleted document's queued placement intents and link targets. */
-export async function deleteDocumentPlacementIntentsInTransaction(
+async function deleteDocumentPlacementIntentsInTransaction(
   tx: ClientSQLiteTransactionScope,
   documentId: string,
 ): Promise<void> {
@@ -156,6 +156,19 @@ export async function deleteDocumentPlacementIntentsInTransaction(
     )
     .run();
   await tx.delete(localIntents).where(placementIntent).run();
+}
+
+/**
+ * Document Store's `DocumentPlacementCleanup`: placement rows and their
+ * tombstone holds, then queued placement intents, inside the deletion
+ * transaction.
+ */
+export async function deleteDocumentPlacements(
+  tx: ClientSQLiteTransactionScope,
+  documentId: string,
+): Promise<void> {
+  await deleteDocumentPlacementRowsByDocumentIds(tx, [documentId]);
+  await deleteDocumentPlacementIntentsInTransaction(tx, documentId);
 }
 
 async function ensureDocumentLinksSchema(execSql: ExecSql): Promise<void> {

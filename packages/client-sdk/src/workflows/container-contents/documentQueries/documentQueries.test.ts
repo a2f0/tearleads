@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createDocument } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { persistDocumentState } from "../../documents/persistence";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
@@ -315,6 +316,7 @@ test("a container-unmanaged persist cannot resurrect a document in a container i
       containerId: "root",
       currentDoc: await createDocument("contact-1"),
       currentRecord: staleStoreRecord,
+      deleteDocumentPlacements,
       documentProjectors: [],
       execSql,
       localId: "contact-local",

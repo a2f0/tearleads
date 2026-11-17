@@ -8,6 +8,7 @@ import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   type DocumentsPersistence,
   sqlDocumentsPersistence,
@@ -87,6 +88,7 @@ test("a queued edit retry cannot cross a durable write-access downgrade", async 
     const queuedPersist = persistDocumentState({
       currentDoc: document,
       currentRecord: writableRecord,
+      deleteDocumentPlacements,
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: connections.first.execSql,
       localId: writableRecord.id,

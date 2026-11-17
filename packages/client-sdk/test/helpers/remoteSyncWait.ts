@@ -2,6 +2,7 @@ import { createMockApiClient } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import { getDomainSyncCoordinatorSnapshot } from "../../src/data/sync/syncCoordinator";
 import {
@@ -29,6 +30,7 @@ export function createUnavailableRuntime(
       signingFingerprint: null,
       signingKeyPair: null,
     },
+    deleteDocumentPlacements,
     infra: {
       blobStore: createMemoryBlobStore(),
       dbStatus: "ready",
@@ -110,6 +112,7 @@ export function createProbeRuntime(input: {
         signingPublicKey: fixture.signingPublicKey,
       },
     },
+    deleteDocumentPlacements,
     infra: {
       blobStore: createMemoryBlobStore(),
       dbStatus: "ready",

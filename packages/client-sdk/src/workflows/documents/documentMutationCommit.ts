@@ -9,6 +9,7 @@ import {
   readStoredDocumentState,
 } from "../../data/documents/documentKinds";
 import type {
+  DocumentPlacementCleanup,
   DocumentsPersistence,
   StoredDocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";
@@ -60,6 +61,7 @@ export interface PersistDocumentStateInput
   clearSyncFailure?: boolean | undefined;
   commitSideEffect?: (transactionExecSql: ExecSql) => Promise<void>;
   containerId?: string | null | undefined;
+  deleteDocumentPlacements: DocumentPlacementCleanup;
   documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
   patch?: Partial<StoredDocumentRecord> | undefined;
@@ -467,6 +469,7 @@ export async function commitPreparedDocumentState(input: {
     attempt += 1
   ) {
     const mutation = await prepareDocumentMutationUnlessDeleted({
+      deleteDocumentPlacements: persistInput.deleteDocumentPlacements,
       documentProjectors: input.documentProjectors,
       guard: attempt === 0,
       lockedExecSql,

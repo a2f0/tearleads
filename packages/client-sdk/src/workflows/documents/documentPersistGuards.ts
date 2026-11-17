@@ -1,6 +1,7 @@
 import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { DocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import type {
+  DocumentPlacementCleanup,
   DocumentsPersistence,
   StoredDocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";
@@ -13,6 +14,7 @@ import {
 /** Refuse a queued update after another subsystem deleted its canonical row. */
 export async function refuseDeletedDocumentPersist(input: {
   currentRecord: StoredDocumentRecord | null;
+  deleteDocumentPlacements: DocumentPlacementCleanup;
   documentProjectors: DocumentProjectorRegistry;
   execSql: ExecSql;
   localId: string;
@@ -31,6 +33,7 @@ export async function refuseDeletedDocumentPersist(input: {
         localId: input.localId,
       });
     },
+    input.deleteDocumentPlacements,
   );
 }
 
@@ -41,6 +44,7 @@ export async function refuseDeletedDocumentPersist(input: {
  * must keep) is prepared afresh, as before the guard moved.
  */
 export async function prepareDocumentMutationUnlessDeleted(input: {
+  deleteDocumentPlacements: DocumentPlacementCleanup;
   documentProjectors: DocumentProjectorRegistry;
   guard: boolean;
   lockedExecSql: ExecSql;
@@ -59,6 +63,7 @@ export async function prepareDocumentMutationUnlessDeleted(input: {
     return mutation;
   const refused = await refuseDeletedDocumentPersist({
     currentRecord: persistInput.currentRecord,
+    deleteDocumentPlacements: input.deleteDocumentPlacements,
     documentProjectors: input.documentProjectors,
     execSql: lockedExecSql,
     localId: persistInput.localId,

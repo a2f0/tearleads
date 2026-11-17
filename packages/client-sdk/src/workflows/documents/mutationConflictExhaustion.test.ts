@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createDocument } from "@tearleads/loro";
 import { createDocumentProjectorRegistry } from "../../data/documents";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import type {
   DocumentsPersistence,
   StoredDocumentRecord,
@@ -36,6 +37,7 @@ test("document mutation conflict exhaustion fails instead of dropping the edit",
     persistDocumentState({
       currentDoc,
       currentRecord,
+      deleteDocumentPlacements,
       documentProjectors: createDocumentProjectorRegistry([]),
       execSql: (async () => []) as ExecSql,
       localId: currentRecord.id,

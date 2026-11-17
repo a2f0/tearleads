@@ -23,8 +23,7 @@
     "packages/client-sdk/src/client/session/sessionRootAuthority.ts"
   ],
   "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts": [
-    "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstones.ts",
-    "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts"
+    "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstones.ts"
   ],
   "packages/client-sdk/src/data/persistence/container-contents/documentPlacement.ts": [
     "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstoneHolds.ts",

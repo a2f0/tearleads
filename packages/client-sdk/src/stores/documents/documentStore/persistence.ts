@@ -137,6 +137,7 @@ export async function saveDocumentRecord(
     containerId: state.runtime.state.containerId,
     currentDoc,
     currentRecord: state.record,
+    deleteDocumentPlacements: state.runtime.deleteDocumentPlacements,
     documentProjectors: state.runtime.infra.documentProjectors,
     execSql: state.runtime.infra.execSql,
     expectedSyncState: options.expectedSyncState,

@@ -189,6 +189,7 @@ export {
   createBrowserLocalKeyringManifestStore,
   createBrowserNetworkStatusSource,
   createContainerDocumentObjectSyncState,
+  createDocumentsWorkflowRuntime,
   createDomainScope,
   createIndexedDbLocalKeyringManifestStore,
   createIndexedDbWrappingKeyKeystore,
@@ -457,7 +458,6 @@ export type {
 export {
   buildMaterializedDocumentCreatePlan,
   createDocumentProjectionUserKeyResolver,
-  createDocumentsWorkflowRuntime,
   DOCUMENT_SYNC_TRACE_FRAGMENT,
   DOCUMENT_SYNC_TRACE_PATTERN,
   DOCUMENTS_APP_KIND,

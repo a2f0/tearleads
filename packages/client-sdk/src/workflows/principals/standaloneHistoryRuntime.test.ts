@@ -5,6 +5,7 @@ import { createPublicProjectionHistoryFixture } from "../../../test/helpers/publ
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../data/shared/domainScope";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
 import {
@@ -50,6 +51,7 @@ test("standalone runtime inputs carry private history custody through every publ
       signingFingerprint: null,
       signingKeyPair: null,
     },
+    deleteDocumentPlacements,
     infra: {
       blobStore: createMemoryBlobStore(),
       dbStatus: "ready",

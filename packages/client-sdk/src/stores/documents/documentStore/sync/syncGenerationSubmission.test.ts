@@ -4,6 +4,7 @@ import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/documentFixtures";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { DocumentRecord } from "../../../../workflows/documents";
 import {
@@ -42,6 +43,7 @@ function createRuntime(
         signingPublicKey: fixture.signingPublicKey,
       },
     },
+    deleteDocumentPlacements,
     infra: {
       blobStore: createMemoryBlobStore(),
       dbStatus: "ready",

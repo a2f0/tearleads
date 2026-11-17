@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { persistDocumentState } from "./persistence";
 
@@ -43,6 +44,7 @@ test("a stale recovery pane cannot restore an intermediate document cursor", asy
     const settled = await persistDocumentState({
       currentDoc: document,
       currentRecord: staleRecoveryRecord,
+      deleteDocumentPlacements,
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
       expectedSyncState: {
@@ -111,6 +113,7 @@ test("an ordinary save reloads after raw recovery advances its fence", async () 
     const settled = await persistDocumentState({
       currentDoc: document,
       currentRecord: staleRecord,
+      deleteDocumentPlacements,
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
       localId: staleRecord.id,

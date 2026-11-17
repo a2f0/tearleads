@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { DocumentContainerProjectionRepository as Links } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import {
+  deleteDocumentPlacements,
+  DocumentContainerProjectionRepository as Links,
+} from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
@@ -233,6 +236,7 @@ test("a cached row deleted during first local hydration cannot reappear from the
     view.setActiveContainer("root");
     await waitFor(() => held, "No local summary read was held");
     await deletePersistedDocument({
+      deleteDocumentPlacements,
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: db.execSql,
       localId: "note",

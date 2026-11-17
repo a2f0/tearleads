@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence as persistence } from "../../../data/persistence/documents/documentsPersistence";
 import { purgeLocalContainerDocument } from "./documentPurge";
 
@@ -40,6 +41,7 @@ for (const moved of [false, true]) {
               lockedExecSql,
               expected,
               deleteProjection,
+              deleteDocumentPlacements,
             );
           },
         },

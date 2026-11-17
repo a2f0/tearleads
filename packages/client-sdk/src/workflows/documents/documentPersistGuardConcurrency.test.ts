@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import { createDocumentProjectorRegistry } from "../../data/documents";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { createClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { SqlArrayRow, SqlRow } from "../../data/sqlite/sqlSchema";
@@ -117,6 +118,7 @@ test("an initializer racing absent-row cleanup keeps its new document", async ()
         snapshotEndVersion: "stale-version",
         text: "stale",
       },
+      deleteDocumentPlacements,
       documentProjectors,
       execSql: race.cleanup.execSql,
       localId,

@@ -3,6 +3,7 @@ import { createDocument } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createDocumentProjectorRegistry } from "../../data/documents";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { createDomainScope } from "../../data/shared/domainScope";
 import {
@@ -82,7 +83,11 @@ test("an update persist refuses to resurrect a deleted row", async () => {
       await mutationHeld;
       // The real deletion path (documents row AND projection), running
       // inside the held mutation via serialized-exec re-entry.
-      await sqlDocumentsPersistence.deleteDocument(locked, "victim");
+      await sqlDocumentsPersistence.deleteDocument(
+        locked,
+        "victim",
+        deleteDocumentPlacements,
+      );
     });
     // This side write queues AFTER deletion but BEFORE the guarded persist. It
     // models the edit flows whose durable queue/history append is a separate
@@ -123,6 +128,7 @@ test("an update persist refuses to resurrect a deleted row", async () => {
     const queuedPersist = persistDocumentState({
       currentDoc: doc,
       currentRecord,
+      deleteDocumentPlacements,
       documentProjectors,
       execSql,
       historyUpdates: ["cmFjaW5nLXRhaWw="],
@@ -248,6 +254,7 @@ test("a create persist still inserts a new row", async () => {
     const persisted = await persistDocumentState({
       currentDoc: doc,
       currentRecord: null,
+      deleteDocumentPlacements,
       documentProjectors: createDocumentProjectorRegistry([]),
       execSql,
       localId: "fresh-doc",
@@ -301,6 +308,7 @@ test("the guard uses canonical existence instead of custom load semantics", asyn
       await persistDocumentState({
         currentDoc: doc,
         currentRecord,
+        deleteDocumentPlacements,
         documentProjectors: createDocumentProjectorRegistry([]),
         execSql,
         localId: "custom",
@@ -342,6 +350,7 @@ test("a refused persist marks the store removed", async () => {
     const runtime = {
       auth: { isAuthenticated: true, organizationId: "org", userId: "user" },
       crypto: {},
+      deleteDocumentPlacements,
       resolveTrustedUserIdentity: async () => null,
       infra: {
         dbStatus: "ready",
@@ -375,7 +384,11 @@ test("a refused persist marks the store removed", async () => {
     });
     const heldMutation = runSerializedSqlMutation(execSql, async (locked) => {
       await mutationHeld;
-      await sqlDocumentsPersistence.deleteDocument(locked, "victim");
+      await sqlDocumentsPersistence.deleteDocument(
+        locked,
+        "victim",
+        deleteDocumentPlacements,
+      );
     });
     const queuedSave = saveDocumentRecord(state, doc);
     await new Promise((resolve) => setTimeout(resolve, 0));

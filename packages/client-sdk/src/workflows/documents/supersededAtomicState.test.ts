@@ -7,6 +7,7 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { persistDocumentState } from "./persistence";
 
@@ -69,6 +70,7 @@ test("a superseded settlement adopts one atomic record and history pair", async 
     const result = await persistDocumentState({
       currentDoc: staleDoc,
       currentRecord: staleRecord,
+      deleteDocumentPlacements,
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
       expectedSyncState: { pullContinuation: null, record: staleRecord },

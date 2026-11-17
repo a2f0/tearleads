@@ -11,6 +11,7 @@ import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { withPrincipalPolicies } from "../../../../../test/helpers/principalPolicyServiceFixture";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import { BlobAttachmentService } from "../../../../workflows/blobs/blobAttachmentService";
@@ -148,6 +149,7 @@ export function createRotationRecoveryRuntime(input: {
         signingPublicKey,
       },
     },
+    deleteDocumentPlacements,
     infra: {
       blobStore: null as never,
       dbStatus: "ready",

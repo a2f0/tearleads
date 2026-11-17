@@ -1,3 +1,4 @@
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { listDocumentLocalIdsPlacedOnlyIn } from "../../../data/persistence/container-contents/exclusiveDocumentPlacements";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
 import { registerClientSQLiteCommitGuard } from "../../../data/sqlite/sqliteCommitGuards";
@@ -129,6 +130,7 @@ async function deleteDocumentUnlessEdited(input: {
           }
         });
       },
+      deleteDocumentPlacements,
       documentProjectors: input.documentProjectors,
       execSql: input.execSql,
       expectedRecord,

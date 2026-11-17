@@ -10,6 +10,7 @@ import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { attachmentContentSha256 } from "../../../../data/documents/attachmentContentIdentity";
 import { addDocumentAttachments } from "../../../../data/documents/documentContent";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import {
   clientSqlTables,
@@ -111,6 +112,7 @@ test.each([false, true])(
         signingFingerprint: null,
         signingKeyPair: null,
       },
+      deleteDocumentPlacements,
       infra: {
         blobStore,
         dbStatus: "ready",

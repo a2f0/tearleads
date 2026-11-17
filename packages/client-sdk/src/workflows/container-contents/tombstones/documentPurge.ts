@@ -3,6 +3,7 @@ import type { StoredDocumentKind } from "../../../data/documents/documentKinds";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { rethrowProjectionVerificationCancelled } from "../../../data/keyingProjectionVerification/types";
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { errorMessage } from "../../../data/shared/errorMessage";
 import {
   type DocumentsPersistence,
@@ -77,6 +78,7 @@ async function deleteAbsentDocumentState(input: {
       );
       await input.commitPurgeProof(transactionExecSql);
     },
+    deleteDocumentPlacements,
   );
 }
 
@@ -107,6 +109,7 @@ async function commitVerifiedDocumentPurge(input: {
   const deleted = expectedRecord
     ? await deletePersistedDocument({
         beforeDeleteInTransaction: input.commitPurgeProof,
+        deleteDocumentPlacements,
         documentProjectors: input.runtime.infra.documentProjectors,
         execSql: input.runtime.infra.execSql,
         expectedRecord,
@@ -227,6 +230,7 @@ export async function purgeLocalContainerDocument(input: {
     }
     const deleted = await deletePersistedDocument({
       beforeDeleteInTransaction: input.beforeDeleteInTransaction,
+      deleteDocumentPlacements,
       documentProjectors: runtime.infra.documentProjectors,
       execSql: runtime.infra.execSql,
       expectedRecord,

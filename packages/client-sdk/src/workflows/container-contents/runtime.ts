@@ -4,6 +4,7 @@ import {
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -146,6 +147,7 @@ function documentsRuntimeSnapshot(
     apiClient: runtime.apiClient,
     auth: runtime.auth,
     crypto: runtime.crypto,
+    deleteDocumentPlacements,
     infra: runtime.infra,
     principalPolicies: runtime.principalPolicies,
     resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,

@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import {
+  deleteDocumentPlacements,
+  DocumentContainerProjectionRepository as Links,
+} from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import {
@@ -294,7 +297,11 @@ test("deleting the document locally clears its holds", async () => {
     await seedDocumentInFolder(execSql);
     await holdFolderAt(execSql);
 
-    await documents.deleteDocument(execSql, "doc-local");
+    await documents.deleteDocument(
+      execSql,
+      "doc-local",
+      deleteDocumentPlacements,
+    );
 
     expect(
       await holds(execSql).listContainerDocumentTombstoneHolds(["folder"]),

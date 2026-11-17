@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createDocument, getTextValue } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
+import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { loadPersistedDocumentContent } from "../historyContent";
 import { persistDocumentState } from "../persistence";
@@ -46,6 +47,7 @@ test("concurrent initializers keep one document identity and birth checkpoint", 
         persistDocumentState({
           currentDoc: attempt.currentDoc,
           currentRecord: null,
+          deleteDocumentPlacements,
           documentProjectors: defaultDocumentProjectorRegistry,
           execSql,
           localId,
@@ -131,6 +133,7 @@ test("initial creation stops when its lifecycle expires before the transaction",
         canStartDurableMutation: () => isCurrent,
         currentDoc: doc,
         currentRecord: null,
+        deleteDocumentPlacements,
         documentProjectors: defaultDocumentProjectorRegistry,
         execSql,
         localId,

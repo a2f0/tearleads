@@ -126,6 +126,7 @@ class DocumentsService implements Documents {
     }
 
     const deleted = await deletePersistedDocument({
+      deleteDocumentPlacements: runtime.deleteDocumentPlacements,
       documentProjectors: runtime.infra.documentProjectors,
       execSql: runtime.infra.execSql,
       localId,
@@ -166,8 +167,11 @@ class DocumentsService implements Documents {
   workflowRuntime(
     containerId = this.dependencies.getDefaultContainerId(),
   ): DocumentsRuntime {
-    const input = this.dependencies.runtime.workflowInput(containerId);
-    return createDocumentsWorkflowRuntimeFromSnapshot(input);
+    const { runtime } = this.dependencies;
+    return createDocumentsWorkflowRuntimeFromSnapshot({
+      ...runtime.workflowInput(containerId),
+      deleteDocumentPlacements: runtime.deleteDocumentPlacements,
+    });
   }
 
   open(

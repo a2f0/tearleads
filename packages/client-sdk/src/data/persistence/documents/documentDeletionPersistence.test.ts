@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { documentPlacementIntentTables } from "../../sqlite/schema";
 import { ensureSqlTables } from "../../sqlite/sqlSchema";
+import { deleteDocumentPlacements } from "../container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
 function storedDocument(localId: string, documentId: string) {
@@ -43,6 +44,7 @@ test("purge teardown refuses another local alias for the remote document", async
         async () => {
           callbackCalls += 1;
         },
+        deleteDocumentPlacements,
       ),
     ).resolves.toBe(false);
     await expect(
@@ -53,6 +55,7 @@ test("purge teardown refuses another local alias for the remote document", async
         async () => {
           callbackCalls += 1;
         },
+        deleteDocumentPlacements,
       ),
     ).resolves.toBe(false);
     expect(callbackCalls).toBe(0);
@@ -106,6 +109,7 @@ test("absent-record purge deletes remote document projections and move intents",
         "missing-local",
         documentId,
         async () => undefined,
+        deleteDocumentPlacements,
       ),
     ).resolves.toBe(true);
     await expect(

@@ -5,6 +5,7 @@ import {
 } from "../../../data/documents/documentKinds";
 import type {
   DiscardDocumentToShellResult,
+  DocumentPlacementCleanup,
   DocumentsPersistence,
   StoredDocumentRecord,
 } from "../../../data/persistence/documents/documentsPersistence";
@@ -23,6 +24,7 @@ export async function deletePersistedDocument(input: {
     | ((transactionExecSql: ExecSql) => Promise<void>)
     | undefined;
   canStartDurableMutation?: (() => boolean) | undefined;
+  deleteDocumentPlacements: DocumentPlacementCleanup;
   documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
   expectedRecord?: StoredDocumentRecord | undefined;
@@ -67,6 +69,7 @@ export async function deletePersistedDocument(input: {
             });
             await input.beforeDeleteInTransaction?.(transactionExecSql);
           })(),
+        input.deleteDocumentPlacements,
       );
       if (!identityMatched) return;
     } else {
@@ -79,7 +82,11 @@ export async function deletePersistedDocument(input: {
         lockedExecSql,
         input.localId,
       );
-      await input.persistence.deleteDocument(lockedExecSql, input.localId);
+      await input.persistence.deleteDocument(
+        lockedExecSql,
+        input.localId,
+        input.deleteDocumentPlacements,
+      );
       await documentProjectors.deleteStoredDocumentClientProjection({
         documentKind: existing?.documentKind ?? DEFAULT_DOCUMENT_KIND,
         execSql: lockedExecSql,
