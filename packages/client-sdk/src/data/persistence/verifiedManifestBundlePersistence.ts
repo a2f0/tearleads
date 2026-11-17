@@ -261,6 +261,22 @@ export async function loadVerifiedManifestCitations(
   const limit = Math.min(KNOWN_MANIFEST_HINT_LIMIT, Math.floor(requestedLimit));
   if (!(limit > 0)) return [];
   const loadGeneration = evictionGeneration;
+  citationLoadsInFlight += 1;
+  try {
+    return await loadCitableManifestCitations(execSql, target, limit).then(
+      (cited) => cited.filter((citation) => citable(citation, loadGeneration)),
+    );
+  } finally {
+    citationLoadsInFlight -= 1;
+    if (citationLoadsInFlight === 0) evictedInGeneration.clear();
+  }
+}
+
+async function loadCitableManifestCitations(
+  execSql: ExecSql,
+  target: WriterProjectionTarget,
+  limit: number,
+): Promise<HeldProjectionCitation[]> {
   await ensureSqlTables(execSql, [
     ...verifiedManifestBundleTables,
     ...containerTables,
@@ -281,7 +297,7 @@ export async function loadVerifiedManifestCitations(
   );
   if (damaged.length > 0)
     await dropVerifiedManifestBundles(execSql, damaged).catch(() => undefined);
-  return cited.filter((citation) => citable(citation, loadGeneration));
+  return cited;
 }
 
 // Manifest hashes whose held rows a refused read is dropping: no read cites
@@ -291,6 +307,8 @@ export async function loadVerifiedManifestCitations(
 const suppressedCitations = new Map<string, number>();
 const evictedInGeneration = new Map<string, number>();
 let evictionGeneration = 0;
+// Loads in flight; once none overlap, the eviction log has nothing to guard.
+let citationLoadsInFlight = 0;
 
 /** Keeps these held bundles out of citations until the release runs. */
 export function suppressHeldCitations(
