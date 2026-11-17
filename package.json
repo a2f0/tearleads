@@ -1,6 +1,6 @@
 {
   "name": "tearleads",
-  "version": "0.1.57",
+  "version": "0.1.58",
   "private": true,
   "license": "UNLICENSED",
   "packageManager": "bun@1.4.3",
