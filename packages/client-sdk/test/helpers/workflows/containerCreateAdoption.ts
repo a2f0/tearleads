@@ -1,6 +1,5 @@
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { createContainerContentsWorkflowRuntime } from "../../../src/client/runtime/containerContentsRuntime";
 import { createMemoryBlobStore } from "../../../src/data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../src/data/documents/documentKinds";
 import { createDomainScope } from "../../../src/data/shared/domainScope";
@@ -15,10 +14,11 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../data/containerFixtures";
+import { createContainerContentsWorkflowRuntime } from "./containerContentsWorkflowRuntime";
 import {
   createChildContainerProjection,
   moveContainerProjection,
-} from "../workflows/projectionHierarchy";
+} from "./projectionHierarchy";
 
 type Parent = Awaited<ReturnType<typeof createParentProjection>>;
 

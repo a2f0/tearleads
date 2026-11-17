@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { unwrapDocumentContentKeyTarget } from "@tearleads/client-sdk";
 import { DOCUMENT_CONTENT_KEY_WRAP_SUITE } from "@tearleads/crypto";
 
 import { isDocumentCreateRequest } from "@tearleads/validators/request";
@@ -8,6 +7,7 @@ import {
   createAuthor,
   createWrappedProjection,
 } from "../../../../test/helpers/data/documentFixtures";
+import { unwrapDocumentContentKeyTarget } from "../../../data/documents/shared/projection/projectionContentKeys";
 
 import { buildMaterializedDocumentCreatePlan } from "./index";
 

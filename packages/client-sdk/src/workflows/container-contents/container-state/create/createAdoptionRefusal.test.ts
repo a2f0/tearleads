@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
+import { tamperFirstProjectionEventSignature } from "../../../../../test/helpers/data/containerFixtures";
 import {
   createAdoptionScenario,
   runListedCreateAdoption,
-} from "../../../../../test/helpers/client/containerCreateAdoption";
-import { tamperFirstProjectionEventSignature } from "../../../../../test/helpers/data/containerFixtures";
+} from "../../../../../test/helpers/workflows/containerCreateAdoption";
 import { CONTAINER_CREATE_ADOPTION_REFUSED } from "./createAdoption";
 
 // A failed adoption is recorded on its own intent and never stops the lane's
