@@ -87,6 +87,38 @@ test("structured fields are set, changed, and cleared", async () => {
   expect(readStoredDocumentState(doc).documentKind).toBe("contact");
 });
 
+test("fields named like inherited properties are cleared and set as fields", async () => {
+  const doc = await createDocument("restore-inherited-names");
+  writeStoredDocumentFields(doc, "contact", {
+    constructor: "old",
+    firstName: "Ada",
+    toString: "old",
+  });
+
+  // The restored version has neither `constructor` nor `toString`, and sets
+  // `valueOf`: each must be read as a field, never as Object's own method.
+  expect(
+    restoreDocumentContent(
+      doc,
+      content({ structuredFields: { firstName: "Ada", valueOf: "new" } }),
+      RESTORER,
+    ),
+  ).toBe(true);
+  expect(readStoredDocumentState(doc).structuredFields).toEqual({
+    firstName: "Ada",
+    valueOf: "new",
+  });
+
+  // Now equal: nothing left to restore.
+  expect(
+    restoreDocumentContent(
+      doc,
+      content({ structuredFields: { firstName: "Ada", valueOf: "new" } }),
+      RESTORER,
+    ),
+  ).toBe(false);
+});
+
 test("a note's structured fields are left alone", async () => {
   const doc = await createDocument("restore-note");
   doc.getText("text").update("note");

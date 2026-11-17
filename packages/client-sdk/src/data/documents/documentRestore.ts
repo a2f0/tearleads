@@ -44,6 +44,14 @@ function restoreText(doc: RestorableDocument, text: string): boolean {
   return true;
 }
 
+/** A field's own value: never a method every object inherits. */
+function ownField(
+  fields: Readonly<Record<string, string>>,
+  key: string,
+): string | undefined {
+  return Object.hasOwn(fields, key) ? fields[key] : undefined;
+}
+
 function restoreStructuredFields(
   doc: StructuredDocumentShape,
   target: Readonly<Record<string, string>>,
@@ -52,17 +60,27 @@ function restoreStructuredFields(
   const current = readStoredDocumentState(doc, registry);
   // A note has no structured fields to restore.
   if (current.documentKind === "note") return false;
-  const patch: Record<string, string | undefined> = {};
+  // Read both sides by own key only. A field named `constructor` or
+  // `toString` that the restored version lacks would otherwise read as the
+  // inherited function, which is neither "absent" nor a value Loro can store.
+  const changes: Array<[string, string | undefined]> = [];
   for (const key of new Set([
     ...Object.keys(current.structuredFields),
     ...Object.keys(target),
   ])) {
-    if (current.structuredFields[key] !== target[key]) {
-      patch[key] = target[key];
+    const wanted = ownField(target, key);
+    if (ownField(current.structuredFields, key) !== wanted) {
+      changes.push([key, wanted]);
     }
   }
-  if (Object.keys(patch).length === 0) return false;
-  writeStoredDocumentFields(doc, current.documentKind, patch, registry);
+  if (changes.length === 0) return false;
+  // fromEntries defines every key as an own property, `__proto__` included.
+  writeStoredDocumentFields(
+    doc,
+    current.documentKind,
+    Object.fromEntries(changes),
+    registry,
+  );
   return true;
 }
 
