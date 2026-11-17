@@ -136,7 +136,7 @@ test("stepping the gallery gives each screen its own page's heading and title", 
   ).toBe("phone");
 });
 
-test("the home carousel loops every phone screen and links to its page", async () => {
+test("the home carousel shows each phone screen once and links to its page", async () => {
   const carousel = await mount("screenshot-carousel", {
     project: "mobile",
     "link-base": SCREENSHOTS_BASE_PATH,
@@ -144,17 +144,26 @@ test("the home carousel loops every phone screen and links to its page", async (
     "view-all-href": "/screenshots/mobile/explorer/",
     "view-all-label": "All screenshots",
   });
-  const slides = [
-    ...carousel.querySelectorAll(".shots-carousel-slide:not([data-clone])"),
-  ];
+  const slides = [...carousel.querySelectorAll(".shots-carousel-slide")];
   expect(slides.map((slide) => slide.textContent)).toEqual([
     "Explorer",
     "Contacts",
     "Notes",
   ]);
+  // No loop copies: every slide is visible to assistive technology and in the
+  // tab order, and its image keeps the alt text PhoneCarousel.astro renders.
+  expect(carousel.querySelectorAll("[data-clone]")).toHaveLength(0);
+  for (const slide of slides) {
+    expect(slide.hasAttribute("aria-hidden")).toBe(false);
+    expect(slide.querySelector("a")?.hasAttribute("tabindex")).toBe(false);
+  }
   expect(
-    carousel.querySelectorAll(".shots-carousel-slide[data-clone]").length,
-  ).toBeGreaterThanOrEqual(slides.length * 2);
+    slides.map((slide) => slide.querySelector("img")?.getAttribute("alt")),
+  ).toEqual([
+    "Explorer, phone screenshot",
+    "Contacts, phone screenshot",
+    "Notes, phone screenshot",
+  ]);
   expect(
     slides.map((slide) => slide.querySelector("a")?.getAttribute("href")),
   ).toEqual([
@@ -174,4 +183,75 @@ test("the home carousel loops every phone screen and links to its page", async (
     (route) => `${SCREENSHOTS_BASE_PATH}/${route.params.slug}/`,
   );
   expect(routes).toContain(href ?? "");
+});
+
+// happy-dom has no layout. Lays the carousel out as on a phone: 240px slides
+// 264px apart behind 16px of padding, in a 390px track that scrolls only as far
+// as its content and finishes each scroll at once. Returns the track.
+function layOutPhoneRow(carousel: Element): HTMLElement {
+  const track = carousel.querySelector<HTMLElement>(".shots-carousel-track");
+  if (!track) throw new Error("the carousel has no track");
+  const slides = [...carousel.querySelectorAll(".shots-carousel-slide")];
+  for (const [index, slide] of slides.entries()) {
+    Object.defineProperty(slide, "offsetLeft", { value: 16 + index * 264 });
+  }
+  const width = 390;
+  const end = 2 * 16 + slides.length * 264 - 24 - width;
+  let left = 0;
+  // gallery.css rests a slide inside the padding; happy-dom reads inline styles.
+  track.style.setProperty("scroll-padding-left", "16px");
+  Object.defineProperties(track, {
+    clientWidth: { value: width },
+    scrollWidth: { value: width + end },
+    scrollLeft: {
+      get: () => left,
+      set: (value: number) => {
+        left = Math.min(end, Math.max(0, value));
+      },
+    },
+    scrollTo: {
+      value: (options: ScrollToOptions) => {
+        const before = left;
+        track.scrollLeft = options.left ?? 0;
+        if (left !== before) track.dispatchEvent(new Event("scroll"));
+      },
+    },
+  });
+  track.dispatchEvent(new Event("scroll"));
+  return track;
+}
+
+test("the home carousel stops at its last phone screen instead of wrapping", async () => {
+  const carousel = await mount("screenshot-carousel", {
+    project: "mobile",
+    "link-base": SCREENSHOTS_BASE_PATH,
+  });
+  const track = layOutPhoneRow(carousel);
+  const [previous, next] = carousel.querySelectorAll<HTMLButtonElement>(
+    ".shots-carousel-step",
+  );
+  if (!previous || !next) throw new Error("the carousel has no step buttons");
+  const unavailable = () =>
+    [previous, next]
+      .filter((button) => button.getAttribute("aria-disabled") === "true")
+      .map((button) => button.dataset.step);
+  // It starts at the first screen, where only the next step can move.
+  expect([track.scrollLeft, unavailable()]).toEqual([0, ["-1"]]);
+  next.click();
+  expect(unavailable()).toEqual([]);
+  // Stepping on reaches the end of the row and stays there rather than
+  // returning to the first screen. The button that cannot move is marked
+  // unavailable but never disabled, so it can keep keyboard focus.
+  for (let press = 0; press < 5; press += 1) next.click();
+  expect([track.scrollLeft, unavailable(), next.disabled]).toEqual([
+    410,
+    ["1"],
+    false,
+  ]);
+  for (let press = 0; press < 5; press += 1) previous.click();
+  expect([track.scrollLeft, unavailable(), previous.disabled]).toEqual([
+    0,
+    ["-1"],
+    false,
+  ]);
 });
