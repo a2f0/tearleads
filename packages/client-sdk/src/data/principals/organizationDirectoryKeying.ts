@@ -197,9 +197,10 @@ export async function organizationDirectoryKeying(input: {
   // for one admin, 3.0 ms for two and 6.0 ms for five; API statements and
   // request bytes are equal. A single admin keeps too, since a held epoch is
   // what lets a successor cite its predecessor's envelope set (#2903).
-  // Keeping trusts the signed key to be fresh: verifiers compare key material
-  // only with the immediate predecessor, so a key an admin rotated back to an
-  // old one stays until the next removal rotates it.
+  // Keeping does not check that the signed key is fresh, and need not: the
+  // directory key encrypts no data (the payload is a plain signed descriptor
+  // and grants name only groups or users). Anything that encrypts to it must
+  // first restore rotation on every write or a no-reuse rule.
   const secret = await heldOrganizationSecret(input);
   if (!secret) return rotatedKeying(input);
   await assertKeptRecipients(input, currentEnvelopes);
