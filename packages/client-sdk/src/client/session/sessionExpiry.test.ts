@@ -16,8 +16,12 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   });
 }
 
-for (const sameUser of [true, false]) {
-  test(`restored token renewal preserves the acknowledged user (same user: ${sameUser})`, async () => {
+for (const [sameUser, selected] of [
+  [true, "org-1"],
+  [true, "selected-org"],
+  [false, "org-1"],
+] as const) {
+  test(`restored token renewal preserves the acknowledged user (same user: ${sameUser}, selected: ${selected})`, async () => {
     const { close, execSql } = await createTestExecSql(
       "session-expiry-identity-trust",
     );
@@ -91,7 +95,7 @@ for (const sameUser of [true, false]) {
         isAuthenticated: true,
         isRoot: false,
         rootAcknowledgments: [],
-        organizationId: "org-1",
+        organizationId: selected,
         userId: "22222222-2222-4222-8222-222222222222",
       });
 
@@ -126,7 +130,7 @@ for (const sameUser of [true, false]) {
             rootContainerId: null,
           },
         ],
-        organizationId: "org-2",
+        organizationId: selected === "org-1" ? "org-2" : selected,
         userId: "22222222-2222-4222-8222-222222222222",
       });
       expect(requests).toEqual([

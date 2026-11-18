@@ -50,14 +50,15 @@ class OpfsBlobStore implements BlobStore {
     }
   }
 
-  deleteBytes(storageKey: string) {
-    return this.useFile(() => this.removeFile(storageKey));
+  deleteBytes(storageKey: string, assertCurrent?: () => void) {
+    return this.useFile(() => this.removeFile(storageKey, assertCurrent));
   }
 
-  private async removeFile(storageKey: string) {
+  private async removeFile(storageKey: string, assertCurrent?: () => void) {
     const directory = await this.getDirectory();
 
     try {
+      assertCurrent?.();
       await directory.removeEntry(this.getFileName(storageKey));
     } catch (error) {
       if (error instanceof DOMException && error.name === "NotFoundError") {
@@ -95,13 +96,24 @@ class OpfsBlobStore implements BlobStore {
     }
   }
 
-  writeByteSource(storageKey: string, source: BlobByteSource) {
-    return this.useFile(() => this.writeFile(storageKey, source));
+  writeByteSource(
+    storageKey: string,
+    source: BlobByteSource,
+    assertCurrent?: () => void,
+  ) {
+    return this.useFile(() =>
+      this.writeFile(storageKey, source, assertCurrent),
+    );
   }
 
-  private async writeFile(storageKey: string, source: BlobByteSource) {
+  private async writeFile(
+    storageKey: string,
+    source: BlobByteSource,
+    assertCurrent?: () => void,
+  ) {
     const sourceByteLength = blobByteSourceInputLength(source);
     const directory = await this.getDirectory();
+    assertCurrent?.();
     const fileHandle = await directory.getFileHandle(
       this.getFileName(storageKey),
       { create: true },
@@ -121,6 +133,7 @@ class OpfsBlobStore implements BlobStore {
         await writable.write(chunk);
         offset += byteLength;
       }
+      assertCurrent?.();
       await writable.close();
     } catch (error) {
       await writable.abort(error).catch(() => undefined);
@@ -128,8 +141,16 @@ class OpfsBlobStore implements BlobStore {
     }
   }
 
-  async writeBytes(storageKey: string, bytes: BlobBytes) {
-    await this.writeByteSource(storageKey, createBlobByteSource(bytes));
+  async writeBytes(
+    storageKey: string,
+    bytes: BlobBytes,
+    assertCurrent?: () => void,
+  ) {
+    await this.writeByteSource(
+      storageKey,
+      createBlobByteSource(bytes),
+      assertCurrent,
+    );
   }
 
   private getFileName(storageKey: string): string {

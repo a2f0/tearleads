@@ -3,7 +3,9 @@ import {
   purgeOpfsBlobStore,
   type Session,
 } from "@tearleads/client-sdk";
-import { useCallback, useState } from "react";
+import { useCallback, useReducer } from "react";
+
+import { transitionLogoutDialog } from "./logoutDialogMachine";
 
 export interface LogoutOptions {
   readonly keepLocalData: boolean;
@@ -15,33 +17,35 @@ interface ConfirmedLogoutInput extends LogoutOptions {
   readonly logError: (message: string, error: unknown) => void;
   readonly onAfterLocalLogout?: () => void;
   readonly onRemoteLogoutFailure?: () => void;
-  readonly purgeWorker: () => Promise<void>;
+  readonly purgeWorker: (current: () => boolean) => Promise<void>;
   readonly session: Pick<Session, "logoutRemote">;
   readonly signingFingerprint: string | null;
 }
 
 export function useLogoutConfirmationDialogState(scope: DomainScope) {
-  const [owner, setOwner] = useState<DomainScope | null>(null);
-
-  const requestLogout = useCallback(() => {
-    setOwner(scope);
-  }, [scope]);
-
+  const [dialog, send] = useReducer(transitionLogoutDialog, {
+    status: "closed",
+  });
+  const requestLogout = useCallback(
+    () => send({ type: "open", scope, request: Symbol() }),
+    [scope],
+  );
+  const request =
+    dialog.status === "open" && dialog.scope === scope ? dialog.request : null;
   const closeLogoutDialog = useCallback(() => {
-    setOwner(null);
-  }, []);
-
-  return { closeLogoutDialog, isOpen: owner === scope, requestLogout };
+    if (request) send({ type: "close", request });
+  }, [request]);
+  return { closeLogoutDialog, isOpen: request !== null, requestLogout };
 }
 
 async function destroyLocalSessionData(input: {
   readonly current: () => boolean;
   readonly logError: (message: string, error: unknown) => void;
-  readonly purgeWorker: () => Promise<void>;
+  readonly purgeWorker: (current: () => boolean) => Promise<void>;
   readonly signingFingerprint: string | null;
 }): Promise<void> {
   try {
-    await input.purgeWorker();
+    await input.purgeWorker(input.current);
   } catch (error: unknown) {
     input.logError("Failed to wipe local database", error);
   }

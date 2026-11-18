@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { runConfirmedLogout } from "./useLogoutConfirmation";
+import { createDomainScope } from "@tearleads/client-sdk";
+import { act, renderHook } from "@testing-library/react";
+import {
+  runConfirmedLogout,
+  useLogoutConfirmationDialogState,
+} from "./useLogoutConfirmation";
 
 test("a delayed logout cannot clear or wipe a newly selected identity", async () => {
   let currentSigningFingerprint: string | null = "identity-a";
@@ -30,4 +35,22 @@ test("a delayed logout cannot clear or wipe a newly selected identity", async ()
   expect(result).toBe(true);
   expect(clearedSessionListCount).toBe(0);
   expect(purgeCount).toBe(0);
+});
+
+test("a completed logout closes only the dialog that submitted it", () => {
+  let scope = createDomainScope();
+  const { result, rerender, unmount } = renderHook(() =>
+    useLogoutConfirmationDialogState(scope),
+  );
+  try {
+    act(result.current.requestLogout);
+    const closeFirst = result.current.closeLogoutDialog;
+    scope = createDomainScope();
+    rerender();
+    act(result.current.requestLogout);
+    act(closeFirst);
+    expect(result.current.isOpen).toBe(true);
+  } finally {
+    unmount();
+  }
 });

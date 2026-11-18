@@ -18,7 +18,11 @@ import type {
 export async function authenticateSession(
   dependencies: SessionDependencies,
   session: Session & {
-    commitContext(context: SessionContext, kind: "renewal" | "boundary"): void;
+    commitContext(
+      context: SessionContext,
+      kind: "renewal" | "boundary",
+      verifiedTicket: string,
+    ): void;
     clearAuthentication(renewal: boolean): void;
   },
   acknowledgments: SessionIdentityAcknowledgments,
@@ -129,14 +133,7 @@ async function runAuthentication(
   // snapshot (no await in between); the refusal clears the prior session in
   // that same step and then reports its own incident.
   await commitSessionRootAcknowledgment({
-    context: {
-      authToken: authentication.token,
-      defaultOrganizationId: authentication.organizationId,
-      isAuthenticated: true,
-      isRoot: authentication.isRoot,
-      organizationId: authentication.organizationId,
-      userId: authentication.userId,
-    },
+    context: authenticatedSessionContext(session, authentication, renewal),
     onRefused: () => {
       if (session.snapshot === snapshotAtStart)
         session.clearAuthentication(renewal);
@@ -146,12 +143,38 @@ async function runAuthentication(
     session: {
       snapshot: session.snapshot,
       setContext: (context) =>
-        session.commitContext(context, renewal ? "renewal" : "boundary"),
+        session.commitContext(
+          context,
+          renewal ? "renewal" : "boundary",
+          authentication.wsTicket,
+        ),
     },
     signingFingerprint: fingerprint,
   });
   dependencies.log("Authentication successful");
   return true;
+}
+
+function authenticatedSessionContext(
+  session: Session,
+  authentication: NonNullable<Awaited<ReturnType<typeof authenticate>>>,
+  renewal: boolean,
+): SessionContext {
+  // An independently selected organization survives renewal. A selection
+  // following the server default follows a change to that default.
+  const { organizationId: serverDefault } = authentication;
+  const selected = session.organizationId;
+  return {
+    authToken: authentication.token,
+    defaultOrganizationId: serverDefault,
+    isAuthenticated: true,
+    isRoot: authentication.isRoot,
+    organizationId:
+      renewal && selected && selected !== session.defaultOrganizationId
+        ? selected
+        : serverDefault,
+    userId: authentication.userId,
+  };
 }
 
 function assertSignInCurrent(isCurrent: () => boolean): void {

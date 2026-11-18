@@ -5,15 +5,34 @@ import { SessionAuthentication } from "./authenticationMachine";
 import { createSessionBlobStore } from "./sessionBlobStore";
 import type { SessionSnapshot } from "./sessionTypes";
 
+export type SessionTransition = "boundary" | "renewal" | "renewal-refused";
+
+export function sessionBoundary(
+  previous: SessionSnapshot,
+  next: SessionSnapshot,
+  kind?: SessionTransition,
+) {
+  if (kind === "renewal-refused") return kind;
+  if (kind === "boundary" || previous.isAuthenticated !== next.isAuthenticated)
+    return "replacement";
+  return undefined;
+}
+
 class SessionLifetime {
   epoch = 0;
   signInRevision = 0;
+  signInCurrent = this.captureSignIn();
   readonly authentication = new SessionAuthentication();
   private hasSignedIn = false;
   onBoundary?: () => void;
   lastRenewal: SessionSnapshot | null = null;
   private stores = new WeakMap<BlobStore, BlobStore>();
   private executors = new WeakMap<ExecSql, ExecSql>();
+
+  private captureSignIn(): () => boolean {
+    const revision = this.signInRevision;
+    return () => revision === this.signInRevision;
+  }
 
   guard(): () => void {
     const current = this.capture();
@@ -30,6 +49,7 @@ class SessionLifetime {
 
   transition(wasSignedIn: boolean, signedIn: boolean): boolean {
     this.signInRevision += 1;
+    this.signInCurrent = this.captureSignIn();
     this.authentication.invalidate();
     // The first sign-in adopts the device's unclaimed local work. A client
     // that has already had a sign-in gives every replacement a fresh scope.

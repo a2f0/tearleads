@@ -174,6 +174,7 @@ export class Tearleads {
       const previous = this.domainScopeValue;
       this.deviceFirst.dispose();
       disposeDomainSyncCoordinator(previous);
+      this.events.clear();
     };
     this.organizations = createOrganizations(
       runtime,

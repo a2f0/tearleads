@@ -26,20 +26,35 @@ export function createSessionBlobStore(
     };
   }
 
+  function commitGuard(check?: () => void) {
+    return check
+      ? () => {
+          assertCurrent();
+          check();
+        }
+      : assertCurrent;
+  }
+
   return {
-    deleteBytes: (key) =>
-      queue(key, () => guarded(() => store.deleteBytes(key))),
+    deleteBytes: (key, check) =>
+      queue(key, () =>
+        guarded(() => store.deleteBytes(key, commitGuard(check))),
+      ),
     openByteSource: (key) =>
       queue(key, async () => {
         const source = await guarded(() => store.openByteSource(key));
         return source && currentSource(source);
       }),
     readBytes: (key) => queue(key, () => guarded(() => store.readBytes(key))),
-    writeByteSource: (key, source) =>
+    writeByteSource: (key, source, check) =>
       queue(key, () =>
-        guarded(() => store.writeByteSource(key, currentSource(source))),
+        guarded(() =>
+          store.writeByteSource(key, currentSource(source), commitGuard(check)),
+        ),
       ),
-    writeBytes: (key, bytes) =>
-      queue(key, () => guarded(() => store.writeBytes(key, bytes))),
+    writeBytes: (key, bytes, check) =>
+      queue(key, () =>
+        guarded(() => store.writeBytes(key, bytes, commitGuard(check))),
+      ),
   };
 }

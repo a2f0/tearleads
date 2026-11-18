@@ -87,15 +87,16 @@ function retainRuntimeAfterReset(params: {
 
 function purgeCapturedDatabaseAfterOperation(params: {
   readonly dbName: string | null;
+  readonly removeDatabase: (dbName: string) => Promise<void>;
   readonly operation: SQLiteRuntimeOperation;
   readonly refs: RuntimeRefs;
 }): Promise<void> {
-  const { dbName, operation, refs } = params;
+  const { dbName, operation, refs, removeDatabase } = params;
   let retainedRuntime: SQLiteRuntime | null = null;
   const result = operation.promise
     .then(() => {
       retainedRuntime = refs.runtimeRef.current;
-      return dbName ? purgeOpfsSqliteDatabase(dbName) : undefined;
+      return dbName ? removeDatabase(dbName) : undefined;
     })
     .catch((error: unknown) => {
       if (refs.runtimeRef.current === retainedRuntime) {
@@ -112,12 +113,13 @@ function purgeCapturedDatabaseAfterOperation(params: {
 
 function purgeCapturedDatabase(params: {
   readonly dbName: string | null;
+  readonly removeDatabase: (dbName: string) => Promise<void>;
   readonly refs: RuntimeRefs;
   readonly runtime: SQLiteRuntime | null;
 }): Promise<void> {
-  const { dbName, refs, runtime } = params;
+  const { dbName, refs, runtime, removeDatabase } = params;
   const result = Promise.resolve()
-    .then(() => (dbName ? purgeOpfsSqliteDatabase(dbName) : undefined))
+    .then(() => (dbName ? removeDatabase(dbName) : undefined))
     .catch((error: unknown) => {
       if (refs.runtimeRef.current === runtime) {
         refs.runtimeRef.current = null;
@@ -130,35 +132,39 @@ function purgeCapturedDatabase(params: {
 
 async function purgeNonReadySQLiteRuntime(params: {
   readonly dbName: string | null;
+  readonly removeDatabase: (dbName: string) => Promise<void>;
   readonly retireRuntime: boolean;
   readonly refs: RuntimeRefs;
   readonly runtime: SQLiteRuntime;
   readonly tearleads: Tearleads;
 }): Promise<void> {
-  const { dbName, refs, retireRuntime, runtime, tearleads } = params;
+  const { dbName, refs, retireRuntime, runtime, tearleads, removeDatabase } =
+    params;
   if (retireRuntime) {
     terminateRuntime(refs, tearleads, "idle");
     const releaseOperation = refs.runtimeOperationRef.current;
     if (releaseOperation) {
       await purgeCapturedDatabaseAfterOperation({
         dbName,
+        removeDatabase,
         operation: releaseOperation,
         refs,
       });
       return;
     }
   }
-  await purgeCapturedDatabase({ dbName, refs, runtime });
+  await purgeCapturedDatabase({ dbName, removeDatabase, refs, runtime });
 }
 
 async function purgeSQLiteRuntime(params: {
   readonly dbName: string | null;
+  readonly removeDatabase: (dbName: string) => Promise<void>;
   readonly log: (message: string) => void;
   readonly refs: RuntimeRefs;
   readonly reuseWorker: boolean;
   readonly tearleads: Tearleads;
 }): Promise<void> {
-  const { dbName, log, refs, reuseWorker, tearleads } = params;
+  const { dbName, log, refs, reuseWorker, tearleads, removeDatabase } = params;
   let runtime = refs.runtimeRef.current;
   const wasBooting = refs.bootingRef.current;
   const runtimeStatus = tearleads.database.status;
@@ -174,6 +180,7 @@ async function purgeSQLiteRuntime(params: {
     if (releaseOperation) {
       await purgeCapturedDatabaseAfterOperation({
         dbName,
+        removeDatabase,
         operation: releaseOperation,
         refs,
       });
@@ -190,6 +197,7 @@ async function purgeSQLiteRuntime(params: {
     // the captured name-based fallback.
     await purgeCapturedDatabaseAfterOperation({
       dbName,
+      removeDatabase,
       operation: pendingOperation,
       refs,
     });
@@ -204,6 +212,7 @@ async function purgeSQLiteRuntime(params: {
   ) {
     await purgeNonReadySQLiteRuntime({
       dbName,
+      removeDatabase,
       retireRuntime: runtimeStatus === "error",
       refs,
       runtime,
@@ -232,7 +241,12 @@ async function purgeSQLiteRuntime(params: {
     return;
   }
   if (dbName) {
-    await purgeCapturedDatabase({ dbName, refs, runtime: null });
+    await purgeCapturedDatabase({
+      dbName,
+      removeDatabase,
+      refs,
+      runtime: null,
+    });
   }
 }
 
@@ -250,7 +264,10 @@ function usePurgeSQLiteRuntime({
   readonly tearleads: Tearleads;
 }) {
   return useCallback(
-    (requestedDbName?: string) => {
+    (requestedDbName?: string, current: () => boolean = () => true) => {
+      if (!current()) return Promise.resolve();
+      const removeDatabase = (name: string) =>
+        purgeOpfsSqliteDatabase(name, current);
       const dbName =
         requestedDbName ??
         refs.currentDbNameRef.current ??
@@ -263,12 +280,13 @@ function usePurgeSQLiteRuntime({
         return trackRuntimeOperation(
           refs,
           null,
-          pending.then(() => purgeOpfsSqliteDatabase(dbName)),
+          pending.then(() => removeDatabase(dbName)),
           "purge",
         );
       }
       return purgeSQLiteRuntime({
         dbName,
+        removeDatabase,
         log,
         refs,
         reuseWorker,

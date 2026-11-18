@@ -150,7 +150,7 @@ export interface Session {
    * it as this identity's account.
    */
   readonly userIdAcknowledged: boolean;
-  /** Is the captured sign-in still active, including after a token renewal? */
+  /** Stable predicate for this sign-in, including after verified renewal. */
   captureSignIn(): () => boolean;
   bootstrapLocalRootContainer(isCurrent?: () => boolean): Promise<{
     containerId: string;

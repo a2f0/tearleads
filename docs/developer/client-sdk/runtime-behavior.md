@@ -16,6 +16,11 @@ the returned predicate before applying its result. For confirmed logout,
 the session that initiated the request. The callback receives a predicate for
 checking ownership again after each asynchronous cleanup step.
 
+Host implementations of `BlobStore` check the optional `assertCurrent` callback
+at the commit point for writes and deletes. Adapters pass it through to their
+backing store. The SDK's OPFS store checks before closing the staged file and
+aborts the write if its owning sign-in has ended.
+
 ## Document persistence notifications
 
 `PersistedDocumentListener` supplies a summary and `placementChanged` flag.

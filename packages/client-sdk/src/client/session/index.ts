@@ -17,7 +17,11 @@ import {
   requireSessionTrustDomain,
   SessionIdentityAcknowledgments,
 } from "./sessionIdentityTrust";
-import { sessionLifetime } from "./sessionLifetime";
+import {
+  type SessionTransition,
+  sessionBoundary,
+  sessionLifetime,
+} from "./sessionLifetime";
 import { userSessionsFromResponse } from "./sessionListing";
 import { authenticateSession } from "./sessionLogin";
 import { createSessionOrganization } from "./sessionOrganizationCreation";
@@ -63,9 +67,7 @@ class SessionService implements Session {
   constructor(private readonly dependencies: SessionDependencies) {}
 
   captureSignIn(): () => boolean {
-    const lifetime = sessionLifetime(this);
-    const revision = lifetime.signInRevision;
-    return () => revision === lifetime.signInRevision;
+    return sessionLifetime(this).signInCurrent;
   }
 
   get authToken(): string | null {
@@ -410,7 +412,8 @@ class SessionService implements Session {
 
   commitContext(
     context: SessionContext,
-    kind?: "boundary" | "renewal" | "renewal-refused",
+    kind?: SessionTransition,
+    verifiedTicket?: string,
   ): void {
     const wasAcknowledged = this.userIdAcknowledged;
     this.identityAcknowledgments.remember(
@@ -425,6 +428,7 @@ class SessionService implements Session {
         this.dependencies.identity.snapshot.signingFingerprint,
       ),
       kind,
+      verifiedTicket,
     );
     // Acknowledging an already-held userId changes `userIdAcknowledged` without
     // changing the snapshot; persistence subscribers must still observe it.
@@ -463,15 +467,13 @@ class SessionService implements Session {
 
   private setSnapshot(
     next: SessionSnapshot,
-    kind?: "boundary" | "renewal" | "renewal-refused",
+    kind?: SessionTransition,
+    verifiedTicket?: string,
   ): void {
     const previous = this.snapshotValue;
 
     const lifetime = sessionLifetime(this);
-    const boundary =
-      kind === "boundary" ||
-      kind === "renewal-refused" ||
-      previous.isAuthenticated !== next.isAuthenticated;
+    const boundary = sessionBoundary(previous, next, kind);
     const retired =
       boundary &&
       lifetime.transition(
@@ -480,12 +482,8 @@ class SessionService implements Session {
       );
     if (boundary || previous.authToken !== next.authToken) {
       this.dependencies.api.setAuthToken(next.authToken, {
-        boundary:
-          kind === "renewal-refused"
-            ? kind
-            : boundary
-              ? "replacement"
-              : undefined,
+        verifiedTicket,
+        boundary,
       });
     }
     lifetime.lastRenewal = kind === "renewal" ? next : null;

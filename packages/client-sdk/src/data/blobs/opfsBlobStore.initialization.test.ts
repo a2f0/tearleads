@@ -160,3 +160,40 @@ test("a new attachment waits for dispatched removal and reopens the identity dir
   await Promise.all([purge, write]);
   expect(writtenDirectories).toEqual([0, 1]);
 });
+
+test("retiring a write after its last chunk aborts the temporary file before close", async () => {
+  const writing = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const close = mock(async () => {});
+  const abort = mock(async () => {});
+  const file = {
+    createWritable: async () => ({
+      close,
+      abort,
+      write: async () => {
+        writing.resolve();
+        await release.promise;
+      },
+    }),
+  };
+  const app = {
+    getDirectoryHandle: async () => ({ getFileHandle: async () => file }),
+  };
+  installStorage(
+    async () =>
+      ({
+        getDirectoryHandle: async () => app,
+      }) as unknown as FileSystemDirectoryHandle,
+  );
+  let current = true;
+  const store = createOpfsBlobStore("owner");
+  const pending = store.writeBytes("attachment", attachmentBytes, () => {
+    if (!current) throw new Error("ended");
+  });
+  await writing.promise;
+  current = false;
+  release.resolve();
+  await expect(pending).rejects.toThrow("ended");
+  expect(close).not.toHaveBeenCalled();
+  expect(abort).toHaveBeenCalledTimes(1);
+});

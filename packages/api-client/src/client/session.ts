@@ -82,8 +82,13 @@ export class SessionArea {
 
   setAuthToken(
     token: string | null,
-    options?: { boundary?: SessionBoundary | undefined },
+    options?: {
+      boundary?: SessionBoundary | undefined;
+      verifiedTicket?: string | undefined;
+    },
   ): void {
+    if (options?.boundary)
+      this.webSocketTickets.retainVerifiedTicket(options.verifiedTicket);
     if (this.context.runtime.setAuthToken(token, options?.boundary)) {
       this.context.clearAuthScopedCaches();
     }
@@ -145,12 +150,13 @@ export class SessionArea {
   }
 
   async authenticate(fingerprint: string, secretKey: Uint8Array) {
+    const session = this.context.runtime.responseRequest.sessionSignal?.();
     const challenge = await this.context.transport.request(
       challengeOperation,
       { body: { fingerprint }, params: {} },
       { retryOnSessionExpired: false },
     );
-    if (!challenge) return null;
+    if (!challenge || session?.aborted) return null;
 
     return this.self.authenticateWithChallenge(
       fingerprint,
@@ -164,6 +170,7 @@ export class SessionArea {
     secretKey: Uint8Array,
     challengeHex: string,
   ): Promise<VerifySuccessResponse | null> {
+    const session = this.context.runtime.responseRequest.sessionSignal?.();
     const signed = sign(
       this.context.runtime.authChallengeBytes(challengeHex, fingerprint),
       secretKey,
@@ -178,7 +185,7 @@ export class SessionArea {
         { retryOnSessionExpired: false },
       ),
     );
-    if (!response?.authenticated) return null;
+    if (!response?.authenticated || session?.aborted) return null;
     this.webSocketTickets.rememberLogin(response);
     return response;
   }
