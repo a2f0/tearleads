@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createScopedExecSql } from "../sqlite/sqlExec";
 import { type ExecSql, runSerializedSqlMutation } from "../sqlite/sqlSchema";
 import { getOrCreatePrincipalPolicyCoordinator } from "./principalPolicyCoordinator";
 
@@ -71,13 +72,15 @@ test("recovery runs one at a time per organization and survives a failure", asyn
   expect(events).toEqual(["first:start", "other", "first:end", "second"]);
 });
 
-test("journal operations run one at a time per mutation scope", async () => {
-  const execSql = database();
+test("sign-ins serialize journal operations for a shared mutation scope", async () => {
+  const databaseExec = database();
+  const first = createScopedExecSql(databaseExec, () => {});
+  const replacement = createScopedExecSql(databaseExec, () => {});
   const started = deferred();
   const gate = deferred();
   const events: string[] = [];
   const owned = getOrCreatePrincipalPolicyCoordinator(
-    execSql,
+    first,
   ).runJournalOperation(scope("org-1"), async () => {
     events.push("owned:start");
     started.resolve();
@@ -85,7 +88,7 @@ test("journal operations run one at a time per mutation scope", async () => {
     events.push("owned:end");
   });
   await started.promise;
-  await runSerializedSqlMutation(execSql, async (locked) => {
+  await runSerializedSqlMutation(replacement, async (locked) => {
     const waiting = getOrCreatePrincipalPolicyCoordinator(
       locked,
     ).runJournalOperation(scope("org-1"), async () => {

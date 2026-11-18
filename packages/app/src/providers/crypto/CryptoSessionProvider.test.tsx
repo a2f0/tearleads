@@ -33,6 +33,10 @@ test("crypto session context changes only with its exposed state", async () => {
   const tearleads = {
     identity,
     session: {
+      get authToken() {
+        return sessionSnapshot.authToken;
+      },
+      captureSignIn: () => () => true,
       bootstrapLocalRootContainer: () => Promise.resolve(),
       login,
       logout,

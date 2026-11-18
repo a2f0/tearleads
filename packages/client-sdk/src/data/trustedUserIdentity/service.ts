@@ -369,7 +369,7 @@ export function createTrustedUserIdentityService(
     verifyLink: (link) => verifyIdentityLink(dependencies, link),
     boundUserId: (signingKeyFingerprint) =>
       boundUserId(dependencies, signingKeyFingerprint),
-    async pinLocal(userId, candidate) {
+    async pinLocal(userId, candidate, assertCurrent) {
       assertTrustedUserIdentityUserId(userId);
       const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
       const identity = await validateLocalUserIdentity({
@@ -382,6 +382,7 @@ export function createTrustedUserIdentityService(
         execSql,
         identity,
         provenance: "self",
+        assertCurrent,
       });
     },
     resolve: withPinnedIdentityResolution(

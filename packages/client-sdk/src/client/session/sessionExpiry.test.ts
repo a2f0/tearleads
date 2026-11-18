@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import {
@@ -15,8 +16,12 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   });
 }
 
-describe("session expiry", () => {
-  test("renews a restored stale auth token after session expiry", async () => {
+for (const [sameUser, selected] of [
+  [true, "org-1"],
+  [true, "selected-org"],
+  [false, "org-1"],
+] as const) {
+  test(`restored token renewal preserves the acknowledged user (same user: ${sameUser}, selected: ${selected})`, async () => {
     const { close, execSql } = await createTestExecSql(
       "session-expiry-identity-trust",
     );
@@ -60,7 +65,9 @@ describe("session expiry", () => {
           isRoot: false,
           organizationId: "org-2",
           token: "fresh-token",
-          userId: "22222222-2222-4222-8222-222222222222",
+          userId: sameUser
+            ? "22222222-2222-4222-8222-222222222222"
+            : "11111111-1111-4111-8111-111111111111",
         });
       }
 
@@ -88,11 +95,24 @@ describe("session expiry", () => {
         isAuthenticated: true,
         isRoot: false,
         rootAcknowledgments: [],
-        organizationId: "org-1",
+        organizationId: selected,
         userId: "22222222-2222-4222-8222-222222222222",
       });
 
+      if (!sameUser) {
+        await expect(sdk.session.listSessions()).rejects.toBeInstanceOf(
+          KeyingVerificationError,
+        );
+        expect(sdk.session.isAuthenticated).toBe(false);
+        expect(
+          requests.filter((request) => request.path === "/auth/sessions"),
+        ).toHaveLength(1);
+        return;
+      }
+      const before = sdk.runtime.input();
       await expect(sdk.session.listSessions()).resolves.toEqual([]);
+      expect(sdk.domainScope).toBe(before.state.domainScope);
+      expect(sdk.runtime.input().infra.execSql).toBe(before.infra.execSql);
 
       const signingFingerprint = sdk.identity.signingFingerprint;
       if (!signingFingerprint) throw new Error("expected signing fingerprint");
@@ -110,7 +130,7 @@ describe("session expiry", () => {
             rootContainerId: null,
           },
         ],
-        organizationId: "org-2",
+        organizationId: selected === "org-1" ? "org-2" : selected,
         userId: "22222222-2222-4222-8222-222222222222",
       });
       expect(requests).toEqual([
@@ -140,4 +160,4 @@ describe("session expiry", () => {
       close();
     }
   });
-});
+}

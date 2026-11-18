@@ -119,3 +119,73 @@ testApiClient(
     expect(calls).toEqual(["Bearer identity-a"]);
   },
 );
+
+for (const route of ["health", "sessions"] as const) {
+  testApiClient(
+    `a buffered ${route} reply finishing after a new sign-in is discarded`,
+    async () => {
+      const client = new ApiClient(apiBaseUrl);
+      client.setAuthToken("first");
+      const reading = Promise.withResolvers<void>();
+      const finish = Promise.withResolvers<void>();
+      const originalFetch = globalThis.fetch;
+      const payload = route === "health" ? { message: "ok" } : { sessions: [] };
+      class BufferedResponse extends Response {
+        override async json() {
+          reading.resolve();
+          await finish.promise;
+          return payload;
+        }
+      }
+      globalThis.fetch = Object.assign(
+        async () => new BufferedResponse(null, { status: 200 }),
+        originalFetch,
+      );
+      try {
+        const pending =
+          route === "health" ? client.getHealth() : client.listSessions();
+        await reading.promise;
+        if (route === "sessions") client.setAuthToken(null);
+        else client.setAuthToken("second", { boundary: "replacement" });
+        finish.resolve();
+        await expect(pending).resolves.toBeNull();
+      } finally {
+        finish.resolve();
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
+}
+
+testApiClient(
+  "an independent sign-in releases requests waiting on the former session's renewal",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("first");
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<boolean>();
+    const errors: string[] = [];
+    client.setOnError((error) => errors.push(error));
+    client.setOnSessionExpired(() => {
+      entered.resolve();
+      return release.promise;
+    });
+    server.use(http.delete(path, expired));
+    const request = client.deleteContainerResult("target", {
+      reportErrors: false,
+    });
+    await entered.promise;
+    client.setAuthToken("second", { boundary: "replacement" });
+    try {
+      const settled = await Promise.race([
+        request,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 0)),
+      ]);
+      expect(settled).toMatchObject({ ok: false, kind: "cancelled" });
+    } finally {
+      release.reject(new Error("Delayed renewal failed"));
+      await Promise.resolve();
+    }
+    expect(errors).toEqual([]);
+  },
+);

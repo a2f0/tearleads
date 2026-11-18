@@ -27,6 +27,7 @@ export interface RegisterDatabaseWorkerOptions {
     | DatabaseWorkerExecResult["rows"];
   // Graceful shutdown hook: close the db and release persistent-VFS handles.
   onClose?: () => Promise<void> | void;
+  onPrepareDelete?: () => Promise<void> | void;
   // Destructive shutdown hook: close the db and wipe its persistent-VFS files.
   onDelete?: () => Promise<void> | void;
   // Device reset hook: wipe this origin's OPFS before any database is opened.
@@ -47,6 +48,7 @@ export function isWorkerRequest(value: unknown): value is WorkerRequest {
       method === "init" ||
       method === "exec" ||
       method === "close" ||
+      method === "prepareDelete" ||
       method === "delete" ||
       method === "wipeStorage")
   );
@@ -113,6 +115,10 @@ export async function handleRequest(
         id: message.id,
         result: { ok: true },
       };
+
+    case "prepareDelete":
+      await options.onPrepareDelete?.();
+      return { id: message.id, result: { ok: true } };
 
     case "delete":
       await options.onDelete?.();

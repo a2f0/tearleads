@@ -3,8 +3,7 @@ import {
   type OperationSchemaOutput,
   operationResponseHeaderNames,
 } from "@tearleads/validators/operation";
-import { errorMessage } from "./requestInternals";
-import { responseBodyFailure } from "./responseBodyFailure";
+import { readSessionJson, retiredRequest } from "./sessionResponse";
 import type {
   OperationResponseRequestFn,
   RequestResult,
@@ -125,37 +124,15 @@ export function decodeOperationResponseHeaders(
   return parsed.success ? { data: parsed.data, ok: true } : { ok: false };
 }
 
-function reportBodyReadFailure(
-  request: OperationResponseRequestFn,
-  operation: JsonResponseOperation,
-  response: Response,
-  path: string,
-  options: RequestResultOptions,
-  error: unknown,
-) {
-  const failure = responseBodyFailure(
-    error,
-    errorMessage(error),
-    options.signal?.aborted === true,
-  );
-  return request.reportFailure({
-    ...failure,
-    message: `${operation.method} ${path}: ${failure.message}`,
-    method: operation.method,
-    options,
-    path,
-    status: response.status,
-    statusText: response.statusText,
-  });
-}
-
 export async function decodeJsonOperationResponse(
   request: OperationResponseRequestFn,
   operation: JsonResponseOperation,
   response: Response,
   path: string,
   options: RequestResultOptions,
+  session?: AbortSignal,
 ): Promise<RequestResult<RuntimeJsonOperationResponseEnvelope>> {
+  if (session?.aborted) return retiredRequest(operation.method, path);
   const schema = operation.responses[response.status];
   const isEmpty =
     operation.emptyResponseStatuses?.includes(response.status) ?? false;
@@ -184,21 +161,17 @@ export async function decodeJsonOperationResponse(
 
   let data: unknown;
   if (!isEmpty && schema) {
-    let value: unknown;
-    try {
-      value = await response.json();
-    } catch (error) {
-      return reportBodyReadFailure(
-        request,
-        operation,
-        response,
-        path,
-        options,
-        error,
-      );
-    }
-
-    const parsed = schema.safeParse(value);
+    const result = await readSessionJson(
+      request,
+      response,
+      operation.method,
+      path,
+      options,
+      session,
+    );
+    if (session?.aborted) return retiredRequest(operation.method, path);
+    if (!result.ok) return result;
+    const parsed = schema.safeParse(result.data);
     if (!parsed.success) {
       return operationResponseFailure(
         request,

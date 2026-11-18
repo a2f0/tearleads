@@ -11,6 +11,7 @@ import { createApi, createSessionHarness } from "./session.testFixtures";
 import {
   acknowledgedSessionRoot,
   acknowledgeSessionRoot,
+  commitSessionRootAcknowledgment,
 } from "./sessionRootAuthority";
 
 const fingerprint = "a".repeat(64);
@@ -217,63 +218,34 @@ test("login refuses a swapped root for the same organization and records an inci
 });
 
 test("overlapping acknowledgements for different organizations are both kept", async () => {
-  // Three logins overlap: the personal org (A), a second org (B), and a swap
-  // attempt for A. Each read of `rootAcknowledgments` must see the writes the
-  // others already committed, otherwise B's (or A's) acknowledgement is lost
-  // and the swap for A passes against a stale, empty view. The identity pins
-  // are released in one synchronous block so the three continuations run
-  // back-to-back with no other work between them.
+  // The acknowledgement helper also serves registration and organization
+  // creation. Independent responses can complete together in one session.
   const incidents: Array<{ code: unknown; operation: string }> = [];
-  const responses = [
-    { organizationId: "org-a", rootContainerId: "root-a" },
-    { organizationId: "org-b", rootContainerId: "root-b" },
-    { organizationId: "org-a", rootContainerId: "root-attacker" },
-  ];
-  const api = createApi({
-    authenticate: async () => {
-      const response = responses.shift();
-      if (!response) throw new Error("unexpected authentication");
-      return {
-        ...response,
-        authenticated: true,
-        wsTicket: "ws-ticket",
-        isRoot: false,
-        token: `token-${response.rootContainerId}`,
-        userId: "user-1",
-      };
-    },
-  });
-  const releasePins: Array<() => void> = [];
-  const { identity, session } = createSessionHarness({
-    api,
-    onUserIdentityAvailable: () =>
-      new Promise<void>((resolve) => {
-        releasePins.push(resolve);
-      }),
-    reportSecurityIncident: async (error, context) => {
-      incidents.push({
-        code: error instanceof KeyingVerificationError ? error.code : error,
-        operation: context.operation,
-      });
-    },
-  });
+  const { identity, session } = createSessionHarness();
   await setGeneratedIdentity(identity);
-
-  // Which login draws which response depends on how the three reach
-  // `authenticate`, so the outcomes are asserted as a set.
-  const outcomes = Promise.allSettled([
-    session.login(),
-    session.login(),
-    session.login(),
-  ]);
-  await waitFor(() => releasePins.length === 3, "expected three pins");
-  for (const release of releasePins) release();
-
+  const outcomes = Promise.allSettled(
+    [
+      { organizationId: "org-a", rootContainerId: "root-a" },
+      { organizationId: "org-b", rootContainerId: "root-b" },
+      { organizationId: "org-a", rootContainerId: "root-attacker" },
+    ].map((root) =>
+      commitSessionRootAcknowledgment({
+        session,
+        context: { userId: "user-1" },
+        signingFingerprint: identity.signingFingerprint,
+        root: { ...root, userId: "user-1" },
+        reporter: async (error, context) => {
+          incidents.push({
+            code: error instanceof KeyingVerificationError ? error.code : error,
+            operation: context.operation,
+          });
+        },
+      }),
+    ),
+  );
   const settled = await outcomes;
   expect(
-    settled.filter(
-      (outcome) => outcome.status === "fulfilled" && outcome.value === true,
-    ),
+    settled.filter((outcome) => outcome.status === "fulfilled"),
   ).toHaveLength(2);
   expect(
     settled.filter(
@@ -347,4 +319,47 @@ test("a refused login never logs out a newer login that completed during its rep
   );
   expect(session.isAuthenticated).toBe(true);
   expect(session.authToken).toBe("token-0");
+});
+
+test("a pending older login cannot clear a newer sign-in attempt", async () => {
+  const started = Promise.withResolvers<void>();
+  const freshStarted = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const freshRelease = Promise.withResolvers<void>();
+  let calls = 0;
+  const harness = createSessionHarness({
+    api: createApi({
+      authenticate: async () => {
+        if (++calls === 1) {
+          started.resolve();
+          await release.promise;
+          return null;
+        }
+        freshStarted.resolve();
+        await freshRelease.promise;
+        return {
+          ...personalRoot,
+          authenticated: true,
+          wsTicket: "ticket",
+          isRoot: false,
+          token: "fresh",
+        };
+      },
+    }),
+  });
+  await setGeneratedIdentity(harness.identity);
+  try {
+    const old = harness.session.login();
+    await started.promise;
+    const fresh = harness.session.login();
+    await freshStarted.promise;
+    release.resolve();
+    await expect(old).resolves.toBe(false);
+    freshRelease.resolve();
+    await expect(fresh).resolves.toBe(true);
+    expect(harness.session.authToken).toBe("fresh");
+  } finally {
+    release.resolve();
+    freshRelease.resolve();
+  }
 });

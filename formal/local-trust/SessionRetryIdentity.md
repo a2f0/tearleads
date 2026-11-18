@@ -8,7 +8,7 @@ including one completed by a concurrent request, may replay.
 | --- | --- |
 | `Receive401` | `shouldRetryAfterSessionExpired` recognizes only a recorded renewal when the token has changed |
 | `InstallRenewal` | `setAuthToken` changes the token and `SessionRenewalTracker.tokenChanged` increments its revision; a dishonest server may answer with another user's session |
-| `CheckRenewedUser` | `loginAfterSessionExpired` reports a renewal only when the renewed session names the expired session's user |
+| `CheckRenewedUser` | `runAuthentication` accepts a renewal only when the verified user matches the user whose session expired |
 | `FinishRenewal` | `SessionRenewalTracker` records a renewal only if exactly one token transition occurred during its callback |
 | `Dispatch` | `SessionRenewalTracker.currentToken` rechecks the recorded transition after awaiting renewal and host notification; `fetchResponseRequest` receives that captured token |
 | `JoinRenewal` | `shouldRetryAfterSessionExpired` joins the pending promise for its original token, including the interval between token installation and callback completion |

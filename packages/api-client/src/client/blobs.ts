@@ -137,8 +137,10 @@ export class BlobArea {
     write: Promise<R | null>,
     cacheResponse: (response: R) => void,
   ): Promise<R | null> {
+    const session = this.context.runtime.responseRequest.sessionSignal?.();
     return write
       .then((response) => {
+        if (session?.aborted) return null;
         if (response) {
           cacheResponse(response);
         } else {
@@ -147,7 +149,7 @@ export class BlobArea {
         return response;
       })
       .catch((error: unknown) => {
-        this.attachmentLists.clear();
+        if (!session?.aborted) this.attachmentLists.clear();
         throw error;
       });
   }
@@ -175,18 +177,31 @@ export class BlobArea {
     input: UploadMultipartBlobPartBytesRequest,
     options: RequestResultOptions = {},
   ) {
-    return uploadMultipartBlobPartBytes(
-      this.context.transport,
-      stageId,
-      partNumber,
-      input,
-      undefined,
-      options,
+    return this.transfer(options, (scoped) =>
+      uploadMultipartBlobPartBytes(
+        this.context.transport,
+        stageId,
+        partNumber,
+        input,
+        undefined,
+        scoped,
+      ),
     );
   }
 
   getBlobBytes(blobId: string, options: RequestResultOptions = {}) {
-    return getBlobBytes(this.context.transport, blobId, undefined, options);
+    return this.transfer(options, (scoped) =>
+      getBlobBytes(this.context.transport, blobId, undefined, scoped),
+    );
+  }
+
+  private async transfer<T>(
+    options: RequestResultOptions,
+    run: (scoped: RequestResultOptions) => Promise<T | null>,
+  ): Promise<T | null> {
+    const scoped = this.context.runtime.withSessionSignal(options);
+    const result = await run(scoped);
+    return scoped.signal?.aborted ? null : result;
   }
 
   bindBlobAttachment(

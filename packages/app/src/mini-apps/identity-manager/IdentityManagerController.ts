@@ -21,7 +21,10 @@ import {
 } from "../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../../providers/logging/LogProvider";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import {
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 import { useIdentityManagerIdentityMutations } from "./actions/useIdentityManagerIdentityMutations";
 import { CURRENT_SESSION_MUTATION_ID } from "./IdentityManagerConstants";
 import { getIdentityState } from "./IdentityManagerIdentityState";
@@ -41,14 +44,27 @@ function useIdentityManagerSessionList({
   logError: LogContextValue["logError"];
   tearleads: SdkClient;
 }) {
-  const [sessions, setSessions] = useState<UserSession[]>([]);
+  const scope = useTearleadsRuntime().state.domainScope;
+  const [list, setList] = useState<{
+    scope: typeof scope;
+    rows: UserSession[];
+  }>({ scope, rows: [] });
+  const setSessions = useCallback(
+    (rows: UserSession[]) => {
+      if (tearleads.domainScope === scope) setList({ scope, rows });
+    },
+    [scope, tearleads],
+  );
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
   const refreshSessions = useCallback(async () => {
+    if (scope !== tearleads.domainScope) return;
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
+    const current = () =>
+      requestIdRef.current === requestId && scope === tearleads.domainScope;
 
     if (!canManageSessions) {
       setSessions([]);
@@ -61,20 +77,20 @@ function useIdentityManagerSessionList({
     setSessionError(null);
     try {
       const nextSessions = await tearleads.session.listSessions();
-      if (requestIdRef.current === requestId) {
+      if (current()) {
         setSessions(nextSessions);
       }
     } catch (error: unknown) {
-      logError("Failed to load sessions", error);
-      if (requestIdRef.current === requestId) {
+      if (current()) {
+        logError("Failed to load sessions", error);
         setSessionError("Could not load active sessions.");
       }
     } finally {
-      if (requestIdRef.current === requestId) {
+      if (current()) {
         setLoadingSessions(false);
       }
     }
-  }, [canManageSessions, logError, tearleads]);
+  }, [canManageSessions, logError, scope, setSessions, tearleads]);
 
   useEffect(() => {
     void refreshSessions();
@@ -84,7 +100,7 @@ function useIdentityManagerSessionList({
     loadingSessions,
     refreshSessions,
     sessionError,
-    sessions,
+    sessions: list.scope === scope ? list.rows : [],
     setSessionError,
     setSessions,
   };
@@ -94,7 +110,6 @@ function useIdentityManagerSessionMutations({
   clearSessions,
   log,
   logError,
-  logout,
   purgeWorker,
   refreshSessions,
   requestCurrentSessionLogout,
@@ -105,7 +120,6 @@ function useIdentityManagerSessionMutations({
   clearSessions: () => void;
   log: LogContextValue["log"];
   logError: LogContextValue["logError"];
-  logout: CryptoSessionContextValue["logout"];
   purgeWorker: DatabaseContextValue["purgeWorker"];
   refreshSessions: () => Promise<void>;
   requestCurrentSessionLogout: () => void;
@@ -113,13 +127,21 @@ function useIdentityManagerSessionMutations({
   signingFingerprint: string | null;
   tearleads: SdkClient;
 }) {
-  const [mutatingSessionId, setMutatingSessionId] = useState<string | null>(
-    null,
+  const scope = useTearleadsRuntime().state.domainScope;
+  const [mutation, setMutation] = useState<{
+    scope: typeof scope;
+    id: string;
+  } | null>(null);
+  const mutatingSessionId = mutation?.scope === scope ? mutation.id : null;
+  const finishMutation = useCallback(
+    () => setMutation((active) => (active?.scope === scope ? null : active)),
+    [scope],
   );
 
   const logoutCurrentSession = useCallback(
     async ({ keepLocalData }: LogoutOptions = { keepLocalData: true }) => {
-      setMutatingSessionId(CURRENT_SESSION_MUTATION_ID);
+      if (tearleads.domainScope !== scope) return;
+      setMutation({ scope, id: CURRENT_SESSION_MUTATION_ID });
       setSessionError(null);
       try {
         await runConfirmedLogout({
@@ -127,7 +149,6 @@ function useIdentityManagerSessionMutations({
           keepLocalData,
           log,
           logError,
-          logout,
           onAfterLocalLogout: clearSessions,
           onRemoteLogoutFailure: () => {
             setSessionError("Could not log out remote session.");
@@ -137,14 +158,15 @@ function useIdentityManagerSessionMutations({
           signingFingerprint,
         });
       } finally {
-        setMutatingSessionId(null);
+        finishMutation();
       }
     },
     [
       clearSessions,
+      scope,
+      finishMutation,
       log,
       logError,
-      logout,
       purgeWorker,
       setSessionError,
       signingFingerprint,
@@ -154,6 +176,7 @@ function useIdentityManagerSessionMutations({
 
   const endSession = useCallback(
     async (session: UserSession) => {
+      if (tearleads.domainScope !== scope) return;
       if (session.isCurrent) {
         // Route the current session's logout through the confirmation dialog
         // (keep-local-data choice) instead of logging out immediately.
@@ -161,10 +184,11 @@ function useIdentityManagerSessionMutations({
         return;
       }
 
-      setMutatingSessionId(session.id);
+      setMutation({ scope, id: session.id });
       setSessionError(null);
       try {
         const destroyed = await tearleads.session.destroySession(session.id);
+        if (tearleads.domainScope !== scope) return;
         if (!destroyed) {
           setSessionError("Could not revoke session.");
           return;
@@ -173,10 +197,11 @@ function useIdentityManagerSessionMutations({
         log("Session revoked");
         await refreshSessions();
       } catch (error: unknown) {
+        if (tearleads.domainScope !== scope) return;
         logError("Failed to revoke session", error);
         setSessionError("Could not revoke session.");
       } finally {
-        setMutatingSessionId(null);
+        finishMutation();
       }
     },
     [
@@ -184,6 +209,8 @@ function useIdentityManagerSessionMutations({
       logError,
       refreshSessions,
       requestCurrentSessionLogout,
+      scope,
+      finishMutation,
       setSessionError,
       tearleads,
     ],
@@ -201,14 +228,14 @@ function useIdentityManagerLogout(input: {
   clearSessions: () => void;
   log: LogContextValue["log"];
   logError: LogContextValue["logError"];
-  logout: CryptoSessionContextValue["logout"];
   purgeWorker: DatabaseContextValue["purgeWorker"];
   refreshSessions: () => Promise<void>;
   setSessionError: (error: string | null) => void;
   signingFingerprint: string | null;
   tearleads: SdkClient;
 }) {
-  const logoutDialog = useLogoutConfirmationDialogState();
+  const scope = input.tearleads.domainScope;
+  const logoutDialog = useLogoutConfirmationDialogState(scope);
   const sessionMutations = useIdentityManagerSessionMutations({
     ...input,
     requestCurrentSessionLogout: logoutDialog.requestLogout,
@@ -217,11 +244,12 @@ function useIdentityManagerLogout(input: {
     sessionMutations.mutatingSessionId === CURRENT_SESSION_MUTATION_ID;
   const onConfirmLogout = useCallback(
     (options: LogoutOptions) => {
+      if (!logoutDialog.isOpen || input.tearleads.domainScope !== scope) return;
       void sessionMutations
         .logoutCurrentSession(options)
         .finally(() => logoutDialog.closeLogoutDialog());
     },
-    [logoutDialog, sessionMutations],
+    [input.tearleads, logoutDialog, scope, sessionMutations],
   );
 
   return { logoutBusy, logoutDialog, onConfirmLogout, sessionMutations };
@@ -276,7 +304,6 @@ export function useIdentityManager() {
       clearSessions,
       log,
       logError,
-      logout: session.logout,
       purgeWorker,
       refreshSessions: sessionList.refreshSessions,
       setSessionError: sessionList.setSessionError,

@@ -1,5 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import { createOpfsBlobStore } from "./opfsBlobStore";
+import { createOpfsBlobStore, purgeOpfsBlobStore } from "./opfsBlobStore";
 
 const originalNavigator = Object.getOwnPropertyDescriptor(
   globalThis,
@@ -92,3 +92,122 @@ test("concurrent OPFS readers share failure and a successful retry", async () =>
   ).toEqual([attachmentBytes, attachmentBytes]);
   expect(getDirectory).toHaveBeenCalledTimes(2);
 });
+
+test("confirmed logout skips attachment removal after a new sign-in during directory lookup", async () => {
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const removeEntry = mock(async () => {});
+  installStorage(
+    async () =>
+      ({
+        getDirectoryHandle: async () => {
+          started.resolve();
+          await release.promise;
+          return { removeEntry };
+        },
+      }) as unknown as FileSystemDirectoryHandle,
+  );
+  let current = true;
+  const pending = purgeOpfsBlobStore("identity", () => current);
+  await started.promise;
+  current = false;
+  release.resolve();
+  await pending;
+  expect(removeEntry).not.toHaveBeenCalled();
+});
+
+test("a new attachment waits for dispatched removal and reopens the identity directory", async () => {
+  const removing = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const writtenDirectories: number[] = [];
+  let directoryId = 0;
+  const app = {
+    async removeEntry() {
+      removing.resolve();
+      await release.promise;
+      ++directoryId;
+    },
+    async getDirectoryHandle() {
+      const id = directoryId;
+      return {
+        getFileHandle: async () => ({
+          createWritable: async () => ({
+            write: async () => {
+              writtenDirectories.push(id);
+            },
+            close: async () => {},
+          }),
+        }),
+      };
+    },
+  };
+  installStorage(
+    async () =>
+      ({
+        getDirectoryHandle: async () => app,
+      }) as unknown as FileSystemDirectoryHandle,
+  );
+  const store = createOpfsBlobStore("owner");
+  await store.writeBytes("before", attachmentBytes);
+  const purge = purgeOpfsBlobStore("owner");
+  await removing.promise;
+  const write = createOpfsBlobStore("owner").writeBytes(
+    "after",
+    attachmentBytes,
+  );
+  expect(writtenDirectories).toEqual([0]);
+  release.resolve();
+  await Promise.all([purge, write]);
+  expect(writtenDirectories).toEqual([0, 1]);
+});
+
+test.each([false, true])(
+  "retiring the last chunk preserves the destination (existing: %s)",
+  async (existing) => {
+    const writing = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const close = mock(async () => {});
+    const abort = mock(async () => {});
+    const file = {
+      createWritable: async () => ({
+        close,
+        abort,
+        write: async () => {
+          writing.resolve();
+          await release.promise;
+        },
+      }),
+    };
+    let exists = existing;
+    const directory = {
+      getFileHandle: async (_name: string, options?: { create?: boolean }) => {
+        if (!exists && !options?.create)
+          throw new DOMException("Missing", "NotFoundError");
+        exists = true;
+        return file;
+      },
+      removeEntry: async () => {
+        exists = false;
+      },
+    };
+    const app = { getDirectoryHandle: async () => directory };
+    installStorage(
+      async () =>
+        ({
+          getDirectoryHandle: async () => app,
+        }) as unknown as FileSystemDirectoryHandle,
+    );
+    let current = true;
+    const store = createOpfsBlobStore("owner");
+    const pending = store.writeBytes("attachment", attachmentBytes, () => {
+      if (!current) throw new Error("ended");
+    });
+    await writing.promise;
+    current = false;
+    release.resolve();
+    await expect(pending).rejects.toThrow("ended");
+    expect(close).not.toHaveBeenCalled();
+    expect(abort).toHaveBeenCalledTimes(1);
+    expect(exists).toBe(existing);
+  },
+);
