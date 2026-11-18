@@ -234,6 +234,9 @@ export async function createOrganization(
       artifacts.organizationId,
     ),
     canStartDurableMutation: input.isIdentityCurrent,
+    // No position: the seeded documents are read once, as another session of
+    // this user may already have edited them.
+    commitLsn: null,
     onPersistQueued: input.onPersistQueued,
     containerId: durableRootContainerId,
     dbClient: input.dbClient,

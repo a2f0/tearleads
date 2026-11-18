@@ -10,6 +10,7 @@ import {
 import { openExplorer } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import { openOrgManager } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import { createAdditionalOrganization } from "../../../../test/helpers/dual-pane/organizationCreation";
+import { requestPath } from "../../../../test/helpers/dualPaneRequestSummary";
 import {
   listProxiedApiRequests,
   MOCK_SERVER_RESET_TIMEOUT_MS,
@@ -19,15 +20,73 @@ import {
   cleanupPaneTestEnvironment,
   waitForPaneRuntimeToSettle,
 } from "../../../../test/helpers/paneTestUtils";
+import type { ProxiedApiRequest } from "../../../../test/helpers/proxiedApiResponse";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
+
+function seededDocumentIds(response: unknown): string[] {
+  const read = (value: unknown, ...path: string[]): unknown =>
+    path.reduce<unknown>(
+      (current, key) =>
+        typeof current === "object" && current !== null
+          ? Reflect.get(current, key)
+          : undefined,
+      value,
+    );
+  const systemContainers = read(response, "systemContainers");
+  return [
+    read(response, "rootMetadataDocumentId"),
+    read(response, "rosterProfileContainer", "metadataDocument", "id"),
+    read(response, "rosterProfileDocumentId"),
+    read(response, "organizationMetadataContainer", "metadataDocument", "id"),
+    read(response, "organizationProfileDocumentId"),
+    ...(Array.isArray(systemContainers)
+      ? systemContainers.map((item) => read(item, "metadataDocument", "id"))
+      : []),
+  ].filter((id): id is string => typeof id === "string");
+}
+
+/**
+ * A seeded document's first read sends registration's commit position. An
+ * additional organization reports none, so its seeded first reads send none.
+ */
+function expectSeededFirstSyncs(
+  requests: readonly ProxiedApiRequest[],
+  provisioningPath: RegExp,
+  position: "position" | "none",
+): void {
+  const provisioning = requests.find(
+    (request) =>
+      request.method === "POST" &&
+      provisioningPath.test(requestPath(request.url)) &&
+      request.status === 200,
+  );
+  if (!provisioning) throw new Error("Expected a provisioning response");
+  const response: unknown = JSON.parse(provisioning.responseBody);
+  const commitLsn = Reflect.get(Object(response), "commitLsn");
+  expect(typeof commitLsn).toBe(
+    position === "position" ? "string" : "undefined",
+  );
+  const firstSyncs = seededDocumentIds(response).flatMap((documentId) => {
+    const sync = requests.find((request) =>
+      requestPath(request.url).endsWith(`/documents/${documentId}/sync`),
+    );
+    return sync ? [sync] : [];
+  });
+  expect(firstSyncs.length).toBeGreaterThan(0);
+  for (const sync of firstSyncs) {
+    expect(
+      Reflect.get(Object(JSON.parse(sync.requestBody ?? "{}")), "minLsn"),
+    ).toBe(commitLsn);
+  }
+}
 
 test(
   "personal organization bootstrap has a complete request budget",
   async () => {
     useTestApiAppHandlers();
-    await measureWorkflowRequests({
+    const bootstrap = await measureWorkflowRequests({
       label: "personal organization bootstrap",
       operation: async () => {
         const pane = getPaneRoot(renderSinglePane(), "left");
@@ -61,17 +120,20 @@ test(
         // Batched discovery lists the four lanes queued at startup in one
         // request and a later-surfaced lane in a second.
         // Login returns the first websocket ticket, so no ticket request. The
-        // self contact's create carries its queued content as its seed, and
-        // the Contacts create carries its first metadata update, so neither
-        // is followed by a content sync. Contacts is made device-first, so
+        // Contacts create carries its first metadata update, so no content
+        // sync follows it. Contacts is made device-first, so
         // its create replays its own intent in a sync pass (one more root-lane
         // query and policy read) instead of an eager create racing it.
         // A hydration pass discovers the directory once, and a coordinator
         // drain's syncs share one operation; a discovery naming the held head
-        // receives that head alone. Measured 26 calls (24 with the racing
-        // eager create, 29 with drain-scoped operations alone, 30 before
-        // either, 31 before that).
-        total: 27,
+        // receives that head alone. Provisioning returns its commit position,
+        // so the seeded documents skip their empty first syncs. Without those
+        // syncs ahead of it, the self contact's create now runs before its
+        // content is queued (it used to carry that content as its seed), so an
+        // empty read and one write follow it. Measured 24 calls (26 before the
+        // provisioning commit position, 29 with drain-scoped operations alone,
+        // 30 before either, 31 before that).
+        total: 25,
         // Provisioned containers and documents are acknowledged by hash, not
         // echoed, seeded roles skip three destination projections, and syncs
         // no longer echo the bundle and KEK targets the request named: 61 KB
@@ -96,8 +158,10 @@ test(
           // stages need no confirmation read.
           "GET /principals/history": 2,
           "POST /containers/documents/query": 2,
-          // Measured 6; a second root-lane pass can sync the root again.
-          "POST /documents/:documentId/sync": 7,
+          // Measured 4 (6 before the provisioning commit position): the root
+          // twice, as a second root-lane pass can sync it again, and the self
+          // contact's read and write.
+          "POST /documents/:documentId/sync": 5,
           "POST /containers/parent-lanes/query": 5,
           "GET /containers/:containerId/writer-projection": 1,
           // Provisioning commits the root's metadata, so no device-first copy
@@ -113,6 +177,7 @@ test(
         },
       },
     });
+    expectSeededFirstSyncs(bootstrap, /^\/auth\/register$/u, "position");
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
@@ -143,7 +208,7 @@ test(
     );
     await openOrgManager(pane);
     await waitForPaneRuntimeToSettle(20_000);
-    await measureWorkflowRequests({
+    const creation = await measureWorkflowRequests({
       label: "additional organization creation + activation",
       operation: async () => {
         await createAdditionalOrganization(pane, "Request budget org");
@@ -181,6 +246,7 @@ test(
         },
       },
     });
+    expectSeededFirstSyncs(creation, /^\/organizations$/u, "none");
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
