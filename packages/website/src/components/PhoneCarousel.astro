@@ -15,8 +15,9 @@ import "@a2f0/agent-tool/screenshots/gallery.css";
 import "../styles/screenshots.css";
 
 /**
- * Home hero: every phone capture, in device frames, in agent-tool's looping
- * <screenshot-carousel>. The slides rendered here are the static page (no
+ * Home hero: every phone capture, in device frames, in agent-tool's
+ * <screenshot-carousel>, which shows each capture once and stops at both ends
+ * rather than wrapping. The slides rendered here are the static page (no
  * JavaScript, crawlers, and the first paint) and use the element's own markup
  * and classes, so upgrading it swaps them without moving the layout. Only the
  * first phone, the hero's likely largest paint, loads eagerly and at high

@@ -170,11 +170,14 @@ URL it rewrites as visitors move between screens. The build test fails when a
 page lacks exactly one h1 or when two pages share a heading, title, or
 description.
 
-The home carousel shows every phone capture and loops in both directions. Its
-slides are also rendered into the page, so it reads without JavaScript. Only
-the first phone loads eagerly, at high priority, because it is the hero's
-likely largest paint. Every other capture loads lazily, and each image declares
-its capture's width and height so late images never shift the layout.
+The home carousel shows every phone capture once, starting at the first, and
+stops at both ends instead of wrapping around. Its previous and next buttons
+page through the captures and are marked unavailable at the end they cannot
+move past, while staying focusable. Its slides are also rendered into the page,
+so it reads without JavaScript. Only the first phone loads eagerly, at high
+priority, because it is the hero's likely largest paint. Every other capture
+loads lazily, and each image declares its capture's width and height so late
+images never shift the layout.
 
 Unknown paths answer 404 with [`src/pages/404.astro`](src/pages/404.astro),
 through the Worker's
