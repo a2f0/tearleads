@@ -133,10 +133,14 @@ test(
 
     // The restarted identity asks again, and its answer fails to register.
     const second = renderLifecyclePane(hostConfig);
+    // Keep the request in flight until the restored pane has settled. An
+    // immediate rejection can race the bootstrap status change that permits
+    // another registration attempt.
+    const request = Promise.withResolvers<never>();
     const offline = spyOn(
       second.sdk().session,
       "registerIdentity",
-    ).mockRejectedValue(new TypeError("Failed to fetch"));
+    ).mockReturnValue(request.promise);
     const awaitingRecord = sealedAccountNaming(namespace);
     await waitForPaneKey(second.view);
     await answerAccountNamePrompt(
@@ -152,6 +156,13 @@ test(
       { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
     );
     await waitForPaneRuntimeToSettle(PANE_ASYNC_TEST_TIMEOUT_MS);
+    request.reject(new TypeError("Failed to fetch"));
+    await waitFor(() => {
+      expect(second.view.container.textContent).toContain(
+        "Failed to auto-register identity",
+      );
+    });
+    expect(offline).toHaveBeenCalledTimes(1);
     await unmountLifecyclePane(second);
 
     // Back online after another restart: registers under the given name
