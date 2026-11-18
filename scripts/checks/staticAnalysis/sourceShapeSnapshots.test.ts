@@ -71,6 +71,26 @@ test("an installed pre-commit hook checks Git's temporary index for a partial co
   );
   chmodSync(join(repo.cwd, ".git/hooks/pre-commit"), 0o755);
   repo.write("selected.ts", suppressedSource);
+  const other = setup();
+  other.write("other.ts", cleanSource);
+  other.commit();
+  repo.git("add", "selected.ts");
+  const standalone = Bun.spawnSync(
+    [process.execPath, "scripts/checks/lintSourceShape.ts", "--staged"],
+    {
+      cwd: repo.cwd,
+      env: {
+        ...repo.env,
+        GIT_DIR: join(other.cwd, ".git"),
+        GIT_INDEX_FILE: join(other.cwd, ".git/index"),
+      },
+    },
+  );
+  expect(standalone.exitCode).toBe(1);
+  expect(standalone.stderr.toString() + standalone.stdout.toString()).toContain(
+    "tsIgnore count is 1",
+  );
+  repo.git("reset", "--quiet", "HEAD", "--", "selected.ts");
   const partial = Bun.spawnSync(
     [
       "git",

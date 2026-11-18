@@ -43,6 +43,32 @@ test("an empty shell inventory cannot silently pass lint", () => {
   }
 });
 
+test("the ShellCheck entrypoint rejects an exported tree inside another checkout", () => {
+  const repo = fixture();
+  try {
+    repo.write("outside.sh", "#!/bin/sh\necho hello\n");
+    repo.commit();
+    const candidate = join(repo.cwd, "exported");
+    mkdirSync(candidate);
+    const result = Bun.spawnSync(
+      [
+        process.execPath,
+        resolve(import.meta.dir, "../lintScripts.ts"),
+        "--check-root",
+        candidate,
+      ],
+      {
+        cwd: repo.cwd,
+        env: repo.env,
+      },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout.toString()).not.toContain("tracked shell scripts");
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
 test("tracked inventory covers nested scripts and shell shebangs with explicit exceptions", () => {
   const repo = fixture();
   try {

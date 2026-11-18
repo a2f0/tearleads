@@ -24,6 +24,8 @@ test("migration checks at the checkout root compare its own Git history", () => 
           API_MIGRATIONS_BASE_REF: "HEAD",
           GIT_DIR: join(decoy.cwd, ".git"),
           GIT_INDEX_FILE: join(decoy.cwd, ".git/index"),
+          GIT_SHALLOW_FILE: join(decoy.cwd, "foreign-shallow"),
+          GIT_GRAFT_FILE: join(decoy.cwd, "foreign-grafts"),
         },
       },
     );

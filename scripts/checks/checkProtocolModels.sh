@@ -10,7 +10,7 @@ fail() {
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd) ||
   fail "could not resolve the protocol check script directory."
 
-unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
+for name in $(git rev-parse --local-env-vars); do unset "$name"; done
 REPO_ROOT=$(CDPATH='' cd -P -- "$SCRIPT_DIR/../.." && pwd -P) ||
   fail "Protocol model checks must run inside a Git repository."
 REGISTRY_PATH=formal/protocol-models.txt

@@ -1,5 +1,6 @@
-import { realpathSync } from "node:fs";
-import { resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { existsSync, realpathSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { checkArguments } from "../lib/checkRoot";
 import {
   type FileSizeBudget,
@@ -18,19 +19,32 @@ const byteLimit = 20_000;
 // so documents get a larger byte budget under the same line limit.
 const markdownByteLimit = 40_000;
 
-// Older installed hooks call --staged directly during partial commits. Git
-// gives those hooks a temporary index and runs them at the checkout root.
-const argsFromGit = process.argv.slice(2);
-const stagedInOwnCheckout =
-  argsFromGit[0] === "--staged" &&
-  realpathSync(".") === resolve(import.meta.dir, "../..");
-const { root, args } =
-  argsFromGit[0] === "--git-hook" || stagedInOwnCheckout
-    ? {
-        root: process.cwd(),
-        args: stagedInOwnCheckout ? argsFromGit : argsFromGit.slice(1),
-      }
-    : checkArguments();
+// Older pre-commit hooks invoke plain --staged. Preserve Git's temporary
+// partial-commit index only when it belongs to this worktree's Git directory.
+function selection() {
+  if (process.argv[2] === "--git-hook")
+    return { root: process.cwd(), args: process.argv.slice(3) };
+  const indexVariable = "GIT_INDEX_FILE";
+  const candidate = process.env[indexVariable];
+  const selected = checkArguments();
+  if (
+    selected.args[0] === "--staged" &&
+    candidate &&
+    realpathSync(".") === selected.root &&
+    existsSync(candidate)
+  ) {
+    const gitDir = execFileSync(
+      "git",
+      ["-C", selected.root, "rev-parse", "--absolute-git-dir"],
+      { encoding: "utf8" },
+    ).trim();
+    const index = realpathSync(resolve(candidate));
+    if (dirname(index) === realpathSync(gitDir))
+      process.env[indexVariable] = index;
+  }
+  return selected;
+}
+const { root, args } = selection();
 process.chdir(root);
 const snapshot = sourceShapeSnapshot(args);
 const baselineBuffer = snapshot.read("scripts/checks/sourceShapeBaseline.json");

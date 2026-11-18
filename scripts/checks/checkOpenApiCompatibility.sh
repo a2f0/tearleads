@@ -12,11 +12,15 @@ fail() {
 }
 
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
+for name in $(git rev-parse --local-env-vars); do unset "$name"; done
 REPO_ROOT=$(CDPATH='' cd -P -- "$script_dir/../.." && pwd -P) ||
   fail "OpenAPI compatibility must run inside a Git repository."
 
 cd "$REPO_ROOT"
+if [ "$(git rev-parse --show-toplevel)" != "$REPO_ROOT" ]; then
+  echo "This command requires its own Git checkout: $REPO_ROOT" >&2
+  exit 1
+fi
 
 if [ -n "${OASDIFF_BIN:-}" ]; then
   [ -x "$OASDIFF_BIN" ] || fail "OASDIFF_BIN is not executable: $OASDIFF_BIN"

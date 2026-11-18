@@ -1,31 +1,35 @@
+import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
-import { resolve } from "node:path";
+import { delimiter, dirname, resolve } from "node:path";
 
 const ownerRoot = realpathSync(resolve(import.meta.dir, "../.."));
 
-// Standalone checks must not inspect the caller's index, worktree, or objects.
-export function checkRoot(): string {
-  for (const name of [
-    "GIT_DIR",
-    "GIT_WORK_TREE",
-    "GIT_COMMON_DIR",
-    "GIT_INDEX_FILE",
-    "GIT_OBJECT_DIRECTORY",
-    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-    "GIT_CONFIG_COUNT",
-    "GIT_CONFIG_PARAMETERS",
-  ])
-    delete process.env[name];
-  return ownerRoot;
+// Git names the metadata that applies only to one repository. Keep user-wide
+// authentication and SSH settings when starting work in another checkout.
+export function checkRoot(root = ownerRoot): string {
+  if (Object.keys(process.env).some((key) => key.startsWith("GIT_"))) {
+    const names = execFileSync("git", ["rev-parse", "--local-env-vars"], {
+      cwd: root,
+      encoding: "utf8",
+      env: Object.fromEntries(
+        Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+      ),
+    });
+    for (const key of names.trim().split(/\s+/)) delete process.env[key];
+  }
+  // An exported tree without its own .git must never discover its parent.
+  const ceilingVariable = "GIT_CEILING_DIRECTORIES";
+  const ceilings = process.env[ceilingVariable];
+  process.env[ceilingVariable] = [dirname(root), ceilings]
+    .filter(Boolean)
+    .join(delimiter);
+  return root;
 }
 
-// A fixture may explicitly select its tree without redirecting Git hooks or
-// unrelated children through an inherited environment variable.
 export function checkArguments() {
-  const root = checkRoot();
   const args = process.argv.slice(2);
-  if (args[0] !== "--check-root") return { root, args };
+  if (args[0] !== "--check-root") return { root: checkRoot(), args };
   const target = args[1];
   if (!target) throw new Error("--check-root requires a directory");
-  return { root: realpathSync(target), args: args.slice(2) };
+  return { root: checkRoot(realpathSync(target)), args: args.slice(2) };
 }
