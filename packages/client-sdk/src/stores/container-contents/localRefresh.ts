@@ -12,13 +12,17 @@ import {
   captureContainerStateMutationGenerations,
   containerStateMutatedAfter,
 } from "./containerState/containerStateMap";
+import {
+  type ContainerStoreScope,
+  ownsContainerStore,
+} from "./containerState/storeScope";
 import { isRemoteBackedContainerState } from "./remoteEvents/remoteBackedContainerState";
 
 interface LocalContainerRefreshHost {
   updateSnapshot: () => void;
 }
 
-export interface LocalContainerRefreshState {
+export interface LocalContainerRefreshState extends ContainerStoreScope {
   containersById: Map<string, ContainerState>;
   documentStoresNeedPriming: boolean;
   initialized: boolean;
@@ -28,9 +32,8 @@ export interface LocalContainerRefreshState {
   localContainerRefreshStructuralGeneration: number | null;
   localContainersNeedRefresh: boolean;
   persistence: ContainerContentsPersistence;
-  runtime: ContainerContentsWorkflowRuntime;
+  runtime: ContainerContentsWorkflowRuntime & ContainerStoreScope["runtime"];
   structuralGeneration: number;
-  syncLane?: { isDisposed?: () => boolean } | null;
 }
 
 interface LocalContainerRefreshBaseline {
@@ -211,7 +214,7 @@ export function refreshLocalContainerStates(
   input: LocalRefreshInput,
 ): Promise<void> {
   const { host, state } = input;
-  if (state.syncLane?.isDisposed?.() || input.stillCurrent?.() === false)
+  if (!ownsContainerStore(state) || input.stillCurrent?.() === false)
     return Promise.resolve();
   const joined = joinLocalRead(input);
   if (joined) return joined;
@@ -227,7 +230,7 @@ export function refreshLocalContainerStates(
   const lifecycleGeneration = state.lifecycleGeneration;
   const structuralGeneration = state.structuralGeneration;
   const isCurrent = () =>
-    !state.syncLane?.isDisposed?.() &&
+    ownsContainerStore(state) &&
     input.stillCurrent?.() !== false &&
     state.lifecycleGeneration === lifecycleGeneration &&
     state.structuralGeneration === structuralGeneration;

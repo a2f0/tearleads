@@ -1,3 +1,4 @@
+import { ownsContainerStore } from "../containerState/storeScope";
 import type { ContainerContentsStoreRuntime } from "../syncAgent/syncAgentTypes";
 import type { ContainerContentsStoreState } from "../types";
 
@@ -43,8 +44,7 @@ export function captureContainerWriteGeneration(
   const runtime = state.runtime;
   const writeGeneration = state.writeGeneration;
   return () =>
-    !state.syncLane?.isDisposed?.() &&
-    runtime.liveHydrationStatus?.() !== "retired" &&
+    ownsContainerStore(state) &&
     state.lifecycleGeneration === lifecycleGeneration &&
     state.persistence === persistence &&
     state.writeGeneration === writeGeneration &&

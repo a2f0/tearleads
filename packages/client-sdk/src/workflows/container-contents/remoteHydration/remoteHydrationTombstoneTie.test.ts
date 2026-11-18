@@ -169,32 +169,42 @@ test("an equal-time deletion beats a same-page live item and fences it", async (
   }
 });
 
-test("an equal-time live item beats an access revocation", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "container-hydration-equal-revocation",
-  );
-  try {
-    await defaultContainerContentsPersistence.ensureSchema(execSql);
-    const state = createState({ execSql, reason: "access_revoked" });
-    await hydrateRemoteContainers({
-      host: {
-        persistContainerState: async () => {
-          throw new Error("the equal-time live item should insert");
+test.each([false, true])(
+  "an equal-time live item beats an access revocation (missing continuation: %s)",
+  async (missingContinuation) => {
+    const { close, execSql } = await createTestExecSql(
+      "container-hydration-equal-revocation",
+    );
+    try {
+      await defaultContainerContentsPersistence.ensureSchema(execSql);
+      const state = createState({
+        execSql,
+        reason: "access_revoked",
+        missingContinuation,
+      });
+      await hydrateRemoteContainers({
+        host: {
+          persistContainerState: async () => {
+            throw new Error("the equal-time live item should insert");
+          },
+          updateSnapshot: () => {},
         },
-        updateSnapshot: () => {},
-      },
-      parentIds: [null],
-      state,
-    });
+        parentIds: [null],
+        state,
+      });
 
-    expect(state.containersById.has(containerId)).toBe(true);
-    await expect(
-      defaultContainerContentsPersistence.containerExists(execSql, containerId),
-    ).resolves.toBe(true);
-  } finally {
-    await close();
-  }
-});
+      expect(state.containersById.has(containerId)).toBe(true);
+      await expect(
+        defaultContainerContentsPersistence.containerExists(
+          execSql,
+          containerId,
+        ),
+      ).resolves.toBe(true);
+    } finally {
+      await close();
+    }
+  },
+);
 
 test.each([false, true])(
   "an absent revocation fences delayed items (missing continuation: %s)",

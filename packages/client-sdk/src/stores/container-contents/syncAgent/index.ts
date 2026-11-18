@@ -6,6 +6,7 @@ import {
 } from "../../../workflows/container-contents/syncLane";
 import { loadOrganizationSyncPausesBeforeSync } from "../../../workflows/sync/coordination";
 import { createRestoredAccessReconciler } from "../accessRestorationSweep";
+import { ownsContainerStore } from "../containerState/storeScope";
 import { primeStoreDocumentSubtree } from "../documentWork/documentRecovery";
 import { observeContainerBackgroundHydration } from "../hydration/backgroundHydration";
 import {
@@ -22,7 +23,10 @@ import { refreshLocalContainerStates } from "../localRefresh";
 import { getContainerContentsStoreLogLabel } from "../logLabel";
 import { createRemoteContainerIngestionController } from "../remoteEvents/remoteContainerIngestion";
 import { handleContainerContentsRemoteEvents } from "../remoteEvents/remoteEventSync";
-import { consumePendingContainerContentsReconnectRefresh } from "../state";
+import {
+  consumePendingContainerContentsReconnectRefresh,
+  retireContainerStore,
+} from "../state";
 import type {
   ContainerContentsStoreSyncAgent,
   ContainerContentsStoreSyncState,
@@ -190,7 +194,7 @@ function ensureContainerContentsStoreInitialized(input: {
   if (state.initialized || state.runtime.infra.dbStatus !== "ready") {
     return;
   }
-  if (state.syncLane?.isDisposed?.() || state.initializePromise) {
+  if (!ownsContainerStore(state) || state.initializePromise) {
     return;
   }
   if (waitForStaleLocalRefreshBeforeInitialization(input)) {
@@ -201,7 +205,7 @@ function ensureContainerContentsStoreInitialized(input: {
   const persistence = state.persistence;
   const execSql = state.runtime.infra.execSql;
   const isCurrent = () =>
-    !state.syncLane?.isDisposed?.() &&
+    ownsContainerStore(state) &&
     state.lifecycleGeneration === lifecycleGeneration &&
     state.persistence === persistence &&
     state.runtime.infra.execSql === execSql;
@@ -317,7 +321,7 @@ export function createContainerContentsStoreSyncAgent(input: {
   });
 
   state.syncLane = registerContainerContentsSyncLane({
-    onDispose: () => state.reconnectRefresh.reset("disposed"),
+    onDispose: () => retireContainerStore(state),
     domainScope: state.runtime.state.domainScope,
     logError: (message, error) => logSyncLaneFailure(state, message, error),
     run: (policyOperation) =>

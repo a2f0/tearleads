@@ -6,8 +6,8 @@ import {
   StaleRemoteHydrationError,
 } from "../../../workflows/container-contents/remoteHydration";
 import type { RemoteContainerHydrationState } from "../../../workflows/container-contents/remoteHydration/types";
-import type { ContainerContentsStoreWorkflowRuntime } from "../../../workflows/container-contents/runtime";
 import { isDatabaseUnavailableError } from "../../../workflows/container-contents/syncLane";
+import { ownsContainerStore } from "../containerState/storeScope";
 import {
   type LocalContainerRefreshState,
   refreshLocalContainerStates,
@@ -28,7 +28,6 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
     remoteHydrationPromise: Promise<void> | null;
     remoteHydrationStructuralGeneration: number | null;
     rootLaneHydrated: boolean;
-    runtime: Pick<ContainerContentsStoreWorkflowRuntime, "liveHydrationStatus">;
     snapshot: {
       ready: boolean;
     };
@@ -60,20 +59,13 @@ interface RecoveryHydrationRequest {
   structuralGeneration: number;
 }
 
-function ownsHydrationStore(state: RemoteHydrationRequestState): boolean {
-  return (
-    !state.syncLane?.isDisposed?.() &&
-    state.runtime.liveHydrationStatus?.() !== "retired"
-  );
-}
-
 function isRequestGenerationCurrent(input: {
   lifecycleGeneration: number;
   state: RemoteHydrationRequestState;
   structuralGeneration: number;
 }): boolean {
   return (
-    ownsHydrationStore(input.state) &&
+    ownsContainerStore(input.state) &&
     input.state.lifecycleGeneration === input.lifecycleGeneration &&
     input.state.structuralGeneration === input.structuralGeneration
   );
@@ -138,7 +130,7 @@ function createResetRecoveryInput(
 function resumeRetainedRecoveryHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
-  if (!ownsHydrationStore(input.state)) return Promise.resolve();
+  if (!ownsContainerStore(input.state)) return Promise.resolve();
   queueRecoveryHydrationRequest(input);
   return hasRemoteHydrationPrerequisites(input.state)
     ? input.resumeRecoveryWork()
@@ -201,7 +193,17 @@ function waitForActiveRemoteHydration(
   const needsCurrentGenerationHydration =
     state.remoteHydrationGeneration !== state.lifecycleGeneration ||
     state.remoteHydrationStructuralGeneration !== state.structuralGeneration;
-  if (input.resetAllLaneWatermarks && input.followDiscoveredParentLanes) {
+  // A restoration owns its sweep callback and its sync scheduling policy.
+  // Let it list after prior work settles so its durable claim can complete.
+  const needsOwnCrawl =
+    !!(input.onFullyHydrated || input.recreateOnFullyHydratedAfterReset) &&
+    !!input.resetAllLaneWatermarks &&
+    !!input.followDiscoveredParentLanes;
+  if (
+    !needsOwnCrawl &&
+    input.resetAllLaneWatermarks &&
+    input.followDiscoveredParentLanes
+  ) {
     queuedTreeResets.set(state, {
       status: "queued",
       lifecycleGeneration: requestLifecycleGeneration,
@@ -221,7 +223,8 @@ function waitForActiveRemoteHydration(
     // Another request's crawl may have taken over this request's queued
     // lanes. Settle with that crawl rather than at once, so the request never
     // resolves before the listing that covers it.
-    return needsCurrentGenerationHydration ||
+    return needsOwnCrawl ||
+      needsCurrentGenerationHydration ||
       state.containerParentIdsNeedingHydration.size > 0
       ? requestContainerContentsRemoteHydration(input)
       : (state.remoteHydrationPromise ?? undefined);
@@ -388,7 +391,7 @@ export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
   const { host, scheduleSync, state } = input;
-  if (!ownsHydrationStore(state) || input.reconnect?.isCurrent() === false)
+  if (!ownsContainerStore(state) || input.reconnect?.isCurrent() === false)
     return Promise.resolve();
   queueRequestedParentIds(input);
   const readinessBarrier = waitForRemoteHydrationReadiness(input);

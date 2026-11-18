@@ -305,10 +305,6 @@ async function applyContainerParentLanePage(input: {
     host.requestDocumentPriming?.();
   }
 
-  if (hasUnusableContinuation(fetchedPage)) {
-    return { changedCount, outcome: "retry", shouldStop: false };
-  }
-
   // A paused organization's containers stay as the device last saw them.
   // Skipping them here, after tombstones saw the full page, still lets the
   // lane complete and its watermark advance; their children are never queued.
@@ -331,6 +327,9 @@ async function applyContainerParentLanePage(input: {
   if (input.isCurrent?.() === false) {
     return { changedCount, outcome: "retry", shouldStop: true };
   }
+  // A bad continuation invalidates the cursor, independently verified rows still apply.
+  if (hasUnusableContinuation(fetchedPage))
+    return { changedCount, outcome: "retry", shouldStop: false };
   // A refused item leaves a gap in this lane. Later pages can still discover
   // independent children, but none may move its durable cursor past the gap.
   if (outcome !== "complete" && !input.continuePastIncompletePages)

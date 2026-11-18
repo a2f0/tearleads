@@ -34,7 +34,7 @@ function loadedContainer(documentId: string, name: string): ContainerState {
   };
 }
 
-test.each(["replace persistence", "dispose during read"])(
+test.each(["replace persistence", "dispose during read", "host rotates scope"])(
   "local refresh handles %s",
   async (change) => {
     type Loaded = Awaited<
@@ -80,22 +80,25 @@ test.each(["replace persistence", "dispose during read"])(
     const host = { updateSnapshot: mock(() => {}) };
 
     let live = true;
+    Object.assign(state.runtime, {
+      liveHydrationStatus: () => (live ? "ready" : "retired"),
+    });
     const refresh = refreshLocalContainerStates({
       host,
       state,
-      stillCurrent: () => live,
+      stillCurrent: change === "host rotates scope" ? undefined : () => live,
     });
     for (let attempt = 0; staleLoad.mock.calls.length === 0; attempt += 1) {
       if (attempt === 100) throw new Error("stale local load did not start");
       await Bun.sleep(1);
     }
-    if (change === "dispose during read") live = false;
+    if (change !== "replace persistence") live = false;
     else state.structuralGeneration += 1;
     state.persistence = { ...persistence, loadContainers: replacementLoad };
     resolveStaleLoad([loadedContainer("stale-document", "Stale")]);
     await refresh;
 
-    if (change === "dispose during read") {
+    if (change !== "replace persistence") {
       expect(replacementLoad).not.toHaveBeenCalled();
       expect(host.updateSnapshot).not.toHaveBeenCalled();
       expect(state.containersById.size).toBe(0);

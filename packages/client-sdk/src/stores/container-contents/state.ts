@@ -300,6 +300,13 @@ export function updateContainerContentsStoreRuntime(
   }
 }
 
+export function retireContainerStore(
+  state: ContainerContentsStoreSyncState,
+): void {
+  state.lifecycleGeneration++;
+  state.reconnectRefresh.reset("disposed");
+}
+
 export function consumePendingContainerContentsReconnectRefresh(
   state: ContainerContentsStoreSyncState,
   refresh: ContainerContentsStoreSyncAgent["refresh"],

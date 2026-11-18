@@ -220,3 +220,48 @@ test.each(["superseded", "offline", "listing unavailable"] as const)(
     }
   },
 );
+
+test("a restoration queued behind reconnect completes its claimed sweep", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "claimed-restoration-handoff",
+  );
+  const start = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const state = createRequestState(execSql, async () => {
+    start.resolve();
+    await release.promise;
+    return emptyRootLane;
+  });
+  const input = {
+    host: emptyHydrationHost,
+    state,
+    parentIds: [null],
+    followDiscoveredParentLanes: true,
+    scheduleSync: () => {},
+    resumeRecoveryWork: async () => {
+      await resumeContainerContentsRecoveryHydration(state);
+    },
+  };
+  let completions = 0;
+  try {
+    const active = requestContainerContentsRemoteHydration(input);
+    await start.promise;
+    const reconnect = requestContainerContentsRemoteHydration({
+      ...input,
+      reconnect: { isCurrent: () => true, record: () => {} },
+    });
+    const restoration = requestContainerContentsRemoteHydration({
+      ...input,
+      resetAllLaneWatermarks: true,
+      onFullyHydrated: () => {
+        completions++;
+      },
+    });
+    release.resolve();
+    await Promise.all([active, reconnect, restoration]);
+    expect(completions).toBe(1);
+  } finally {
+    release.resolve();
+    await close();
+  }
+});
