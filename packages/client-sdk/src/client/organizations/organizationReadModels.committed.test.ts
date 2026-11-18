@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
+  organizationReadModelCursorAt,
   organizationReadModelGroupsDelta,
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
@@ -19,6 +20,7 @@ import { createOrganizationReadModelCoordinator } from "./organizationReadModels
 
 const organizationId = organizationReadModelOrganizationId;
 const userId = organizationReadModelUserId;
+const cursorAt = (position: number) => organizationReadModelCursorAt(position);
 
 async function committedFixture(name: string) {
   const { close, execSql } = await createTestExecSql(name);
@@ -27,7 +29,7 @@ async function committedFixture(name: string) {
   ).applyOrganizationReadModelResponse({
     currentUserId: userId,
     requestedCursor: null,
-    response: organizationReadModelSnapshot(),
+    response: organizationReadModelSnapshot({ cursor: cursorAt(1) }),
   });
   const requestedCursors: Array<string | undefined> = [];
   const apiClient = createMockApiClient({
@@ -35,7 +37,7 @@ async function committedFixture(name: string) {
       requestedCursors.push(cursor);
       return {
         data: organizationReadModelGroupsDelta({
-          cursor: "cursor-feed",
+          cursor: cursorAt(9),
           groupName: "Operators",
         }),
         ok: true,
@@ -79,9 +81,9 @@ test("an own mutation's delta presents without a feed request", async () => {
   const f = await committedFixture("committed-read-model-own-delta-test");
   try {
     const lease = await beginCommittedReadModel(f.scope);
-    expect(lease.heldCursor).toBe("cursor-1");
+    expect(lease.heldCursor).toBe(cursorAt(1));
     const delta = organizationReadModelGroupsDelta({
-      cursor: "cursor-2",
+      cursor: cursorAt(2),
       groupName: "Operators",
     });
     lease.settle(delta);
@@ -92,11 +94,11 @@ test("an own mutation's delta presents without a feed request", async () => {
     );
 
     expect(f.requestedCursors).toEqual([]);
-    expect(presented?.readModelCursor).toBe("cursor-2");
-    await expect(f.coordinator.loadAppliedCursor()).resolves.toBe("cursor-2");
+    expect(presented?.readModelCursor).toBe(cursorAt(2));
+    await expect(f.coordinator.loadAppliedCursor()).resolves.toBe(cursorAt(2));
     // The offer is taken once: a second post-commit read uses the feed.
     await f.coordinator.reconcileAfterOwnMutation(organizationId, delta);
-    expect(f.requestedCursors).toEqual(["cursor-2"]);
+    expect(f.requestedCursors).toEqual([cursorAt(2)]);
   } finally {
     f.close();
   }
@@ -110,14 +112,14 @@ test("a delta for a cursor the projection moved past falls back to the feed", as
       f.execSql,
     ).applyOrganizationReadModelResponse({
       currentUserId: userId,
-      requestedCursor: "cursor-1",
+      requestedCursor: cursorAt(1),
       response: organizationReadModelGroupsDelta({
-        cursor: "cursor-2",
+        cursor: cursorAt(2),
         groupName: "Operators",
       }),
     });
     const delta = organizationReadModelGroupsDelta({
-      cursor: "cursor-3",
+      cursor: cursorAt(3),
       groupName: "Operators",
     });
     lease.settle(delta);
@@ -130,8 +132,8 @@ test("a delta for a cursor the projection moved past falls back to the feed", as
       delta,
     );
 
-    expect(f.requestedCursors).toEqual(["cursor-2"]);
-    expect(presented?.readModelCursor).toBe("cursor-feed");
+    expect(f.requestedCursors).toEqual([cursorAt(2)]);
+    expect(presented?.readModelCursor).toBe(cursorAt(9));
   } finally {
     f.close();
   }
@@ -151,12 +153,12 @@ test("a hint's cursor check waits for an own mutation and applies its delta", as
 
     lease.settle(
       organizationReadModelGroupsDelta({
-        cursor: "cursor-2",
+        cursor: cursorAt(2),
         groupName: "Operators",
       }),
     );
 
-    await expect(applied).resolves.toBe("cursor-2");
+    await expect(applied).resolves.toBe(cursorAt(2));
     expect(f.requestedCursors).toEqual([]);
   } finally {
     f.close();
@@ -170,14 +172,14 @@ test("a mutation without a delta settles its lease and changes nothing", async (
     lease.settle(undefined);
     lease.settle(
       organizationReadModelGroupsDelta({
-        cursor: "cursor-2",
+        cursor: cursorAt(2),
         groupName: "Operators",
       }),
     );
 
     await expect(f.coordinator.loadAppliedCursor()).resolves.toBeNull();
     await f.coordinator.reconcileAfterOwnMutation(organizationId, undefined);
-    expect(f.requestedCursors).toEqual(["cursor-1"]);
+    expect(f.requestedCursors).toEqual([cursorAt(1)]);
   } finally {
     f.close();
   }
@@ -187,7 +189,7 @@ test("a delta that fails to apply resolves undefined, leaving the feed read", as
   const f = await committedFixture("committed-read-model-failure-test");
   const lease = await beginCommittedReadModel(f.scope);
   const delta = organizationReadModelGroupsDelta({
-    cursor: "cursor-2",
+    cursor: cursorAt(2),
     groupName: "Operators",
   });
   lease.settle(delta);
@@ -208,13 +210,13 @@ test("a hint check overtaken by a scope switch applies nothing", async () => {
     const nextScope = f.switchDomainScope();
     const nextLease = await beginCommittedReadModel(nextScope);
     const nextDelta = organizationReadModelGroupsDelta({
-      cursor: "cursor-3",
+      cursor: cursorAt(3),
       groupName: "Operators",
     });
     nextLease.settle(nextDelta);
     lease.settle(
       organizationReadModelGroupsDelta({
-        cursor: "cursor-2",
+        cursor: cursorAt(2),
         groupName: "Operators",
       }),
     );
@@ -224,14 +226,65 @@ test("a hint check overtaken by a scope switch applies nothing", async () => {
     // the new scope's.
     expect(takeCommittedReadModelOffer(nextScope, nextDelta)).toEqual({
       delta: nextDelta,
-      heldCursor: "cursor-1",
+      heldCursor: cursorAt(1),
     });
 
     await expect(
       new OrganizationReadModelRepository(
         f.execSql,
       ).loadOrganizationReadModelCursor(organizationId),
-    ).resolves.toBe("cursor-1");
+    ).resolves.toBe(cursorAt(1));
+    expect(f.requestedCursors).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("a feed refresh during a delta's apply reads after it", async () => {
+  const f = await committedFixture("committed-read-model-refresh-test");
+  try {
+    const lease = await beginCommittedReadModel(f.scope);
+    const delta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(2),
+      groupName: "Operators",
+    });
+    lease.settle(delta);
+    const applying = f.coordinator.applyCommittedReadModel(
+      organizationId,
+      delta,
+    );
+    // Let the apply register before the refresh arrives; no I/O runs here.
+    for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
+    const refreshed = f.coordinator.reconcile();
+
+    await expect(applying).resolves.toMatchObject({
+      readModelCursor: cursorAt(2),
+    });
+    await expect(refreshed).resolves.toMatchObject({
+      readModelCursor: cursorAt(9),
+    });
+    expect(f.requestedCursors).toEqual([cursorAt(2)]);
+  } finally {
+    f.close();
+  }
+});
+
+test("a mutation's fallback read stays with the scope that committed", async () => {
+  const f = await committedFixture("committed-read-model-fallback-test");
+  try {
+    const lease = await beginCommittedReadModel(f.scope);
+    const delta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(1),
+      groupName: "Operators",
+    });
+    lease.settle(delta);
+    const settled = f.coordinator.reconcileAfterOwnMutation(
+      organizationId,
+      delta,
+    );
+    f.switchDomainScope();
+
+    await expect(settled).resolves.toBeUndefined();
     expect(f.requestedCursors).toEqual([]);
   } finally {
     f.close();

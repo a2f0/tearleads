@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
+  organizationReadModelCursorAt,
   organizationReadModelGroupsDelta,
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
@@ -8,14 +9,15 @@ import {
 } from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
 import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import {
+  applyCommittedOrganizationReadModel,
   beginCommittedReadModel,
   takeCommittedReadModelOffer,
   takeCommittedReadModelOffers,
 } from "./committedReadModel";
-import { applyCommittedOrganizationReadModel } from "./readModelProjection";
 
 const organizationId = organizationReadModelOrganizationId;
 const userId = organizationReadModelUserId;
+const cursorAt = (position: number) => organizationReadModelCursorAt(position);
 
 function delta(cursor: string) {
   return organizationReadModelGroupsDelta({ cursor, groupName: "Operators" });
@@ -31,7 +33,7 @@ test("a cold projection holds no cursor, so its mutation earns no delta", async 
       userId,
     });
     expect(lease.heldCursor).toBeUndefined();
-    lease.settle(delta("cursor-2"));
+    lease.settle(delta(cursorAt(2)));
     await expect(
       takeCommittedReadModelOffers({
         domainScope: {},
@@ -54,22 +56,22 @@ test("offers are taken once, by their own delta or by a hint check", async () =>
     ).applyOrganizationReadModelResponse({
       currentUserId: userId,
       requestedCursor: null,
-      response: organizationReadModelSnapshot(),
+      response: organizationReadModelSnapshot({ cursor: cursorAt(1) }),
     });
     const own = await beginCommittedReadModel(scope);
     const other = await beginCommittedReadModel(scope);
-    const ownDelta = delta("cursor-2");
-    const otherDelta = delta("cursor-3");
+    const ownDelta = delta(cursorAt(2));
+    const otherDelta = delta(cursorAt(3));
     own.settle(ownDelta);
     other.settle(otherDelta);
 
     expect(takeCommittedReadModelOffer(scope, ownDelta)).toEqual({
       delta: ownDelta,
-      heldCursor: "cursor-1",
+      heldCursor: cursorAt(1),
     });
     expect(takeCommittedReadModelOffer(scope, ownDelta)).toBeUndefined();
     await expect(takeCommittedReadModelOffers(scope)).resolves.toEqual([
-      { delta: otherDelta, heldCursor: "cursor-1" },
+      { delta: otherDelta, heldCursor: cursorAt(1) },
     ]);
     await expect(takeCommittedReadModelOffers(scope)).resolves.toEqual([]);
   } finally {
@@ -86,7 +88,7 @@ test("a hint check stops waiting for a mutation that never settles", async () =>
     ).applyOrganizationReadModelResponse({
       currentUserId: userId,
       requestedCursor: null,
-      response: organizationReadModelSnapshot(),
+      response: organizationReadModelSnapshot({ cursor: cursorAt(1) }),
     });
     await beginCommittedReadModel(scope);
     await expect(takeCommittedReadModelOffers(scope, 5)).resolves.toEqual([]);
@@ -104,28 +106,36 @@ test("a committed delta applies only over the cursor its mutation sent", async (
     ).applyOrganizationReadModelResponse({
       currentUserId: userId,
       requestedCursor: null,
-      response: organizationReadModelSnapshot(),
+      response: organizationReadModelSnapshot({ cursor: cursorAt(1) }),
     });
 
-    await expect(
-      applyCommittedOrganizationReadModel({
-        ...input,
-        requestedCursor: "cursor-0",
-        response: delta("cursor-2"),
-      }),
-    ).resolves.toBeUndefined();
+    for (const [requestedCursor, nextCursor] of [
+      [cursorAt(0), cursorAt(2)],
+      // A delta that does not advance past the sent cursor stands for nothing.
+      [cursorAt(1), cursorAt(1)],
+      [cursorAt(1), cursorAt(0)],
+      [cursorAt(1), "not-a-cursor"],
+    ] as const) {
+      await expect(
+        applyCommittedOrganizationReadModel({
+          ...input,
+          requestedCursor,
+          response: delta(nextCursor),
+        }),
+      ).resolves.toBeUndefined();
+    }
     const applied = await applyCommittedOrganizationReadModel({
       ...input,
-      requestedCursor: "cursor-1",
-      response: delta("cursor-2"),
+      requestedCursor: cursorAt(1),
+      response: delta(cursorAt(2)),
     });
 
-    expect(applied?.readModelCursor).toBe("cursor-2");
+    expect(applied?.readModelCursor).toBe(cursorAt(2));
     await expect(
       new OrganizationReadModelRepository(
         execSql,
       ).loadOrganizationReadModelCursor(organizationId),
-    ).resolves.toBe("cursor-2");
+    ).resolves.toBe(cursorAt(2));
   } finally {
     close();
   }

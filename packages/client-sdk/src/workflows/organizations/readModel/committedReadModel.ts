@@ -1,10 +1,13 @@
+import { organizationReadModelCursorPosition } from "@tearleads/validators/organizationReadModelCursor";
 import type { OrganizationReadModelDeltaResponse } from "@tearleads/validators/response";
 import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { OrganizationDirectoryAndGroups } from "./index";
 import {
   isOrganizationPresentationAccessReadable,
   organizationAccessScopeKey,
 } from "./organizationPresentationAccessState";
+import { applyOrganizationReadModelPageAt } from "./readModelProjection";
 
 /**
  * The read-model delta one of this device's mutations carried back, and the
@@ -152,4 +155,26 @@ export async function loadHeldOrganizationReadModelCursor(
       scope.execSql,
     ).loadOrganizationReadModelCursor(scope.organizationId)) ?? undefined
   );
+}
+
+/**
+ * Apply the read-model delta a mutation's response carried as the page a feed
+ * read from `requestedCursor` returns, with no request. Resolves `undefined`
+ * when it is not applied: its cursor does not advance past the one sent, the
+ * projection no longer holds that cursor, or the page applied stale. The
+ * caller then reads the feed as before.
+ */
+export async function applyCommittedOrganizationReadModel(
+  input: Parameters<typeof applyOrganizationReadModelPageAt>[0],
+): Promise<OrganizationDirectoryAndGroups | null | undefined> {
+  const sent = organizationReadModelCursorPosition(
+    input.requestedCursor,
+    input.organizationId,
+  );
+  const next = organizationReadModelCursorPosition(
+    input.response.nextCursor,
+    input.organizationId,
+  );
+  if (sent === null || next === null || next <= sent) return undefined;
+  return applyOrganizationReadModelPageAt(input);
 }

@@ -30,6 +30,11 @@ import { loadBoundedOrganizationHistory } from "./organizationHistory";
 import { leaveRequestVerifier } from "./organizationLeaveRequestVerifier";
 import { presentOrganizationReadModelPass } from "./organizationReadModelPresentation";
 import {
+  committedScope,
+  type InFlightReadModelPass,
+  scopedMap,
+} from "./organizationReadModelScopes";
+import {
   type ActiveOrganizationDataRuntime,
   activeOrganizationDataRuntime,
   isOrganizationDataRuntimeCurrent,
@@ -108,9 +113,11 @@ export interface OrganizationReadModelCoordinator {
 class OrganizationReadModelCoordinatorImpl
   implements OrganizationReadModelCoordinator
 {
+  // The pass in flight per requester: a feed read, or a committed delta's
+  // local apply, which a feed refresh waits out instead of joining.
   private readonly reconciliationsByScope = new WeakMap<
     DomainScope,
-    Map<string, Promise<OrganizationDirectoryAndGroups | null | undefined>>
+    Map<string, InFlightReadModelPass>
   >();
   // The cursor each requester's last reconcile fully presented: applied,
   // group names hydrated and leave requests verified. A stored cursor whose
@@ -269,7 +276,16 @@ class OrganizationReadModelCoordinatorImpl
     if (!active?.runtime.state.online) {
       return Promise.resolve(undefined);
     }
-    return this.presentReconciliation(active, () =>
+    const inFlight = this.reconciliationMap(active).get(
+      organizationAccessScopeKey(active.organizationId, active.userId),
+    );
+    // A delta's apply reflects its commit, not this request: read after it.
+    if (inFlight?.kind === "delta") {
+      return inFlight.promise
+        .catch(() => null)
+        .then(() => this.reconcile(active.organizationId));
+    }
+    return this.presentReconciliation(active, "feed", () =>
       reconcileOrganizationDirectoryAndGroups({
         apiClient: active.runtime.apiClient,
         currentUserId: active.userId,
@@ -283,6 +299,7 @@ class OrganizationReadModelCoordinatorImpl
   /** Run one projection pass for the scope, then present what it applied. */
   private presentReconciliation(
     active: ActiveOrganizationDataRuntime,
+    kind: InFlightReadModelPass["kind"],
     pass: () => Promise<OrganizationDirectoryAndGroups | null | undefined>,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
     const byKey = this.reconciliationMap(active);
@@ -292,7 +309,7 @@ class OrganizationReadModelCoordinatorImpl
     );
     const existing = byKey.get(key);
     if (existing) {
-      return existing;
+      return existing.promise;
     }
     const presentedCursors = scopedMap(this.presentedCursorsByScope, active);
 
@@ -304,7 +321,8 @@ class OrganizationReadModelCoordinatorImpl
       .then(
         (presented) => {
           if (presented) presentedCursors.set(key, presented.readModelCursor);
-          else presentedCursors.delete(key);
+          // A delta that did not apply leaves what was presented standing.
+          else if (kind === "feed") presentedCursors.delete(key);
           return presented;
         },
         (error: unknown) => {
@@ -313,11 +331,11 @@ class OrganizationReadModelCoordinatorImpl
         },
       )
       .finally(() => {
-        if (byKey.get(key) === reconciliation) {
+        if (byKey.get(key)?.promise === reconciliation) {
           byKey.delete(key);
         }
       });
-    byKey.set(key, reconciliation);
+    byKey.set(key, { kind, promise: reconciliation });
     return reconciliation;
   }
 
@@ -354,20 +372,18 @@ class OrganizationReadModelCoordinatorImpl
 
   /**
    * Present an offer only while the projection still holds the cursor its
-   * mutation sent; a pass that started since joins instead, having read after
-   * that commit.
+   * mutation sent and the scope is the one that waited for it. A failure only
+   * forgoes the delta: the caller reads the feed.
    */
-  private async applyCommittedOffer(
+  private applyCommittedOffer(
     active: ActiveOrganizationDataRuntime,
     offer: CommittedReadModelOffer,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
     const { domainScope } = active.runtime.state;
-    // A failure here only forgoes the delta: the caller reads the feed.
-    try {
+    return this.presentReconciliation(active, "delta", async () => {
       const held = await loadHeldOrganizationReadModelCursor(
         committedScope(active),
       );
-      // A logout, identity or domain transition during the wait forgoes it.
       if (
         held !== offer.heldCursor ||
         !isOrganizationDataRuntimeCurrent(
@@ -377,33 +393,43 @@ class OrganizationReadModelCoordinatorImpl
         )
       )
         return undefined;
-      return await this.presentReconciliation(active, () =>
-        applyCommittedOrganizationReadModel({
-          currentUserId: active.userId,
-          execSql: active.runtime.infra.execSql,
-          logError: active.runtime.util.logError,
-          organizationId: active.organizationId,
-          requestedCursor: offer.heldCursor,
-          response: offer.delta,
-        }),
-      );
-    } catch (error) {
+      return applyCommittedOrganizationReadModel({
+        currentUserId: active.userId,
+        execSql: active.runtime.infra.execSql,
+        logError: active.runtime.util.logError,
+        organizationId: active.organizationId,
+        requestedCursor: offer.heldCursor,
+        response: offer.delta,
+      });
+    }).catch((error: unknown) => {
       active.runtime.util.logError(
         "Failed to apply a committed organization read-model delta",
         error,
       );
       return undefined;
-    }
+    });
   }
 
   async reconcileAfterOwnMutation(
     organizationId: string,
     delta: OrganizationReadModelDeltaResponse | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
-    return (
-      (await this.applyCommittedReadModel(organizationId, delta)) ??
-      this.reconcileAfterMutation(organizationId)
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
     );
+    if (!active) return undefined;
+    const { domainScope } = active.runtime.state;
+    const applied = await this.applyCommittedReadModel(organizationId, delta);
+    if (applied) return applied;
+    // The fallback reads for the scope that committed, or not at all.
+    return isOrganizationDataRuntimeCurrent(
+      this.runtimeService,
+      active,
+      domainScope,
+    )
+      ? this.reconcileAfterMutation(active.organizationId)
+      : undefined;
   }
 
   async loadAppliedCursor(organizationId?: string): Promise<string | null> {
@@ -441,30 +467,8 @@ class OrganizationReadModelCoordinatorImpl
   ): Promise<void> {
     await this.reconciliationMap(active)
       .get(organizationAccessScopeKey(active.organizationId, active.userId))
-      ?.catch(() => null);
+      ?.promise.catch(() => null);
   }
-}
-
-function committedScope(active: ActiveOrganizationDataRuntime) {
-  return {
-    domainScope: active.runtime.state.domainScope,
-    execSql: active.runtime.infra.execSql,
-    organizationId: active.organizationId,
-    userId: active.userId,
-  };
-}
-
-function scopedMap<T>(
-  byScope: WeakMap<DomainScope, Map<string, T>>,
-  active: ActiveOrganizationDataRuntime,
-): Map<string, T> {
-  const scope = active.runtime.state.domainScope;
-  let byKey = byScope.get(scope);
-  if (!byKey) {
-    byKey = new Map();
-    byScope.set(scope, byKey);
-  }
-  return byKey;
 }
 
 export function createOrganizationReadModelCoordinator(

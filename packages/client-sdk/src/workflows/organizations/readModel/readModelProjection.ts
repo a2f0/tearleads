@@ -416,12 +416,11 @@ export async function loadLocalOrganizationGroupMembers(
 }
 
 /**
- * Apply the read-model delta a mutation's response carried as the page a feed
- * read from `requestedCursor` returns, with no request. Resolves `undefined`
- * when it is not applied, because the projection no longer holds that cursor
- * or the page applied stale; the caller then reads the feed as before.
+ * Apply one page as a feed read from `requestedCursor` returns it, with no
+ * request, while the projection still holds that cursor. Resolves `undefined`
+ * when it is not applied; it is never retried.
  */
-export async function applyCommittedOrganizationReadModel(
+export async function applyOrganizationReadModelPageAt(
   input: ApplyReadModelPageInput & {
     readonly requestedCursor: string;
     readonly response: OrganizationReadModelResponse;
@@ -433,7 +432,6 @@ export async function applyCommittedOrganizationReadModel(
   );
   const projection = await loadProjection(input);
   if (projection?.cursor !== input.requestedCursor) return undefined;
-  // One page, never retried: a stale or unbound apply falls back to the feed.
   const applied = await applyReadModelPage(
     input,
     {

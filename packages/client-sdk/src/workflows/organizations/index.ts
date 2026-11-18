@@ -116,6 +116,7 @@ export {
   updateOrganizationRosterEntry,
 } from "./readModel";
 export {
+  applyCommittedOrganizationReadModel,
   beginCommittedReadModel,
   type CommittedReadModelLease,
   type CommittedReadModelOffer,
@@ -149,7 +150,6 @@ export {
   loadLocalOrganizationUserDetail,
 } from "./readModel/localReadModelDetails";
 export {
-  applyCommittedOrganizationReadModel,
   loadLocalOrganizationDirectoryAndGroups,
   loadLocalOrganizationGroupMembers,
   type ReconcileOrganizationDirectoryAndGroupsInput,
