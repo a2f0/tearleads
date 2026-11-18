@@ -1,54 +1,43 @@
-import { and, eq, inArray } from "drizzle-orm";
-import { containers } from "../../sqlite/schema";
-import {
-  accessManifestCheckpoints,
-  keyingCheckpointTables,
-} from "../../sqlite/schema/keyingCheckpointSchema";
+import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import { containerRemovalBatches } from "./containerRemovalBatches";
+import {
+  accessManifestObjectKey,
+  loadAccessManifestCheckpointRows,
+} from "../keyingCheckpoints/keyingCheckpointPersistence";
+import type { ContainerRecord } from "./containerPersistence";
 
-/** The signed folder placement may advance independently of the metadata
- * document. Match only the checkpoint in the local folder's organization. */
+type Placement = Pick<ContainerRecord, "id" | "organizationId">;
+
+/** A folder's placement checkpoint can advance independently of its metadata. */
 export async function readRemovalPlacementHeads(
-  db: Pick<ClientSQLiteTransactionScope, "select">,
-  ids: readonly string[],
+  db: ClientSQLiteTransactionScope,
+  folders: readonly Placement[],
 ) {
-  const heads = new Map<string, string>();
-  for (const batch of containerRemovalBatches(ids)) {
-    const rows = await db
-      .select({
-        id: containers.id,
-        hash: accessManifestCheckpoints.manifestHash,
-      })
-      .from(containers)
-      .innerJoin(
-        accessManifestCheckpoints,
-        and(
-          eq(accessManifestCheckpoints.objectKind, "container"),
-          eq(
-            accessManifestCheckpoints.organizationId,
-            containers.organizationId,
-          ),
-          eq(accessManifestCheckpoints.objectId, containers.id),
-        ),
-      )
-      .where(inArray(containers.id, batch));
-    for (const row of rows) if (row.id) heads.set(row.id, row.hash);
-  }
-  return heads;
+  const identities = folders.map(({ id, organizationId }) => ({
+    objectId: id,
+    organizationId,
+    objectKind: "container" as const,
+  }));
+  const stored = await loadAccessManifestCheckpointRows(db, identities);
+  return new Map(
+    identities.map((identity) => [
+      identity.objectId,
+      stored.get(accessManifestObjectKey(identity))?.manifestHash ?? null,
+    ]),
+  );
 }
 
 export async function captureRemovalPlacementHeads(
   execSql: ExecSql,
-  ids: readonly string[],
+  folders: readonly Placement[],
 ) {
   await ensureSqlTables(execSql, keyingCheckpointTables);
   return readRemovalPlacementHeads(
     getClientSQLitePersistenceRuntime(execSql).db,
-    ids,
+    folders,
   );
 }

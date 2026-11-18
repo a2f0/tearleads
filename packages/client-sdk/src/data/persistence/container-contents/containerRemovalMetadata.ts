@@ -20,7 +20,12 @@ export async function confirmedRemovalMetadataMatches(
   );
   for (const batch of containerRemovalBatches(confirmed)) {
     const ids = batch.map((guard) => guard.containerId);
-    const placements = await readRemovalPlacementHeads(tx, ids);
+    const placements = await readRemovalPlacementHeads(
+      tx,
+      batch.flatMap((guard) =>
+        guard.expectedContainer ? [guard.expectedContainer] : [],
+      ),
+    );
     const rows = await tx
       .select({
         id: documents.localId,

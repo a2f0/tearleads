@@ -115,7 +115,10 @@ export async function resolveTombstoneCascade(input: {
   ];
   const placements = await captureRemovalPlacementHeads(
     input.state.runtime.infra.execSql,
-    ids,
+    ids.flatMap((id) => {
+      const held = input.expectedContainerStates.get(id);
+      return held ? [held.container] : [];
+    }),
   );
   const access = await readTombstoneCascadeAccess(
     input.state.runtime.apiClient,

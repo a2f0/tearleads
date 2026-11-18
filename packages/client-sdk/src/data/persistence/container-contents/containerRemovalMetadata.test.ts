@@ -37,7 +37,7 @@ test("confirmed removal queued behind a metadata commit preserves the newer fold
     );
     if (!before?.record) throw new Error("Expected the original metadata");
     const placementHash =
-      (await captureRemovalPlacementHeads(execSql, [container.id])).get(
+      (await captureRemovalPlacementHeads(execSql, [container])).get(
         container.id,
       ) ?? null;
     const earlier = before.record;
