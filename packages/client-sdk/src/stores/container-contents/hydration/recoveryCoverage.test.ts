@@ -190,6 +190,8 @@ test.each(["superseded", "offline", "listing unavailable"] as const)(
       if (current) {
         holds[1]?.resolve();
         await Promise.all([active, reconnect, manual]);
+        // A new server-events acknowledgement advances the structural generation.
+        state.structuralGeneration++;
       }
       let connected = !offline;
       state.runtime = {

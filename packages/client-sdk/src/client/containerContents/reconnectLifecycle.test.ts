@@ -79,74 +79,96 @@ for (const scenario of [
   });
 }
 
-test("an outstanding manual refresh cannot overwrite the reopened tree's cursor", async () => {
-  const { execSql, close } = await createTestExecSql("reopened-manual-cursor");
-  const started = Promise.withResolvers<void>();
-  const release = Promise.withResolvers<void>();
-  const updatedAt = "2026-01-01T00:00:00.000Z";
-  let calls = 0;
-  const apiClient = createMockApiClient({
-    listContainerParentLanes: async ({ lanes }) => {
-      const first = ++calls === 1;
-      if (first) {
-        started.resolve();
-        await release.promise;
+test.each(["reopen", "organization ABA"])(
+  "an old refresh cannot overwrite the new cursor after %s",
+  async (change) => {
+    let scopeGeneration = 0;
+    const { execSql, close } = await createTestExecSql(
+      "reopened-manual-cursor",
+    );
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const updatedAt = "2026-01-01T00:00:00.000Z";
+    let calls = 0;
+    const apiClient = createMockApiClient({
+      listContainerParentLanes: async ({ lanes }) => {
+        const first = ++calls === 1;
+        if (first) {
+          started.resolve();
+          await release.promise;
+        }
+        return {
+          results: lanes.map(({ laneId }) => ({
+            laneId,
+            page: {
+              items: [],
+              tombstones: [],
+              hasMore: false,
+              nextWatermark: { id: first ? "older" : "newer", updatedAt },
+            },
+          })),
+        };
+      },
+    });
+    let input = createWorkflowInputFixture({ apiClient, execSql });
+    const service = {
+      ...createInternalRuntimeFixture(() => input),
+      get scopeGeneration() {
+        return scopeGeneration;
+      },
+    };
+    const contents = createContainerContents(service);
+    const scope = input.state.domainScope;
+    const lane = createContainerParentSyncLane(null);
+    const cursors = new ContainerSyncWatermarkRepository(execSql);
+    try {
+      await defaultContainerContentsPersistence.ensureSchema(execSql);
+      await cursors.markChecked(lane);
+      const old = contents.openTree();
+      old.updateRuntime(contents.workflowRuntime());
+      await waitFor(
+        () => old.getSnapshot().ready,
+        "old store did not initialize",
+      );
+      const pending = old.refresh();
+      await started.promise;
+      if (change === "reopen") {
+        disposeDomainSyncCoordinator(scope);
+        const reopened = contents.openTree();
+        reopened.updateRuntime(contents.workflowRuntime());
+        await waitFor(
+          () => reopened.getSnapshot().ready,
+          "reopened store did not initialize",
+        );
+        await reopened.refresh();
+      } else {
+        const original = input;
+        input = {
+          ...input,
+          auth: { ...input.auth, organizationId: "another-org" },
+        };
+        scopeGeneration++;
+        input = original;
+        scopeGeneration++;
+        await cursors.saveWatermark(lane, { id: "newer", updatedAt });
       }
-      return {
-        results: lanes.map(({ laneId }) => ({
-          laneId,
-          page: {
-            items: [],
-            tombstones: [],
-            hasMore: false,
-            nextWatermark: { id: first ? "older" : "newer", updatedAt },
-          },
-        })),
-      };
-    },
-  });
-  const input = createWorkflowInputFixture({ apiClient, execSql });
-  const contents = createContainerContents(
-    createInternalRuntimeFixture(() => input),
-  );
-  const scope = input.state.domainScope;
-  const lane = createContainerParentSyncLane(null);
-  const cursors = new ContainerSyncWatermarkRepository(execSql);
-  try {
-    await defaultContainerContentsPersistence.ensureSchema(execSql);
-    await cursors.markChecked(lane);
-    const old = contents.openTree();
-    old.updateRuntime(contents.workflowRuntime());
-    await waitFor(
-      () => old.getSnapshot().ready,
-      "old store did not initialize",
-    );
-    const pending = old.refresh();
-    await started.promise;
-    disposeDomainSyncCoordinator(scope);
-    const reopened = contents.openTree();
-    reopened.updateRuntime(contents.workflowRuntime());
-    await waitFor(
-      () => reopened.getSnapshot().ready,
-      "reopened store did not initialize",
-    );
-    await reopened.refresh();
-    expect(await cursors.loadWatermark(lane)).toEqual({
-      id: "newer",
-      updatedAt,
-    });
-    release.resolve();
-    await pending;
-    expect(await cursors.loadWatermark(lane)).toEqual({
-      id: "newer",
-      updatedAt,
-    });
-  } finally {
-    release.resolve();
-    disposeDomainSyncCoordinator(scope);
-    await close();
-  }
-});
+      expect(await cursors.loadWatermark(lane)).toEqual({
+        id: "newer",
+        updatedAt,
+      });
+      release.resolve();
+      await pending;
+      expect(await cursors.loadWatermark(lane)).toEqual({
+        id: "newer",
+        updatedAt,
+      });
+    } finally {
+      release.resolve();
+      disposeDomainSyncCoordinator(scope);
+      await close();
+    }
+  },
+);
 
 test("a queued rename on the disposed tree cannot change the reopened root", async () => {
   const { execSql, close } = await createTestExecSql("retired-tree-rename");

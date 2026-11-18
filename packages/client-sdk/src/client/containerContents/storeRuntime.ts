@@ -4,6 +4,7 @@ import type { InternalRuntime } from "../runtime/workflowRuntime";
 
 export function createStoreRuntime(service: InternalRuntime) {
   const input = service.workflowInput();
+  const scopeGeneration = service.scopeGeneration;
   return {
     ...createContainerContentsStoreWorkflowRuntimeFromSnapshot(
       { ...input, organizations: service.containerContentsOrganizations },
@@ -17,9 +18,11 @@ export function createStoreRuntime(service: InternalRuntime) {
         ),
     ),
     // A superseded store can stop receiving host updates while its retry is pending.
+    scopeGeneration,
     liveHydrationStatus: (): "retired" | "ready" | "unavailable" => {
       const live = service.publicRuntime.input();
       if (
+        service.scopeGeneration !== scopeGeneration ||
         live.state.domainScope !== input.state.domainScope ||
         live.auth.organizationId !== input.auth.organizationId ||
         live.infra.execSql !== input.infra.execSql ||

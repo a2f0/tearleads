@@ -9,6 +9,7 @@ export function didContainerWriteRuntimeChange(
   currentRuntime: ContainerContentsStoreRuntime,
 ): boolean {
   return (
+    previousRuntime.scopeGeneration !== currentRuntime.scopeGeneration ||
     previousRuntime.adoptRootContainer !== currentRuntime.adoptRootContainer ||
     previousRuntime.apiClient !== currentRuntime.apiClient ||
     previousRuntime.auth.defaultOrganizationId !==
