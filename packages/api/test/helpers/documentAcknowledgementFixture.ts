@@ -11,6 +11,7 @@ import {
   type DocumentWriterProjectionResponse,
   documentKekTargetsFromContentKeyBundle,
 } from "@tearleads/validators/response";
+import { rememberedRequestManifest } from "./requestManifests";
 
 /**
  * A document create or link-set acknowledgement plus the committed material a
@@ -43,7 +44,12 @@ export function withDocumentMutationArtifacts<
   request: DocumentCreateRequest | DocumentLinkSetMutationRequest,
   response: R,
 ): DocumentMutationFixture<R> {
-  const manifest = readRecord(request.manifest, "manifest");
+  const manifest = readRecord(
+    "manifest" in request
+      ? request.manifest
+      : rememberedRequestManifest(request),
+    "manifest",
+  );
   const event = readRecord(request.event, "event");
   const linkedContainerIds = [
     ...new Set(

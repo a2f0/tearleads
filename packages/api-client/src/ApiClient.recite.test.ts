@@ -27,7 +27,6 @@ testApiClient(
         containerKeyEpochId: "epoch-1",
       },
       event: {},
-      manifest: { objectId: "container-1", objectKind: "container" },
       expectedManifestHash: response.manifestHead.manifestHash,
       previousManifestRef: {
         containerId: "container-1",

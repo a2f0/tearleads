@@ -1331,11 +1331,6 @@
             ],
             "description": "For a KEK rotation, every predecessor KEK sealed under the new KEK; null otherwise."
           },
-          "manifest": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": {}
-          },
           "parentContainerPathRefs": {
             "type": "array",
             "items": {
@@ -1438,13 +1433,12 @@
           "expectedManifestHash",
           "keyEpoch",
           "keyring",
-          "manifest",
           "predecessorBridge",
           "principalPolicyRefs",
           "wraps"
         ],
         "additionalProperties": {},
-        "description": "A signed container mutation (create, share, or the container part of a larger write): the event, the manifest it derives, and the KEK material, citing stored heads instead of resending them."
+        "description": "A signed container mutation (create, share, or the container part of a larger write): the event, the hash of the manifest it derives (the API derives the manifest itself), and the KEK material, citing stored heads instead of resending them."
       },
       "ContainerMutationResponse": {
         "type": "object",
@@ -1615,11 +1609,6 @@
             "minLength": 1,
             "description": "Hash of the manifest this re-citation derives."
           },
-          "manifest": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": {}
-          },
           "previousContainerPathRefs": {
             "type": "array",
             "items": {
@@ -1642,7 +1631,6 @@
           "body",
           "event",
           "expectedManifestHash",
-          "manifest",
           "previousContainerPathRefs",
           "previousManifestRef",
           "principalPolicyRefs"
@@ -1770,11 +1758,6 @@
               }
             ]
           },
-          "manifest": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": {}
-          },
           "parentContainerPathRefs": {
             "type": "array",
             "items": {
@@ -1877,7 +1860,6 @@
           "expectedManifestHash",
           "keyEpoch",
           "keyring",
-          "manifest",
           "predecessorBridge",
           "principalPolicyRefs",
           "wraps"
@@ -3214,11 +3196,6 @@
             "minLength": 1,
             "description": "Hash of the link-set manifest this mutation derives."
           },
-          "manifest": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": {}
-          },
           "rotationBaseline": {
             "$ref": "#/components/schemas/DocumentOutgoingUpdate",
             "description": "For an unlink, a rotation baseline covering every committed update; omitted only when the document has none, and never sent with a link."
@@ -3239,7 +3216,6 @@
           "contentKeyBundle",
           "event",
           "expectedManifestHash",
-          "manifest",
           "targetContainerPathRefs"
         ],
         "additionalProperties": {},
@@ -3700,11 +3676,6 @@
                     }
                   ]
                 },
-                "manifest": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {}
-                },
                 "parentContainerPathRefs": {
                   "type": "array",
                   "items": {
@@ -3799,7 +3770,6 @@
                 "expectedManifestHash",
                 "keyEpoch",
                 "keyring",
-                "manifest",
                 "predecessorBridge",
                 "principalPolicyRefs",
                 "wraps"
@@ -15659,7 +15629,7 @@
       "post": {
         "operationId": "containers.create",
         "summary": "Create a container",
-        "description": "Creates a container from a signed `container.create` event, its derived access manifest, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`.",
+        "description": "Creates a container from a signed `container.create` event, the hash of the access manifest it derives, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`.",
         "tags": [
           "Containers"
         ],

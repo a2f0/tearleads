@@ -113,10 +113,6 @@ function buildRootContainerCreateRequest(input: {
     event: readCanonicalRecord(input.event, "Container root create event"),
     body: readCanonicalRecord(input.body, "Container root create body"),
     expectedManifestHash: input.manifestHash,
-    manifest: readCanonicalRecord(
-      input.manifest,
-      "Container root create manifest",
-    ),
     previousManifestRef: null,
     parentContainerPathRefs: [],
     principalPolicyRefs: input.principalPolicyRefs,

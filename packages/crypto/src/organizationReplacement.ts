@@ -72,7 +72,10 @@ function assertPersonalGenesis(
         "A replacement must begin with the founding user as sole authority",
       );
   }
-  const { body, event, manifest } = input.initialRootContainer;
+  // The manifest is derived from this signed event and body (and checked
+  // against `expectedManifestHash` where it commits), so the genesis is read
+  // from them: a create with no predecessor is epoch 1 of its object.
+  const { body, event } = input.initialRootContainer;
   if (!isPlainObject(body)) invalid("Replacement root body is invalid");
   const metadataDocumentId: unknown = Reflect.get(body, "metadataDocumentId");
   const grants: unknown = Reflect.get(body, "directGrants");
@@ -93,11 +96,7 @@ function assertPersonalGenesis(
     Reflect.get(event, "objectId") !== input.rootContainerId ||
     Reflect.get(event, "organizationId") !== input.organizationId ||
     Reflect.get(event, "signerUserId") !== input.userId ||
-    Reflect.get(manifest, "epoch") !== 1 ||
-    Reflect.get(manifest, "previousManifestHash") !== null ||
-    Reflect.get(manifest, "objectKind") !== "container" ||
-    Reflect.get(manifest, "objectId") !== input.rootContainerId ||
-    Reflect.get(manifest, "organizationId") !== input.organizationId
+    Reflect.get(event, "previousManifestHash") !== null
   )
     invalid("A replacement must have a fresh private non-system root");
   return metadataDocumentId;
