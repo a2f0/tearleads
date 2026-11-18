@@ -56,17 +56,21 @@ export class PrincipalHistoryRequestContext {
     );
   }
 
-  async acceptsCredential(signal: AbortSignal | undefined): Promise<boolean> {
-    if (this.cancelled() || signal?.aborted) return false;
-    const state = this.identity.credentialCurrent();
-    if (typeof state === "boolean") return state;
+  async withCredential<T>(
+    signal: AbortSignal | undefined,
+    run: () => T | Promise<T>,
+  ): Promise<T | null> {
     const owner = this.identity.session;
     const cancellation =
       owner && signal ? AbortSignal.any([owner, signal]) : (owner ?? signal);
-    // A different request is verifying the installed bearer. Its result, a
-    // caller deadline or retirement releases this operation without replay.
-    await renewalUnlessAborted(state, cancellation).catch(() => false);
-    return !cancellation?.aborted && this.identity.credentialCurrent() === true;
+    while (!cancellation?.aborted) {
+      const state = this.identity.credentialCurrent();
+      // Capture the verified bearer for dispatch in this same turn. A provisional
+      // installation must finish verification before a continuation can use it.
+      if (typeof state === "boolean") return state ? run() : null;
+      await renewalUnlessAborted(state, cancellation).catch(() => false);
+    }
+    return null;
   }
 
   beforeRequest(): void {
