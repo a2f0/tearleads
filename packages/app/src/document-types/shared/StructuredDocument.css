@@ -88,23 +88,20 @@
 }
 
 .structured-document-attachments {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-md);
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-}
-
-/* A document with a single slot (a passport's image, a tool's receipt) would
-   otherwise stretch it across the entire detail pane on iPad. Keep it at the
-   shared form measure while the mobile tier's token override still lets it use
-   the available width. */
-.structured-document-attachments--single {
-  max-width: var(--form-measure);
 }
 
 .structured-document-slot {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-sm);
+  flex: 1 1 15rem;
+  /* Cap the preview area; the frame adds its own padding and border. */
+  box-sizing: content-box;
   min-width: 0;
+  max-width: 20rem;
   padding: var(--panel-padding);
   border: var(--border);
   overflow: hidden;
@@ -128,8 +125,6 @@
   display: block;
   min-width: 0;
   width: 100%;
-  /* Keep personal-document previews near card size in a large window. */
-  max-width: 20rem;
   border: 0;
   background: none;
   object-fit: contain;

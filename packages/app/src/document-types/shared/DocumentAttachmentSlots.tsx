@@ -4,7 +4,6 @@ import type {
   DocumentAttachmentStatus,
 } from "@tearleads/client-sdk";
 import { type ChangeEvent, useId, useRef } from "react";
-import { classNames } from "../../components/shared/classNames";
 import { formatByteLength } from "../../utils/formatByteLength";
 import { AttachmentActionButton } from "./AttachmentActionButton";
 import { useDocumentBlobOpen } from "./DocumentBlobOpenContext";
@@ -236,7 +235,6 @@ export function DocumentAttachmentSlots(params: {
   attachments: ReadonlyArray<DocumentAttachment>;
   blobPicker?: DocumentAttachmentBlobPickerConfig | undefined;
   canAttach: boolean;
-  className?: string | undefined;
   imageUrlBySlotId: Readonly<Record<string, string | undefined>>;
   onClearAttachment: (slotId: string) => void;
   onSelectedAttachment: (slotId: string, fileList: FileList | null) => void;
@@ -248,7 +246,6 @@ export function DocumentAttachmentSlots(params: {
     attachments,
     blobPicker,
     canAttach,
-    className,
     imageUrlBySlotId,
     onClearAttachment,
     onSelectedAttachment,
@@ -256,7 +253,7 @@ export function DocumentAttachmentSlots(params: {
   } = params;
 
   return (
-    <div className={classNames("structured-document-attachments", className)}>
+    <div className="structured-document-attachments">
       {expandAttachmentSlots(slots, attachments, canAttach).map((slot) => (
         <DocumentAttachmentSlotCard
           key={slot.slotId}
