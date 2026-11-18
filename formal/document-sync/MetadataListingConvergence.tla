@@ -20,8 +20,7 @@
 (***************************************************************************)
 EXTENDS Naturals
 
-CONSTANTS
-  MaxEdits,
+CONSTANTS MaxEdits,
   MaxTouches,
   MaxRestarts,
   MaxDisconnects,
