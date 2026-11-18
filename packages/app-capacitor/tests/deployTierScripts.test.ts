@@ -62,7 +62,8 @@ async function writeExecutable(path: string, source: string) {
 for (const fixture of fixtures) {
   for (const flag of ["", "--skip-terraform", "--skip-infra"]) {
     test(`${fixture.name} deploy preserves ordering with ${flag || "all infrastructure"}`, async () => {
-      const root = await mkdtemp(resolve(tmpdir(), "tearleads-deploy-tier-"));
+      const matrix = await mkdtemp(resolve(tmpdir(), "tearleads-deploy-tier-"));
+      const root = resolve(matrix, "checkouts/tearleads");
       const script = resolve(root, `scripts/deploy/deploy-${fixture.name}.sh`);
       const logPath = resolve(root, "calls.log");
 
@@ -75,6 +76,7 @@ for (const fixture of fixtures) {
           resolve(root, "scripts/lib/stepTimings.sh"),
         );
         await chmod(script, 0o755);
+        commitDeploymentFixture(matrix, "matrix");
         commitDeploymentFixture(root, fixture.name);
         for (const [name, path] of fixture.commands) {
           await writeExecutable(
@@ -84,7 +86,7 @@ for (const fixture of fixtures) {
         }
 
         const child = Bun.spawn([script, ...(flag ? [flag] : [])], {
-          cwd: tmpdir(),
+          cwd: matrix,
           env: {
             ...process.env,
             PATH: environmentValue("PATH") ?? "",
@@ -114,7 +116,7 @@ for (const fixture of fixtures) {
           await rm(resolve(root, ".git"), { recursive: true });
           await rm(logPath);
           const rejected = Bun.spawnSync([script], {
-            cwd: tmpdir(),
+            cwd: matrix,
             env: {
               PATH: environmentValue("PATH"),
               DEPLOY_TIER_TEST_LOG: logPath,
@@ -127,7 +129,7 @@ for (const fixture of fixtures) {
           expect(await Bun.file(logPath).exists()).toBe(false);
         }
       } finally {
-        await rm(root, { recursive: true, force: true });
+        await rm(matrix, { recursive: true, force: true });
       }
     });
   }

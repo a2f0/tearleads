@@ -53,7 +53,23 @@ test("migration checks at the checkout root compare its own Git history", () => 
     const result = run();
     expect(result.exitCode, result.stderr.toString()).toBe(0);
     expect(result.stdout.toString()).toContain("API migrations append to HEAD");
-    rmSync(join(cwd, ".git"), { recursive: true });
+    const detachedGitDir = join(decoy.cwd, "separate-git-dir");
+    renameSync(join(cwd, ".git"), detachedGitDir);
+    const hooked = Bun.spawnSync(
+      [process.execPath, "scripts/checks/lintApiMigrations.ts"],
+      {
+        cwd,
+        env: {
+          ...decoy.env,
+          AGENT_TOOL_PUSH_GATE: "fixture-context",
+          API_MIGRATIONS_BASE_REF: "HEAD",
+          GIT_DIR: detachedGitDir,
+          GIT_WORK_TREE: cwd,
+        },
+      },
+    );
+    expect(hooked.exitCode, hooked.stderr.toString()).toBe(0);
+    expect(hooked.stdout.toString()).toContain("API migrations append to HEAD");
     const exported = run();
     expect(exported.exitCode).toBe(1);
     expect(exported.stderr.toString()).toContain(

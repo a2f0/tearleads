@@ -12,10 +12,12 @@ fail() {
 }
 
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-for name in $(git rev-parse --local-env-vars); do unset "$name"; done
 REPO_ROOT=$(CDPATH='' cd -P -- "$script_dir/../.." && pwd -P) ||
   fail "OpenAPI compatibility must run inside a Git repository."
 
+if [ -z "${AGENT_TOOL_PUSH_GATE:-}" ] || [ "$(pwd -P)" != "$REPO_ROOT" ]; then
+  for name in $(git rev-parse --local-env-vars); do unset "$name"; done
+fi
 # Keep explicit tool paths relative to the caller when changing directories.
 case "${OASDIFF_BIN:-}" in ""|/*) ;; *) OASDIFF_BIN="$PWD/$OASDIFF_BIN" ;; esac
 cd "$REPO_ROOT"

@@ -1,12 +1,16 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { execFileSync, spawnSync } from "node:child_process";
+import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
 
 const ownerRoot = realpathSync(resolve(import.meta.dir, "../.."));
 
 // Git names the metadata that applies only to one repository. Keep user-wide
 // authentication and SSH settings when starting work in another checkout.
 export function checkRoot(root = ownerRoot): string {
+  // The push gate runs in the worktree Git selected, including an explicit
+  // --work-tree with its index and metadata stored elsewhere.
+  const { AGENT_TOOL_PUSH_GATE } = process.env;
+  if (AGENT_TOOL_PUSH_GATE && realpathSync(".") === root) return root;
   if (Object.keys(process.env).some((key) => key.startsWith("GIT_"))) {
     const names = execFileSync("git", ["rev-parse", "--local-env-vars"], {
       cwd: root,
@@ -22,14 +26,10 @@ export function checkRoot(root = ownerRoot): string {
 
 // A source export nested in another repository must not use that history.
 export function requireGitRoot(root = checkRoot()): string {
-  if (
-    !existsSync(join(root, ".git")) ||
-    realpathSync(
-      execFileSync("git", ["-C", root, "rev-parse", "--show-toplevel"], {
-        encoding: "utf8",
-      }).replace(/\n$/, ""),
-    ) !== root
-  )
+  const git = spawnSync("git", ["-C", root, "rev-parse", "--show-toplevel"], {
+    encoding: "utf8",
+  });
+  if (git.status !== 0 || realpathSync(git.stdout.replace(/\n$/, "")) !== root)
     throw new Error(`This command requires its own Git checkout: ${root}`);
   return root;
 }
