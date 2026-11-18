@@ -109,7 +109,11 @@ position as its database transaction commits. The four sources share a sequence
 because a page can mix live rows and removals, and root discovery crosses
 organizations. Deferred triggers take a transaction-scoped lock before drawing
 from the sequence and hold it through commit. A rollback can leave a gap.
-Entity timestamps retain their original meaning. See the
+Live entity timestamps retain their original meaning. Each position also tracks
+the greatest entity clock published so far. A container tombstone reports at
+least that time, to millisecond precision, so a delayed revocation can remove a
+cached container or descendant even when its writer sampled an older clock.
+The SDK still compares the exact local row it observed before the request. See the
 [publication migration](../packages/api-shared/drizzle/0005_publish_discovery_order.sql).
 
 Each lane reads its live rows and tombstones in a single SQL statement, so
@@ -117,7 +121,9 @@ both come from the same snapshot. Each page orders by publication position and I
 Existing clients already save and echo both watermark strings. The opaque ID
 now contains the position and row ID. A device resuming from a timestamp-only
 cursor replays the lane once, in bounded pages, recovering earlier omissions.
-A restart during that replay resumes at the saved publication position.
+Parent lanes checkpoint each applied page. Document lanes checkpoint after
+applying the complete lane. After a restart, each resumes from its last
+durable checkpoint, replaying any intervening pages.
 Postgres and PGlite run the same migration. The SQLite client stores the
 cursor verbatim. See [API database support](./developer/api-persistence.md#database).
 

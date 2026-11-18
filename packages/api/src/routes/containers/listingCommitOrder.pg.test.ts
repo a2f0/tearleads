@@ -5,8 +5,11 @@ import {
   containers,
 } from "@tearleads/api-shared/schema";
 import type { SyncWatermark } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
-import { holdPostgresLock } from "../../../test/helpers/postgresConcurrency";
+import { eq, sql } from "drizzle-orm";
+import {
+  holdPostgresLock,
+  waitForPostgresLockWait,
+} from "../../../test/helpers/postgresConcurrency";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { listContainerParentLanes } from "../../services/containers/listContainerParentLanes";
@@ -68,6 +71,50 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       tombstoneId,
     ]);
     expect((await list(resumed.nextWatermark)).tombstones).toEqual([]);
+  },
+  30_000,
+);
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "a second publisher waits until the transaction that allocated its predecessor commits",
+  async () => {
+    const { registration } = await registerServiceUser();
+    const first = await holdPostgresLock(async (tx) => {
+      await tx.insert(containerSyncTombstones).values({
+        containerId: crypto.randomUUID(),
+        userId: registration.userId,
+        organizationId: registration.organizationId,
+        depth: 0,
+        reason: "deleted",
+      });
+      await tx.execute(
+        sql`set constraints publish_container_removal_discovery immediate`,
+      );
+    });
+    const second = db.transaction(async (tx) => {
+      await tx
+        .update(containers)
+        .set({ updatedAt: new Date() })
+        .where(eq(containers.id, registration.rootContainerId));
+      await tx.execute(
+        sql`set constraints publish_container_discovery immediate`,
+      );
+    });
+    try {
+      await Promise.race([
+        waitForPostgresLockWait({
+          blockerPid: first.backendPid,
+          queryFragment:
+            "set constraints publish_container_discovery immediate",
+        }),
+        second.then(() => {
+          throw new Error("Second publisher committed before its predecessor");
+        }),
+      ]);
+    } finally {
+      await first.release();
+      await second;
+    }
   },
   30_000,
 );

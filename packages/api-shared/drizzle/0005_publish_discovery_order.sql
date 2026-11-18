@@ -32,13 +32,20 @@ SELECT setval('public.discovery_publication_order', greatest(1,
 --> statement-breakpoint
 CREATE FUNCTION public.publish_discovery_order() RETURNS trigger
 LANGUAGE plpgsql AS $$
+DECLARE
+  position bigint;
 BEGIN
   -- Only publication serializes. The row was already locked by the mutation.
   -- Sequence gaps after rollback are harmless. This UPDATE cannot enqueue this
   -- trigger again because it does not name updated_at.
   PERFORM pg_advisory_xact_lock(7315420191);
-  EXECUTE format('UPDATE %s SET discovery_order = nextval(''public.discovery_publication_order'') WHERE id = $1',
-                 TG_RELID::regclass) USING NEW.id;
+  -- Keep the published position above all previously observed entity clocks.
+  -- A late removal can then pass an existing device's cached timestamp guard.
+  SELECT setval('public.discovery_publication_order', greatest(
+    last_value + 1, (extract(epoch FROM NEW.updated_at) * 1000000)::bigint * 2
+  )) INTO position FROM public.discovery_publication_order;
+  EXECUTE format('UPDATE %s SET discovery_order = $1 WHERE id = $2',
+                 TG_RELID::regclass) USING position, NEW.id;
   RETURN NULL;
 END;
 $$;

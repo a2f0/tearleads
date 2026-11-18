@@ -116,10 +116,14 @@ function containerTombstonesQuery(input: {
   readonly userId: string;
   readonly watermark: SyncWatermark | null;
 }): SQL {
+  // Existing SDKs compare this removal with every cached row in its cascade.
+  // Include the millisecond clock floor reached by all earlier publications.
+  const removalTime = sql`greatest(updated_at, timestamp 'epoch' +
+    (discovery_order / 2000) * interval '1 millisecond')`;
   return sql`
     select container_id as id, discovery_order::text as "discoveryOrder",
       depth, parent_id as "parentId", reason,
-      ${syncTimestampExpression(sql`updated_at`)} as "updatedAt"
+      ${syncTimestampExpression(removalTime)} as "updatedAt"
     from ${containerSyncTombstones}
     where user_id = ${input.userId}
       and ${tombstoneParentIdPredicate(input.parentId)}
