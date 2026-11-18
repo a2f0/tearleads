@@ -1,9 +1,14 @@
 import { expect } from "bun:test";
-import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
+import type {
+  ProjectionPolicyEvidenceResponse,
+  ProjectionPolicyEvidenceWireResponse,
+} from "@tearleads/validators/response";
 
 /** Inspect API-served objects, including fields that loose schemas would allow. */
 export function expectPublicProjectionPolicyEvidence(
-  evidence: ProjectionPolicyEvidenceResponse,
+  evidence:
+    | ProjectionPolicyEvidenceResponse
+    | ProjectionPolicyEvidenceWireResponse,
 ) {
   expect(evidence.organization).not.toBeNull();
   for (const group of [evidence.organization, ...evidence.groups]) {

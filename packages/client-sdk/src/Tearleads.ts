@@ -43,6 +43,7 @@ import {
   type DocumentProjectorRegistry,
   resolveDocumentProjectorRegistry,
 } from "./data/documents/documentKinds";
+import { heldDirectoryCitations } from "./data/persistence/principalPolicy/heldOrganizationDirectories";
 import { createVerifiedManifestCitations } from "./data/persistence/verifiedManifestBundlePersistence";
 import { createDomainScope, type DomainScope } from "./data/shared/domainScope";
 import { createListenerSet } from "./data/shared/listenerSet";
@@ -253,9 +254,13 @@ export class Tearleads {
   }
 
   private configureApiClientCallbacks(): void {
-    // Projection reads cite bundles this identity's database already verified.
+    // Projection reads cite bundles this identity's database already
+    // verified, and the organization directories its policy bundles hold.
     this.apiClient.setVerifiedManifestCitations(
-      createVerifiedManifestCitations(() => this.database.execSql),
+      createVerifiedManifestCitations(
+        () => this.database.execSql,
+        heldDirectoryCitations,
+      ),
     );
     this.apiClient.setOnError((message) => this.logError(message));
     // An authoritative host source owns connectivity. Without one, request

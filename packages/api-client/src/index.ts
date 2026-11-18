@@ -39,6 +39,7 @@ export type {
   RequestSuccess,
 } from "./types";
 export type {
+  HeldDirectoryCitation,
   HeldProjectionCitation,
   VerifiedManifestCitations,
   WriterProjectionListing,

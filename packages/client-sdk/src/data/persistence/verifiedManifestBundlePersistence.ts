@@ -1,4 +1,5 @@
 import type {
+  HeldDirectoryCitation,
   HeldProjectionCitation,
   VerifiedManifestCitations,
   WriterProjectionTarget,
@@ -253,18 +254,33 @@ async function touchStoredDigests(
  * organization the device cannot place cites nothing. Damaged rows are
  * dropped.
  */
+/**
+ * The organization directory payloads a device holds, from the subsystem
+ * that stores policy bundles; the composition root wires it.
+ */
+export type HeldDirectorySource = (
+  execSql: ExecSql,
+  organizationId: string,
+) => Promise<readonly HeldDirectoryCitation[]>;
+
 export async function loadVerifiedManifestCitations(
   execSql: ExecSql,
   target: WriterProjectionTarget,
   requestedLimit = KNOWN_MANIFEST_HINT_LIMIT,
+  heldDirectories?: HeldDirectorySource,
 ): Promise<HeldProjectionCitation[]> {
   const limit = Math.min(KNOWN_MANIFEST_HINT_LIMIT, Math.floor(requestedLimit));
   if (!(limit > 0)) return [];
   const loadGeneration = evictionGeneration;
   citationLoadsInFlight += 1;
   try {
-    return await loadCitableManifestCitations(execSql, target, limit).then(
-      (cited) => cited.filter((citation) => citable(citation, loadGeneration)),
+    return await loadCitableManifestCitations(
+      execSql,
+      target,
+      limit,
+      heldDirectories,
+    ).then((cited) =>
+      cited.filter((citation) => citable(citation, loadGeneration)),
     );
   } finally {
     citationLoadsInFlight -= 1;
@@ -276,6 +292,7 @@ async function loadCitableManifestCitations(
   execSql: ExecSql,
   target: WriterProjectionTarget,
   limit: number,
+  heldDirectories: HeldDirectorySource | undefined,
 ): Promise<HeldProjectionCitation[]> {
   await ensureSqlTables(execSql, [
     ...verifiedManifestBundleTables,
@@ -297,7 +314,11 @@ async function loadCitableManifestCitations(
   );
   if (damaged.length > 0)
     await dropVerifiedManifestBundles(execSql, damaged).catch(() => undefined);
-  return cited;
+  // Directories are cited beside the manifest quota, never in its place.
+  return [
+    ...cited,
+    ...((await heldDirectories?.(execSql, organizationId)) ?? []),
+  ];
 }
 
 // Manifest hashes whose held rows a refused read is dropping: no read cites
@@ -408,11 +429,19 @@ async function dropVerifiedManifestBundles(
 /** Cites from whichever database the signed-in identity currently uses. */
 export function createVerifiedManifestCitations(
   resolveExecSql: () => ExecSql | null,
+  heldDirectories?: HeldDirectorySource,
 ): VerifiedManifestCitations {
   return {
     cite: async (target) => {
       const execSql = resolveExecSql();
-      return execSql ? loadVerifiedManifestCitations(execSql, target) : [];
+      return execSql
+        ? loadVerifiedManifestCitations(
+            execSql,
+            target,
+            KNOWN_MANIFEST_HINT_LIMIT,
+            heldDirectories,
+          )
+        : [];
     },
   };
 }

@@ -2,13 +2,22 @@ import { computeContainerKekLevelDigest } from "@tearleads/crypto";
 import {
   type ContainerKekWireLevel,
   isContainerKekWireLevel,
+  type PrincipalStatePayloadResponse,
 } from "@tearleads/validators/response";
 import {
   isServedAccessManifestBundleWireResponse,
   isSha256HexString,
+  KNOWN_DIRECTORY_HINT_LIMIT,
   KNOWN_MANIFEST_HINT_LIMIT,
   type ServedAccessManifestBundleWireResponse,
 } from "@tearleads/validators/util";
+import {
+  type HeldDirectoryCitation,
+  isHeldDirectoryCitation,
+  signedDirectoryPayload,
+} from "./heldDirectoryCitations";
+
+export type { HeldDirectoryCitation } from "./heldDirectoryCitations";
 
 /** Citation only saves bytes: a source slower than this sends the read uncited. */
 export const MANIFEST_CITATION_DEADLINE_MS = 250;
@@ -28,14 +37,19 @@ export interface WriterProjectionTarget {
   readonly listing?: WriterProjectionListing | undefined;
 }
 
-/** A held access-manifest bundle or a held container KEK level. */
+/**
+ * A held access-manifest bundle, a held container KEK level, or a held
+ * organization directory payload with its signed state.
+ */
 export type HeldProjectionCitation =
   | ServedAccessManifestBundleWireResponse
-  | ContainerKekWireLevel;
+  | ContainerKekWireLevel
+  | HeldDirectoryCitation;
 
 /**
- * Verified access-manifest bundles and container KEK levels a device durably
- * holds that a writer projection of `target` may cite, most useful first.
+ * Verified access-manifest bundles, container KEK levels and organization
+ * directory payloads a device durably holds that a writer projection of
+ * `target` may cite, most useful first.
  * This is never trust input: the exact cited bytes only fill the response's
  * omitted positions, and the caller verifies the rebuilt projection exactly
  * as a full one.
@@ -46,14 +60,18 @@ export interface VerifiedManifestCitations {
   ): Promise<readonly HeldProjectionCitation[]>;
 }
 
-/** The exact bytes one request cites: bundles by hash, levels by digest. */
+/**
+ * The exact bytes one request cites: bundles by hash, levels by digest,
+ * directory payloads by their organization state's hash.
+ */
 export interface HeldProjectionCitations {
   readonly bundles: Map<string, ServedAccessManifestBundleWireResponse>;
   readonly kekLevels: Map<string, ContainerKekWireLevel>;
+  readonly directories: Map<string, PrincipalStatePayloadResponse>;
 }
 
 function noCitations(): HeldProjectionCitations {
-  return { bundles: new Map(), kekLevels: new Map() };
+  return { bundles: new Map(), kekLevels: new Map(), directories: new Map() };
 }
 
 /**
@@ -86,35 +104,55 @@ function boundedCitation(
   });
 }
 
-/**
- * Copies the source's answer and keys each KEK level by the digest
- * recomputed from its own bytes, never by a digest the source names.
- */
-async function prepareHeldCitations(
-  entries: readonly unknown[],
-): Promise<HeldProjectionCitations> {
-  const held = noCitations();
+/** Copies of the source's entries, each kind within its own hint quota. */
+function copyHeldEntries(entries: readonly unknown[]) {
+  const bundles = new Map<string, ServedAccessManifestBundleWireResponse>();
   const levels: ContainerKekWireLevel[] = [];
+  const directories: HeldDirectoryCitation[] = [];
+  const manifestQuotaLeft = () =>
+    bundles.size + levels.length < KNOWN_MANIFEST_HINT_LIMIT;
   for (const entry of entries) {
-    if (held.bundles.size + levels.length >= KNOWN_MANIFEST_HINT_LIMIT) break;
     try {
-      if (isContainerKekWireLevel(entry)) levels.push(structuredClone(entry));
+      if (isHeldDirectoryCitation(entry)) {
+        if (directories.length < KNOWN_DIRECTORY_HINT_LIMIT)
+          directories.push(structuredClone(entry));
+      } else if (!manifestQuotaLeft()) continue;
+      else if (isContainerKekWireLevel(entry))
+        levels.push(structuredClone(entry));
       else if (
         isServedAccessManifestBundleWireResponse(entry) &&
         isSha256HexString(entry.manifestHash) &&
-        !held.bundles.has(entry.manifestHash)
+        !bundles.has(entry.manifestHash)
       )
-        held.bundles.set(entry.manifestHash, structuredClone(entry));
+        bundles.set(entry.manifestHash, structuredClone(entry));
     } catch {
       // An uncloneable entry is skipped; its bytes simply travel.
     }
   }
+  return { bundles, levels, directories };
+}
+
+/**
+ * Copies the source's answer and keys each KEK level by the digest
+ * recomputed from its own bytes, never by a digest the source names. A
+ * directory payload is cited only when it hashes to the payload hash its own
+ * signed organization state commits.
+ */
+async function prepareHeldCitations(
+  entries: readonly unknown[],
+): Promise<HeldProjectionCitations> {
+  const { bundles, levels, directories } = copyHeldEntries(entries);
+  const held: HeldProjectionCitations = { ...noCitations(), bundles };
   const digests = await Promise.all(levels.map(computeContainerKekLevelDigest));
   levels.forEach((level, index) => {
     const digest = digests[index];
     if (digest && !held.kekLevels.has(digest))
       held.kekLevels.set(digest, level);
   });
+  const payloads = await Promise.all(directories.map(signedDirectoryPayload));
+  for (const payload of payloads)
+    if (payload && !held.directories.has(payload.stateHash))
+      held.directories.set(payload.stateHash, payload);
   return held;
 }
 

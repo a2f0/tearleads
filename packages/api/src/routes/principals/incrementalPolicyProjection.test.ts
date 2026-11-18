@@ -90,7 +90,7 @@ test("real SDK verifies policy successors over cited manifests and recovers cold
         if (!value.policyEvidence.organization)
           throw new Error("Missing policy evidence");
         const directory = value.policyEvidence.organizationPayloads[0];
-        if (!directory) throw new Error("Missing directory payload");
+        if (!directory?.payload) throw new Error("Missing directory payload");
         directory.payload.ciphertext += " ";
         return Response.json(value);
       }

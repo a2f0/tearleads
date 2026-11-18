@@ -32,7 +32,10 @@ import {
   refineManifestBundleReferences,
 } from "./manifestBundleReferences";
 import { ReferencedPrincipalStateResponseSchema } from "./principalReference";
-import { ProjectionPolicyEvidenceResponseSchema } from "./projectionPolicyEvidence";
+import {
+  ProjectionPolicyEvidenceResponseSchema,
+  ProjectionPolicyEvidenceWireResponseSchema,
+} from "./projectionPolicyEvidence";
 import { SyncWatermarkSchema } from "./syncWatermark";
 
 /**
@@ -367,7 +370,7 @@ export const ContainerWriterProjectionWireResponseSchema =
       bundles: ManifestBundlesSchema,
       omittedBundles: OmittedManifestBundlesSchema,
       ...containerKeyingPathWireShape,
-      policyEvidence: ProjectionPolicyEvidenceResponseSchema,
+      policyEvidence: ProjectionPolicyEvidenceWireResponseSchema,
     }).superRefine((projection, context) => {
       refineContainerKeyingPath(projection, context);
       refineManifestBundleReferences(

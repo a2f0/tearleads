@@ -251,8 +251,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // projection cites the heads this device authored and cached at
       // acknowledgement: 21.9 KB received; keep about 7% headroom. The
       // unlink sends its manifest hash alone: 17.3 KB sent (18.0 KB with it).
+      // The projection cites the organization directory the device holds:
+      // 20.6 KB received; its return (21.9 KB) exceeds this ceiling.
       total: 5,
-      bodyBytes: { request: 17_650, response: 23_500 },
+      bodyBytes: { request: 17_650, response: 21_200 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 2,
         "GET /principals/group/:groupId/policy": 0,
@@ -295,9 +297,11 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // signed bytes name (the container key copy among it): 19.9 KB
       // received. Reads cite the heads this device authored and cached at
       // acknowledgement: 9.5 KB received; keep about 10% headroom. The link
-      // and unlink send manifest hashes alone: 26.1 KB sent (27.3 KB).
+      // and unlink send manifest hashes alone: 26.1 KB sent (27.3 KB). The
+      // projection cites the held organization directory: 8.2 KB received
+      // (9.5 KB with it, which exceeds this ceiling).
       total: 4,
-      bodyBytes: { request: 26_700, response: 10_500 },
+      bodyBytes: { request: 26_700, response: 8_900 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
@@ -342,7 +346,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // received. Reads cite the heads this device authored and cached at
       // acknowledgement: 19.3 KB received; keep about 8% headroom. The move
       // sends its manifest hash alone: 16.0 KB sent (16.6 KB with it).
-      bodyBytes: { request: 16_350, response: 21_000 },
+      // Projections cite the held organization directory: 18.0 KB received
+      // (19.3 KB with it, which exceeds this ceiling).
+      bodyBytes: { request: 16_350, response: 18_700 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 4,
         "GET /principals/group/:groupId/policy": 0,
@@ -384,8 +390,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // device authored and cached at acknowledgement: 35.8 KB received;
       // keep about 5% headroom.
       // The move cites its parent KEK state: 16.8 KB sent (20.6 KB before),
-      // and sends its manifest hash alone: 16.2 KB sent.
-      bodyBytes: { request: 16_500, response: 37_500 },
+      // and sends its manifest hash alone: 16.2 KB sent. Projections cite
+      // the held organization directory: 30.6 KB received (35.8 KB with it,
+      // which exceeds this ceiling).
+      bodyBytes: { request: 16_500, response: 33_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 3,
         "GET /principals/group/:groupId/policy": 0,
