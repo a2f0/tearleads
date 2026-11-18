@@ -175,3 +175,48 @@ test("a new mutation is sealed and sent in canonical envelope order", async () =
     sqlite.close();
   }
 });
+
+test("a request already in the changes form is not journaled", async () => {
+  const { fixture, leg } = await successorLeg();
+  const sqlite = await createTestExecSql("principal-envelope-boundary");
+  let requests = 0;
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch() {
+      requests += 1;
+      return Response.json(fixture.response.organizationPolicy);
+    },
+  });
+  const scope = {
+    ...fixture.scope,
+    identityTrustDomain: server.url.origin,
+    database: {},
+    generation: 1,
+    execSql: sqlite.execSql,
+    signingKeyPair: fixture.signingKeyPair,
+  };
+  try {
+    await expect(
+      createPrincipalMutationApiCustody({
+        api: new ApiClient(server.url.origin),
+        readScope: () => scope,
+      })
+        .bind()
+        .putPrincipalPolicyResult(
+          "organization",
+          fixture.scope.organizationId,
+          {
+            ...leg,
+            memberEnvelopeChanges: { removeUserIds: [], upsert: [] },
+            memberEnvelopes: [],
+          },
+          { reportErrors: false },
+        ),
+    ).rejects.toThrow("journaled with full member envelope lists");
+    expect(requests).toBe(0);
+  } finally {
+    await server.stop(true);
+    sqlite.close();
+  }
+});

@@ -9,7 +9,10 @@ import {
   isDeleteOrganizationGroupResponse,
   isPrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
-import { withCanonicalEnvelopeOrder } from "../../data/principals/memberEnvelopeReferences";
+import {
+  assertFullMemberEnvelopeLists,
+  withCanonicalEnvelopeOrder,
+} from "../../data/principals/memberEnvelopeReferences";
 import type { AuthoredPrincipalMutation } from "../../data/principals/principalMutationJournal";
 import type { PrincipalMutationResponse } from "../../workflows/organizations";
 import {
@@ -83,13 +86,14 @@ function sendByReference(input: {
     input.dispatch(input.options, (dispatchOptions) =>
       sendWithHeldEnvelopeChanges({
         execSql: input.journal.execSql,
+        reportErrors: dispatchOptions.reportErrors,
         saved,
-        send: (mutation) =>
+        send: (mutation, reportErrors) =>
           dispatchAuthoredPrincipalMutation(
             input.api,
             input.organizationId,
             mutation,
-            dispatchOptions,
+            { ...dispatchOptions, reportErrors },
           ),
         signal: dispatchOptions.signal,
         stillCurrent: input.journal.stillCurrent,
@@ -114,6 +118,7 @@ export function createJournaledPrincipalMutations(
     validator: (value: unknown) => value is T,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<T>> {
+    assertFullMemberEnvelopeLists(mutation);
     const journal = context(organizationId);
     const result = await submitJournaledPrincipalMutation({
       ...journal,

@@ -12,6 +12,7 @@ import { and, eq } from "drizzle-orm";
 import { listPrincipalMemberEnvelopesForState } from "../../access/read/principalMemberEnvelopes";
 import { getPrincipalStatesForReferences } from "../../access/read/principalStateStore";
 import { requireDirectOrganizationAccess } from "../organizations/access";
+import { lockPrincipalMutationInTransaction } from "./principalMutationLock";
 import { PrincipalPolicyError } from "./shared";
 
 function distinct(values: readonly string[], label: string): Set<string> {
@@ -139,10 +140,20 @@ async function rebuildBoundLeg(
   return rebuildMemberEnvelopes(tx, leg);
 }
 
+/**
+ * Under the organization's mutation lock, which every directory write takes
+ * first, so a concurrent revocation is seen before any predecessor is read.
+ * The workflow's own later lock is then a no-op.
+ */
 async function requireAdmin(
   tx: DatabaseTransaction,
   scope: RouteScope,
 ): Promise<void> {
+  await lockPrincipalMutationInTransaction(
+    tx,
+    "organization",
+    scope.organizationId,
+  );
   await requireDirectOrganizationAccess({
     executor: tx,
     organizationId: scope.organizationId,

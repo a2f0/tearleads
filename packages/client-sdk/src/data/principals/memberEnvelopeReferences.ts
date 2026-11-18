@@ -119,6 +119,19 @@ export async function withHeldMemberEnvelopeChanges(
     : mutation;
 }
 
+/**
+ * The journal keeps full lists only: changes are a wire form derived per
+ * attempt, so recovery never depends on an API that reads them.
+ */
+export function assertFullMemberEnvelopeLists(
+  mutation: AuthoredPrincipalMutation,
+): void {
+  if (legsOf(mutation).some((leg) => leg?.memberEnvelopeChanges !== undefined))
+    throw new Error(
+      "Principal mutations are journaled with full member envelope lists",
+    );
+}
+
 function legsOf(
   mutation: AuthoredPrincipalMutation,
 ): ReadonlyArray<PutPrincipalPolicyRequest | undefined> {

@@ -10,6 +10,8 @@ import { sendWithHeldEnvelopeChanges } from "./principalMutationWireForm";
 const UNREAD =
   "Principal state memberEnvelopesRoot does not match member envelopes";
 
+let reports = 0;
+
 function refusal(status: number, message = UNREAD): RequestResult<string> {
   return {
     kind: "http",
@@ -17,7 +19,9 @@ function refusal(status: number, message = UNREAD): RequestResult<string> {
     method: "PUT",
     ok: false,
     path: "/principals/organization/policy",
-    report: () => {},
+    report: () => {
+      reports += 1;
+    },
     status,
     statusText: "Refused",
   };
@@ -185,6 +189,35 @@ test("the saved request goes out verbatim, in its sealed envelope order", async 
     });
     expect(sent).toEqual([reversed]);
     expect(sent[0]).toBe(reversed);
+  } finally {
+    sqlite.close();
+  }
+});
+
+test("the first attempt's refusal is reported only when it is the outcome", async () => {
+  const { saved, sqlite } = await heldSuccessor();
+  try {
+    for (const [first, expected] of [
+      // The format refusal is followed by the full form, which succeeds.
+      [refusal(400), 0],
+      // Any other refusal is the outcome, reported once.
+      [refusal(409, "stale"), 1],
+    ] as const) {
+      reports = 0;
+      let attempt = 0;
+      await sendWithHeldEnvelopeChanges({
+        execSql: sqlite.execSql,
+        reportErrors: true,
+        saved,
+        send: async () => {
+          attempt += 1;
+          return attempt === 1 ? first : { ok: true as const, data: "ok" };
+        },
+        signal: undefined,
+        stillCurrent: () => true,
+      });
+      expect(reports).toBe(expected);
+    }
   } finally {
     sqlite.close();
   }

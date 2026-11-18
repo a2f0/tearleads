@@ -59,17 +59,28 @@ function refusedUnreadChanges(result: RequestResult<unknown>): boolean {
 export async function sendWithHeldEnvelopeChanges<
   Result extends RequestResult<unknown>,
 >(input: {
+  /** Whether the caller wants failures reported; defaults to true. */
+  readonly reportErrors?: boolean | undefined;
   readonly execSql: ExecSql;
   readonly saved: AuthoredPrincipalMutation;
-  readonly send: (mutation: AuthoredPrincipalMutation) => Promise<Result>;
+  readonly send: (
+    mutation: AuthoredPrincipalMutation,
+    reportErrors: boolean,
+  ) => Promise<Result>;
   readonly signal: AbortSignal | undefined;
   readonly stillCurrent: () => boolean;
 }): Promise<Result> {
   const { saved } = input;
+  const reportErrors = input.reportErrors ?? true;
   const wire = await boundedWireForm(input.execSql, saved, input.signal);
   assertProjectionVerificationCurrent(input.stillCurrent);
-  const result = await input.send(wire);
-  if (wire === saved || !refusedUnreadChanges(result)) return result;
+  if (wire === saved) return input.send(saved, reportErrors);
+  // The first attempt's failure is reported only once it is the outcome.
+  const result = await input.send(wire, false);
+  if (!refusedUnreadChanges(result)) {
+    if (!result.ok && reportErrors) result.report();
+    return result;
+  }
   assertProjectionVerificationCurrent(input.stillCurrent);
-  return input.send(saved);
+  return input.send(saved, reportErrors);
 }
