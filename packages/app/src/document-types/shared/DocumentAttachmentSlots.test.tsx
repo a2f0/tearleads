@@ -44,7 +44,6 @@ function renderAttachmentSlots(params?: {
   attachmentStorageKeyBySlotId?: Readonly<Record<string, string | undefined>>;
   blobPicker?: Parameters<typeof DocumentAttachmentSlots>[0]["blobPicker"];
   canAttach?: boolean;
-  className?: string;
   imageUrlBySlotId?: Readonly<Record<string, string | undefined>>;
   onClearAttachment?: (slotId: string) => void;
   onOpenBlob?: (request: DocumentBlobOpenRequest) => void;
@@ -56,7 +55,6 @@ function renderAttachmentSlots(params?: {
       attachments={params?.attachments ?? attachments}
       blobPicker={params?.blobPicker}
       canAttach={params?.canAttach ?? true}
-      className={params?.className}
       imageUrlBySlotId={params?.imageUrlBySlotId ?? {}}
       onClearAttachment={params?.onClearAttachment ?? (() => undefined)}
       onSelectedAttachment={() => undefined}
@@ -74,18 +72,6 @@ function renderAttachmentSlots(params?: {
     ),
   );
 }
-
-test("a caller class joins the attachments root", () => {
-  const view = renderAttachmentSlots({
-    className: "structured-document-attachments--single",
-  });
-
-  expect(
-    view.container.querySelector(".structured-document-attachments")?.className,
-  ).toBe(
-    "structured-document-attachments structured-document-attachments--single",
-  );
-});
 
 test("a photo collection renders, opens, and clears each image independently", () => {
   const cleared: string[] = [];

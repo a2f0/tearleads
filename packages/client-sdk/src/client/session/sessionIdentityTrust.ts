@@ -41,6 +41,7 @@ export class SessionIdentityAcknowledgments {
 export type UserIdentityAvailable = (
   userId: string,
   candidate: LocalUserIdentityCandidate,
+  assertCurrent?: () => void,
 ) => Promise<void>;
 
 export function requireUserIdentityAvailable(
@@ -67,6 +68,7 @@ export function requireSessionTrustDomain(input: {
 export function requireRegistrationIdentityPinner(input: {
   readonly identity: Identity;
   readonly identitySnapshot: IdentitySnapshot;
+  readonly isCurrent: () => boolean;
   readonly onUserIdentityAvailable?: UserIdentityAvailable | undefined;
 }): UserIdentityAvailable {
   const onUserIdentityAvailable = requireUserIdentityAvailable(
@@ -74,16 +76,26 @@ export function requireRegistrationIdentityPinner(input: {
     "Registration",
   );
   return async (userId, candidate) => {
-    await onUserIdentityAvailable(userId, {
-      ...candidate,
-      signingKeyFingerprint: input.identitySnapshot.signingFingerprint,
-    });
-    if (input.identity.snapshot !== input.identitySnapshot) {
-      throw new KeyingVerificationError(
-        "object_mismatch",
-        "Local identity changed during registration trust establishment",
-      );
-    }
+    const assertCurrent = () => {
+      if (
+        !input.isCurrent() ||
+        input.identity.snapshot !== input.identitySnapshot
+      ) {
+        throw new KeyingVerificationError(
+          "object_mismatch",
+          "Local identity changed during registration trust establishment",
+        );
+      }
+    };
+    await onUserIdentityAvailable(
+      userId,
+      {
+        ...candidate,
+        signingKeyFingerprint: input.identitySnapshot.signingFingerprint,
+      },
+      assertCurrent,
+    );
+    assertCurrent();
   };
 }
 

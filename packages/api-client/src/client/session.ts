@@ -19,6 +19,7 @@ import {
   listSessions as authListSessions,
   logout as authLogout,
 } from "../routes/auth/session";
+import type { SessionBoundary } from "../sessionRenewal";
 import type { HttpMethod } from "../types";
 import type { VerifiedManifestCitations } from "../verifiedManifestCitations";
 import { WebSocketTickets } from "../webSocketTickets";
@@ -79,8 +80,21 @@ export class SessionArea {
     this.context.verifiedManifestCitations = source;
   }
 
-  setAuthToken(token: string | null): void {
-    if (this.context.runtime.setAuthToken(token)) {
+  setAuthToken(
+    token: string | null,
+    options?: {
+      boundary?: SessionBoundary | undefined;
+      verifiedTicket?: string | undefined;
+    },
+  ): void {
+    const boundary =
+      options?.boundary ??
+      (token === null && this.getAuthToken() !== null
+        ? "replacement"
+        : undefined);
+    if (boundary)
+      this.webSocketTickets.retainVerifiedTicket(options?.verifiedTicket);
+    if (this.context.runtime.setAuthToken(token, boundary)) {
       this.context.clearAuthScopedCaches();
     }
   }
@@ -141,12 +155,13 @@ export class SessionArea {
   }
 
   async authenticate(fingerprint: string, secretKey: Uint8Array) {
+    const session = this.context.runtime.responseRequest.sessionSignal?.();
     const challenge = await this.context.transport.request(
       challengeOperation,
       { body: { fingerprint }, params: {} },
       { retryOnSessionExpired: false },
     );
-    if (!challenge) return null;
+    if (!challenge || session?.aborted) return null;
 
     return this.self.authenticateWithChallenge(
       fingerprint,
@@ -160,6 +175,7 @@ export class SessionArea {
     secretKey: Uint8Array,
     challengeHex: string,
   ): Promise<VerifySuccessResponse | null> {
+    const session = this.context.runtime.responseRequest.sessionSignal?.();
     const signed = sign(
       this.context.runtime.authChallengeBytes(challengeHex, fingerprint),
       secretKey,
@@ -174,7 +190,7 @@ export class SessionArea {
         { retryOnSessionExpired: false },
       ),
     );
-    if (!response?.authenticated) return null;
+    if (!response?.authenticated || session?.aborted) return null;
     this.webSocketTickets.rememberLogin(response);
     return response;
   }

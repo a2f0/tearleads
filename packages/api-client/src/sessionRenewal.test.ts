@@ -155,3 +155,63 @@ test("a renewal that aborts its request while starting still ends the wait", asy
   }
   pendingRenewal.reject(new Error("renewal failed after the request ended"));
 });
+
+test("a synchronous sign-in during renewal leaves the new session free to renew", async () => {
+  const tracker = new SessionRenewalTracker(() => "same");
+  const release = Promise.withResolvers<boolean>();
+  const retired = tracker.renew(() => {
+    tracker.tokenChanged("replacement");
+    return release.promise;
+  });
+  try {
+    expect(tracker.pending("same")).toBeNull();
+    await expect(tracker.renew(() => true)).resolves.toBe(true);
+  } finally {
+    release.resolve(false);
+    await retired;
+  }
+});
+
+test("a second expiry cannot replace verification of the provisional bearer", async () => {
+  let token = "original";
+  const tracker = new SessionRenewalTracker(() => token);
+  const confirmation = Promise.withResolvers<boolean>();
+  const original = tracker.renew(() => {
+    token = "candidate";
+    tracker.tokenChanged();
+    return confirmation.promise;
+  });
+  const credential = tracker.captureCredential();
+  let secondCalls = 0;
+  const second = tracker.renew(() => {
+    secondCalls++;
+    return false;
+  });
+  try {
+    expect(tracker.captureCredential()()).toBeInstanceOf(Promise);
+    expect(credential()).toBeInstanceOf(Promise);
+    expect(secondCalls).toBe(0);
+  } finally {
+    confirmation.resolve(true);
+    await Promise.all([original, second]);
+  }
+  expect(credential()).toBe(true);
+});
+
+test("credentials captured during a renewal belong to its initiating bearer", async () => {
+  let token = "original";
+  const tracker = new SessionRenewalTracker(() => token);
+  const confirmation = Promise.withResolvers<boolean>();
+  const renewal = tracker.renew(() => confirmation.promise);
+  try {
+    token = "first";
+    tracker.tokenChanged();
+    token = "second";
+    tracker.tokenChanged();
+    expect(tracker.captureCredential()()).toBe(false);
+  } finally {
+    confirmation.resolve(true);
+    await renewal;
+  }
+  expect(tracker.currentToken("original")).toBeNull();
+});

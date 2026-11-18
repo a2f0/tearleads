@@ -102,6 +102,7 @@ export interface TrustedUserIdentityService {
   pinLocal(
     userId: string,
     candidate: LocalUserIdentityCandidate,
+    assertCurrent?: () => void,
   ): Promise<TrustedUserIdentity>;
   /** Pins on first sight as `observed`; for users signed state references. */
   resolve: TrustedUserIdentityResolver;

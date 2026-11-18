@@ -1,10 +1,10 @@
 import {
   type ExecSql,
-  resolveCanonicalExecSql,
-} from "../../../data/sqlite/sqlSchema";
+  sqlConnectionIdentity,
+} from "../../../data/sqlite/sqlExec";
 
 const mutationQueuesByExecSql = new WeakMap<
-  ExecSql,
+  object,
   Map<string, Promise<void>>
 >();
 
@@ -19,7 +19,7 @@ export async function runSerializedDocumentBlobMutation<T>(
   storageKey: string,
   operation: () => Promise<T> | T,
 ): Promise<T> {
-  const canonicalExecSql = resolveCanonicalExecSql(execSql);
+  const canonicalExecSql = sqlConnectionIdentity(execSql);
   const queues = mutationQueuesByExecSql.get(canonicalExecSql) ?? new Map();
   mutationQueuesByExecSql.set(canonicalExecSql, queues);
 

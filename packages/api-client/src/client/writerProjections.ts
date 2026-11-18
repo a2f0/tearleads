@@ -13,6 +13,7 @@ import {
   containerWriterProjection,
   documentWriterProjection,
 } from "../routes/writerProjections";
+import { retiredRequest } from "../sessionResponse";
 import type { RequestResult, RequestResultOptions } from "../types";
 import type { WriterProjectionListing } from "../verifiedManifestCitations";
 import { primeWriterProjectionSlot } from "../writerProjectionPrime";
@@ -146,20 +147,15 @@ export class WriterProjectionArea {
     cache: BoundedCache<Promise<T | null>>,
     { cacheKey, path, validator, failureOperation }: ProjectionRead<T>,
   ): Promise<RequestResult<T>> {
+    const session = this.context.runtime.responseRequest.sessionSignal?.();
+    const retired = () => retiredRequest("GET", path);
     let cached = cache.get(cacheKey);
     while (cached) {
-      try {
-        const data = await cached;
-        if (data) {
-          return { data, ok: true };
-        }
-      } catch {
-        // A rejected shared entry is reconciled by its own settle handler;
-        // fall through either way.
-      }
-      // The awaited entry settled empty. Re-read the slot before fetching: a
-      // newer entry installed while we awaited must be reused, not fetched
-      // over — the set below would otherwise clobber it.
+      // Rejected and empty entries both fall through to the current slot.
+      const data = await cached.catch(() => null);
+      if (session?.aborted) return retired();
+      if (data) return { data, ok: true };
+      // A newer entry installed during the wait must be reused.
       const current = cache.get(cacheKey);
       if (current === cached) {
         break;
@@ -186,6 +182,7 @@ export class WriterProjectionArea {
       failureOperation,
     );
 
+    if (session?.aborted) return retired();
     if (result.ok) {
       // Publish the success unless the slot changed or this id was
       // invalidated mid-flight. The stamp check is what makes an eviction of

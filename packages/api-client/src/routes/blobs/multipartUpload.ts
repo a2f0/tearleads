@@ -215,7 +215,7 @@ export async function uploadMultipartBlobPartBytes(
     const source =
       firstAttemptSource(attempt, input.source) ??
       (await authorizePart(context));
-    if (!source) return null;
+    if (!source || options.signal?.aborted) return null;
     if (source.kind === "api") return uploadThroughApi(context, file);
     const outcome = await putStoragePart(
       context,

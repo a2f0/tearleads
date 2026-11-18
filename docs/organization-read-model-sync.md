@@ -307,8 +307,13 @@ with that same denied acknowledgement, so one stalled access check cannot strand
 catch-up or delay organization events for other connected recipients
 indefinitely. If realtime remains unavailable, a bounded HTTP fallback refreshes
 the projection; any later socket connection performs a fresh gap-closing pass.
-Logout, database loss, and identity transitions synchronously invalidate
-presentation from the previous scope.
+Each sign-in owns its read-model passes and SQLite writes. Signing in again
+as the same user retires an active pass, even when both sessions share the
+same database. The replacement can immediately request its own feed pass.
+Token renewal preserves the active pass and its pending writes. The first
+sign-in adopts work created locally before the device authenticated.
+Logout, database loss, and identity transitions invalidate presentation from
+the previous scope.
 
 The gateway authorizes every organization declaration against direct current
 access before indexing the socket. Each internal

@@ -108,3 +108,27 @@ test("exec posts query requests", async () => {
     },
   ]);
 });
+
+test("a logout that loses ownership while the worker drains closes and retains the database", async () => {
+  const worker = new MockWorker();
+  const client = createDatabaseWorkerClient(worker);
+  const reply = (id: number) =>
+    worker.dispatchEvent(
+      new MessageEvent("message", {
+        data: { id, result: { ok: true } },
+      }),
+    );
+  try {
+    let current = true;
+    const pending = client.delete(() => current);
+    expect(worker.messages[0]?.method).toBe("prepareDelete");
+    current = false;
+    reply(1);
+    await Promise.resolve();
+    expect(worker.messages[1]?.method).toBe("close");
+    reply(2);
+    await expect(pending).resolves.toEqual({ ok: true });
+  } finally {
+    client.destroy();
+  }
+});

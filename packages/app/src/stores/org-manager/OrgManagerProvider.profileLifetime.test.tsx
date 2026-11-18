@@ -99,7 +99,7 @@ test.each([
       );
       if (boundary === "document") {
         expect(h.load).toHaveBeenCalledWith(
-          h.database.execSql,
+          h.sdk.runtime.input().infra.execSql,
           h.preferredLocalId,
         );
       } else {

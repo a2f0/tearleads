@@ -12,14 +12,23 @@ export type BlobByteSourceInput =
   | Pick<Blob, "size" | "slice">;
 
 export interface BlobStore {
-  deleteBytes: (storageKey: string) => Promise<void>;
+  /** Mutations check assertCurrent immediately before committing to storage. */
+  deleteBytes: (
+    storageKey: string,
+    assertCurrent?: () => void,
+  ) => Promise<void>;
   openByteSource: (storageKey: string) => Promise<BlobByteSource | null>;
   readBytes: (storageKey: string) => Promise<BlobBytes | null>;
   writeByteSource: (
     storageKey: string,
     source: BlobByteSource,
+    assertCurrent?: () => void,
   ) => Promise<void>;
-  writeBytes: (storageKey: string, bytes: BlobBytes) => Promise<void>;
+  writeBytes: (
+    storageKey: string,
+    bytes: BlobBytes,
+    assertCurrent?: () => void,
+  ) => Promise<void>;
 }
 
 const SOURCE_READ_CHUNK_SIZE = 5 * 1024 * 1024;

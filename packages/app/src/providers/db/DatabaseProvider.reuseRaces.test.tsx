@@ -362,3 +362,35 @@ test("terminating a recovery worker rejects its pending readiness waiter", async
     view.unmount();
   }
 });
+
+test("a logout wipe waiting for a worker close checks its owner before removing the database", async () => {
+  const opfs = installDeferredOpfsRemoval();
+  const runtimeFactory = createReusableSQLiteRuntimeFactory({
+    deferClose: true,
+  });
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    reuseDatabaseWorker: true,
+  });
+  try {
+    await view.controlsReady.promise;
+    await act(async () => {
+      await view.getControls().ensureIdentityReady(FIRST_FINGERPRINT);
+    });
+    act(() => view.getControls().clearWorker());
+    await act(async () => {
+      let current = true;
+      const purge = view.getControls().purgeWorker(() => current);
+      current = false;
+      runtimeFactory.releaseClose();
+      opfs.releaseRemoval();
+      await purge;
+      await view.getControls().ensureIdentityReady(FIRST_FINGERPRINT);
+    });
+    expect(opfs.isRemoved()).toBe(false);
+    expect(runtimeFactory.getStats().initCount).toBe(2);
+  } finally {
+    view.unmount();
+    opfs.restore();
+  }
+});

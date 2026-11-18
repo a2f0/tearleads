@@ -1,5 +1,6 @@
 import type { HttpOperation } from "@tearleads/validators/operation";
 import { requestDeadline } from "../requestDeadline";
+import { retiredRequest } from "../sessionResponse";
 import type { HttpMethod, RequestResult } from "../types";
 import type { ApiClientContext } from "./apiClientContext";
 
@@ -30,6 +31,7 @@ export async function laneListingRequest<T>(
   },
 ): Promise<RequestResult<T>> {
   const { method, path, reportErrors } = input;
+  const signIn = context.runtime.responseRequest.sessionSignal?.();
   // Report only after classifying: an abort inside the body otherwise
   // surfaces as a body-read failure before it is known to be the deadline.
   const deadline = requestDeadline(
@@ -48,6 +50,7 @@ export async function laneListingRequest<T>(
       deadline.options,
       input.operation,
     );
+    if (signIn?.aborted) return retiredRequest(method, path);
     if (result.ok) return result;
     if (!deadline.expired()) {
       if (reportErrors) result.report();

@@ -46,7 +46,7 @@ function concurrentRenewal(
  * ends: the renewal is shared with other requests and keeps running, and a
  * rejection it settles with later is still delivered to them.
  */
-function renewalUnlessAborted(
+export function renewalUnlessAborted(
   renewal: boolean | Promise<boolean>,
   signal: AbortSignal | undefined,
 ): Promise<boolean> {

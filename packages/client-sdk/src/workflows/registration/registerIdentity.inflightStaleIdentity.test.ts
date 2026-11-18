@@ -138,11 +138,10 @@ test("a mid-sequence identity switch rolls the whole bootstrap back", async () =
   };
 
   try {
-    // The pin gate (probe 1) and the persist entry check (probe 2) pass, so
-    // every bootstrap write executes; the pre-commit guard (probe 3) then
-    // finds the identity replaced. The atomic transaction must leave NOTHING
-    // behind — the partial-persist window a single entry check cannot close.
-    let identityProbes = 0;
+    // Allow entry into the queued persist, then retire its owner at the
+    // transaction's commit check after the bootstrap writes have executed.
+    let queued = false;
+    let persistProbes = 0;
     const response = await registerIdentity({
       identityTrustDomain: "https://api.example.test",
       apiClient,
@@ -150,16 +149,16 @@ test("a mid-sequence identity switch rolls the whole bootstrap back", async () =
       dbClient: execSqlClientFromExecSql(execSql),
       documentProjectors: [],
       encapsulationKeyPair,
-      isIdentityCurrent: () => {
-        identityProbes += 1;
-        return identityProbes < 3;
+      onPersistQueued: () => {
+        queued = true;
       },
+      isIdentityCurrent: () => !queued || ++persistProbes === 1,
       organizationProfileName: "Acme Corp",
       pinLocalUserIdentity: async () => undefined,
       signingKeyPair,
     });
     expect(response).not.toBeNull();
-    expect(identityProbes).toBe(3);
+    expect(persistProbes).toBe(2);
     if (!capturedRootContainerId || !capturedOrganizationId) {
       throw new Error("Expected captured registration request");
     }

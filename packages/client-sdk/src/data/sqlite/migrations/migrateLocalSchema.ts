@@ -2,6 +2,7 @@ import {
   type ExecSql,
   hasCompletedConnectionOnce,
   markCompletedConnectionOnce,
+  rollbackSqlSavepoint,
   runSerializedSqlMutation,
 } from "../sqlExec";
 import {
@@ -124,8 +125,7 @@ async function applyPendingSteps(
     await verify(execSql);
     await execSql(`RELEASE SAVEPOINT ${SAVEPOINT}`);
   } catch (error) {
-    await execSql(`ROLLBACK TO SAVEPOINT ${SAVEPOINT}`).catch(() => undefined);
-    await execSql(`RELEASE SAVEPOINT ${SAVEPOINT}`).catch(() => undefined);
+    await rollbackSqlSavepoint(execSql, SAVEPOINT).catch(() => undefined);
     throw error;
   }
 }

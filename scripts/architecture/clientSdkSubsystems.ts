@@ -342,7 +342,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     name: "SDK Shared Utilities",
     package: "client-sdk",
     responsibility:
-      "Helpers every layer uses with no subsystem of their own: error messages, record readers, User Timing measures, the listener-set subscription primitive, timestamp selection, and the workflow runtime input contract.",
+      "Helpers every layer uses with no subsystem of their own: error messages, record readers, User Timing measures, the listener-set subscription primitive, per-key work queues, timestamp selection, and the workflow runtime input contract.",
     seam: "direct import",
     paths: [
       `${sdk}/data/shared/dependencyUnavailable.ts`,
@@ -350,6 +350,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/data/shared/recordReaders.ts`,
       `${sdk}/data/shared/userTiming.ts`,
       `${sdk}/data/shared/listenerSet.ts`,
+      `${sdk}/data/shared/keyedQueue.ts`,
       `${sdk}/data/persistence/latestTimestamp.ts`,
       `${sdk}/workflows/shared/`,
     ],
