@@ -1,6 +1,7 @@
+import { checkArguments } from "../lib/checkRoot";
 import { scanSkillPlaceholders, skillRoots } from "./skillPlaceholders";
 
-const violations = scanSkillPlaceholders(process.cwd());
+const violations = scanSkillPlaceholders(checkArguments().root);
 
 if (violations.length > 0) {
   console.error(

@@ -6,6 +6,7 @@
  * requires every negative control to deadlock, so a model the recorded
  * implementation disagrees with fails `check:fast`.
  */
+
 import { spawnSync } from "node:child_process";
 import {
   mkdtempSync,
@@ -16,6 +17,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { checkRoot } from "../lib/checkRoot";
 import { moduleDeclaresToken } from "./lintFormalAbstractionMaps";
 import { resolveTlcTools, runTlc, type TlcTools } from "./tlcTools";
 
@@ -138,20 +140,10 @@ function checkTrace<Trace extends RecordedProjectionTrace>(
   });
 }
 
-function repoRoot(): string {
-  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
-    encoding: "utf8",
-  });
-  if (result.status !== 0) {
-    projectionFail("the projection check must run inside a Git repository.");
-  }
-  return result.stdout.trim();
-}
-
 function checkProjection<Trace extends RecordedProjectionTrace>(
   projection: TraceProjection<Trace>,
 ): void {
-  const root = repoRoot();
+  const root = checkRoot();
   assertVocabularyMatchesModel(root, projection);
   const tools = resolveTlcTools(root);
   const traceDirectory = mkdtempSync(

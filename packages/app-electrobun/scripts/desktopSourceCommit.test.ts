@@ -1,55 +1,61 @@
 import { expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { desktopSourceCommit } from "./desktopSourceCommit";
 
 const exportedCommit = "1234567890abcdef1234567890abcdef12345678";
-const buildInfoWrapper = resolve(
-  import.meta.dirname,
-  "../../..",
-  "scripts/lib/withBuildInfoEnv.sh",
-);
+const buildInfoDir = resolve(import.meta.dirname, "../../..", "scripts/lib");
 
 for (const checkout of [false, true]) {
   test(`build identity respects ${checkout ? "the checkout" : "an exported source archive"}`, async () => {
-    const root = await mkdtemp(join(tmpdir(), "tearleads-source-commit-"));
+    const matrix = await mkdtemp(join(tmpdir(), "tearleads-source-commit-"));
+    const root = join(matrix, "checkouts/tearleads");
     try {
+      await mkdir(join(root, "scripts/lib"), { recursive: true });
+      for (const file of ["withBuildInfoEnv.sh", "packageVersions.ts"])
+        await copyFile(
+          join(buildInfoDir, file),
+          join(root, "scripts/lib", file),
+        );
       await Bun.write(join(root, "package.json"), '{"version":"1.2.3"}');
+      const { PATH } = process.env;
+      const git = (cwd: string, ...args: string[]) =>
+        execFileSync(
+          "git",
+          [
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.test",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.hooksPath=/dev/null",
+            ...args,
+          ],
+          {
+            cwd,
+            encoding: "utf8",
+            env: {
+              PATH,
+              GIT_CONFIG_GLOBAL: "/dev/null",
+              GIT_CONFIG_NOSYSTEM: "1",
+            },
+          },
+        ).trim();
+      git(matrix, "init", "-q");
+      git(matrix, "commit", "--allow-empty", "-qm", "matrix");
       let head = "";
       if (checkout) {
-        // Fixture Git calls run with no GIT_* variable, so none reaches the
-        // repository running these tests.
-        const env = Object.fromEntries(
-          Object.entries(process.env).filter(
-            ([name]) => !name.startsWith("GIT_"),
-          ),
-        );
-        const git = (...args: string[]) =>
-          execFileSync("git", args, {
-            cwd: root,
-            env,
-            encoding: "utf8",
-          }).trim();
-        git("init", "-q");
-        git("add", ".");
-        git(
-          "-c",
-          "user.name=Test",
-          "-c",
-          "user.email=test@example.test",
-          "-c",
-          "commit.gpgsign=false",
-          "commit",
-          "-qm",
-          "fixture",
-        );
-        head = git("rev-parse", "HEAD");
+        git(root, "init", "-q");
+        git(root, "add", ".");
+        git(root, "commit", "-qm", "checkout");
+        head = git(root, "rev-parse", "HEAD");
       }
       await mkdir(join(root, "bin"));
       await symlink(process.execPath, join(root, "bin", "bun"));
-      const { PATH: inheritedPath } = process.env;
       for (const override of [exportedCommit, "", undefined]) {
         if (checkout || override) {
           expect(desktopSourceCommit(root, override)).toBe(
@@ -61,7 +67,7 @@ for (const checkout of [false, true]) {
         const child = Bun.spawn(
           [
             "sh",
-            buildInfoWrapper,
+            join(root, "scripts/lib/withBuildInfoEnv.sh"),
             "bun",
             "-e",
             "console.log(JSON.stringify({sha:process.env.BUN_PUBLIC_GIT_SHA,version:process.env.BUN_PUBLIC_APP_VERSION}))",
@@ -69,8 +75,10 @@ for (const checkout of [false, true]) {
           {
             cwd: root,
             env: {
-              PATH: `${root}/bin:${inheritedPath}`,
+              PATH: `${root}/bin:${PATH}`,
               BUILD_GIT_SHA: override,
+              GIT_DIR: join(matrix, ".git"),
+              GIT_WORK_TREE: matrix,
             },
             stdout: "pipe",
             stderr: "pipe",
@@ -92,7 +100,7 @@ for (const checkout of [false, true]) {
         });
       }
     } finally {
-      await rm(root, { recursive: true, force: true });
+      await rm(matrix, { recursive: true, force: true });
     }
   });
 }

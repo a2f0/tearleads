@@ -18,7 +18,8 @@ case "$TIER" in
     ;;
 esac
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+for name in $(git rev-parse --local-env-vars); do unset "$name"; done
+REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 APP_WEB_DIR="$REPO_ROOT/packages/app-web"
 
 # shellcheck source=../../../terraform/scripts/common.sh

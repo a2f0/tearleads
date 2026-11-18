@@ -1,3 +1,4 @@
+import { requireGitRoot } from "../lib/checkRoot";
 import { apiTransportCheck } from "./apiTransport";
 import {
   type ArchitectureCheck,
@@ -417,5 +418,6 @@ export async function runArchitectureLint(): Promise<number> {
 }
 
 if (import.meta.main) {
+  process.chdir(requireGitRoot());
   process.exitCode = await runArchitectureLint();
 }

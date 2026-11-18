@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
@@ -17,7 +24,9 @@ async function runScript(
     after?: string;
   } = {},
 ) {
-  const root = mkdtempSync(join(tmpdir(), "tearleads-downloads-deploy-"));
+  const root = realpathSync(
+    mkdtempSync(join(tmpdir(), "tearleads-downloads-deploy-")),
+  );
   async function write(path: string, source: string) {
     const target = join(root, path);
     mkdirSync(dirname(target), { recursive: true });
@@ -62,7 +71,9 @@ async function runScript(
       );
     }
     const log = join(root, "calls.log");
-    const child = Bun.spawn(["bash", join(repoRoot, script), ...args], {
+    mkdirSync(dirname(join(root, script)), { recursive: true });
+    cpSync(join(repoRoot, script), join(root, script));
+    const child = Bun.spawn(["bash", join(root, script), ...args], {
       env: {
         PATH: `${root}/bin:/usr/bin:/bin`,
         DOWNLOADS_TEST_ROOT: root,

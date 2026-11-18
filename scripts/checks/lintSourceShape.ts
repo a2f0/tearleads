@@ -1,3 +1,7 @@
+import { execFileSync } from "node:child_process";
+import { existsSync, realpathSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { checkArguments, requireGitRoot } from "../lib/checkRoot";
 import {
   type FileSizeBudget,
   parseSourceShapeBaseline,
@@ -15,7 +19,39 @@ const byteLimit = 20_000;
 // so documents get a larger byte budget under the same line limit.
 const markdownByteLimit = 40_000;
 
-const snapshot = sourceShapeSnapshot(process.argv.slice(2));
+// Older pre-commit hooks invoke plain --staged. Preserve Git's temporary
+// partial-commit index only when it belongs to this worktree's Git directory.
+function selection() {
+  const { TEARLEADS_GIT_HOOK } = process.env;
+  if (
+    TEARLEADS_GIT_HOOK === "1" &&
+    ["--range", "--staged"].includes(process.argv[2] ?? "")
+  )
+    return { root: process.cwd(), args: process.argv.slice(2) };
+  const indexVariable = "GIT_INDEX_FILE";
+  const candidate = process.env[indexVariable];
+  const selected = checkArguments();
+  requireGitRoot(selected.root);
+  if (
+    selected.args[0] === "--staged" &&
+    candidate &&
+    realpathSync(".") === selected.root &&
+    existsSync(candidate)
+  ) {
+    const gitDir = execFileSync(
+      "git",
+      ["-C", selected.root, "rev-parse", "--absolute-git-dir"],
+      { encoding: "utf8" },
+    ).replace(/\n$/, "");
+    const index = realpathSync(resolve(candidate));
+    if (dirname(index) === realpathSync(gitDir))
+      process.env[indexVariable] = index;
+  }
+  return selected;
+}
+const { root, args } = selection();
+process.chdir(root);
+const snapshot = sourceShapeSnapshot(args);
 const baselineBuffer = snapshot.read("scripts/checks/sourceShapeBaseline.json");
 if (!baselineBuffer)
   throw new Error(

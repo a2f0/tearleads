@@ -37,7 +37,7 @@ export function shellScriptInventory(cwd: string) {
   const root = execFileSync("git", ["rev-parse", "--show-toplevel"], {
     cwd,
     encoding: "utf8",
-  }).trim();
+  }).replace(/\n$/, "");
   const paths = execFileSync("git", ["ls-files", "-z"], {
     cwd: root,
     encoding: "utf8",

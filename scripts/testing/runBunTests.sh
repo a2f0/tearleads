@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+CDPATH='' cd -P -- "$(dirname -- "$0")/../.."
+
 force=""
 # Rebuild the positional parameters, pulling out --force. --force is a turbo
 # flag (bypass its cache), so it must be passed to turbo before the -- separator
