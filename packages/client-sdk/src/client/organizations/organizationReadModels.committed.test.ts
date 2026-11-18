@@ -49,14 +49,24 @@ async function committedFixture(name: string) {
     auth: { organizationId, userId },
     execSql,
   });
-  const coordinator = createOrganizationReadModelCoordinator(
-    createInternalRuntimeFixture(() => workflowInput),
-  );
+  let sessionGeneration = 0;
+  const coordinator = createOrganizationReadModelCoordinator({
+    ...createInternalRuntimeFixture(() => workflowInput),
+    get sessionGeneration() {
+      return sessionGeneration;
+    },
+  });
   const scope = {
     domainScope: workflowInput.state.domainScope,
     execSql,
     organizationId,
+    sessionGeneration: 0,
     userId,
+  };
+  // A logout and a login of the same identity keep the domain scope.
+  const advanceSession = () => {
+    sessionGeneration += 1;
+    return { ...scope, sessionGeneration };
   };
   // A logout or identity switch hands the runtime a new domain scope.
   const switchDomainScope = () => {
@@ -68,6 +78,7 @@ async function committedFixture(name: string) {
     return { ...scope, domainScope: workflowInput.state.domainScope };
   };
   return {
+    advanceSession,
     close,
     coordinator,
     execSql,
@@ -285,6 +296,59 @@ test("a mutation's fallback read stays with the scope that committed", async () 
     f.switchDomainScope();
 
     await expect(settled).resolves.toBeUndefined();
+    expect(f.requestedCursors).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("a delta from before a logout does not apply in the next session", async () => {
+  const f = await committedFixture("committed-read-model-session-test");
+  try {
+    const lease = await beginCommittedReadModel(f.scope);
+    const delta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(2),
+      groupName: "Operators",
+    });
+    lease.settle(delta);
+    const nextScope = f.advanceSession();
+    const nextLease = await beginCommittedReadModel(nextScope);
+
+    await expect(
+      f.coordinator.applyCommittedReadModel(organizationId, delta),
+    ).resolves.toBeUndefined();
+    const checked = f.coordinator.loadAppliedCursor();
+    nextLease.settle(undefined);
+    await checked;
+    await expect(
+      new OrganizationReadModelRepository(
+        f.execSql,
+      ).loadOrganizationReadModelCursor(organizationId),
+    ).resolves.toBe(cursorAt(1));
+  } finally {
+    f.close();
+  }
+});
+
+test("a refresh that waited out a delta does not read for a new scope", async () => {
+  const f = await committedFixture("committed-read-model-refresh-switch-test");
+  try {
+    const lease = await beginCommittedReadModel(f.scope);
+    const delta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(2),
+      groupName: "Operators",
+    });
+    lease.settle(delta);
+    const applying = f.coordinator.applyCommittedReadModel(
+      organizationId,
+      delta,
+    );
+    for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
+    const refreshed = f.coordinator.reconcile();
+    f.switchDomainScope();
+
+    await applying;
+    await expect(refreshed).resolves.toBeNull();
     expect(f.requestedCursors).toEqual([]);
   } finally {
     f.close();

@@ -8,11 +8,15 @@ export interface InFlightReadModelPass {
   readonly promise: Promise<OrganizationDirectoryAndGroups | null | undefined>;
 }
 
-export function committedScope(active: ActiveOrganizationDataRuntime) {
+export function committedScope(
+  active: ActiveOrganizationDataRuntime,
+  sessionGeneration: number,
+) {
   return {
     domainScope: active.runtime.state.domainScope,
     execSql: active.runtime.infra.execSql,
     organizationId: active.organizationId,
+    sessionGeneration,
     userId: active.userId,
   };
 }

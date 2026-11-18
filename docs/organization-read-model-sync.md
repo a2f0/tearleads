@@ -224,9 +224,10 @@ organization and the held cursor is the head its first stamp advanced from.
 It then runs the feed's own screen, head read (the writer's exclusive head
 lock already covers it), verified access decision, and lane reloads, so the
 response carries in `readModel` exactly the page a feed read from that cursor
-returns once the mutation commits. A group write stamps the head twice, so the
-delta is built after the second stamp and its `nextCursor` is that final
-cursor, the one the request's hint names. An unreadable cursor or one for
+returns once the mutation commits. A group write stamps the head more than
+once (a roster enrollment stamps `Members` too), so the delta is built after
+the final stamp and its `nextCursor` is that final cursor, the one the
+request's hint names. An unreadable cursor or one for
 another organization, a cursor behind that head, a replay that stamped
 nothing, and an access decision the feed would refuse all leave the field out;
 a refusal reaches the client through its own feed read instead. The read runs
@@ -237,13 +238,14 @@ The client applies a committed delta through the ordinary apply path, only once
 the mutation's acknowledgement verified and only while its projection still
 holds the cursor it sent. The acknowledgement validates without the delta: a
 malformed delta, one for another organization, or a failed apply is only
-forgone. A group create and the
-membership and revocation commits use it as their post-commit read; a realtime
-hint's cursor check first waits, for at most ten seconds, for this device's own
-mutations in flight and applies the deltas they carried, so the hint naming
-such a commit costs no read. A missing, omitted, or no longer applicable delta
-leaves today's path: the post-commit or hint read requests the feed, and a lost
-response leaves the cursor behind so the hint still reads.
+forgone. A group create and the membership and revocation commits use it as
+their post-commit read; a realtime hint's cursor check first waits, for at most
+ten seconds, for this device's own mutations in flight in the same session and
+applies the deltas they carried, so the hint naming such a commit costs no read.
+A refresh that meets a delta being applied reads the feed after it. A missing,
+omitted, or no longer applicable delta leaves today's path: the post-commit or
+hint read requests the feed, and a lost response leaves the cursor behind so the
+hint still reads.
 
 Network, server, and response-shape failures retain the last-known-good local
 snapshot, but reconciliation returns `undefined`, not that cached snapshot.

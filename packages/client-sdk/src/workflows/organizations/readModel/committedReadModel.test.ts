@@ -28,6 +28,7 @@ test("a cold projection holds no cursor, so its mutation earns no delta", async 
   try {
     const lease = await beginCommittedReadModel({
       domainScope: {},
+      sessionGeneration: 0,
       execSql,
       organizationId,
       userId,
@@ -37,6 +38,7 @@ test("a cold projection holds no cursor, so its mutation earns no delta", async 
     await expect(
       takeCommittedReadModelOffers({
         domainScope: {},
+        sessionGeneration: 0,
         execSql,
         organizationId,
         userId,
@@ -49,7 +51,13 @@ test("a cold projection holds no cursor, so its mutation earns no delta", async 
 
 test("offers are taken once, by their own delta or by a hint check", async () => {
   const { close, execSql } = await createTestExecSql("committed-take-test");
-  const scope = { domainScope: {}, execSql, organizationId, userId };
+  const scope = {
+    domainScope: {},
+    sessionGeneration: 0,
+    execSql,
+    organizationId,
+    userId,
+  };
   try {
     await new OrganizationReadModelRepository(
       execSql,
@@ -81,7 +89,13 @@ test("offers are taken once, by their own delta or by a hint check", async () =>
 
 test("a hint check stops waiting for a mutation that never settles", async () => {
   const { close, execSql } = await createTestExecSql("committed-wait-test");
-  const scope = { domainScope: {}, execSql, organizationId, userId };
+  const scope = {
+    domainScope: {},
+    sessionGeneration: 0,
+    execSql,
+    organizationId,
+    userId,
+  };
   try {
     await new OrganizationReadModelRepository(
       execSql,
@@ -146,6 +160,7 @@ test("an unreadable projection begins a lease without a cursor", async () => {
   close();
   const lease = await beginCommittedReadModel({
     domainScope: {},
+    sessionGeneration: 0,
     execSql,
     organizationId,
     userId,

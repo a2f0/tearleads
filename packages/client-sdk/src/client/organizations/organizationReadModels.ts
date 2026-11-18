@@ -87,19 +87,12 @@ export interface OrganizationReadModelCoordinator {
   reconcileAfterMutation(
     organizationId?: string | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
-  /**
-   * Apply the read-model delta this device's own mutation response carried,
-   * with no request. Resolves `undefined` when it is not applied (no delta,
-   * another scope, or the projection moved past the cursor the mutation held).
-   */
+  /** Apply this device's own mutation's committed delta; `undefined` if not. */
   applyCommittedReadModel(
     organizationId: string,
     delta: OrganizationReadModelDeltaResponse | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
-  /**
-   * The post-commit read of this device's own mutation: its response's delta
-   * when that applies and presents, otherwise `reconcileAfterMutation`.
-   */
+  /** An own mutation's post-commit read: its delta, else the feed. */
   reconcileAfterOwnMutation(
     organizationId: string,
     delta: OrganizationReadModelDeltaResponse | undefined,
@@ -279,11 +272,21 @@ class OrganizationReadModelCoordinatorImpl
     const inFlight = this.reconciliationMap(active).get(
       organizationAccessScopeKey(active.organizationId, active.userId),
     );
-    // A delta's apply reflects its commit, not this request: read after it.
+    // A delta's apply reflects its commit, not this request: read after it,
+    // for this scope only.
     if (inFlight?.kind === "delta") {
+      const { domainScope } = active.runtime.state;
       return inFlight.promise
         .catch(() => null)
-        .then(() => this.reconcile(active.organizationId));
+        .then(() =>
+          isOrganizationDataRuntimeCurrent(
+            this.runtimeService,
+            active,
+            domainScope,
+          )
+            ? this.reconcile(active.organizationId)
+            : null,
+        );
     }
     return this.presentReconciliation(active, "feed", () =>
       reconcileOrganizationDirectoryAndGroups({
@@ -361,31 +364,36 @@ class OrganizationReadModelCoordinatorImpl
       this.runtimeService,
       organizationId,
     );
+    const { sessionGeneration } = this.runtimeService;
     const offer =
       active && delta
-        ? takeCommittedReadModelOffer(committedScope(active), delta)
+        ? takeCommittedReadModelOffer(
+            committedScope(active, sessionGeneration),
+            delta,
+          )
         : undefined;
     if (!active || !offer) return undefined;
     await this.settleInFlightReconcile(active);
-    return this.applyCommittedOffer(active, offer);
+    return this.applyCommittedOffer(active, offer, sessionGeneration);
   }
 
   /**
-   * Present an offer only while the projection still holds the cursor its
-   * mutation sent and the scope is the one that waited for it. A failure only
-   * forgoes the delta: the caller reads the feed.
+   * Present an offer while the projection holds its sent cursor and the scope
+   * and session are the ones that waited; a failure only forgoes it.
    */
   private applyCommittedOffer(
     active: ActiveOrganizationDataRuntime,
     offer: CommittedReadModelOffer,
+    sessionGeneration: number,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
     const { domainScope } = active.runtime.state;
     return this.presentReconciliation(active, "delta", async () => {
       const held = await loadHeldOrganizationReadModelCursor(
-        committedScope(active),
+        committedScope(active, sessionGeneration),
       );
       if (
         held !== offer.heldCursor ||
+        this.runtimeService.sessionGeneration !== sessionGeneration ||
         !isOrganizationDataRuntimeCurrent(
           this.runtimeService,
           active,
@@ -443,11 +451,12 @@ class OrganizationReadModelCoordinatorImpl
     // A hint's cursor check: this scope's own mutations in flight settle
     // first, and the deltas they carried apply, so a hint naming one of those
     // commits needs no read.
+    const { sessionGeneration } = this.runtimeService;
     for (const offer of await takeCommittedReadModelOffers(
-      committedScope(active),
+      committedScope(active, sessionGeneration),
     )) {
       await this.settleInFlightReconcile(active);
-      await this.applyCommittedOffer(active, offer);
+      await this.applyCommittedOffer(active, offer, sessionGeneration);
     }
     await this.settleInFlightReconcile(active);
     const applied = await new OrganizationReadModelRepository(

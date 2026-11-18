@@ -20,7 +20,7 @@ import type {
   ContainerContentsOrganizationHost,
   ContainerContentsRootAdopter,
 } from "../../workflows/container-contents";
-import { containerContentsOrganizationHost } from "../../workflows/organizations/containerContentsHost";
+import { createContainerContentsOrganizationHost } from "../../workflows/organizations/containerContentsHost";
 import { PrincipalPolicyService } from "../../workflows/principals/principalPolicyService";
 import {
   createProvisionedStatePrimer,
@@ -133,9 +133,11 @@ interface WorkflowRuntimeDependencies {
 function createRuntimeMutationApi(
   dependencies: WorkflowRuntimeDependencies,
   readGeneration: () => number,
+  readSessionGeneration: () => number,
 ) {
   return createPrincipalMutationApiCustody({
     api: dependencies.api,
+    readSessionGeneration,
     principalMutationTimeoutMs: dependencies.principalMutationTimeoutMs,
     readScope: () => {
       const { signingKeyPair, signingFingerprint } = dependencies.identity;
@@ -226,6 +228,7 @@ export function createRuntime(
     createRuntimeMutationApi(
       dependencies,
       () => runtimeSubscription.mutationGeneration,
+      () => runtimeSubscription.sessionGeneration,
     ).bind,
   );
 
@@ -239,7 +242,9 @@ export function createRuntime(
     adoptRootContainer: (input) =>
       adoptSessionRootContainer(dependencies, input),
     deleteDocumentPlacements,
-    containerContentsOrganizations: containerContentsOrganizationHost,
+    containerContentsOrganizations: createContainerContentsOrganizationHost(
+      () => runtimeSubscription.sessionGeneration,
+    ),
     boundUserId: (signingKeyFingerprint) =>
       trustedUserIdentityService.boundUserId(signingKeyFingerprint),
     async pinLocalUserIdentity(userId, candidate) {

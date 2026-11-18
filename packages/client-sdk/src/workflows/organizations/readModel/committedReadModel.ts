@@ -25,10 +25,12 @@ interface ScopeOffers {
 }
 
 interface CommittedReadModelScope {
-  /** The runtime's domain scope; a logout or identity switch replaces it. */
+  /** The runtime's domain scope; an identity switch replaces it. */
   readonly domainScope: object;
   readonly execSql: ExecSql;
   readonly organizationId: string;
+  /** The runtime's session generation; a logout or new login advances it. */
+  readonly sessionGeneration: number;
   readonly userId: string;
 }
 
@@ -37,8 +39,8 @@ const MAX_SETTLED_OFFERS = 4;
 /** A hint's cursor check waits no longer than this for mutations in flight. */
 const MAX_PENDING_WAIT_MS = 10_000;
 
-// Keyed by domain scope, so a mutation and a hint check of one scope never
-// meet those of a scope that replaced it on the same database.
+// Keyed by domain scope and session generation, so a mutation and a hint
+// check of one session never meet those of a session that replaced it.
 const offersByDomainScope = new WeakMap<object, Map<string, ScopeOffers>>();
 
 function scopeOffers(scope: CommittedReadModelScope): ScopeOffers {
@@ -47,7 +49,10 @@ function scopeOffers(scope: CommittedReadModelScope): ScopeOffers {
     byScope = new Map();
     offersByDomainScope.set(scope.domainScope, byScope);
   }
-  const key = organizationAccessScopeKey(scope.organizationId, scope.userId);
+  const key = `${scope.sessionGeneration}:${organizationAccessScopeKey(
+    scope.organizationId,
+    scope.userId,
+  )}`;
   let offers = byScope.get(key);
   if (!offers) {
     offers = { pending: new Set(), settled: [] };

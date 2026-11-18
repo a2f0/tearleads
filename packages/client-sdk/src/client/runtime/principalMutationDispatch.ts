@@ -83,6 +83,8 @@ type JournalContext = (organizationId: string) => Omit<
 > & {
   /** The runtime's domain scope, which keys committed read-model offers. */
   readonly domainScope: object;
+  /** The session generation the mutation's committed lease belongs to. */
+  readonly sessionGeneration: number;
 };
 
 interface JournaledSubmission<T extends PrincipalMutationResponse> {
@@ -108,6 +110,7 @@ async function submitJournaled<T extends PrincipalMutationResponse>(
     ? await beginCommittedReadModel({
         domainScope: journal.domainScope,
         execSql: journal.execSql,
+        sessionGeneration: journal.sessionGeneration,
         organizationId,
         userId: journal.scope.userId,
       })
