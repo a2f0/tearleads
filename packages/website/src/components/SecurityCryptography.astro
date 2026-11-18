@@ -46,7 +46,7 @@ const tables: readonly {
       {
         purpose: "Local key separation",
         tokens: ["HKDF-SHA256"],
-        role: "Derives purpose-specific storage keys from the wrapped local account root key.",
+        role: "Derives each local storage key from the root key for its scope.",
       },
     ],
   },
