@@ -2,6 +2,7 @@ import type { ContainerContentsPersistence } from "../../../workflows/container-
 import type { ContainerContentsProjectionUserKeyResolver } from "../../../workflows/container-contents/projectionKeys";
 import type {
   ContainerState,
+  ReconnectCrawl,
   RemoteContainer,
 } from "../../../workflows/container-contents/remoteHydration";
 import type { ContainerContentsStoreWorkflowRuntime } from "../../../workflows/container-contents/runtime";
@@ -30,8 +31,7 @@ export interface ContainerContentsStoreSyncAgent {
   ) => Promise<void>;
   refreshLocalContainers: () => Promise<void>;
   refresh: (options?: {
-    reconnectIsCurrent?: (() => boolean) | undefined;
-    onFullyHydrated?: () => void;
+    reconnect?: ReconnectCrawl | undefined;
     resetAllLaneWatermarks?: boolean;
   }) => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
@@ -47,7 +47,6 @@ export interface ContainerContentsStoreSyncAgent {
 export interface ContainerContentsStoreSyncState {
   /** Container listing requests that failed or timed out in a current crawl. */
   containerListingFailures: number;
-  containerProofRefusals: number;
   containersById: Map<string, ContainerState>;
   documentStoresNeedPriming: boolean;
   initializeGeneration: number | null;

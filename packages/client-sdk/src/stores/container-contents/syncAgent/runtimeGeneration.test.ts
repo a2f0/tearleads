@@ -67,7 +67,7 @@ test("server event reconnection forces remote lane reconciliation", () => {
   updateContainerContentsSnapshot(state);
   const refresh = mock<ContainerContentsStoreSyncAgent["refresh"]>(
     async (options) => {
-      options?.onFullyHydrated?.();
+      options?.reconnect?.record("complete");
       return true;
     },
   );

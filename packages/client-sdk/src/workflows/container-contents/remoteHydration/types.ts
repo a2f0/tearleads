@@ -113,6 +113,12 @@ interface RemoteContainerHydrationRuntime
   apiClient: RemoteContainerHydrationApi;
 }
 
+export type HydrationOutcome = "complete" | "refused" | "retry";
+export interface ReconnectCrawl {
+  isCurrent(): boolean;
+  record(outcome: HydrationOutcome): void;
+}
+
 export interface RemoteContainerHydrationState {
   /**
    * Container listing requests that failed or timed out, in a current crawl.
@@ -120,8 +126,6 @@ export interface RemoteContainerHydrationState {
    * fell short while it ran.
    */
   containerListingFailures?: number | undefined;
-  /** Current-crawl items whose supplied proof failed verification. */
-  containerProofRefusals?: number | undefined;
   containersById: Map<string, ContainerState>;
   lifecycleGeneration?: number | undefined;
   persistence: ContainerContentsPersistence;

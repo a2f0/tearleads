@@ -1,6 +1,7 @@
 import {
   createGenerationGuardedHydrationHost,
   hydrateRemoteContainers,
+  type ReconnectCrawl,
   type RemoteContainerHydrationHost,
   StaleRemoteHydrationError,
 } from "../../../workflows/container-contents/remoteHydration";
@@ -35,7 +36,7 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
 interface RemoteHydrationRequestInput {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
-  reconnectIsCurrent?: (() => boolean) | undefined;
+  reconnect?: ReconnectCrawl | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
@@ -195,7 +196,7 @@ function retryRemoteHydrationAfterReset(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
   // The reconnect state machine owns its retry across a reset.
-  if (input.reconnectIsCurrent) return Promise.resolve();
+  if (input.reconnect) return Promise.resolve();
   return resumeRetainedRecoveryHydration(createResetRecoveryInput(input));
 }
 
@@ -304,7 +305,7 @@ function captureHydrationScope(
   const { state } = input;
   const { lifecycleGeneration, structuralGeneration } = state;
   return () =>
-    input.reconnectIsCurrent?.() !== false &&
+    input.reconnect?.isCurrent() !== false &&
     isRequestGenerationCurrent({
       state,
       lifecycleGeneration,
@@ -316,7 +317,7 @@ export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
   const { host, scheduleSync, state } = input;
-  if (input.reconnectIsCurrent?.() === false) return Promise.resolve();
+  if (input.reconnect?.isCurrent() === false) return Promise.resolve();
   queueRequestedParentIds(input);
   const readinessBarrier = waitForRemoteHydrationReadiness(input);
   if (readinessBarrier) {
@@ -353,6 +354,7 @@ export function requestContainerContentsRemoteHydration(
         host: hydrationHost,
         isCurrent,
         onFullyHydrated,
+        reconnect: input.reconnect,
         parentIds,
         resetAllLaneWatermarks: input.resetAllLaneWatermarks,
         resetRootLaneWatermark: input.resetRootLaneWatermark,

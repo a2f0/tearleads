@@ -1,3 +1,4 @@
+import type { ReconnectCrawl } from "../../../workflows/container-contents/remoteHydration";
 import type { ContainerContentsStoreSyncAgent } from "../syncAgent/syncAgentTypes";
 import type {
   ContainerContentsStore,
@@ -6,7 +7,7 @@ import type {
 
 export interface RemoteHydrationRefreshOptions {
   followDiscoveredParentLanes?: boolean | undefined;
-  reconnectIsCurrent?: (() => boolean) | undefined;
+  reconnect?: ReconnectCrawl | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
@@ -138,7 +139,7 @@ function canRefreshRemoteHydration(
 }
 
 export function refreshAllRemoteHydration(input: {
-  reconnectIsCurrent?: (() => boolean) | undefined;
+  reconnect?: ReconnectCrawl | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
   recreateOnFullyHydratedAfterReset?:
     | (() => () => Promise<void> | void)
@@ -163,7 +164,7 @@ export function refreshAllRemoteHydration(input: {
   // container's updatedAt, so a persisted watermark would hide it forever.
   return requestHydration({
     followDiscoveredParentLanes: true,
-    reconnectIsCurrent: input.reconnectIsCurrent,
+    reconnect: input.reconnect,
     onFullyHydrated: input.onFullyHydrated,
     recreateOnFullyHydratedAfterReset: input.recreateOnFullyHydratedAfterReset,
     ...(input.resetAllLaneWatermarks ? { resetAllLaneWatermarks: true } : {}),

@@ -86,7 +86,6 @@ export function createContainerContentsStoreState(
 ): ContainerContentsStoreState {
   return {
     containerListingFailures: 0,
-    containerProofRefusals: 0,
     containersById: new ContainerStateMap(),
     containerParentIdsNeedingHydration: new Set(),
     documentStoresNeedPriming: true,
@@ -224,7 +223,7 @@ export function updateContainerContentsStoreRuntime(
     previousRuntime.state.serverEventsConnectionGeneration !==
     nextRuntime.state.serverEventsConnectionGeneration;
   if (runtimeReplaced) {
-    state.reconnectRefresh.runtimeChanged();
+    state.reconnectRefresh.reset("runtimeChanged");
     state.structuralGeneration += 1;
     state.localContainersNeedRefresh = true;
   }
@@ -239,7 +238,7 @@ export function updateContainerContentsStoreRuntime(
   }
   state.runtime = nextRuntime;
   if (serverEventsConnectionChanged) {
-    state.reconnectRefresh.acknowledge();
+    state.reconnectRefresh.reset("acknowledged");
   }
 
   if (nextRuntime.infra.dbStatus !== "ready") {
@@ -314,7 +313,6 @@ export function consumePendingContainerContentsReconnectRefresh(
       state.runtime.isScopeCurrent?.() !== false &&
       !state.syncLane?.isDisposed?.(),
     refresh,
-    state,
   );
 }
 
@@ -326,6 +324,7 @@ export function updateContainerContentsStorePersistence(
   if (state.persistence === nextPersistence) {
     return;
   }
+  state.reconnectRefresh.reset("runtimeChanged");
   state.persistence = nextPersistence;
   state.structuralGeneration += 1;
   state.writeGeneration += 1;

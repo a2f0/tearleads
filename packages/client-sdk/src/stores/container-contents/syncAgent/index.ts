@@ -299,8 +299,7 @@ export function createContainerContentsStoreSyncAgent(input: {
     refreshAllRemoteHydration({
       // Explicit user refresh must rediscover children hidden by unsigned hints.
       resetAllLaneWatermarks: options?.resetAllLaneWatermarks,
-      onFullyHydrated: options?.onFullyHydrated,
-      reconnectIsCurrent: options?.reconnectIsCurrent,
+      reconnect: options?.reconnect,
       requestHydration: requestRefreshHydration,
       state,
     });
@@ -316,6 +315,7 @@ export function createContainerContentsStoreSyncAgent(input: {
   });
 
   state.syncLane = registerContainerContentsSyncLane({
+    onDispose: () => state.reconnectRefresh.reset("disposed"),
     domainScope: state.runtime.state.domainScope,
     logError: (message, error) => logSyncLaneFailure(state, message, error),
     run: (policyOperation) =>

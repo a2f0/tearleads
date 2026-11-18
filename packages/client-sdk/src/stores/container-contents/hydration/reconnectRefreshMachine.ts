@@ -1,62 +1,69 @@
-const FIRST_RETRY_MS = 1_000;
-const MAX_RETRY_MS = 60_000;
+import type { HydrationOutcome } from "../../../workflows/container-contents/remoteHydration";
 
+interface RetryProgress {
+  delayMs: number;
+  refusals: number;
+}
+const FIRST_ATTEMPT = {
+  status: "pending",
+  delayMs: 1_000,
+  refusals: 0,
+} as const;
+const MAX_RETRY_MS = 60_000;
+const PROOF_REFUSAL_LIMIT = 3;
+
+type ActiveCrawl = RetryProgress & {
+  status: "crawling" | "backoff";
+  crawl: object;
+};
 export type ReconnectRefreshState =
-  | { status: "idle" | "deferred" }
-  | { status: "pending"; delayMs: number }
-  | { status: "crawling" | "backoff"; delayMs: number; crawl: object };
+  | { status: "idle" | "deferred" | "disposed" }
+  | (RetryProgress & { status: "pending" })
+  | ActiveCrawl;
 
 type ReconnectRefreshEvent =
-  | { type: "acknowledged" }
-  | { type: "runtimeChanged" }
+  | { type: "acknowledged" | "runtimeChanged" | "disposed" }
   | { type: "start"; crawl: object }
-  | {
-      type: "finish";
-      crawl: object;
-      outcome: "complete" | "retry" | "refused";
-    }
+  | { type: "finish"; crawl: object; outcome: HydrationOutcome }
   | { type: "retry"; crawl: object };
 
 function afterCrawl(
-  state: { status: "crawling" | "backoff"; crawl: object; delayMs: number },
-  outcome: "complete" | "retry" | "refused",
+  state: ActiveCrawl,
+  outcome: HydrationOutcome,
 ): ReconnectRefreshState {
   if (outcome === "complete") return { status: "idle" };
-  // Leave a repeatedly refused proof for a fresh signal. A timed-out listing
-  // or unavailable proof keeps retrying even on a quiet connection.
-  if (outcome === "refused" && state.delayMs >= 4_000)
-    return { status: "deferred" };
-  return { ...state, status: "backoff" };
+  const refusals = outcome === "refused" ? state.refusals + 1 : 0;
+  if (refusals >= PROOF_REFUSAL_LIMIT) return { status: "deferred" };
+  return { ...state, status: "backoff", refusals };
 }
 
-/**
- * An acknowledgement supersedes any previous crawl, including its timer.
- * Pending starts once ready. A complete crawl goes idle, an incomplete one
- * waits, and its timer makes it pending again with a capped exponential delay.
- */
+/** Only the current crawl or its own timer can consume outstanding work. */
 export function transitionReconnectRefresh(
   state: ReconnectRefreshState,
   event: ReconnectRefreshEvent,
 ): ReconnectRefreshState {
+  if (state.status === "disposed") return state;
   switch (event.type) {
+    case "disposed":
+      return { status: "disposed" };
     case "runtimeChanged":
-      if (state.status !== "deferred") return state;
-      return { status: "pending", delayMs: FIRST_RETRY_MS };
+      return state.status === "idle" ? state : FIRST_ATTEMPT;
     case "acknowledged":
-      return { status: "pending", delayMs: FIRST_RETRY_MS };
+      return FIRST_ATTEMPT;
     case "start":
       return state.status === "pending"
-        ? { status: "crawling", delayMs: state.delayMs, crawl: event.crawl }
+        ? { ...state, status: "crawling", crawl: event.crawl }
         : state;
     case "finish":
-      if (state.status !== "crawling" || state.crawl !== event.crawl)
-        return state;
-      return afterCrawl(state, event.outcome);
+      return state.status === "crawling" && state.crawl === event.crawl
+        ? afterCrawl(state, event.outcome)
+        : state;
     case "retry":
       return state.status === "backoff" && state.crawl === event.crawl
         ? {
             status: "pending",
             delayMs: Math.min(state.delayMs * 2, MAX_RETRY_MS),
+            refusals: state.refusals,
           }
         : state;
     default:

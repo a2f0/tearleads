@@ -1,3 +1,7 @@
+import type {
+  HydrationOutcome,
+  ReconnectCrawl,
+} from "../../../workflows/container-contents/remoteHydration";
 import {
   type ReconnectRefreshState,
   transitionReconnectRefresh,
@@ -8,43 +12,30 @@ export class ReconnectRefresh {
   private timer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(acknowledged: boolean) {
-    if (acknowledged) this.acknowledge();
+    if (acknowledged) this.reset("acknowledged");
   }
 
-  acknowledge(): void {
+  reset(type: "acknowledged" | "runtimeChanged" | "disposed"): void {
     clearTimeout(this.timer);
     this.timer = undefined;
-    this.state = transitionReconnectRefresh(this.state, {
-      type: "acknowledged",
-    });
-  }
-
-  runtimeChanged(): void {
-    this.state = transitionReconnectRefresh(this.state, {
-      type: "runtimeChanged",
-    });
+    this.state = transitionReconnectRefresh(this.state, { type });
   }
 
   runWhenReady(
     canRun: () => boolean,
-    refresh: (options: {
-      onFullyHydrated: () => void;
-      reconnectIsCurrent: () => boolean;
-    }) => Promise<boolean>,
-    evidence: {
-      containerListingFailures: number;
-      containerProofRefusals: number;
-    },
+    refresh: (options: { reconnect: ReconnectCrawl }) => Promise<boolean>,
   ): void {
     if (this.state.status !== "pending" || !canRun()) return;
-
     const crawl = {};
     this.state = transitionReconnectRefresh(this.state, {
       type: "start",
       crawl,
     });
-    const { containerListingFailures, containerProofRefusals } = evidence;
-    const finish = (outcome: "complete" | "retry" | "refused") => {
+    const isCurrent = () =>
+      this.state.status === "crawling" &&
+      this.state.crawl === crawl &&
+      canRun();
+    const finish = (outcome: HydrationOutcome) => {
       const next = transitionReconnectRefresh(this.state, {
         type: "finish",
         crawl,
@@ -59,25 +50,21 @@ export class ReconnectRefresh {
           type: "retry",
           crawl,
         });
-        this.runWhenReady(canRun, refresh, evidence);
+        this.runWhenReady(canRun, refresh);
       }, next.delayMs);
     };
-    let fullyHydrated = false;
-    const settle = () => {
-      if (fullyHydrated && canRun()) return finish("complete");
-      const proofRefused =
-        evidence.containerProofRefusals > containerProofRefusals &&
-        evidence.containerListingFailures === containerListingFailures;
-      finish(proofRefused ? "refused" : "retry");
-    };
+    // A joined or interrupted crawl that never reported coverage owes a retry.
+    let outcome: HydrationOutcome = "retry";
     void refresh({
-      reconnectIsCurrent: () =>
-        this.state.status === "crawling" &&
-        this.state.crawl === crawl &&
-        canRun(),
-      onFullyHydrated: () => {
-        fullyHydrated = true;
+      reconnect: {
+        isCurrent,
+        record: (value) => {
+          outcome = value;
+        },
       },
-    }).then(settle, () => finish("retry"));
+    }).then(
+      () => finish(isCurrent() ? outcome : "retry"),
+      () => finish("retry"),
+    );
   }
 }

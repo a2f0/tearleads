@@ -1,28 +1,23 @@
-import { finishRemoteHydration } from "./completeHydration";
-import { createContainerChildIndex } from "./lanes/childIndex";
-import { createContainerParentHydrationQueue } from "./lanes/parentLaneQueue";
 import { cacheRemoteContainerPrincipalPolicies } from "./principalPolicyCache";
 import { loadPausedContainerFilter } from "./remoteContainers/organizationSyncPauseFilter";
-import {
-  canHydrateRemoteContainers,
-  hydrateContainerParentLanes,
-} from "./remoteContainers/remoteContainerPageHydration";
 import {
   listRemoteContainerIdsWithPendingMetadataUpdates,
   listRemoteContainerIdsWithPendingStructuralIntents,
   upsertIsolatedRemoteContainerState,
 } from "./remoteContainers/remoteContainerState";
 import type {
-  QueueContainerParentLane,
   RemoteContainer,
   RemoteContainerHydrationHost,
   RemoteContainerHydrationState,
   RemoteContainerIngestQueue,
 } from "./types";
 
+export { hydrateRemoteContainers } from "./hydrateRemoteContainers";
 export type {
   ContainerState,
+  HydrationOutcome,
   PersistContainerStateResult,
+  ReconnectCrawl,
   RemoteContainer,
   RemoteContainerHydrationHost,
 } from "./types";
@@ -435,65 +430,4 @@ export function createRemoteContainerIngestor(input: {
   ingestRemoteContainer.hasPending = () => pendingRemoteContainersById.size > 0;
   ingestRemoteContainer.resume = runNextGeneration;
   return ingestRemoteContainer;
-}
-
-export async function hydrateRemoteContainers(input: {
-  followDiscoveredParentLanes?: boolean | undefined;
-  host: RemoteContainerHydrationHost;
-  isCurrent?: (() => boolean) | undefined;
-  onFullyHydrated?: (() => Promise<void> | void) | undefined;
-  parentIds?: ReadonlyArray<string | null> | undefined;
-  resetAllLaneWatermarks?: boolean | undefined;
-  resetRootLaneWatermark?: boolean | undefined;
-  state: RemoteContainerHydrationState;
-}): Promise<number> {
-  const { host, state } = input;
-  if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
-    return 0;
-  }
-
-  const seenContainerIds = new Set<string>();
-  const containerIdsBeforeHydration = new Set(state.containersById.keys());
-  const childIdsByParentId = createContainerChildIndex(state.containersById);
-  const { lanes, queueParentLane } = createContainerParentHydrationQueue({
-    containerIds: state.containersById.keys(),
-    parentIds: input.parentIds,
-    resetAllLaneWatermarks: input.resetAllLaneWatermarks,
-    resetRootLaneWatermark: input.resetRootLaneWatermark,
-  });
-  // Follow child lanes during an explicit recursive crawl or for containers first
-  // discovered in this pass. The latter lets a newly authorized root populate its
-  // descendants immediately, while routine ticks keep known subtrees cache-first.
-  const queueDiscoveredParentLane: QueueContainerParentLane = (containerId) => {
-    if (
-      input.followDiscoveredParentLanes ||
-      (containerId !== null && !containerIdsBeforeHydration.has(containerId))
-    ) {
-      queueParentLane(containerId);
-    }
-  };
-  const result = await hydrateContainerParentLanes({
-    childIdsByParentId,
-    host,
-    isCurrent: input.isCurrent,
-    lanes,
-    queueParentLane: queueDiscoveredParentLane,
-    seenContainerIds,
-    state,
-  });
-  const { changedCount } = result;
-  await finishRemoteHydration({
-    changedCount,
-    complete:
-      result.complete &&
-      canHydrateRemoteContainers(state) &&
-      input.isCurrent?.() !== false,
-    containerIdsBeforeHydration,
-    host,
-    isCurrent: input.isCurrent,
-    onFullyHydrated: input.onFullyHydrated,
-    seenContainerIds,
-    state,
-  });
-  return changedCount;
 }

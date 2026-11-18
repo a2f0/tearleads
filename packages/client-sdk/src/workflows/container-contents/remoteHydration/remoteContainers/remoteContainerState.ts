@@ -421,15 +421,13 @@ export async function upsertRemoteContainerState(
  */
 export async function upsertIsolatedRemoteContainerState(
   input: UpsertRemoteContainerStateInput,
+  onProofRefused?: () => void,
 ): Promise<ContainerState | null> {
   try {
     return await upsertRemoteContainerState(input);
   } catch (error) {
     if (isKeyingVerificationError(error)) {
-      if (input.isCurrent?.() !== false) {
-        input.state.containerProofRefusals =
-          (input.state.containerProofRefusals ?? 0) + 1;
-      }
+      onProofRefused?.();
       return null;
     }
     if (isProjectionVerificationCancelledError(error)) return null;

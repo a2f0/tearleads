@@ -37,7 +37,13 @@ function container(
   };
 }
 
-for (const failure of ["withheld", "tampered", "expired", "runtime"] as const) {
+for (const failure of [
+  "withheld",
+  "tampered",
+  "mixed",
+  "expired",
+  "runtime",
+] as const) {
   test(
     failure === "runtime"
       ? "unexpected projection defects still abort discovery"
@@ -50,7 +56,9 @@ for (const failure of ["withheld", "tampered", "expired", "runtime"] as const) {
       const sibling = container("good-sibling", firstRoot.id);
       const descendant = container("good-descendant", sibling.id);
       const later = container("later-child", laterRoot.id);
+      const withheld = container("withheld-child", firstRoot.id);
       const containers = [
+        ...(failure === "mixed" ? [withheld] : []),
         firstRoot,
         laterRoot,
         bad,
@@ -84,6 +92,7 @@ for (const failure of ["withheld", "tampered", "expired", "runtime"] as const) {
             apiClient: {
               evictContainerWriterProjection: () => {},
               getContainerWriterProjection: async (id: string) => {
+                if (id === withheld.id) return null;
                 if (id !== bad.id)
                   return directory.getContainerWriterProjection(id);
                 badProofReads += 1;
@@ -134,12 +143,19 @@ for (const failure of ["withheld", "tampered", "expired", "runtime"] as const) {
           }),
         } as unknown as RemoteContainerHydrationState;
         let completed = false;
+        let outcome: string | undefined;
         const hydration = hydrateRemoteContainers({
           host: {
             persistContainerState: async () => {
               throw new Error("Expected inserts only");
             },
             updateSnapshot: () => {},
+          },
+          reconnect: {
+            isCurrent: () => true,
+            record: (value) => {
+              outcome = value;
+            },
           },
           onFullyHydrated: () => {
             completed = true;
@@ -176,10 +192,10 @@ for (const failure of ["withheld", "tampered", "expired", "runtime"] as const) {
           ),
         ).toEqual(watermark);
         expect(completed).toBe(false);
-        expect(state.containerProofRefusals ?? 0).toBe(
-          failure === "tampered" ? 1 : 0,
+        expect(outcome).toBe(failure === "tampered" ? "refused" : "retry");
+        expect(incidents).toHaveLength(
+          ["mixed", "tampered"].includes(failure) ? 1 : 0,
         );
-        expect(incidents).toHaveLength(failure === "tampered" ? 1 : 0);
       } finally {
         close();
       }
