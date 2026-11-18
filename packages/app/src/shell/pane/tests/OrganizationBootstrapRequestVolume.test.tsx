@@ -147,8 +147,10 @@ test(
         // headroom. Keys and the login signature travel as base64 and child
         // containers cite their parent KEK state: 291 KB sent (322 KB before).
         // Container mutations send manifest hashes alone: 287.9 KB sent;
-        // sending the manifests again (291.5 KB) exceeds this ceiling.
-        bodyBytes: { request: 289_700, response: 31_000 },
+        // sending the manifests again (291.5 KB) exceeds this ceiling. The
+        // projection cites the held organization directory: 28.4 KB received
+        // (29.7 KB with it, which exceeds this ceiling).
+        bodyBytes: { request: 289_700, response: 29_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 5,
           "GET /principals/group/:groupId/policy": 0,

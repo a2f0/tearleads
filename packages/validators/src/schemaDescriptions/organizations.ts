@@ -49,6 +49,7 @@ import {
   PrincipalStatePayloadResponseSchema,
   PrincipalStateResponseSchema,
   ProjectionPolicyEvidenceResponseSchema,
+  ProjectionPolicyEvidenceWireResponseSchema,
   ReferencedPrincipalStateResponseSchema,
 } from "../response";
 import {
@@ -168,6 +169,11 @@ describeSchema(
 describeSchema(
   ProjectionPolicyEvidenceResponseSchema,
   "Public principal policy history that a projection's manifests depend on, as read sources plus the signed directory payloads they need.",
+);
+
+describeSchema(
+  ProjectionPolicyEvidenceWireResponseSchema,
+  "Public principal policy history as served: a directory payload whose organization state the request cited as held (`d:` in `x-known-manifests`) is null, and the client fills it from the bytes it cited.",
 );
 
 describeSchema(

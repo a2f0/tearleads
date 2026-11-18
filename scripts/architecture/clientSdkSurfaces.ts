@@ -230,6 +230,7 @@ export const principalPolicySurface = [
   ...principalsWorkflowSurface,
   `${sdk}/data/persistence/principalCurrentAcknowledgementPersistence.ts`,
   `${sdk}/data/persistence/principalMutationJournalPersistence.ts`,
+  `${sdk}/data/persistence/principalPolicy/heldOrganizationDirectories.ts`,
   `${sdk}/data/persistence/principalPolicy/principalPolicyBundleRepository.ts`,
   `${sdk}/data/persistence/principalPolicy/principalPolicyPersistence.ts`,
   `${sdk}/data/persistence/principalPolicy/principalPolicyRemoteReset.ts`,

@@ -62,6 +62,7 @@ export {
 } from "./keyEnvelope";
 export {
   formatKnownManifestHints,
+  KNOWN_DIRECTORY_HINT_LIMIT,
   KNOWN_MANIFEST_HINT_LIMIT,
   type KnownManifestHints,
   KnownManifestsHeadersSchema,

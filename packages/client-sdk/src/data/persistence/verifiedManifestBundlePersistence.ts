@@ -1,4 +1,5 @@
 import type {
+  HeldDirectoryCitation,
   HeldProjectionCitation,
   VerifiedManifestCitations,
   WriterProjectionTarget,
@@ -253,18 +254,62 @@ async function touchStoredDigests(
  * organization the device cannot place cites nothing. Damaged rows are
  * dropped.
  */
+/**
+ * The organization directory payloads a device holds, from the subsystem
+ * that stores policy bundles; the composition root wires it.
+ */
+export type HeldDirectorySource = (
+  execSql: ExecSql,
+  organizationId: string,
+) => Promise<readonly HeldDirectoryCitation[]>;
+
+/**
+ * How long after the citation load began the directory read may still run.
+ * Directory citations are an extra: the load collects the manifest and
+ * KEK-level citations first, then reads directories only with the time left
+ * before this point, which stays inside the API client's 250 ms citation
+ * deadline with room for its own preparation. A slow or stalled directory
+ * read therefore never delays or discards the manifest hints.
+ */
+const DIRECTORY_CITATION_DEADLINE_MS = 150;
+
+async function directoriesBeforeDeadline(
+  source: HeldDirectorySource | undefined,
+  execSql: ExecSql,
+  organizationId: string,
+  startedAt: number,
+): Promise<readonly HeldDirectoryCitation[]> {
+  const remaining =
+    startedAt + DIRECTORY_CITATION_DEADLINE_MS - performance.now();
+  if (!source || remaining <= 0) return [];
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<readonly HeldDirectoryCitation[]>((resolve) => {
+    timer = setTimeout(() => resolve([]), remaining);
+  });
+  return Promise.race([
+    source(execSql, organizationId).catch(() => []),
+    deadline,
+  ]).finally(() => clearTimeout(timer));
+}
+
 export async function loadVerifiedManifestCitations(
   execSql: ExecSql,
   target: WriterProjectionTarget,
   requestedLimit = KNOWN_MANIFEST_HINT_LIMIT,
+  heldDirectories?: HeldDirectorySource,
 ): Promise<HeldProjectionCitation[]> {
   const limit = Math.min(KNOWN_MANIFEST_HINT_LIMIT, Math.floor(requestedLimit));
   if (!(limit > 0)) return [];
   const loadGeneration = evictionGeneration;
   citationLoadsInFlight += 1;
   try {
-    return await loadCitableManifestCitations(execSql, target, limit).then(
-      (cited) => cited.filter((citation) => citable(citation, loadGeneration)),
+    return await loadCitableManifestCitations(
+      execSql,
+      target,
+      limit,
+      heldDirectories,
+    ).then((cited) =>
+      cited.filter((citation) => citable(citation, loadGeneration)),
     );
   } finally {
     citationLoadsInFlight -= 1;
@@ -276,7 +321,9 @@ async function loadCitableManifestCitations(
   execSql: ExecSql,
   target: WriterProjectionTarget,
   limit: number,
+  heldDirectories: HeldDirectorySource | undefined,
 ): Promise<HeldProjectionCitation[]> {
+  const startedAt = performance.now();
   await ensureSqlTables(execSql, [
     ...verifiedManifestBundleTables,
     ...containerTables,
@@ -297,7 +344,17 @@ async function loadCitableManifestCitations(
   );
   if (damaged.length > 0)
     await dropVerifiedManifestBundles(execSql, damaged).catch(() => undefined);
-  return cited;
+  // Directories are cited beside the manifest quota, never in its place,
+  // and read only after the manifest citations, with the time left.
+  return [
+    ...cited,
+    ...(await directoriesBeforeDeadline(
+      heldDirectories,
+      execSql,
+      organizationId,
+      startedAt,
+    )),
+  ];
 }
 
 // Manifest hashes whose held rows a refused read is dropping: no read cites
@@ -408,11 +465,19 @@ async function dropVerifiedManifestBundles(
 /** Cites from whichever database the signed-in identity currently uses. */
 export function createVerifiedManifestCitations(
   resolveExecSql: () => ExecSql | null,
+  heldDirectories?: HeldDirectorySource,
 ): VerifiedManifestCitations {
   return {
     cite: async (target) => {
       const execSql = resolveExecSql();
-      return execSql ? loadVerifiedManifestCitations(execSql, target) : [];
+      return execSql
+        ? loadVerifiedManifestCitations(
+            execSql,
+            target,
+            KNOWN_MANIFEST_HINT_LIMIT,
+            heldDirectories,
+          )
+        : [];
     },
   };
 }
