@@ -24,6 +24,8 @@ import { DriverLicenseDocumentApp } from "./drivers-license/DriverLicenseApp";
 import { DRIVER_LICENSE_DOCUMENT_KIND } from "./drivers-license/driverLicenseDocumentDefinition";
 import { EnvFileDocumentApp } from "./env-file/EnvFileApp";
 import { ENV_FILE_DOCUMENT_KIND } from "./env-file/envFileDocumentDefinition";
+import { EyeglassPrescriptionDocumentApp } from "./eyeglass-prescription/EyeglassPrescriptionApp";
+import { EYEGLASS_PRESCRIPTION_DOCUMENT_KIND } from "./eyeglass-prescription/eyeglassPrescriptionDocumentDefinition";
 import { GenericFileDocumentApp } from "./generic-file/GenericFileDocumentApp";
 import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { ImageDocumentApp } from "./image/ImageDocumentApp";
@@ -69,6 +71,7 @@ const documentTypeAppsByKind = new Map<
   [BIRTH_CERTIFICATE_DOCUMENT_KIND, BirthCertificateDocumentApp],
   [ENV_FILE_DOCUMENT_KIND, EnvFileDocumentApp],
   [BLOOD_PRESSURE_DOCUMENT_KIND, BloodPressureDocumentApp],
+  [EYEGLASS_PRESCRIPTION_DOCUMENT_KIND, EyeglassPrescriptionDocumentApp],
   [WEIGHT_DOCUMENT_KIND, WeightDocumentApp],
   [TOOL_DOCUMENT_KIND, ToolDocumentApp],
   [APPLIANCE_DOCUMENT_KIND, ApplianceDocumentApp],
