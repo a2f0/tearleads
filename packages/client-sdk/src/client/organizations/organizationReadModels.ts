@@ -320,13 +320,15 @@ class OrganizationReadModelCoordinatorImpl
       delta,
       (offer) => this.applyClaimedOffer(active, offer, sessionGeneration),
     );
-    if (!outcome) return stillCurrent() ? outcome : undefined;
+    if (!stillCurrent()) return undefined;
+    if (!outcome) return outcome;
     // An apply that finished earlier stands only while nothing replaced it: a
-    // later feed pass or purge leaves the caller to read instead.
+    // later feed pass or purge leaves the caller to read instead. The mutation
+    // already committed, so a failed check is only a missed delta.
     const presented = await presentedAppliedCursor(
       active,
       scopedMap(this.presentedCursorsByScope, active),
-    );
+    ).catch(() => null);
     return stillCurrent() && presented === outcome.readModelCursor
       ? outcome
       : undefined;
@@ -390,20 +392,36 @@ class OrganizationReadModelCoordinatorImpl
     });
   }
 
+  sessionGuard(organizationId?: string): () => boolean {
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
+    return active
+      ? sessionIsCurrent(
+          this.runtimeService,
+          active,
+          this.runtimeService.sessionGeneration,
+        )
+      : () => false;
+  }
+
   async reconcileAfterOwnMutation(
     organizationId: string,
     delta: OrganizationReadModelDeltaResponse | undefined,
+    startedIn: () => boolean = () => true,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
     const active = activeOrganizationDataRuntime(
       this.runtimeService,
       organizationId,
     );
-    if (!active) return undefined;
-    const stillCurrent = sessionIsCurrent(
+    if (!active || !startedIn()) return undefined;
+    const current = sessionIsCurrent(
       this.runtimeService,
       active,
       this.runtimeService.sessionGeneration,
     );
+    const stillCurrent = () => current() && startedIn();
     const applied = await this.applyCommittedReadModel(organizationId, delta);
     if (applied) return applied;
     // The fallback reads for the session that committed, or not at all.

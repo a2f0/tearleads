@@ -56,11 +56,17 @@ export interface OrganizationReadModelCoordinator {
     organizationId: string,
     delta: OrganizationReadModelDeltaResponse | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
-  /** An own mutation's post-commit read: its delta, else the feed. */
+  /**
+   * An own mutation's post-commit read: its delta, else the feed, only while
+   * `startedIn` (the mutation's `sessionGuard`) still holds.
+   */
   reconcileAfterOwnMutation(
     organizationId: string,
     delta: OrganizationReadModelDeltaResponse | undefined,
+    startedIn?: (() => boolean) | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
+  /** Whether the scope and session active now are still current, later. */
+  sessionGuard(organizationId?: string | undefined): () => boolean;
   /**
    * The presented applied cursor for a realtime hint naming `hintPosition`:
    * at once when it already covers the hint, else once this scope's own

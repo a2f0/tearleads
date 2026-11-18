@@ -181,7 +181,8 @@ export async function awaitCommittedReadModelOffers(
     awaited = awaited.filter((promise) => offers.pending.has(promise));
   }
   clearTimeout(timer);
-  return scopeOffers(scope).settled;
+  // The bucket read before the wait: a newer session may have retired it.
+  return offers.settled;
 }
 
 /** Whether a settled offer reaches the hint's committed cursor. */

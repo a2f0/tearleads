@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { committedFixture } from "../../../test/helpers/client/committedReadModelCoordinatorFixture";
 import {
   organizationReadModelCursorAt,
@@ -272,6 +272,37 @@ test("an earlier apply a feed pass replaced is not reused", async () => {
     await expect(
       f.coordinator.reconcileAfterOwnMutation(organizationId, delta),
     ).resolves.toMatchObject({ readModelCursor: cursorAt(9) });
+  } finally {
+    f.close();
+  }
+});
+
+test("a failed check after a delta applied is only a missed delta", async () => {
+  const f = await committedFixture("committed-read-model-check-failure-test");
+  try {
+    const lease = await beginCommittedReadModel(f.scope);
+    const delta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(2),
+      groupName: "Operators",
+    });
+    lease.settle(delta);
+    const check = spyOn(
+      OrganizationReadModelRepository.prototype,
+      "loadAppliedOrganizationReadModelCursor",
+    ).mockRejectedValue(new Error("disk I/O error"));
+    try {
+      await expect(
+        f.coordinator.applyCommittedReadModel(organizationId, delta),
+      ).resolves.toBeUndefined();
+    } finally {
+      check.mockRestore();
+    }
+    // The delta itself applied; only the check after it failed.
+    await expect(
+      new OrganizationReadModelRepository(
+        f.execSql,
+      ).loadOrganizationReadModelCursor(organizationId),
+    ).resolves.toBe(cursorAt(2));
   } finally {
     f.close();
   }

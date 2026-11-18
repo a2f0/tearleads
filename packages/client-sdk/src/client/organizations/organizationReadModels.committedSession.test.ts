@@ -341,3 +341,23 @@ test("a shared apply is not reused after the session changed", async () => {
     f.close();
   }
 });
+
+test("an own mutation's post-commit read is dropped once its session ended", async () => {
+  const f = await committedFixture("committed-read-model-started-in-test");
+  try {
+    const startedIn = f.coordinator.sessionGuard(organizationId);
+    // A relogin lands while the mutation runs (its profile sync, say).
+    f.advanceSession();
+
+    await expect(
+      f.coordinator.reconcileAfterOwnMutation(
+        organizationId,
+        undefined,
+        startedIn,
+      ),
+    ).resolves.toBeUndefined();
+    expect(f.requestedCursors).toEqual([]);
+  } finally {
+    f.close();
+  }
+});

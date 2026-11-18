@@ -117,6 +117,10 @@ export async function addUserToOrganizationGroup(
         throw new ProjectionDependencyUnavailableError(
           "Principal history recovery is unavailable",
         );
+      // The post-commit read belongs to the session the mutation began in.
+      const startedIn = input.readModelCoordinator.sessionGuard(
+        signingContext.organizationId,
+      );
       const {
         memberGroupId,
         response: { readModel, ...bundle },
@@ -141,6 +145,7 @@ export async function addUserToOrganizationGroup(
         await input.readModelCoordinator.reconcileAfterOwnMutation(
           signingContext.organizationId,
           readModel,
+          startedIn,
         );
       return { directoryAndGroups, receipt: bundle };
     },
@@ -270,6 +275,10 @@ export async function removeUserFromOrganizationGroup(
         throw new ProjectionDependencyUnavailableError(
           "Principal history recovery is unavailable",
         );
+      // The post-commit read belongs to the session the mutation began in.
+      const startedIn = input.readModelCoordinator.sessionGuard(
+        signingContext.organizationId,
+      );
       const {
         memberGroupId,
         response: { readModel, ...bundle },
@@ -292,6 +301,7 @@ export async function removeUserFromOrganizationGroup(
         await input.readModelCoordinator.reconcileAfterOwnMutation(
           signingContext.organizationId,
           readModel,
+          startedIn,
         );
       return { directoryAndGroups, receipt: bundle };
     },
@@ -327,13 +337,17 @@ export async function revokeOrganizationGrant(
             throw new ProjectionDependencyUnavailableError(
               "Principal history recovery is unavailable",
             );
+          // The post-commit read belongs to the session the revoke began in.
+          const startedIn = input.readModelCoordinator.sessionGuard(
+            signingContext.organizationId,
+          );
           const { readModel, ...receipt } = (
             await mutateCurrent(input.subjectId, {
               kind: "revoke",
               revokedContainerId: input.containerId,
             })
           ).response;
-          return { readModel, receipt };
+          return { readModel, receipt, startedIn };
         }
         const receipt = await revokeOrganizationContainerGrant({
           stillCurrent: input.stillCurrent,
@@ -355,12 +369,13 @@ export async function revokeOrganizationGrant(
             input.runtime.principalPolicies.createWarmer(),
           ...signingContext,
         });
-        return { readModel: undefined, receipt };
+        return { readModel: undefined, receipt, startedIn: undefined };
       };
-      const { readModel, receipt } = await revoke();
+      const { readModel, receipt, startedIn } = await revoke();
       await input.readModelCoordinator.reconcileAfterOwnMutation(
         signingContext.organizationId,
         readModel,
+        startedIn,
       );
       return receipt;
     },

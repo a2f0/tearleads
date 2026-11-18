@@ -94,6 +94,9 @@ function coordinatorWithMembers(
     async reconcileAfterOwnMutation() {
       return null;
     },
+    sessionGuard() {
+      return () => true;
+    },
     async loadAppliedCursor() {
       return null;
     },
