@@ -46,7 +46,7 @@ test("container read operations own their complete wire metadata", () => {
   });
   expect(listContainerDocumentLanesOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 500, 503],
+    failureStatuses: [400, 401, 409, 500, 503],
     method: "POST",
     path: "/containers/documents/query",
     runtimeRefinements: containerDocumentLaneRuntimeRefinements,

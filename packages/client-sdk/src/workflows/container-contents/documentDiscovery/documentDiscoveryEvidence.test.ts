@@ -110,12 +110,88 @@ test("matching signed heads avoid repeat fetches and changed candidates survive 
     );
     expect(calls).toBe(1);
     expect(repeated.inputs[0]?.linkedContainerIds).toEqual(["a"]);
+    const lookups: (string | undefined)[] = [];
+    const conflicting = createDiscoveredDocumentVerifier(
+      "org",
+      async (_id, hash) => {
+        lookups.push(hash);
+        return head;
+      },
+      async () => 1,
+      store,
+    );
+    const live = await conflicting(
+      [candidate("doc")],
+      ["a"],
+      await store.begin(),
+      [],
+      new Set(["doc"]),
+    );
+    // An omitted hash evicts a transport-cached projection before the request.
+    expect(lookups).toEqual([undefined]);
+    expect(live.inputs[0]?.linkedContainerIds).toEqual(["a"]);
     await store.stage(
       [{ ...candidate("doc"), accessEpoch: 2, accessStateHash: "new-head" }],
       await store.begin(),
     );
     expect(await repeated.commit()).toBe(false);
     expect((await store.pending(["a"], 32))[0]?.accessEpoch).toBe(2);
+  } finally {
+    close();
+  }
+});
+
+test("a deferred live and unlink conflict still requires the current signed head after restart", async () => {
+  const { execSql, close } = await createTestExecSql(
+    "discovery-conflict-restart",
+  );
+  try {
+    let now = 0;
+    const store = new DocumentDiscoveryEvidenceRepository(execSql, () => now);
+    const original = candidate("doc");
+    await pinTestDiscoveryHead(execSql, "doc", "signed-head");
+    await store.saveHead("doc", head, await store.begin());
+    const unavailable = createDiscoveredDocumentVerifier(
+      "org",
+      async () => null,
+      async () => 1,
+      store,
+    );
+    const waiting = await unavailable(
+      [original],
+      ["a"],
+      await store.begin(),
+      [],
+      new Set(["doc"]),
+    );
+    expect(waiting.inputs).toEqual([]);
+    expect(await waiting.commit()).toBe(false);
+    now = 15 * 60_000 + 1;
+    const reopened = new DocumentDiscoveryEvidenceRepository(
+      execSql,
+      () => now,
+    );
+    const requests: (string | undefined)[] = [];
+    const retry = createDiscoveredDocumentVerifier(
+      "org",
+      async (_id, hash) => {
+        requests.push(hash);
+        return {
+          ...head,
+          accessEpoch: 2,
+          accessStateHash: "after-unlink",
+          linkedContainerIds: [],
+        };
+      },
+      async () => 1,
+      reopened,
+    );
+    // A repeated live candidate can arrive independently of the already
+    // checkpointed unlink. It cannot clear the pending freshness requirement.
+    const result = await retry([original], ["a"], await reopened.begin());
+    expect(requests).toEqual([undefined]);
+    expect(result.inputs).toEqual([]);
+    expect(await result.commit()).toBe(true);
   } finally {
     close();
   }

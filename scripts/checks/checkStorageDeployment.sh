@@ -3,7 +3,8 @@
 # Check the formatted root resource blocks independently of the shared module.
 set -euo pipefail
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
+REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 for tier in prod staging; do
   stack="$REPO_ROOT/terraform/stacks/$tier/storage"
   bucket_config=$(sed -n '/^resource "cloudflare_r2_bucket" "blobs" {$/,/^}$/p' "$stack/main.tf")

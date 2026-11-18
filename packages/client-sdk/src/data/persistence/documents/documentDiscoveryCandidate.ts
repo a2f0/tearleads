@@ -3,6 +3,7 @@ import type { DiscoveredDocumentInput } from "../../documents/documentSummary";
 import { readRecordValue } from "../../shared/recordReaders";
 
 export interface DiscoveredDocumentCandidate extends DiscoveredDocumentInput {
+  readonly requiresCurrentHead?: true;
   readonly listedContainerIds: readonly string[];
 }
 
@@ -19,7 +20,9 @@ export function isDiscoveredDocumentCandidate(
   const level = readRecordValue(value, "effectiveAccessLevel");
   const hash = readRecordValue(value, "accessStateHash");
   const epoch = readRecordValue(value, "accessEpoch");
+  const fresh = readRecordValue(value, "requiresCurrentHead");
   return (
+    (fresh === undefined || fresh === true) &&
     typeof readRecordValue(value, "documentId") === "string" &&
     typeof readRecordValue(value, "containerId") === "string" &&
     typeof readRecordValue(value, "createdAt") === "string" &&

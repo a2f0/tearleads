@@ -2,10 +2,13 @@ import type { ContainerContentsPersistence } from "../../../workflows/container-
 import type { ContainerContentsProjectionUserKeyResolver } from "../../../workflows/container-contents/projectionKeys";
 import type {
   ContainerState,
+  ReconnectCrawl,
   RemoteContainer,
 } from "../../../workflows/container-contents/remoteHydration";
 import type { ContainerContentsStoreWorkflowRuntime } from "../../../workflows/container-contents/runtime";
 import type { ContainerContentsSyncLane } from "../../../workflows/container-contents/syncLane";
+
+import type { ReconnectRefresh } from "../hydration/reconnectRefresh";
 
 export type ContainerContentsStoreRuntime =
   ContainerContentsStoreWorkflowRuntime;
@@ -27,7 +30,10 @@ export interface ContainerContentsStoreSyncAgent {
     isCurrent?: (() => boolean) | undefined,
   ) => Promise<void>;
   refreshLocalContainers: () => Promise<void>;
-  refresh: (options?: { resetAllLaneWatermarks?: boolean }) => Promise<boolean>;
+  refresh: (options?: {
+    reconnect?: ReconnectCrawl | undefined;
+    resetAllLaneWatermarks?: boolean;
+  }) => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   requestRemoteHydration: (options?: {
     followDiscoveredParentLanes?: boolean | undefined;
@@ -39,6 +45,7 @@ export interface ContainerContentsStoreSyncAgent {
 }
 
 export interface ContainerContentsStoreSyncState {
+  readonly parentLaneRequestPrefix?: string;
   /** Container listing requests that failed or timed out in a current crawl. */
   containerListingFailures: number;
   containersById: Map<string, ContainerState>;
@@ -94,7 +101,7 @@ export interface ContainerContentsStoreSyncState {
   remoteHydrationPromise: Promise<void> | null;
   remoteHydrationGeneration: number | null;
   remoteHydrationStructuralGeneration: number | null;
-  remoteReconnectRefreshPending: boolean;
+  reconnectRefresh: ReconnectRefresh;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   /** True after this store has fully applied an authoritative root lane. */
   rootLaneHydrated: boolean;

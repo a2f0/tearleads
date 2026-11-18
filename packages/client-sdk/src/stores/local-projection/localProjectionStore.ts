@@ -1,6 +1,7 @@
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../../workflows/container-contents/projectionView";
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
+import { getOrCreateDomainSyncCoordinator } from "../../workflows/sync/coordination";
 import type { ContainerContentsStoreRuntime } from "../container-contents";
 import {
   isReconcilableContainerNode,
@@ -59,6 +60,7 @@ export interface LocalProjectionStore {
 }
 
 interface LocalProjectionStoreState {
+  isDisposed: () => boolean;
   activeContainerId: string | null;
   documentRevision: number;
   deltaRevisions: WeakMap<LocalProjectionReconciledDelta, number>;
@@ -106,6 +108,7 @@ function computeSnapshot(
 }
 
 function emit(state: LocalProjectionStoreState): void {
+  if (state.isDisposed()) return;
   state.snapshot = computeSnapshot(state);
   for (const listener of state.listeners) {
     try {
@@ -134,6 +137,7 @@ function loadContainerSummaries(
   containerId: string,
 ): void {
   if (
+    state.isDisposed() ||
     state.cache.hydratedContainerIds.has(containerId) ||
     state.pendingSummaryReads.has(containerId) ||
     state.runtime.infra.dbStatus !== "ready"
@@ -153,6 +157,7 @@ function loadContainerSummaries(
       // A runtime reset (e.g. dbStatus loss) clears this entry and the cache
       // mid-flight; do not apply a stale read to a freshly reset cache.
       if (
+        state.isDisposed() ||
         state.pendingSummaryReads.get(containerId) !== pendingRead ||
         pendingRead.discardResult
       ) {
@@ -369,11 +374,32 @@ function updateLocalProjectionRuntime(
   publishHydration(state);
 }
 
+function applyReconciledDelta(
+  state: LocalProjectionStoreState,
+  delta: LocalProjectionReconciledDelta,
+): void {
+  if (state.isDisposed()) return;
+  const revision = state.deltaRevisions.get(delta);
+  if (revision !== undefined && revision !== state.documentRevision) {
+    refreshContainerSummaries(state, delta.containerId, true);
+    return;
+  }
+  if (state.pendingSummaryReads.has(delta.containerId)) {
+    refreshContainerSummaries(state, delta.containerId, true);
+  }
+  if (applyContainerSummaries(state.cache, delta)) {
+    emit(state);
+  }
+}
+
 export function createLocalProjectionStore(input: {
   containerStore: ContainerContentsStore;
   runtime: ContainerContentsStoreRuntime;
 }): LocalProjectionStore {
   const state: LocalProjectionStoreState = {
+    isDisposed: getOrCreateDomainSyncCoordinator(
+      input.runtime.state.domainScope,
+    ).isDisposed,
     activeContainerId: null,
     documentRevision: 0,
     deltaRevisions: new WeakMap(),
@@ -447,19 +473,7 @@ export function createLocalProjectionStore(input: {
       state.deltaRevisions.set(delta, revision);
       return delta;
     },
-    applyReconciled: (delta) => {
-      const revision = state.deltaRevisions.get(delta);
-      if (revision !== undefined && revision !== state.documentRevision) {
-        refreshContainerSummaries(state, delta.containerId, true);
-        return;
-      }
-      if (state.pendingSummaryReads.has(delta.containerId)) {
-        refreshContainerSummaries(state, delta.containerId, true);
-      }
-      if (applyContainerSummaries(state.cache, delta)) {
-        emit(state);
-      }
-    },
+    applyReconciled: (delta) => applyReconciledDelta(state, delta),
     removePersistedDocument: (localId) =>
       removePersistedDocumentFromCache(state, localId),
     refreshPersistedDocument: (document, placementChanged) =>

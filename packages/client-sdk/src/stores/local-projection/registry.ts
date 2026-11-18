@@ -25,17 +25,17 @@ export function getOrCreateLocalProjectionStore(input: {
   runtime: ContainerContentsStoreRuntime;
   options?: ContainerContentsStoreOptions | undefined;
 }): LocalProjectionStore {
-  const existing = localProjectionStoresByScope.get(input.domainScope);
-  if (existing) {
-    existing.updateRuntime(input.runtime);
-    return existing;
-  }
-
   const containerStore = getOrCreateContainerContentsStore(
     input.domainScope,
     input.runtime,
     input.options ?? {},
   );
+  const existing = localProjectionStoresByScope.get(input.domainScope);
+  if (existing?.getContainerStore() === containerStore) {
+    existing.updateRuntime(input.runtime);
+    return existing;
+  }
+
   const store = createLocalProjectionStore({
     containerStore,
     runtime: input.runtime,

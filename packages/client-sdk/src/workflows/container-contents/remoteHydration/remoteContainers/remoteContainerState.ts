@@ -9,6 +9,7 @@ import {
   heldContainerBinding,
   listingRepeatsHeldOrdinaryBinding,
 } from "../../../../data/persistence/container-contents/containerBinding";
+import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import {
   isKeyingVerificationError,
   runWithSecurityIncidentReporting,
@@ -216,6 +217,7 @@ async function updateExistingRemoteContainerState(input: {
   containerIdsWithPendingStructuralIntents: ReadonlySet<string>;
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
+  verifiedPlacement?: AccessManifestCheckpoint | undefined;
   existingState: ContainerState;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
@@ -258,11 +260,15 @@ async function updateExistingRemoteContainerState(input: {
       ...(nextParentId !== undefined ? { parentId: nextParentId } : {}),
     },
     false,
-    remoteContainerHydrationSaveOptions({
-      localUpdatedAt,
-      remoteContainer,
-    }),
     {
+      ...remoteContainerHydrationSaveOptions({
+        localUpdatedAt,
+        remoteContainer,
+      }),
+      verifiedPlacement: input.verifiedPlacement,
+    },
+    {
+      isCurrent: input.isCurrent,
       preserveDurableStructureWhenPending: true,
     },
   );
@@ -364,16 +370,26 @@ export async function upsertRemoteContainerState(
     ));
   if (input.isCurrent?.() === false) return null;
   invalidateListedProjectionCaches(input);
+  const backwardsClock =
+    heldState?.container.serverUpdatedAt != null &&
+    heldState.container.serverUpdatedAt > listed.updatedAt;
   const verified = await verifyRemoteContainerDestination({
     ...input,
     heldBinding,
     supersededListing,
-    refresh: !!input.expectedHydrationTombstone,
+    refresh: !!input.expectedHydrationTombstone || backwardsClock,
     onVerifiedCheckpoint: (checkpoint) => {
       expectedPlacementCheckpoint = checkpoint;
     },
   });
   if (!verified || input.isCurrent?.() === false) return null;
+  // A signed projection from a lagging replica can still repeat our old pin.
+  // Retry until it covers the manifest whose listing would be checkpointed.
+  if (
+    backwardsClock &&
+    expectedPlacementCheckpoint?.manifestHash !== listed.metadataAccessStateHash
+  )
+    return null;
   input = { ...input, remoteContainer: verified };
   const existingState = input.state.containersById.get(
     input.remoteContainer.id,
@@ -421,16 +437,28 @@ export async function upsertRemoteContainerState(
  */
 export async function upsertIsolatedRemoteContainerState(
   input: UpsertRemoteContainerStateInput,
+  recordIncompleteItem?: (outcome: "refused" | "retry") => void,
+  recordUnavailable?:
+    | ((error: ProjectionDependencyUnavailableError) => void)
+    | undefined,
 ): Promise<ContainerState | null> {
   try {
     return await upsertRemoteContainerState(input);
   } catch (error) {
+    if (isKeyingVerificationError(error)) {
+      recordIncompleteItem?.("refused");
+      return null;
+    }
+    if (isProjectionVerificationCancelledError(error)) return null;
     if (
-      !isKeyingVerificationError(error) &&
-      !isProjectionVerificationCancelledError(error)
-    )
-      throw error;
-    return null;
+      error instanceof ProjectionDependencyUnavailableError &&
+      recordUnavailable
+    ) {
+      recordUnavailable(error);
+      recordIncompleteItem?.("retry");
+      return null;
+    }
+    throw error;
   }
 }
 
@@ -443,6 +471,7 @@ function persistVerifiedRemoteContainer(
   const { existingState, expectedPlacementCheckpoint } = input;
   return existingState
     ? updateExistingRemoteContainerState({
+        verifiedPlacement: expectedPlacementCheckpoint,
         childIdsByParentId: input.childIdsByParentId,
         containerIdsWithPendingMetadataUpdates:
           input.containerIdsWithPendingMetadataUpdates,

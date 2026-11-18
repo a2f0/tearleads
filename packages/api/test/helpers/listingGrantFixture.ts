@@ -7,6 +7,7 @@ import {
   principalMembershipProjection,
   principalStates,
 } from "@tearleads/api-shared/schema";
+import { eq } from "drizzle-orm";
 
 // Raw rows for the container listing query alone: containers with one head
 // each, the grant projection keyed by manifest hash, and group memberships
@@ -104,6 +105,10 @@ export async function seedListingContainer(input: {
     parentId: input.parent?.id ?? null,
     updatedAt: input.updatedAt,
   });
+  await db
+    .update(containers)
+    .set({ discoveryOrder: BigInt(input.updatedAt.getTime()) })
+    .where(eq(containers.id, id));
   await db.insert(accessManifests).values({
     epoch,
     eventHash: `${manifestHash}-event`,

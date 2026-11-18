@@ -21,7 +21,7 @@ async function prepareContainerParentLanePage(input: {
         ).loadWatermark(syncLane)
       : lane.watermark;
   return {
-    lane,
+    lane: { ...lane, watermark },
     request: { laneId, parentId: lane.parentId, watermark },
     syncLane,
   };
@@ -29,10 +29,12 @@ async function prepareContainerParentLanePage(input: {
 
 export async function fetchContainerParentLaneBatch(input: {
   batch: ReadonlyArray<ContainerParentHydrationLane>;
+  laneIdPrefix?: string | undefined;
   isCurrent?: (() => boolean) | undefined;
   state: RemoteContainerHydrationState;
 }): Promise<ReadonlyArray<FetchedContainerParentLanePage> | null> {
   const { batch, state } = input;
+  const prefix = input.laneIdPrefix ?? state.parentLaneRequestPrefix ?? "lane";
   const expectedContainerStates = new Map(
     Array.from(state.containersById, ([containerId, containerState]) => [
       containerId,
@@ -46,7 +48,7 @@ export async function fetchContainerParentLaneBatch(input: {
     batch.map((lane, index) =>
       prepareContainerParentLanePage({
         lane,
-        laneId: `lane-${index}`,
+        laneId: `${prefix}-${index}`,
         state,
       }),
     ),

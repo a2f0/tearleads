@@ -11,8 +11,8 @@ import { fixture } from "./fixture.testUtils";
 
 const runner = resolve(import.meta.dir, "../../testing/runVerification.ts");
 
-export function verificationFixture(failingStep = "") {
-  const repo = fixture();
+export function verificationFixture(failingStep = "", parent?: string) {
+  const repo = fixture(parent);
   repo.write(
     "package.json",
     JSON.stringify({
@@ -49,6 +49,10 @@ appendFileSync(".git/commands.ndjson", JSON.stringify(args) + "\\n");
 const step = args.includes("build:packages") || args.includes("build:runtime") ? "build"
   : args.includes("tsc") ? "typescript"
   : args.includes("check:fast") ? "static" : "tests";
+if (step === "static" && process.env.EXPECT_TOOLS) {
+  for (const name of ["OASDIFF_BIN", "JAVA_BIN", "TLA_TOOLS_ROOT", "LEAN_TOOLCHAIN_ROOT"])
+    if (process.env[name] !== process.env.EXPECT_TOOLS) process.exit(43);
+}
 if (step === process.env.FAILING_STEP) process.exit(23);
 if (step === "build" && process.env.WAIT_IN_BUILD === "true") await Bun.sleep(10000);
 if (step === "build") {
@@ -72,13 +76,20 @@ if (step === "tests") {
     PATH: `${join(repo.cwd, "bin")}:${PATH}`,
     FAILING_STEP: failingStep,
   };
-  const run = (args: string[], extraEnv: Record<string, string> = {}) => {
-    const result = Bun.spawnSync([process.execPath, runner, ...args], {
-      cwd: repo.cwd,
-      env: { ...env, ...extraEnv },
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+  const run = (
+    args: string[],
+    extraEnv: Record<string, string> = {},
+    cwd = repo.cwd,
+  ) => {
+    const result = Bun.spawnSync(
+      [process.execPath, runner, "--check-root", repo.cwd, ...args],
+      {
+        cwd,
+        env: { ...env, ...extraEnv },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
     const directory = join(repo.cwd, ".git/verification");
     const files = existsSync(directory) ? readdirSync(directory) : [];
     const reports = files
@@ -104,7 +115,7 @@ if (step === "tests") {
     };
   };
   const start = (args: string[], extraEnv: Record<string, string>) =>
-    Bun.spawn([process.execPath, runner, ...args], {
+    Bun.spawn([process.execPath, runner, "--check-root", repo.cwd, ...args], {
       cwd: repo.cwd,
       env: { ...env, ...extraEnv },
       stdout: "pipe",

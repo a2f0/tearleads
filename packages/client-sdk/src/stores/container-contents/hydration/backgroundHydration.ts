@@ -6,12 +6,13 @@ import type { ContainerContentsStoreSyncState } from "../syncAgent/syncAgentType
 /** Observe a background refresh without changing the caller's rejection. */
 export function observeContainerBackgroundHydration(
   state: ContainerContentsStoreSyncState,
-  hydration: Promise<void>,
+  hydration: Promise<unknown>,
 ): void {
   const generation = state.lifecycleGeneration;
   const runtime = state.runtime;
   void hydration.catch(async (error: unknown) => {
     if (
+      state.syncLane?.isDisposed?.() ||
       state.lifecycleGeneration !== generation ||
       isDatabaseUnavailableError(error)
     )

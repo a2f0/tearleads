@@ -3,6 +3,8 @@ import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
   type ListContainerDocumentLanesResponse,
 } from "@tearleads/validators/response";
+import { sql } from "drizzle-orm";
+import { z } from "zod";
 import { prefetchContainerAccessPaths } from "../../workflows/containers/writerProjection/accessPaths";
 import {
   type ContainerWriterProjectionContext,
@@ -10,6 +12,8 @@ import {
 } from "../../workflows/containers/writerProjection/types";
 import { KeyingReadAccessError } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
+import { discoveryCursor } from "./discoveryCursor";
+import { readDiscoveryKey } from "./discoverySnapshot";
 import {
   ListContainerDocumentsError,
   listContainerDocuments,
@@ -58,6 +62,7 @@ function containerDocumentLaneFailure(
 async function listContainerDocumentLane(
   runtime: ApiServiceRuntime,
   userId: string,
+  discoveryKey: string,
   lane: ContainerDocumentLane,
   context: ContainerWriterProjectionContext,
 ): Promise<ContainerDocumentLaneResult> {
@@ -67,6 +72,7 @@ async function listContainerDocumentLane(
       page: await listContainerDocuments(runtime, lane.containerId, userId, {
         ...(lane.limit === undefined ? {} : { limit: lane.limit }),
         context,
+        discoveryKey,
         watermark: lane.watermark,
       }),
     };
@@ -88,6 +94,48 @@ export async function listContainerDocumentLanes(
   userId: string,
   request: ListContainerDocumentLanesRequest,
 ): Promise<ListContainerDocumentLanesResponse> {
+  const proof = request.afterParentPage;
+  if (!proof)
+    return listLanes(runtime, userId, request, await readDiscoveryKey(runtime));
+  // The publication and every grant in the permission path must be visible
+  // together. A replica snapshot behind the floor leaves this page retryable.
+  return runtime.db.transaction(
+    async (tx) => {
+      const pinned = { ...runtime, db: tx };
+      const key = await readDiscoveryKey(pinned);
+      const floor = discoveryCursor(
+        key,
+        [userId, "containers", proof.parentId],
+        proof.watermark,
+      ).publication;
+      if (!floor)
+        throw new ListContainerDocumentsError(
+          "Invalid parent page checkpoint",
+          400,
+        );
+      const reached = await tx.execute(
+        sql`select publication >= ${floor}::bigint as reached from drizzle.discovery_cursor_key where singleton and backfill_complete`,
+      );
+      if (
+        !z.object({ reached: z.literal(true) }).safeParse(reached.rows[0])
+          .success
+      )
+        throw new ListContainerDocumentsError(
+          "Parent page checkpoint has not been reached",
+          409,
+        );
+      return listLanes(pinned, userId, request, key);
+    },
+    { isolationLevel: "repeatable read", accessMode: "read only" },
+  );
+}
+
+async function listLanes(
+  runtime: ApiServiceRuntime,
+  userId: string,
+  request: ListContainerDocumentLanesRequest,
+  discoveryKey: string,
+): Promise<ListContainerDocumentLanesResponse> {
   const results: ContainerDocumentLaneResult[] = [];
   const context: ContainerWriterProjectionContext = {
     ...createContainerWriterProjectionContext(runtime.db),
@@ -103,6 +151,7 @@ export async function listContainerDocumentLanes(
       results[next.index] = await listContainerDocumentLane(
         runtime,
         userId,
+        discoveryKey,
         next.lane,
         context,
       );
@@ -112,7 +161,7 @@ export async function listContainerDocumentLanes(
     Array.from(
       {
         length: Math.min(
-          CONTAINER_DOCUMENT_LANE_CONCURRENCY,
+          request.afterParentPage ? 1 : CONTAINER_DOCUMENT_LANE_CONCURRENCY,
           request.lanes.length,
         ),
       },

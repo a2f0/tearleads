@@ -20,7 +20,9 @@ set -e
 # commit it was exported from as BUILD_GIT_SHA. A checkout always shows its own
 # HEAD.
 BUN_PUBLIC_GIT_SHA="$(
-  if git rev-parse --short HEAD 2>/dev/null; then
+  repo_root="$(CDPATH='' cd -P -- "$(dirname -- "$0")/../.." && pwd -P)"
+  for name in $(git rev-parse --local-env-vars 2>/dev/null); do unset "$name"; done
+  if git -C "$repo_root" --git-dir=.git rev-parse --short HEAD 2>/dev/null; then
     :
   elif [ -n "${BUILD_GIT_SHA:-}" ]; then
     printf '%.7s\n' "$BUILD_GIT_SHA"

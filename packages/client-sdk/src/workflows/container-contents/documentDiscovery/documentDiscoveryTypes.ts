@@ -147,6 +147,7 @@ export type ContainerDocumentPlacement = Pick<
 export interface ContainerDocumentTombstoneHoldStore {
   holdContainerDocumentTombstones: (
     tombstones: ReadonlyArray<HeldContainerDocumentTombstoneInput>,
+    stillCurrent: () => Promise<boolean>,
   ) => Promise<void>;
   /** Held tombstones on these containers that are due for another attempt. */
   listHeldContainerDocumentTombstones: (
@@ -158,6 +159,7 @@ export interface ContainerDocumentTombstoneHoldStore {
   ) => Promise<ReadonlyArray<ContainerDocumentPlacement>>;
   refuteContainerDocumentTombstoneHolds: (
     placements: ReadonlyArray<ContainerDocumentPlacement>,
+    stillCurrent: () => Promise<boolean>,
   ) => Promise<void>;
 }
 
@@ -165,6 +167,7 @@ export interface DiscoverContainerDocumentsOptions
   extends ContainerDocumentTombstoneHoldStore {
   applyContainerDocumentTombstones: (
     tombstones: ReadonlyArray<VerifiedContainerDocumentTombstone>,
+    stillCurrent: () => Promise<boolean>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
   verifyContainerDocumentTombstones: ContainerDocumentTombstoneVerifier;
   /** Allocate durable local order before fetching a listing. */
@@ -175,6 +178,7 @@ export interface DiscoverContainerDocumentsOptions
     containerIds: ReadonlyArray<string>,
     generation: number,
     tombstones?: ReadonlyArray<ContainerDocumentTombstone>,
+    conflictingDocumentIds?: ReadonlySet<string>,
   ) => Promise<{
     inputs: ReadonlyArray<DiscoveredDocumentInput>;
     /** False once a remote trust reset cancels this listing pass. */

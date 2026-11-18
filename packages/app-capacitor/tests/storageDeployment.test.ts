@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { chmod, cp, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 
@@ -8,7 +8,9 @@ async function runStorageScript(
   args: string[],
   failure = "",
 ) {
-  const root = await mkdtemp(resolve(tmpdir(), "tearleads-storage-deploy-"));
+  const root = await realpath(
+    await mkdtemp(resolve(tmpdir(), "tearleads-storage-deploy-")),
+  );
   async function executable(path: string, source: string) {
     await mkdir(dirname(path), { recursive: true });
     await Bun.write(path, source);

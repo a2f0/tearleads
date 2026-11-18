@@ -78,15 +78,11 @@ function createDiscoveryLane(input: {
           })
         : Promise.resolve(),
     containerId: request.containerId,
-    holdContainerDocumentTombstones: (tombstones) =>
-      holdRepository.holdContainerDocumentTombstones(tombstones),
     listHeldContainerDocumentTombstones: (containerIds) =>
       holdRepository.listRetryableHeldContainerDocumentTombstones(containerIds),
     listKnownContainerDocumentPlacements: (placements) =>
       holdRepository.listKnownContainerDocumentPlacements(placements),
     onFullListing: request.onFullListing,
-    refuteContainerDocumentTombstoneHolds: (placements) =>
-      holdRepository.refuteContainerDocumentTombstoneHolds(placements),
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
       containerOrganizationId,
       loadHead,

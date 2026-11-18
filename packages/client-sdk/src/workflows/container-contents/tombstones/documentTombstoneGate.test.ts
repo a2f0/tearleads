@@ -272,3 +272,19 @@ test("a verifier that skips or duplicates a tombstone is rejected", async () => 
     }),
   ).rejects.toThrow("one verdict per tombstone");
 });
+
+test("a listing invalidated while verifying the removal cannot leave a hold", async () => {
+  let current = true;
+  const candidate = tombstone("doc", "folder");
+  const { calls, store } = createGateStore((tombstone) => {
+    current = false;
+    return { kind: "unverified", tombstone };
+  });
+  await settleContainerDocumentTombstones({
+    containerIds: ["folder"],
+    isCurrent: async () => current,
+    store,
+    tombstones: [candidate],
+  });
+  expect(calls.held).toEqual([]);
+});

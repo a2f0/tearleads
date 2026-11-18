@@ -7,7 +7,8 @@ fail() {
   exit 1
 }
 
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) ||
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
+REPO_ROOT=$(CDPATH='' cd -P -- "$(dirname -- "$0")/../.." && pwd -P) ||
   fail "The Postgres concurrency lane must run inside a Git repository."
 
 cd "$REPO_ROOT"
@@ -61,6 +62,7 @@ exec bun test \
   src/worker/workerRuntime.interest.pg.test.ts \
   src/worker/workerRuntime.hibernation.pg.test.ts \
   src/worker/workerRuntime.blobs.pg.test.ts \
+  src/routes/containers/listingCommitOrder.pg.test.ts \
   src/routes/containers/createConcurrency.pg.test.ts \
   src/routes/containers/reciteConcurrency.pg.test.ts \
   src/routes/containers/rotationConcurrency.pg.test.ts \

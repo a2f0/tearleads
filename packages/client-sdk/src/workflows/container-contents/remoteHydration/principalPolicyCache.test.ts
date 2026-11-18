@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
-import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import { cacheRemoteContainerPrincipalPolicies } from "./principalPolicyCache";
+import {
+  KeyingVerificationError,
+  type ReferencedPrincipalHead,
+} from "@tearleads/crypto";
+import {
+  cacheRemoteContainerPrincipalPolicies,
+  warmListedContainerPolicies,
+} from "./principalPolicyCache";
 
 function reference(principalId: string): ReferencedPrincipalHead {
   return {
@@ -57,4 +63,28 @@ test("remote hydration warms principal policies against each container owner", a
     },
     { organizationId: "owner-b", references: [ownerBReference] },
   ]);
+});
+
+test("a refused reference in a batch leaves independent references available", async () => {
+  const good = {
+    organizationId: "org",
+    metadataReferencedPrincipals: [reference("ok")],
+  };
+  const bad = {
+    organizationId: "org",
+    metadataReferencedPrincipals: [reference("refused")],
+  };
+  const warmed: string[][] = [];
+  const result = await warmListedContainerPolicies(
+    [good, bad],
+    async ({ references }) => {
+      const ids = references.map((ref) => ref.principalId);
+      warmed.push(ids);
+      if (ids.includes("refused"))
+        throw new KeyingVerificationError("equivocation", "test refusal");
+    },
+    () => {},
+  );
+  expect(result).toEqual({ items: [good], outcome: "refused" });
+  expect(warmed).toEqual([["ok", "refused"], ["ok"], ["refused"]]);
 });

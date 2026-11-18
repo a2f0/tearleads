@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -52,6 +53,9 @@ export const containers = pgTable(
     systemSlot: text("system_slot"),
     depth: integer("depth").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    discoveryOrder: bigint("discovery_order", { mode: "bigint" })
+      .default(sql`0`)
+      .notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
@@ -61,6 +65,11 @@ export const containers = pgTable(
     uniqueIndex("containers_org_system_slot_idx")
       .on(table.organizationId, table.systemSlot)
       .where(sql`${table.systemSlot} is not null`),
+    index("containers_parent_discovery_idx").on(
+      table.parentId,
+      table.discoveryOrder,
+      table.id,
+    ),
     index("containers_parent_updated_idx").on(
       table.parentId,
       table.updatedAt,
@@ -99,6 +108,9 @@ export const containerSyncTombstones = pgTable(
     rootDiscoveryVisible: boolean("root_discovery_visible")
       .default(false)
       .notNull(),
+    discoveryOrder: bigint("discovery_order", { mode: "bigint" })
+      .default(sql`0`)
+      .notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
@@ -106,10 +118,22 @@ export const containerSyncTombstones = pgTable(
       table.userId,
       table.containerId,
     ),
+    index("container_tombstones_user_parent_discovery_idx").on(
+      table.userId,
+      table.parentId,
+      table.discoveryOrder,
+      table.containerId,
+    ),
     index("container_sync_tombstones_user_parent_updated_idx").on(
       table.userId,
       table.parentId,
       table.updatedAt,
+      table.containerId,
+    ),
+    index("container_tombstones_user_root_discovery_idx").on(
+      table.userId,
+      table.rootDiscoveryVisible,
+      table.discoveryOrder,
       table.containerId,
     ),
     index("container_sync_tombstones_user_root_updated_idx").on(

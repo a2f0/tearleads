@@ -8,6 +8,8 @@
 # the retries cost it only the backoff before the same error.
 set -eu
 
+CDPATH='' cd -P -- "$(dirname -- "$0")/../.."
+
 attempts=3
 attempt=1
 while ! bun install --frozen-lockfile; do

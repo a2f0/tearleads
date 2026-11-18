@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  ContainerSyncWatermarkRepository,
+  containerContentsSyncLane,
+  containerParentSyncLane,
+} from "../../persistence/container-contents/containerSyncWatermarkPersistence";
 import { organizationReadModelTables } from "../schema";
 import { documentTables } from "../schema/documentRecordSchema";
 import { ensureSqlTables } from "../sqlSchema";
@@ -151,9 +156,47 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3]);
+    ).toEqual([1, 2, 3, 4]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
+  } finally {
+    close();
+  }
+});
+
+test("step 4 replays publication cursors saved before unlink and restored-folder recovery", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-discovery-replay",
+  );
+  try {
+    await migrateLocalSchema(execSql, {
+      migrations: localSchemaMigrations.slice(0, 2),
+    });
+    await execSql(`CREATE TABLE container_sync_watermarks (
+      lane_kind TEXT NOT NULL, lane_id TEXT NOT NULL, watermark_id TEXT, watermark_updated_at TEXT,
+      updated_at TEXT, checked_at TEXT, PRIMARY KEY(lane_kind,lane_id))`);
+    await execSql(
+      `INSERT INTO container_sync_watermarks VALUES
+      ('container_documents', 'replay', '123/doc', ?, ?, NULL),
+      ('container_documents', 'legacy', 'doc', ?, ?, NULL),
+      ('container_parent', 'root', '123/folder', ?, ?, NULL)`,
+      Array(6).fill(CREATED_AT),
+    );
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+    const repository = new ContainerSyncWatermarkRepository(execSql);
+    const lane = containerContentsSyncLane("replay");
+    expect(await repository.loadWatermark(lane)).toBeNull();
+    expect(
+      await repository.loadWatermark(containerContentsSyncLane("legacy")),
+    ).toEqual({ id: "doc", updatedAt: CREATED_AT });
+    expect(
+      await repository.loadWatermark(containerParentSyncLane(null)),
+    ).toBeNull();
+    const next = { id: "124/doc", updatedAt: CREATED_AT };
+    await repository.saveWatermark(lane, next);
+    expect(
+      await new ContainerSyncWatermarkRepository(execSql).loadWatermark(lane),
+    ).toEqual(next);
   } finally {
     close();
   }

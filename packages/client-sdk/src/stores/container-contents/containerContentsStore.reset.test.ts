@@ -127,56 +127,106 @@ async function waitFor(condition: () => boolean): Promise<void> {
   throw new Error("condition was not reached");
 }
 
-test("reset serializes replacement initialization behind a stale load", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "container-initialization-reset-generation",
-  );
+test("replacement initialization publishes only its own local rows", async () => {
+  const { close, execSql } = await createTestExecSql("startup-org-handoff");
+  const entered = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
   try {
-    type LoadResult = Awaited<
-      ReturnType<typeof defaultContainerContentsPersistence.loadContainers>
-    >;
-    const resolvers: Array<(value: LoadResult) => void> = [];
-    let activeLoads = 0;
-    let maxActiveLoads = 0;
-    const loadContainers = mock(
-      () =>
-        new Promise<LoadResult>((resolve) => {
-          activeLoads += 1;
-          maxActiveLoads = Math.max(maxActiveLoads, activeLoads);
-          resolvers.push((value) => {
-            activeLoads -= 1;
-            resolve(value);
-          });
-        }),
-    );
-    const persistence = {
+    await seedLocalRootContainer(execSql, { rootContainerId: "old-row" });
+    const runtime = createRuntime({
+      dbStatus: "ready",
+      execSql,
+      isAuthenticated: true,
+    });
+    let replacement = false;
+    const store = createContainerContentsStore(runtime, {
       ...defaultContainerContentsPersistence,
-      loadContainers,
-    };
-    const readyRuntime = createRuntime({ dbStatus: "ready", execSql });
-    const idleRuntime = createRuntime({ dbStatus: "idle", execSql });
-    const recoveredRuntime = createRuntime({ dbStatus: "ready", execSql });
-    const store = createContainerContentsStore(readyRuntime, persistence);
-
-    store.updateRuntime(readyRuntime);
-    await waitFor(() => resolvers.length === 1);
-    store.updateRuntime(idleRuntime);
-    store.updateRuntime(recoveredRuntime);
-
-    expect(loadContainers).toHaveBeenCalledTimes(1);
-    resolvers[0]?.([]);
-    await waitFor(() => resolvers.length === 2);
-
-    expect(store.getSnapshot()).toEqual({ nodes: [], ready: false });
-    resolvers[1]?.([]);
+      loadContainers: (sql) =>
+        replacement
+          ? Promise.resolve([])
+          : defaultContainerContentsPersistence.loadContainers(sql),
+      listDormantMetadataSweepRequests: async () => {
+        entered.resolve();
+        await release.promise;
+        return [];
+      },
+    });
+    store.updateRuntime(runtime);
+    await entered.promise;
+    replacement = true;
+    store.updateRuntime({
+      ...runtime,
+      auth: { ...runtime.auth, organizationId: "replacement" },
+    });
+    release.resolve();
     await waitFor(() => store.getSnapshot().ready);
-
-    expect(maxActiveLoads).toBe(1);
-    expect(store.getSnapshot()).toEqual({ nodes: [], ready: true });
+    expect(store.getSnapshot().nodes).toEqual([]);
   } finally {
+    release.resolve();
     await close();
   }
 });
+
+test.each(["database status", "organization"])(
+  "a change of %s serializes replacement initialization behind a stale load",
+  async (change) => {
+    const { close, execSql } = await createTestExecSql(
+      "container-initialization-reset-generation",
+    );
+    try {
+      type LoadResult = Awaited<
+        ReturnType<typeof defaultContainerContentsPersistence.loadContainers>
+      >;
+      const resolvers: Array<(value: LoadResult) => void> = [];
+      let activeLoads = 0;
+      let maxActiveLoads = 0;
+      const loadContainers = mock(
+        () =>
+          new Promise<LoadResult>((resolve) => {
+            activeLoads += 1;
+            maxActiveLoads = Math.max(maxActiveLoads, activeLoads);
+            resolvers.push((value) => {
+              activeLoads -= 1;
+              resolve(value);
+            });
+          }),
+      );
+      const persistence = {
+        ...defaultContainerContentsPersistence,
+        loadContainers,
+      };
+      const readyRuntime = createRuntime({ dbStatus: "ready", execSql });
+      const idleRuntime = createRuntime({ dbStatus: "idle", execSql });
+      const recoveredRuntime = createRuntime({ dbStatus: "ready", execSql });
+      const store = createContainerContentsStore(readyRuntime, persistence);
+
+      store.updateRuntime(readyRuntime);
+      await waitFor(() => resolvers.length === 1);
+      if (change === "database status") {
+        store.updateRuntime(idleRuntime);
+        store.updateRuntime(recoveredRuntime);
+      } else {
+        store.updateRuntime({
+          ...readyRuntime,
+          auth: { ...readyRuntime.auth, organizationId: "next-organization" },
+        });
+      }
+
+      expect(loadContainers).toHaveBeenCalledTimes(1);
+      resolvers[0]?.([]);
+      await waitFor(() => resolvers.length === 2);
+
+      expect(store.getSnapshot()).toEqual({ nodes: [], ready: false });
+      resolvers[1]?.([]);
+      await waitFor(() => store.getSnapshot().ready);
+
+      expect(maxActiveLoads).toBe(1);
+      expect(store.getSnapshot()).toEqual({ nodes: [], ready: true });
+    } finally {
+      await close();
+    }
+  },
+);
 
 test("executor replacement prevents an in-flight create from entering the rebuilt tree", async () => {
   const originalDatabase = await createTestExecSql(

@@ -28,11 +28,42 @@ test("an empty shell inventory cannot silently pass lint", () => {
   try {
     repo.git("add", ".");
     const result = Bun.spawnSync(
-      [process.execPath, resolve(import.meta.dir, "../lintScripts.ts")],
+      [
+        process.execPath,
+        resolve(import.meta.dir, "../lintScripts.ts"),
+        "--check-root",
+        repo.cwd,
+      ],
       { cwd: repo.cwd, env: repo.env, stdout: "pipe", stderr: "pipe" },
     );
     expect(result.exitCode).toBe(1);
     expect(result.stderr.toString()).toContain("ShellCheck inventory is empty");
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+test("the ShellCheck entrypoint rejects an exported tree inside another checkout", () => {
+  const repo = fixture();
+  try {
+    repo.write("outside.sh", "#!/bin/sh\necho hello\n");
+    repo.commit();
+    const candidate = join(repo.cwd, "exported");
+    mkdirSync(candidate);
+    const result = Bun.spawnSync(
+      [
+        process.execPath,
+        resolve(import.meta.dir, "../lintScripts.ts"),
+        "--check-root",
+        candidate,
+      ],
+      {
+        cwd: repo.cwd,
+        env: repo.env,
+      },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout.toString()).not.toContain("tracked shell scripts");
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
   }
@@ -93,7 +124,12 @@ test.each([
       const cwd = join(repo.cwd, subdirectory);
       mkdirSync(cwd, { recursive: true });
       const result = Bun.spawnSync(
-        [process.execPath, resolve(import.meta.dir, "../lintScripts.ts")],
+        [
+          process.execPath,
+          resolve(import.meta.dir, "../lintScripts.ts"),
+          "--check-root",
+          repo.cwd,
+        ],
         { cwd, env: repo.env, stdout: "pipe", stderr: "pipe" },
       );
       expect(result.exitCode).toBe(1);

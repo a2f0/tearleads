@@ -7,7 +7,8 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 TIER="$1"
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
+REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 # shellcheck source=../../../terraform/scripts/teardownGuard.sh
 # shellcheck disable=SC1091
 . "$REPO_ROOT/terraform/scripts/teardownGuard.sh"

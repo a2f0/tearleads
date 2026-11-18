@@ -390,6 +390,7 @@ export type ContainerWriterProjectionWireResponse = z.infer<
 >;
 
 export const ContainerSummaryResponseSchema = loosePlainObject({
+  restorationId: sha256HexStringSchema.optional(),
   createdAt: z.string(),
   depth: nonNegativeIntegerSchema,
   effectiveAccessLevel: EffectiveAccessLevelSchema,

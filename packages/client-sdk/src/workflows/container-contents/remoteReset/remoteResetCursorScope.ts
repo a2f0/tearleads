@@ -3,7 +3,7 @@ import { containerSyncWatermarks } from "../../../data/sqlite/schema/containerSy
 import { remoteResetBatches } from "../../../data/sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../data/sqlite/sqlitePersistenceRuntime";
 
-const CONTAINER_DOCUMENTS_LANE = "container_documents";
+const CONTAINER_ID_LANES = ["container_documents", "container_restoration"];
 const CONTAINER_PARENT_LANE = "container_parent";
 // The API root feed lists every accessible organization. Its one cursor must
 // reset on any organization's purge; child feeds use globally unique IDs.
@@ -19,7 +19,7 @@ export function isRemoteResetSyncCursor(input: {
   containerIds: ReadonlySet<string>;
   row: SyncCursorRow;
 }): boolean {
-  if (input.row.laneKind === CONTAINER_DOCUMENTS_LANE) {
+  if (CONTAINER_ID_LANES.includes(input.row.laneKind)) {
     return input.containerIds.has(input.row.laneId);
   }
   if (input.row.laneKind !== CONTAINER_PARENT_LANE) return false;
@@ -58,7 +58,7 @@ export async function clearRemoteResetSyncCursors(input: {
             inArray(table.laneId, parentLaneIds),
           ),
           and(
-            eq(table.laneKind, CONTAINER_DOCUMENTS_LANE),
+            inArray(table.laneKind, CONTAINER_ID_LANES),
             inArray(table.laneId, containerBatch),
           ),
         ),

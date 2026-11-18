@@ -132,6 +132,9 @@ export type ContainerContentsVerifiedRecipientGuard = (
 export interface ContainerContentsStoreWorkflowRuntime
   extends ContainerContentsWorkflowRuntime {
   readonly adoptRootContainer: ContainerContentsRootAdopter;
+  readonly scopeGeneration?: number;
+  readonly isAcknowledgementCurrent?: () => boolean;
+  readonly liveHydrationStatus?: () => "ready" | "unavailable" | "retired";
   readonly requireVerifiedRecipient: ContainerContentsVerifiedRecipientGuard;
 }
 

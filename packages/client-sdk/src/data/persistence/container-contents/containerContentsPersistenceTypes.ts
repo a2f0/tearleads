@@ -125,11 +125,20 @@ export interface ContainerHydrationTombstone extends ContainerRemoval {
 }
 
 export interface ContainerDeletionGuard {
+  /** A fresh container read denied access after the listing returned. */
+  confirmedAccessLoss?: {
+    placementHash: string | null;
+    expectedMetadata: Pick<
+      ContainerMetadataRecord,
+      "documentId" | "accessEpoch" | "accessStateHash" | "metadataUpdates"
+    > | null;
+  };
   containerId: string;
   expectedContainer: ContainerRecord | null;
 }
 
 export interface SaveContainerOptions {
+  verifiedPlacement?: AccessManifestCheckpoint | undefined;
   createIntent?: ContainerCreateIntentInput;
   stillCurrent?: (() => boolean) | undefined;
   localUpdatedAt?: string;
@@ -393,20 +402,7 @@ export interface ContainerContentsPersistence
       pendingUpdate?: PendingUpdateFields | undefined;
       preserveDurableStructureWhenPending?: boolean | undefined;
       record: ContainerMetadataRecord;
-      saveOptions?:
-        | {
-            createIntent?: ContainerCreateIntentInput;
-            localUpdatedAt?: string;
-            moveIntent?: ContainerMoveIntentInput | undefined;
-            serverTimestamps?:
-              | {
-                  createdAt?: string | null;
-                  updatedAt?: string | null;
-                }
-              | undefined;
-            updatedAt?: string;
-          }
-        | undefined;
+      saveOptions?: Omit<SaveContainerOptions, "stillCurrent"> | undefined;
       settleAcceptedPendingOnConflict: boolean;
       stillCurrent?: (() => boolean) | undefined;
     },

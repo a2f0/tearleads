@@ -2387,6 +2387,7 @@ export type components = {
             metadataVersionVector: string;
             organizationId: string;
             parentId: string | null;
+            restorationId?: string;
             /** @description Opaque id of a system container's role, such as Trash, or null for an ordinary container. */
             systemSlot?: string | null;
             updatedAt: string;
@@ -3155,6 +3156,13 @@ export type components = {
         };
         /** @description Up to 32 container lanes to list documents for, each with its own watermark and page size (500 rows in total). */
         ListContainerDocumentLanesRequest: {
+            afterParentPage?: {
+                parentId: string | null;
+                watermark: {
+                    id: string;
+                    updatedAt: string;
+                };
+            };
             lanes: {
                 containerId: string;
                 laneId: string;
@@ -7525,6 +7533,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */

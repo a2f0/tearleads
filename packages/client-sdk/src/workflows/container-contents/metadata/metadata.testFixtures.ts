@@ -1,3 +1,4 @@
+import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import type {
   ContainerContentsPersistence,
   ContainerMetadataRecord as ContainerDocumentRecord,
@@ -229,4 +230,27 @@ export function createContainerContentsPersistence(input: {
       );
     },
   };
+}
+
+export async function enqueuePendingContainerUpdate(
+  execSql: ExecSql,
+  persistence: ContainerContentsPersistence,
+  params: {
+    containerId: string;
+    sourceVersionVector?: string | null | undefined;
+    update: Uint8Array;
+  },
+): Promise<string | null> {
+  const pendingUpdateFields = createPendingUpdateFields(
+    params.update,
+    params.sourceVersionVector,
+  );
+  if (!pendingUpdateFields) {
+    return null;
+  }
+
+  return persistence.enqueuePendingUpdate(execSql, {
+    containerId: params.containerId,
+    ...pendingUpdateFields,
+  });
 }

@@ -1,11 +1,14 @@
-import type { Tearleads } from "@tearleads/client-sdk";
+import {
+  getOrCreateDomainSyncCoordinator,
+  type Tearleads,
+} from "@tearleads/client-sdk";
 
 import { useEffect, useState } from "react";
 import type { SubscribeConnectionRefreshFn } from "../../host/AppHostConfig";
 import { trackConnectAttempts } from "./connectAttemptTracker";
 import {
   type ContainerInterestDeclaration,
-  startContainerInterestDeclaration,
+  startContainerInterestDeclaration as declareInterest,
 } from "./containerInterest";
 import {
   attachOrganizationReadModelSocket,
@@ -16,7 +19,31 @@ import {
 import { startServerEventsConnectionLoop } from "./serverEventsConnectionLoop";
 import { routeIncomingWsMessage } from "./serverEventsRouting";
 
-export { startContainerInterestDeclaration } from "./containerInterest";
+export function startContainerInterestDeclaration(
+  tearleads: Tearleads,
+  ws: WebSocket,
+) {
+  const scope = tearleads.domainScope;
+  const coordinator = getOrCreateDomainSyncCoordinator(scope);
+  const handle = declareInterest(tearleads, ws);
+  // A socket owns its declaration queue and its acknowledged tree. Retiring
+  // them together lets the existing reconnect loop establish a fresh barrier.
+  const retire = () => {
+    if (!coordinator.isDisposed()) return;
+    handle.stop();
+    if (tearleads.domainScope === scope) tearleads.events.setConnected(false);
+    ws.close();
+  };
+  const detach = coordinator.subscribe(retire);
+  retire();
+  return {
+    ...handle,
+    stop: () => {
+      detach();
+      handle.stop();
+    },
+  };
+}
 
 // Revalidate affected contents, then re-list the root lane plus each flagged
 // container's parent lane and own child lane once.

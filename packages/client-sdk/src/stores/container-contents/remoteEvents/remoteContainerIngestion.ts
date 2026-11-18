@@ -4,6 +4,7 @@ import {
   type RemoteContainer,
   type RemoteContainerHydrationHost,
 } from "../../../workflows/container-contents/remoteHydration";
+import { ownsContainerStore } from "../containerState/storeScope";
 import { resumeContainerContentsRecoveryHydration } from "../hydration/remoteHydrationRequest";
 import { getContainerContentsStoreLogLabel } from "../logLabel";
 import type { ContainerContentsStoreSyncState } from "../syncAgent/syncAgentTypes";
@@ -39,12 +40,14 @@ export function createRemoteContainerIngestionController(input: {
 }): RemoteContainerIngestionController {
   const { host, scheduleSync, state } = input;
   const remoteContainerIngestor = createRemoteContainerIngestor({
+    ownsScope: () => ownsContainerStore(state),
     getSerializationBarrier: () => state.initializePromise,
     host,
     state,
   });
   const scheduleAfterIngestion = () => {
     if (
+      ownsContainerStore(state) &&
       state.runtime.infra.dbStatus === "ready" &&
       state.documentStoresNeedPriming
     ) {

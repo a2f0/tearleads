@@ -167,3 +167,60 @@ test("local deletion evicts a cached device-first summary until disposal", async
     close();
   }
 });
+
+test("late summary reads stay with their device-first lifetime", async () => {
+  const { execSql, close } = await createTestExecSql(
+    "device-first-late-summary",
+  );
+  const entered = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const guardedSql = new Proxy(execSql, {
+    apply: async (target, _, args: Parameters<ExecSql>) => {
+      const rows = await target(...args);
+      if (
+        args[0].startsWith("select") &&
+        args[0].includes('from "document_projection"')
+      ) {
+        entered.resolve();
+        await release.promise;
+      }
+      return rows;
+    },
+  });
+  const input = createWorkflowInputFixture({
+    apiClient: createMockApiClient(),
+    domainScope: createDomainScope(),
+    auth: { isAuthenticated: false },
+    containerId: CONTAINER_ID,
+    execSql: guardedSql,
+    online: false,
+  });
+  const runtime = createInternalRuntimeFixture(() => input);
+  const service = createDeviceFirst(runtime, {} as ContainerContents);
+  try {
+    await seedCachedDocuments(execSql);
+    const old = service.open().view;
+    old.updateRuntime(createDeviceFirstWorkflowRuntime(runtime));
+    await waitFor(() => old.getSnapshot().ready, "original view");
+    old.setActiveContainer(CONTAINER_ID);
+    await entered.promise;
+    service.dispose();
+    const reopened = service.open().view;
+    reopened.updateRuntime(createDeviceFirstWorkflowRuntime(runtime));
+    reopened.setActiveContainer(CONTAINER_ID);
+    release.resolve();
+    await waitFor(
+      () =>
+        reopened.getSnapshot().documentSummariesByContainerId.get(CONTAINER_ID)
+          ?.length === 2,
+      "replacement summaries",
+    );
+    expect(
+      old.getSnapshot().documentSummariesByContainerId.get(CONTAINER_ID),
+    ).toBeUndefined();
+  } finally {
+    release.resolve();
+    service.dispose();
+    await close();
+  }
+});

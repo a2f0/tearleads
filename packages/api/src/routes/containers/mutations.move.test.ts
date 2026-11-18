@@ -1,6 +1,9 @@
 import { expect } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { containers } from "@tearleads/api-shared/schema";
+import {
+  containerSyncTombstones,
+  containers,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import { eq, inArray } from "drizzle-orm";
 import { buildMoveRequest } from "../../../test/helpers/containerMutationRotations";
@@ -18,6 +21,7 @@ import {
   readContainerParentLanePage as readLanePage,
 } from "../../../test/helpers/containerParentLaneQuery";
 import { buildGrantRequest } from "../../../test/helpers/containerShareRequests";
+import { expectedDiscoveryId } from "../../../test/helpers/discoveryTimestamp";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 
@@ -285,6 +289,16 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     signer: owner,
   });
 
+  const formerChild = await createChild({
+    parent: accessManifestFromResponse(source),
+    parentContainerPath: [
+      root.bundle,
+      sharedOldParentBundle,
+      accessManifestFromResponse(source),
+    ],
+    parentKekState: kekStateFromResponse(source),
+    signer: owner,
+  });
   const recipientBaselineResponse = await listContainersForUser({
     parentId: oldParent.containerId,
     token: recipient.token,
@@ -295,7 +309,7 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(source.containerId);
   expect(recipientBaseline.nextWatermark).toEqual({
-    id: source.containerId,
+    id: expectedDiscoveryId(),
     updatedAt: expect.any(String),
   });
 
@@ -313,7 +327,7 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     signer: owner,
   });
 
-  await expectMutationSuccess(
+  const movedAway = await expectMutationSuccess(
     await postMutation({
       path: `/containers/${source.containerId}/move`,
       request: moveRequest,
@@ -341,7 +355,117 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     },
   ]);
   expect(recipientDelta.nextWatermark).toEqual({
-    id: source.containerId,
+    id: expectedDiscoveryId(),
     updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
+  const [historicalRemoval] = await db
+    .select()
+    .from(containerSyncTombstones)
+    .where(eq(containerSyncTombstones.containerId, source.containerId));
+  if (!historicalRemoval) throw new Error("Expected the loss to be recorded");
+  const movedBundle = accessManifestFromResponse(movedAway);
+  const formerChildBundle = accessManifestFromResponse(formerChild);
+  const relocateChild = await buildMoveRequest({
+    destinationParent: accessManifestFromResponse(destination),
+    destinationParentKekState: kekStateFromResponse(destination),
+    destinationParentPath: [
+      root.bundle,
+      accessManifestFromResponse(destination),
+    ],
+    previous: formerChildBundle,
+    previousContainerPath: [
+      root.bundle,
+      accessManifestFromResponse(destination),
+      movedBundle,
+      formerChildBundle,
+    ],
+    previousKekState: kekStateFromResponse(formerChild),
+    signer: owner,
+  });
+  await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${formerChild.containerId}/move`,
+      request: relocateChild,
+      token: owner.token,
+    }),
+  );
+  const restore = await buildMoveRequest({
+    destinationParent: sharedOldParentBundle,
+    destinationParentKekState: sharedOldParentKekState,
+    destinationParentPath: [root.bundle, sharedOldParentBundle],
+    previous: movedBundle,
+    previousContainerPath: [
+      root.bundle,
+      accessManifestFromResponse(destination),
+      movedBundle,
+    ],
+    previousKekState: kekStateFromResponse(movedAway),
+    signer: owner,
+  });
+  await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${source.containerId}/move`,
+      request: restore,
+      token: owner.token,
+    }),
+  );
+  expect(
+    await db
+      .select()
+      .from(containerSyncTombstones)
+      .where(eq(containerSyncTombstones.id, historicalRemoval.id)),
+  ).toHaveLength(1);
+  // Test the same restored live folder with an old device's later-clock hint.
+  await db
+    .update(containerSyncTombstones)
+    .set({ updatedAt: new Date("2099-01-01") })
+    .where(eq(containerSyncTombstones.id, historicalRemoval.id));
+  const restored = await readLanePage(
+    await listContainersForUser({
+      parentId: oldParent.containerId,
+      token: recipient.token,
+      limit: 1,
+      watermark: recipientBaseline.nextWatermark,
+    }),
+  );
+  expect(restored.items).toEqual([
+    expect.objectContaining({
+      id: source.containerId,
+      restorationId: expect.stringMatching(/^[a-f0-9]{64}$/u),
+    }),
+  ]);
+  // An ordinary edit republishes the folder, while the access loss retains
+  // the same identity. A later loss of the same folder gets a new identity.
+  const readRestoration = async () =>
+    (
+      await readLanePage(
+        await listContainersForUser({
+          parentId: oldParent.containerId,
+          token: recipient.token,
+        }),
+      )
+    ).items.find((row) => row.id === source.containerId)?.restorationId;
+  await db
+    .update(containers)
+    .set({ updatedAt: new Date("2099-02-01") })
+    .where(eq(containers.id, source.containerId));
+  expect(await readRestoration()).toBe(restored.items[0]?.restorationId);
+  await db
+    .update(containerSyncTombstones)
+    .set({ updatedAt: new Date("2099-02-02") })
+    .where(eq(containerSyncTombstones.id, historicalRemoval.id));
+  const nextLoss = await readRestoration();
+  expect(nextLoss).toMatch(/^[a-f0-9]{64}$/u);
+  expect(nextLoss).not.toBe(restored.items[0]?.restorationId);
+  const children = await readLanePage(
+    await listContainersForUser({
+      parentId: source.containerId,
+      token: recipient.token,
+    }),
+  );
+  expect(children.items.map((row) => row.id)).not.toContain(
+    formerChild.containerId,
+  );
+  expect(restored.tombstones).toEqual([]);
+  expect(restored.hasMore).toBe(false);
 });

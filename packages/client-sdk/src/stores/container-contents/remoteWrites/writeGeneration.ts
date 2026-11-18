@@ -1,3 +1,4 @@
+import { ownsContainerStore } from "../containerState/storeScope";
 import type { ContainerContentsStoreRuntime } from "../syncAgent/syncAgentTypes";
 import type { ContainerContentsStoreState } from "../types";
 
@@ -8,6 +9,7 @@ export function didContainerWriteRuntimeChange(
   currentRuntime: ContainerContentsStoreRuntime,
 ): boolean {
   return (
+    previousRuntime.scopeGeneration !== currentRuntime.scopeGeneration ||
     previousRuntime.adoptRootContainer !== currentRuntime.adoptRootContainer ||
     previousRuntime.apiClient !== currentRuntime.apiClient ||
     previousRuntime.auth.defaultOrganizationId !==
@@ -43,6 +45,7 @@ export function captureContainerWriteGeneration(
   const runtime = state.runtime;
   const writeGeneration = state.writeGeneration;
   return () =>
+    ownsContainerStore(state) &&
     state.lifecycleGeneration === lifecycleGeneration &&
     state.persistence === persistence &&
     state.writeGeneration === writeGeneration &&

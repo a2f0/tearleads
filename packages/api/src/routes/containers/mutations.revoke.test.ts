@@ -1,5 +1,8 @@
 import { expect } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { containers } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
+import { eq } from "drizzle-orm";
 import { buildRevokeRequest } from "../../../test/helpers/containerMutationRotations";
 import {
   accessManifestFromResponse,
@@ -19,6 +22,7 @@ import {
   buildGrantRequest,
   buildGroupGrantRequest,
 } from "../../../test/helpers/containerShareRequests";
+import { expectedDiscoveryId } from "../../../test/helpers/discoveryTimestamp";
 import {
   commitGroupGrant,
   firstCompoundMutation,
@@ -55,6 +59,13 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
       token: owner.token,
     }),
   );
+  // A discovery the recipient already applied can have a later entity clock
+  // than this revocation, even though the revocation commits afterwards.
+  const cachedUpdatedAt = new Date(Date.now() + 60_000);
+  await db
+    .update(containers)
+    .set({ updatedAt: cachedUpdatedAt })
+    .where(eq(containers.id, created.containerId));
   const recipientBaselineResponse = await listRootContainers({
     token: recipient.token,
   });
@@ -64,9 +75,14 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(created.containerId);
   expect(recipientBaseline.nextWatermark).toEqual({
-    id: created.containerId,
+    id: expectedDiscoveryId(),
     updatedAt: expect.any(String),
   });
+
+  expect(
+    recipientBaseline.items.find(({ id }) => id === created.containerId)
+      ?.updatedAt,
+  ).toBe(cachedUpdatedAt.toISOString());
 
   const sharedBundle = accessManifestFromResponse(shared);
   const revokeRequest = await buildRevokeRequest({
@@ -104,8 +120,11 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
       updatedAt: expect.any(String),
     },
   ]);
+  expect(Date.parse(firstTombstone(recipientDelta).updatedAt)).toBeLessThan(
+    cachedUpdatedAt.getTime(),
+  );
   expect(recipientDelta.nextWatermark).toEqual({
-    id: created.containerId,
+    id: expectedDiscoveryId(),
     updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
 
@@ -170,7 +189,7 @@ test("group grant revoke requires and commits with principal rotation", async ()
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(created.containerId);
   expect(recipientBaseline.nextWatermark).toEqual({
-    id: created.containerId,
+    id: expectedDiscoveryId(),
     updatedAt: expect.any(String),
   });
 

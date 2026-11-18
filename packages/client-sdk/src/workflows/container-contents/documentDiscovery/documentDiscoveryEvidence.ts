@@ -29,6 +29,30 @@ function unlistedHeadVerdict(
     : "unavailable";
 }
 
+async function readDiscoveryHead(
+  input: DiscoveredDocumentCandidate,
+  loadHead: DocumentHeadLinkSetLoader,
+  store: DocumentDiscoveryEvidenceRepository,
+  localEpoch: number,
+  requiresCurrentHead: boolean,
+) {
+  const cached = requiresCurrentHead
+    ? null
+    : await store.loadHead(input.documentId, input.accessStateHash);
+  const minimumEpoch = Math.max(localEpoch, input.accessEpoch);
+  const usableCached =
+    cached && cached.accessEpoch >= minimumEpoch ? cached : null;
+  return (
+    usableCached ??
+    (await loadHead(
+      input.documentId,
+      !requiresCurrentHead && input.accessEpoch >= localEpoch
+        ? (input.accessStateHash ?? undefined)
+        : undefined,
+    ))
+  );
+}
+
 async function verifyInput(
   input: DiscoveredDocumentCandidate,
   loadHead: DocumentHeadLinkSetLoader,
@@ -36,21 +60,18 @@ async function verifyInput(
   store: DocumentDiscoveryEvidenceRepository,
   generation: number,
   organizationId: string | undefined,
+  requiresCurrentHead: boolean,
 ): Promise<DiscoveredDocumentInput | null | "unavailable"> {
   const localEpoch = await loadLocalEpoch(input.documentId).catch(
     () => Number.MAX_SAFE_INTEGER,
   );
-  const cached = await store.loadHead(input.documentId, input.accessStateHash);
-  const minimumEpoch = Math.max(localEpoch, input.accessEpoch);
-  const head =
-    cached && cached.accessEpoch >= minimumEpoch
-      ? cached
-      : await loadHead(
-          input.documentId,
-          input.accessEpoch >= localEpoch
-            ? (input.accessStateHash ?? undefined)
-            : undefined,
-        );
+  const head = await readDiscoveryHead(
+    input,
+    loadHead,
+    store,
+    localEpoch,
+    requiresCurrentHead,
+  );
   if (head === "not-found") return null;
   if (!head || head.accessEpoch < Math.max(localEpoch, input.accessEpoch))
     return "unavailable";
@@ -64,7 +85,11 @@ async function verifyInput(
   if (!head.accessStateHash) return "unavailable";
   if (!(await store.saveHead(input.documentId, head, generation)))
     return "unavailable";
-  const { listedContainerIds: _listedContainerIds, ...document } = input;
+  const {
+    listedContainerIds: _listedContainerIds,
+    requiresCurrentHead: _requiresCurrentHead,
+    ...document
+  } = input;
   return {
     ...document,
     containerId,
@@ -87,11 +112,21 @@ export function createDiscoveredDocumentVerifier(
   store: DocumentDiscoveryEvidenceRepository,
   onPendingDiscovery?: ((delayMs: number) => void) | undefined,
 ): DiscoverContainerDocumentsOptions["verifyDiscoveredDocuments"] {
-  return async (inputs, containerIds, generation, tombstones = []) => {
+  return async (
+    inputs,
+    containerIds,
+    generation,
+    tombstones,
+    conflictingDocumentIds,
+  ) => {
     const isCurrent = () => store.isCurrent(generation);
     const lanes = new Set(containerIds);
-    const removed = tombstones.filter((row) => lanes.has(row.containerId));
-    if (!(await store.stage(inputs, generation, removed)))
+    const removed = (tombstones ?? []).filter((row) =>
+      lanes.has(row.containerId),
+    );
+    if (
+      !(await store.stage(inputs, generation, removed, conflictingDocumentIds))
+    )
       return { inputs: [], isCurrent, commit: async () => true };
     const candidates = groupPendingDocumentDiscoveries(
       await store.pending(containerIds, HEAD_LINK_SET_LOADS_PER_RUN),
@@ -111,6 +146,7 @@ export function createDiscoveredDocumentVerifier(
           store,
           generation,
           organizationId,
+          rows.some((row) => row.requiresCurrentHead === true),
         );
         if (result === "unavailable") {
           await Promise.all(rows.map((row) => store.defer(row, generation)));

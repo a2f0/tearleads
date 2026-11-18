@@ -125,6 +125,7 @@ export function createInternalRuntimeFixture(
     },
     retirePrincipalHistoryProtection: () => {},
     sessionGeneration: 0,
+    scopeGeneration: 0,
     boundUserId: async () => null,
     pinLocalUserIdentity: async () => {},
     primeProvisionedState: async () => {},

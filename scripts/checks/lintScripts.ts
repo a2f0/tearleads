@@ -1,7 +1,10 @@
 import { spawnSync } from "node:child_process";
+import { checkArguments, requireGitRoot } from "../lib/checkRoot";
 import { shellScriptInventory } from "./shellScripts";
 
-const { root, files } = shellScriptInventory(process.cwd());
+const { root, files } = shellScriptInventory(
+  requireGitRoot(checkArguments().root),
+);
 console.log(`ShellCheck: ${files.length} tracked shell scripts`);
 if (files.length === 0) {
   throw new Error("ShellCheck inventory is empty; check the working checkout.");
