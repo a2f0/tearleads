@@ -56,6 +56,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# The API and web releases record this checkout's HEAD. Check it before any
+# Terraform apply so an exported tree cannot leave a partially deployed tier.
+if ! git -c core.fsmonitor=false -C "$REPO_ROOT" --git-dir=.git rev-parse --verify 'HEAD^{commit}' >/dev/null; then
+  echo "Deployment requires its own Git checkout: $REPO_ROOT" >&2
+  exit 1
+fi
+
 # shellcheck source=scripts/lib/stepTimings.sh
 # shellcheck disable=SC1091
 . "$REPO_ROOT/scripts/lib/stepTimings.sh"

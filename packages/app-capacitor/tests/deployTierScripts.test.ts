@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { chmod, cp, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { commitDeploymentFixture } from "./deploymentGit.testUtils";
 
 interface TierFixture {
   readonly name: "staging" | "production";
@@ -64,7 +65,6 @@ for (const fixture of fixtures) {
       const root = await mkdtemp(resolve(tmpdir(), "tearleads-deploy-tier-"));
       const script = resolve(root, `scripts/deploy/deploy-${fixture.name}.sh`);
       const logPath = resolve(root, "calls.log");
-      const binDirectory = resolve(root, "bin");
 
       try {
         await mkdir(resolve(root, "scripts/lib"), { recursive: true });
@@ -75,10 +75,7 @@ for (const fixture of fixtures) {
           resolve(root, "scripts/lib/stepTimings.sh"),
         );
         await chmod(script, 0o755);
-        await writeExecutable(
-          resolve(binDirectory, "git"),
-          "#!/bin/sh\nprintf '%s\\n' \"$DEPLOY_TIER_TEST_ROOT\"\n",
-        );
+        commitDeploymentFixture(root, fixture.name);
         for (const [name, path] of fixture.commands) {
           await writeExecutable(
             resolve(root, path),
@@ -90,8 +87,7 @@ for (const fixture of fixtures) {
           cwd: tmpdir(),
           env: {
             ...process.env,
-            PATH: `${binDirectory}:${environmentValue("PATH") ?? ""}`,
-            DEPLOY_TIER_TEST_ROOT: root,
+            PATH: environmentValue("PATH") ?? "",
             DEPLOY_TIER_TEST_LOG: logPath,
           },
           stdout: "pipe",
@@ -114,6 +110,22 @@ for (const fixture of fixtures) {
           `api-verify|${fixture.tier}`,
           `website|${flag ? "--skip-terraform" : ""}`,
         ]);
+        if (!flag) {
+          await rm(resolve(root, ".git"), { recursive: true });
+          await rm(logPath);
+          const rejected = Bun.spawnSync([script], {
+            cwd: tmpdir(),
+            env: {
+              PATH: environmentValue("PATH"),
+              DEPLOY_TIER_TEST_LOG: logPath,
+            },
+          });
+          expect(rejected.exitCode).toBe(1);
+          expect(rejected.stderr.toString()).toContain(
+            "requires its own Git checkout",
+          );
+          expect(await Bun.file(logPath).exists()).toBe(false);
+        }
       } finally {
         await rm(root, { recursive: true, force: true });
       }
