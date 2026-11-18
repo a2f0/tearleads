@@ -55,6 +55,7 @@ function EyeglassPrescription({
                   type={type}
                   value={fields[key] ?? ""}
                   autoComplete="off"
+                  spellCheck={false}
                   disabled={disabled}
                   onChange={(event) =>
                     setStructuredFields(EYEGLASS_PRESCRIPTION_DOCUMENT_KIND, {

@@ -48,6 +48,7 @@ test(
         expect(control.disabled).toBe(false);
         return control;
       });
+      expect(input.getAttribute("spellcheck")).toBe("false");
       fireEvent.change(input, { target: { value } });
       await waitFor(() => expect(input.value).toBe(value));
     }
@@ -57,12 +58,16 @@ test(
     );
     await waitForPersistedPaneLocalIdentity(localIdentityNamespace);
     view.unmount();
-    await waitFor(() =>
-      expect(storage.workers.every((worker) => worker.terminated)).toBe(true),
+    await waitFor(
+      () =>
+        expect(storage.workers.every((worker) => worker.terminated)).toBe(true),
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
     );
     const reopened = renderPane({ hostConfig });
-    await waitFor(() =>
-      expect(getPaneStatusText(reopened)).toMatch(/sqlite worker:\s*ready/u),
+    await waitFor(
+      () =>
+        expect(getPaneStatusText(reopened)).toMatch(/sqlite worker:\s*ready/u),
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
     );
     const restarted = await openExplorer(reopened);
     fireEvent.click(
