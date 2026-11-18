@@ -179,10 +179,12 @@ test("a stalled or failing directory read never costs the manifest citations", a
     await fixture.container("c0", null);
     await remember(fixture.execSql, [entry("c0", 1, 1)]);
     for (const source of [
-      // Never answers: the manifest citations wait only a short grace.
+      // Never answers: the manifest citations wait only the directory
+      // budget, well inside the API client's citation deadline.
       () => new Promise<never>(() => undefined),
       () => Promise.reject(new Error("policy store unavailable")),
     ]) {
+      const startedAt = performance.now();
       const citations = await loadVerifiedManifestCitations(
         fixture.execSql,
         { kind: "container", id: "c0" },
@@ -192,6 +194,8 @@ test("a stalled or failing directory read never costs the manifest citations", a
       expect(
         citations.map((citation) => Reflect.get(citation, "manifestHash")),
       ).toEqual([hash(1)]);
+      // The API client's citation deadline (MANIFEST_CITATION_DEADLINE_MS).
+      expect(performance.now() - startedAt).toBeLessThan(250);
     }
   } finally {
     fixture.close();

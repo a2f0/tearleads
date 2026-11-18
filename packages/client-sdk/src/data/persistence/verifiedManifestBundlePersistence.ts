@@ -264,20 +264,26 @@ export type HeldDirectorySource = (
 ) => Promise<readonly HeldDirectoryCitation[]>;
 
 /**
- * How long manifest citations, once collected, wait for the directory read.
- * Directory citations are an extra: a slow read must not spend the shared
- * citation deadline and cost the manifest and KEK-level hints too.
+ * The directory read's own budget, from the start of the citation load.
+ * Directory citations are an extra: once manifest citations are collected,
+ * the load waits for directories only until this much time has passed since
+ * it began, and not at all after that, so a slow directory read never pushes
+ * the load past the time the manifest collection alone took (or this budget)
+ * and never spends the shared citation deadline on the manifest hints.
  */
-const DIRECTORY_CITATION_GRACE_MS = 50;
+const DIRECTORY_CITATION_BUDGET_MS = 50;
 
-function directoriesWithinGrace(
+function directoriesWithinBudget(
   pending: Promise<readonly HeldDirectoryCitation[]>,
+  startedAt: number,
 ): Promise<readonly HeldDirectoryCitation[]> {
+  const remaining =
+    startedAt + DIRECTORY_CITATION_BUDGET_MS - performance.now();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const grace = new Promise<readonly HeldDirectoryCitation[]>((resolve) => {
-    timer = setTimeout(() => resolve([]), DIRECTORY_CITATION_GRACE_MS);
+  const budget = new Promise<readonly HeldDirectoryCitation[]>((resolve) => {
+    timer = setTimeout(() => resolve([]), Math.max(0, remaining));
   });
-  return Promise.race([pending, grace]).finally(() => clearTimeout(timer));
+  return Promise.race([pending, budget]).finally(() => clearTimeout(timer));
 }
 
 export async function loadVerifiedManifestCitations(
@@ -318,6 +324,7 @@ async function loadCitableManifestCitations(
     ...documentProjectionTables,
     ...localIntentTables,
   ]);
+  const startedAt = performance.now();
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const objects = await citedObjects(db, target);
   const organizationId = await targetOrganization(db, target, objects);
@@ -336,7 +343,7 @@ async function loadCitableManifestCitations(
   );
   if (damaged.length > 0)
     await dropVerifiedManifestBundles(execSql, damaged).catch(() => undefined);
-  return [...cited, ...(await directoriesWithinGrace(directories))];
+  return [...cited, ...(await directoriesWithinBudget(directories, startedAt))];
 }
 
 // Manifest hashes whose held rows a refused read is dropping: no read cites

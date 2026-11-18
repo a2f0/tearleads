@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
+  computePrincipalStatePayloadCiphertextHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   signPrincipalState,
@@ -152,15 +153,22 @@ testApiClient(
   "a held payload that does not hash to its signed state is never cited",
   async () => {
     const directory = await signedDirectory("directory-v1");
+    const forged = "forged";
     const projection = projectionWith(directory);
     const hints = serve(projection, (cited) => cited);
     const client = new ApiClient(apiBaseUrl);
     client.setVerifiedManifestCitations(
       holding(
-        // Tampered bytes under the state's hash.
+        // Other bytes under the state's hash, their own hash consistent:
+        // only the signed state's payload hash refuses them.
         {
           directoryState: directory.state,
-          directoryPayload: { ...directory.payload, ciphertext: "forged" },
+          directoryPayload: {
+            ...directory.payload,
+            ciphertext: forged,
+            ciphertextHash:
+              await computePrincipalStatePayloadCiphertextHash(forged),
+          },
         },
         // A state whose own hash does not recompute.
         {
