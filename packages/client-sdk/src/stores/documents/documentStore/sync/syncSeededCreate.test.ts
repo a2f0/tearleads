@@ -93,7 +93,7 @@ interface SeededCreateServer {
 type Fixture = Awaited<ReturnType<typeof createMaterializedSyncFixture>>;
 
 function plannedDocumentId(request: DocumentCreateRequest): string {
-  return String(Reflect.get(request.manifest, "objectId"));
+  return String(Reflect.get(request.event, "objectId"));
 }
 
 /** Runs `read` when the row's payload is first read, inside seed encryption. */
@@ -332,7 +332,7 @@ test("a lost seeded create response adopts the document and keeps its row queued
   // An existing manifest is adopted, never resubmitted without the seed.
   expect(result.requests).toHaveLength(1);
   expect(result.created.record?.documentId).toBe(
-    String(Reflect.get(result.requests[0]?.manifest ?? {}, "objectId")),
+    String(Reflect.get(result.requests[0]?.event ?? {}, "objectId")),
   );
   // The adoption cannot tell whether the earlier attempt carried the seed, so
   // the row stays queued and the pass's ordinary sync sends it. That re-send

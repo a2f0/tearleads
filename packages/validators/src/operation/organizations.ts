@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { documentSyncRequestRuntimeRefinements } from "../documentSyncRefinements";
+import { documentSyncRequestRotationRefinement } from "../documentSyncRefinements";
 import { organizationDataUsageResponseRuntimeRefinements } from "../organizationDataUsageRefinements";
 import {
   organizationProvisioningContainerKeyringRefinement,
@@ -101,7 +101,7 @@ export const createOrganizationOperation = defineJsonOperation({
     200: CreateOrganizationResponseSchema,
   },
   runtimeRefinements: [
-    ...documentSyncRequestRuntimeRefinements,
+    documentSyncRequestRotationRefinement,
     ...organizationProvisioningRequestRuntimeRefinements,
     ...organizationProvisioningResponseRuntimeRefinements,
   ],

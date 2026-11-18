@@ -4,12 +4,10 @@ import { containerCreateMetadataSeedRefinement } from "../documentCreateSeedRefi
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import { loosePlainObject } from "../schema";
 import { ContainerMutationRequestSchema } from "./container";
+import { DocumentCreateBaseRequestSchema } from "./document";
 import {
-  DocumentCreateBaseRequestSchema,
-  DocumentSyncRequestSchema,
-} from "./document";
-import {
-  refineSeedWithinSyncRequestLimit,
+  DocumentCreateSeedRequestSchema,
+  refineCreateSeedSync,
   refineSingleUpdateSeed,
 } from "./documentCreateSeed";
 
@@ -28,18 +26,20 @@ export const ContainerCreateWithMetadataDocumentRequestSchema =
   registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
       ...containerCreateWithMetadataDocumentRequestShape,
-      initialMetadataSync: DocumentSyncRequestSchema.optional(),
+      initialMetadataSync: DocumentCreateSeedRequestSchema.optional(),
     }).superRefine((value, context) => {
       refineSingleUpdateSeed(value.initialMetadataSync, context, {
         message:
           "container create metadata seed requires one update and no container rekeys",
         path: "initialMetadataSync",
       });
-      refineSeedWithinSyncRequestLimit(
-        value.initialMetadataSync,
-        context,
-        "initialMetadataSync",
-      );
+      if (typeof value.metadataDocument === "object")
+        refineCreateSeedSync(
+          value.metadataDocument,
+          value.initialMetadataSync,
+          context,
+          { path: "initialMetadataSync", withinSyncLimit: true },
+        );
     }),
     [containerCreateMetadataSeedRefinement],
   );

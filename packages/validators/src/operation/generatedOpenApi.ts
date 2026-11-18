@@ -2007,7 +2007,7 @@ export type components = {
         ContainerCreateWithMetadataDocumentRequest: {
             container: components["schemas"]["ContainerMutationRequest"];
             /** @description The metadata document's first queued update, committed in the same transaction. */
-            initialMetadataSync?: components["schemas"]["DocumentSyncRequest"];
+            initialMetadataSync?: components["schemas"]["DocumentCreateSeedRequest"];
             metadataDocument: {
                 authorizingContainerPathRefs?: components["schemas"]["ContainerManifestRefArrayArray"];
                 body: unknown;
@@ -2017,9 +2017,6 @@ export type components = {
                     [key: string]: unknown;
                 };
                 expectedManifestHash: string;
-                manifest: {
-                    [key: string]: unknown;
-                };
                 targetContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             } & {
                 [key: string]: unknown;
@@ -2596,7 +2593,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A signed document create: the document's first link-set manifest, its content-key bundle, and optionally its first encrypted update. */
+        /** @description A signed document create: the hash of the document's first link-set manifest (the API derives the manifest), its content-key bundle, and optionally its first encrypted update. */
         DocumentCreateRequest: {
             authorizingContainerPathRefs?: components["schemas"]["ContainerManifestRefArrayArray"];
             body: unknown;
@@ -2607,10 +2604,7 @@ export type components = {
             };
             expectedManifestHash: string;
             /** @description The document's first queued update, committed in the create transaction under every check a sync makes. */
-            initialSync?: components["schemas"]["DocumentSyncRequest"];
-            manifest: {
-                [key: string]: unknown;
-            };
+            initialSync?: components["schemas"]["DocumentCreateSeedRequest"];
             targetContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
         } & {
             [key: string]: unknown;
@@ -2637,6 +2631,28 @@ export type components = {
             manifestHash: string;
             /** @description Key target hash the API derived. */
             targetHash: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A create's seed: the one encrypted update a document is born with. The API checks and commits it as the document sync it stands for, made from the create's content-key bundle, expected hashes and target path. */
+        DocumentCreateSeedRequest: {
+            outgoingUpdates: ({
+                /** @constant */
+                checkpointKind?: "rotate_baseline";
+                /** @constant */
+                checkpointPayloadKind?: "full_history_snapshot";
+                encryptedData: string;
+                id: string;
+                partialEndVersionVector: string;
+                partialStartVersionVector: string;
+                plaintextHash: string;
+                sourceVersionVector?: string;
+                writeHeader: {
+                    [key: string]: unknown;
+                };
+            } & {
+                [key: string]: unknown;
+            })[];
         } & {
             [key: string]: unknown;
         };
@@ -4080,10 +4096,7 @@ export type components = {
             };
             expectedManifestHash: string;
             /** @description The document's first update, committed with the provisioning. */
-            initialSync: components["schemas"]["DocumentSyncRequest"];
-            manifest: {
-                [key: string]: unknown;
-            };
+            initialSync: components["schemas"]["DocumentCreateSeedRequest"];
             targetContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
         } & {
             [key: string]: unknown;
@@ -4092,7 +4105,7 @@ export type components = {
         ProvisionedSystemContainerRequest: {
             container: components["schemas"]["ContainerMutationRequest"];
             /** @description The metadata document's first update, committed with the provisioning. */
-            initialMetadataSync: components["schemas"]["DocumentSyncRequest"];
+            initialMetadataSync: components["schemas"]["DocumentCreateSeedRequest"];
             metadataDocument: {
                 authorizingContainerPathRefs?: components["schemas"]["ContainerManifestRefArrayArray"];
                 body: unknown;
@@ -4102,9 +4115,6 @@ export type components = {
                     [key: string]: unknown;
                 };
                 expectedManifestHash: string;
-                manifest: {
-                    [key: string]: unknown;
-                };
                 targetContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             } & {
                 [key: string]: unknown;

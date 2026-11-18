@@ -17,7 +17,8 @@ import {
 } from "../util";
 import { ContainerMutationRequestSchema } from "./container";
 import {
-  refineSeedWithinSyncRequestLimit,
+  DocumentCreateSeedRequestSchema,
+  refineCreateSeedSync,
   refineSingleUpdateSeed,
 } from "./documentCreateSeed";
 import {
@@ -54,8 +55,9 @@ export const documentCreateRequestShape = {
   ).optional(),
   contentKeyBundle: DocumentContentKeyBundleRequestSchema,
   event: plainObjectSchema,
+  // The API derives the initial link-set manifest from the signed event and
+  // the target path; the request commits to it by hash.
   expectedManifestHash: nonEmptyStringSchema,
-  manifest: plainObjectSchema,
   targetContainerPathRefs: ContainerManifestPathSchema.optional(),
 } satisfies z.ZodRawShape;
 
@@ -72,14 +74,17 @@ export const DocumentCreateBaseRequestSchema = loosePlainObject(
 export const DocumentCreateRequestSchema = registerJsonSchemaRuntimeRefinements(
   loosePlainObject({
     ...documentCreateRequestShape,
-    initialSync: DocumentSyncRequestSchema.optional(),
+    initialSync: DocumentCreateSeedRequestSchema.optional(),
   }).superRefine((value, context) => {
     refineSingleUpdateSeed(value.initialSync, context, {
       message:
         "document create seed requires one update and no container rekeys",
       path: "initialSync",
     });
-    refineSeedWithinSyncRequestLimit(value.initialSync, context, "initialSync");
+    refineCreateSeedSync(value, value.initialSync, context, {
+      path: "initialSync",
+      withinSyncLimit: true,
+    });
   }),
   [documentCreateSeedRefinement],
 );

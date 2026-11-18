@@ -405,7 +405,7 @@ test("a peer's metadata hint before the create response still queues a read", as
     "container-seed-delayed-response",
     (request, _attempt, hint) => {
       const documentId = String(
-        Reflect.get(request.metadataDocument.manifest, "objectId"),
+        Reflect.get(request.metadataDocument.event, "objectId"),
       );
       const seedId = request.initialMetadataSync?.outgoingUpdates[0]?.id ?? "";
       observed.planned = documentId;

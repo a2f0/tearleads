@@ -1,8 +1,9 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import type {
-  OrganizationProvisioningRequest,
-  ProvisionedSystemContainerRequest,
+import {
+  documentCreateSeedSyncRequest,
+  type OrganizationProvisioningRequest,
+  type ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type { ContainerCreateWithMetadataDocumentResponse } from "@tearleads/validators/response";
 import { createContainerOutcome } from "../containers/mutations/createContainer";
@@ -56,7 +57,10 @@ async function createProvisionedSystemContainer(
     fingerprint: input.signer.fingerprint,
     lockedContainerHeads,
     createdDocumentSeed,
-    request: input.request.initialMetadataSync,
+    request: documentCreateSeedSyncRequest(
+      input.request.metadataDocument,
+      input.request.initialMetadataSync,
+    ),
     signingPublicKey: input.signer.signingPublicKey,
     userId: input.userId,
   });

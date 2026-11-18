@@ -52,6 +52,7 @@ import {
   withDocumentMutationArtifacts,
 } from "./documentAcknowledgementFixture";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
+import { rememberRequestManifest } from "./requestManifests";
 import {
   type StoredContainerMutation,
   storedContainerManifestBundle,
@@ -440,27 +441,32 @@ export async function createDocumentRequest(input: {
   ];
   const targetHash = await computeDocumentContentKeyTargetHash(targets);
 
-  return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown as Record<string, unknown>,
-    expectedManifestHash: manifestHash,
-    manifest: manifest as unknown as Record<string, unknown>,
-    targetContainerPathRefs: (input.containerPath ?? [input.root.bundle]).map(
-      (bundle) => ({
-        containerId: asVerifiedContainerManifest(bundle).state.containerId,
-        manifestHash: bundle.manifestHash,
-      }),
-    ),
-    contentKeyBundle: {
-      contentKeyEpoch: 1,
-      linkSetManifestHash: manifestHash,
-      targetHash,
-      targets: targets.map((target) => ({
-        ...target,
-        ...contentKeyEnvelopeFixture("Document", `document-key:${documentId}`),
-      })),
+  return rememberRequestManifest(
+    {
+      event: event.event as unknown as Record<string, unknown>,
+      body: body as unknown as Record<string, unknown>,
+      expectedManifestHash: manifestHash,
+      targetContainerPathRefs: (input.containerPath ?? [input.root.bundle]).map(
+        (bundle) => ({
+          containerId: asVerifiedContainerManifest(bundle).state.containerId,
+          manifestHash: bundle.manifestHash,
+        }),
+      ),
+      contentKeyBundle: {
+        contentKeyEpoch: 1,
+        linkSetManifestHash: manifestHash,
+        targetHash,
+        targets: targets.map((target) => ({
+          ...target,
+          ...contentKeyEnvelopeFixture(
+            "Document",
+            `document-key:${documentId}`,
+          ),
+        })),
+      },
     },
-  };
+    manifest,
+  );
 }
 
 export async function createDocument(input: {

@@ -7,7 +7,11 @@ import {
   type UnsignedWriteHeader,
 } from "@tearleads/crypto";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
-import type { DocumentCreateRequest } from "@tearleads/validators/request";
+import {
+  type DocumentCreateRequest,
+  type DocumentSyncRequest,
+  documentCreateSeedSyncRequest,
+} from "@tearleads/validators/request";
 import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import { eq } from "drizzle-orm";
@@ -45,6 +49,8 @@ async function registeredRoot(): Promise<{
 async function seededCreateRequest(input: {
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
+  /** Signs the seed's update against these targets instead of the create's. */
+  readonly signedTargetHash?: string;
 }): Promise<{
   readonly request: DocumentCreateRequest;
   readonly updateId: string;
@@ -52,24 +58,29 @@ async function seededCreateRequest(input: {
   const create = await createDocumentRequest(input);
   // The seed is signed against the create's own manifest and key bundle.
   const planned = {
-    accessManifest: { state: create.manifest },
+    accessManifest: { state: create.event },
     contentKeyBundle: create.contentKeyBundle,
-    id: String(Reflect.get(create.manifest, "objectId")),
+    id: String(Reflect.get(create.event, "objectId")),
   } as unknown as CreatedDocumentFixture;
   const { request: seed, updateId } = await createSignedDocumentSyncRequest({
     created: planned,
     owner: input.owner,
     root: input.root,
+    ...(input.signedTargetHash === undefined
+      ? {}
+      : {
+          contentKeyBundle: {
+            ...planned.contentKeyBundle,
+            targetHash: input.signedTargetHash,
+          },
+        }),
   });
   const [update] = seed.outgoingUpdates;
   if (!update) throw new Error("Expected a seed update");
   return {
     request: {
       ...create,
-      initialSync: {
-        ...seed,
-        localVersionVector: update.partialEndVersionVector,
-      },
+      initialSync: { outgoingUpdates: [update] },
     },
     updateId,
   };
@@ -112,9 +123,7 @@ test("a seed skips its billing check only for the organization the create admitt
   const { owner, root } = await registeredRoot();
   const { root: otherRoot } = await registeredRoot();
   const { request } = await seededCreateRequest({ owner, root });
-  const organizationId = String(
-    Reflect.get(request.manifest, "organizationId"),
-  );
+  const organizationId = String(Reflect.get(request.event, "organizationId"));
   await setTestOrganizationBillingLocal(organizationId);
   const seedAfterCreate = (syncEligibleOrganizationId: string) =>
     db.transaction(async (tx) => {
@@ -126,6 +135,7 @@ test("a seed skips its billing check only for the organization the create admitt
           userId: owner.userId,
         });
       return commitDocumentCreateSeedInTransaction({
+        create: request,
         documentId: created.id,
         executor: tx,
         fingerprint: owner.fingerprint,
@@ -163,18 +173,19 @@ test("a plain create reports no seed", async () => {
 
 test("a seed the sync would refuse fails the whole create", async () => {
   const { owner, root } = await registeredRoot();
-  const { request } = await seededCreateRequest({ owner, root });
-  const seed = request.initialSync;
-  if (!seed) throw new Error("Expected a seed");
-  const documentId = String(Reflect.get(request.manifest, "objectId"));
-
-  const response = await postCreate(owner, {
-    ...request,
-    initialSync: { ...seed, expectedTargetHash: "0".repeat(64) },
+  // The update is signed against other targets than the create commits, so
+  // the sync the seed stands for refuses its write header.
+  const { request } = await seededCreateRequest({
+    owner,
+    root,
+    signedTargetHash: "0".repeat(64),
   });
+  const documentId = String(Reflect.get(request.event, "objectId"));
+
+  const response = await postCreate(owner, request);
   expect(response.status).toBe(409);
-  expect(((await response.json()) as { code?: string }).code).toBe(
-    "document_sync_state_stale",
+  expect(((await response.json()) as { error?: string }).error).toBe(
+    "write header target hash does not match expected hash",
   );
   const rows = await db
     .select({ id: documents.id })
@@ -220,8 +231,8 @@ test("replaying a seeded create reports the committed manifest", async () => {
 /** The seed as a client re-sends its row: the same id, freshly encrypted. */
 async function reencryptedSeed(
   owner: TestUser,
-  seed: NonNullable<DocumentCreateRequest["initialSync"]>,
-): Promise<NonNullable<DocumentCreateRequest["initialSync"]>> {
+  seed: DocumentSyncRequest,
+): Promise<DocumentSyncRequest> {
   const [update] = seed.outgoingUpdates;
   if (!update) throw new Error("Expected a seed update");
   const encryptedData = `${update.encryptedData}:fresh-iv`;
@@ -255,8 +266,10 @@ test("a committed seed re-sent by a sync takes the update-id conflict", async ()
   expect(first.status).toBe(200);
   const created = (await first.json()) as DocumentCreateResponse;
 
-  // Only a byte-identical re-send is a retry of the seed.
-  const retried = await postDocumentSync(owner, created.id, seed);
+  // Only a byte-identical re-send is a retry of the seed; a sync carries the
+  // whole request the seed stood for.
+  const sync = documentCreateSeedSyncRequest(request, seed);
+  const retried = await postDocumentSync(owner, created.id, sync);
   expect(retried.status).toBe(200);
 
   // After a lost create response the adopted row syncs re-encrypted, so the
@@ -265,7 +278,7 @@ test("a committed seed re-sent by a sync takes the update-id conflict", async ()
   const resent = await postDocumentSync(
     owner,
     created.id,
-    await reencryptedSeed(owner, seed),
+    await reencryptedSeed(owner, sync),
   );
   expect(resent.status).toBe(409);
   expect(((await resent.json()) as { code?: string }).code).toBe(
@@ -296,7 +309,7 @@ test("a create seed over the sync request limit is refused before the create", a
   const { request } = await seededCreateRequest({ owner, root });
   const seed = request.initialSync;
   if (!seed) throw new Error("Expected a seed");
-  const documentId = String(Reflect.get(request.manifest, "objectId"));
+  const documentId = String(Reflect.get(request.event, "objectId"));
 
   const response = await postCreate(owner, {
     ...request,

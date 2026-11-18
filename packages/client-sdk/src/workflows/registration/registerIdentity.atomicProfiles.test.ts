@@ -12,6 +12,7 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
+  documentCreateSeedSyncRequest,
   isDocumentSyncRequest,
   isProvisionedDocumentRequest,
   type ProvisionedDocumentRequest,
@@ -72,8 +73,10 @@ async function expectSettledProfile(input: {
   if (!document) {
     throw new Error(`Expected durable profile content ${input.localId}`);
   }
-  const expectedVersionVector = input.request.initialSync.localVersionVector;
-  if (expectedVersionVector === null) {
+  // A seed's sync takes the update's end as its local version.
+  const expectedVersionVector =
+    input.request.initialSync.outgoingUpdates[0]?.partialEndVersionVector;
+  if (expectedVersionVector === undefined) {
     throw new Error("Expected profile version vector");
   }
   expect(stored.snapshotEndVersion).toBe(expectedVersionVector);
@@ -126,7 +129,7 @@ test("atomic profile initial syncs import cleanly into a fresh peer", async () =
     const documentId = profile.materialized.plan.documentId;
     const decrypted = await decryptDocumentSyncUpdates({
       contentKey: profile.materialized.contentKey,
-      contentKeyEpoch: profile.request.initialSync.contentKeyEpoch,
+      contentKeyEpoch: profile.request.contentKeyBundle.contentKeyEpoch,
       documentId,
       organizationId: artifacts.organizationId,
       updates: [
@@ -262,11 +265,13 @@ test("registerIdentity settles acknowledged profiles", async () => {
     }
     const profiles = [rosterRequest, organizationRequest];
     for (const profile of profiles) {
-      expect(isDocumentSyncRequest(profile.initialSync)).toBe(true);
+      expect(Object.keys(profile.initialSync)).toEqual(["outgoingUpdates"]);
+      expect(
+        isDocumentSyncRequest(
+          documentCreateSeedSyncRequest(profile, profile.initialSync),
+        ),
+      ).toBe(true);
       expect(profile.initialSync.outgoingUpdates).toHaveLength(1);
-      expect(profile.initialSync.expectedLinkSetManifestHash).toBe(
-        profile.expectedManifestHash,
-      );
       expect(
         Reflect.get(
           profile.initialSync.outgoingUpdates[0]?.writeHeader ?? {},

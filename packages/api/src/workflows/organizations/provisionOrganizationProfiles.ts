@@ -3,10 +3,11 @@ import {
   organizationRosterEntries,
   organizations,
 } from "@tearleads/api-shared/schema";
-import type {
-  DocumentCreateRequest,
-  OrganizationProvisioningRequest,
-  ProvisionedDocumentRequest,
+import {
+  type DocumentCreateRequest,
+  documentCreateSeedSyncRequest,
+  type OrganizationProvisioningRequest,
+  type ProvisionedDocumentRequest,
 } from "@tearleads/validators/request";
 import type {
   ContainerCreateWithMetadataDocumentResponse,
@@ -90,7 +91,7 @@ async function createInitialProfileDocument(input: {
     fingerprint: signer.fingerprint,
     lockedContainerHeads,
     createdDocumentSeed,
-    request: request.initialSync,
+    request: documentCreateSeedSyncRequest(request, request.initialSync),
     signingPublicKey: signer.signingPublicKey,
     userId,
   });

@@ -128,7 +128,7 @@ test("createRemoteDocument replans once when the target container head advances"
     expect(submittedRequests).toHaveLength(2);
     expect(
       submittedRequests.map((request) =>
-        Reflect.get(request.manifest, "objectId"),
+        Reflect.get(request.event, "objectId"),
       ),
     ).toEqual(["stale-target-document", "stale-target-document"]);
     expect(

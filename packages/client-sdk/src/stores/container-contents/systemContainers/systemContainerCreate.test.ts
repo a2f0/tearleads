@@ -93,7 +93,7 @@ test("a peer's metadata hint during an eager system create queues its read", asy
       request: ContainerCreateWithMetadataDocumentRequest,
     ) => {
       const documentId = String(
-        Reflect.get(request.metadataDocument.manifest, "objectId"),
+        Reflect.get(request.metadataDocument.event, "objectId"),
       );
       state.runtime = {
         ...state.runtime,

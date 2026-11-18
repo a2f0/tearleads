@@ -12,11 +12,12 @@ import {
   exportUpdatesSince,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
-import type {
-  ContainerMutationRequest,
-  DocumentCreateRequest,
-  ProvisionedDocumentRequest,
-  ProvisionedSystemContainerRequest,
+import {
+  type ContainerMutationRequest,
+  type DocumentCreateRequest,
+  documentCreateSeedSyncRequest,
+  type ProvisionedDocumentRequest,
+  type ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { toWireRecord } from "./registration/wire";
@@ -200,18 +201,9 @@ export async function createProvisionedDocumentFixture(input: {
 
   return {
     ...input.document,
+    // The seed carries its update alone; the API rebuilds the sync from the
+    // document's own bundle and target path.
     initialSync: {
-      authorizingContainerPathRefs: [
-        input.containerProjection.path.map((entry) => ({
-          containerId: String(Reflect.get(entry.state, "containerId")),
-          manifestHash: entry.manifestHash,
-        })),
-      ],
-      contentKeyBundle: bundle,
-      contentKeyEpoch: bundle.contentKeyEpoch,
-      expectedLinkSetManifestHash: bundle.linkSetManifestHash,
-      expectedTargetHash: bundle.targetHash,
-      localVersionVector: vectors.partialEndVersionVector,
       outgoingUpdates: [
         {
           encryptedData,
@@ -225,7 +217,6 @@ export async function createProvisionedDocumentFixture(input: {
           ),
         },
       ],
-      supportsPullPagination: true,
     },
   };
 }
@@ -266,6 +257,7 @@ export async function makeProvisionedDocumentSeedDependencyBearing(
   if (!update) {
     throw new Error("Expected provisioned document update");
   }
+  const sync = documentCreateSeedSyncRequest(request, request.initialSync);
 
   const document = await createLoroDocument(`dependent-seed-${update.id}`);
   document.getText("dependency").update("not included in seed");
@@ -280,7 +272,7 @@ export async function makeProvisionedDocumentSeedDependencyBearing(
     organizationId: readHeaderString(header, "organizationId"),
     objectKind: "document" as const,
     objectId: readHeaderString(header, "objectId"),
-    contentKeyEpoch: request.initialSync.contentKeyEpoch,
+    contentKeyEpoch: sync.contentKeyEpoch,
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId: readHeaderString(header, "contentRecordId"),
   };
@@ -289,13 +281,13 @@ export async function makeProvisionedDocumentSeedDependencyBearing(
       ...nonceDomain,
       dependencyManifestHashes: [
         ...new Set(
-          (request.initialSync.authorizingContainerPathRefs ?? []).flatMap(
-            (path) => path.map((ref) => ref.manifestHash),
+          (sync.authorizingContainerPathRefs ?? []).flatMap((path) =>
+            path.map((ref) => ref.manifestHash),
           ),
         ),
       ].sort(),
-      accessManifestHash: request.initialSync.expectedLinkSetManifestHash,
-      targetHash: request.initialSync.expectedTargetHash,
+      accessManifestHash: sync.expectedLinkSetManifestHash,
+      targetHash: sync.expectedTargetHash,
       nonceDomainHash: await computeContentRecordNonceDomainHash(nonceDomain),
       metadataHash: await computeDocumentContentRecordMetadataHash({
         documentId: nonceDomain.objectId,
@@ -315,7 +307,6 @@ export async function makeProvisionedDocumentSeedDependencyBearing(
     signingPrivateKey,
   );
 
-  request.initialSync.localVersionVector = vectors.partialEndVersionVector;
   request.initialSync.outgoingUpdates[0] = {
     ...update,
     partialStartVersionVector: vectors.partialStartVersionVector,

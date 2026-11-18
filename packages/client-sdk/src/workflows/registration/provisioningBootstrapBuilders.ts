@@ -15,7 +15,7 @@ import {
 } from "../containers";
 import type { resolveDocumentCreateAuthor } from "../documents";
 import { buildMaterializedDocumentCreatePlan } from "../documents";
-import { buildInitialDocumentSyncRequest } from "../documents/sync/initialSync";
+import { buildInitialDocumentCreateSeed } from "../documents/sync/initialSync";
 import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";
 import {
   deriveOrganizationMetadataContainerSystemSlot,
@@ -94,7 +94,7 @@ interface ProvisionedChildContainerCore {
     systemSlot: ContainerSystemSlot;
     container: InitialSystemContainerCreatePlan["plan"]["request"];
     initialMetadataSync: Awaited<
-      ReturnType<typeof buildInitialDocumentSyncRequest>
+      ReturnType<typeof buildInitialDocumentCreateSeed>
     >;
     metadataDocument: Awaited<
       ReturnType<typeof buildMaterializedDocumentCreatePlan>
@@ -187,7 +187,7 @@ async function buildProvisionedChildContainerCore(input: {
     targetSecretKey: input.targetSecretKey,
     trustedLocalProjection: true,
   });
-  const initialMetadataSync = await buildInitialDocumentSyncRequest({
+  const initialMetadataSync = await buildInitialDocumentCreateSeed({
     author: input.author,
     containerProjection,
     initialUpdate,
@@ -438,7 +438,7 @@ export async function buildInitialRootProvisioning(input: {
     rootMetadataDocument,
     rootMetadataDocumentRequest: {
       ...rootMetadataDocument.plan.request,
-      initialSync: await buildInitialDocumentSyncRequest({
+      initialSync: await buildInitialDocumentCreateSeed({
         author: input.author,
         containerProjection: rootContainerProjection,
         initialUpdate: input.bootstrap.initialUpdate,

@@ -63,9 +63,9 @@ async function seedPlan(kind: "document" | "metadata") {
           signer: owner,
         });
   const document = {
-    accessManifest: { state: request.manifest },
+    accessManifest: { state: request.event },
     contentKeyBundle: request.contentKeyBundle,
-    id: String(Reflect.get(request.manifest, "objectId")),
+    id: String(Reflect.get(request.event, "objectId")),
   } as unknown as CreatedDocumentFixture;
   const sync = await createFirstUpdateSyncRequest({
     owner,
@@ -75,7 +75,8 @@ async function seedPlan(kind: "document" | "metadata") {
       ? [request.targetContainerPathRefs]
       : undefined,
   });
-  const seed = { ...sync.request, minLsn: "FFFFFFFF/FFFFFFFF" };
+  // A seed carries its update alone.
+  const seed = { outgoingUpdates: sync.request.outgoingUpdates };
   return {
     documentId: document.id,
     updateId: sync.id,

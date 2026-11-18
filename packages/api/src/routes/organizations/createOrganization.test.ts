@@ -79,16 +79,17 @@ function documentCreateRequestId(request: DocumentCreateRequest): string {
 }
 
 async function expectProvisionedDocumentReadable(input: {
+  create: ProvisionedDocumentRequest;
   documentId: string;
-  initialSync: DocumentSyncRequest;
   user: TestUser;
 }) {
-  const initialUpdate = input.initialSync.outgoingUpdates[0];
+  const initialUpdate = input.create.initialSync.outgoingUpdates[0];
   invariant(initialUpdate, "expected initial document update");
+  const { contentKeyBundle: bundle } = input.create;
   const readRequest = {
-    contentKeyEpoch: input.initialSync.contentKeyEpoch,
-    expectedLinkSetManifestHash: input.initialSync.expectedLinkSetManifestHash,
-    expectedTargetHash: input.initialSync.expectedTargetHash,
+    contentKeyEpoch: bundle.contentKeyEpoch,
+    expectedLinkSetManifestHash: bundle.linkSetManifestHash,
+    expectedTargetHash: bundle.targetHash,
     localVersionVector: null,
     outgoingUpdates: [],
     supportsPullPagination: true,
@@ -127,7 +128,7 @@ async function expectProvisionedDocumentReadable(input: {
       },
       body: JSON.stringify({
         ...readRequest,
-        localVersionVector: input.initialSync.localVersionVector,
+        localVersionVector: initialUpdate.partialEndVersionVector,
       }),
     },
   );
@@ -288,12 +289,12 @@ test("POST /organizations atomically stores profile bodies readable on local bil
 
   await expectProvisionedDocumentReadable({
     documentId: provisionedProfileDocumentId(rosterProfile),
-    initialSync: rosterProfile.initialSync,
+    create: rosterProfile,
     user,
   });
   await expectProvisionedDocumentReadable({
     documentId: provisionedProfileDocumentId(organizationProfile),
-    initialSync: organizationProfile.initialSync,
+    create: organizationProfile,
     user,
   });
 });
@@ -354,11 +355,11 @@ test("POST /organizations atomically stores provisioned Trash metadata readable 
     .where(eq(containerMetadataDocuments.documentId, documentId));
   expect(metadataBinding?.documentId).toBe(documentId);
 
+  const { contentKeyBundle: trashBundle } = trash.metadataDocument;
   const readRequest = {
-    contentKeyEpoch: trash.initialMetadataSync.contentKeyEpoch,
-    expectedLinkSetManifestHash:
-      trash.initialMetadataSync.expectedLinkSetManifestHash,
-    expectedTargetHash: trash.initialMetadataSync.expectedTargetHash,
+    contentKeyEpoch: trashBundle.contentKeyEpoch,
+    expectedLinkSetManifestHash: trashBundle.linkSetManifestHash,
+    expectedTargetHash: trashBundle.targetHash,
     localVersionVector: null,
     outgoingUpdates: [],
     supportsPullPagination: true,

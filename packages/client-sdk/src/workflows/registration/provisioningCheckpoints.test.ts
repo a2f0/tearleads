@@ -38,12 +38,20 @@ function requireRequest<T>(value: T | undefined): T {
 }
 
 /** Documents acknowledge by hash; their checkpoint is the head the client signed. */
+/** A document create's head, read from its signed event: epoch 1. */
 function signedDocumentHead(request: {
+  readonly event: Record<string, unknown>;
   readonly expectedManifestHash: string;
-  readonly manifest: Record<string, unknown>;
 }) {
+  const { objectId, organizationId } = request.event;
   return {
-    manifest: request.manifest,
+    manifest: {
+      objectKind: "document",
+      objectId,
+      organizationId,
+      epoch: 1,
+      previousManifestHash: null,
+    },
     manifestHash: request.expectedManifestHash,
   };
 }

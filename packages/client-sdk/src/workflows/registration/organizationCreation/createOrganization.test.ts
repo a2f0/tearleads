@@ -8,10 +8,10 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   type CreateOrganizationRequest,
   isCreateOrganizationRequest,
-  isDocumentSyncRequest,
   isProvisionedDocumentRequest,
   isProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
+import { expectSeedOnly } from "../../../../test/helpers/data/createSeedAssertions";
 import { execSqlClientFromExecSql } from "../../../../test/helpers/data/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../../test/helpers/data/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
@@ -103,10 +103,10 @@ test("createOrganization provisions a new org for the existing user and persists
     expect(
       request.initialRootMetadataDocument.initialSync.outgoingUpdates,
     ).toHaveLength(1);
-    expect(
-      request.initialRootMetadataDocument.initialSync
-        .expectedLinkSetManifestHash,
-    ).toBe(request.initialRootMetadataDocument.expectedManifestHash);
+    expectSeedOnly(
+      request.initialRootMetadataDocument,
+      request.initialRootMetadataDocument.initialSync,
+    );
     const rootMetadataUpdateId =
       request.initialRootMetadataDocument.initialSync.outgoingUpdates[0]?.id;
     if (!rootMetadataUpdateId) {
@@ -123,11 +123,11 @@ test("createOrganization provisions a new org for the existing user and persists
         throw new Error("Expected provisioned core metadata container");
       }
       const initialMetadataSync = provisionedContainer.initialMetadataSync;
-      expect(isDocumentSyncRequest(initialMetadataSync)).toBe(true);
-      expect(initialMetadataSync.outgoingUpdates).toHaveLength(1);
-      expect(initialMetadataSync.expectedLinkSetManifestHash).toBe(
-        provisionedContainer?.metadataDocument.expectedManifestHash,
+      expectSeedOnly(
+        provisionedContainer.metadataDocument,
+        initialMetadataSync,
       );
+      expect(initialMetadataSync.outgoingUpdates).toHaveLength(1);
       const updateId = initialMetadataSync.outgoingUpdates[0]?.id;
       if (!updateId) {
         throw new Error("Expected initial container metadata update id");
@@ -147,11 +147,8 @@ test("createOrganization provisions a new org for the existing user and persists
       if (!isProvisionedDocumentRequest(provisionedProfile)) {
         throw new Error("Expected provisioned profile document request");
       }
-      expect(isDocumentSyncRequest(provisionedProfile.initialSync)).toBe(true);
+      expectSeedOnly(provisionedProfile, provisionedProfile.initialSync);
       expect(provisionedProfile.initialSync.outgoingUpdates).toHaveLength(1);
-      expect(provisionedProfile.initialSync.expectedLinkSetManifestHash).toBe(
-        provisionedProfile.expectedManifestHash,
-      );
       expect(
         Reflect.get(
           provisionedProfile.initialSync.outgoingUpdates[0]?.writeHeader ?? {},
@@ -299,15 +296,14 @@ test("createOrganization provisions configured system containers (Trash) atomica
     expect(request.initialSystemContainers).toHaveLength(1);
     const provisionedTrash = request.initialSystemContainers?.[0];
     expect(provisionedTrash?.systemSlot).toBe(trashSlot);
-    expect(isDocumentSyncRequest(provisionedTrash?.initialMetadataSync)).toBe(
-      true,
+    if (!provisionedTrash) throw new Error("Expected provisioned Trash");
+    expectSeedOnly(
+      provisionedTrash.metadataDocument,
+      provisionedTrash.initialMetadataSync,
     );
     expect(provisionedTrash?.initialMetadataSync.outgoingUpdates).toHaveLength(
       1,
     );
-    expect(
-      provisionedTrash?.initialMetadataSync.expectedLinkSetManifestHash,
-    ).toBe(provisionedTrash?.metadataDocument.expectedManifestHash);
     expect(
       Reflect.get(
         provisionedTrash?.initialMetadataSync.outgoingUpdates[0]?.writeHeader ??

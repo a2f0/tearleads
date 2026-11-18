@@ -2,7 +2,11 @@ import type {
   ApiDatabase,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import type { DocumentCreateRequest } from "@tearleads/validators/request";
+import {
+  type DocumentCreateRequest,
+  type DocumentCreateSeedRequest,
+  documentCreateSeedSyncRequest,
+} from "@tearleads/validators/request";
 import type {
   DocumentCreateResponse,
   DocumentCreateSeedResponse,
@@ -62,14 +66,19 @@ export interface DocumentCreatedInTransaction {
 
 /**
  * Commits a create's seed in its transaction; see `appendDocumentCreateSeed`.
- * The caller has admitted `syncEligibleOrganizationId` with
+ * The seed carries its update alone; the sync it stands for takes the rest
+ * from `create`. The caller has admitted `syncEligibleOrganizationId` with
  * `assertOrganizationCanSync` in this transaction.
  */
 export async function commitDocumentCreateSeedInTransaction(input: {
+  readonly create: Pick<
+    DocumentCreateRequest,
+    "contentKeyBundle" | "targetContainerPathRefs"
+  >;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
-  readonly seed: DocumentCreateRequest["initialSync"];
+  readonly seed: DocumentCreateSeedRequest | undefined;
   readonly createdDocumentSeed?: CreatedDocumentSeed | undefined;
   readonly lockedContainerHeads?: LockedContainerHeadRows | undefined;
   readonly syncEligibleOrganizationId: string;
@@ -80,7 +89,7 @@ export async function commitDocumentCreateSeedInTransaction(input: {
     documentId: input.documentId,
     executor: input.executor,
     fingerprint: input.fingerprint,
-    request: input.seed,
+    request: documentCreateSeedSyncRequest(input.create, input.seed),
     createdDocumentSeed: input.createdDocumentSeed,
     lockedContainerHeads: input.lockedContainerHeads,
     signingPublicKey: await loadSignerPublicKey(input.executor, {
@@ -130,6 +139,7 @@ export async function runCreateDocumentWorkflow(
           documentId: created.id,
           executor: tx,
           fingerprint: input.fingerprint,
+          create: input.request,
           seed: input.request.initialSync,
           createdDocumentSeed,
           lockedContainerHeads,

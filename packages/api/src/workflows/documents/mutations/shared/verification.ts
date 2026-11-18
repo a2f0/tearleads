@@ -24,10 +24,7 @@ import {
   type StoredAccessManifestHead,
 } from "../../../../access/read/accessManifestStore";
 import type { resolveCurrentDocumentKekTargets as resolveTargets } from "../../../../access/read/documentKekTargets";
-import {
-  readProjectionAccessEvent,
-  readProjectionAccessManifest,
-} from "../../../../keyingProjectionRecords";
+import { readProjectionAccessEvent } from "../../../../keyingProjectionRecords";
 import { createContainerWriterProjectionContext } from "../../../containers/writerProjection/context";
 import { toManifestBundleResponse } from "../../../containers/writerProjection/records";
 import { loadPrincipalPoliciesForContainerPaths } from "../../../principals/principalPolicyProjection";
@@ -137,14 +134,11 @@ export async function verifyDocumentManifestFromRequest(input: {
       ...(authorizingContainerPaths ?? []),
     ],
   );
+  // The request carries only the hash: the initial manifest is derived from
+  // the signed event and the target path, and must hash to it.
   const result = await verifyDocumentLinkSetManifest({
     event: input.event,
     expectedManifestHash: input.request.expectedManifestHash,
-    manifest: readProjectionAccessManifest(
-      input.request.manifest,
-      "Document manifest",
-      documentShapeError,
-    ),
     // A create is the initial link-set manifest: there is no predecessor.
     previousManifest: null,
     principalPolicies,

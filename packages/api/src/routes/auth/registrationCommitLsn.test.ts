@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import { toFingerprint } from "@tearleads/crypto";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
-import type {
-  DocumentSyncRequest,
-  RegistrationRequest,
+import {
+  type DocumentCreateSeedRequest,
+  type DocumentSyncRequest,
+  documentCreateSeedSyncRequest,
+  type RegistrationRequest,
 } from "@tearleads/validators/request";
 import {
   isDocumentSyncResponse,
@@ -30,18 +32,38 @@ function seededDocument(initialSync: DocumentSyncRequest): SeededDocument {
 
 /** Every document registration seeds, with the sync that seeded it. */
 function seededDocuments(body: RegistrationRequest): SeededDocument[] {
+  const seeded = (
+    create: Parameters<typeof documentCreateSeedSyncRequest>[0] | undefined,
+    seed: DocumentCreateSeedRequest | undefined,
+  ) =>
+    create && seed
+      ? [seededDocument(documentCreateSeedSyncRequest(create, seed))]
+      : [];
   return [
-    body.initialRootMetadataDocument.initialSync,
-    body.initialRosterProfileContainer?.initialMetadataSync,
-    body.initialRosterProfileDocument?.initialSync,
-    body.initialOrganizationMetadataContainer.initialMetadataSync,
-    body.initialOrganizationProfileDocument?.initialSync,
-    ...(body.initialSystemContainers ?? []).map(
-      (container) => container.initialMetadataSync,
+    ...seeded(
+      body.initialRootMetadataDocument,
+      body.initialRootMetadataDocument.initialSync,
     ),
-  ].flatMap((initialSync) =>
-    initialSync ? [seededDocument(initialSync)] : [],
-  );
+    ...seeded(
+      body.initialRosterProfileContainer?.metadataDocument,
+      body.initialRosterProfileContainer?.initialMetadataSync,
+    ),
+    ...seeded(
+      body.initialRosterProfileDocument,
+      body.initialRosterProfileDocument?.initialSync,
+    ),
+    ...seeded(
+      body.initialOrganizationMetadataContainer.metadataDocument,
+      body.initialOrganizationMetadataContainer.initialMetadataSync,
+    ),
+    ...seeded(
+      body.initialOrganizationProfileDocument,
+      body.initialOrganizationProfileDocument?.initialSync,
+    ),
+    ...(body.initialSystemContainers ?? []).flatMap((container) =>
+      seeded(container.metadataDocument, container.initialMetadataSync),
+    ),
+  ];
 }
 
 /** A first read from nothing, bounded below by the registration position. */

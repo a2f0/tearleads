@@ -13,7 +13,10 @@ import {
 } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { writerResolver } from "../../../test/helpers/coldSdkRematerialization";
-import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
+import {
+  withCreatedDocumentArtifacts,
+  withDocumentMutationArtifacts,
+} from "../../../test/helpers/documentAcknowledgementFixture";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createHeldManifestCitations } from "../../../test/helpers/heldManifestCitations";
 import {
@@ -111,7 +114,7 @@ test("real document projections cite held manifests through links, rotations and
     if (!created?.response) throw new Error("Expected encrypted document");
     const createdResponse = created.response;
     if (!created.plan) throw new Error("Expected a fresh create plan");
-    let current = withDocumentMutationArtifacts(
+    let current = await withCreatedDocumentArtifacts(
       created.plan.request,
       createdResponse,
     );

@@ -150,7 +150,10 @@ test(
         // sending the manifests again (291.5 KB) exceeds this ceiling. The
         // projection cites the held organization directory: 28.4 KB received
         // (29.7 KB with it, which exceeds this ceiling).
-        bodyBytes: { request: 289_700, response: 29_000 },
+        // Seeds carry their update alone and document creates send manifest
+        // hashes alone: 274.0 KB sent; the full seeds and create manifests
+        // (287.1 KB) exceed this ceiling.
+        bodyBytes: { request: 280_000, response: 29_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 5,
           "GET /principals/group/:groupId/policy": 0,
@@ -229,7 +232,9 @@ test(
         // received (19.4 KB before; 132 KB before hash acknowledgements).
         // Child containers cite their parent KEK state: 223 KB sent (230 KB
         // before). Container creates send manifest hashes alone: 220.0 KB.
-        bodyBytes: { request: 221_500, response: 20_000 },
+        // Seeds carry their update alone and document creates send manifest
+        // hashes alone: 209.4 KB (220.0 KB with them exceeds this ceiling).
+        bodyBytes: { request: 215_000, response: 20_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 1,
           "GET /principals/group/:groupId/policy": 0,

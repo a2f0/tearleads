@@ -32,7 +32,9 @@ import { recordDocumentAuthorAccessFailure } from "../authorAccessFailure";
 import type { RemoteDocumentCollaborators } from "../remote/remoteDocumentCollaborators";
 import {
   buildDocumentCreateSeedRequest,
+  documentCreateSeed,
   documentCreateSeedFits,
+  documentSyncFits,
 } from "../sync/initialSync";
 import { isDocumentManifestAlreadyExistsConflict } from "../syncFailures/syncFailureClassification";
 import { adoptExistingRemoteDocument } from "./createAdoption";
@@ -233,11 +235,11 @@ async function submitPlannedDocumentCreateRequest(
         pendingUpdate: input.seedUpdate,
       })
     : null;
-  if (seed && documentCreateSeedFits(seed)) {
+  if (seed && documentCreateSeedFits(request, seed)) {
     if (input.stillCurrent?.() === false) return null;
     const seeded = await submitDocumentCreate(
       input.apiClient,
-      { ...request, initialSync: seed },
+      { ...request, initialSync: documentCreateSeed(seed) },
       organizationId,
     );
     if (
@@ -352,7 +354,7 @@ async function withDeferredSeed(
     materializedDocument: createPlan.materializedPlan,
     pendingUpdate: input.deferredSeedUpdate,
   });
-  return documentCreateSeedFits(deferredSeed)
+  return documentSyncFits(deferredSeed)
     ? { ...created, deferredSeed }
     : created;
 }

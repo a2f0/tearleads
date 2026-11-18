@@ -1,12 +1,12 @@
 export const organizationProvisioningDocumentSeedRefinement = {
   description:
-    "each provisioned document seed must contain exactly one outgoing update and no container rekeys",
+    "each provisioned document seed must contain exactly one outgoing update and no container rekeys, and with its document's content-key bundle and target path form a valid document sync",
   id: "request.organization-provisioning-document-seed",
 } as const;
 
 export const organizationProvisioningContainerSeedRefinement = {
   description:
-    "each provisioned system-container metadata seed must contain exactly one outgoing update and no container rekeys",
+    "each provisioned system-container metadata seed must contain exactly one outgoing update and no container rekeys, and with its metadata document's content-key bundle and target path form a valid document sync",
   id: "request.organization-provisioning-container-seed",
 } as const;
 

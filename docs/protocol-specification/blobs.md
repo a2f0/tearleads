@@ -99,9 +99,10 @@ Binding uses:
 - optional `containerRekeys[]`
 - [blob content-key bundle](../glossary/keys.md#blob-content-key-bundle)
 - optional `stagedBlob` with `stageId` and signed blob write header
-- optional `documentSync`: the document's deferred first update, held to the
-  same shape as a create's `initialSync` seed (one outgoing update from an
-  empty start, no container rekeys, within the sync request limit)
+- optional `documentSync`: the document's deferred first update, a complete
+  document sync request holding one outgoing update from an empty start, no
+  container rekeys, within the sync request limit (a create's `initialSync`
+  seed carries the update alone and the API rebuilds the rest from the create)
 
 The bind body commits to `bindingId`, `blobId`, `documentId`, `slotId`,
 `expectedBindingId`, and `documentManifestHash`. The event uses
