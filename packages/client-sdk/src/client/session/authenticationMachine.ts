@@ -9,7 +9,7 @@ type AuthenticationEvent =
     }
   | { readonly type: "invalidated" };
 
-export function transitionAuthentication(
+function transitionAuthentication(
   state: AuthenticationState,
   event: AuthenticationEvent,
 ): AuthenticationState {
