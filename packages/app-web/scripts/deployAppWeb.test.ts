@@ -65,19 +65,22 @@ purge_cloudflare_cache_for_hosts() { printf 'purge|%s\\n' "$*" >> "$WEB_DEPLOY_L
     }).trim();
   git(matrix, "init", "--quiet");
   git(root, "init", "--quiet");
-  git(
-    root,
-    "-c",
-    "user.name=Fixture",
-    "-c",
-    "user.email=fixture@example.test",
-    "-c",
-    "commit.gpgSign=false",
-    "commit",
-    "--allow-empty",
-    "-qm",
-    "checkout",
-  );
+  const commitFixture = (cwd: string) =>
+    git(
+      cwd,
+      "-c",
+      "user.name=Fixture",
+      "-c",
+      "user.email=fixture@example.test",
+      "-c",
+      "commit.gpgSign=false",
+      "commit",
+      "--allow-empty",
+      "-qm",
+      "checkout",
+    );
+  commitFixture(root);
+  commitFixture(matrix);
   const commit = git(root, "rev-parse", "HEAD");
   // The release identifies the whole checkout, even with a nested Git directory.
   git(join(root, "packages/app-web"), "init", "--quiet");
@@ -253,3 +256,14 @@ test.each([
     }
   },
 );
+
+test("an exported app cannot publish with its parent's Sentry release", async () => {
+  const fixture = await deployFixture("production");
+  try {
+    await rm(join(fixture.root, ".git"), { recursive: true });
+    expect(fixture.run().exitCode).not.toBe(0);
+    expect(await Bun.file(fixture.log).exists()).toBe(false);
+  } finally {
+    await fixture.cleanup();
+  }
+});

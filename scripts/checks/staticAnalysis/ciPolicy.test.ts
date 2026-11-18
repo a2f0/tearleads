@@ -125,6 +125,8 @@ test("selects native, proof, and infrastructure checks without skipping their de
   );
   for (const path of [
     "scripts/checks/testNativePurchaseBridge.sh",
+    "scripts/lib/checkRoot.ts",
+    "scripts/testing/runVerifiedTurbo.ts",
     // The Android build renders its launcher and splash images from these.
     "assets/brand/logo.svg",
     "agent-tool.json",

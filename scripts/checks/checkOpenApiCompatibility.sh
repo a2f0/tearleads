@@ -17,7 +17,8 @@ REPO_ROOT=$(CDPATH='' cd -P -- "$script_dir/../.." && pwd -P) ||
   fail "OpenAPI compatibility must run inside a Git repository."
 
 cd "$REPO_ROOT"
-if [ "$(git rev-parse --show-toplevel)" != "$REPO_ROOT" ]; then
+git_root=$(git rev-parse --show-toplevel)
+if [ "$(CDPATH='' cd -P -- "$git_root" && pwd -P)" != "$REPO_ROOT" ]; then
   echo "This command requires its own Git checkout: $REPO_ROOT" >&2
   exit 1
 fi
