@@ -162,23 +162,44 @@ export async function awaitCommittedReadModelOffers(
   maxWaitMs = MAX_PENDING_WAIT_MS,
 ): Promise<readonly CommittedReadModelOffer[]> {
   const offers = scopeOffers(scope);
-  const awaited = [...offers.pending]
+  let awaited = [...offers.pending]
     .filter(
       ([, lease]) =>
         hintPosition === undefined || couldCommit(lease, hintPosition),
     )
     .map(([promise]) => promise);
-  if (awaited.length > 0) {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    await Promise.race([
-      Promise.all(awaited),
-      new Promise<void>((resolve) => {
-        timer = setTimeout(resolve, maxWaitMs);
-      }),
-    ]);
-    clearTimeout(timer);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<"expired">((resolve) => {
+    timer = setTimeout(resolve, maxWaitMs, "expired");
+  });
+  // Stop as soon as a settled offer covers the hint, or the wait runs out.
+  while (
+    awaited.length > 0 &&
+    !offersCover(offers.settled, scope.organizationId, hintPosition)
+  ) {
+    if ((await Promise.race([...awaited, expired])) === "expired") break;
+    awaited = awaited.filter((promise) => offers.pending.has(promise));
   }
+  clearTimeout(timer);
   return scopeOffers(scope).settled;
+}
+
+/** Whether a settled offer reaches the hint's committed cursor. */
+function offersCover(
+  settled: readonly CommittedReadModelOffer[],
+  organizationId: string,
+  hintPosition: bigint | undefined,
+): boolean {
+  return (
+    hintPosition !== undefined &&
+    settled.some(
+      (offer) =>
+        (organizationReadModelCursorPosition(
+          offer.delta.nextCursor,
+          organizationId,
+        ) ?? -1n) >= hintPosition,
+    )
+  );
 }
 
 /**

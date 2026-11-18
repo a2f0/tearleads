@@ -278,3 +278,39 @@ test("a hint waits only for mutations that could be its commit", async () => {
     close();
   }
 });
+
+test("a hint stops waiting once a settled offer covers it", async () => {
+  const { close, execSql } = await createTestExecSql("committed-cover-test");
+  const scope = {
+    domainScope: {},
+    sessionGeneration: 0,
+    execSql,
+    organizationId,
+    userId,
+  };
+  try {
+    await new OrganizationReadModelRepository(
+      execSql,
+    ).applyOrganizationReadModelResponse({
+      currentUserId: userId,
+      requestedCursor: null,
+      response: organizationReadModelSnapshot({ cursor: cursorAt(1) }),
+    });
+    const covering = await beginCommittedReadModel(scope);
+    await beginCommittedReadModel(scope);
+    const waited = awaitCommittedReadModelOffers(scope, 2n);
+    covering.settle(delta(cursorAt(2)));
+
+    const outcome = await Promise.race([
+      waited,
+      new Promise<"waiting">((resolve) =>
+        setTimeout(resolve, 1_000, "waiting"),
+      ),
+    ]);
+    expect(outcome).toEqual([
+      { delta: delta(cursorAt(2)), heldCursor: cursorAt(1) },
+    ]);
+  } finally {
+    close();
+  }
+});

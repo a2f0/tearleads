@@ -297,3 +297,47 @@ test("a hint check started before a relogin claims nothing of the next session",
     f.close();
   }
 });
+
+test("a hint check whose wait outlived its session answers nothing", async () => {
+  const f = await committedFixture("committed-read-model-wait-relogin-test");
+  try {
+    const own = await beginCommittedReadModel(f.scope);
+    const delta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(2),
+      groupName: "Operators",
+    });
+    own.settle(delta);
+    await f.coordinator.reconcileAfterOwnMutation(organizationId, delta);
+    const stalled = await beginCommittedReadModel(f.scope);
+    const checked = f.coordinator.loadAppliedCursor(3n);
+    // Let the check pass its first read and wait on the stalled mutation.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    f.advanceSession();
+    stalled.settle(undefined);
+
+    await expect(checked).resolves.toBeNull();
+  } finally {
+    f.close();
+  }
+});
+
+test("a shared apply is not reused after the session changed", async () => {
+  const f = await committedFixture("committed-read-model-shared-relogin-test");
+  try {
+    const lease = await beginCommittedReadModel(f.scope);
+    const delta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(2),
+      groupName: "Operators",
+    });
+    lease.settle(delta);
+    const applied = f.coordinator.applyCommittedReadModel(
+      organizationId,
+      delta,
+    );
+    f.advanceSession();
+
+    await expect(applied).resolves.toBeUndefined();
+  } finally {
+    f.close();
+  }
+});

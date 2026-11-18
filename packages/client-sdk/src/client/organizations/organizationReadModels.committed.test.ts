@@ -252,3 +252,27 @@ test("distinct offers apply in turn, so a stale one is not consumed unapplied", 
     f.close();
   }
 });
+
+test("an earlier apply a feed pass replaced is not reused", async () => {
+  const f = await committedFixture("committed-read-model-replaced-test");
+  try {
+    const lease = await beginCommittedReadModel(f.scope);
+    const delta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(2),
+      groupName: "Operators",
+    });
+    lease.settle(delta);
+    await expect(f.coordinator.loadAppliedCursor(2n)).resolves.toBe(
+      cursorAt(2),
+    );
+    await f.coordinator.reconcile();
+
+    // The hint applied the delta, then a feed pass moved past it: the
+    // mutation's own read takes the current projection, not cursor 2.
+    await expect(
+      f.coordinator.reconcileAfterOwnMutation(organizationId, delta),
+    ).resolves.toMatchObject({ readModelCursor: cursorAt(9) });
+  } finally {
+    f.close();
+  }
+});

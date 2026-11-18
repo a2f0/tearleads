@@ -244,9 +244,11 @@ their post-commit read. A realtime hint the presented cursor already covers
 needs nothing more; otherwise its cursor check waits, for at most ten seconds,
 for this device's own mutations in flight in the same session that could be
 the commit it names (a share stamps one cursor past the one it sent), and
-applies the deltas they carried, so the hint naming such a commit costs no read.
-Each delta applies once: whichever of the hint check and the mutation's own
-read claims it first applies it, and the other shares that outcome. A refresh
+applies the deltas they carried, so the hint naming such a commit costs no read;
+it stops waiting once a delta covers the hint. Each delta applies once:
+whichever of the hint check and the mutation's own read claims it first applies
+it, and the other shares that outcome while it is still the presented cursor of
+the same session, else reads. A refresh
 that meets a delta being applied reads the feed after it. A missing,
 omitted, or no longer applicable delta leaves today's path: the post-commit or
 hint read requests the feed, and a lost response leaves the cursor behind so the

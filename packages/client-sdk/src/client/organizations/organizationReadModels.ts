@@ -309,12 +309,27 @@ class OrganizationReadModelCoordinatorImpl
     );
     if (!active || !delta) return undefined;
     const { sessionGeneration } = this.runtimeService;
+    const stillCurrent = sessionIsCurrent(
+      this.runtimeService,
+      active,
+      sessionGeneration,
+    );
     // A hint's cursor check may have claimed this delta first; share its apply.
-    return claimCommittedReadModelOffer(
+    const outcome = await claimCommittedReadModelOffer(
       committedScope(active, sessionGeneration),
       delta,
       (offer) => this.applyClaimedOffer(active, offer, sessionGeneration),
     );
+    if (!outcome) return stillCurrent() ? outcome : undefined;
+    // An apply that finished earlier stands only while nothing replaced it: a
+    // later feed pass or purge leaves the caller to read instead.
+    const presented = await presentedAppliedCursor(
+      active,
+      scopedMap(this.presentedCursorsByScope, active),
+    );
+    return stillCurrent() && presented === outcome.readModelCursor
+      ? outcome
+      : undefined;
   }
 
   private async applyClaimedOffer(
@@ -437,7 +452,9 @@ class OrganizationReadModelCoordinatorImpl
       );
     }
     await this.settleInFlightReconcile(active);
-    return presentedAppliedCursor(active, presentedCursors);
+    const applied = await presentedAppliedCursor(active, presentedCursors);
+    // A replacement session's cursor never answers this session's hint.
+    return stillCurrent() ? applied : null;
   }
 
   private async settleInFlightReconcile(
