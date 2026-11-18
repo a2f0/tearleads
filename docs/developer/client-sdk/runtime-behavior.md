@@ -2,6 +2,20 @@
 
 Part of the [client SDK guide](../client-sdk.md).
 
+## Sign-in lifetime
+
+A successful explicit login and a host restore through
+`session.setContext({ authToken, isAuthenticated: true, ... })` begin a sign-in.
+Logout retires it. Verified token renewal keeps existing work current.
+The first sign-in adopts unclaimed device work. Later sign-ins receive fresh
+workflow scopes over the identity's saved database and attachments.
+
+A host can call `session.captureSignIn()` before asynchronous work and check
+the returned predicate before applying its result. For confirmed logout,
+`session.logoutRemote(onLocalLogout)` runs the optional callback after it clears
+the session that initiated the request. The callback receives a predicate for
+checking ownership again after each asynchronous cleanup step.
+
 ## Document persistence notifications
 
 `PersistedDocumentListener` supplies a summary and `placementChanged` flag.

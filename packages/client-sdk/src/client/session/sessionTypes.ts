@@ -150,6 +150,8 @@ export interface Session {
    * it as this identity's account.
    */
   readonly userIdAcknowledged: boolean;
+  /** Is the captured sign-in still active, including after a token renewal? */
+  captureSignIn(): () => boolean;
   bootstrapLocalRootContainer(isCurrent?: () => boolean): Promise<{
     containerId: string;
     created: boolean;
@@ -167,7 +169,10 @@ export interface Session {
   listSessions(): Promise<UserSession[]>;
   login(challengeHex?: string | undefined): Promise<boolean>;
   logout(): void;
-  logoutRemote(): Promise<boolean>;
+  /** Runs host cleanup only after this invocation clears its own local session. */
+  logoutRemote(
+    onLocalLogout?: (current: () => boolean) => void | Promise<void>,
+  ): Promise<boolean>;
   prepareNativeSubscriptionRestoreOrganization(
     options?: CreateOrganizationOptions,
   ): Promise<SessionCreateOrganizationResult | null>;
@@ -180,7 +185,8 @@ export interface Session {
   ): Promise<SessionRecoverOrganizationResult | null>;
   setAuthToken(authToken: string | null): void;
   setContainerId(containerId: string | null): void;
-  /** Host-restored context must match the active signing identity; conflicting user acknowledgments throw. */
+  /** A host restore supplying both isAuthenticated and its token begins a
+   * sign-in. Partial view updates preserve it. User acknowledgments must match. */
   setContext(context: SessionContext): void;
   setOrganizationId(organizationId: string | null): void;
   setSyncEnabled(enabled: boolean): void;

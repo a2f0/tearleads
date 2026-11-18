@@ -3,7 +3,6 @@ import { runConfirmedLogout } from "./useLogoutConfirmation";
 
 test("a delayed logout cannot clear or wipe a newly selected identity", async () => {
   let currentSigningFingerprint: string | null = "identity-a";
-  let localLogoutCount = 0;
   let purgeCount = 0;
   let clearedSessionListCount = 0;
 
@@ -12,9 +11,6 @@ test("a delayed logout cannot clear or wipe a newly selected identity", async ()
     keepLocalData: false,
     log: () => undefined,
     logError: () => undefined,
-    logout: () => {
-      localLogoutCount += 1;
-    },
     onAfterLocalLogout: () => {
       clearedSessionListCount += 1;
     },
@@ -22,8 +18,9 @@ test("a delayed logout cannot clear or wipe a newly selected identity", async ()
       purgeCount += 1;
     },
     session: {
-      logoutRemote: async () => {
+      logoutRemote: async (onLocalLogout) => {
         currentSigningFingerprint = "identity-b";
+        await onLocalLogout?.(() => true);
         return true;
       },
     },
@@ -31,7 +28,6 @@ test("a delayed logout cannot clear or wipe a newly selected identity", async ()
   });
 
   expect(result).toBe(true);
-  expect(localLogoutCount).toBe(0);
   expect(clearedSessionListCount).toBe(0);
   expect(purgeCount).toBe(0);
 });

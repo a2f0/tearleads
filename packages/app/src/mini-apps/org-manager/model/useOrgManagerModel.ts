@@ -397,6 +397,8 @@ export function useOrgManagerModel() {
     view,
   });
   return {
+    captureOperationScope: orgManagerActions.captureOperationScope,
+    isOperationScopeActive: orgManagerActions.isOperationScopeActive,
     addUser,
     addUserId,
     addableUsers,

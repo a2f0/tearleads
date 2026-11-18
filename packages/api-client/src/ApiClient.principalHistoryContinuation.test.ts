@@ -398,3 +398,49 @@ testApiClient(
     expect(calls).toBe(1);
   },
 );
+
+testApiClient(
+  "a concurrent renewal refusal preserves a 401 whose body is still being read",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("expired");
+    const reading = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const originalFetch = globalThis.fetch;
+    class BufferedRefusal extends Response {
+      override async text() {
+        reading.resolve();
+        await release.promise;
+        return JSON.stringify({
+          code: SESSION_ERROR_CODES.refreshRequired,
+          error: "Expired session",
+        });
+      }
+    }
+    globalThis.fetch = Object.assign(
+      async () => new BufferedRefusal(null, { status: 401 }),
+      originalFetch,
+    );
+    try {
+      const pending = client.commitOrganizationGroupPolicyResult(
+        organizationId,
+        groupId,
+        request(),
+      );
+      await reading.promise;
+      client.setAuthToken(null, { boundary: "renewal-refused" });
+      release.resolve();
+      const result = await pending;
+      expect(result).toMatchObject({
+        ok: false,
+        kind: "http",
+        status: 401,
+        code: SESSION_ERROR_CODES.refreshRequired,
+      });
+      if (!result.ok) expect(client.getRequestFailure(result)).toBeNull();
+    } finally {
+      release.resolve();
+      globalThis.fetch = originalFetch;
+    }
+  },
+);

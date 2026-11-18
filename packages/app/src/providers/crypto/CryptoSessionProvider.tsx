@@ -212,6 +212,7 @@ function useRestorePersistedSession(input: {
 
     let cancelled = false;
     inFlightFingerprint.current = signingFingerprint;
+    const sameSignIn = tearleads.session.captureSignIn();
     void restorePersistedCryptoSession({
       localPersistence,
       signingFingerprint,
@@ -219,6 +220,7 @@ function useRestorePersistedSession(input: {
       .then((persistedSession) => {
         if (
           cancelled ||
+          tearleads.session.authToken !== authToken ||
           tearleads.identity.signingFingerprint !== signingFingerprint
         ) {
           clearInFlightFingerprint();
@@ -228,7 +230,7 @@ function useRestorePersistedSession(input: {
         // Apply the restored session before marking the restore settled so a
         // consumer reacting to `sessionRestoreSettled` already sees the restored
         // userId (and does not, e.g., auto-register over a live session).
-        if (persistedSession) {
+        if (persistedSession && sameSignIn()) {
           tearleads.session.setContext(persistedSession);
           log("Restored persisted crypto session");
         }

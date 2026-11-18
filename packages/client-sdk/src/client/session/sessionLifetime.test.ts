@@ -1,9 +1,12 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sql } from "drizzle-orm";
+import { localSchemaMigrations } from "../../data/sqlite/migrations/localSchemaMigrations";
 import { migrateLocalSchema } from "../../data/sqlite/migrations/migrateLocalSchema";
+import { createExecSql } from "../../data/sqlite/sqlExec";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { Tearleads } from "../../Tearleads";
+import { bootstrapRootContainer } from "../../workflows/registration/bootstrapRootContainer";
 
 test("logout rolls back an unfinished local transaction before the next sign-in reads the same database", async () => {
   const sqlite = await createTestExecSql("sign-in-transaction");
@@ -79,7 +82,7 @@ test("the next sign-in can finish a schema migration interrupted at verification
     await migrateLocalSchema(fresh);
     expect(
       await fresh("SELECT count(*) AS total FROM local_schema_migrations"),
-    ).toEqual([{ total: 3 }]);
+    ).toEqual([{ total: 1 + localSchemaMigrations.length }]);
   } finally {
     finish.resolve();
     sdk.dispose();
@@ -120,5 +123,71 @@ test("a new sign-in retains saved attachment bytes when a pending source is reti
   } finally {
     finish.resolve();
     sdk.dispose();
+  }
+});
+
+test("restoring an authenticated host session retires its previous scope with the same bearer", async () => {
+  const sqlite = await createTestExecSql("host-session-restore");
+  const sdk = new Tearleads({
+    database: { execSql: sqlite.execSql, id: "shared" },
+  });
+  try {
+    const restored = { authToken: "saved", isAuthenticated: true };
+    sdk.session.setContext(restored);
+    const current = sdk.session.captureSignIn();
+    const first = sdk.runtime.input();
+    await first.infra.execSql("CREATE TABLE draft (title TEXT)");
+    await first.infra.execSql("INSERT INTO draft VALUES ('saved')");
+    sdk.session.setContext(restored);
+    expect(current()).toBe(false);
+    expect(sdk.domainScope).not.toBe(first.state.domainScope);
+    await expect(
+      first.infra.execSql("SELECT title FROM draft"),
+    ).rejects.toThrow();
+    expect(
+      await sdk.runtime.input().infra.execSql("SELECT title FROM draft"),
+    ).toEqual([{ title: "saved" }]);
+  } finally {
+    sdk.dispose();
+    sqlite.close();
+  }
+});
+
+test("a completed local root lookup cannot replace a newer sign-in's root", async () => {
+  const sqlite = await createTestExecSql("sign-in-local-root");
+  await bootstrapRootContainer(sqlite.execSql);
+  const reading = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const execSql = createExecSql({
+    async exec({ sql, bind, rowMode }) {
+      const rows = await sqlite.execSql(
+        sql,
+        bind,
+        rowMode ? { rowMode } : undefined,
+      );
+      if (/from "containers"/i.test(sql)) {
+        reading.resolve();
+        await release.promise;
+      }
+      return { rows };
+    },
+  });
+  const sdk = new Tearleads({ database: { execSql, id: "shared" } });
+  try {
+    sdk.session.setContext({ authToken: "one", isAuthenticated: true });
+    const pending = sdk.session.bootstrapLocalRootContainer();
+    await reading.promise;
+    sdk.session.setContext({
+      authToken: "two",
+      isAuthenticated: true,
+      containerId: "current-root",
+    });
+    release.resolve();
+    await expect(pending).rejects.toThrow();
+    expect(sdk.session.containerId).toBe("current-root");
+  } finally {
+    release.resolve();
+    sdk.dispose();
+    sqlite.close();
   }
 });

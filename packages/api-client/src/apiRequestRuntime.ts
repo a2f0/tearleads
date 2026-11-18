@@ -274,8 +274,9 @@ export class ApiRequestRuntime {
       failureOperation,
       attempt,
     );
-    if (session.aborted) return retiredRequest(method, path);
     if (!result.ok) return result;
+    if (session.aborted)
+      return this.retiredResponse(session, method, path, result.data);
     const response = result.data;
     if (isSuccessfulResponse(response, additionalSuccessStatuses)) {
       this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
@@ -286,7 +287,15 @@ export class ApiRequestRuntime {
       failureOperation,
       options.expectedPaymentRequiredOrganizationId,
     );
-    if (session.aborted) return retiredRequest(method, path);
+    const retired = () =>
+      this.retiredResponse(
+        session,
+        method,
+        path,
+        response,
+        errorDescription.code,
+      );
+    if (session.aborted) return retired();
     const failure = {
       errorDescription,
       failureOperation,
@@ -312,20 +321,7 @@ export class ApiRequestRuntime {
       reportError: (message) => this.onError?.(message),
       responseStatus: response.status,
     });
-    if (session.aborted) {
-      const retired = retiredRequest(method, path);
-      // A renewal refusal follows a definitive pre-dispatch 401. Keep that
-      // answer for the old caller, without reporting to the next sign-in.
-      if (response.status === 401 && this.sessionRenewals.refused(session))
-        return {
-          ...retired,
-          kind: "http",
-          status: 401,
-          statusText: response.statusText,
-          code: errorDescription.code ?? undefined,
-        };
-      return retired;
-    }
+    if (session.aborted) return retired();
     const retryToken = this.sessionRenewals.currentToken(authToken);
     if (!shouldRetry || !retryToken) return this.httpFailure(failure);
     if (options.retryOnSessionExpired === "renew-only")
@@ -346,6 +342,27 @@ export class ApiRequestRuntime {
       retryToken,
       2,
     );
+  }
+
+  private retiredResponse(
+    session: AbortSignal,
+    method: HttpMethod,
+    path: string,
+    response: Response,
+    code?: string | null,
+  ): RequestFailure {
+    const retired = retiredRequest(method, path);
+    // Principal writes refused before dispatch have a definitive outcome.
+    if (response.status !== 401 || !this.sessionRenewals.refused(session))
+      return retired;
+    return {
+      ...retired,
+      kind: "http",
+      status: 401,
+      statusText: response.statusText,
+      code: code ?? undefined,
+      message: `${method} ${path}: 401 ${response.statusText}`,
+    };
   }
 
   private async fetchResponseRequest(
@@ -407,7 +424,8 @@ export class ApiRequestRuntime {
       });
     }
 
-    if (session.aborted) return retiredRequest(method, path);
+    if (session.aborted)
+      return this.retiredResponse(session, method, path, response);
     this.onNetworkSuccess?.();
     const apiVersion = parseApiVersion(
       response.headers.get(apiVersionHeaderName),

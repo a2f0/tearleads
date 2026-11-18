@@ -1,4 +1,8 @@
-import { purgeOpfsBlobStore } from "@tearleads/client-sdk";
+import {
+  type DomainScope,
+  purgeOpfsBlobStore,
+  type Session,
+} from "@tearleads/client-sdk";
 import { useCallback, useState } from "react";
 
 export interface LogoutOptions {
@@ -9,31 +13,29 @@ interface ConfirmedLogoutInput extends LogoutOptions {
   readonly getSigningFingerprint: () => string | null;
   readonly log: (message: string) => void;
   readonly logError: (message: string, error: unknown) => void;
-  readonly logout: () => void;
   readonly onAfterLocalLogout?: () => void;
   readonly onRemoteLogoutFailure?: () => void;
   readonly purgeWorker: () => Promise<void>;
-  readonly session: {
-    readonly logoutRemote: () => Promise<boolean>;
-  };
+  readonly session: Pick<Session, "logoutRemote">;
   readonly signingFingerprint: string | null;
 }
 
-export function useLogoutConfirmationDialogState() {
-  const [isOpen, setIsOpen] = useState(false);
+export function useLogoutConfirmationDialogState(scope: DomainScope) {
+  const [owner, setOwner] = useState<DomainScope | null>(null);
 
   const requestLogout = useCallback(() => {
-    setIsOpen(true);
-  }, []);
+    setOwner(scope);
+  }, [scope]);
 
   const closeLogoutDialog = useCallback(() => {
-    setIsOpen(false);
+    setOwner(null);
   }, []);
 
-  return { closeLogoutDialog, isOpen, requestLogout };
+  return { closeLogoutDialog, isOpen: owner === scope, requestLogout };
 }
 
 async function destroyLocalSessionData(input: {
+  readonly current: () => boolean;
   readonly logError: (message: string, error: unknown) => void;
   readonly purgeWorker: () => Promise<void>;
   readonly signingFingerprint: string | null;
@@ -44,7 +46,7 @@ async function destroyLocalSessionData(input: {
     input.logError("Failed to wipe local database", error);
   }
 
-  if (input.signingFingerprint) {
+  if (input.current() && input.signingFingerprint) {
     try {
       await purgeOpfsBlobStore(input.signingFingerprint);
     } catch (error: unknown) {
@@ -56,34 +58,31 @@ async function destroyLocalSessionData(input: {
 export async function runConfirmedLogout(
   input: ConfirmedLogoutInput,
 ): Promise<boolean> {
-  let remoteLoggedOut = false;
-
+  let cleanupCurrent: (() => boolean) | undefined;
   try {
-    remoteLoggedOut = await input.session.logoutRemote();
-    if (!remoteLoggedOut) {
-      input.onRemoteLogoutFailure?.();
-      return false;
+    const remoteLoggedOut = await input.session.logoutRemote(
+      async (current) => {
+        if (
+          input.getSigningFingerprint() !== input.signingFingerprint ||
+          !current()
+        )
+          return;
+        cleanupCurrent = current;
+        input.onAfterLocalLogout?.();
+        if (!input.keepLocalData && current())
+          await destroyLocalSessionData({ ...input, current });
+      },
+    );
+    if (cleanupCurrent?.()) {
+      if (remoteLoggedOut) input.log("Logged out");
+      else input.onRemoteLogoutFailure?.();
     }
-
-    input.log("Logged out");
-    return true;
+    return remoteLoggedOut;
   } catch (error: unknown) {
-    input.logError("Failed to log out", error);
-    input.onRemoteLogoutFailure?.();
-    return false;
-  } finally {
-    if (input.getSigningFingerprint() === input.signingFingerprint) {
-      input.logout();
-      input.onAfterLocalLogout?.();
-      // Destroy local persistence only after the session is torn down, so no
-      // store re-reads the SQLite database mid-wipe.
-      if (!input.keepLocalData) {
-        await destroyLocalSessionData({
-          logError: input.logError,
-          purgeWorker: input.purgeWorker,
-          signingFingerprint: input.signingFingerprint,
-        });
-      }
+    if (cleanupCurrent?.()) {
+      input.logError("Failed to log out", error);
+      input.onRemoteLogoutFailure?.();
     }
+    return false;
   }
 }

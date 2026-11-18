@@ -61,6 +61,12 @@ class SessionService implements Session {
 
   constructor(private readonly dependencies: SessionDependencies) {}
 
+  captureSignIn(): () => boolean {
+    const lifetime = sessionLifetime(this);
+    const revision = lifetime.signInRevision;
+    return () => revision === lifetime.signInRevision;
+  }
+
   get authToken(): string | null {
     return this.snapshotValue.authToken;
   }
@@ -107,6 +113,7 @@ class SessionService implements Session {
   async bootstrapLocalRootContainer(
     isCurrent: () => boolean = () => true,
   ): ReturnType<typeof bootstrapRootContainer> {
+    const signInCurrent = sessionLifetime(this).capture();
     if (!isCurrent()) throw new Error("Identity change was superseded.");
     // Preserve a logged-in session's acknowledged root during local recovery.
     const acknowledgedRoot = acknowledgedSessionRoot(
@@ -123,7 +130,8 @@ class SessionService implements Session {
         ),
       ),
     );
-    if (!isCurrent()) throw new Error("Identity change was superseded.");
+    if (!signInCurrent() || !isCurrent())
+      throw new Error("Identity change was superseded.");
     this.setContainerId(result.containerId);
     if (result.created) {
       this.dependencies.log("Root container created");
@@ -181,9 +189,12 @@ class SessionService implements Session {
     );
   }
 
-  async logoutRemote(): Promise<boolean> {
+  async logoutRemote(
+    onLocalLogout?: (current: () => boolean) => void | Promise<void>,
+  ): Promise<boolean> {
     const identitySnapshot = this.dependencies.identity.snapshot;
-    const epoch = sessionLifetime(this).epoch;
+    const lifetime = sessionLifetime(this);
+    const revision = lifetime.signInRevision;
     try {
       if (!this.authToken) {
         return true;
@@ -194,9 +205,14 @@ class SessionService implements Session {
     } finally {
       if (
         this.dependencies.identity.snapshot === identitySnapshot &&
-        epoch === sessionLifetime(this).epoch
+        revision === lifetime.signInRevision
       ) {
         this.logout();
+        const current = () =>
+          lifetime.signInRevision === revision + 1 &&
+          !this.isAuthenticated &&
+          this.dependencies.identity.snapshot === identitySnapshot;
+        if (current()) await onLocalLogout?.(current);
       }
     }
   }
@@ -383,7 +399,9 @@ class SessionService implements Session {
   }
 
   setContext(context: SessionContext): void {
-    this.commitContext(context);
+    const restore =
+      context.isAuthenticated === true && typeof context.authToken === "string";
+    this.commitContext(context, restore ? "boundary" : undefined);
   }
 
   commitContext(

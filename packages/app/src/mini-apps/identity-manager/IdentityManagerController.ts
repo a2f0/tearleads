@@ -94,7 +94,6 @@ function useIdentityManagerSessionMutations({
   clearSessions,
   log,
   logError,
-  logout,
   purgeWorker,
   refreshSessions,
   requestCurrentSessionLogout,
@@ -105,7 +104,6 @@ function useIdentityManagerSessionMutations({
   clearSessions: () => void;
   log: LogContextValue["log"];
   logError: LogContextValue["logError"];
-  logout: CryptoSessionContextValue["logout"];
   purgeWorker: DatabaseContextValue["purgeWorker"];
   refreshSessions: () => Promise<void>;
   requestCurrentSessionLogout: () => void;
@@ -127,7 +125,6 @@ function useIdentityManagerSessionMutations({
           keepLocalData,
           log,
           logError,
-          logout,
           onAfterLocalLogout: clearSessions,
           onRemoteLogoutFailure: () => {
             setSessionError("Could not log out remote session.");
@@ -144,7 +141,6 @@ function useIdentityManagerSessionMutations({
       clearSessions,
       log,
       logError,
-      logout,
       purgeWorker,
       setSessionError,
       signingFingerprint,
@@ -201,14 +197,14 @@ function useIdentityManagerLogout(input: {
   clearSessions: () => void;
   log: LogContextValue["log"];
   logError: LogContextValue["logError"];
-  logout: CryptoSessionContextValue["logout"];
   purgeWorker: DatabaseContextValue["purgeWorker"];
   refreshSessions: () => Promise<void>;
   setSessionError: (error: string | null) => void;
   signingFingerprint: string | null;
   tearleads: SdkClient;
 }) {
-  const logoutDialog = useLogoutConfirmationDialogState();
+  const scope = input.tearleads.domainScope;
+  const logoutDialog = useLogoutConfirmationDialogState(scope);
   const sessionMutations = useIdentityManagerSessionMutations({
     ...input,
     requestCurrentSessionLogout: logoutDialog.requestLogout,
@@ -217,11 +213,12 @@ function useIdentityManagerLogout(input: {
     sessionMutations.mutatingSessionId === CURRENT_SESSION_MUTATION_ID;
   const onConfirmLogout = useCallback(
     (options: LogoutOptions) => {
+      if (!logoutDialog.isOpen || input.tearleads.domainScope !== scope) return;
       void sessionMutations
         .logoutCurrentSession(options)
         .finally(() => logoutDialog.closeLogoutDialog());
     },
-    [logoutDialog, sessionMutations],
+    [input.tearleads, logoutDialog, scope, sessionMutations],
   );
 
   return { logoutBusy, logoutDialog, onConfirmLogout, sessionMutations };
@@ -276,7 +273,6 @@ export function useIdentityManager() {
       clearSessions,
       log,
       logError,
-      logout: session.logout,
       purgeWorker,
       refreshSessions: sessionList.refreshSessions,
       setSessionError: sessionList.setSessionError,

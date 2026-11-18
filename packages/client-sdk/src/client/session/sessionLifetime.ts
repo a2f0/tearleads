@@ -7,6 +7,7 @@ import type { SessionSnapshot } from "./sessionTypes";
 
 class SessionLifetime {
   epoch = 0;
+  signInRevision = 0;
   readonly authentication = new SessionAuthentication();
   private hasSignedIn = false;
   onBoundary?: () => void;
@@ -28,6 +29,7 @@ class SessionLifetime {
   }
 
   transition(wasSignedIn: boolean, signedIn: boolean): boolean {
+    this.signInRevision += 1;
     this.authentication.invalidate();
     // The first sign-in adopts the device's unclaimed local work. A client
     // that has already had a sign-in gives every replacement a fresh scope.
