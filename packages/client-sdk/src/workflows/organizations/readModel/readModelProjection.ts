@@ -51,6 +51,19 @@ export interface ReconcileOrganizationDirectoryAndGroupsInput
   readonly logError?:
     | ((message: string | Error, cause?: unknown) => void)
     | undefined;
+  /**
+   * Whether the session and scope that started this pass are still current. A
+   * response that arrives after they end is dropped: no denial, purge or
+   * apply, and every write the pass makes commits only while it holds.
+   */
+  readonly stillCurrent?: (() => boolean) | undefined;
+}
+
+/** The pass's session ended: what arrives for it touches nothing. */
+function sessionEnded(
+  input: ReconcileOrganizationDirectoryAndGroupsInput,
+): boolean {
+  return input.stillCurrent?.() === false;
 }
 
 function toDirectoryAndGroups(
@@ -193,6 +206,8 @@ async function requestReadModelPage(
     state.requestCursor,
     { reportErrors: false },
   );
+  // A response for a replaced session answers nothing, a denial included.
+  if (sessionEnded(input)) return { kind: "done", value: null };
   if (result.ok) {
     return { kind: "response", response: result.data };
   }
@@ -203,22 +218,26 @@ async function requestReadModelPage(
     // The durable marker lands before the purge attempt: if the purge fails,
     // an offline restart must still refuse to serve the revoked projection.
     try {
-      await runOrganizationPresentationMutation(input.execSql, () =>
-        repository.recordOrganizationPresentationDenials(accessInput, [
-          "readModel",
-          "usage",
-        ]),
-      );
+      await runOrganizationPresentationMutation(input.execSql, async () => {
+        if (sessionEnded(input)) return;
+        await repository.recordOrganizationPresentationDenials(
+          accessInput,
+          ["readModel", "usage"],
+          input.stillCurrent,
+        );
+      });
     } catch (error) {
       input.logError?.("Failed to record denied organization access", error);
     }
     try {
-      await runOrganizationPresentationMutation(input.execSql, () =>
-        repository.purgeOrganizationAccessProjection({
+      await runOrganizationPresentationMutation(input.execSql, async () => {
+        if (sessionEnded(input)) return;
+        await repository.purgeOrganizationAccessProjection({
+          canCommit: input.stillCurrent,
           organizationId: input.organizationId,
           requesterUserId: input.currentUserId,
-        }),
-      );
+        });
+      });
     } catch (error) {
       input.logError?.("Failed to purge denied organization access", error);
     }
@@ -283,6 +302,7 @@ async function applyResponse(
     return {
       kind: "applied",
       result: await repository.applyOrganizationReadModelResponse({
+        canCommit: input.stillCurrent,
         currentUserId: input.currentUserId,
         requestedCursor: state.expectedLocalCursor,
         response,
@@ -297,8 +317,13 @@ async function applyResponse(
       return localResult(input, state, { failed: true });
     }
     state.retriedBindingFailure = true;
-    await repository.purgeOrganizationReadModelProjection(input.organizationId);
-    if (!reconciliationIsCurrent(input, state)) {
+    await repository.purgeOrganizationReadModelProjection(
+      input.organizationId,
+      {
+        canCommit: input.stillCurrent,
+      },
+    );
+    if (!reconciliationIsCurrent(input, state) || sessionEnded(input)) {
       return { kind: "done", value: null };
     }
     state.projection = null;
@@ -321,13 +346,14 @@ async function prepareDeniedProjectionForApply(
     await new OrganizationReadModelRepository(
       input.execSql,
     ).purgeOrganizationReadModelProjection(input.organizationId, {
+      canCommit: input.stillCurrent,
       onlyRequesterUserId: input.currentUserId,
     });
   } catch (error) {
     input.logError?.("Failed to replace denied organization read model", error);
     return { kind: "done", value: null };
   }
-  if (!reconciliationIsCurrent(input, state)) {
+  if (!reconciliationIsCurrent(input, state) || sessionEnded(input)) {
     return { kind: "done", value: null };
   }
   state.expectedLocalCursor = null;
@@ -358,7 +384,7 @@ async function applyReadModelPage(
 
   const accessInput = organizationPresentationAccessInput(input);
   return runOrganizationPresentationMutation(input.execSql, async () => {
-    if (!reconciliationIsCurrent(input, state)) {
+    if (!reconciliationIsCurrent(input, state) || sessionEnded(input)) {
       return { kind: "done", value: null };
     }
     const preparation = await prepareDeniedProjectionForApply(input, state);
@@ -372,7 +398,7 @@ async function applyReadModelPage(
     }
 
     state.projection = await loadRawProjection(input);
-    if (!reconciliationIsCurrent(input, state)) {
+    if (!reconciliationIsCurrent(input, state) || sessionEnded(input)) {
       return { kind: "done", value: null };
     }
     if (applied.result === "stale") {

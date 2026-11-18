@@ -309,7 +309,11 @@ class OrganizationReadModelCoordinatorImpl
       "readModel",
     );
     const domainScope = active.runtime.state.domainScope;
+    // A logout and login of the same identity keeps the domain scope and the
+    // database; only the session generation tells the replacement apart.
+    const { sessionGeneration } = this.runtimeService;
     const stillCurrent = () =>
+      this.runtimeService.sessionGeneration === sessionGeneration &&
       isOrganizationDataRuntimeCurrent(
         this.runtimeService,
         active,
@@ -322,6 +326,7 @@ class OrganizationReadModelCoordinatorImpl
       execSql: active.runtime.infra.execSql,
       logError: active.runtime.util.logError,
       organizationId: active.organizationId,
+      stillCurrent,
     })
       .then(async (directoryAndGroups) => {
         if (!stillCurrent()) return null;

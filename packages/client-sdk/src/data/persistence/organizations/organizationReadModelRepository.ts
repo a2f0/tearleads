@@ -54,6 +54,20 @@ export class OrganizationReadModelRepository {
   ) {}
 
   /**
+   * A write transaction. With `canCommit` (a caller's session guard), the
+   * commit is gated on it in the commit's own synchronous slice, and a refusal
+   * rolls every write back.
+   */
+  private async write<T>(
+    operation: (tx: ClientSQLiteTransactionScope) => Promise<T>,
+    canCommit: (() => boolean) | undefined,
+  ): Promise<{ readonly committed: boolean; readonly result: T | null }> {
+    const runtime = getClientSQLitePersistenceRuntime(this.execSql);
+    if (canCommit) return runtime.guardedTransaction(operation, canCommit);
+    return { committed: true, result: await runtime.transaction(operation) };
+  }
+
+  /**
    * The ONE load shell for the durable read-model projection: run `load` in a
    * transaction and, if a stored row fails integrity validation, purge the
    * organization's projection and report null. The projection is a
@@ -126,6 +140,8 @@ export class OrganizationReadModelRepository {
   }
 
   async applyOrganizationReadModelResponse(input: {
+    /** A refused commit applies nothing and reports `stale`. */
+    readonly canCommit?: (() => boolean) | undefined;
     readonly currentUserId: string;
     readonly requestedCursor: string | null;
     readonly response: OrganizationReadModelResponse;
@@ -137,9 +153,7 @@ export class OrganizationReadModelRepository {
     // The requester prune also retires pruned users' usage projections.
     await ensureSqlTables(this.execSql, organizationAccessProjectionTables);
 
-    const disposition = await getClientSQLitePersistenceRuntime(
-      this.execSql,
-    ).transaction(
+    const { result } = await this.write(
       (tx): Promise<ApplyOrganizationReadModelResponseResult> =>
         applyOrganizationReadModelResponseInTransaction(tx, {
           currentUserId: input.currentUserId,
@@ -147,7 +161,9 @@ export class OrganizationReadModelRepository {
           requestedCursor: input.requestedCursor,
           response: input.response,
         }),
+      input.canCommit,
     );
+    const disposition = result ?? "stale";
     // An applied change follows an organization hint or mutation; in-flight
     // operations recover the directory again instead of reusing their memo.
     if (disposition === "applied")
@@ -159,17 +175,20 @@ export class OrganizationReadModelRepository {
 
   async purgeOrganizationReadModelProjection(
     organizationId: string,
-    options: { readonly onlyRequesterUserId?: string } = {},
+    options: {
+      readonly canCommit?: (() => boolean) | undefined;
+      readonly onlyRequesterUserId?: string;
+    } = {},
   ): Promise<void> {
     await ensureSqlTables(this.execSql, organizationReadModelTables);
-    await getClientSQLitePersistenceRuntime(this.execSql).transaction(
-      async (tx) => {
-        await purgeOrganizationReadModelProjectionInTransaction({
+    await this.write(
+      (tx) =>
+        purgeOrganizationReadModelProjectionInTransaction({
           onlyRequesterUserId: options.onlyRequesterUserId,
           organizationId,
           tx,
-        });
-      },
+        }),
+      options.canCommit,
     );
   }
 
@@ -181,47 +200,48 @@ export class OrganizationReadModelRepository {
    * the last requester.
    */
   async purgeOrganizationAccessProjection(input: {
+    /** A refused commit purges nothing. */
+    readonly canCommit?: (() => boolean) | undefined;
     readonly organizationId: string;
     readonly requesterUserId: string;
   }): Promise<void> {
     await ensureSqlTables(this.execSql, organizationAccessProjectionTables);
-    await getClientSQLitePersistenceRuntime(this.execSql).transaction(
-      async (tx) => {
-        await tx
-          .delete(organizationReadModelRequesters)
-          .where(
-            and(
-              eq(
-                organizationReadModelRequesters.organizationId,
-                input.organizationId,
-              ),
-              eq(organizationReadModelRequesters.userId, input.requesterUserId),
-            ),
-          )
-          .run();
-        const [remainingRequester] = await tx
-          .select({ userId: organizationReadModelRequesters.userId })
-          .from(organizationReadModelRequesters)
-          .where(
+    const { committed } = await this.write(async (tx) => {
+      await tx
+        .delete(organizationReadModelRequesters)
+        .where(
+          and(
             eq(
               organizationReadModelRequesters.organizationId,
               input.organizationId,
             ),
-          )
-          .limit(1);
-        if (!remainingRequester) {
-          await purgeOrganizationReadModelProjectionInTransaction({
-            organizationId: input.organizationId,
-            tx,
-          });
-        }
-        await purgeOrganizationDataUsageProjectionInTransaction({
+            eq(organizationReadModelRequesters.userId, input.requesterUserId),
+          ),
+        )
+        .run();
+      const [remainingRequester] = await tx
+        .select({ userId: organizationReadModelRequesters.userId })
+        .from(organizationReadModelRequesters)
+        .where(
+          eq(
+            organizationReadModelRequesters.organizationId,
+            input.organizationId,
+          ),
+        )
+        .limit(1);
+      if (!remainingRequester) {
+        await purgeOrganizationReadModelProjectionInTransaction({
           organizationId: input.organizationId,
-          requesterUserId: input.requesterUserId,
           tx,
         });
-      },
-    );
+      }
+      await purgeOrganizationDataUsageProjectionInTransaction({
+        organizationId: input.organizationId,
+        requesterUserId: input.requesterUserId,
+        tx,
+      });
+    }, input.canCommit);
+    if (!committed) return;
     // A denial is a realtime-hinted access change: in-flight operations recover
     // the organization's directory again instead of reusing their memo.
     getOrCreatePrincipalPolicyCoordinator(this.execSql).invalidateRecovery(
@@ -363,32 +383,32 @@ export class OrganizationReadModelRepository {
   async recordOrganizationPresentationDenials(
     scope: OrganizationPresentationDenialScope,
     projections: readonly OrganizationPresentationDenialProjection[],
+    /** A refused commit records nothing. */
+    canCommit?: (() => boolean) | undefined,
   ): Promise<void> {
     await ensureSqlTables(this.execSql, organizationReadModelTables);
     const deniedAt = this.now().toISOString();
-    await getClientSQLitePersistenceRuntime(this.execSql).transaction(
-      async (tx) => {
-        for (const projection of new Set(projections)) {
-          await tx
-            .insert(organizationPresentationDenials)
-            .values({
-              organizationId: scope.organizationId,
-              requesterUserId: scope.requesterUserId,
-              projection,
-              deniedAt,
-            })
-            .onConflictDoUpdate({
-              target: [
-                organizationPresentationDenials.organizationId,
-                organizationPresentationDenials.requesterUserId,
-                organizationPresentationDenials.projection,
-              ],
-              set: { deniedAt },
-            })
-            .run();
-        }
-      },
-    );
+    await this.write(async (tx) => {
+      for (const projection of new Set(projections)) {
+        await tx
+          .insert(organizationPresentationDenials)
+          .values({
+            organizationId: scope.organizationId,
+            requesterUserId: scope.requesterUserId,
+            projection,
+            deniedAt,
+          })
+          .onConflictDoUpdate({
+            target: [
+              organizationPresentationDenials.organizationId,
+              organizationPresentationDenials.requesterUserId,
+              organizationPresentationDenials.projection,
+            ],
+            set: { deniedAt },
+          })
+          .run();
+      }
+    }, canCommit);
   }
 
   async hasOrganizationPresentationDenial(

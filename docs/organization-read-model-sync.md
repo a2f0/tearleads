@@ -222,6 +222,16 @@ purges the organization's projection; an uncoded or unknown failure does not. A
 warm client discards its cursor for a fresh snapshot only on
 `400 organization_read_model_cursor_invalid`.
 
+A pass belongs to the session and scope that started it. A logout and login of
+the same identity keeps the domain scope and database, so the pass also binds
+the runtime's session generation. A response that arrives after its session
+ended is dropped: a delayed 403 neither denies, marks nor purges the
+replacement session's projection, and a delayed page is not applied. Every
+write the pass makes (the denial marker, the purge, and the page apply) commits
+only while that session still holds, checked in the commit's own synchronous
+slice. The replacement session runs its own reconcile, so nothing waits on the
+dropped response.
+
 ## Realtime behavior
 
 WebSocket messages are [content-free hints](./developer/realtime-hints.md). A
