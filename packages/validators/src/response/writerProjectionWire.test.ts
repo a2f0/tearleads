@@ -272,6 +272,17 @@ test("a projection derived from a decoded one answers for it", () => {
   const intermediate = deriveDecodedProjection(decoded, { ...decoded });
   const pathOfSlice = deriveDecodedProjection(sliced, { ...sliced });
   expect(heldBundlesUsedBy(pathOfSlice)).toEqual([root]);
+  // A derived projection that no longer carries a held bundle does not
+  // answer for it.
+  expect(
+    heldBundlesUsedBy(
+      deriveDecodedProjection(decoded, {
+        ...decoded,
+        containerKeks: [],
+        path: [],
+      }),
+    ),
+  ).toEqual([]);
   // Refusing any derived projection refuses the decoded one a cache holds
   // and every other projection built from it.
   rejectDecodedProjection(pathOfSlice);

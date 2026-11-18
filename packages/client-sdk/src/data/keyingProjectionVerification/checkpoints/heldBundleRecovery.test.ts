@@ -1,9 +1,5 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import {
-  createContainerWriterProjectionFixture,
-  createTestExecSql,
-} from "@tearleads/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   decodeContainerWriterProjection,
   encodeContainerWriterProjection,
@@ -14,8 +10,13 @@ import {
   isServedAccessManifestBundleWireResponse,
   toServedAccessManifestBundle,
 } from "@tearleads/validators/util";
-import { createAuthor } from "../../../../test/helpers/data/documentFixturePrimitives";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
+import {
+  CONTAINER_ID,
+  jsonRoundTrip,
+  seededFixture,
+  seedWrongRow,
+  target,
+} from "../../../../test/helpers/data/heldBundleFixtures";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../../persistence/principalPolicy/principalPolicyBundleRepository";
 import {
@@ -29,39 +30,6 @@ import {
   verifyContainerWriterProjection,
 } from "../container/containerProjectionVerification";
 import { checkWithHeldBundleRecovery } from "./heldBundleRecovery";
-
-const CONTAINER_ID = "seeded-container";
-const target = { kind: "container", id: CONTAINER_ID } as const;
-
-async function seededFixture() {
-  const { author, signingPublicKey } = await createAuthor();
-  const encapsulationPublicKey = generateKemSeedAndKeyPair().publicKey;
-  const projection = await createContainerWriterProjectionFixture({
-    containerId: CONTAINER_ID,
-    encapsulationPublicKey,
-    organizationId: author.organizationId,
-    signerKeyFingerprint: author.signerKeyFingerprint,
-    signerPrivateKey: author.signerPrivateKey,
-    userId: author.signerUserId,
-  });
-  const [leaf] = projection.path;
-  if (!leaf) throw new Error("fixture path missing");
-  return {
-    leaf,
-    organizationId: author.organizationId,
-    projection,
-    resolveUserKey: createTestTrustedUserIdentityResolver({
-      encapsulationPublicKey,
-      signingKeyFingerprint: author.signerKeyFingerprint,
-      signingPublicKey,
-      userId: author.signerUserId,
-    }),
-  };
-}
-
-function jsonRoundTrip(value: unknown): unknown {
-  return JSON.parse(JSON.stringify(value));
-}
 
 test("a wrong seeded bundle is refused once, dropped, and the next read verifies", async () => {
   const fixture = await seededFixture();
@@ -160,46 +128,6 @@ test("a projection that cited nothing fails as before", async () => {
     database.close();
   }
 });
-
-async function seedWrongRow(
-  execSql: Parameters<typeof loadVerifiedManifestCitations>[0],
-  fixture: Awaited<ReturnType<typeof seededFixture>>,
-  wrong: ReturnType<typeof toServedAccessManifestBundle>,
-) {
-  await new KeyingCheckpointRepository(
-    execSql,
-  ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-    heads: [
-      {
-        checkpoint: {
-          objectKind: "container",
-          objectId: CONTAINER_ID,
-          organizationId: fixture.organizationId,
-          epoch: 1,
-          manifestHash: fixture.leaf.manifestHash,
-        },
-        previousManifestHash: null,
-        servedBundle: wrong,
-      },
-    ],
-  });
-  const held = new Map(
-    (await loadVerifiedManifestCitations(execSql, target))
-      .filter(isServedAccessManifestBundleWireResponse)
-      .map((bundle) => [bundle.manifestHash, bundle]),
-  );
-  const cited = decodeContainerWriterProjection(
-    jsonRoundTrip(
-      encodeContainerWriterProjection(
-        fixture.projection,
-        new Set([fixture.leaf.manifestHash]),
-      ),
-    ),
-    held,
-  );
-  if (!cited) throw new Error("cited projection did not decode");
-  return cited;
-}
 
 test("a held bundle naming a principal head that does not exist is dropped too", async () => {
   const fixture = await seededFixture();
@@ -480,6 +408,40 @@ test("a passing consistency check does not clear another read's refusal", async 
       async () => undefined,
     );
     expect(isRejectedDecodedProjection(checked)).toBe(true);
+  } finally {
+    database.close();
+  }
+});
+
+test("held bundles a failed drop could not remove stay out of citations", async () => {
+  const fixture = await seededFixture();
+  const database = await createTestExecSql("held-bundle-failed-drop");
+  const wrong = toServedAccessManifestBundle({
+    ...fixture.leaf,
+    state: { ...fixture.leaf.state, directGrants: [] },
+  });
+  try {
+    const cited = await seedWrongRow(database.execSql, fixture, wrong);
+    // The store refuses the delete.
+    const execSql = new Proxy(database.execSql, {
+      apply(target, thisArg, args: unknown[]) {
+        if (/^\s*delete\b/iu.test(String(args[0])))
+          throw new Error("disk I/O error");
+        return Reflect.apply(target, thisArg, args);
+      },
+    });
+    await expect(
+      verifyContainerWriterProjection({
+        execSql,
+        openPrincipalPolicyBundleReader,
+        projection: cited,
+        resolveUserKey: fixture.resolveUserKey,
+      }),
+    ).rejects.toMatchObject({ name: "KeyingVerificationError" });
+    // The row survived, but this process no longer cites it.
+    expect(
+      await loadVerifiedManifestCitations(database.execSql, target),
+    ).toEqual([]);
   } finally {
     database.close();
   }

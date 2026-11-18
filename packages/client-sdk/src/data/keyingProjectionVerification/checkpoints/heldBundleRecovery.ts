@@ -82,15 +82,11 @@ async function runWithHeldBundleRecovery<T>(
         held.map((bundle) => bundle.manifestHash),
       );
       rejectDecodedProjection(input.projection);
-      try {
-        await dropHeldManifestBundles(
-          input.execSql,
-          held,
-          input.stillCurrent,
-        ).catch(() => undefined);
-      } finally {
-        release();
-      }
+      // Released only once the rows are gone: a failed drop keeps them out of
+      // this process's citations rather than citing the same bytes again.
+      await dropHeldManifestBundles(input.execSql, held, input.stillCurrent)
+        .then(release)
+        .catch(() => undefined);
     }
     throw error;
   }

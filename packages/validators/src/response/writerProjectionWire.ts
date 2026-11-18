@@ -250,9 +250,27 @@ export function deriveDecodedProjection<T extends object>(
   to: T,
 ): T {
   const held = heldBundlesByProjection.get(from);
-  if (held) heldBundlesByProjection.set(to, held);
+  if (held) {
+    // Only the held bundles this projection still carries: verifying it
+    // vouches for those and no others.
+    const carried = manifestHashesIn(to);
+    const kept = held.filter((bundle) => carried.has(bundle.manifestHash));
+    if (kept.length > 0) heldBundlesByProjection.set(to, kept);
+  }
   decodedOrigins.set(to, decodedOrigins.get(from) ?? from);
   return to;
+}
+
+function manifestHashesIn(value: unknown, found = new Set<string>()) {
+  if (Array.isArray(value)) {
+    for (const item of value) manifestHashesIn(item, found);
+  } else if (typeof value === "object" && value !== null) {
+    for (const [key, child] of Object.entries(value)) {
+      if (key === "manifestHash" && typeof child === "string") found.add(child);
+      else manifestHashesIn(child, found);
+    }
+  }
+  return found;
 }
 
 // The exact held bytes refused projections took: any other projection
