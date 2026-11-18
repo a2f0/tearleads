@@ -30,3 +30,26 @@ resource "cloudflare_dns_record" "balebase_verification" {
     prevent_destroy = true
   }
 }
+
+resource "cloudflare_dns_record" "balebase_subdomain_verification" {
+  count   = var.balebase_subdomain_verification_txt == null ? 0 : 1
+  zone_id = module.website.zone_id
+  name    = "_balebase-verification.base.${var.domain}"
+  type    = "TXT"
+  content = jsonencode(var.balebase_subdomain_verification_txt)
+  ttl     = 300
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "cloudflare_dns_record" "balebase_subdomain_mx" {
+  count    = var.enable_balebase_subdomain_mx ? 1 : 0
+  zone_id  = module.website.zone_id
+  name     = "base.${var.domain}"
+  type     = "MX"
+  priority = 10
+  content  = "mx.balebase.com"
+  ttl      = 300
+}

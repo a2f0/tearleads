@@ -85,6 +85,39 @@ and confirm that a fresh external message reaches the original recipient.
 Once Google has stopped forwarding, retire the Balebase binding if needed.
 The TXT record can stay in place while Tearleads uses Balebase.
 
+#### Direct delivery pilot on base.tearleads.com
+
+The pilot adds `legal@base.tearleads.com` while the website continues to
+publish `legal@tearleads.com`. Google Workspace forwards the published address
+as described above. Balebase's SMTP server receives the pilot address
+directly, using an MX record only on `base.tearleads.com`.
+
+1. In the production Tearleads organization in Balebase, add
+   `base.tearleads.com` and copy its TXT value. Save that value separately
+   as `TF_VAR_balebase_subdomain_verification_txt` in the production tier's
+   `app.env`. Keep the apex setting. Leave `TF_VAR_enable_balebase_subdomain_mx`
+   unset or false.
+2. Use the production website stack plan and apply steps above. Confirm the
+   plan adds the child TXT record before applying. Check its public answer
+   with `dig +short TXT _balebase-verification.base.tearleads.com`, then
+   verify the subdomain in Balebase. Bind the exact pilot address to its own
+   named inbox, such as **Legal pilot**.
+3. Once the Balebase SMTP receiver is operational at `mx.balebase.com` and
+   the binding is ready, set `TF_VAR_enable_balebase_subdomain_mx=true`.
+   Plan again. Confirm the only change is an MX at `base.tearleads.com` with
+   priority 10 and destination `mx.balebase.com`. Apply that saved plan.
+4. Check `dig +short MX base.tearleads.com` for `10 mx.balebase.com.`
+   and `dig +short MX tearleads.com` for the Google hosts. Send two external
+   test messages with distinct subjects, one to each address. Confirm the
+   direct message appears in **Legal pilot** and the forwarded message
+   appears in **Legal**.
+
+To withdraw the pilot, set `TF_VAR_enable_balebase_subdomain_mx=false`.
+Keep both TXT settings and the Google mapping. Review a plan that removes
+only the child MX, then apply it. Check the child and apex MX answers again
+and confirm delivery to the published address. Keep the pilot inbox and
+binding available for cached MX records and messages already in transit.
+
 ### The www Redirect
 
 `www.tearleads.com` answers 301 to `https://tearleads.com`, keeping the path
@@ -232,8 +265,8 @@ each step. The production script asks for the domain unless given
 stack wrappers refuse a production `destroy`; the teardown applies saved destroy
 plans. Before tearing down an enrolled production website, restore and verify
 delivery to the original legal mailbox using the [legal contact
-procedure](#legal-contact-delivery-to-balebase). The authorized teardown
-removes the verification record.
+procedure](#legal-contact-delivery-to-balebase) and withdraw any active
+subdomain pilot. The authorized teardown removes the verification records.
 
 The deployed API allows browser requests from every origin (`API_CORS_ORIGINS=*`)
 for [SDK hosts](sdk-hosting.md), with explicit bearer-token and protocol headers
