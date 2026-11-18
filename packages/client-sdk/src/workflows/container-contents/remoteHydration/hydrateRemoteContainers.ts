@@ -88,12 +88,12 @@ export async function hydrateRemoteContainers(input: {
       queueParentLane(containerId);
     }
   };
-  let unavailableDependency: Error | undefined;
+  let manualError: Error | undefined;
   const result = await hydrateContainerParentLanes({
     reconnect: input.reconnect && {
       laneIdPrefix: `r${++reconnectSequence}`,
-      recordUnavailable: (error) => {
-        unavailableDependency ??= error;
+      recordManualError: (error) => {
+        manualError ??= error;
       },
     },
     childIdsByParentId,
@@ -120,9 +120,8 @@ export async function hydrateRemoteContainers(input: {
   });
   if (input.reconnect?.isCurrent() && canHydrateRemoteContainers(state)) {
     input.reconnect.record(result.outcome);
-    // A manual refresh sharing this crawl still observes its dependency failure.
-    if (input.resetAllLaneWatermarks && unavailableDependency)
-      throw unavailableDependency;
+    // A manual refresh sharing this crawl observes the error it would receive on its own.
+    if (input.resetAllLaneWatermarks && manualError) throw manualError;
   }
   return changedCount;
 }

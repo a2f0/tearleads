@@ -47,6 +47,8 @@ for (const failure of [
   "manual dependency",
   "shared dependency",
   "policy",
+  "shared policy",
+  "manual policy",
   "expired",
   "runtime",
 ] as const) {
@@ -59,7 +61,7 @@ for (const failure of [
       const firstRoot = container("first-root");
       const laterRoot = container("later-root");
       const bad = container("bad-child", firstRoot.id);
-      if (failure === "policy")
+      if (failure.includes("policy"))
         bad.metadataReferencedPrincipals = [
           {
             keyEpoch: 1,
@@ -169,7 +171,7 @@ for (const failure of [
             },
           }),
         } as unknown as RemoteContainerHydrationState;
-        if (failure === "policy")
+        if (failure.includes("policy"))
           spyOn(
             state.runtime.principalPolicies,
             "createWarmer",
@@ -189,22 +191,25 @@ for (const failure of [
             },
             updateSnapshot: () => {},
           },
-          reconnect:
-            failure === "manual dependency"
-              ? undefined
-              : {
-                  isCurrent: () => true,
-                  record: (value) => {
-                    outcome = value;
-                  },
+          reconnect: failure.startsWith("manual")
+            ? undefined
+            : {
+                isCurrent: () => true,
+                record: (value) => {
+                  outcome = value;
                 },
+              },
           onFullyHydrated: () => {
             completed = true;
           },
-          resetAllLaneWatermarks: failure === "shared dependency",
+          resetAllLaneWatermarks: failure.startsWith("shared"),
           parentIds: [null],
           state,
         });
+        if (failure === "manual policy") {
+          await expect(hydration).rejects.toThrow("refused test reference");
+          return;
+        }
         if (failure === "manual dependency") {
           await expect(hydration).rejects.toThrow("signer unavailable");
           return;
@@ -216,6 +221,8 @@ for (const failure of [
         }
         if (failure === "shared dependency")
           await expect(hydration).rejects.toThrow("signer unavailable");
+        else if (failure === "shared policy")
+          await expect(hydration).rejects.toThrow("refused test reference");
         else await hydration;
         expect(state.containersById.has(bad.id)).toBe(false);
         expect(await persistence.containerExists(execSql, bad.id)).toBe(false);
@@ -228,7 +235,7 @@ for (const failure of [
         expect(requestedParents).not.toContain(bad.id);
         // A rejected prefetch leaves no projection, so verification reads again.
         expect(badProofReads).toBe(
-          failure === "policy"
+          failure.includes("policy")
             ? 0
             : failure === "expired" || failure.includes("dependency")
               ? 2
@@ -247,7 +254,9 @@ for (const failure of [
         ).toEqual(watermark);
         expect(completed).toBe(false);
         expect(outcome).toBe(
-          ["policy", "tampered"].includes(failure) ? "refused" : "retry",
+          failure.includes("policy") || failure === "tampered"
+            ? "refused"
+            : "retry",
         );
         expect(incidents).toHaveLength(
           ["mixed", "tampered"].includes(failure) ? 1 : 0,

@@ -4,7 +4,10 @@ import type {
   DeviceFirstContainerContents,
   DocumentSummary,
 } from "@tearleads/client-sdk";
-import { enqueueReconciliationForEvents } from "@tearleads/client-sdk";
+import {
+  enqueueReconciliationForEvents,
+  getOrCreateDomainSyncCoordinator,
+} from "@tearleads/client-sdk";
 import {
   WsDocumentMutationCreatedHintSchema,
   WsDocumentUpdateCreatedHintSchema,
@@ -12,7 +15,10 @@ import {
 } from "@tearleads/validators/realtime";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
-import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
+import {
+  useTearleadsExternalStoreSnapshot,
+  useTearleadsExternalValue,
+} from "../../providers/sdk/useTearleadsSubscription";
 
 type DocumentReconciliationEvent = Extract<
   WsInvalidationHint,
@@ -290,9 +296,12 @@ export function useDeviceFirstBinding(input: {
     processedEventScopeRef.current = domainScope;
     processedEventKeysRef.current = new Set();
   }
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  // Disposal can retire this handle while the provider and its domain stay mounted.
+  useTearleadsExternalValue(coordinator.subscribe, coordinator.isDisposed);
   const deviceFirst = useMemo(
     () => tearleads.deviceFirst.open({ logLabel }),
-    [domainScope, logLabel, tearleads],
+    [coordinator, logLabel, tearleads],
   );
   const { reconciler, view } = deviceFirst;
   const viewSnapshot = useTearleadsExternalStoreSnapshot(view);

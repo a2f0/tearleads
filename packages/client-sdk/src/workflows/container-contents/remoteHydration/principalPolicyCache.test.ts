@@ -83,7 +83,7 @@ test("a refused reference in a batch leaves independent references available", a
       if (ids.includes("refused"))
         throw new KeyingVerificationError("equivocation", "test refusal");
     },
-    true,
+    () => {},
   );
   expect(result).toEqual({ items: [good], outcome: "refused" });
   expect(warmed).toEqual([["ok", "refused"], ["ok"], ["refused"]]);

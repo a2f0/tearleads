@@ -48,7 +48,10 @@ import { createVerifiedManifestCitations } from "./data/persistence/verifiedMani
 import { createDomainScope, type DomainScope } from "./data/shared/domainScope";
 import { createListenerSet } from "./data/shared/listenerSet";
 import type { SecurityIncidentReporter } from "./data/shared/securityIncidents";
-import { getOrCreateDomainSyncCoordinator } from "./data/sync/syncCoordinator";
+import {
+  disposeDomainSyncCoordinator,
+  getOrCreateDomainSyncCoordinator,
+} from "./data/sync/syncCoordinator";
 import { resolveIdentityTrustDomain } from "./data/trustedUserIdentity";
 import type { TearleadsOptions } from "./TearleadsOptions";
 

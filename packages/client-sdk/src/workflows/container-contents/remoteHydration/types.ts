@@ -12,7 +12,6 @@ import type {
   ListContainersResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import type { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
 import type { PrincipalPolicyHistoryReader } from "../../principals/principalPolicyHistoryReader";
 import type {
@@ -117,7 +116,7 @@ interface RemoteContainerHydrationRuntime
 export type HydrationOutcome = "complete" | "refused" | "retry";
 export interface ReconnectPages {
   laneIdPrefix: string;
-  recordUnavailable(error: ProjectionDependencyUnavailableError): void;
+  recordManualError(error: Error): void;
 }
 
 export interface ReconnectCrawl {

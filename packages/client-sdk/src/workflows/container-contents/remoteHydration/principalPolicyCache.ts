@@ -10,12 +10,14 @@ type RemoteContainerPrincipalReferences = Pick<
 type PrincipalReference =
   RemoteContainer["metadataReferencedPrincipals"][number];
 
-async function warmUnlessRefused(warm: () => Promise<void>): Promise<boolean> {
+async function readPolicyRefusal(
+  warm: () => Promise<void>,
+): Promise<Error | undefined> {
   try {
     await warm();
-    return true;
+    return undefined;
   } catch (error) {
-    if (isKeyingVerificationError(error)) return false;
+    if (isKeyingVerificationError(error)) return error;
     throw error;
   }
 }
@@ -27,6 +29,7 @@ export async function cacheRemoteContainerPrincipalPolicies(input: {
   readonly onRefused?: (
     organizationId: string,
     reference: PrincipalReference,
+    error: Error,
   ) => void;
   readonly remoteContainers: readonly RemoteContainerPrincipalReferences[];
   readonly stillCurrent?: (() => boolean) | undefined;
@@ -71,16 +74,17 @@ export async function cacheRemoteContainerPrincipalPolicies(input: {
             stillCurrent: input.stillCurrent,
           });
         if (!input.onRefused) return warm(references);
-        if (await warmUnlessRefused(() => warm(references))) return;
+        const batchError = await readPolicyRefusal(() => warm(references));
+        if (!batchError) return;
         // A failed batch identifies no individual reference. Isolate it
         // without excluding independent containers in the same organization.
         for (const reference of references) {
           if (input.stillCurrent?.() === false) return;
-          if (
-            references.length === 1 ||
-            !(await warmUnlessRefused(() => warm([reference])))
-          )
-            input.onRefused(organizationId, reference);
+          const error =
+            references.length === 1
+              ? batchError
+              : await readPolicyRefusal(() => warm([reference]));
+          if (error) input.onRefused(organizationId, reference, error);
         }
       },
     ),
@@ -92,7 +96,7 @@ export async function warmListedContainerPolicies<
 >(
   items: readonly T[],
   warmer: ReferencedPrincipalPolicyWarmer,
-  isolateRefusals: boolean,
+  recordManualError?: (error: Error) => void,
   stillCurrent?: () => boolean,
 ): Promise<{ items: readonly T[]; outcome: "complete" | "refused" }> {
   const refused = new Set<string>();
@@ -102,8 +106,9 @@ export async function warmListedContainerPolicies<
     cacheReferencedPrincipalPolicies: warmer,
     remoteContainers: items,
     stillCurrent,
-    ...(isolateRefusals && {
-      onRefused: (org: string, ref: PrincipalReference) => {
+    ...(recordManualError && {
+      onRefused: (org: string, ref: PrincipalReference, error: Error) => {
+        recordManualError(error);
         refused.add(key(org, ref));
       },
     }),

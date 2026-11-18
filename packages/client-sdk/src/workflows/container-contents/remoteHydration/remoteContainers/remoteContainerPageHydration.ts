@@ -101,7 +101,7 @@ async function applyRemoteContainerPage(input: {
     state.runtime.principalPolicies.createWarmer({
       operation: input.policyOperation,
     }),
-    !!input.reconnect,
+    input.reconnect?.recordManualError,
     input.isCurrent,
   );
   const { items } = policies;
@@ -165,7 +165,7 @@ async function applyRemoteContainerPage(input: {
       (outcome) => {
         failure = outcome;
       },
-      input.reconnect?.recordUnavailable,
+      input.reconnect?.recordManualError,
     );
     if (!upserted) {
       outcome = combineOutcomes(outcome, failure);
