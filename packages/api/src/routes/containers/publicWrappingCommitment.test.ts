@@ -53,7 +53,6 @@ test("the server rejects a correctly signed rotation with an uncommitted public 
     ...honest.request,
     body,
     event: { ...event.event },
-    manifest: { ...manifest },
     expectedManifestHash: manifestHash,
     keyEpoch: {
       ...honest.request.keyEpoch,

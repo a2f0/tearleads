@@ -295,7 +295,7 @@ export async function verifyDocumentLinkSetManifest({
     }
 
     const verifiedManifest = await verifyAccessManifest({
-      manifest,
+      manifest: manifest ?? derivedManifest,
       expectedManifestHash,
       event,
       expectedObject: {

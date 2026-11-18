@@ -41,7 +41,9 @@ initial metadata `DocumentCreateRequest`, and an optional
 Each signed mutation request carries:
 
 - signed event and event body
-- expected manifest hash and derived manifest state
+- the expected manifest hash, never the manifest: the API derives the manifest
+  from the event and the state it already stores, and refuses the request when
+  the derived manifest's hash differs
 - optional `previousManifestRef`, `previousContainerPathRefs`,
   `parentContainerPathRefs`, `destinationParentContainerPathRefs`, and
   `containerManifestHistoryRefs`: `{containerId, manifestHash}` citations of

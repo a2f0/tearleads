@@ -1,4 +1,5 @@
 import {
+  computeAccessEventHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   generateKemSeedAndKeyPair,
@@ -8,6 +9,7 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
+  readAccessEvent,
   readContainerKeyEpoch,
   readContainerKeyWrap,
 } from "../../../src/data/keyingProjectionVerification/readers";
@@ -216,7 +218,22 @@ function stubHash(label: string, id: string): string {
 export function stubRekeyRequest(id: string) {
   return {
     body: { eventType: "container.rekey" },
-    event: { objectId: id, objectKind: "container" },
+    event: {
+      version: 1,
+      eventId: `event-${id}`,
+      eventType: "container.rekey",
+      objectKind: "container",
+      objectId: id,
+      organizationId: "stub-organization",
+      previousManifestHash: stubHash("p", id),
+      dependencyManifestHashes: [],
+      bodyHash: stubHash("b", id),
+      signerUserId: "stub-user",
+      signerDeviceId: "stub-device",
+      signerKeyFingerprint: stubHash("k", id),
+      signedAt: "2026-05-05T00:00:00.000Z",
+      signature: "AAAA",
+    },
     expectedManifestHash: `manifest-${id}`,
     keyEpoch: {
       id: `epoch-${id}`,
@@ -228,7 +245,6 @@ export function stubRekeyRequest(id: string) {
       createdByManifestHash: stubHash("m", id),
     },
     keyring: null,
-    manifest: { epoch: 2, eventHash: `event-${id}`, objectId: id },
     predecessorBridge: null,
     principalPolicyRefs: [],
     wraps: [],
@@ -241,7 +257,6 @@ export async function echoMutation(request: {
   event: unknown;
   expectedManifestHash: string;
   keyEpoch: unknown;
-  manifest: unknown;
   wraps: readonly unknown[];
 }) {
   const keyEpoch = readContainerKeyEpoch(request.keyEpoch, "stub key epoch");
@@ -256,11 +271,11 @@ export async function echoMutation(request: {
   return {
     containerId: String(Reflect.get(Object(request.event), "objectId")),
     createdAt: "2026-05-05T00:00:00.000Z",
-    eventHash: String(Reflect.get(Object(request.manifest), "eventHash")),
-    manifestHead: {
-      epoch: Number(Reflect.get(Object(request.manifest), "epoch")),
-      manifestHash: request.expectedManifestHash,
-    },
+    eventHash: await computeAccessEventHash(
+      readAccessEvent(request.event, "stub event"),
+    ),
+    // Stub rekeys commit epoch 2 of each container.
+    manifestHead: { epoch: 2, manifestHash: request.expectedManifestHash },
     organizationId: "stub-organization",
     parentId: null,
     updatedAt: "2026-05-05T00:00:00.000Z",

@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import type { ContainerAccessManifestState } from "@tearleads/crypto";
+import {
+  type AccessEvent,
+  type ContainerAccessManifestState,
+  computeAccessEventHash,
+  deriveContainerAccessManifest,
+} from "@tearleads/crypto";
 import { createTestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
@@ -24,10 +29,10 @@ import type { StoredContainerMutation } from "../../test/helpers/storedContainer
 import { getCurrentContainerKeyEpoch } from "../access/read/containerKekStore";
 import { routeApp } from "../routeApp";
 
-function rekeyedChildFixture(
+async function rekeyedChildFixture(
   previous: StoredContainerMutation,
   request: ContainerMutationRequest,
-): StoredContainerMutation {
+): Promise<StoredContainerMutation> {
   const previousBundle = previous.accessManifest;
   const previousState = asVerifiedContainerManifest(previousBundle).state;
   const body = request.body as {
@@ -35,13 +40,15 @@ function rekeyedChildFixture(
     containerKeyPublicKey: string;
     referencedPrincipalHeads: ContainerAccessManifestState["referencedPrincipalHeads"];
   };
-  const manifest = request.manifest as unknown as { eventHash: string };
+  const eventHash = await computeAccessEventHash(
+    request.event as unknown as AccessEvent,
+  );
   const state: ContainerAccessManifestState = {
     ...previousState,
     containerKeyEpochId: body.containerKeyEpochId,
     containerKeyPublicKey: body.containerKeyPublicKey,
     epoch: previousState.epoch + 1,
-    eventHash: manifest.eventHash,
+    eventHash,
     previousManifestHash: previousBundle.manifestHash,
     referencedPrincipalHeads: body.referencedPrincipalHeads,
   };
@@ -52,9 +59,10 @@ function rekeyedChildFixture(
       event: {
         body: request.body,
         event: request.event,
-        eventHash: manifest.eventHash,
+        eventHash,
       },
-      manifest: request.manifest,
+      // The request carries the hash; the manifest is derived from the state.
+      manifest: { ...(await deriveContainerAccessManifest(state)) },
       manifestHash: request.expectedManifestHash,
       state: state as unknown as Record<string, unknown>,
     } as unknown as StoredContainerMutation["accessManifest"],
@@ -85,7 +93,7 @@ test("document link-set mutations can rekey their changed child container", asyn
     previousKekState: await kekStateFromContainerResponse(child),
     signer: owner,
   });
-  const linkChild = rekeyedChildFixture(child, linkRekeyRequest);
+  const linkChild = await rekeyedChildFixture(child, linkRekeyRequest);
   const linkRequest = await buildDocumentLinkRequest({
     child: linkChild,
     createdDocument: created,
@@ -118,7 +126,7 @@ test("document link-set mutations can rekey their changed child container", asyn
     previousKekState: await kekStateFromContainerResponse(linkChild),
     signer: owner,
   });
-  const unlinkChild = rekeyedChildFixture(linkChild, unlinkRekeyRequest);
+  const unlinkChild = await rekeyedChildFixture(linkChild, unlinkRekeyRequest);
   const unlinkRequest = await buildDocumentUnlinkRequest({
     child: unlinkChild,
     linkedDocument: withDocumentMutationArtifacts(linkRequest, linked),

@@ -331,7 +331,6 @@ async function buildChildCreateRequest(input: {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
     expectedManifestHash: childBundle.manifestHash,
-    manifest: childBundle.manifest,
     parentContainerPathRefs: [containerManifestRef(input.parent)],
     principalPolicyRefs: principalPolicyRefs(
       input.principalPolicies ??

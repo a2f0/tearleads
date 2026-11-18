@@ -1,0 +1,118 @@
+# Issue #2903 (P20, greenfield flag day): container mutations, recitations,
+# organization root creates and document link/unlink requests no longer
+# carry the access manifest the API derives; they send expectedManifestHash
+# alone. Remove these exact diagnostics as soon as main contains the new
+# contract.
+POST /auth/register removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/manifest` (shared schema: `ContainerMutationRequest`, also at `initialMemberGroup/initialGroupPolicy/containerMutations/items/manifest`, `initialOrganizationMetadataContainer/container/manifest` and 10 more)
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/manifest` (shared schema: `DocumentSyncRequest`, also at `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/manifest`, `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/manifest` and 3 more)
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the request property `containerRekeys/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the request property `documentSync/containerRekeys/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings/{bindingId}/detach removed the request property `containerRekeys/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers removed the request property `manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/with-metadata-document removed the request property `container/manifest` (shared schema: `ContainerMutationRequest`, also at `metadataDocument/containerRekeys/items/manifest`)
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/containerRekeys/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/move removed the request property `containerRekeys/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/move removed the request property `manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/recite removed the request property `manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `containerRekeys/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `containerRekeys/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/share removed the request property `manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents removed the request property `containerRekeys/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents removed the request property `initialSync/containerRekeys/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/link removed the request property `containerRekeys/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/link removed the request property `manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/sync removed the request property `containerRekeys/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/unlink removed the request property `containerRekeys/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/unlink removed the request property `manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/manifest` (shared schema: `ContainerMutationRequest`, also at `initialMemberGroup/initialGroupPolicy/containerMutations/items/manifest`, `initialOrganizationMetadataContainer/container/manifest` and 10 more)
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/manifest` (shared schema: `DocumentSyncRequest`, also at `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/manifest`, `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/manifest` and 3 more)
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `initialGroupPolicy/containerMutations/items/manifest` (shared schema: `ContainerMutationRequest`, also at `organizationPolicy/containerMutations/items/manifest`)
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+DELETE /organizations/{organizationId}/groups/{groupId} removed the request property `organizationPolicy/containerMutations/items/manifest`
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `groupPolicy/containerMutations/items/manifest` (shared schema: `ContainerMutationRequest`, also at `memberPolicy/containerMutations/items/manifest`, `organizationPolicy/containerMutations/items/manifest`)
+
+# Issue #2903 P20: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+PUT /principals/{principalType}/{principalId}/policy removed the request property `containerMutations/items/manifest`

@@ -101,7 +101,6 @@ export const DocumentLinkSetMutationRequestSchema =
       contentKeyBundle: DocumentContentKeyBundleRequestSchema,
       event: plainObjectSchema,
       expectedManifestHash: nonEmptyStringSchema,
-      manifest: plainObjectSchema,
       rotationBaseline: DocumentOutgoingUpdateSchema.optional(),
       // A container path (root→leaf chain) must carry at least one manifest
       // reference; an empty path authorizes nothing and is never legitimately built.

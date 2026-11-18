@@ -70,7 +70,6 @@ export function containerMutationRequestCore(
   | "event"
   | "body"
   | "expectedManifestHash"
-  | "manifest"
   | "principalPolicyRefs"
   | "keyEpoch"
   | "wraps"
@@ -80,8 +79,8 @@ export function containerMutationRequestCore(
   return {
     event: readCanonicalRecord(input.event, `${label} event`),
     body: readCanonicalRecord(input.body, `${label} body`),
+    // The API derives the manifest; the request commits to it by hash.
     expectedManifestHash: input.manifestHash,
-    manifest: readCanonicalRecord(input.manifest, `${label} manifest`),
     principalPolicyRefs: input.principalPolicies.map(principalPolicyRef),
     keyEpoch: readCanonicalRecord(input.keyEpoch, `${label} key epoch`),
     wraps: readCanonicalRecords(input.wraps, `${label} wraps`),

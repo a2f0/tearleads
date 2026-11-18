@@ -90,6 +90,23 @@ test("verifyContainerAccessManifest accepts a signed child create under a writab
   if (result.ok) {
     expect(result.value.state.parentManifestHash).toBe(parent.manifestHash);
   }
+
+  // A request that carries only the hash: the verifier derives the manifest
+  // and reaches the same verified result, and still refuses another hash.
+  const derived = await verifyContainerAccessManifest({
+    expectedManifestHash: manifestHash,
+    event,
+    parentContainerPath: [parent],
+  });
+  expect(derived).toEqual(result);
+  expectVerificationError(
+    await verifyContainerAccessManifest({
+      expectedManifestHash: await fixtureHash("another-manifest"),
+      event,
+      parentContainerPath: [parent],
+    }),
+    "hash_mismatch",
+  );
 });
 
 test("verifyContainerAccessManifest rejects child create signed without parent write access", async () => {

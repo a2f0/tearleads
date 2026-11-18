@@ -163,7 +163,6 @@ const DocumentSyncContainerMutationRequestSchema = registerJsonSchemaView(
     expectedManifestHash: nonEmptyStringSchema,
     keyEpoch: plainObjectSchema,
     keyring: plainObjectSchema.nullable(),
-    manifest: plainObjectSchema,
     parentContainerPathRefs: OptionalContainerManifestPathSchema.optional(),
     parentKekRef: ContainerKekParentRefSchema.nullable().optional(),
     predecessorBridge: plainObjectSchema.nullable(),

@@ -245,7 +245,6 @@ export async function buildRevokeRequest(input: {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
-    manifest: bundle.manifest,
     previousManifestRef: containerManifestRef(input.previous),
     previousContainerPathRefs: containerManifestRefs(
       input.previousContainerPath,
@@ -361,7 +360,6 @@ export async function buildRekeyRequest(input: {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
-    manifest: bundle.manifest,
     previousManifestRef: containerManifestRef(input.previous),
     previousContainerPathRefs: containerManifestRefs(
       input.previousContainerPath,
@@ -470,7 +468,6 @@ export async function buildMoveRequest(input: {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
-    manifest: bundle.manifest,
     previousManifestRef: containerManifestRef(input.previous),
     previousContainerPathRefs: containerManifestRefs(
       input.previousContainerPath,
