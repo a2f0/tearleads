@@ -12,7 +12,6 @@ import {
   type PrincipalProjectionRole,
   type PrincipalStateExternalAuthority,
   type PrincipalStateMemberEnvelope,
-  type PrincipalStatePayloadCipherSuite,
   type SignedPrincipalState,
 } from "@tearleads/crypto";
 import { z } from "zod";
@@ -26,9 +25,7 @@ export interface StoredPrincipalStatePayload {
   principalType: ManagedRecipientPrincipalType;
   principalId: string;
   stateHash: string;
-  cipherSuite: PrincipalStatePayloadCipherSuite;
   ciphertext: string;
-  ciphertextHash: string;
   createdAt: Date;
 }
 
@@ -48,10 +45,9 @@ export interface StoredPrincipalStateChainEntry {
   grants: PrincipalContainerGrant[];
 }
 
+/** Only the ciphertext: the signed state commits to its hash (#2903 P23). */
 export interface PrincipalStatePayloadInput {
-  cipherSuite: PrincipalStatePayloadCipherSuite;
   ciphertext: string;
-  ciphertextHash: string;
 }
 
 export interface PrincipalStateBundleInput {
@@ -107,9 +103,7 @@ export const principalStatePayloadSelect = {
   principalType: principalStatePayloads.principalType,
   principalId: principalStatePayloads.principalId,
   stateHash: principalStatePayloads.stateHash,
-  cipherSuite: principalStatePayloads.cipherSuite,
   ciphertext: principalStatePayloads.ciphertext,
-  ciphertextHash: principalStatePayloads.ciphertextHash,
   createdAt: principalStatePayloads.createdAt,
 } as const;
 
@@ -253,11 +247,7 @@ export function normalizePrincipalStateWriteInput(
 ): PrincipalStateBundleInput {
   return {
     state: stripSignedPrincipalStateArtifacts(input.state),
-    encryptedPayload: {
-      cipherSuite: input.encryptedPayload.cipherSuite,
-      ciphertext: input.encryptedPayload.ciphertext,
-      ciphertextHash: input.encryptedPayload.ciphertextHash,
-    },
+    encryptedPayload: { ciphertext: input.encryptedPayload.ciphertext },
     projection: normalizePrincipalProjectionMembers(input.projection),
     grants: normalizePrincipalContainerGrants(input.grants),
     memberEnvelopes: input.memberEnvelopes.map((envelope) => ({

@@ -158,13 +158,7 @@ export async function acknowledgedPrincipalPolicyCurrent(input: {
   const { createdAt } = response;
   return {
     currentState: { ...state, stateHash, createdAt },
-    currentPayload: {
-      principalType,
-      principalId,
-      stateHash,
-      ...request.encryptedPayload,
-      createdAt,
-    },
+    currentPayload: { ciphertext: request.encryptedPayload.ciphertext },
     currentProjection: request.projection,
     currentGrants: request.grants,
     currentMemberEnvelopes: {

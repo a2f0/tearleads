@@ -54,8 +54,7 @@ async function loadBinding(input: {
   if (
     !payload ||
     (await computePrincipalStatePayloadCiphertextHash(payload.ciphertext)) !==
-      row.payloadCiphertextHash ||
-    payload.ciphertextHash !== row.payloadCiphertextHash
+      row.payloadCiphertextHash
   )
     reject("Purge directory payload hash differs");
   const directory = parseOrganizationAuthorityDescriptor(payload.ciphertext);

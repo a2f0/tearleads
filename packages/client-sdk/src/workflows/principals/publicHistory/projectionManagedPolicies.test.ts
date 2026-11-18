@@ -144,13 +144,7 @@ async function createGroupPrincipalPolicyBundle(input: {
       envelopes: memberEnvelopes,
     },
     currentPayload: {
-      principalType: "group",
-      principalId: input.principalId,
-      stateHash,
-      cipherSuite: "aes-256-gcm",
       ciphertext: payloadCiphertext,
-      ciphertextHash: signedState.payloadCiphertextHash,
-      createdAt: input.signedAt,
     },
     currentGrants: [],
     currentProjection,

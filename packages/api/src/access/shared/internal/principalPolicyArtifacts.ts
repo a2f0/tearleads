@@ -6,7 +6,6 @@ import {
 import type {
   ManagedRecipientPrincipalType,
   PrincipalStateMemberEnvelope,
-  PrincipalStatePayloadCipherSuite,
 } from "@tearleads/crypto";
 import { compareCanonicalStrings } from "@tearleads/crypto";
 import { and, eq, sql } from "drizzle-orm";
@@ -22,11 +21,7 @@ async function readPrincipalPolicyArtifactRows(
   return executor
     .select({
       kind: sql<"payload" | "envelope">`'payload'`,
-      cipherSuite: sql<PrincipalStatePayloadCipherSuite | null>`${principalStatePayloads.cipherSuite}`,
       ciphertext: sql<string | null>`${principalStatePayloads.ciphertext}`,
-      ciphertextHash: sql<
-        string | null
-      >`${principalStatePayloads.ciphertextHash}`,
       createdAt: principalStatePayloads.createdAt,
       userId: emptyText,
       memberKeyFingerprint: emptyText,
@@ -45,9 +40,7 @@ async function readPrincipalPolicyArtifactRows(
       executor
         .select({
           kind: sql<"payload" | "envelope">`'envelope'`,
-          cipherSuite: sql<PrincipalStatePayloadCipherSuite | null>`null`,
           ciphertext: emptyText,
-          ciphertextHash: emptyText,
           createdAt: principalMemberEnvelopes.createdAt,
           userId: sql<string | null>`${principalMemberEnvelopes.userId}`,
           memberKeyFingerprint: sql<
@@ -118,20 +111,14 @@ export function principalPolicyArtifactsFromRows(
   const memberEnvelopes: PrincipalStateMemberEnvelope[] = [];
   for (const row of rows) {
     if (row.kind === "payload") {
-      const { cipherSuite, ciphertext, ciphertextHash, createdAt } = row;
-      if (
-        cipherSuite === null ||
-        ciphertext === null ||
-        ciphertextHash === null
-      )
+      const { ciphertext, createdAt } = row;
+      if (ciphertext === null)
         throw new Error("Stored principal payload is invalid");
       payload = {
         principalType,
         principalId,
         stateHash,
-        cipherSuite,
         ciphertext,
-        ciphertextHash,
         createdAt,
       };
     } else {

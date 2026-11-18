@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { computePrincipalStatePayloadCiphertextHash } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { createOrganizationHistoryFixture } from "../../../../test/helpers/data/organizationPolicyHistory";
 import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/data/principalPolicyCheckpointPins";
@@ -88,9 +87,6 @@ test("directory payload tampering is refused even with a recomputed advertised h
         head.principalId === descriptor.memberGroupId,
     ),
   });
-  payload.ciphertextHash = await computePrincipalStatePayloadCiphertextHash(
-    payload.ciphertext,
-  );
   const { close, execSql } = createNativeTestExecSql();
   try {
     await expect(

@@ -77,9 +77,8 @@ Core helpers:
 (32-byte key, 12-byte IV, 16-byte tag).
 
 The [principal policy](./glossary/principals.md#principal-policy-state) payload
-carries a `cipherSuite: "aes-256-gcm"` label (`PrincipalStatePayloadCipherSuite`
-in [`packages/crypto/src/principalStateTypes.ts`](../packages/crypto/src/principalStateTypes.ts)),
-but the payload itself is base64 JSON the server can read. The
+is only its ciphertext, with no suite label, and the payload itself is base64
+JSON the server can read. The
 [organization](./glossary/principals.md#organization) authority descriptor and
 the built-in `Admins`/`Members` role markers are plaintext; only a custom
 group's name is AES-256-GCM-encrypted inside it, under an HKDF-SHA-256 key

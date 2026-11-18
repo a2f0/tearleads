@@ -123,9 +123,7 @@ test("principal state rows' RETURNING rows equal their read-backs", async () => 
       principalType: "group",
       principalId,
       stateHash,
-      cipherSuite: "aes-256-gcm",
       ciphertext: "ciphertext ☃",
-      ciphertextHash: "ciphertext-hash",
     })
     .returning(principalStatePayloadSelect);
   const [readPayload] = await db

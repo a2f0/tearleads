@@ -99,9 +99,7 @@ async function createInitialBuiltinGroupRequest(
     initialGroupPolicy: {
       state,
       encryptedPayload: {
-        cipherSuite: "aes-256-gcm",
         ciphertext: payloadCiphertext,
-        ciphertextHash: state.payloadCiphertextHash,
       },
       projection,
       grants: [...(input.grants ?? [])],

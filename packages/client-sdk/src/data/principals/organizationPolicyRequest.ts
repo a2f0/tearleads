@@ -93,9 +93,7 @@ export async function buildInitialOrganizationPolicyRequest(input: {
   return {
     state,
     encryptedPayload: {
-      cipherSuite: "aes-256-gcm",
       ciphertext: payloadCiphertext,
-      ciphertextHash: state.payloadCiphertextHash,
     },
     projection,
     grants: [],

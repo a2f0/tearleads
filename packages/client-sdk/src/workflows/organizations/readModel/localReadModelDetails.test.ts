@@ -167,7 +167,6 @@ function policyBundleForGroup(groupId: string): PrincipalPolicyBundleResponse {
     },
     currentPayload: {
       ...principalPolicy.currentPayload,
-      principalId: groupId,
     },
     currentMemberEnvelopes: {
       ...principalPolicy.currentMemberEnvelopes,

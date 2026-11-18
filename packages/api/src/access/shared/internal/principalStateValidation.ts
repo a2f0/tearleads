@@ -101,18 +101,11 @@ export async function validatePrincipalStateArtifacts(
     );
   }
 
-  const computedPayloadCiphertextHash =
-    await computePrincipalStatePayloadCiphertextHash(
+  if (
+    (await computePrincipalStatePayloadCiphertextHash(
       input.encryptedPayload.ciphertext,
-    );
-  if (computedPayloadCiphertextHash !== input.encryptedPayload.ciphertextHash) {
-    throwPrincipalPolicyValidationError(
-      "invalid_artifact",
-      "Principal state payload ciphertext hash does not match ciphertext",
-    );
-  }
-
-  if (computedPayloadCiphertextHash !== input.state.payloadCiphertextHash) {
+    )) !== input.state.payloadCiphertextHash
+  ) {
     throwPrincipalPolicyValidationError(
       "invalid_artifact",
       "Principal state payloadCiphertextHash does not match encrypted payload",

@@ -56,7 +56,7 @@ function groupPolicyBundle(): PrincipalPolicyBundleResponse {
   return {
     ...principalPolicy,
     currentState: { ...principalPolicy.currentState, principalId: groupId },
-    currentPayload: { ...principalPolicy.currentPayload, principalId: groupId },
+    currentPayload: { ...principalPolicy.currentPayload },
     currentMemberEnvelopes: {
       ...principalPolicy.currentMemberEnvelopes,
       principalId: groupId,

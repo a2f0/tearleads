@@ -61,13 +61,7 @@ export async function createBackupPolicyProducer(): Promise<BackupPolicyProducer
     currentState: { ...request.state, stateHash, createdAt },
     currentProjection: request.projection,
     currentGrants: request.grants,
-    currentPayload: {
-      ...request.encryptedPayload,
-      principalType,
-      principalId,
-      stateHash,
-      createdAt,
-    },
+    currentPayload: { ciphertext: request.encryptedPayload.ciphertext },
     currentMemberEnvelopes: {
       envelopes: request.memberEnvelopes,
       epoch: keyEpoch,

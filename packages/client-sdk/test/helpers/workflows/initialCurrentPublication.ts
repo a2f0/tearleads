@@ -37,11 +37,7 @@ export async function initialCurrentPublicationFixture(
     } = initial.currentState;
     const request: PutPrincipalPolicyRequest = {
       state,
-      encryptedPayload: {
-        cipherSuite: initial.currentPayload.cipherSuite,
-        ciphertext: initial.currentPayload.ciphertext,
-        ciphertextHash: initial.currentPayload.ciphertextHash,
-      },
+      encryptedPayload: { ciphertext: initial.currentPayload.ciphertext },
       projection: initial.currentProjection,
       grants: initial.currentGrants,
       memberEnvelopes: initial.currentMemberEnvelopes.envelopes,

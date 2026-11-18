@@ -51,10 +51,10 @@ async function verifyWindow(
   const references: ReferencedPrincipalHead[] = [principalHistoryHead(head)];
   const groupHeads = new Map<string, ReferencedPrincipalHead>();
   for (const { state, payload } of rows) {
-    const hash = await computePrincipalStatePayloadCiphertextHash(
-      payload.ciphertext,
-    );
-    if (hash !== payload.ciphertextHash || hash !== state.payloadCiphertextHash)
+    if (
+      (await computePrincipalStatePayloadCiphertextHash(payload.ciphertext)) !==
+      state.payloadCiphertextHash
+    )
       reject("directory payload differs from its signed hash");
     const descriptor = parseOrganizationAuthorityDescriptor(payload.ciphertext);
     if (!descriptor || descriptor.organizationId !== head.principalId)

@@ -138,7 +138,7 @@ test("buildInitialOrganizationPolicyRequest creates the initial admin organizati
   expect(policy.state.signerUserKeyFingerprint).toBe(
     await toFingerprint(signingKeyPair.signingPublicKey),
   );
-  expect(policy.encryptedPayload.cipherSuite).toBe("aes-256-gcm");
+  expect(policy.encryptedPayload).toEqual({ ciphertext: expect.any(String) });
   expect(
     parseOrganizationAuthorityDescriptor(policy.encryptedPayload.ciphertext),
   ).toEqual({

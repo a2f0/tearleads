@@ -150,9 +150,9 @@ async function prepareHeldCitations(
       held.kekLevels.set(digest, level);
   });
   const payloads = await Promise.all(directories.map(signedDirectoryPayload));
-  for (const payload of payloads)
-    if (payload && !held.directories.has(payload.stateHash))
-      held.directories.set(payload.stateHash, payload);
+  for (const signed of payloads)
+    if (signed && !held.directories.has(signed.stateHash))
+      held.directories.set(signed.stateHash, signed.payload);
   return held;
 }
 

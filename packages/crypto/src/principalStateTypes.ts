@@ -1,7 +1,6 @@
 export type ManagedRecipientPrincipalType = "group" | "organization";
 export type PrincipalProjectionRole = "member" | "admin";
 export type PrincipalStateMembershipMode = "projection";
-export type PrincipalStatePayloadCipherSuite = "aes-256-gcm";
 export type PrincipalContainerGrantAccessLevel = "admin" | "read" | "write";
 
 /**

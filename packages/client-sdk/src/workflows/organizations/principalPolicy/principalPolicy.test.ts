@@ -379,13 +379,7 @@ test("group add and remove policy builders preserve additive epochs and rotate s
       createdAt: new Date("2026-05-12T12:01:00.000Z").toISOString(),
     },
     currentPayload: {
-      principalType: "group",
-      principalId: initialRequest.groupId,
-      stateHash: addStateHash,
-      cipherSuite: addRequest.encryptedPayload.cipherSuite,
       ciphertext: addRequest.encryptedPayload.ciphertext,
-      ciphertextHash: addRequest.encryptedPayload.ciphertextHash,
-      createdAt: new Date("2026-05-12T12:01:00.000Z").toISOString(),
     },
     currentProjection: addRequest.projection,
     currentGrants: addRequest.grants,

@@ -3492,10 +3492,7 @@ export type components = {
             /** @description Container mutations committed atomically with the state. */
             containerMutations?: components["schemas"]["ContainerMutationRequest"][];
             encryptedPayload: {
-                /** @constant */
-                cipherSuite: "aes-256-gcm";
                 ciphertext: string;
-                ciphertextHash: string;
             } & {
                 [key: string]: unknown;
             };
@@ -3983,18 +3980,10 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A principal state's encrypted payload, which only members can read; the signed state commits to its hash. */
+        /** @description A principal state's encrypted payload, which only members can read. It is only the ciphertext: readers hash it and compare with the state's signed `payloadCiphertextHash`. */
         PrincipalStatePayloadResponse: {
-            /** @constant */
-            cipherSuite: "aes-256-gcm";
+            /** @description The payload ciphertext; its hash is the state's signed `payloadCiphertextHash`. */
             ciphertext: string;
-            /** @description Hash of `ciphertext`; the signed state commits to it. */
-            ciphertextHash: string;
-            createdAt: string;
-            principalId: string;
-            /** @enum {string} */
-            principalType: "group" | "organization";
-            stateHash: string;
         } & {
             [key: string]: unknown;
         };
@@ -4120,10 +4109,7 @@ export type components = {
             containerMutations?: components["schemas"]["ContainerMutationRequest"][];
             /** @description Encrypted payload, such as the group's name. */
             encryptedPayload: {
-                /** @constant */
-                cipherSuite: "aes-256-gcm";
                 ciphertext: string;
-                ciphertextHash: string;
             } & {
                 [key: string]: unknown;
             };

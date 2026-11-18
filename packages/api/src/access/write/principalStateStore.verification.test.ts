@@ -134,14 +134,7 @@ test("storeVerifiedPrincipalState rejects encrypted payloads that do not match t
     storeVerifiedPrincipalState(
       {
         ...signedState,
-        encryptedPayload: {
-          ...signedState.encryptedPayload,
-          ciphertext: tamperedCiphertext,
-          ciphertextHash:
-            await computePrincipalStatePayloadCiphertextHash(
-              tamperedCiphertext,
-            ),
-        },
+        encryptedPayload: { ciphertext: tamperedCiphertext },
       },
       db,
     ),
@@ -204,9 +197,7 @@ test.each(["memberCount", "grantCount", "grantRoot"] as const)(
         {
           state,
           encryptedPayload: {
-            cipherSuite: "aes-256-gcm",
             ciphertext: payloadCiphertext,
-            ciphertextHash: state.payloadCiphertextHash,
           },
           projection,
           grants: [],

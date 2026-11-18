@@ -4,7 +4,6 @@ import type {
   PrincipalProjectionRole,
   PrincipalStateExternalAuthority,
   PrincipalStateMembershipMode,
-  PrincipalStatePayloadCipherSuite,
 } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
 import {
@@ -168,14 +167,11 @@ export const principalStates = pgTable(
  * - `stateHash`: Content address of the signed principal state header this
  *   payload belongs to. This joins the payload back to `principalStates` and is
  *   the value referenced by manifests and policy bundles.
- * - `cipherSuite`: Symmetric encryption scheme used by the client for the
- *   payload ciphertext. Only `aes-256-gcm` is currently supported.
- * - `ciphertext`: The encrypted principal policy payload. The server stores and
- *   returns it opaquely; clients with the appropriate principal/member key
- *   material decrypt it.
- * - `ciphertextHash`: Hash of `ciphertext`. On write, this is recomputed and
- *   must match both the submitted payload hash and the signed
- *   `principalStates.payloadCiphertextHash`.
+ * - `ciphertext`: The encrypted principal policy payload (AES-256-GCM, the only
+ *   suite). The server stores and returns it opaquely; clients with the
+ *   appropriate principal/member key material decrypt it. Its hash is the
+ *   signed `principalStates.payloadCiphertextHash`, recomputed on write and by
+ *   every reader, so the record keeps no copy of it (#2903 P23).
  * - `createdAt`: Server-side insertion timestamp. It is not part of the signed
  *   principal state header or payload hash.
  *
@@ -195,11 +191,9 @@ export const principalStatePayloads = pgTable(
       .notNull(),
     principalId: uuid("principal_id").notNull(),
     stateHash: text("state_hash").notNull(),
-    cipherSuite: text("cipher_suite")
-      .$type<PrincipalStatePayloadCipherSuite>()
-      .notNull(),
+    // Only the ciphertext: its hash is the signed state's
+    // payloadCiphertextHash, and the cipher suite is fixed (#2903 P23).
     ciphertext: text("ciphertext").notNull(),
-    ciphertextHash: text("ciphertext_hash").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

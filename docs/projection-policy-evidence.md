@@ -203,7 +203,9 @@ beside the 48 manifest and KEK-level hints and never take their place. The API
 client cites a held payload only when its signed state recomputes to the state
 hash and the payload's bytes hash to the `payloadCiphertextHash` that state
 signs; the state hash commits that payload hash, so a refill is exactly the
-payload the server would serve for that state. The API loads and checks the
+payload the server would serve for that state. A payload is only its
+ciphertext, so the state's signed hash is its whole identity: the client
+checks every payload, refilled or served, against it. The API loads and checks the
 evidence as for any reader, then serves `payload: null` for each directory
 payload whose organization state the request cited, and ignores unknown
 hashes. The client fills each null from the bytes it cited for that request

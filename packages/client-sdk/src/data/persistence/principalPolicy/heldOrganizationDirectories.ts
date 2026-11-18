@@ -51,7 +51,12 @@ export async function heldDirectoryCitations(
       directoryState.principalType === "organization" &&
       directoryState.principalId === organizationId
     )
-      citations.push({ directoryState, directoryPayload });
+      // Only the ciphertext travels on: a payload cached before #2903 P23
+      // also carries fields that no reader uses.
+      citations.push({
+        directoryState,
+        directoryPayload: { ciphertext: directoryPayload.ciphertext },
+      });
   }
   return citations;
 }

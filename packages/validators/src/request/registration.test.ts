@@ -47,9 +47,7 @@ test("isRegistrationRequest", () => {
       signature: "signature",
     },
     encryptedPayload: {
-      cipherSuite: "aes-256-gcm" as const,
       ciphertext: "ciphertext",
-      ciphertextHash: "ciphertext-hash",
     },
     projection: [
       {

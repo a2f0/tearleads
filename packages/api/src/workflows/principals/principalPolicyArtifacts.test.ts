@@ -34,10 +34,16 @@ for (const memberCount of [0, 2, 64]) {
     const envelope = current?.memberEnvelopes[0];
     if (!current || !previous || !envelope)
       throw new Error("Missing artifact fixture");
-    await db.insert(principalStatePayloads).values(previous.payload);
     await db.insert(principalStatePayloads).values({
-      ...current.payload,
+      principalType: previous.state.principalType,
+      principalId: previous.state.principalId,
+      stateHash: previous.state.stateHash,
+      ciphertext: previous.payload.ciphertext,
+    });
+    await db.insert(principalStatePayloads).values({
       principalType: "organization",
+      principalId: current.state.principalId,
+      stateHash: current.state.stateHash,
       ciphertext: `${current.payload.ciphertext}-other-type`,
     });
     await db

@@ -175,14 +175,7 @@ export async function signPolicyState(input: {
       projection,
       grants,
     },
-    payload: {
-      principalType: "group",
-      principalId: input.principalId,
-      stateHash: stateWithHash.stateHash,
-      cipherSuite: "aes-256-gcm",
-      ciphertext: payloadCiphertext,
-      ciphertextHash: state.payloadCiphertextHash,
-    },
+    payload: { ciphertext: payloadCiphertext },
   };
 }
 

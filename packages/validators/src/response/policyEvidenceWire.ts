@@ -32,9 +32,11 @@ export function encodeProjectionPolicyEvidence(
 }
 
 /**
- * Fills each omitted directory payload with its own copy of the exact payload
- * the request cited under that state hash. An omission the request did not
- * cite makes the evidence unusable, so the caller refetches in full.
+ * Fills each omitted directory payload with its own copy of the payload the
+ * request cited under that state hash. An omission the request did not cite
+ * makes the evidence unusable, so the caller refetches in full. A payload is
+ * only its ciphertext, so the reader checks every one, refilled or served,
+ * against its state's signed `payloadCiphertextHash` (#2903 P23).
  */
 export function decodeProjectionPolicyEvidence(
   evidence: ProjectionPolicyEvidenceWireResponse,
@@ -48,7 +50,7 @@ export function decodeProjectionPolicyEvidence(
       continue;
     }
     const payload = heldDirectories.get(entry.reference.stateHash);
-    if (payload?.stateHash !== entry.reference.stateHash) return null;
+    if (!payload) return null;
     organizationPayloads.push({ ...entry, payload: structuredClone(payload) });
   }
   return { ...evidence, organizationPayloads };
