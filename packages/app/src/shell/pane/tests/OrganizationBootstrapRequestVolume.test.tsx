@@ -84,7 +84,9 @@ test(
         // built, so later reads cite them: 29.7 KB received; keep about 5%
         // headroom. Keys and the login signature travel as base64 and child
         // containers cite their parent KEK state: 291 KB sent (322 KB before).
-        bodyBytes: { request: 320_000, response: 31_000 },
+        // Container mutations send manifest hashes alone: 287.9 KB sent;
+        // sending the manifests again (291.5 KB) exceeds this ceiling.
+        bodyBytes: { request: 289_700, response: 31_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 5,
           "GET /principals/group/:groupId/policy": 0,
@@ -159,8 +161,8 @@ test(
         // echoed, nor does the sync echo its bundle and KEK targets: 17.9 KB
         // received (19.4 KB before; 132 KB before hash acknowledgements).
         // Child containers cite their parent KEK state: 223 KB sent (230 KB
-        // before).
-        bodyBytes: { request: 245_000, response: 20_000 },
+        // before). Container creates send manifest hashes alone: 220.0 KB.
+        bodyBytes: { request: 221_500, response: 20_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 1,
           "GET /principals/group/:groupId/policy": 0,

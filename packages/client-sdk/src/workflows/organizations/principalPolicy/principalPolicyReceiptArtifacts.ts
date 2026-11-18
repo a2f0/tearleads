@@ -1,6 +1,7 @@
 import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   compareCanonicalStrings,
+  computeAccessEventHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   computePrincipalStateHash,
@@ -13,6 +14,7 @@ import type {
 } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../../../data/keying/canonicalJson";
 import {
+  readAccessEvent,
   readContainerKeyEpoch,
   readContainerKeyWrap,
 } from "../../../data/keyingProjectionVerification/readers";
@@ -88,8 +90,10 @@ async function assertContainerMutationAcknowledgements(input: {
       }),
       "authored recipient target",
     );
-    // The request carries this client's own hash of the manifest it signed,
-    // and that manifest names its epoch and event by hash. A rotation's signed
+    // The request carries this client's own hash of the manifest it signed
+    // (the hash commits the manifest's epoch; the head's epoch is pinned only
+    // through the plan-based container acknowledgement) and the signed event,
+    // whose hash the acknowledgement must name. A rotation's signed
     // body commits its keyring hash, so a substituted keyring must refuse
     // here, before journal recovery clears the saved request. A grant that
     // keeps its epoch commits none; the container acknowledgement checks the
@@ -100,8 +104,8 @@ async function assertContainerMutationAcknowledgements(input: {
     );
     if (
       response.manifestHead.manifestHash !== request.expectedManifestHash ||
-      response.manifestHead.epoch !== Reflect.get(request.manifest, "epoch") ||
-      response.eventHash !== Reflect.get(request.manifest, "eventHash") ||
+      response.eventHash !==
+        (await computeAccessEventHash(readAccessEvent(request.event, label))) ||
       response.containerKek.containerKeyEpochId !== keyEpoch.id ||
       response.containerKek.containerKeyEpoch !== keyEpoch.keyEpoch ||
       response.containerKek.keyEpochHash !==

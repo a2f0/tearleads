@@ -188,7 +188,6 @@ test("writer projections retain the old principal citation of an unchanged key w
           body,
           event: { ...event.event },
           expectedManifestHash: manifest.manifestHash,
-          manifest: manifest.manifest,
           previousManifestRef: containerManifestRef(root.bundle),
           previousContainerPathRefs: [containerManifestRef(root.bundle)],
           containerManifestHistoryRefs: containerManifestRefs([

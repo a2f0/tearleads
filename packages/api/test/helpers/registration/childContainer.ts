@@ -221,7 +221,6 @@ export async function createChildContainerArtifacts(input: {
       event: toWireRecord(event, "child container request event"),
       body: toWireRecord(body, "child container request body"),
       expectedManifestHash: manifestHash,
-      manifest: toWireRecord(manifest, "child container request manifest"),
       previousManifestRef: null,
       parentContainerPathRefs: containerManifestRefs(
         input.parentProjection.path,

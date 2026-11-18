@@ -186,7 +186,6 @@ export async function createRootContainerArtifacts(input: {
       event: toWireRecord(event, "root container request event"),
       body: toWireRecord(body, "root container request body"),
       expectedManifestHash: manifestHash,
-      manifest: toWireRecord(manifest, "root container request manifest"),
       previousManifestRef: null,
       parentContainerPathRefs: [],
       principalPolicyRefs: principalPolicies,

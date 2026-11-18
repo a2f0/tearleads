@@ -228,7 +228,6 @@ async function buildGroupGrantMutation(input: {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
-    manifest: bundle.manifest,
     previousManifestRef: containerManifestRef(input.root.bundle),
     previousContainerPathRefs: [containerManifestRef(input.root.bundle)],
     containerManifestHistoryRefs: [containerManifestRef(input.root.bundle)],
