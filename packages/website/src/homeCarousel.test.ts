@@ -137,20 +137,53 @@ function pageScripts(page: string): string[] {
     .filter((src) => !src.startsWith("/_astro/Layout."));
 }
 
-test("each page's own script registers the shared elements", async () => {
-  for (const [page, tag] of [
-    [home, "screenshot-carousel"],
-    [gallery, "screenshot-gallery"],
-  ] as const) {
-    const scripts = pageScripts(page);
-    expect(scripts.length, tag).toBeGreaterThan(0);
-    GlobalRegistrator.register({ url: "https://tearleads.test/" });
-    try {
-      for (const src of scripts) await import(join(output, src));
-      expect(customElements.get(tag), tag).toBeDefined();
-    } finally {
-      await GlobalRegistrator.unregister();
-    }
+async function loadPageScripts(page: string): Promise<void> {
+  const scripts = pageScripts(page);
+  expect(scripts.length).toBeGreaterThan(0);
+  for (const src of scripts) await import(join(output, src));
+}
+
+test("the home page's own script registers the carousel", async () => {
+  GlobalRegistrator.register({ url: "https://tearleads.test/" });
+  try {
+    await loadPageScripts(home);
+    expect(customElements.get("screenshot-carousel")).toBeDefined();
+  } finally {
+    await GlobalRegistrator.unregister();
+  }
+});
+
+test("stepping from the index hides the newly selected screen heading", async () => {
+  GlobalRegistrator.register({
+    url: "https://tearleads.test/screenshots/",
+    width: 390,
+    height: 844,
+  });
+  try {
+    const template = document.createElement("template");
+    template.innerHTML = gallery;
+    const heading = template.content.querySelector("h1");
+    const viewer = template.content.querySelector("screenshot-gallery");
+    if (!heading || !viewer)
+      throw new Error("Missing gallery header or viewer");
+    // Supply the built fixture manifest directly without fetching from the test host.
+    viewer.removeAttribute("manifest");
+    document.body.append(heading, viewer);
+    await loadPageScripts(gallery);
+    const element = document.querySelector("screenshot-gallery");
+    if (!element) throw new Error("Missing screenshot gallery");
+    Object.assign(element, {
+      manifestData: await Bun.file(
+        join(output, "screenshot-gallery/manifest.json"),
+      ).json(),
+    });
+    expect(heading.classList.contains("visually-hidden")).toBe(false);
+    element.querySelector<HTMLButtonElement>('[data-action="next"]')?.click();
+    expect(location.pathname).toMatch(/^\/screenshots\/mobile\/[^/]+\/$/);
+    expect(heading.textContent).toContain("phone screenshot");
+    expect(heading.classList.contains("visually-hidden")).toBe(true);
+  } finally {
+    await GlobalRegistrator.unregister();
   }
 });
 
