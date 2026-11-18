@@ -4,7 +4,6 @@ import {
   findScreenshot,
   screenshotRoutes,
 } from "@a2f0/agent-tool/screenshots/manifest";
-import PageHeader from "../../components/PageHeader.astro";
 import StatusNotice from "../../components/StatusNotice.astro";
 import Layout from "../../layouts/Layout.astro";
 import {
@@ -47,12 +46,13 @@ const still =
 
 <Layout title={title} description={description}>
   <div class="site-page">
-    <PageHeader
-      title={heading}
-      lede="Every captured screen in desktop, phone, and tablet layouts, in light and dark themes."
-    >
+    <header class="site-page-header">
+      <p class="site-meta">Product tour</p>
+      <h1 id="page-title" class:list={["site-h1", { "visually-hidden": screen }]}>
+        {heading}
+      </h1>
       <StatusNotice />
-    </PageHeader>
+    </header>
     <screenshot-gallery
       class="screenshots-gallery"
       manifest={SCREENSHOT_MANIFEST_URL}
@@ -82,6 +82,14 @@ const still =
 
 <script>
   import { defineScreenshotElements } from "@a2f0/agent-tool/screenshots/gallery";
+  import { SCREENSHOTS_BASE_PATH } from "../../screenshotPages";
 
+  // Stepping from the index changes the URL and h1 without loading a page.
+  const gallery = document.querySelector("screenshot-gallery");
+  const heading = document.getElementById("page-title");
+  gallery?.addEventListener("screenshot-change", () => {
+    const path = location.pathname.replace(/\/$/, "");
+    heading?.classList.toggle("visually-hidden", path !== SCREENSHOTS_BASE_PATH);
+  });
   defineScreenshotElements();
 </script>
