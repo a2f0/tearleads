@@ -145,6 +145,7 @@ async function applyContainerTombstoneCascade(input: {
           ...(resolved.denied?.has(containerId)
             ? {
                 confirmedAccessLoss: {
+                  placementHash: resolved.denied.get(containerId) ?? null,
                   expectedMetadata: metadata ? { ...metadata } : null,
                 },
               }

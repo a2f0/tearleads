@@ -6,6 +6,7 @@ import {
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ContainerDeletionGuard } from "./containerContentsPersistenceTypes";
 import { containerRemovalBatches } from "./containerRemovalBatches";
+import { readRemovalPlacementHeads } from "./containerRemovalPlacements";
 import { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
 
 /** A permission read may bypass an older entity clock. Its request-time
@@ -19,6 +20,7 @@ export async function confirmedRemovalMetadataMatches(
   );
   for (const batch of containerRemovalBatches(confirmed)) {
     const ids = batch.map((guard) => guard.containerId);
+    const placements = await readRemovalPlacementHeads(tx, ids);
     const rows = await tx
       .select({
         id: documents.localId,
@@ -42,22 +44,26 @@ export async function confirmedRemovalMetadataMatches(
         ),
       );
     const byId = new Map(rows.map((row) => [row.id, row]));
-    for (const guard of batch) {
+    const matches = batch.every((guard) => {
+      if (
+        (placements.get(guard.containerId) ?? null) !==
+        guard.confirmedAccessLoss?.placementHash
+      )
+        return false;
       const previous = guard.confirmedAccessLoss?.expectedMetadata;
       const current = byId.get(guard.containerId);
       // A purged metadata document can have an in-memory initial record with
       // no signed head; it has no durable metadata to preserve.
-      if (!current && !previous?.accessStateHash) continue;
-      if (
-        !previous ||
-        !current ||
-        previous.documentId !== current.documentId ||
-        previous.accessEpoch !== current.accessEpoch ||
-        (previous.accessStateHash ?? null) !== current.accessStateHash ||
-        previous.metadataUpdates !== (current.metadataUpdates ?? "")
-      )
-        return false;
-    }
+      if (!current) return !previous?.accessStateHash;
+      if (!previous) return false;
+      return (
+        previous.documentId === current.documentId &&
+        previous.accessEpoch === current.accessEpoch &&
+        (previous.accessStateHash ?? null) === current.accessStateHash &&
+        previous.metadataUpdates === (current.metadataUpdates ?? "")
+      );
+    });
+    if (!matches) return false;
   }
   return true;
 }

@@ -3,8 +3,11 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { ListContainerParentLanesResponse } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../../test/helpers/data/signedContainerDirectory";
 import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
+import { upsertAccessManifestCheckpointInTransaction } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { createDomainScope } from "../../../data/shared/domainScope";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { keyingCheckpointTables } from "../../../data/sqlite/schema/keyingCheckpointSchema";
+import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
+import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import {
   ContainerSyncWatermarkRepository,
@@ -270,6 +273,20 @@ test.each(["newer", "older"] as const)(
                 parentId: parentState.container.id,
                 watermark: pageWatermark,
               });
+              if (fetchCount === 3) {
+                await ensureSqlTables(execSql, keyingCheckpointTables);
+                await upsertAccessManifestCheckpointInTransaction(
+                  getClientSQLitePersistenceRuntime(execSql).db,
+                  {
+                    objectKind: "container",
+                    objectId: removedRoot.container.id,
+                    organizationId: removedRoot.container.organizationId,
+                    epoch: 2,
+                    manifestHash: "new-placement",
+                  },
+                  later,
+                );
+              }
               return fetchCount === 2
                 ? null
                 : {
@@ -378,6 +395,11 @@ test.each(["newer", "older"] as const)(
         loadParentWatermark(execSql, parentState.container.id),
       ).resolves.toEqual(legacyCursor);
 
+      await hydrate([...retryParents]);
+      expect(state.containersById.has(removedRoot.container.id)).toBe(true);
+      await expect(
+        loadParentWatermark(execSql, parentState.container.id),
+      ).resolves.toEqual(legacyCursor);
       await hydrate([...retryParents]);
 
       await expect(

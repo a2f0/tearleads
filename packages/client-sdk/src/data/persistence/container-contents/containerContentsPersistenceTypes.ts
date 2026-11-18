@@ -127,6 +127,7 @@ export interface ContainerHydrationTombstone extends ContainerRemoval {
 export interface ContainerDeletionGuard {
   /** A fresh container read denied access after the listing returned. */
   confirmedAccessLoss?: {
+    placementHash: string | null;
     expectedMetadata: Pick<
       ContainerMetadataRecord,
       "documentId" | "accessEpoch" | "accessStateHash" | "metadataUpdates"

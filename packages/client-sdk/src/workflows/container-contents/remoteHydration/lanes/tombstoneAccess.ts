@@ -7,6 +7,7 @@ import type {
   ListContainerDocumentLanesResponse,
 } from "@tearleads/validators/response";
 import { isContainerNotFoundFailure } from "../../../../data/containers/shared/mutationFailures";
+import { captureRemovalPlacementHeads } from "../../../../data/persistence/container-contents/containerRemovalPlacements";
 import { isPublicationWatermark } from "../../documentDiscovery/publicationWatermark";
 import { collectRemovedContainers } from "../tombstoneReasons";
 import type {
@@ -79,7 +80,7 @@ export async function resolveTombstoneCascade(input: {
   tombstone: ContainerSyncTombstone;
 }): Promise<{
   cascade: ReturnType<typeof collectRemovedContainers>;
-  denied: ReadonlySet<string> | null;
+  denied: ReadonlyMap<string, string | null> | null;
 } | null> {
   const cascade = (preservedContainerIds: ReadonlySet<string>) =>
     collectRemovedContainers({
@@ -106,14 +107,19 @@ export async function resolveTombstoneCascade(input: {
     return { cascade: candidates, denied: null };
 
   if (!input.afterParentPage) return null;
+  const ids = [
+    ...new Set([
+      input.tombstone.containerId,
+      ...candidates.removedContainerIds,
+    ]),
+  ];
+  const placements = await captureRemovalPlacementHeads(
+    input.state.runtime.infra.execSql,
+    ids,
+  );
   const access = await readTombstoneCascadeAccess(
     input.state.runtime.apiClient,
-    [
-      ...new Set([
-        input.tombstone.containerId,
-        ...candidates.removedContainerIds,
-      ]),
-    ],
+    ids,
     input.afterParentPage,
     input.isCurrent,
   );
@@ -150,6 +156,8 @@ export async function resolveTombstoneCascade(input: {
         (id) => access.denied.has(id),
       ),
     },
-    denied: access.denied,
+    denied: new Map(
+      [...access.denied].map((id) => [id, placements.get(id) ?? null]),
+    ),
   };
 }

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import { sqlContainerContentsPersistence as persistence } from "./containerContentsPersistence";
+import { captureRemovalPlacementHeads } from "./containerRemovalPlacements";
 
 test("confirmed removal queued behind a metadata commit preserves the newer folder", async () => {
   const { execSql, close } = await createTestExecSql(
@@ -35,6 +36,10 @@ test("confirmed removal queued behind a metadata commit preserves the newer fold
       container.id,
     );
     if (!before?.record) throw new Error("Expected the original metadata");
+    const placementHash =
+      (await captureRemovalPlacementHeads(execSql, [container.id])).get(
+        container.id,
+      ) ?? null;
     const earlier = before.record;
     const changed = { ...earlier, accessStateHash: "new-head" };
     const acquired = Promise.withResolvers<void>();
@@ -65,7 +70,7 @@ test("confirmed removal queued behind a metadata commit preserves the newer fold
           {
             containerId: container.id,
             expectedContainer: before.container,
-            confirmedAccessLoss: { expectedMetadata },
+            confirmedAccessLoss: { expectedMetadata, placementHash },
           },
         ],
       });
