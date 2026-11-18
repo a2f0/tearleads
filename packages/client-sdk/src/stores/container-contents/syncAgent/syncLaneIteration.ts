@@ -170,12 +170,14 @@ async function syncSingleContainerMetadata(input: {
   const metadataDocumentId = containerState.record.documentId;
   const readExecSql = state.runtime.infra.execSql;
   // The durable request this read answers, read before the read begins.
-  const owedRead = isQueuedForRead(state, metadataDocumentId)
-    ? await findOwedContainerMetadataRead(state, {
-        documentId: metadataDocumentId as string,
-        execSql: readExecSql,
-      })
-    : null;
+  const owedRead =
+    typeof metadataDocumentId === "string" &&
+    state.metadataDocumentIdsNeedingSync.has(metadataDocumentId)
+      ? await findOwedContainerMetadataRead(state, {
+          documentId: metadataDocumentId,
+          execSql: readExecSql,
+        })
+      : null;
   if (!isCurrent()) return;
   // Snapshot this signal before the GET so a mid-pass event survives clearing.
   const consumedSeqById = new Map<string, number>();
