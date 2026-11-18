@@ -443,7 +443,7 @@ export function isProductionSourcePath(path: string): boolean {
 }
 
 if (import.meta.main) {
-  const root = checkRoot;
+  const root = checkRoot();
   const toRelative = (file: FormalSourceFile): FormalSourceFile => ({
     content: file.content,
     path: relative(root, resolve(root, file.path)),

@@ -180,7 +180,7 @@ if (
   );
 }
 
-const root = checkRoot;
+const root = checkRoot();
 const fixture = renderFixture(runTraceExport(root));
 const fixtureFile = Bun.file(join(root, FIXTURE_PATH));
 

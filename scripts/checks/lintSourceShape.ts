@@ -16,7 +16,11 @@ const byteLimit = 20_000;
 // so documents get a larger byte budget under the same line limit.
 const markdownByteLimit = 40_000;
 
-const { root, args } = checkArguments();
+// Git hooks select their checkout and, for partial commits, their index.
+const { root, args } =
+  process.argv[2] === "--git-hook"
+    ? { root: process.cwd(), args: process.argv.slice(3) }
+    : checkArguments();
 process.chdir(root);
 const snapshot = sourceShapeSnapshot(args);
 const baselineBuffer = snapshot.read("scripts/checks/sourceShapeBaseline.json");

@@ -143,7 +143,7 @@ function checkTrace<Trace extends RecordedProjectionTrace>(
 function checkProjection<Trace extends RecordedProjectionTrace>(
   projection: TraceProjection<Trace>,
 ): void {
-  const root = checkRoot;
+  const root = checkRoot();
   assertVocabularyMatchesModel(root, projection);
   const tools = resolveTlcTools(root);
   const traceDirectory = mkdtempSync(

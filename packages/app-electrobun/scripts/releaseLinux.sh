@@ -18,7 +18,6 @@ while [[ -L "$script" ]]; do
   script="$link"
 done
 REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "$script")/../../.." && pwd -P)"
-unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
 toplevel="$(git -C "$REPO_ROOT" rev-parse --show-toplevel)" || toplevel=""
 if [[ "$toplevel" != "$REPO_ROOT" ]]; then
   echo "Linux releases must run from the top level of their own Git checkout." >&2

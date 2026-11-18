@@ -42,6 +42,7 @@ process.exit(result.exitCode);
   return {
     ...f,
     called,
+    calls,
     args: () =>
       readFileSync(calls, "utf8")
         .trim()
@@ -151,7 +152,7 @@ test("API build source probes all disable inherited fsmonitor", () => {
   }
 });
 
-test("preflight root probe explicitly disables fsmonitor", () => {
+test("preflight uses its physical checkout without invoking a Git probe", () => {
   const f = gitFixture();
   try {
     const result = Bun.spawnSync(
@@ -164,16 +165,7 @@ test("preflight root probe explicitly disables fsmonitor", () => {
       { cwd: f.root, env: f.env },
     );
     expect(result.exitCode, result.stderr.toString()).toBe(0);
-    expect(f.args()).toEqual([
-      [
-        "-c",
-        "core.fsmonitor=false",
-        "-C",
-        join(f.repo, "scripts/deploy/softReset"),
-        "rev-parse",
-        "--show-toplevel",
-      ],
-    ]);
+    expect(existsSync(f.calls)).toBe(false);
     expect(existsSync(f.called)).toBe(false);
   } finally {
     rmSync(f.root, { recursive: true, force: true });

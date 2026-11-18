@@ -1,4 +1,4 @@
-import { checkArguments, clearGitLocation } from "../lib/checkRoot";
+import { checkArguments } from "../lib/checkRoot";
 import { verificationPlan, verificationUsage } from "./verificationPlan";
 import {
   saveVerificationReport,
@@ -47,6 +47,7 @@ async function runStep(
     state.child = Bun.spawn({
       cmd: step.command,
       cwd: root,
+      env: process.env,
       stdin: "ignore",
       stdout: "inherit",
       stderr: "inherit",
@@ -141,7 +142,6 @@ try {
   if (args.includes("--help") && args.length <= 2) {
     console.log(verificationUsage);
   } else {
-    clearGitLocation();
     const root = verificationGit(target, "rev-parse", "--show-toplevel");
     process.exitCode = await verify(root, verificationPlan(root, args));
   }

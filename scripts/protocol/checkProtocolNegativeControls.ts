@@ -77,7 +77,7 @@ async function runControl(
   }
 }
 
-const root = checkRoot;
+const root = checkRoot();
 const tools = resolveTlcTools(root);
 const ids = new Set<string>();
 for (const control of NEGATIVE_CONTROLS) {

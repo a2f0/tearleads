@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { chmodSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pushedRanges } from "../lintPushedSourceShape";
 import { cleanSource, fixture, suppressedSource } from "./fixture.testUtils";
@@ -220,7 +220,7 @@ test("detached commits skip only branch naming", () => {
     const commands = readFileSync(repo.log, "utf8");
     expect(commands).not.toContain("run lint:branch-name");
     expect(commands).toContain("run lint:files");
-    expect(commands).toContain("lintSourceShape.ts --staged");
+    expect(commands).toContain("lintSourceShape.ts --git-hook --staged");
     expect(commands).toContain("run agent-tool checks binaries --staged");
     expect(commands).toContain("run lint-staged");
   } finally {
@@ -277,12 +277,16 @@ test("the source-shape step refuses pushed commits that break the shape", async 
     const clean = repo.commit();
     repo.write("src/suppressed.ts", suppressedSource);
     const suppressed = repo.commit();
-    const step = async (refs: unknown[]) => {
+    const step = async (
+      refs: unknown[],
+      cwd = repo.cwd,
+      gitEnv: Record<string, string> = {},
+    ) => {
       const file = join(repo.cwd, "push.json");
       await Bun.write(file, JSON.stringify({ schemaVersion: 1, refs }));
       const result = Bun.spawnSync([process.execPath, pushedSourceShape], {
-        cwd: repo.cwd,
-        env: { ...repo.env, AGENT_TOOL_PUSH_GATE: file },
+        cwd,
+        env: { ...repo.env, ...gitEnv, AGENT_TOOL_PUSH_GATE: file },
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -296,7 +300,22 @@ test("the source-shape step refuses pushed commits that break the shape", async 
     expect(passed.code, passed.output).toBe(0);
     expect(passed.output).toContain(`for ${root}..${clean}`);
 
-    const failed = await step([pushedRef("refs/heads/bad", suppressed, clean)]);
+    const externalWorktree = join(repo.cwd, "explicit-worktree");
+    mkdirSync(externalWorktree);
+    expect(
+      Bun.spawnSync(["git", "init", "--quiet"], {
+        cwd: externalWorktree,
+        env: repo.env,
+      }).exitCode,
+    ).toBe(0);
+    const failed = await step(
+      [pushedRef("refs/heads/bad", suppressed, clean)],
+      externalWorktree,
+      {
+        GIT_DIR: join(repo.cwd, ".git"),
+        GIT_WORK_TREE: externalWorktree,
+      },
+    );
     expect(failed.code).not.toBe(0);
     expect(failed.output).toContain("src/suppressed.ts");
 

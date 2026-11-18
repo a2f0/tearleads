@@ -418,6 +418,6 @@ export async function runArchitectureLint(): Promise<number> {
 }
 
 if (import.meta.main) {
-  process.chdir(checkRoot);
+  process.chdir(checkRoot());
   process.exitCode = await runArchitectureLint();
 }

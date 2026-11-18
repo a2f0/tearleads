@@ -100,7 +100,7 @@ async function writeOutput(outputPath: string, content: string): Promise<void> {
 
 async function main() {
   const options = parseCliOptions(process.argv.slice(2));
-  process.chdir(checkRoot);
+  process.chdir(checkRoot());
   const result = await cruise(
     dependencyCruiserEntryPoints,
     createDependencyCruiserOptions(options.format),

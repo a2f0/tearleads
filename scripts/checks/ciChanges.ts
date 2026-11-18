@@ -15,7 +15,7 @@ if (range) {
   const paths = execFileSync(
     "git",
     ["diff", "--name-only", "--no-renames", "-z", range, "--"],
-    { cwd: checkRoot, encoding: "utf8" },
+    { cwd: checkRoot(), encoding: "utf8" },
   ).split("\0");
   scopes = ciScopes(paths);
 }

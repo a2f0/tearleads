@@ -9,8 +9,8 @@ case "$TIER:$MODE" in
     prod:web | staging:web | prod:website | staging:website) ;;
   *) echo 'Usage: softResetPreflight.sh <prod|staging> <credentials|api|web|website>' >&2; exit 1 ;;
 esac
-unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
-REPO_ROOT="$(git -c core.fsmonitor=false -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
+REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 # shellcheck source=terraform/scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 load_secrets_env "$TIER"

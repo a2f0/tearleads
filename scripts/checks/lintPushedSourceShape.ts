@@ -70,7 +70,7 @@ function main(): number {
     console.log(`${ref}: checking source shape for ${range}`);
     const result = spawnSync(
       process.execPath,
-      [lint, "--check-root", process.cwd(), "--range", range],
+      [lint, "--git-hook", "--range", range],
       {
         stdio: "inherit",
       },

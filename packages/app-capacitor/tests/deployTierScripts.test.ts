@@ -62,12 +62,13 @@ for (const fixture of fixtures) {
   for (const flag of ["", "--skip-terraform", "--skip-infra"]) {
     test(`${fixture.name} deploy preserves ordering with ${flag || "all infrastructure"}`, async () => {
       const root = await mkdtemp(resolve(tmpdir(), "tearleads-deploy-tier-"));
-      const script = resolve(root, `scripts/deploy-${fixture.name}.sh`);
+      const script = resolve(root, `scripts/deploy/deploy-${fixture.name}.sh`);
       const logPath = resolve(root, "calls.log");
       const binDirectory = resolve(root, "bin");
 
       try {
         await mkdir(resolve(root, "scripts/lib"), { recursive: true });
+        await mkdir(dirname(script), { recursive: true });
         await cp(fixture.sourceScript, script);
         await cp(
           resolve(dirname(fixture.sourceScript), "../lib/stepTimings.sh"),

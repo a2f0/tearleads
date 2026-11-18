@@ -86,6 +86,9 @@ async function runWebsite(
         env: {
           PATH: `${root}/bin:/usr/bin:/bin`,
           WEBSITE_TEST_LOG: log,
+          GIT_CONFIG_COUNT: "1",
+          GIT_CONFIG_KEY_0: "core.worktree",
+          GIT_CONFIG_VALUE_0: matrix,
           GIT_DIR: resolve(matrix, ".git"),
           GIT_WORK_TREE: matrix,
           WEBSITE_TEST_FAILURE: failure,

@@ -13,14 +13,15 @@ if (
 
 // Validate the installed Java and jar even on a hit. Direct check commands
 // and local check:fast still execute TLC; only CI's models job uses this wrapper.
-const tools = resolveTlcTools(checkRoot);
+const root = checkRoot();
+const tools = resolveTlcTools(root);
 tlcParallelism();
 const java = spawnSync(tools.javaBin, ["-version"], { encoding: "utf8" });
 if (java.status !== 0) throw new Error("Could not identify the Java runtime");
 const child = Bun.spawn(
   [process.execPath, "scripts/testing/runVerifiedTurbo.ts", task],
   {
-    cwd: checkRoot,
+    cwd: root,
     env: {
       ...process.env,
       JAVA_BIN: tools.javaBin,

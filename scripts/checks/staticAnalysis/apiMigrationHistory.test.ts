@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, rmSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import {
   apiMigrationHistoryErrors,
@@ -7,7 +7,32 @@ import {
   type MigrationFiles,
 } from "../apiMigrationHistory";
 
+import { fixture } from "./fixture.testUtils";
+
 const repoRoot = resolve(import.meta.dir, "../../..");
+
+test("migration checks at the checkout root compare its own Git history", () => {
+  const decoy = fixture();
+  try {
+    decoy.commit();
+    const result = Bun.spawnSync(
+      [process.execPath, "scripts/checks/lintApiMigrations.ts"],
+      {
+        cwd: repoRoot,
+        env: {
+          ...decoy.env,
+          API_MIGRATIONS_BASE_REF: "HEAD",
+          GIT_DIR: join(decoy.cwd, ".git"),
+          GIT_INDEX_FILE: join(decoy.cwd, ".git/index"),
+        },
+      },
+    );
+    expect(result.exitCode, result.stderr.toString()).toBe(0);
+    expect(result.stdout.toString()).toContain("API migrations append to HEAD");
+  } finally {
+    rmSync(decoy.cwd, { recursive: true, force: true });
+  }
+});
 
 function readRepositoryMigrations(): Map<string, string> {
   const folder = join(repoRoot, apiMigrationsPath);

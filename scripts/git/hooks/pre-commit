@@ -19,7 +19,7 @@ echo "Checking file names..."
 bun run lint:files
 
 echo "Checking source shape..."
-bun scripts/checks/lintSourceShape.ts --staged
+bun scripts/checks/lintSourceShape.ts --git-hook --staged
 
 echo "Checking for binary files..."
 bun run agent-tool checks binaries --staged

@@ -1,5 +1,13 @@
 import { expect, test } from "bun:test";
-import { chmod, cp, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import {
+  chmod,
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
@@ -14,7 +22,9 @@ async function runWrapper(
     stateSecret?: string;
   } = {},
 ) {
-  const root = await mkdtemp(resolve(tmpdir(), "tearleads-postgres-stack-"));
+  const root = await realpath(
+    await mkdtemp(resolve(tmpdir(), "tearleads-postgres-stack-")),
+  );
   const bin = resolve(root, "bin");
   const scripts = resolve(root, "terraform/scripts");
   const log = resolve(root, "calls.log");

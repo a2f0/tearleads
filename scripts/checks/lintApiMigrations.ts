@@ -15,6 +15,7 @@ function fail(message: string): never {
 function git(args: readonly string[]): string | null {
   const result = Bun.spawnSync(["git", ...args], {
     stderr: "pipe",
+    env: process.env,
     stdout: "pipe",
   });
   return result.exitCode === 0 ? result.stdout.toString() : null;
@@ -81,7 +82,7 @@ function readWorktreeFiles(): MigrationFiles {
   return files;
 }
 
-process.chdir(checkRoot);
+process.chdir(checkRoot());
 const base = resolveBase();
 const baseFiles = readBaseFiles(base.commit);
 if (baseFiles.size === 0) {

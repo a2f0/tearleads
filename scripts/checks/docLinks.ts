@@ -64,6 +64,7 @@ export function repositoryFiles(
 export function listRepositoryFiles(root: string): string[] {
   const result = Bun.spawnSync(["git", "ls-files", "-z", "--cached"], {
     cwd: root,
+    env: process.env,
     stdout: "pipe",
     stderr: "pipe",
   });

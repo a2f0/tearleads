@@ -28,6 +28,7 @@ async function run() {
   const turbo = resolve(cwd, "node_modules/.bin/turbo");
   const plan = Bun.spawn([turbo, "run", task, "--dry-run=json", ...args], {
     cwd,
+    env: process.env,
     stdout: "pipe",
     stderr: "inherit",
   });
@@ -43,6 +44,7 @@ async function run() {
     [turbo, "run", task, "--summarize=true", "--ui=stream", ...args],
     {
       cwd,
+      env: process.env,
       stdout: "pipe",
       stderr: "pipe",
       stdin: "inherit",

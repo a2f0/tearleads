@@ -31,7 +31,7 @@ if (
   fail("Usage: bun scripts/protocol/generateTransparencyVectors.ts [--check]");
 }
 
-const root = checkRoot;
+const root = checkRoot();
 const tools = resolveLeanTools(root);
 checkProofEscapes(root);
 
