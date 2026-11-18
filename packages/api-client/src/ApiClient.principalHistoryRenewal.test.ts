@@ -262,3 +262,37 @@ testApiClient(
     }
   },
 );
+
+testApiClient(
+  "a principal write started with a provisional token waits for its verification",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("original");
+    let write: Promise<unknown> | undefined;
+    let writeCalls = 0;
+    client.setOnSessionExpired(() => {
+      client.setAuthToken("candidate");
+      write = client.commitOrganizationGroupPolicyResult(firstId, secondId, {
+        groupPolicy: createPrincipalPolicyRequest(),
+        organizationPolicy: createPrincipalPolicyRequest(),
+      });
+      return false;
+    });
+    server.use(
+      http.put(
+        `${apiBaseUrl}/organizations/:organizationId/groups/:groupId/policy-commit`,
+        () => {
+          writeCalls++;
+          return HttpResponse.json({ error: "unexpected" }, { status: 409 });
+        },
+      ),
+      http.delete(`${apiBaseUrl}/containers/target`, expired),
+    );
+    await client.deleteContainerResult("target");
+    await expect(write).resolves.toMatchObject({
+      ok: false,
+      kind: "cancelled",
+    });
+    expect(writeCalls).toBe(0);
+  },
+);

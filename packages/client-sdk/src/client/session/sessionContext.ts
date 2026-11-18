@@ -17,7 +17,8 @@ export function hostSessionUpdate(
   context: SessionContext,
 ): [SessionContext, "boundary"?] {
   if (
-    context.authToken === null &&
+    "authToken" in context &&
+    typeof context.authToken !== "string" &&
     (previous.authToken !== null || previous.isAuthenticated)
   )
     return [{ ...context, isAuthenticated: false, isRoot: false }, "boundary"];

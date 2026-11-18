@@ -153,44 +153,47 @@ test("restoring an authenticated host session retires its previous scope with th
   }
 });
 
-test("a completed local root lookup cannot replace a newer sign-in's root", async () => {
-  const sqlite = await createTestExecSql("sign-in-local-root");
-  await bootstrapRootContainer(sqlite.execSql);
-  const reading = Promise.withResolvers<void>();
-  const release = Promise.withResolvers<void>();
-  const execSql = createExecSql({
-    async exec({ sql, bind, rowMode }) {
-      const rows = await sqlite.execSql(
-        sql,
-        bind,
-        rowMode ? { rowMode } : undefined,
-      );
-      if (/from "containers"/i.test(sql)) {
-        reading.resolve();
-        await release.promise;
-      }
-      return { rows };
-    },
-  });
-  const sdk = new Tearleads({ database: { execSql, id: "shared" } });
-  try {
-    sdk.session.setContext({ authToken: "one", isAuthenticated: true });
-    const pending = sdk.session.bootstrapLocalRootContainer();
-    await reading.promise;
-    sdk.session.setContext({
-      authToken: "two",
-      isAuthenticated: true,
-      containerId: "current-root",
+for (const authenticated of [false, true]) {
+  test(`a pending root lookup preserves the replacement root when starting authenticated=${authenticated}`, async () => {
+    const sqlite = await createTestExecSql("sign-in-local-root");
+    await bootstrapRootContainer(sqlite.execSql);
+    const reading = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const execSql = createExecSql({
+      async exec({ sql, bind, rowMode }) {
+        const rows = await sqlite.execSql(
+          sql,
+          bind,
+          rowMode ? { rowMode } : undefined,
+        );
+        if (/from "containers"/i.test(sql)) {
+          reading.resolve();
+          await release.promise;
+        }
+        return { rows };
+      },
     });
-    release.resolve();
-    await expect(pending).rejects.toThrow();
-    expect(sdk.session.containerId).toBe("current-root");
-  } finally {
-    release.resolve();
-    sdk.dispose();
-    sqlite.close();
-  }
-});
+    const sdk = new Tearleads({ database: { execSql, id: "shared" } });
+    try {
+      if (authenticated)
+        sdk.session.setContext({ authToken: "one", isAuthenticated: true });
+      const pending = sdk.session.bootstrapLocalRootContainer();
+      await reading.promise;
+      sdk.session.setContext({
+        authToken: "two",
+        isAuthenticated: true,
+        containerId: "current-root",
+      });
+      release.resolve();
+      await expect(pending).rejects.toThrow();
+      expect(sdk.session.containerId).toBe("current-root");
+    } finally {
+      release.resolve();
+      sdk.dispose();
+      sqlite.close();
+    }
+  });
+}
 
 test("a delayed SQL read only delivers rows to its owning sign-in", async () => {
   const started = Promise.withResolvers<void>();
@@ -218,6 +221,20 @@ test("a delayed SQL read only delivers rows to its owning sign-in", async () => 
     ).resolves.toEqual([{ title: "saved" }]);
   } finally {
     release.resolve();
+    sdk.dispose();
+  }
+});
+
+test("an explicitly undefined host bearer signs out its owning scope", () => {
+  const sdk = new Tearleads();
+  try {
+    sdk.session.setContext({ authToken: "one", isAuthenticated: true });
+    const current = sdk.session.captureSignIn();
+    sdk.session.setContext({ authToken: undefined });
+    expect(sdk.session.authToken).toBeNull();
+    expect(sdk.session.isAuthenticated).toBe(false);
+    expect(current()).toBe(false);
+  } finally {
     sdk.dispose();
   }
 });

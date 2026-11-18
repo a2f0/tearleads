@@ -45,18 +45,20 @@ export class SessionRenewalTracker {
 
   constructor(private readonly readToken: () => string | null) {}
 
+  private provisionalRenewal() {
+    const renewal = this.inFlight;
+    return renewal && this.revision === renewal.revision + 1 ? renewal : null;
+  }
+
   captureCredential(): () => boolean | Promise<boolean> {
-    const revision = this.revision;
+    // A request born after the handler installs a candidate still belongs to
+    // the last verified credential until that handler confirms the change.
+    const revision = this.provisionalRenewal()?.revision ?? this.revision;
     return () => {
-      if (this.lastUnverifiedChange <= revision) return true;
-      const renewal = this.inFlight;
-      // Only this single provisional token change can still be confirmed by
-      // the handler. A second change or an earlier identity switch is final.
-      return renewal &&
-        renewal.previousUnverifiedChange <= revision &&
-        this.revision === renewal.revision + 1
-        ? renewal.promise
-        : false;
+      const renewal = this.provisionalRenewal();
+      if (renewal && renewal.previousUnverifiedChange <= revision)
+        return renewal.promise;
+      return this.lastUnverifiedChange <= revision;
     };
   }
 
@@ -123,15 +125,16 @@ export class SessionRenewalTracker {
     if (!from) return false;
     const existing = this.pending(from);
     if (existing) return existing;
-    const owner = this.signal;
+    const confirmation = Promise.withResolvers<boolean>();
     const pending = {
       from,
       revision: this.revision,
       previousUnverifiedChange: this.lastUnverifiedChange,
-      promise: this.complete(from, this.revision, handler),
+      promise: confirmation.promise,
     };
-    if (!owner.aborted) this.inFlight = pending;
+    this.inFlight = pending;
     try {
+      confirmation.resolve(this.complete(from, pending.revision, handler));
       return await pending.promise;
     } finally {
       if (this.inFlight === pending) this.inFlight = null;

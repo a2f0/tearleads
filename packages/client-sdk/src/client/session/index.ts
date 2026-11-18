@@ -117,7 +117,7 @@ class SessionService implements Session {
   async bootstrapLocalRootContainer(
     isCurrent: () => boolean = () => true,
   ): ReturnType<typeof bootstrapRootContainer> {
-    const signInCurrent = sessionLifetime(this).capture();
+    const signInCurrent = this.captureSignIn();
     if (!isCurrent()) throw new Error("Identity change was superseded.");
     // Preserve a logged-in session's acknowledged root during local recovery.
     const acknowledgedRoot = acknowledgedSessionRoot(

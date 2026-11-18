@@ -71,6 +71,7 @@ const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
 );
 
 interface RootBootstrapAttempt {
+  readonly signIn: () => boolean;
   readonly scope: ReturnType<typeof useTearleads>["domainScope"];
   readonly dbClient: ReturnType<typeof useDatabase>["client"];
   readonly signingFingerprint: string;
@@ -101,6 +102,7 @@ function useBootstrapCryptoSessionContainer(
   logError: (message: string, error: unknown) => void,
 ) {
   const scope = tearleads.domainScope;
+  const signIn = tearleads.session.captureSignIn();
   useEffect(() => {
     const previous = containerBootstrapped.current;
     if (
@@ -109,15 +111,17 @@ function useBootstrapCryptoSessionContainer(
       dbStatus !== "ready" ||
       !dbClient ||
       (previous?.scope === scope &&
+        previous.signIn() &&
         previous?.dbClient === dbClient &&
         previous.signingFingerprint === signingFingerprint)
     )
       return;
-    const attempt = { scope, dbClient, signingFingerprint };
+    const attempt = { scope, dbClient, signingFingerprint, signIn };
     containerBootstrapped.current = attempt;
     const current = () =>
       containerBootstrapped.current === attempt &&
-      tearleads.domainScope === scope;
+      tearleads.domainScope === scope &&
+      signIn();
     void (async () => {
       try {
         await tearleads.session.bootstrapLocalRootContainer(current);
@@ -138,6 +142,7 @@ function useBootstrapCryptoSessionContainer(
     containerId,
     logError,
     scope,
+    signIn,
     signingFingerprint,
     tearleads,
   ]);
