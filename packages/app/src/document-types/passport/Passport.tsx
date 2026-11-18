@@ -172,12 +172,7 @@ export function Passport(params: PassportProps) {
   };
   return (
     <StructuredDocument
-      attachments={
-        <DocumentAttachmentSlots
-          {...doc.slotsProps}
-          className="structured-document-attachments--single"
-        />
-      }
+      attachments={<DocumentAttachmentSlots {...doc.slotsProps} />}
       fields={
         <PassportDocumentFieldsPane
           canWrite={doc.canWrite}

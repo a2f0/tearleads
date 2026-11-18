@@ -124,36 +124,8 @@ test("passport preview stays card-sized and drops its frame after upload", async
   await page.getByRole("button", { name: "New Document" }).click();
   await page.getByRole("button", { name: "Passport", exact: true }).click();
 
-  const attachmentSlots = page.locator(
-    ".structured-document-attachments--single",
-  );
-  await expect(attachmentSlots).toBeVisible({ timeout: 30_000 });
-  const geometry = await measureAttached("passport attachment slots", () =>
-    attachmentSlots.evaluate((element) => {
-      // Reached by creating a document, so the panel around it is still
-      // settling; a detached node reports an empty computed style, which reads
-      // as a cap that is not a length.
-      if (!element.isConnected) {
-        return null;
-      }
-
-      const parent = element.parentElement;
-      if (!parent) {
-        throw new Error("The passport attachment slots have no parent.");
-      }
-      const rawCap = getComputedStyle(element).maxWidth;
-
-      return {
-        capPx: rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null,
-        parentWidth: parent.getBoundingClientRect().width,
-        width: element.getBoundingClientRect().width,
-      };
-    }),
-  );
-
-  expect(geometry.capPx).not.toBeNull();
-  expect(geometry.width).toBeCloseTo(geometry.capPx ?? 0, 0);
-  expect(geometry.width).toBeLessThan(geometry.parentWidth);
+  const attachmentSlots = page.locator(".structured-document-attachments");
+  await expect(attachmentSlots).toBeVisible();
   const previewBox = await page
     .locator(".structured-document-slot-preview")
     .boundingBox();
@@ -185,6 +157,47 @@ test("passport preview stays card-sized and drops its frame after upload", async
   await page.keyboard.press("Tab");
   await openImage.focus();
   await expect(openImage).toHaveCSS("outline-style", "solid");
+});
+
+test("license previews sit together on desktop and wrap on a phone", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/app/explorer");
+  await page.getByRole("button", { name: "New Document" }).click();
+  await page
+    .getByRole("button", { name: "Driver's License", exact: true })
+    .click();
+
+  const previews = page.locator(".structured-document-slot-preview");
+  await expect(previews).toHaveCount(2);
+  const boxes = () =>
+    measureAttached("license previews", () =>
+      previews.evaluateAll(([front, back]) => {
+        if (!front?.isConnected || !back?.isConnected) {
+          return null;
+        }
+        const rect = (element: Element) => {
+          const { x, y, width, right, bottom } =
+            element.getBoundingClientRect();
+          return { x, y, width, right, bottom };
+        };
+        return [rect(front), rect(back)] as const;
+      }),
+    );
+  const [front, back] = await boxes();
+  expect(front.width).toBeCloseTo(320, 0);
+  expect(back.y).toBeCloseTo(front.y, 0);
+  expect(back.x - front.right).toBeGreaterThan(0);
+  expect(back.x - front.right).toBeLessThan(48);
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  await expect(previews).toHaveCount(2);
+  const [mobileFront, mobileBack] = await boxes();
+  expect(mobileBack.y).toBeGreaterThan(mobileFront.bottom);
+  expect(mobileBack.x).toBeCloseTo(mobileFront.x, 0);
+  expect(mobileFront.width).toBeGreaterThan(0);
+  expect(mobileFront.right).toBeLessThanOrEqual(320);
 });
 
 /*
