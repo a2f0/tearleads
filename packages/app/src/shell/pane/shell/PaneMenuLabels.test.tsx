@@ -42,7 +42,7 @@ function LabeledLauncher() {
             "display-properties": {
               createComponent: () => EmptyApp,
               iconLabel: "Appearance",
-              title: "Display Properties",
+              title: "Settings",
             },
           },
         }}
@@ -80,9 +80,7 @@ test(
     ).toBeTruthy();
     fireEvent.click(launcher.getByRole("button", { name: "Menu" }));
     fireEvent.click(view.getByRole("button", { name: "Appearance" }));
-    expect(
-      view.getByRole("region", { name: "Display Properties" }),
-    ).toBeTruthy();
+    expect(view.getByRole("region", { name: "Settings" })).toBeTruthy();
   },
   PANE_ASYNC_TEST_TIMEOUT_MS,
 );

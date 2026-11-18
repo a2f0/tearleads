@@ -44,9 +44,8 @@ Contacts/Explorer editor, repeated Loro records, and attribution boundaries.
 History view: replaying a document's changes and restoring a past version.
 
 The regular app offers **Start Screensaver** from the bare-desktop context
-menu, the desktop Start menu, and the routed taskbar. It runs the shared
-grayscale lasers animation on demand; there is no idle timer. Without a PIN,
-input dismisses it normally. With a local-keyring PIN configured, it becomes a
+menu. The grayscale lasers start on demand with no idle timer. Without a PIN,
+input dismisses the animation. With a local-keyring PIN configured, it becomes a
 full-screen privacy gate that checks the existing PIN before dismissal.
 Incorrect PINs keep the overlay visible; Cancel or Escape from the PIN prompt
 returns to the artwork. Editors, unsaved changes, sessions, and app data remain

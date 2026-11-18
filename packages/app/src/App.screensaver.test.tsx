@@ -35,15 +35,13 @@ function wake() {
   fireEvent.keyUp(window, { key: "Escape" });
 }
 
-// The desktop menu is portaled to the body; scope to it so its item does not
-// collide with the tray's Start Screensaver button.
 function clickMenuItem(view: RenderResult, name: string) {
   const menu = view.baseElement.querySelector<HTMLElement>(".menu");
   if (!menu) throw new Error("Expected an open menu");
   fireEvent.click(within(menu).getByRole("button", { name }));
 }
 
-test("bare desktop, Start menu, and tray launch lasers without replacing existing windows", async () => {
+test("only the desktop context menu offers Start Screensaver", async () => {
   const view = await renderApp(createTestAppHostConfig());
   const desktop = view.getByRole("application");
   const explorer = view.getByRole("region", { name: "Explorer" });
@@ -57,18 +55,8 @@ test("bare desktop, Start menu, and tray launch lasers without replacing existin
   expect(view.getByRole("region", { name: "Explorer" })).toBe(explorer);
 
   fireEvent.click(view.getByRole("button", { name: "Menu" }));
-  clickMenuItem(view, "Start Screensaver");
-  expect(view.getByRole("dialog")).toBeTruthy();
-  wake();
-  await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-
-  const tray = view.getByRole("list", { name: "System tray" });
-  fireEvent.click(
-    within(tray).getByRole("button", { name: "Start Screensaver" }),
-  );
-  expect(view.getByRole("dialog")).toBeTruthy();
-  wake();
-  await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+  expect(view.getByRole("button", { name: "Settings" })).toBeTruthy();
+  expect(view.queryByRole("button", { name: "Start Screensaver" })).toBeNull();
 });
 
 test("one screensaver survives navigation changes across the workspace tree", async () => {
@@ -91,12 +79,10 @@ test("one screensaver survives navigation changes across the workspace tree", as
   expect(view.getByRole("dialog")).toBe(dialog);
   wake();
   await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-  const action = view.getByRole("button", { name: "Start Screensaver" });
-  expect(action.closest(".routed-pane-taskbar")).not.toBeNull();
-  fireEvent.click(action);
-  expect(view.getAllByRole("dialog")).toHaveLength(1);
-  wake();
-  await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+  const tray = view.getByRole("list", { name: "System tray" });
+  expect(
+    within(tray).queryByRole("button", { name: "Start Screensaver" }),
+  ).toBeNull();
 });
 
 test("the isolated demo never offers an app-wide privacy screen for independent peer PINs", async () => {

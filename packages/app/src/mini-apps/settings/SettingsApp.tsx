@@ -5,12 +5,11 @@ import {
 } from "@tearleads/windowing";
 import { useLayoutEffect, useRef, useState } from "react";
 import { AppWindow } from "../AppWindow";
-import "./DisplayPropertiesApp.css";
+import "./SettingsApp.css";
 
-// The windowing package's display settings: the desktop's wallpaper and the
-// color theme. It reads the app-wide providers in Layout, so it needs no
-// identity or database and opens from the pane's desktop menu at any time.
-export function DisplayPropertiesApp() {
+// Wallpaper, theme, and tray preferences come from the app-wide providers
+// in Layout, so Settings can open before an identity or database exists.
+export function SettingsApp() {
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentSize, setContentSize] = useState<WindowSize>();
   useWindowContentSize(contentSize);
@@ -35,7 +34,7 @@ export function DisplayPropertiesApp() {
 
   return (
     <AppWindow>
-      <div className="app-display-properties" ref={contentRef}>
+      <div className="app-settings" ref={contentRef}>
         <DisplayProperties />
       </div>
     </AppWindow>
