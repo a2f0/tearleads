@@ -34,6 +34,13 @@ class SessionLifetime {
     return () => revision === this.signInRevision;
   }
 
+  currentSignIn(purpose?: "restore"): () => boolean {
+    const current = this.signInCurrent;
+    if (purpose !== "restore") return current;
+    const canRestore = this.authentication.captureRestore();
+    return () => current() && canRestore();
+  }
+
   guard(): () => void {
     const current = this.capture();
     return () => {

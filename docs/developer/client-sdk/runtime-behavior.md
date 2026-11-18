@@ -11,7 +11,8 @@ The first sign-in adopts unclaimed device work. Later sign-ins receive fresh
 workflow scopes over the identity's saved database and attachments.
 
 A host can call `session.captureSignIn()` before asynchronous work and check
-the returned predicate before applying its result. For confirmed logout,
+the returned predicate before applying its result. Passive restores pass
+`"restore"` so an explicit login takes precedence. For confirmed logout,
 `session.logoutRemote(onLocalLogout)` runs the optional callback after it clears
 the session that initiated the request. The callback receives a predicate for
 checking ownership again after each asynchronous cleanup step.

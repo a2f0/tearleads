@@ -61,10 +61,16 @@ function retainRuntimeAfterReset(params: {
   readonly refs: RuntimeRefs;
   readonly runtime: ReusableSQLiteRuntime;
   readonly mode: SQLiteRuntimeResetMode;
+  readonly current?: (() => boolean) | undefined;
   readonly log: (message: string) => void;
 }): Promise<void> {
   const { refs, runtime, mode, log } = params;
-  const result = resetSQLiteRuntimeDatabase(runtime, mode)
+  const result = resetSQLiteRuntimeDatabase(
+    runtime,
+    mode,
+    undefined,
+    params.current,
+  )
     .then(() => {
       // A purge may synchronously chain a name-based removal behind this close
       // and replace the operation gate. Runtime ownership is the authoritative
@@ -157,6 +163,7 @@ async function purgeNonReadySQLiteRuntime(params: {
 }
 
 async function purgeSQLiteRuntime(params: {
+  readonly current: () => boolean;
   readonly dbName: string | null;
   readonly removeDatabase: (dbName: string) => Promise<void>;
   readonly log: (message: string) => void;
@@ -226,7 +233,13 @@ async function purgeSQLiteRuntime(params: {
   // cannot delete that database from the main thread, so deliberately fall
   // through to the worker-side delete/renew path below.
   if (runtime && canReuseSQLiteRuntime(reuseWorker, runtime)) {
-    await retainRuntimeAfterReset({ refs, runtime, mode: "delete", log });
+    await retainRuntimeAfterReset({
+      refs,
+      runtime,
+      mode: "delete",
+      current: params.current,
+      log,
+    });
     return;
   }
   if (runtime) {
@@ -234,9 +247,12 @@ async function purgeSQLiteRuntime(params: {
     refs.runtimeRef.current = null;
     // deleteData() is best-effort in the SDK and can resolve after a failure or
     // timeout. Destructive UI needs the actual delete acknowledgement.
-    const result = resetSQLiteRuntimeDatabase(runtime, "delete").finally(() =>
-      runtime.terminateNow(),
-    );
+    const result = resetSQLiteRuntimeDatabase(
+      runtime,
+      "delete",
+      undefined,
+      params.current,
+    ).finally(() => runtime.terminateNow());
     await trackRuntimeOperation(refs, runtime, result, "delete");
     return;
   }
@@ -285,6 +301,7 @@ function usePurgeSQLiteRuntime({
         );
       }
       return purgeSQLiteRuntime({
+        current,
         dbName,
         removeDatabase,
         log,

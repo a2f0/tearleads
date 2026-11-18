@@ -66,8 +66,8 @@ class SessionService implements Session {
 
   constructor(private readonly dependencies: SessionDependencies) {}
 
-  captureSignIn(): () => boolean {
-    return sessionLifetime(this).signInCurrent;
+  captureSignIn(purpose?: "restore"): () => boolean {
+    return sessionLifetime(this).currentSignIn(purpose);
   }
 
   get authToken(): string | null {

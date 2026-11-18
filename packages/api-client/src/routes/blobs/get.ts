@@ -11,6 +11,7 @@ import type {
   RequestFailure,
   RequestResultOptions,
 } from "../../types";
+import { blobDownloadBody } from "./blobDownloadBody";
 import { storageFetchOptions } from "./storageFetchOptions";
 
 export interface BlobBytesResponse {
@@ -120,7 +121,7 @@ async function fetchSignedBlob(
       await response.body?.cancel().catch(() => {});
       return response.status === 403 ? "retry" : "fallback";
     }
-    return await signedBlobResponse(descriptor, response);
+    return await signedBlobResponse(descriptor, response, options.signal);
   } catch {
     // The downstream SDK still verifies length, hash and authenticated
     // encryption. An error after streaming begins propagates to that reader.
@@ -131,51 +132,14 @@ async function fetchSignedBlob(
 async function signedBlobResponse(
   descriptor: Pick<BlobBytesResponse, "blobId" | "byteLength" | "sha256">,
   response: Response,
+  signal: AbortSignal | undefined,
 ): Promise<BlobBytesResponse> {
   return {
     blobId: descriptor.blobId,
     byteLength: descriptor.byteLength,
     sha256: descriptor.sha256,
-    encryptedBytes: response.body
-      ? signedDownloadBodyStream(response.body)
-      : bufferedResponseBodyStream(await response.arrayBuffer()),
+    encryptedBytes: await blobDownloadBody(response, signal, true),
   };
-}
-
-function signedDownloadBodyStream(
-  stream: ReadableStream<Uint8Array>,
-): ReadableStream<Uint8Array> {
-  const reader = stream.getReader();
-  // Native network errors may contain the bearer URL. Keep failures generic
-  // before downstream readers log them, without buffering or eager reads.
-  return new ReadableStream<Uint8Array>(
-    {
-      async pull(controller) {
-        try {
-          const { done, value } = await reader.read();
-          if (done) {
-            controller.close();
-            reader.releaseLock();
-          } else {
-            controller.enqueue(value);
-          }
-        } catch {
-          controller.error(new Error("Blob download interrupted"));
-          reader.releaseLock();
-        }
-      },
-      async cancel(reason) {
-        try {
-          await reader.cancel(reason);
-        } catch {
-          throw new Error("Blob download cancellation failed");
-        } finally {
-          reader.releaseLock();
-        }
-      },
-    },
-    { highWaterMark: 0 },
-  );
 }
 
 async function getBlobStream(
@@ -198,19 +162,7 @@ async function getBlobStream(
   const { headers, response } = result;
   const byteLength = Number(headers[blobWireHeaderKeys.blobByteLength]);
 
-  // On the browser / WKWebView-fetch path the body is streamed, so
-  // `response.body` is a live ReadableStream. Under a native HTTP bridge
-  // (CapacitorHttp — which the Capacitor iOS/Android builds enable so cross-origin
-  // API requests reach the backend at all; the WKWebView's own fetch fails from
-  // the app's https://localhost origin) the response is buffered natively and
-  // `response.body` is null even for a valid 200. So take the bytes either way:
-  // the stream when present, otherwise buffer the response and re-wrap it as a
-  // one-shot ReadableStream so callers keep a single streaming interface. This
-  // does not weaken validation — a truncated or corrupted body is still caught
-  // downstream by the X-Tearleads-Blob-Sha256 integrity check; it only stops a
-  // buffered-but-valid response from being rejected here as malformed.
-  const encryptedBytes =
-    response.body ?? bufferedResponseBodyStream(await response.arrayBuffer());
+  const encryptedBytes = await blobDownloadBody(response, options.signal);
 
   if (options.signal?.aborted) return null;
   return {
@@ -219,23 +171,4 @@ async function getBlobStream(
     encryptedBytes,
     sha256: headers[blobWireHeaderKeys.blobSha256],
   };
-}
-
-// Wraps a fully-buffered response body as a single-chunk ReadableStream, so a
-// native HTTP bridge that only exposes the buffered bytes (no WHATWG
-// `response.body` stream) can still satisfy the streaming
-// `BlobBytesResponse.encryptedBytes` contract. An empty buffer yields an
-// immediately-closed, zero-chunk stream.
-function bufferedResponseBodyStream(
-  buffer: ArrayBuffer,
-): ReadableStream<Uint8Array> {
-  const bytes = new Uint8Array(buffer);
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      if (bytes.byteLength > 0) {
-        controller.enqueue(bytes);
-      }
-      controller.close();
-    },
-  });
 }

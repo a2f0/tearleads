@@ -151,7 +151,7 @@ export interface Session {
    */
   readonly userIdAcknowledged: boolean;
   /** Stable predicate for this sign-in, including after verified renewal. */
-  captureSignIn(): () => boolean;
+  captureSignIn(purpose?: "restore"): () => boolean;
   bootstrapLocalRootContainer(isCurrent?: () => boolean): Promise<{
     containerId: string;
     created: boolean;

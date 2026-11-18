@@ -100,6 +100,11 @@ export interface WorkerRequestMap {
     params: undefined;
     result: DatabaseWorkerClosed;
   };
+  // Drain previously accepted database work before the host authorizes a wipe.
+  prepareDelete: {
+    params: undefined;
+    result: DatabaseWorkerReady;
+  };
   // Destructive shutdown: close the db and WIPE the persistent VFS's OPFS files
   // (not merely release the handles). Used to forget local data on logout.
   delete: {

@@ -32,8 +32,17 @@ export function transitionAuthentication(
 export class SessionAuthentication {
   private state: AuthenticationState = { status: "idle" };
 
+  private lastLogin: symbol | undefined;
+
+  captureRestore(): () => boolean {
+    const login = this.lastLogin;
+    const allowed = this.state.status !== "login";
+    return () => allowed && login === this.lastLogin;
+  }
+
   start(renewal: boolean) {
     const attempt = Symbol();
+    if (!renewal) this.lastLogin = attempt;
     this.state = transitionAuthentication(this.state, {
       type: renewal ? "renewal" : "login",
       attempt,

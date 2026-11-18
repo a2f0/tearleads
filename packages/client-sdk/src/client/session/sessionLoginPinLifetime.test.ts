@@ -48,7 +48,10 @@ test("superseding a login during the pin transaction leaves the next login to es
   };
   try {
     await setGeneratedIdentity(sdk.identity);
+    const restore = sdk.session.captureSignIn("restore");
     const old = sdk.session.login();
+    expect(restore()).toBe(false);
+    expect(sdk.session.captureSignIn("restore")()).toBe(false);
     await inserted.promise;
     const fresh = sdk.session.login();
     commit.resolve();

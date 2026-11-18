@@ -70,6 +70,12 @@ class DatabaseConnectionRegistry {
       onInit: (options) => this.initConnection(state, options),
       onExec: (options) => this.execForConnection(state, options),
       onClose: () => this.closeConnection(state),
+      // Opening a replacement database waits for the app's reset operation.
+      // Drain the live worker before the host commits to closing or wiping it.
+      onPrepareDelete: () =>
+        state.dbName
+          ? this.databasesByName.get(state.dbName)?.queue
+          : undefined,
       onDelete: () => this.deleteConnection(state),
       onWipeStorage: () => this.wipeStorage(),
     };
