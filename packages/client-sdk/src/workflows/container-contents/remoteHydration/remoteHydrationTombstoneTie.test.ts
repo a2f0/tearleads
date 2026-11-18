@@ -28,6 +28,7 @@ const remoteContainer: ListContainersResponse["items"][number] = {
   metadataAccessEpoch: 1,
   metadataAccessStateHash: "equal-time-access",
   metadataDocumentId,
+  metadataVersionVector: "",
   metadataReferencedPrincipals: [],
   organizationId: "organization-1",
   parentId: null,

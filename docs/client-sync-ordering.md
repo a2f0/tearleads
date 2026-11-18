@@ -102,6 +102,56 @@ that view; see
 [operation recovery batch](developer/current-principal-consumers.md#operation-recovery-batch).
 Document syncs scheduled through document stores remain separate operations.
 
+### Container metadata under lost hints
+
+A clean container metadata document skips its read. A pass reads it only when
+it has outgoing edits, a pull continuation, or a needs-sync signal, and
+[realtime hints](./developer/realtime-hints.md) are that signal. Hints are
+lossy. One sent while this client is offline or closed never arrives, and
+neither does one sent before it subscribes, such as another device of the same
+identity editing a folder this device has just created or registered. Without
+recovery such an edit would stay unread until a later hint or local edit named
+the same document.
+
+Each container in a listing carries `metadataVersionVector`: the Loro version
+vector of every update the server holds for its metadata document, the highest
+counter per peer across the document's stored update spans. It changes exactly
+when the document gains an update, independent of any clock. Recovery compares
+it with the client's own copy:
+
+- Owing a read. When a listing shows a held container whose metadata version
+  the local copy does not cover, the document is owed one forced read. The
+  client's own edits, seeds, moves and writes into the folder never trigger
+  one, because the local copy already covers every update they produced. An
+  unreadable version also owes a read, and the rest of the page still
+  hydrates.
+- Durability. Hydration queues the forced read in memory and then writes it to
+  `container_metadata_revalidations`, before the lane watermark advances past
+  the row. A store's first sync pass requeues what a previous run still owed,
+  and an owed read alone schedules that pass at startup.
+- Settling. A completed sync pulls every update the client lacks, so it settles
+  the debt, unless a newer signal queued the document while the read was in
+  flight. Each request records the version the listing advertised, and a read
+  settles it only once the local copy covers that version; a replica lagging
+  the listing can answer without the edit, and the debt then waits for a later
+  pass. Each request also carries a revision, and a read settles only the one
+  it saw before it began, so a newer request from another tab survives. A pass
+  that resumes an earlier paginated pull reads only up to that pull's upper
+  bound, and a superseded result discarded what it pulled; neither settles,
+  and each hands the read to a fresh pass.
+- Coverage. A metadata write advances its container's `updatedAt`, so the next
+  delta listing of the container's lane returns the row. Every acknowledged
+  connection re-lists the root lane and every held lane from their
+  watermarks, including the first one after a restart or after the store
+  opened, so either recovers a lost metadata hint. This has the clock-skew
+  window that existing discovery accepts.
+- No-brick. The forced read uses the stored commit position as its floor, as
+  a hint-forced read does, and never waits on another device.
+
+Ordinary documents need no such debt: opening one probes it, and an
+acknowledged reconnect probes every open one (see
+[remote pull eligibility](#remote-pull-eligibility)).
+
 ## Document Phase
 
 Each document store has its own `documents:${localId}` lane. Blob attachment

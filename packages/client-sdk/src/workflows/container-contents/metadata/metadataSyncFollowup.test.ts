@@ -4,7 +4,10 @@ import {
   createContainerRecord,
   createDocumentRecord,
 } from "./metadata.testFixtures";
-import { shouldRequestContainerMetadataFollowup } from "./metadataSyncFollowup";
+import {
+  resumedEarlierMetadataPull,
+  shouldRequestContainerMetadataFollowup,
+} from "./metadataSyncFollowup";
 
 test("metadata sync re-arms an incomplete paginated pull", () => {
   const metadataState = {
@@ -42,4 +45,30 @@ test("a superseded metadata settlement re-arms without settling outgoing state",
     }),
   ).toBe(true);
   expect(settleOutgoingPass).not.toHaveBeenCalled();
+});
+
+test("a metadata read resumed an earlier pull exactly when it consumed one", () => {
+  const record = createDocumentRecord({ id: "container-1" });
+  expect(
+    resumedEarlierMetadataPull({
+      consumedPullContinuation: null,
+      requestRecord: record,
+    }),
+  ).toBe(false);
+  expect(
+    resumedEarlierMetadataPull({
+      consumedPullContinuation: {
+        commitLsn: "0/2",
+        commitLsnMode: "tracked",
+        cursor: "metadata-page-2",
+      },
+      requestRecord: record,
+    }),
+  ).toBe(true);
+  expect(
+    resumedEarlierMetadataPull({
+      consumedPullContinuation: null,
+      requestRecord: { ...record, pullContinuationRecoveryRequired: true },
+    }),
+  ).toBe(true);
 });

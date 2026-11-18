@@ -7,6 +7,7 @@ export {
   emptyVersionVector,
   encodeEncodedVersionVector,
   encodeVersionVector,
+  encodeVersionVectorCounters,
   exportAllUpdates,
   exportFullHistoryIdentity,
   exportFullHistorySnapshot,

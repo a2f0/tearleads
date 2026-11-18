@@ -12,6 +12,7 @@ const folder: RemoteContainer = {
   metadataAccessEpoch: 1,
   metadataAccessStateHash: "access-shared-folder",
   metadataDocumentId: "metadata-shared-folder",
+  metadataVersionVector: "",
   metadataReferencedPrincipals: [],
   organizationId: "organization-paused",
   parentId: "unreachable-root",

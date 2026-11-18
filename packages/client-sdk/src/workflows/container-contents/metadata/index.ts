@@ -29,7 +29,10 @@ import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
 } from "./metadataStateIsolation";
-import { shouldRequestContainerMetadataFollowup } from "./metadataSyncFollowup";
+import {
+  resumedEarlierMetadataPull,
+  shouldRequestContainerMetadataFollowup,
+} from "./metadataSyncFollowup";
 
 export {
   hasContainerMetadataDocumentUpdateEvent,
@@ -374,6 +377,9 @@ async function finalizeContainerMetadataSync(input: {
 
   return {
     ...persisted,
+    ...(resumedEarlierMetadataPull(syncAttempt)
+      ? { resumedEarlierPull: true as const }
+      : {}),
     shouldRequestFollowupSync: shouldRequestContainerMetadataFollowup({
       persisted,
       settleOutgoingPass: () =>

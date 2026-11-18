@@ -119,6 +119,7 @@ test("a persisted shared root created by another user never absorbs local conten
       metadataDocumentId: `${sharedRootId}-metadata`,
       metadataAccessEpoch: 1,
       metadataAccessStateHash: "metadata-hash",
+      metadataVersionVector: "",
       metadataReferencedPrincipals: [],
       effectiveAccessLevel: "write",
       createdAt: "2026-09-12T00:00:00.000Z",

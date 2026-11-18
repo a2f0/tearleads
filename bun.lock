@@ -285,7 +285,7 @@
     },
     "packages/loro": {
       "name": "@tearleads/loro",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "dependencies": {
         "@tearleads/encoding": "workspace:*",
         "drizzle-orm": "0.45.4",
