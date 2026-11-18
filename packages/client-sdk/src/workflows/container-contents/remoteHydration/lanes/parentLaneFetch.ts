@@ -21,7 +21,7 @@ async function prepareContainerParentLanePage(input: {
         ).loadWatermark(syncLane)
       : lane.watermark;
   return {
-    lane,
+    lane: { ...lane, watermark },
     request: { laneId, parentId: lane.parentId, watermark },
     syncLane,
   };

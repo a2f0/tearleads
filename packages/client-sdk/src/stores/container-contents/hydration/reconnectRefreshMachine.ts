@@ -21,17 +21,20 @@ export type ReconnectRefreshState =
   | (RetryProgress & { status: "pending" })
   | ActiveCrawl;
 
+export type ReconnectOutcome = HydrationOutcome | "unexpectedFailure";
+
 type ReconnectRefreshEvent =
   | { type: "acknowledged" | "runtimeChanged" | "disposed" }
   | { type: "start"; crawl: object }
-  | { type: "finish"; crawl: object; outcome: HydrationOutcome }
+  | { type: "finish"; crawl: object; outcome: ReconnectOutcome }
   | { type: "retry"; crawl: object };
 
 function afterCrawl(
   state: ActiveCrawl,
-  outcome: HydrationOutcome,
+  outcome: ReconnectOutcome,
 ): ReconnectRefreshState {
   if (outcome === "complete") return { status: "idle" };
+  if (outcome === "unexpectedFailure") return { status: "deferred" };
   const refusals = outcome === "refused" ? state.refusals + 1 : 0;
   if (refusals >= PROOF_REFUSAL_LIMIT) return { status: "deferred" };
   return { ...state, status: "backoff", refusals };

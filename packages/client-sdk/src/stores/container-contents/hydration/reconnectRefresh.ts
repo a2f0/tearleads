@@ -3,6 +3,7 @@ import type {
   ReconnectCrawl,
 } from "../../../workflows/container-contents/remoteHydration";
 import {
+  type ReconnectOutcome,
   type ReconnectRefreshState,
   transitionReconnectRefresh,
 } from "./reconnectRefreshMachine";
@@ -35,7 +36,7 @@ export class ReconnectRefresh {
       this.state.status === "crawling" &&
       this.state.crawl === crawl &&
       canRun();
-    const finish = (outcome: HydrationOutcome) => {
+    const finish = (outcome: ReconnectOutcome) => {
       const next = transitionReconnectRefresh(this.state, {
         type: "finish",
         crawl,
@@ -64,7 +65,7 @@ export class ReconnectRefresh {
       },
     }).then(
       () => finish(isCurrent() ? outcome : "retry"),
-      () => finish("retry"),
+      () => finish(isCurrent() ? "unexpectedFailure" : "retry"),
     );
   }
 }

@@ -211,6 +211,24 @@ function hasUnusableContinuation({
   );
 }
 
+function queueNextPage(
+  { lane, response }: FetchedContainerParentLanePage,
+  skipWatermarkWrite: boolean,
+  queueContinuationLane: (lane: ContainerParentHydrationLane) => void,
+): void {
+  if (response.hasMore && response.nextWatermark) {
+    const continuationCursors = lane.continuationCursors ?? new Set<string>();
+    if (lane.watermark) continuationCursors.add(cursorKey(lane.watermark));
+    continuationCursors.add(cursorKey(response.nextWatermark));
+    queueContinuationLane({
+      parentId: lane.parentId,
+      watermark: response.nextWatermark,
+      skipWatermarkWrite,
+      continuationCursors,
+    });
+  }
+}
+
 async function applyContainerParentLanePage(input: {
   continuePastIncompletePages: boolean;
   childIdsByParentId: ContainerChildIndex;
@@ -240,9 +258,6 @@ async function applyContainerParentLanePage(input: {
     syncLane,
   } = fetchedPage;
   let changedCount = 0;
-  if (hasUnusableContinuation(fetchedPage)) {
-    return { changedCount, outcome: "retry", shouldStop: false };
-  }
   if (input.isCurrent?.() === false) {
     return { changedCount, outcome: "retry", shouldStop: true };
   }
@@ -268,6 +283,10 @@ async function applyContainerParentLanePage(input: {
     // document priming so their null-scoped passes run now rather than on
     // the next startup.
     host.requestDocumentPriming?.();
+  }
+
+  if (hasUnusableContinuation(fetchedPage)) {
+    return { changedCount, outcome: "retry", shouldStop: false };
   }
 
   // A paused organization's containers stay as the device last saw them.
@@ -309,16 +328,7 @@ async function applyContainerParentLanePage(input: {
     return { changedCount, outcome: "retry", shouldStop: true };
   }
 
-  if (response.hasMore && response.nextWatermark) {
-    const continuationCursors = lane.continuationCursors ?? new Set<string>();
-    continuationCursors.add(cursorKey(response.nextWatermark));
-    queueContinuationLane({
-      parentId: lane.parentId,
-      watermark: response.nextWatermark,
-      skipWatermarkWrite,
-      continuationCursors,
-    });
-  }
+  queueNextPage(fetchedPage, skipWatermarkWrite, queueContinuationLane);
   return { changedCount, outcome, shouldStop: false };
 }
 

@@ -53,13 +53,14 @@ const signedDirectory = await createSignedContainerDirectory([
 function createState(input: {
   execSql: RemoteContainerHydrationState["runtime"]["infra"]["execSql"];
   includeItem?: boolean;
+  missingContinuation?: boolean;
   reason: "access_revoked" | "deleted";
   waitForRequest?: (() => Promise<void>) | undefined;
 }): RemoteContainerHydrationState {
   const rootPage: ListContainersResponse = {
-    hasMore: false,
+    hasMore: !!input.missingContinuation,
     items: input.includeItem === false ? [] : [remoteContainer],
-    nextWatermark: pageWatermark,
+    nextWatermark: input.missingContinuation ? null : pageWatermark,
     tombstones: [
       {
         containerId,
@@ -195,58 +196,62 @@ test("an equal-time live item beats an access revocation", async () => {
   }
 });
 
-test("an absent access revocation fences another pane's delayed item", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "container-hydration-absent-revocation-fence",
-  );
-  try {
-    await defaultContainerContentsPersistence.ensureSchema(execSql);
-    const state = createState({
-      execSql,
-      includeItem: false,
-      reason: "access_revoked",
-    });
-    await hydrateRemoteContainers({
-      host: {
-        persistContainerState: async () => ({ status: "missing" }),
-        updateSnapshot: () => {},
-      },
-      parentIds: [null],
-      state,
-    });
+test.each([false, true])(
+  "an absent revocation fences delayed items (missing continuation: %s)",
+  async (missingContinuation) => {
+    const { close, execSql } = await createTestExecSql(
+      "container-hydration-absent-revocation-fence",
+    );
+    try {
+      await defaultContainerContentsPersistence.ensureSchema(execSql);
+      const state = createState({
+        execSql,
+        includeItem: false,
+        missingContinuation,
+        reason: "access_revoked",
+      });
+      await hydrateRemoteContainers({
+        host: {
+          persistContainerState: async () => ({ status: "missing" }),
+          updateSnapshot: () => {},
+        },
+        parentIds: [null],
+        state,
+      });
 
-    await expect(
-      defaultContainerContentsPersistence.commitHydratedContainer(execSql, {
-        container: {
-          effectiveAccessLevel: "write",
-          icon: null,
-          id: containerId,
-          metadataDocumentId,
-          name: "Delayed stale item",
-          organizationId: remoteContainer.organizationId,
-          parentId: null,
-        },
-        expectedDormantRecord: null,
-        record: {
-          accessEpoch: 1,
-          accessStateHash: remoteContainer.metadataAccessStateHash,
-          contentKeyBundle: null,
-          documentId: metadataDocumentId,
-          documentKekTargets: null,
-          documentManifestBundle: null,
-          id: containerId,
-          lastCommitLsn: null,
-          metadataUpdates: "",
-          snapshotEndVersion: "",
-        },
-        remoteUpdatedAt: timestamp,
-        saveOptions: {},
-      }),
-    ).resolves.toEqual({ committed: false });
-  } finally {
-    await close();
-  }
-});
+      await expect(
+        defaultContainerContentsPersistence.commitHydratedContainer(execSql, {
+          container: {
+            effectiveAccessLevel: "write",
+            icon: null,
+            id: containerId,
+            metadataDocumentId,
+            name: "Delayed stale item",
+            organizationId: remoteContainer.organizationId,
+            parentId: null,
+          },
+          expectedDormantRecord: null,
+          record: {
+            accessEpoch: 1,
+            accessStateHash: remoteContainer.metadataAccessStateHash,
+            contentKeyBundle: null,
+            documentId: metadataDocumentId,
+            documentKekTargets: null,
+            documentManifestBundle: null,
+            id: containerId,
+            lastCommitLsn: null,
+            metadataUpdates: "",
+            snapshotEndVersion: "",
+          },
+          remoteUpdatedAt: timestamp,
+          saveOptions: {},
+        }),
+      ).resolves.toEqual({ committed: false });
+    } finally {
+      await close();
+    }
+  },
+);
 
 test("a revocation during fetch fences its stale live response", async () => {
   const { close, execSql } = await createTestExecSql(

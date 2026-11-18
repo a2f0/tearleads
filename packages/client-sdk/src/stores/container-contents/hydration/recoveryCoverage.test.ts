@@ -3,6 +3,10 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { ListContainerParentLanesResponse } from "@tearleads/validators/response";
 import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { createDomainScope } from "../../../data/shared/domainScope";
+import {
+  ContainerSyncWatermarkRepository,
+  createContainerParentSyncLane,
+} from "../../../workflows/container-contents/containerPersistence";
 import type { RemoteContainerHydrationHost } from "../../../workflows/container-contents/remoteHydration";
 import {
   requestContainerContentsRemoteHydration,
@@ -22,6 +26,47 @@ const emptyRootLane: ListContainerParentLanesResponse = {
   ],
 };
 
+function createRequestState(
+  execSql: RequestState["runtime"]["infra"]["execSql"],
+  listContainerParentLanes: RequestState["runtime"]["apiClient"]["listContainerParentLanes"],
+): RequestState {
+  return {
+    containerListingFailures: 0,
+    containerParentIdsNeedingHydration: new Set<string | null>(),
+    containersById: new Map(),
+    initializePromise: null,
+    initialized: true,
+    lifecycleGeneration: 0,
+    localContainerRefreshGeneration: null,
+    localContainerRefreshPromise: null,
+    localContainerRefreshStructuralGeneration: null,
+    localContainersNeedRefresh: false,
+    persistence: { loadContainerHydrationTombstones: async () => [] },
+    remoteHydrationPromise: null,
+    remoteHydrationGeneration: null,
+    remoteHydrationStructuralGeneration: null,
+    rootLaneHydrated: false,
+    runtime: withPrincipalPolicies({
+      apiClient: {
+        listContainerParentLanes,
+      },
+      auth: { isAuthenticated: true },
+      infra: { dbStatus: "ready", execSql },
+      state: { domainScope: createDomainScope(), online: true },
+      util: { log: () => {} },
+    }),
+    snapshot: { ready: true },
+    structuralGeneration: 0,
+  } as unknown as RequestState;
+}
+
+const emptyHydrationHost = {
+  persistContainerState: async () => {
+    throw new Error("an empty root lane persists nothing");
+  },
+  updateSnapshot: () => {},
+} as RemoteContainerHydrationHost;
+
 // Requests queued behind a crawl that a generation reset interrupts all retry
 // through recovery, and one of them takes over the others' queued recovery.
 // None may resolve before the recovery crawl that covers it settles; an
@@ -37,48 +82,16 @@ test("requests queued across a reset settle with the recovery crawl", async () =
     const listingStarted = Array.from({ length: 3 }, () =>
       Promise.withResolvers<void>(),
     );
-    const state = {
-      containerListingFailures: 0,
-      containerParentIdsNeedingHydration: new Set<string | null>(),
-      containersById: new Map(),
-      initializePromise: null,
-      initialized: true,
-      lifecycleGeneration: 0,
-      localContainerRefreshGeneration: null,
-      localContainerRefreshPromise: null,
-      localContainerRefreshStructuralGeneration: null,
-      localContainersNeedRefresh: false,
-      persistence: { loadContainerHydrationTombstones: async () => [] },
-      remoteHydrationPromise: null,
-      remoteHydrationGeneration: null,
-      remoteHydrationStructuralGeneration: null,
-      rootLaneHydrated: false,
-      runtime: withPrincipalPolicies({
-        apiClient: {
-          listContainerParentLanes: () => {
-            const listing =
-              Promise.withResolvers<ListContainerParentLanesResponse | null>();
-            listingStarted[listings.length]?.resolve();
-            listings.push(listing);
-            return listing.promise;
-          },
-        },
-        auth: { isAuthenticated: true },
-        infra: { dbStatus: "ready", execSql },
-        state: { domainScope: createDomainScope(), online: true },
-        util: { log: () => {} },
-      }),
-      snapshot: { ready: true },
-      structuralGeneration: 0,
-    } as unknown as RequestState;
+    const state = createRequestState(execSql, () => {
+      const listing =
+        Promise.withResolvers<ListContainerParentLanesResponse | null>();
+      listingStarted[listings.length]?.resolve();
+      listings.push(listing);
+      return listing.promise;
+    });
     const request = () =>
       requestContainerContentsRemoteHydration({
-        host: {
-          persistContainerState: async () => {
-            throw new Error("an empty root lane persists nothing");
-          },
-          updateSnapshot: () => {},
-        } as RemoteContainerHydrationHost,
+        host: emptyHydrationHost,
         parentIds: [null],
         // Production resumes ingestion first, so a second resume can queue
         // its recovery before the first one takes the queue over.
@@ -108,5 +121,72 @@ test("requests queued across a reset settle with the recovery crawl", async () =
     expect(state.containerListingFailures).toBe(1);
   } finally {
     close();
+  }
+});
+
+test("a superseding acknowledgement preserves a manual reset already handed to reconnect", async () => {
+  const { close, execSql } = await createTestExecSql("manual-refresh-handoff");
+  const holds = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
+  const started = [
+    Promise.withResolvers<void>(),
+    Promise.withResolvers<void>(),
+  ];
+  const initial = { id: "initial", updatedAt: "2026-01-01T00:00:00.000Z" };
+  const reset = { ...initial, id: "reset" };
+  const lane = createContainerParentSyncLane(null);
+  const cursors = new ContainerSyncWatermarkRepository(execSql);
+  let requests = 0;
+  const state = createRequestState(execSql, async ({ lanes }) => {
+    const n = requests++;
+    started[n]?.resolve();
+    await holds[n]?.promise;
+    return {
+      results: lanes.map(({ laneId, watermark }) => ({
+        laneId,
+        page: {
+          items: [],
+          tombstones: [],
+          hasMore: false,
+          nextWatermark: watermark ?? reset,
+        },
+      })),
+    };
+  });
+  const input = {
+    state,
+    host: emptyHydrationHost,
+    parentIds: [null],
+    followDiscoveredParentLanes: true,
+    scheduleSync: () => {},
+    resumeRecoveryWork: async () => {
+      await resumeContainerContentsRecoveryHydration(state);
+    },
+  };
+  try {
+    await cursors.saveWatermark(lane, initial);
+    const active = requestContainerContentsRemoteHydration(input);
+    await started[0]?.promise;
+    let current = true;
+    const reconnect = requestContainerContentsRemoteHydration({
+      ...input,
+      reconnect: { isCurrent: () => current, record: () => {} },
+    });
+    const manual = requestContainerContentsRemoteHydration({
+      ...input,
+      resetAllLaneWatermarks: true,
+    });
+    holds[0]?.resolve();
+    await started[1]?.promise;
+    current = false;
+    const replacement = requestContainerContentsRemoteHydration({
+      ...input,
+      reconnect: { isCurrent: () => true, record: () => {} },
+    });
+    holds[1]?.resolve();
+    await Promise.all([active, reconnect, manual, replacement]);
+    expect(await cursors.loadWatermark(lane)).toEqual(reset);
+  } finally {
+    for (const hold of holds) hold.resolve();
+    await close();
   }
 });

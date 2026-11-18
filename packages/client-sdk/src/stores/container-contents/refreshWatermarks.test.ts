@@ -180,3 +180,102 @@ test("a manual refresh queued behind reconnect still resets child watermarks", a
     await close();
   }
 });
+
+test("a continuation cannot rewind to the child's persisted starting cursor", async () => {
+  const { execSql, close } = await createTestExecSql("starting-cursor-cycle");
+  const domainScope = createDomainScope();
+  const cursor = (id: string) => ({
+    id,
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  });
+  const reads: string[] = [];
+  const apiClient = createMockApiClient({
+    listContainerParentLanes: batchParentLanes(
+      async ({ parentId, watermark }) => {
+        if (parentId !== "root") return emptyListContainersResponse();
+        reads.push(watermark?.id ?? "missing");
+        return {
+          ...emptyListContainersResponse(),
+          hasMore: true,
+          nextWatermark: cursor(watermark?.id === "a" ? "b" : "a"),
+        };
+      },
+    ),
+  });
+  const base = createContainerContentsTestRuntime({
+    apiClient,
+    domainScope,
+    execSql,
+    containerId: "root",
+  });
+  const runtime = {
+    ...base,
+    state: { ...base.state, serverEventsConnectionGeneration: 1 },
+  };
+  try {
+    await seedLocalRootContainer(execSql, { rootContainerId: "root" });
+    const cursors = new ContainerSyncWatermarkRepository(execSql);
+    await cursors.markChecked(createContainerParentSyncLane(null));
+    const lane = createContainerParentSyncLane("root");
+    await cursors.saveWatermark(lane, cursor("a"));
+    const store = createContainerContentsStore(runtime);
+    store.updateRuntime(runtime);
+    await waitFor(() => reads.length >= 2, "child continuation did not start");
+    await waitForDomainSyncCoordinatorToSettle(domainScope);
+    expect(reads).toEqual(["a", "b"]);
+    expect(await cursors.loadWatermark(lane)).toEqual(cursor("b"));
+  } finally {
+    disposeDomainSyncCoordinator(domainScope);
+    await close();
+  }
+});
+
+test("an unexpected reconnect failure reaches diagnostics and waits for a new connection", async () => {
+  const { execSql, close } = await createTestExecSql("reconnect-diagnostics");
+  const domainScope = createDomainScope();
+  let attempts = 0;
+  const failure = new Error("unexpected listing failure");
+  const errors: unknown[] = [];
+  const apiClient = createMockApiClient({
+    listContainerParentLanes: async () => {
+      attempts++;
+      throw failure;
+    },
+  });
+  const base = createContainerContentsTestRuntime({
+    apiClient,
+    domainScope,
+    execSql,
+    containerId: "root",
+  });
+  const runtime = {
+    ...base,
+    util: {
+      ...base.util,
+      logError: (_message: string | Error, error?: unknown) => {
+        errors.push(error);
+      },
+    },
+    state: { ...base.state, serverEventsConnectionGeneration: 1 },
+  };
+  try {
+    await seedLocalRootContainer(execSql, { rootContainerId: "root" });
+    const cursors = new ContainerSyncWatermarkRepository(execSql);
+    await cursors.markChecked(createContainerParentSyncLane(null));
+    await cursors.markChecked(createContainerParentSyncLane("root"));
+    const store = createContainerContentsStore(runtime);
+    store.updateRuntime(runtime);
+    await waitFor(() => attempts > 0, "reconnect never listed");
+    await Bun.sleep(1_100);
+    expect(errors).toContain(failure);
+    expect(attempts).toBe(1);
+    store.updateRuntime({
+      ...runtime,
+      state: { ...runtime.state, serverEventsConnectionGeneration: 2 },
+    });
+    await waitFor(() => attempts === 2, "a new acknowledgement did not retry");
+  } finally {
+    disposeDomainSyncCoordinator(domainScope);
+    await close();
+  }
+});

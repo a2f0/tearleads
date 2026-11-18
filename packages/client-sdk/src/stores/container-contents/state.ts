@@ -5,6 +5,7 @@ import {
 } from "../../workflows/container-contents/projectionKeys";
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
 import { ContainerStateMap } from "./containerState/containerStateMap";
+import { observeContainerBackgroundHydration } from "./hydration/backgroundHydration";
 import { ReconnectRefresh } from "./hydration/reconnectRefresh";
 import { didContainerWriteRuntimeChange } from "./remoteWrites/writeGeneration";
 import type {
@@ -312,7 +313,11 @@ export function consumePendingContainerContentsReconnectRefresh(
       state.runtime.state.online &&
       state.runtime.isScopeCurrent?.() !== false &&
       !state.syncLane?.isDisposed?.(),
-    refresh,
+    (options) => {
+      const hydration = refresh(options);
+      observeContainerBackgroundHydration(state, hydration);
+      return hydration;
+    },
   );
 }
 

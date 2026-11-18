@@ -30,6 +30,7 @@ export interface LocalContainerRefreshState {
   persistence: ContainerContentsPersistence;
   runtime: ContainerContentsWorkflowRuntime;
   structuralGeneration: number;
+  syncLane?: { isDisposed?: () => boolean } | null;
 }
 
 interface LocalContainerRefreshBaseline {
@@ -183,15 +184,16 @@ function reportLocalContainerRefreshFailure(
 
 const guardedReads = new WeakMap<Promise<void>, () => boolean>();
 
-export function refreshLocalContainerStates(input: {
+interface LocalRefreshInput {
   host: LocalContainerRefreshHost;
   stillCurrent?: (() => boolean) | undefined;
   state: LocalContainerRefreshState;
-}): Promise<void> {
-  const { host, state } = input;
-  if (input.stillCurrent?.() === false) return Promise.resolve();
-  if (state.localContainerRefreshPromise) {
-    const active = state.localContainerRefreshPromise;
+}
+
+function joinLocalRead(input: LocalRefreshInput): Promise<void> | null {
+  const { state } = input;
+  const active = state.localContainerRefreshPromise;
+  if (active) {
     const owner = guardedReads.get(active);
     // Ordinary callers share the same promise. If a cancelled reconnect
     // owned the read, the successor still needs a current local snapshot.
@@ -202,6 +204,17 @@ export function refreshLocalContainerStates(input: {
         : undefined,
     );
   }
+  return null;
+}
+
+export function refreshLocalContainerStates(
+  input: LocalRefreshInput,
+): Promise<void> {
+  const { host, state } = input;
+  if (state.syncLane?.isDisposed?.() || input.stillCurrent?.() === false)
+    return Promise.resolve();
+  const joined = joinLocalRead(input);
+  if (joined) return joined;
 
   if (
     !state.localContainersNeedRefresh ||
@@ -214,6 +227,7 @@ export function refreshLocalContainerStates(input: {
   const lifecycleGeneration = state.lifecycleGeneration;
   const structuralGeneration = state.structuralGeneration;
   const isCurrent = () =>
+    !state.syncLane?.isDisposed?.() &&
     input.stillCurrent?.() !== false &&
     state.lifecycleGeneration === lifecycleGeneration &&
     state.structuralGeneration === structuralGeneration;
