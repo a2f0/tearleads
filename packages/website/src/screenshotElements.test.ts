@@ -334,6 +334,14 @@ test("the home carousel stops at its last phone screen instead of wrapping", asy
       [0, ["-1"], false, true],
       [0, ["-1"], false, true],
     ]);
+    // A swipe, trackpad, or keyboard scroll moves the track without the
+    // buttons; the controls follow its scroll events to either end.
+    const swipe = (left: number) => {
+      track.scrollLeft = left;
+      track.dispatchEvent(new Event("scroll"));
+      return unavailable();
+    };
+    expect([swipe(410), swipe(200), swipe(0)]).toEqual([["1"], [], ["-1"]]);
   } finally {
     removeLayout();
   }
