@@ -303,29 +303,37 @@ test("the home carousel stops at its last phone screen instead of wrapping", asy
     // gallery.css rests a slide inside the padding; happy-dom reads inline
     // styles.
     track.style.setProperty("scroll-padding-left", "16px");
-    const press = (button: HTMLButtonElement, times: number) =>
-      Array.from({ length: times }, () => {
+    // Presses a focused step button, recording after each press the scroll
+    // position, the unavailable buttons, and whether the pressed button is
+    // disabled and still holds focus.
+    const press = (button: HTMLButtonElement, times: number) => {
+      button.focus();
+      return Array.from({ length: times }, () => {
         button.click();
-        return [track.scrollLeft, unavailable()];
+        return [
+          track.scrollLeft,
+          unavailable(),
+          button.disabled,
+          document.activeElement === button,
+        ];
       });
+    };
     // One slide fits, so each press moves one slide. The row ends partway into
     // the last, and a press there stays put rather than returning to the first
-    // screen.
+    // screen. The button that cannot move is marked unavailable but never
+    // disabled, so it keeps keyboard focus at the end.
     expect(press(next, 3)).toEqual([
-      [264, []],
-      [410, ["1"]],
-      [410, ["1"]],
+      [264, [], false, true],
+      [410, ["1"], false, true],
+      [410, ["1"], false, true],
     ]);
-    // Back the same way, and a press at the start stays put rather than
-    // jumping to the last screen.
+    // Back the same way, keeping focus, and a press at the start stays put
+    // rather than jumping to the last screen.
     expect(press(previous, 3)).toEqual([
-      [264, []],
-      [0, ["-1"]],
-      [0, ["-1"]],
+      [264, [], false, true],
+      [0, ["-1"], false, true],
+      [0, ["-1"], false, true],
     ]);
-    // A button that cannot move is marked unavailable but never disabled, so
-    // it can keep keyboard focus.
-    expect([previous.disabled, next.disabled]).toEqual([false, false]);
   } finally {
     removeLayout();
   }
