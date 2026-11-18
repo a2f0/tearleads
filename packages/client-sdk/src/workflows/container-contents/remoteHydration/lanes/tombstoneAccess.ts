@@ -7,6 +7,7 @@ import type {
   ListContainerDocumentLanesResponse,
 } from "@tearleads/validators/response";
 import { isContainerNotFoundFailure } from "../../../../data/containers/shared/mutationFailures";
+import { isPublicationWatermark } from "../../documentDiscovery/publicationWatermark";
 import { collectRemovedContainers } from "../tombstoneReasons";
 import type {
   ContainerChildIndex,
@@ -93,7 +94,15 @@ export async function resolveTombstoneCascade(input: {
       input.expectedContainerStates.get(id)?.container.serverUpdatedAt;
     return held != null && held > input.tombstone.updatedAt;
   });
-  if (!input.reconcileDescendants && !clockConflict)
+  // A directly shared or moved child may be behind the saved parent cursor
+  // regardless of its entity clock. Check every cached child before an
+  // ancestor removal from a server that can fence that permission read.
+  const hasCachedDescendants =
+    isPublicationWatermark(input.afterParentPage?.watermark) &&
+    candidates.removedContainerIds.some(
+      (id) => id !== input.tombstone.containerId,
+    );
+  if (!input.reconcileDescendants && !clockConflict && !hasCachedDescendants)
     return { cascade: candidates, denied: null };
 
   if (!input.afterParentPage) return null;

@@ -11,6 +11,7 @@ import type {
   ContainerDocumentTombstone,
   ListedContainerDocument,
 } from "./documentDiscoveryTypes";
+import { isPublicationWatermark } from "./publicationWatermark";
 
 type ContainerDocumentLaneApi = Pick<
   ContainerDocumentDiscoveryApi,
@@ -78,7 +79,7 @@ function removedDocumentPlacements(
     if (
       !lane ||
       lane === "unavailable" ||
-      !lane.nextWatermark?.id.startsWith("d1/")
+      !isPublicationWatermark(lane.nextWatermark)
     )
       continue;
     for (const row of lane.tombstones) {

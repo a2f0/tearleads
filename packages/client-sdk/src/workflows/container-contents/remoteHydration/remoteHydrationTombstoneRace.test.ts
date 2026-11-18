@@ -180,213 +180,221 @@ test("a stale tombstone does not starve independent page work", async () => {
   }
 });
 
-test("a replayed removal checks newer-clock descendants before advancing its cursor", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "container-hydration-stale-tombstone-descendant",
-  );
-  try {
-    await defaultContainerContentsPersistence.ensureSchema(execSql);
-    const parentState = existingContainerState("shared-parent", null);
-    const removedRoot = existingContainerState(
-      "removed-root",
-      parentState.container.id,
+test.each(["newer", "older"] as const)(
+  "a replayed removal checks %s-clock descendants before advancing its cursor",
+  async (clock) => {
+    const { close, execSql } = await createTestExecSql(
+      "container-hydration-stale-tombstone-descendant",
     );
-    const staleChild = existingContainerState(
-      "stale-child",
-      removedRoot.container.id,
-    );
-    const unchangedChild = existingContainerState(
-      "unchanged-child",
-      removedRoot.container.id,
-    );
-    const stillReadable = existingContainerState(
-      "still-readable",
-      removedRoot.container.id,
-    );
-    const later = "2026-01-03T00:00:00.000Z";
-    for (const row of [unchangedChild, stillReadable, removedRoot]) {
-      row.container.serverUpdatedAt = later;
-    }
-    const deniedGrandchild = existingContainerState(
-      "denied-grandchild",
-      stillReadable.container.id,
-    );
-    const legacyCursor = { id: parentState.container.id, updatedAt: later };
-    await new ContainerSyncWatermarkRepository(execSql).saveWatermark(
-      createContainerParentSyncLane(parentState.container.id),
-      legacyCursor,
-    );
-    for (const containerState of [
-      parentState,
-      stillReadable,
-      deniedGrandchild,
-      removedRoot,
-      staleChild,
-      unchangedChild,
-    ]) {
-      await defaultContainerContentsPersistence.saveContainer(
-        execSql,
-        containerState.container,
-        containerState.record,
+    try {
+      await defaultContainerContentsPersistence.ensureSchema(execSql);
+      const parentState = existingContainerState("shared-parent", null);
+      const removedRoot = existingContainerState(
+        "removed-root",
+        parentState.container.id,
       );
-    }
-    const pageWatermark = {
-      id: "273/removed-root",
-      updatedAt: "2026-01-02T00:00:00.000Z",
-    };
-    let fetchCount = 0;
-    const state = {
-      containersById: new Map(
-        [
-          parentState,
-          removedRoot,
-          staleChild,
-          unchangedChild,
-          stillReadable,
-          deniedGrandchild,
-        ].map((containerState) => [
-          containerState.container.id,
-          containerState,
-        ]),
-      ),
-      persistence: defaultContainerContentsPersistence,
-      runtime: withPrincipalPolicies({
-        organizations: containerContentsOrganizationHost,
-        apiClient: {
-          listContainerDocumentLanes: async ({
-            afterParentPage,
-            lanes,
-          }: {
-            afterParentPage: unknown;
-            lanes: { containerId: string; laneId: string }[];
-          }) => {
-            expect(afterParentPage).toEqual({
-              parentId: parentState.container.id,
-              watermark: pageWatermark,
-            });
-            return fetchCount === 2
-              ? null
-              : {
-                  results: lanes.map(({ containerId, laneId }) =>
-                    containerId === stillReadable.container.id
-                      ? {
-                          laneId,
-                          page: {
-                            items: [],
-                            tombstones: [],
-                            hasMore: false,
-                            nextWatermark: null,
+      const staleChild = existingContainerState(
+        "stale-child",
+        removedRoot.container.id,
+      );
+      const unchangedChild = existingContainerState(
+        "unchanged-child",
+        removedRoot.container.id,
+      );
+      const stillReadable = existingContainerState(
+        "still-readable",
+        removedRoot.container.id,
+      );
+      const later = "2026-01-03T00:00:00.000Z";
+      for (const row of [unchangedChild, stillReadable, removedRoot]) {
+        row.container.serverUpdatedAt =
+          clock === "newer" ? later : "2025-12-01T00:00:00.000Z";
+      }
+      const deniedGrandchild = existingContainerState(
+        "denied-grandchild",
+        stillReadable.container.id,
+      );
+      const legacyCursor = { id: parentState.container.id, updatedAt: later };
+      await new ContainerSyncWatermarkRepository(execSql).saveWatermark(
+        createContainerParentSyncLane(parentState.container.id),
+        legacyCursor,
+      );
+      for (const containerState of [
+        parentState,
+        stillReadable,
+        deniedGrandchild,
+        removedRoot,
+        staleChild,
+        unchangedChild,
+      ]) {
+        await defaultContainerContentsPersistence.saveContainer(
+          execSql,
+          containerState.container,
+          containerState.record,
+        );
+      }
+      const pageWatermark = {
+        id: "d1/removed-root",
+        updatedAt: "2026-01-02T00:00:00.000Z",
+      };
+      let fetchCount = 0;
+      const state = {
+        containersById: new Map(
+          [
+            parentState,
+            removedRoot,
+            staleChild,
+            unchangedChild,
+            stillReadable,
+            deniedGrandchild,
+          ].map((containerState) => [
+            containerState.container.id,
+            containerState,
+          ]),
+        ),
+        persistence: defaultContainerContentsPersistence,
+        runtime: withPrincipalPolicies({
+          organizations: containerContentsOrganizationHost,
+          apiClient: {
+            listContainerDocumentLanes: async ({
+              afterParentPage,
+              lanes,
+            }: {
+              afterParentPage: unknown;
+              lanes: { containerId: string; laneId: string }[];
+            }) => {
+              expect(afterParentPage).toEqual({
+                parentId: parentState.container.id,
+                watermark: pageWatermark,
+              });
+              return fetchCount === 2
+                ? null
+                : {
+                    results: lanes.map(({ containerId, laneId }) =>
+                      containerId === stillReadable.container.id
+                        ? {
+                            laneId,
+                            page: {
+                              items: [],
+                              tombstones: [],
+                              hasMore: false,
+                              nextWatermark: null,
+                            },
+                          }
+                        : {
+                            laneId,
+                            failure: { status: 403, error: "Forbidden" },
                           },
-                        }
-                      : {
-                          laneId,
-                          failure: { status: 403, error: "Forbidden" },
-                        },
-                  ),
-                };
+                    ),
+                  };
+            },
+            getCurrentPrincipalPolicy: async () => null,
+            listContainerParentLanes: async (request: {
+              lanes: ReadonlyArray<{ laneId: string }>;
+            }): Promise<ListContainerParentLanesResponse> => {
+              fetchCount += 1;
+              if (fetchCount === 1) {
+                staleChild.record.documentId = "newer-stale-child-metadata";
+              }
+              return {
+                results: request.lanes.map(({ laneId }) => ({
+                  laneId,
+                  page: {
+                    hasMore: false,
+                    items: [],
+                    nextWatermark: pageWatermark,
+                    tombstones: [
+                      {
+                        containerId: removedRoot.container.id,
+                        depth: 1,
+                        parentId: parentState.container.id,
+                        reason: "access_revoked",
+                        updatedAt: timestamp,
+                      },
+                    ],
+                  },
+                })),
+              };
+            },
           },
-          getCurrentPrincipalPolicy: async () => null,
-          listContainerParentLanes: async (request: {
-            lanes: ReadonlyArray<{ laneId: string }>;
-          }): Promise<ListContainerParentLanesResponse> => {
-            fetchCount += 1;
-            if (fetchCount === 1) {
-              staleChild.record.documentId = "newer-stale-child-metadata";
-            }
-            return {
-              results: request.lanes.map(({ laneId }) => ({
-                laneId,
-                page: {
-                  hasMore: false,
-                  items: [],
-                  nextWatermark: pageWatermark,
-                  tombstones: [
-                    {
-                      containerId: removedRoot.container.id,
-                      depth: 1,
-                      parentId: parentState.container.id,
-                      reason: "access_revoked",
-                      updatedAt: timestamp,
-                    },
-                  ],
-                },
-              })),
-            };
+          auth: { isAuthenticated: true },
+          infra: { dbStatus: "ready", execSql },
+          state: { domainScope: createDomainScope(), online: true },
+          util: { log: () => {} },
+        }),
+      } as unknown as RemoteContainerHydrationState;
+
+      const hydrate = () =>
+        hydrateRemoteContainers({
+          host: {
+            persistContainerState: async () => {
+              throw new Error("tombstone page must not upsert containers");
+            },
+            updateSnapshot: () => {},
           },
-        },
-        auth: { isAuthenticated: true },
-        infra: { dbStatus: "ready", execSql },
-        state: { domainScope: createDomainScope(), online: true },
-        util: { log: () => {} },
-      }),
-    } as unknown as RemoteContainerHydrationState;
+          parentIds: [parentState.container.id],
+          state,
+        });
 
-    const hydrate = () =>
-      hydrateRemoteContainers({
-        host: {
-          persistContainerState: async () => {
-            throw new Error("tombstone page must not upsert containers");
-          },
-          updateSnapshot: () => {},
-        },
-        parentIds: [parentState.container.id],
-        state,
-      });
+      await hydrate();
 
-    await hydrate();
+      expect(state.containersById.has(stillReadable.container.id)).toBe(true);
+      for (const containerState of [
+        removedRoot,
+        staleChild,
+        unchangedChild,
+        deniedGrandchild,
+      ]) {
+        expect(state.containersById.has(containerState.container.id)).toBe(
+          true,
+        );
+        await expect(
+          defaultContainerContentsPersistence.containerExists(
+            execSql,
+            containerState.container.id,
+          ),
+        ).resolves.toBe(true);
+      }
+      await expect(
+        loadParentWatermark(execSql, parentState.container.id),
+      ).resolves.toEqual(legacyCursor);
 
-    expect(state.containersById.has(stillReadable.container.id)).toBe(true);
-    for (const containerState of [
-      removedRoot,
-      staleChild,
-      unchangedChild,
-      deniedGrandchild,
-    ]) {
-      expect(state.containersById.has(containerState.container.id)).toBe(true);
+      await hydrate();
+      expect(state.containersById.has(removedRoot.container.id)).toBe(true);
+      await expect(
+        loadParentWatermark(execSql, parentState.container.id),
+      ).resolves.toEqual(legacyCursor);
+
+      await hydrate();
+
       await expect(
         defaultContainerContentsPersistence.containerExists(
           execSql,
-          containerState.container.id,
+          stillReadable.container.id,
         ),
       ).resolves.toBe(true);
-    }
-    await expect(
-      loadParentWatermark(execSql, parentState.container.id),
-    ).resolves.toEqual(legacyCursor);
-
-    await hydrate();
-    expect(state.containersById.has(removedRoot.container.id)).toBe(true);
-    await expect(
-      loadParentWatermark(execSql, parentState.container.id),
-    ).resolves.toEqual(legacyCursor);
-
-    await hydrate();
-
-    await expect(
-      defaultContainerContentsPersistence.containerExists(
-        execSql,
-        stillReadable.container.id,
-      ),
-    ).resolves.toBe(true);
-    expect(state.containersById.has(stillReadable.container.id)).toBe(true);
-    for (const containerState of [
-      removedRoot,
-      staleChild,
-      unchangedChild,
-      deniedGrandchild,
-    ]) {
-      expect(state.containersById.has(containerState.container.id)).toBe(false);
+      expect(state.containersById.has(stillReadable.container.id)).toBe(true);
+      for (const containerState of [
+        removedRoot,
+        staleChild,
+        unchangedChild,
+        deniedGrandchild,
+      ]) {
+        expect(state.containersById.has(containerState.container.id)).toBe(
+          false,
+        );
+        await expect(
+          defaultContainerContentsPersistence.containerExists(
+            execSql,
+            containerState.container.id,
+          ),
+        ).resolves.toBe(false);
+      }
       await expect(
-        defaultContainerContentsPersistence.containerExists(
-          execSql,
-          containerState.container.id,
-        ),
-      ).resolves.toBe(false);
+        loadParentWatermark(execSql, parentState.container.id),
+      ).resolves.toEqual(pageWatermark);
+    } finally {
+      await close();
     }
-    await expect(
-      loadParentWatermark(execSql, parentState.container.id),
-    ).resolves.toEqual(pageWatermark);
-  } finally {
-    await close();
-  }
-});
+  },
+);

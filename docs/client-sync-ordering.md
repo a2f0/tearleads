@@ -131,9 +131,10 @@ durable checkpoint, replaying any intervening pages.
 Postgres and PGlite install the same schema. The SQLite client stores the
 cursor verbatim. See [API database support](./developer/api-persistence.md#database).
 
-When a cached container or descendant carries a later entity timestamp than
-its removal, the SDK checks current access to the affected rows with bounded
-document-lane reads. It retains readable descendants and applies confirmed
+Before applying a publication-ordered removal to a cached subtree, the SDK
+checks current access to each affected descendant with bounded document-lane
+reads. It also checks a leaf whose cached timestamp is later than its removal.
+It retains readable descendants and applies confirmed
 denials or absence only if the local rows still match the pre-request snapshot.
 An inconclusive read leaves the page retryable. When a live folder's entity
 clock moves backwards, hydration verifies the current signed placement and
