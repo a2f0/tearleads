@@ -428,7 +428,6 @@ test("POST /documents/:documentId/unlink rejects removing the final signed link"
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown as Record<string, unknown>,
     expectedManifestHash: createdDocument.manifestHash,
-    manifest: createdDocument.accessManifest.manifest,
     targetContainerPathRefs: [
       {
         containerId: root.kekState.containerId,

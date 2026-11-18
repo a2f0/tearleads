@@ -6,9 +6,10 @@ import {
   type ManagedPrincipalKind,
   type PrincipalContainerGrant,
   toFingerprint,
+  unwrapDek,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type { createTestUser } from "@tearleads/test-utils";
 import type {
   CommitOrganizationGroupPolicyRequest,
@@ -172,6 +173,67 @@ export async function createPolicyTestGroup(
   });
 }
 
+async function rotatedOrganizationKeying(input: {
+  keyEpoch: number;
+  projection: readonly { userId: string }[];
+}) {
+  const organizationKem = generateKemSeedAndKeyPair();
+  const { memberEnvelopes, stateMembers } =
+    await createPrincipalMemberEnvelopes({
+      principalSecretKey: organizationKem.secretKey,
+      projection: input.projection,
+    });
+  return {
+    encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
+    keyEpoch: input.keyEpoch,
+    keyFingerprint: await toFingerprint(organizationKem.publicKey),
+    memberEnvelopes,
+    stateMembers,
+  };
+}
+
+/** The held organization key, kept: retained envelopes, new ones for joiners. */
+async function keptOrganizationKeying(input: {
+  bundle: PrincipalPolicyBundleResponse;
+  projection: readonly { userId: string }[];
+  secretKey: Uint8Array;
+}) {
+  const envelopes = input.bundle.currentMemberEnvelopes.envelopes;
+  const organizationSecret = await unwrapDek(
+    envelopes.map((envelope) => ({
+      keyFingerprint: envelope.memberKeyFingerprint,
+      kemCipherText: base64ToBytes(envelope.kemCipherText),
+      wrappedKey: base64ToBytes(envelope.wrappedKey),
+    })),
+    input.secretKey,
+  );
+  const userIds = new Set(input.projection.map((member) => member.userId));
+  const retained = envelopes
+    .filter((envelope) => userIds.has(envelope.userId))
+    .map(({ kemCipherText, memberKeyFingerprint, userId, wrappedKey }) => ({
+      kemCipherText,
+      memberKeyFingerprint,
+      userId,
+      wrappedKey,
+    }));
+  const retainedIds = new Set(retained.map((envelope) => envelope.userId));
+  const added = await createPrincipalMemberEnvelopes({
+    principalSecretKey: organizationSecret,
+    projection: input.projection.filter(
+      (member) => !retainedIds.has(member.userId),
+    ),
+  });
+  return {
+    encapsulationPublicKey: input.bundle.currentState.encapsulationPublicKey,
+    keyEpoch: input.bundle.currentState.keyEpoch,
+    keyFingerprint: input.bundle.currentState.keyFingerprint,
+    memberEnvelopes: [...retained, ...added.memberEnvelopes],
+    stateMembers: input.projection.map((member) => ({
+      userId: member.userId,
+    })),
+  };
+}
+
 async function buildOrganizationPolicyForGroupCommit(input: {
   actor: {
     fingerprint: string;
@@ -179,6 +241,12 @@ async function buildOrganizationPolicyForGroupCommit(input: {
     userId: string;
   };
   groupPolicy?: PutPrincipalPolicyRequest | undefined;
+  /**
+   * The signer's KEM secret, to keep the organization key: it opens the held
+   * key from the signer's envelope, keeps every retained admin's envelope and
+   * wraps the key for added admins. Without it the successor rotates.
+   */
+  keepKeyWith?: Uint8Array | undefined;
   organizationId: string;
   removedGroupId?: string | undefined;
 }) {
@@ -236,24 +304,28 @@ async function buildOrganizationPolicyForGroupCommit(input: {
   groupHeads.sort((left, right) =>
     left.principalId.localeCompare(right.principalId),
   );
-  const organizationKem = generateKemSeedAndKeyPair();
-  const { memberEnvelopes, stateMembers } =
-    await createPrincipalMemberEnvelopes({
-      principalSecretKey: organizationKem.secretKey,
-      projection: organizationProjection,
-    });
+  const keying = input.keepKeyWith
+    ? await keptOrganizationKeying({
+        bundle: organizationBundle,
+        projection: organizationProjection,
+        secretKey: input.keepKeyWith,
+      })
+    : await rotatedOrganizationKeying({
+        keyEpoch: organizationState.keyEpoch + 1,
+        projection: organizationProjection,
+      });
   return signPrincipalStateBundle({
     principalType: "organization",
     principalId: input.organizationId,
     version: organizationState.version + 1,
     prevStateHash: organizationState.stateHash,
-    keyEpoch: organizationState.keyEpoch + 1,
-    encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
-    keyFingerprint: await toFingerprint(organizationKem.publicKey),
-    members: stateMembers,
+    keyEpoch: keying.keyEpoch,
+    encapsulationPublicKey: keying.encapsulationPublicKey,
+    keyFingerprint: keying.keyFingerprint,
+    members: keying.stateMembers,
     projection: organizationProjection,
     grants: [],
-    memberEnvelopes,
+    memberEnvelopes: keying.memberEnvelopes,
     payloadCiphertext: bytesToBase64(
       new TextEncoder().encode(
         JSON.stringify({
@@ -276,11 +348,13 @@ async function buildOrganizationPolicyForGroupCommit(input: {
 export async function buildOrganizationGroupDeletionRequest(input: {
   actor: Parameters<typeof buildOrganizationPolicyForGroupCommit>[0]["actor"];
   groupId: string;
+  keepKeyWith?: Uint8Array | undefined;
   organizationId: string;
 }): Promise<DeleteOrganizationGroupRequest> {
   return {
     organizationPolicy: await buildOrganizationPolicyForGroupCommit({
       actor: input.actor,
+      keepKeyWith: input.keepKeyWith,
       organizationId: input.organizationId,
       removedGroupId: input.groupId,
     }),
@@ -289,6 +363,7 @@ export async function buildOrganizationGroupDeletionRequest(input: {
 
 export async function withOrganizationGroupDirectoryPolicy(input: {
   actor: Parameters<typeof buildOrganizationPolicyForGroupCommit>[0]["actor"];
+  keepKeyWith?: Uint8Array | undefined;
   organizationId: string;
   request: CreateOrganizationGroupRequest;
 }) {
@@ -296,6 +371,7 @@ export async function withOrganizationGroupDirectoryPolicy(input: {
     ...input.request,
     organizationPolicy: await buildOrganizationPolicyForGroupCommit({
       actor: input.actor,
+      keepKeyWith: input.keepKeyWith,
       groupPolicy: input.request.initialGroupPolicy,
       organizationId: input.organizationId,
     }),
@@ -305,6 +381,7 @@ export async function withOrganizationGroupDirectoryPolicy(input: {
 export async function buildOrganizationGroupPolicyCommitRequest(input: {
   actor: Parameters<typeof buildOrganizationPolicyForGroupCommit>[0]["actor"];
   groupPolicy: PutPrincipalPolicyRequest;
+  keepKeyWith?: Uint8Array | undefined;
   organizationId: string;
 }): Promise<CommitOrganizationGroupPolicyRequest> {
   return {
@@ -321,6 +398,7 @@ export async function submitOrganizationGroupPolicyCommit(input: {
   };
   groupId: string;
   groupPolicy: PutPrincipalPolicyRequest;
+  keepKeyWith?: Uint8Array | undefined;
   organizationId: string;
   request?: (path: string, init: RequestInit) => Response | Promise<Response>;
 }): Promise<Response> {

@@ -72,6 +72,22 @@ test("hasStartupContainerSyncWork is false when every document is settled", asyn
   }
 });
 
+test("a metadata read owed before a restart is startup work even when nothing else is", async () => {
+  const { close, execSql, state } = await createStartupWorkFixture(
+    "startup-work-owed-metadata-read",
+  );
+  try {
+    await expect(hasStartupContainerSyncWork(state)).resolves.toBe(false);
+    await defaultContainerContentsPersistence.requestContainerMetadataRevalidation(
+      execSql,
+      { advertisedVersionVector: "", documentId: "metadata-root" },
+    );
+    await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);
+  } finally {
+    close();
+  }
+});
+
 test("startup restores a fresh durable root-lane hydration marker", async () => {
   const { close, execSql } = await createTestExecSql(
     "startup-restores-root-lane-hydration",
@@ -294,7 +310,6 @@ test("hasStartupContainerSyncWork detects a recorded sync failure", async () => 
       {
         attemptedAt: "2026-07-27T00:00:00.000Z",
         message: "Remote revalidation failed: container unavailable (409)",
-        status: 409,
       },
     );
     await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);

@@ -150,6 +150,7 @@ async function storeInitialPolicy(
   tx: DatabaseTransaction,
   bundle: PutPrincipalPolicyRequest,
   identityTrustDomain: string,
+  reservedAdmins = false,
 ): Promise<void> {
   await storeVerifiedPrincipalPolicyInTransaction(
     {
@@ -160,7 +161,7 @@ async function storeInitialPolicy(
       memberEnvelopes: bundle.memberEnvelopes,
     },
     tx,
-    { identityTrustDomain },
+    { identityTrustDomain, reservedAdmins },
   );
 }
 
@@ -284,6 +285,7 @@ export interface ProvisionOrganizationOptions {
 
 export interface ProvisionedOrganization {
   organizationId: string;
+  rootBundleDigest: string;
   rootContainerId: string;
   rootMetadataAccessEpoch: number;
   rootMetadataAccessStateHash: string;
@@ -334,6 +336,7 @@ async function provisionOrganizationAuthorityAndBilling(
     tx,
     input.initialAdminGroup.initialGroupPolicy,
     options.identityTrustDomain,
+    true,
   );
   const initialMemberGroupStateHash = await storeInitialMemberGroupPolicy(
     tx,
@@ -415,6 +418,7 @@ export async function provisionOrganizationInTransaction(
   );
   return {
     organizationId,
+    rootBundleDigest: rootMetadata.bundleDigest,
     rootContainerId,
     rootMetadataAccessEpoch: rootMetadata.metadataAccessEpoch,
     rootMetadataAccessStateHash: rootMetadata.metadataAccessStateHash,

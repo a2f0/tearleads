@@ -68,6 +68,13 @@ before an additive join hands that key out. It also checks batch completeness,
 stale replans and that a requested change commits. See the
 [mapping and boundaries](./container-keying/GroupGrantRevocation.md).
 
+[`container-keying/OrganizationDirectoryKey.tla`](./container-keying/OrganizationDirectoryKey.tla)
+checks the organization directory key: a directory write keeps the key while
+the admins are unchanged or only grow (wrapping it for added admins) and the
+writer can verify it, and rotates on any removal, so a removed admin never
+holds the current key. See the
+[mapping and negative controls](./container-keying/OrganizationDirectoryKey.md).
+
 ### Container Tombstone Recovery
 
 [`container-keying/ContainerTombstoneRecovery.tla`](./container-keying/ContainerTombstoneRecovery.tla)
@@ -216,6 +223,18 @@ Loro body and [attachment-slot](../docs/glossary/content.md#attachment-slot)
 state. See the
 [production mapping and model boundary](./document-sync/RestartProbeConvergence.md)
 for the action seams, fairness assumptions, and excluded blob-hydration layer.
+
+### Container Metadata Under Lost Hints
+
+[`document-sync/MetadataListingConvergence.tla`](./document-sync/MetadataListingConvergence.tla)
+models a client holding a container metadata document while a peer's edit hint
+is lost: offline, closed, or before its interest is acknowledged. Each
+acknowledged connection re-lists the client's lanes from their watermarks, and
+a listed metadata version the local copy does not cover owes a read, in memory
+and durably, before the watermark passes the row. TLC checks that some evidence
+of an unread edit always survives, through crashes and reads in flight, and
+that the client eventually holds the server's version. See the
+[production mapping and negative controls](./document-sync/MetadataListingConvergence.md).
 
 ### Epoch Advances Without a Covering Baseline
 

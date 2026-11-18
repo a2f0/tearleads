@@ -59,6 +59,7 @@ function remoteContainerItem(
     metadataAccessEpoch: 1,
     metadataAccessStateHash: "access-revoked",
     metadataDocumentId: "metadata-revoked",
+    metadataVersionVector: "",
     metadataReferencedPrincipals: [],
     organizationId: "peer-organization",
     parentId: "unlisted-parent",

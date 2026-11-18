@@ -14,10 +14,7 @@ import {
 } from "../../../../test/helpers/workflows/principalReciteFixtures";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
 import { heldContainerSnapshot } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
-import {
-  readAccessEvent,
-  readAccessManifest,
-} from "../../../data/keyingProjectionVerification/readers";
+import { readAccessEvent } from "../../../data/keyingProjectionVerification/readers";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { buildMaterializedContainerCreatePlan } from "./create";
@@ -116,10 +113,6 @@ test.each(["before-pass", "in-flight"] as const)(
             const verified = await verifyContainerAccessManifest({
               event: event.value,
               expectedManifestHash: request.expectedManifestHash,
-              manifest: readAccessManifest(
-                request.manifest,
-                "Recitation manifest",
-              ),
               previousManifest,
               previousContainerPath: path,
               principalPolicies: held.policies,

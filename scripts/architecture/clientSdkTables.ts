@@ -19,6 +19,7 @@ export const documentStoreTables = [
 
 export const containerContentsTables = [
   "containerHydrationTombstones",
+  "containerMetadataRevalidations",
   "containerSyncWatermarks",
   "containers",
   "documentContainerProjection",

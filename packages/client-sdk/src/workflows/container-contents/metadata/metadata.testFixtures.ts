@@ -30,6 +30,11 @@ function recordContainerSave(
 }
 
 const metadataTestPersistenceStubs = {
+  async listContainerMetadataRevalidations() {
+    return [];
+  },
+  async requestContainerMetadataRevalidation() {},
+  async settleContainerMetadataRevalidation() {},
   async loadHeldContainerBinding() {
     return null;
   },

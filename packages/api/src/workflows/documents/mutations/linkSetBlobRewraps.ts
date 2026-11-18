@@ -1,6 +1,7 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { attachmentBindings } from "@tearleads/api-shared/schema";
 import type { DocumentLinkAccessEventBody } from "@tearleads/crypto";
+import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   BlobContentKeyBundleError,
@@ -35,9 +36,12 @@ export async function lockDocumentLinkBlobRewraps(input: {
     expected.length !== actual.length ||
     expected.some((blobId, index) => actual[index] !== blobId)
   ) {
+    // Coded so a client that cited no listing (its local view held no
+    // attachment) or the previous leg's envelopes lists and retries.
     throw new DocumentMutationError(
       "Document attachments changed; retry the link with current blob keys",
       409,
+      DOCUMENT_MUTATION_ERROR_CODES.linkAttachmentsChanged,
     );
   }
   await lockBlobMutationRows({ blobIds: expected, executor: input.executor });

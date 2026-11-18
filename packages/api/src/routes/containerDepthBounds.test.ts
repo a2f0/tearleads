@@ -67,7 +67,7 @@ test("create refuses a child beyond the readable path depth", async () => {
   });
   const response = await submit("/containers", request);
   await expectPathTooDeep(response);
-  const containerId = Reflect.get(request.manifest, "objectId");
+  const containerId = Reflect.get(request.event, "objectId");
   if (typeof containerId !== "string") throw new Error("Missing container id");
   await expect(loadStructure(containerId)).resolves.toBeNull();
 }, 30_000);

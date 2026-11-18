@@ -130,7 +130,6 @@ export async function addDocumentContentKeyTargetsToExistingBundle(input: {
     .set({
       linkSetManifestHash: input.nextBundle.linkSetManifestHash,
       targetHash: input.nextBundle.targetHash,
-      updatedAt: new Date(),
     })
     .where(
       and(
@@ -177,7 +176,6 @@ export async function refreshExistingBundleMetadata(input: {
       .set({
         linkSetManifestHash: input.nextBundle.linkSetManifestHash,
         targetHash: input.nextBundle.targetHash,
-        updatedAt: new Date(),
       })
       .where(
         and(

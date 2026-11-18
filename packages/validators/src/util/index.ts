@@ -114,6 +114,14 @@ export {
   SHA256_HEX_LENGTH,
 } from "./protocol";
 export {
+  completeServedAccessManifestBundle,
+  isServedAccessManifestBundleWireResponse,
+  type ServedAccessManifestBundleWireResponse,
+  ServedAccessManifestBundleWireResponseSchema,
+  type ServedManifestState,
+  toServedAccessManifestBundle,
+} from "./servedManifestBundle";
+export {
   CANONICAL_SIGNED_AT_PATTERN,
   isCanonicalSignedAt,
   MAX_SIGNED_AT_YEAR,

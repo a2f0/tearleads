@@ -54,6 +54,7 @@ export async function prepareCurrentShareRename(
   const directory = await policyBundleAfterMutation({
     previous: f.directory,
     mutation: await buildOrganizationGroupDirectoryPolicyRequest({
+      currentUserSecretKey: null,
       adminProjection: f.admin.currentProjection,
       adminUsers: [identity],
       currentPolicy: f.directory,

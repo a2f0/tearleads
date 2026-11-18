@@ -189,7 +189,9 @@ test("remove group user bridges committed policy writes before caching the rotat
       execSql,
     ).savePrincipalPolicyBundle(previousPolicy, organizationId);
 
+    const directoryBefore = organizationPolicy.currentState;
     const returnedPolicy = await removeOrganizationGroupUser({
+      currentUserSecretKey: remainingUserKem.secretKey,
       readEncryptedName: readTestGroupName,
       expectedGroupName: "Operators",
       afterPolicyCommitBeforeCache: async () => {
@@ -306,6 +308,17 @@ test("remove group user bridges committed policy writes before caching the rotat
       currentPolicy.currentState.stateHash,
     );
     expect(cachedAfterBridge?.currentState.keyEpoch).toBe(2);
+    // Admins are unchanged and the signer's secret opens the directory key,
+    // so the directory successor keeps it.
+    expect(organizationPolicy.currentState.version).toBe(
+      directoryBefore.version + 1,
+    );
+    expect(organizationPolicy.currentState.keyEpoch).toBe(
+      directoryBefore.keyEpoch,
+    );
+    expect(organizationPolicy.currentState.keyFingerprint).toBe(
+      directoryBefore.keyFingerprint,
+    );
 
     const concurrentUserId = crypto.randomUUID();
     const { identity: concurrentIdentity } = await createFixtureUserIdentity({

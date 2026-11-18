@@ -41,6 +41,7 @@ test("successive acknowledgements reclaim old stages while preserving predecesso
         current.currentPayload.ciphertext,
       );
       const request = await buildOrganizationGroupDirectoryPolicyRequest({
+        currentUserSecretKey: null,
         adminProjection: history.admin.currentProjection,
         adminUsers: [identity],
         currentPolicy: current,

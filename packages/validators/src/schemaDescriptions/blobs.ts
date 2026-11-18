@@ -34,6 +34,7 @@ import {
   MultipartBlobPartDescriptorSchema,
   MultipartBlobPartUploadSchema,
   MultipartBlobPartUploadSourceSchema,
+  ServedAccessManifestBundleWireResponseSchema,
 } from "../util";
 
 describeSchema(
@@ -52,6 +53,17 @@ describeSchema(
     manifestHash:
       "Hash of the canonical manifest; other responses cite the manifest by this value.",
     state: "Derived structural state the manifest commits to.",
+  },
+);
+
+describeSchema(
+  ServedAccessManifestBundleWireResponseSchema,
+  "A signed access manifest with the event that produced it, as a writer projection serves it: the state omits what the bundle's own signed bytes name, which clients fill back from those bytes.",
+  {
+    manifestHash:
+      "Hash of the canonical manifest; other responses cite the manifest by this value.",
+    state:
+      "The derived state without the fields the hash-committed manifest and, for a container, the signed body name in full (version, object id, organization, epoch, predecessor, event hash, key epoch and public key). It keeps a container's parent pin, metadata document, system slot, direct grants and referenced principal heads, and a document's linked containers.",
   },
 );
 
@@ -276,7 +288,8 @@ describeSchema(
     documentManifestHash:
       "Document link-set manifest head the binding was made under.",
     previousBindingId: "Binding this one replaced, or null.",
-    writeAuthorization: "Key targets the blob's write was authorized against.",
+    writeAuthorization:
+      "Key targets the blob's write was authorized against. Its `targets` are omitted when its `blobKeyTargetHash` equals `blobKekTargets.blobKeyTargetHash`; the reader refills them from `blobKekTargets.targets` and re-hashes them.",
     writeHeader: "The blob's signed write header.",
   },
 );

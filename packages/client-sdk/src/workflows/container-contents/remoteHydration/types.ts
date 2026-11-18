@@ -47,6 +47,7 @@ export type RemoteContainer = Pick<
   | "metadataAccessStateHash"
   | "metadataDocumentId"
   | "metadataReferencedPrincipals"
+  | "metadataVersionVector"
   | "organizationId"
   | "parentId"
   | "updatedAt"
@@ -160,6 +161,16 @@ export interface RemoteContainerHydrationHost {
     },
   ) => Promise<PersistContainerStateResult>;
   requestDocumentPriming?: (() => void) | undefined;
+  /**
+   * Owe a metadata document one remote read, durably, before hydration
+   * advances the timestamps and lane watermark that revealed it.
+   */
+  requestMetadataRevalidation?:
+    | ((request: {
+        readonly advertisedVersionVector: string;
+        readonly documentId: string;
+      }) => Promise<void>)
+    | undefined;
   updateSnapshot: () => void;
 }
 

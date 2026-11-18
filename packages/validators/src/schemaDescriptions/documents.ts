@@ -142,7 +142,7 @@ describeSchema(
   {
     accessEpoch: "Content-key epoch the update was written at.",
     authorizationTargets:
-      "Container KEK targets the write was authorized against.",
+      "Container KEK targets the write was authorized against. Omitted when the write header's `targetHash` equals the request's `expectedTargetHash`; the client refills them from the content-key bundle it holds and re-hashes them against the signed hash.",
     authorFingerprint: "Signing key fingerprint of the writer.",
     checkpointKind: "`rotate_baseline` when the update is a rotation baseline.",
     checkpointPayloadKind: "`full_history_snapshot` for a rotation baseline.",
@@ -211,6 +211,8 @@ describeSchema(
   DocumentCreateResponseSchema,
   "Acknowledges a document create by hash.",
   {
+    bundleDigest:
+      "Citation digest of the bundle a writer projection serves for the new link-set manifest; the author caches its own bundle for citation only when it matches.",
     contentKeyEpoch: "Content-key epoch the API stored.",
     eventHash: "Hash of the signed event.",
     manifestHash: "Hash of the committed document link-set manifest.",
@@ -241,6 +243,8 @@ describeSchema(
   DocumentLinkSetMutationResponseSchema,
   "Acknowledges a link or unlink by hash.",
   {
+    bundleDigest:
+      "Citation digest of the bundle a writer projection serves for the new link-set manifest; the author caches its own bundle for citation only when it matches.",
     manifestHash: "Hash of the new document link-set manifest head.",
     targetHash: "Key target hash the API derived for the new link set.",
   },

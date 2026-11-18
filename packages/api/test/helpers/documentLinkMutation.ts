@@ -26,6 +26,7 @@ import {
   kekStateFromContainerResponse,
   type StoredRootFixture,
 } from "./keyingWriterProjectionKit";
+import { rememberRequestManifest } from "./requestManifests";
 import type { StoredContainerMutation } from "./storedContainerMutation";
 
 export async function buildDocumentLinkRequest(input: {
@@ -107,46 +108,48 @@ export async function buildDocumentLinkRequest(input: {
   ];
   const targetHash = await computeDocumentContentKeyTargetHash(targets);
 
-  return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown as Record<string, unknown>,
-    expectedManifestHash: manifestHash,
-    manifest: manifest as unknown as Record<string, unknown>,
-    targetContainerPathRefs: [
-      {
-        containerId: input.root.kekState.containerId,
-        manifestHash: input.root.bundle.manifestHash,
-      },
-      {
-        containerId: input.child.containerId,
-        manifestHash: childBundle.manifestHash,
-      },
-    ],
-    authorizingContainerPathRefs: [
-      authorizingContainerPath.map((bundle) => ({
-        containerId: asVerifiedContainerManifest(bundle).state.containerId,
-        manifestHash: bundle.manifestHash,
-      })),
-    ],
-    contentKeyBundle: {
-      contentKeyEpoch: input.createdDocument.contentKeyEpoch,
-      linkSetManifestHash: manifestHash,
-      targetHash,
-      targets: [
-        ...input.createdDocument.contentKeyBundle.targets,
+  return rememberRequestManifest(
+    {
+      event: event.event as unknown as Record<string, unknown>,
+      body: body as unknown as Record<string, unknown>,
+      expectedManifestHash: manifestHash,
+      targetContainerPathRefs: [
+        {
+          containerId: input.root.kekState.containerId,
+          manifestHash: input.root.bundle.manifestHash,
+        },
         {
           containerId: input.child.containerId,
-          containerManifestHash: childBundle.manifestHash,
-          containerKeyEpochId: childKek.containerKeyEpochId,
-          containerKeyEpoch: childKek.containerKeyEpoch,
-          ...contentKeyEnvelopeFixture(
-            "Document",
-            `document-key:${documentId}:child`,
-          ),
+          manifestHash: childBundle.manifestHash,
         },
       ],
+      authorizingContainerPathRefs: [
+        authorizingContainerPath.map((bundle) => ({
+          containerId: asVerifiedContainerManifest(bundle).state.containerId,
+          manifestHash: bundle.manifestHash,
+        })),
+      ],
+      contentKeyBundle: {
+        contentKeyEpoch: input.createdDocument.contentKeyEpoch,
+        linkSetManifestHash: manifestHash,
+        targetHash,
+        targets: [
+          ...input.createdDocument.contentKeyBundle.targets,
+          {
+            containerId: input.child.containerId,
+            containerManifestHash: childBundle.manifestHash,
+            containerKeyEpochId: childKek.containerKeyEpochId,
+            containerKeyEpoch: childKek.containerKeyEpoch,
+            ...contentKeyEnvelopeFixture(
+              "Document",
+              `document-key:${documentId}:child`,
+            ),
+          },
+        ],
+      },
     },
-  };
+    manifest,
+  );
 }
 
 export async function buildDocumentUnlinkRequest(input: {
@@ -247,35 +250,37 @@ export async function buildDocumentUnlinkRequest(input: {
     targetHash,
   });
 
-  return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown as Record<string, unknown>,
-    expectedManifestHash: manifestHash,
-    manifest: manifest as unknown as Record<string, unknown>,
-    targetContainerPathRefs: unlinkedContainerPath.map((bundle) => ({
-      containerId: asVerifiedContainerManifest(bundle).state.containerId,
-      manifestHash: bundle.manifestHash,
-    })),
-    authorizingContainerPathRefs: [
-      remainingContainerPath.map((bundle) => ({
+  return rememberRequestManifest(
+    {
+      event: event.event as unknown as Record<string, unknown>,
+      body: body as unknown as Record<string, unknown>,
+      expectedManifestHash: manifestHash,
+      targetContainerPathRefs: unlinkedContainerPath.map((bundle) => ({
         containerId: asVerifiedContainerManifest(bundle).state.containerId,
         manifestHash: bundle.manifestHash,
       })),
-    ],
-    contentKeyBundle: {
-      contentKeyEpoch,
-      linkSetManifestHash: manifestHash,
-      targetHash,
-      targets: [
-        {
-          ...remainingTarget,
-          ...contentKeyEnvelopeFixture(
-            "Document",
-            `document-key:${documentId}:rotated-${remainingTarget.containerId}`,
-          ),
-        },
+      authorizingContainerPathRefs: [
+        remainingContainerPath.map((bundle) => ({
+          containerId: asVerifiedContainerManifest(bundle).state.containerId,
+          manifestHash: bundle.manifestHash,
+        })),
       ],
+      contentKeyBundle: {
+        contentKeyEpoch,
+        linkSetManifestHash: manifestHash,
+        targetHash,
+        targets: [
+          {
+            ...remainingTarget,
+            ...contentKeyEnvelopeFixture(
+              "Document",
+              `document-key:${documentId}:rotated-${remainingTarget.containerId}`,
+            ),
+          },
+        ],
+      },
+      rotationBaseline,
     },
-    rotationBaseline,
-  };
+    manifest,
+  );
 }

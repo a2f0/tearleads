@@ -34,7 +34,7 @@ import { ContainerKekKeyringWireRecordSchema } from "../util";
 
 describeSchema(
   ContainerMutationRequestSchema,
-  "A signed container mutation (create, share, or the container part of a larger write): the event, the manifest it derives, and the KEK material, citing stored heads instead of resending them.",
+  "A signed container mutation (create, share, or the container part of a larger write): the event, the hash of the manifest it derives (the API derives the manifest itself), and the KEK material, citing stored heads instead of resending them.",
   {
     body: "Event-type-specific body the signature commits to.",
     containerManifestHistoryRefs:
@@ -88,6 +88,8 @@ describeSchema(
   ContainerMutationResponseSchema,
   "Acknowledges a container mutation by hash; the client compares each value with the plan it signed and refuses any mismatch.",
   {
+    bundleDigest:
+      "Citation digest of the bundle a writer projection serves for the new head; the author caches its own bundle for citation only when it matches.",
     eventHash: "Hash of the signed event the API stored.",
     manifestHead: "Epoch and hash of the container's new manifest head.",
     containerKek: "Identity and hashes of the container's current KEK epoch.",
@@ -136,6 +138,8 @@ describeSchema(
       "Encrypted document that holds the container's name and other metadata.",
     metadataReferencedPrincipals:
       "Principal policy heads the metadata document's access depends on.",
+    metadataVersionVector:
+      "Loro version vector of every update the server holds for the metadata document, encoded like a sync update's version vectors. A client whose copy does not cover it owes the document a read.",
     systemSlot:
       "Opaque id of a system container's role, such as Trash, or null for an ordinary container.",
   },

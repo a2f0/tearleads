@@ -72,6 +72,9 @@ for (const full of [false, true]) {
     );
     // Two/six real seeds reuse only their immediate create evidence and touch
     // last, once. PostgreSQL counts two transaction-control statements too.
+    // Verifying the Admins head as a strict authority beside its policy costs
+    // two statements here and spares the first Admins-governed group create a
+    // 202 preparation round.
     console.info("create-seed-registration", {
       full,
       statements: counter.statements,
@@ -106,7 +109,7 @@ for (const full of [false, true]) {
       updates.map(() => 1),
     );
     expect(counter.statements).toBeLessThanOrEqual(
-      (full ? 403 : 199) + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+      (full ? 405 : 201) + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
     );
   });
 }

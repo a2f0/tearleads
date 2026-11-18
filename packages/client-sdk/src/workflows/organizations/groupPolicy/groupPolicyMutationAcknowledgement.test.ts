@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import {
+  type AccessEvent,
   type AccessManifest,
   type ContainerKeyEpoch,
+  computeAccessEventHash,
   computeAccessManifestHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
@@ -270,12 +272,30 @@ test("group policy acknowledgements match container commitments by hash", async 
     keyTargetHash: hash("7"),
   };
   const manifestHash = await computeAccessManifestHash(manifest);
+  // The request carries the signed event and the manifest hash; its
+  // acknowledgement must name that event's hash.
+  const event: AccessEvent = {
+    version: 1,
+    eventId: "event-1",
+    eventType: "container.rekey",
+    objectKind: "container",
+    objectId: "container-1",
+    organizationId: "organization-1",
+    previousManifestHash: hash("3"),
+    dependencyManifestHashes: [],
+    bodyHash: hash("9"),
+    signerUserId: "user-1",
+    signerDeviceId: "device-1",
+    signerKeyFingerprint: hash("a"),
+    signedAt: "2026-05-05T00:00:00.000Z",
+    signature: "AAAA",
+  };
+  const eventHash = await computeAccessEventHash(event);
   const containerMutation = {
     body: { eventType: "container.rekey", keyringHash: hash("8") },
-    event: {},
+    event,
     expectedManifestHash: manifestHash,
     keyEpoch,
-    manifest,
     wraps,
   } as unknown as ContainerMutationRequest;
   const targets = (values: readonly ReturnType<typeof wrap>[]) =>
@@ -294,9 +314,10 @@ test("group policy acknowledgements match container commitments by hash", async 
         ),
     );
   const containerResponse: ContainerMutationResponse = {
+    bundleDigest: "b".repeat(64),
     containerId: "container-1",
     createdAt: "2026-05-05T00:00:00.000Z",
-    eventHash: manifest.eventHash,
+    eventHash,
     manifestHead: { epoch: manifest.epoch, manifestHash },
     organizationId: "organization-1",
     parentId: null,

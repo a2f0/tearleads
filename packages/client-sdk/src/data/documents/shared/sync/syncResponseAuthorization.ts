@@ -3,10 +3,30 @@ import {
   type DocumentContentKeyTarget,
   makeVerifiedDocumentKekTargets,
 } from "@tearleads/crypto";
-import type { DocumentContentKeyBundleResponse } from "@tearleads/validators/response";
+import type {
+  DocumentContentKeyBundleResponse,
+  DocumentSyncResponse,
+} from "@tearleads/validators/response";
 import { resolveEventContainerPaths } from "../../../keyingProjectionVerification";
-import { sortDocumentTargets } from "../readers";
+import { sortDocumentTargets, targetEnvelopeReference } from "../readers";
 import type { DocumentSyncPlan } from "./documentSyncTypes";
+
+/**
+ * The update's authorization target set. The server omits it when the signed
+ * header commits to the target hash this sync expected, which is the set the
+ * plan holds, so refill it from the plan. `documentWriteAuthorizationForHeader`
+ * re-hashes it against the signed `targetHash`, so an omission for any other
+ * hash fails closed.
+ */
+export function authorizationTargetsForUpdate(
+  update: Pick<DocumentSyncResponse["updates"][number], "authorizationTargets">,
+  plan: Pick<DocumentSyncPlan, "sourceContentKeyBundle">,
+): DocumentContentKeyTarget[] {
+  return (
+    update.authorizationTargets ??
+    plan.sourceContentKeyBundle.targets.map(targetEnvelopeReference)
+  );
+}
 
 export async function documentWriteAuthorizationForHeader(input: {
   readonly allowMissingAuthorization: boolean;

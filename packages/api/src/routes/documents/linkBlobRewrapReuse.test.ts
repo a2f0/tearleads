@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
 import { readKeyingCanonicalJson } from "@tearleads/crypto";
 import { createTestUser } from "@tearleads/test-utils";
-import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
+import {
+  DOCUMENT_MUTATION_ERROR_CODES,
+  isDocumentLinkSetMutationResponse,
+} from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
   bindForTest,
@@ -23,13 +27,16 @@ import {
   kekStateFromContainerResponse,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { getCurrentAccessManifestHead } from "../../access/read/accessManifestStore";
 import { routeApp } from "../../routeApp";
 
 // A move's unlink leg re-cites the envelopes its link leg committed instead of
-// listing the attachments again (client-sdk `reuseCommittedBlobRewraps`). The
-// API is what keeps that safe: a re-cited rewrap that no longer matches the
-// active attachment set or its content-key epoch is refused with an uncoded
-// 409, which the client answers by listing and retrying once.
+// listing the attachments again (client-sdk `reuseCommittedBlobRewraps`), and
+// a leg whose local view holds no attachment cites none without listing. The
+// API is what keeps that safe: rewraps that no longer match the active
+// attachment set are refused with a coded 409, and a re-cited content-key
+// epoch that moved with an uncoded one; the client answers either by listing
+// and retrying once.
 async function linkedDocumentWithAttachment() {
   const owner = createTestUser();
   await registerUser(owner);
@@ -116,7 +123,9 @@ async function linkedDocumentWithAttachment() {
   return {
     binding,
     blobId,
+    child,
     document: { ...document, ...linkedDocument },
+    linkedDocument,
     owner,
     post,
     root,
@@ -130,7 +139,7 @@ test("an unlink re-citing the link leg's envelopes commits", async () => {
   expect(unlinked.status).toBe(200);
 }, 30_000);
 
-test("a re-cited rewrap is refused, uncoded, after a detach between legs", async () => {
+test("a re-cited rewrap is refused, coded, after a detach between legs", async () => {
   const fixture = await linkedDocumentWithAttachment();
   await detachForTest({
     binding: fixture.binding,
@@ -146,11 +155,40 @@ test("a re-cited rewrap is refused, uncoded, after a detach between legs", async
   const refused = await fixture.post("unlink", await fixture.unlinkReusing());
   expect(refused).toEqual({
     body: {
+      code: DOCUMENT_MUTATION_ERROR_CODES.linkAttachmentsChanged,
       error:
         "Document attachments changed; retry the link with current blob keys",
     },
     status: 409,
   });
+}, 30_000);
+
+test("rewraps that omit an active binding are refused, coded, without a commit", async () => {
+  const fixture = await linkedDocumentWithAttachment();
+  const unlink = await buildDocumentUnlinkRequest({
+    child: fixture.child,
+    linkedDocument: fixture.linkedDocument,
+    owner: fixture.owner,
+    root: fixture.root,
+    blobRewraps: [],
+  });
+  const refused = await fixture.post("unlink", unlink);
+  expect(refused).toEqual({
+    body: {
+      code: DOCUMENT_MUTATION_ERROR_CODES.linkAttachmentsChanged,
+      error:
+        "Document attachments changed; retry the link with current blob keys",
+    },
+    status: 409,
+  });
+  expect(
+    (await getCurrentAccessManifestHead("document", fixture.document.id, db))
+      ?.manifestHash,
+  ).toBe(fixture.linkedDocument.manifestHash);
+  // Listing and citing the active binding then commits.
+  expect(
+    (await fixture.post("unlink", await fixture.unlinkReusing())).status,
+  ).toBe(200);
 }, 30_000);
 
 test("a re-cited rewrap naming another content-key epoch is refused, uncoded", async () => {

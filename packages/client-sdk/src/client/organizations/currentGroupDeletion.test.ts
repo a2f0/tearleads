@@ -1,5 +1,6 @@
 import { beforeAll, expect, test } from "bun:test";
 import { toFingerprint } from "@tearleads/crypto";
+import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
@@ -34,6 +35,7 @@ async function fixture(custody = true) {
     recovered: false,
     pendingFailure: false,
     ciphertext: "",
+    directory: null as PutPrincipalPolicyRequest | null,
   };
   f.apiClient.getCurrentPrincipalPolicy = async (_kind, id) => {
     state.fullReads += 1;
@@ -46,6 +48,7 @@ async function fixture(custody = true) {
   ) => {
     expect(state.recovered).toBe(true);
     state.writes += 1;
+    state.directory = request.organizationPolicy;
     const bundle = await policyBundleAfterMutation({
       previous: history.directory,
       mutation: request.organizationPolicy,
@@ -121,6 +124,15 @@ test("group deletion uses private bounded custody", async () => {
     const result = await deleteGroupForOrganization(f.input);
     expect(result.groupId).toBe(f.input.groupId);
     expect(result.organizationPolicy.head.version).toBe(67);
+    // Deleting a group keeps the admins, so the directory keeps its key,
+    // epoch and envelopes.
+    expect(f.state.directory?.state).toMatchObject({
+      keyEpoch: history.directory.currentState.keyEpoch,
+      keyFingerprint: history.directory.currentState.keyFingerprint,
+    });
+    expect(f.state.directory?.memberEnvelopes).toEqual(
+      history.directory.currentMemberEnvelopes.envelopes,
+    );
     expect(
       parseOrganizationAuthorityDescriptor(f.state.ciphertext).groupHeads.some(
         (head) => head.principalId === f.input.groupId,

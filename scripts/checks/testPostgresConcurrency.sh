@@ -90,6 +90,7 @@ exec bun test \
   src/services/blobs/stageOrganizationFailure.pg.test.ts \
   src/services/billing/organizationPurgeStages.test.ts \
   src/workflows/billing/organizationPurgePrincipalLock.pg.test.ts \
+  src/workflows/billing/organizationPurgeProgressLockOrder.pg.test.ts \
   src/workflows/blobs/gc/reclaimBlobChunk.test.ts \
   src/workflows/blobs/gc/reclaimDereferencedBlobs.test.ts \
   src/workflows/blobs/gc/reclaimDereferencedBlobs.pg.test.ts \

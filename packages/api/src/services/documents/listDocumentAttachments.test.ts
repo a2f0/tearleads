@@ -125,18 +125,15 @@ async function createBlobContentKeyBundle(input: { blobId: string }) {
     writerUserId: crypto.randomUUID(),
   };
   await db.insert(blobContentWriteHeaders).values({
-    accessManifestHash: writeHeader.accessManifestHash,
     authorization: currentTargets,
     blobId: input.blobId,
     contentKeyEpoch: writeHeader.contentKeyEpoch,
     contentRecordId: writeHeader.contentRecordId,
-    encryptionSuite: writeHeader.encryptionSuite,
     header: writeHeader,
     headerHash: randomHash(),
     nonceDomainHash: writeHeader.nonceDomainHash,
     organizationId: writeHeader.organizationId,
     recordId: input.blobId,
-    targetHash: writeHeader.targetHash,
   });
 
   return {
@@ -317,6 +314,13 @@ test.each([1, 2, 4])(
         attachments[0]?.blobKekTargets?.blobAccessManifestHash,
       blobKeyTargetHash: contentKeyBundle.targetHash,
     });
+    // The write commits to the current target hash, so the listing omits its
+    // set; the reader refills it from `blobKekTargets`.
+    const { targetHash: writeTargetHash } = attachments[0]?.writeHeader ?? {};
+    expect(writeTargetHash).toBe(
+      attachments[0]?.blobKekTargets?.blobKeyTargetHash,
+    );
+    expect(attachments[0]?.writeAuthorization).not.toHaveProperty("targets");
     expect(recording.calls.get("select") ?? 0).toBeGreaterThan(0);
 
     await db

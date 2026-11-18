@@ -83,6 +83,7 @@ export async function createCurrentShareMetadataFixture(
   const directory = await policyBundleAfterMutation({
     previous: initialDirectory,
     mutation: await buildOrganizationGroupDirectoryPolicyRequest({
+      currentUserSecretKey: null,
       ...signer,
       currentPolicy: initialDirectory,
       descriptor: parseOrganizationAuthorityDescriptor(

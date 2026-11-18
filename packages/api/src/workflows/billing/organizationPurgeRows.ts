@@ -20,6 +20,7 @@ import {
   organizationRosterEntries,
   organizations,
   principalDirectoryBindings,
+  principalHistoryProgress,
   principalMemberEnvelopes,
   principalMembershipProjection,
   principalPolicyCommits,
@@ -27,7 +28,7 @@ import {
   principalStatePayloads,
   principalStates,
 } from "@tearleads/api-shared/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, type SQL, type SQLWrapper, sql } from "drizzle-orm";
 import { forgetTransactionAccessManifestBundles } from "../../access/write/accessManifestStore";
 import { forgetPrincipalTransactionMemo } from "../../access/write/principalStateStore";
 import {
@@ -161,7 +162,6 @@ async function deleteOrganizationPrincipalRows(
       }
     }
   }
-  if (groupIds.length === 0) return;
   for (const groupBatch of organizationPurgeBatches(groupIds)) {
     await executor
       .insert(organizationGroupTombstones)
@@ -169,6 +169,73 @@ async function deleteOrganizationPrincipalRows(
       .onConflictDoNothing();
     await executor.delete(groups).where(inArray(groups.id, groupBatch));
   }
+  await deleteOrganizationHistoryProgress(executor, organizationId);
+}
+
+/** Text columns in byte order, the order the hint publisher writes keys. */
+function byteOrder(column: SQLWrapper): SQL {
+  return sql`${column} collate "C"`;
+}
+
+/** Delete progress rows, locking them first in the publisher's key order. */
+async function deleteProgressInKeyOrder(
+  executor: DatabaseTransaction,
+  where: SQL | undefined,
+): Promise<void> {
+  const progress = principalHistoryProgress;
+  const lockedInKeyOrder = executor
+    .select({ id: progress.id })
+    .from(progress)
+    .where(where)
+    .orderBy(
+      byteOrder(progress.principalType),
+      progress.principalId,
+      byteOrder(progress.verificationKind),
+      byteOrder(progress.inputHash),
+      byteOrder(progress.protectionId),
+      progress.version,
+    )
+    .for("update");
+  await executor.delete(progress).where(inArray(progress.id, lockedInKeyOrder));
+}
+
+/**
+ * Verification hints of the organization and of every group it ever had: the
+ * live ones were just tombstoned, and a deleted group kept its hints with its
+ * signed states. Purge verifies no history, so it buffers no hint to publish
+ * after commit; hash-addressed index nodes and the tombstones stay. Rows are
+ * locked in the key order the post-commit publisher upserts in (every group
+ * sorts before the organization), so purge and a concurrent publisher of the
+ * same hints cannot deadlock. A hint such a publisher inserts after this delete
+ * outlives the purge as an unused cache. Each statement is an index lookup.
+ */
+async function deleteOrganizationHistoryProgress(
+  executor: DatabaseTransaction,
+  organizationId: string,
+): Promise<void> {
+  const progress = principalHistoryProgress;
+  await deleteProgressInKeyOrder(
+    executor,
+    and(
+      eq(progress.principalType, "group"),
+      inArray(
+        progress.principalId,
+        executor
+          .select({ groupId: organizationGroupTombstones.groupId })
+          .from(organizationGroupTombstones)
+          .where(
+            eq(organizationGroupTombstones.organizationId, organizationId),
+          ),
+      ),
+    ),
+  );
+  await deleteProgressInKeyOrder(
+    executor,
+    and(
+      eq(progress.principalType, "organization"),
+      eq(progress.principalId, organizationId),
+    ),
+  );
 }
 
 /**

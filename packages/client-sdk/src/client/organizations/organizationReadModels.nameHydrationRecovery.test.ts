@@ -111,7 +111,6 @@ async function parkDeniedWritesAndMoves(
     {
       attemptedAt: "2026-09-17T00:00:00.000Z",
       message: "Write access denied by the server (403)",
-      status: 403,
     },
   );
   await moveIntents(execSql).ensureSchema();

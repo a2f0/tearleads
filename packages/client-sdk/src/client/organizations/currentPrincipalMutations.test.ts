@@ -171,6 +171,23 @@ test("built-in current mutation adds then removes an Admin with only paged reads
       identityBundleFingerprint: f.targetFingerprint,
       role: "member",
     });
+    // The organization directory keeps its key when an admin is added and
+    // wraps it for the new admin; existing envelopes stay as signed.
+    const directoryBefore = history.directory;
+    const directoryAfterAdd = f.policies.get(history.organizationId);
+    expect(directoryAfterAdd?.currentState).toMatchObject({
+      keyEpoch: directoryBefore.currentState.keyEpoch,
+      keyFingerprint: directoryBefore.currentState.keyFingerprint,
+    });
+    for (const envelope of directoryBefore.currentMemberEnvelopes.envelopes)
+      expect(
+        directoryAfterAdd?.currentMemberEnvelopes.envelopes,
+      ).toContainEqual(envelope);
+    expect(
+      directoryAfterAdd?.currentMemberEnvelopes.envelopes.map(
+        (envelope) => envelope.userId,
+      ),
+    ).toContain(history.targetUserId);
     const afterAdd = f.policies.get(f.groupId);
     expect(afterAdd?.currentProjection).toContainEqual({
       userId: history.targetUserId,
@@ -189,6 +206,14 @@ test("built-in current mutation adds then removes an Admin with only paged reads
     expect(removed.response.head.version).toBe(68);
     expect(removed.response.head.keyEpoch).toBe(
       added.response.head.keyEpoch + 1,
+    );
+    // Removing the admin rotates the directory key.
+    const directoryAfterRemove = f.policies.get(history.organizationId);
+    expect(directoryAfterRemove?.currentState.keyEpoch).toBe(
+      directoryBefore.currentState.keyEpoch + 1,
+    );
+    expect(directoryAfterRemove?.currentState.keyFingerprint).not.toBe(
+      directoryBefore.currentState.keyFingerprint,
     );
     expect(afterRemove?.currentState.stateHash).toBe(
       removed.response.head.stateHash,

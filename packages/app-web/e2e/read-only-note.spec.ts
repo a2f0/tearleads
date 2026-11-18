@@ -1,4 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
+import { showExplorerSidebar } from "../screenshots/appShell";
 import { expect, test } from "./appTest";
 import { SIGNED_IN_API_URL, SIGNED_IN_APP_URL } from "./signedInServer";
 import { openWindowedDesktop } from "./windowedDesktop";
@@ -38,6 +39,8 @@ async function createExplorerNote(page: Page): Promise<Locator> {
   const newDocument = window.getByRole("button", { name: "New Document" });
   await expect(newDocument).toBeEnabled({ timeout: 60_000 });
   await loggedIn;
+  await expect(window.locator(".explorer-sidebar-viewport")).toHaveCount(0);
+  await showExplorerSidebar(window);
   await newDocument.click();
   await window.getByRole("button", { name: "Note", exact: true }).click();
   const editor = window.getByRole("textbox", { name: "Notes editor" });

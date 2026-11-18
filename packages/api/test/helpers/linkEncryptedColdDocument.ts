@@ -124,7 +124,6 @@ export async function linkEncryptedColdDocument(input: {
   const result = await input.apiClient.linkDocumentResult(input.documentId, {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown as Record<string, unknown>,
-    manifest: manifest as unknown as Record<string, unknown>,
     expectedManifestHash: manifestHash,
     authorizingContainerPathRefs: [
       source.path.map((bundle) => ({

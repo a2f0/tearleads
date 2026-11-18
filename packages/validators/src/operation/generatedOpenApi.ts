@@ -392,7 +392,7 @@ export type paths = {
         put?: never;
         /**
          * Create a container
-         * @description Creates a container from a signed `container.create` event, its derived access manifest, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`.
+         * @description Creates a container from a signed `container.create` event, the hash of the access manifest it derives, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`.
          */
         post: operations["containers.create"];
         delete?: never;
@@ -1824,8 +1824,22 @@ export type components = {
             /** @description Binding this one replaced, or null. */
             previousBindingId: string | null;
             slotId: string;
-            /** @description Key targets the blob's write was authorized against. */
-            writeAuthorization: components["schemas"]["BlobKekTargetsResponse"];
+            /** @description Key targets the blob's write was authorized against. Its `targets` are omitted when its `blobKeyTargetHash` equals `blobKekTargets.blobKeyTargetHash`; the reader refills them from `blobKekTargets.targets` and re-hashes them. */
+            writeAuthorization: {
+                activeBindingIds: string[];
+                blobAccessManifestHash: string;
+                blobId: string;
+                blobKeyTargetHash: string;
+                documentManifestHashes: string[];
+                linkedContainerKeyEpochIds: string[];
+                linkedContainerManifestHashes: string[];
+                organizationId: string;
+                targets?: {
+                    [key: string]: unknown;
+                }[];
+            } & {
+                [key: string]: unknown;
+            };
             /** @description The blob's signed write header. */
             writeHeader: {
                 [key: string]: unknown;
@@ -2124,7 +2138,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         }) | components["schemas"]["PrincipalPolicyStaleErrorResponse"];
-        /** @description A signed container mutation (create, share, or the container part of a larger write): the event, the manifest it derives, and the KEK material, citing stored heads instead of resending them. */
+        /** @description A signed container mutation (create, share, or the container part of a larger write): the event, the hash of the manifest it derives (the API derives the manifest itself), and the KEK material, citing stored heads instead of resending them. */
         ContainerMutationRequest: {
             /** @description Event-type-specific body the signature commits to. */
             body: unknown;
@@ -2143,9 +2157,6 @@ export type components = {
             };
             /** @description For a KEK rotation, every predecessor KEK sealed under the new KEK; null otherwise. */
             keyring: components["schemas"]["ContainerKekKeyringWireRecord"] | null;
-            manifest: {
-                [key: string]: unknown;
-            };
             /** @description Current path to the parent container. */
             parentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             /** @description The parent's current KEK epoch, for a child container; any other epoch is refused as stale. */
@@ -2179,6 +2190,8 @@ export type components = {
         };
         /** @description Acknowledges a container mutation by hash; the client compares each value with the plan it signed and refuses any mismatch. */
         ContainerMutationResponse: {
+            /** @description Citation digest of the bundle a writer projection serves for the new head; the author caches its own bundle for citation only when it matches. */
+            bundleDigest: string;
             containerId: string;
             /** @description Identity and hashes of the container's current KEK epoch. */
             containerKek: {
@@ -2225,9 +2238,6 @@ export type components = {
             };
             /** @description Hash of the manifest this re-citation derives. */
             expectedManifestHash: string;
-            manifest: {
-                [key: string]: unknown;
-            };
             /** @description The container's current path, from its root. */
             previousContainerPathRefs: components["schemas"]["ContainerManifestRef"][];
             /** @description The container's current manifest head. */
@@ -2239,6 +2249,7 @@ export type components = {
         };
         /** @description Acknowledges a re-citation by its event hash and new manifest head; keys are unchanged. */
         ContainerReciteResponse: {
+            bundleDigest: string;
             containerId: string;
             createdAt: string;
             eventHash: string;
@@ -2270,9 +2281,6 @@ export type components = {
                 [key: string]: unknown;
             };
             keyring: components["schemas"]["ContainerKekKeyringWireRecord"] | null;
-            manifest: {
-                [key: string]: unknown;
-            };
             parentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             parentKekRef?: ({
                 containerId: string;
@@ -2298,6 +2306,7 @@ export type components = {
         };
         /** @description Acknowledges a rotation, plus one acknowledgement per carried descendant rekey in request order. */
         ContainerRotationResponse: {
+            bundleDigest: string;
             containerId: string;
             containerKek: {
                 containerKeyEpoch: number;
@@ -2344,6 +2353,8 @@ export type components = {
             metadataDocumentId: string;
             /** @description Principal policy heads the metadata document's access depends on. */
             metadataReferencedPrincipals: components["schemas"]["ReferencedPrincipalStateResponse"][];
+            /** @description Loro version vector of every update the server holds for the metadata document, encoded like a sync update's version vectors. A client whose copy does not cover it owes the document a read. */
+            metadataVersionVector: string;
             organizationId: string;
             parentId: string | null;
             /** @description Opaque id of a system container's role, such as Trash, or null for an ordinary container. */
@@ -2378,7 +2389,7 @@ export type components = {
         ContainerWriterProjectionWireResponse: {
             /** @description Signed manifest bundles keyed by manifest hash. */
             bundles: {
-                [key: string]: components["schemas"]["AccessManifestBundleWireResponse"];
+                [key: string]: components["schemas"]["ServedAccessManifestBundleWireResponse"];
             };
             containerId: string;
             /** @description One KEK level for each manifest in `path`. */
@@ -2474,6 +2485,8 @@ export type components = {
             organizationProfileDocumentId?: string;
             /** @description For a replacement, the identity-signed authorization clients verify before following it. */
             replacementAuthorization: components["schemas"]["OrganizationReplacementAuthorization"] | null;
+            /** @description Citation digest of the bundle a writer projection serves for the root container's genesis manifest; the author caches its own bundle for citation only when it matches. */
+            rootBundleDigest: string;
             rootContainerId: string;
             /** @description Access epoch of the root container's metadata document. */
             rootMetadataAccessEpoch: number;
@@ -2604,6 +2617,8 @@ export type components = {
         };
         /** @description Acknowledges a document create by hash. */
         DocumentCreateResponse: {
+            /** @description Citation digest of the bundle a writer projection serves for the new link-set manifest; the author caches its own bundle for citation only when it matches. */
+            bundleDigest: string;
             /** @description Content-key epoch the API stored. */
             contentKeyEpoch: number;
             createdAt: string;
@@ -2697,9 +2712,6 @@ export type components = {
             };
             /** @description Hash of the link-set manifest this mutation derives. */
             expectedManifestHash: string;
-            manifest: {
-                [key: string]: unknown;
-            };
             /** @description For an unlink, a rotation baseline covering every committed update; omitted only when the document has none, and never sent with a link. */
             rotationBaseline?: components["schemas"]["DocumentOutgoingUpdate"];
             /** @description Path to the container being linked or unlinked. */
@@ -2709,6 +2721,8 @@ export type components = {
         };
         /** @description Acknowledges a link or unlink by hash. */
         DocumentLinkSetMutationResponse: {
+            /** @description Citation digest of the bundle a writer projection serves for the new link-set manifest; the author caches its own bundle for citation only when it matches. */
+            bundleDigest: string;
             contentKeyEpoch: number;
             eventHash: string;
             id: string;
@@ -2720,7 +2734,7 @@ export type components = {
             [key: string]: unknown;
         };
         /** @description A machine-readable reason a document mutation was refused. */
-        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_unlink_rotation_baseline_stale";
+        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_link_attachments_changed" | "document_unlink_rotation_baseline_stale";
         /** @description A refused document create, link, unlink, or purge. */
         DocumentMutationFailureResponse: {
             code?: components["schemas"]["DocumentMutationErrorCode"];
@@ -2850,9 +2864,6 @@ export type components = {
                 keyring: {
                     [key: string]: unknown;
                 } | null;
-                manifest: {
-                    [key: string]: unknown;
-                };
                 parentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
                 parentKekRef?: ({
                     containerId: string;
@@ -2946,8 +2957,8 @@ export type components = {
             accessEpoch: number;
             /** @description Signing key fingerprint of the writer. */
             authorFingerprint: string;
-            /** @description Container KEK targets the write was authorized against. */
-            authorizationTargets: ({
+            /** @description Container KEK targets the write was authorized against. Omitted when the write header's `targetHash` equals the request's `expectedTargetHash`; the client refills them from the content-key bundle it holds and re-hashes them against the signed hash. */
+            authorizationTargets?: ({
                 containerId: string;
                 containerKeyEpoch: number;
                 containerKeyEpochId: string;
@@ -3026,7 +3037,7 @@ export type components = {
             })[];
             /** @description Signed manifest bundles keyed by manifest hash. */
             bundles: {
-                [key: string]: components["schemas"]["AccessManifestBundleWireResponse"];
+                [key: string]: components["schemas"]["ServedAccessManifestBundleWireResponse"];
             };
             contentKeyBundle: components["schemas"]["DocumentContentKeyBundleResponse"];
             /**
@@ -4211,6 +4222,8 @@ export type components = {
             organizationMetadataContainerId: string;
             organizationProfileDocument?: components["schemas"]["DocumentCreateResponse"];
             organizationProfileDocumentId?: string;
+            /** @description Citation digest of the bundle a writer projection serves for the root container's genesis manifest; the author caches its own bundle for citation only when it matches. */
+            rootBundleDigest: string;
             rootContainerId: string;
             /** @description Access epoch of the root container's metadata document. */
             rootMetadataAccessEpoch: number;
@@ -4678,6 +4691,21 @@ export type components = {
             events: components["schemas"]["RootRevenuecatEventResponse"][];
             /** @description Opaque cursor for the next page, or null at the end. */
             nextCursor: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A signed access manifest with the event that produced it, as a writer projection serves it: the state omits what the bundle's own signed bytes name, which clients fill back from those bytes. */
+        ServedAccessManifestBundleWireResponse: {
+            event: components["schemas"]["AccessEventBundleWireResponse"];
+            manifest: {
+                [key: string]: unknown;
+            };
+            /** @description Hash of the canonical manifest; other responses cite the manifest by this value. */
+            manifestHash: string;
+            /** @description The derived state without the fields the hash-committed manifest and, for a container, the signed body name in full (version, object id, organization, epoch, predecessor, event hash, key epoch and public key). It keeps a container's parent pin, metadata document, system slot, direct grants and referenced principal heads, and a document's linked containers. */
+            state: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };

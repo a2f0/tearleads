@@ -239,3 +239,51 @@ test("document sync rejects substituted writer-authorization targets", async () 
     ),
   ).rejects.toThrow("write targets are not canonical");
 });
+
+test("document sync refills an omitted target set and refuses one omitted under another hash", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    execSql,
+    localVersionVector: null,
+    resolveProjectionUserKey,
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const { author: writer, signingPublicKey } = await createAuthor();
+  writer.signerUserId = author.signerUserId;
+  const verify = async (
+    update: Awaited<ReturnType<typeof createSignedSyncResponseUpdate>>,
+  ) =>
+    persistedDocumentSyncStateFromResponse(
+      materialized.plan,
+      await createSyncResponse(materialized.plan, {
+        acceptedOutgoingUpdateIds: [],
+        updates: [update],
+      }),
+      { resolveWriterPublicKey: async () => signingPublicKey },
+    );
+  const held = await createSignedSyncResponseUpdate({
+    accessManifestHash: materialized.plan.expectedLinkSetManifestHash,
+    author: writer,
+    plan: materialized.plan,
+    targetHash: materialized.plan.expectedTargetHash,
+  });
+  const { authorizationTargets: _held, ...omitted } = held;
+  // The server omits a set whose hash the request named; it verifies either way.
+  await expect(verify(held)).resolves.toBeDefined();
+  await expect(verify(omitted)).resolves.toBeDefined();
+
+  const foreign = await createSignedSyncResponseUpdate({
+    accessManifestHash: materialized.plan.expectedLinkSetManifestHash,
+    author: writer,
+    id: "550e8400-e29b-41d4-a716-446655440556",
+    plan: materialized.plan,
+    targetHash: "f".repeat(64),
+  });
+  const { authorizationTargets: _foreign, ...foreignOmitted } = foreign;
+  await expect(verify(foreignOmitted)).rejects.toThrow(
+    "write targets are not canonical",
+  );
+});

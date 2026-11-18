@@ -1,3 +1,4 @@
+import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
 import {
   type DocumentRecord,
@@ -193,7 +194,8 @@ async function syncDetachedAttachmentBinding(input: {
   }
 
   const writerProjection =
-    state.writerProjection?.documentId === input.remoteDocumentId
+    state.writerProjection?.documentId === input.remoteDocumentId &&
+    !isRejectedDecodedProjection(state.writerProjection)
       ? state.writerProjection
       : null;
   const writerProjectionGeneration = state.writerProjectionGeneration;

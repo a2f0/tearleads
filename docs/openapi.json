@@ -337,8 +337,65 @@
             "type": "string"
           },
           "writeAuthorization": {
-            "$ref": "#/components/schemas/BlobKekTargetsResponse",
-            "description": "Key targets the blob's write was authorized against."
+            "type": "object",
+            "properties": {
+              "activeBindingIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "blobAccessManifestHash": {
+                "type": "string"
+              },
+              "blobId": {
+                "type": "string"
+              },
+              "blobKeyTargetHash": {
+                "type": "string"
+              },
+              "documentManifestHashes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "linkedContainerKeyEpochIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "linkedContainerManifestHashes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "organizationId": {
+                "type": "string"
+              },
+              "targets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "required": [
+              "activeBindingIds",
+              "blobAccessManifestHash",
+              "blobId",
+              "blobKeyTargetHash",
+              "documentManifestHashes",
+              "linkedContainerKeyEpochIds",
+              "linkedContainerManifestHashes",
+              "organizationId"
+            ],
+            "additionalProperties": {},
+            "description": "Key targets the blob's write was authorized against. Its `targets` are omitted when its `blobKeyTargetHash` equals `blobKekTargets.blobKeyTargetHash`; the reader refills them from `blobKekTargets.targets` and re-hashes them."
           },
           "writeHeader": {
             "type": "object",
@@ -1274,11 +1331,6 @@
             ],
             "description": "For a KEK rotation, every predecessor KEK sealed under the new KEK; null otherwise."
           },
-          "manifest": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": {}
-          },
           "parentContainerPathRefs": {
             "type": "array",
             "items": {
@@ -1381,17 +1433,23 @@
           "expectedManifestHash",
           "keyEpoch",
           "keyring",
-          "manifest",
           "predecessorBridge",
           "principalPolicyRefs",
           "wraps"
         ],
         "additionalProperties": {},
-        "description": "A signed container mutation (create, share, or the container part of a larger write): the event, the manifest it derives, and the KEK material, citing stored heads instead of resending them."
+        "description": "A signed container mutation (create, share, or the container part of a larger write): the event, the hash of the manifest it derives (the API derives the manifest itself), and the KEK material, citing stored heads instead of resending them."
       },
       "ContainerMutationResponse": {
         "type": "object",
         "properties": {
+          "bundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "Citation digest of the bundle a writer projection serves for the new head; the author caches its own bundle for citation only when it matches."
+          },
           "containerId": {
             "type": "string"
           },
@@ -1505,6 +1563,7 @@
           }
         },
         "required": [
+          "bundleDigest",
           "containerId",
           "createdAt",
           "eventHash",
@@ -1550,11 +1609,6 @@
             "minLength": 1,
             "description": "Hash of the manifest this re-citation derives."
           },
-          "manifest": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": {}
-          },
           "previousContainerPathRefs": {
             "type": "array",
             "items": {
@@ -1577,7 +1631,6 @@
           "body",
           "event",
           "expectedManifestHash",
-          "manifest",
           "previousContainerPathRefs",
           "previousManifestRef",
           "principalPolicyRefs"
@@ -1588,6 +1641,12 @@
       "ContainerReciteResponse": {
         "type": "object",
         "properties": {
+          "bundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string"
+          },
           "containerId": {
             "type": "string"
           },
@@ -1645,6 +1704,7 @@
           }
         },
         "required": [
+          "bundleDigest",
           "containerId",
           "createdAt",
           "eventHash",
@@ -1697,11 +1757,6 @@
                 "type": "null"
               }
             ]
-          },
-          "manifest": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": {}
           },
           "parentContainerPathRefs": {
             "type": "array",
@@ -1805,7 +1860,6 @@
           "expectedManifestHash",
           "keyEpoch",
           "keyring",
-          "manifest",
           "predecessorBridge",
           "principalPolicyRefs",
           "wraps"
@@ -1816,6 +1870,12 @@
       "ContainerRotationResponse": {
         "type": "object",
         "properties": {
+          "bundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string"
+          },
           "containerId": {
             "type": "string"
           },
@@ -1931,6 +1991,7 @@
           }
         },
         "required": [
+          "bundleDigest",
           "containerId",
           "createdAt",
           "eventHash",
@@ -1989,6 +2050,10 @@
             },
             "description": "Principal policy heads the metadata document's access depends on."
           },
+          "metadataVersionVector": {
+            "type": "string",
+            "description": "Loro version vector of every update the server holds for the metadata document, encoded like a sync update's version vectors. A client whose copy does not cover it owes the document a read."
+          },
           "organizationId": {
             "type": "string"
           },
@@ -2027,6 +2092,7 @@
           "metadataAccessStateHash",
           "metadataDocumentId",
           "metadataReferencedPrincipals",
+          "metadataVersionVector",
           "organizationId",
           "parentId",
           "updatedAt"
@@ -2104,7 +2170,7 @@
               "type": "string"
             },
             "additionalProperties": {
-              "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+              "$ref": "#/components/schemas/ServedAccessManifestBundleWireResponse"
             },
             "description": "Signed manifest bundles keyed by manifest hash."
           },
@@ -2425,6 +2491,13 @@
           "organizationProfileDocumentId": {
             "type": "string"
           },
+          "rootBundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "Citation digest of the bundle a writer projection serves for the root container's genesis manifest; the author caches its own bundle for citation only when it matches."
+          },
           "rootContainerId": {
             "type": "string"
           },
@@ -2484,6 +2557,7 @@
           "organizationId",
           "organizationMetadataContainer",
           "organizationMetadataContainerId",
+          "rootBundleDigest",
           "rootContainerId",
           "rootMetadataAccessEpoch",
           "rootMetadataAccessStateHash",
@@ -2825,6 +2899,13 @@
       "DocumentCreateResponse": {
         "type": "object",
         "properties": {
+          "bundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "Citation digest of the bundle a writer projection serves for the new link-set manifest; the author caches its own bundle for citation only when it matches."
+          },
           "contentKeyEpoch": {
             "exclusiveMinimum": 0,
             "maximum": 1.7976931348623157e+308,
@@ -2896,6 +2977,7 @@
           }
         },
         "required": [
+          "bundleDigest",
           "contentKeyEpoch",
           "eventHash",
           "id",
@@ -3119,11 +3201,6 @@
             "minLength": 1,
             "description": "Hash of the link-set manifest this mutation derives."
           },
-          "manifest": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": {}
-          },
           "rotationBaseline": {
             "$ref": "#/components/schemas/DocumentOutgoingUpdate",
             "description": "For an unlink, a rotation baseline covering every committed update; omitted only when the document has none, and never sent with a link."
@@ -3144,7 +3221,6 @@
           "contentKeyBundle",
           "event",
           "expectedManifestHash",
-          "manifest",
           "targetContainerPathRefs"
         ],
         "additionalProperties": {},
@@ -3153,6 +3229,13 @@
       "DocumentLinkSetMutationResponse": {
         "type": "object",
         "properties": {
+          "bundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "Citation digest of the bundle a writer projection serves for the new link-set manifest; the author caches its own bundle for citation only when it matches."
+          },
           "contentKeyEpoch": {
             "exclusiveMinimum": 0,
             "maximum": 1.7976931348623157e+308,
@@ -3177,6 +3260,7 @@
           }
         },
         "required": [
+          "bundleDigest",
           "contentKeyEpoch",
           "eventHash",
           "id",
@@ -3209,6 +3293,10 @@
           {
             "type": "string",
             "const": "container_unavailable"
+          },
+          {
+            "type": "string",
+            "const": "document_link_attachments_changed"
           },
           {
             "type": "string",
@@ -3593,11 +3681,6 @@
                     }
                   ]
                 },
-                "manifest": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {}
-                },
                 "parentContainerPathRefs": {
                   "type": "array",
                   "items": {
@@ -3692,7 +3775,6 @@
                 "expectedManifestHash",
                 "keyEpoch",
                 "keyring",
-                "manifest",
                 "predecessorBridge",
                 "principalPolicyRefs",
                 "wraps"
@@ -3944,7 +4026,7 @@
               ],
               "additionalProperties": {}
             },
-            "description": "Container KEK targets the write was authorized against."
+            "description": "Container KEK targets the write was authorized against. Omitted when the write header's `targetHash` equals the request's `expectedTargetHash`; the client refills them from the content-key bundle it holds and re-hashes them against the signed hash."
           },
           "authorFingerprint": {
             "type": "string",
@@ -4000,7 +4082,6 @@
         },
         "required": [
           "accessEpoch",
-          "authorizationTargets",
           "authorFingerprint",
           "createdAt",
           "documentId",
@@ -4061,7 +4142,7 @@
               "type": "string"
             },
             "additionalProperties": {
-              "$ref": "#/components/schemas/AccessManifestBundleWireResponse"
+              "$ref": "#/components/schemas/ServedAccessManifestBundleWireResponse"
             },
             "description": "Signed manifest bundles keyed by manifest hash."
           },
@@ -8828,6 +8909,13 @@
           "organizationProfileDocumentId": {
             "type": "string"
           },
+          "rootBundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "Citation digest of the bundle a writer projection serves for the root container's genesis manifest; the author caches its own bundle for citation only when it matches."
+          },
           "rootContainerId": {
             "type": "string"
           },
@@ -8883,6 +8971,7 @@
           "organizationId",
           "organizationMetadataContainer",
           "organizationMetadataContainerId",
+          "rootBundleDigest",
           "rootContainerId",
           "rootMetadataAccessEpoch",
           "rootMetadataAccessStateHash",
@@ -11080,6 +11169,38 @@
         ],
         "additionalProperties": {},
         "description": "A page of RevenueCat deliveries that matched no organization or that the handler ignored."
+      },
+      "ServedAccessManifestBundleWireResponse": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/AccessEventBundleWireResponse"
+          },
+          "manifest": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
+          },
+          "manifestHash": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Hash of the canonical manifest; other responses cite the manifest by this value."
+          },
+          "state": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {},
+            "description": "The derived state without the fields the hash-committed manifest and, for a container, the signed body name in full (version, object id, organization, epoch, predecessor, event hash, key epoch and public key). It keeps a container's parent pin, metadata document, system slot, direct grants and referenced principal heads, and a document's linked containers."
+          }
+        },
+        "required": [
+          "event",
+          "manifest",
+          "manifestHash",
+          "state"
+        ],
+        "additionalProperties": {},
+        "description": "A signed access manifest with the event that produced it, as a writer projection serves it: the state omits what the bundle's own signed bytes name, which clients fill back from those bytes."
       },
       "SessionFailureResponse": {
         "type": "object",
@@ -15513,7 +15634,7 @@
       "post": {
         "operationId": "containers.create",
         "summary": "Create a container",
-        "description": "Creates a container from a signed `container.create` event, its derived access manifest, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`.",
+        "description": "Creates a container from a signed `container.create` event, the hash of the access manifest it derives, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`.",
         "tags": [
           "Containers"
         ],

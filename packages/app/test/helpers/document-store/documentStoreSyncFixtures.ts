@@ -86,6 +86,7 @@ export function createListedContainers(
         metadataAccessStateHash,
         metadataDocumentId: `metadata-${containerId}`,
         metadataReferencedPrincipals: [],
+        metadataVersionVector: "",
         organizationId,
         parentId: null,
         updatedAt,
@@ -248,6 +249,7 @@ export async function createDocumentCreateResponse(
   }));
 
   return {
+    bundleDigest: "b".repeat(64),
     id: documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
     contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,

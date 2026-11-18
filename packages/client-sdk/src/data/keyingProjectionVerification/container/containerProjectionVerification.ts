@@ -24,6 +24,7 @@ import {
   observeVerifiedProjectionBundles,
   type ProjectionCheckpointContext,
 } from "../checkpoints/checkpointContext";
+import { verifyWithHeldBundleRecovery } from "../checkpoints/heldBundleRecovery";
 import { throwKeyingVerificationShapeFailure } from "../error";
 import { collectReferencedPrincipalPolicies } from "../principalPolicy/principalPolicyVerification";
 import { verifyProjectionAuthorizationEvidence } from "../principalPolicy/projectionAuthorizationEvidence";
@@ -309,7 +310,15 @@ export async function verifyContainerWriterProjectionWithContext(
   return verifiedPath;
 }
 
-export async function verifyContainerWriterProjection(
+export function verifyContainerWriterProjection(
+  input: ContainerWriterProjectionVerificationInput,
+): Promise<VerifiedContainerAccessManifest[]> {
+  return verifyWithHeldBundleRecovery(input, () =>
+    verifyContainerWriterProjectionOnce(input),
+  );
+}
+
+async function verifyContainerWriterProjectionOnce(
   input: ContainerWriterProjectionVerificationInput,
 ): Promise<VerifiedContainerAccessManifest[]> {
   try {
@@ -345,7 +354,15 @@ export async function verifyContainerWriterProjection(
   }
 }
 
-export async function collectContainerWriterProjectionPrincipalPolicies(
+export function collectContainerWriterProjectionPrincipalPolicies(
+  input: ContainerWriterProjectionVerificationInput,
+): Promise<PrincipalPolicyCurrentEvidence[]> {
+  return verifyWithHeldBundleRecovery(input, () =>
+    collectContainerWriterProjectionPrincipalPoliciesOnce(input),
+  );
+}
+
+async function collectContainerWriterProjectionPrincipalPoliciesOnce(
   input: ContainerWriterProjectionVerificationInput,
 ): Promise<PrincipalPolicyCurrentEvidence[]> {
   try {

@@ -6,6 +6,7 @@ import {
   type DocumentSyncPullContinuation,
   resolvePullContinuationMinLsn,
 } from "../../../data/documents/shared/sync/syncPagination";
+import { checkWithHeldBundleRecovery } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import { retrySyncPlanOrAbandon } from "../syncFailures";
 import {
@@ -57,10 +58,19 @@ async function plannedPendingUpdates(input: {
 }): Promise<readonly PendingUpdateRecord[] | null> {
   if (input.pullContinuation !== undefined) return [];
   if (input.pendingUpdates.length === 0) return input.pendingUpdates;
-  const { organizationId } = await assertDocumentManifestBundleConsistent({
-    bundle: input.writerProjection.documentManifest,
-    label: "Document sync manifest",
-  });
+  // A held head this check refuses is dropped, so the next sync fetches it.
+  const { organizationId } = await checkWithHeldBundleRecovery(
+    {
+      execSql: input.sync.execSql,
+      projection: input.writerProjection,
+      stillCurrent: input.sync.stillCurrent,
+    },
+    () =>
+      assertDocumentManifestBundleConsistent({
+        bundle: input.writerProjection.documentManifest,
+        label: "Document sync manifest",
+      }),
+  );
   if (!input.sync.isRemoteSyncBlocked?.(organizationId)) {
     return input.pendingUpdates;
   }

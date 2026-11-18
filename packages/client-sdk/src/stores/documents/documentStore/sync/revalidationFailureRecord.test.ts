@@ -60,14 +60,13 @@ test("incoming poison updates record a durable document-scoped quarantine", asyn
 
     expect(
       await execSql(
-        `SELECT sync_failure_status AS status, sync_failure_message AS message
+        `SELECT sync_failure_message AS message
          FROM documents
          WHERE app_kind = 'documents' AND local_id = 'quarantined-doc'`,
       ),
     ).toEqual([
       {
         message: failure.message,
-        status: null,
       },
     ]);
   } finally {

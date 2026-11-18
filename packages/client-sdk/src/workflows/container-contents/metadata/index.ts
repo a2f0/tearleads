@@ -3,6 +3,7 @@ import {
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { ContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
@@ -28,7 +29,10 @@ import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
 } from "./metadataStateIsolation";
-import { shouldRequestContainerMetadataFollowup } from "./metadataSyncFollowup";
+import {
+  resumedEarlierMetadataPull,
+  shouldRequestContainerMetadataFollowup,
+} from "./metadataSyncFollowup";
 
 export {
   hasContainerMetadataDocumentUpdateEvent,
@@ -102,7 +106,8 @@ function resolveSyncedContainerMetadataWriterProjection(
   const writerProjection =
     synced.writerProjection ??
     (metadataState.metadataWriterProjection?.documentId ===
-    synced.plan.documentId
+      synced.plan.documentId &&
+    !isRejectedDecodedProjection(metadataState.metadataWriterProjection)
       ? metadataState.metadataWriterProjection
       : null);
   return writerProjection &&
@@ -191,7 +196,8 @@ async function requestContainerMetadataSync(input: {
         targetSecretKey: syncInput.targetSecretKey,
         writerProjection:
           metadataState.metadataWriterProjection?.documentId ===
-          input.documentId
+            input.documentId &&
+          !isRejectedDecodedProjection(metadataState.metadataWriterProjection)
             ? metadataState.metadataWriterProjection
             : undefined,
       }),
@@ -371,6 +377,9 @@ async function finalizeContainerMetadataSync(input: {
 
   return {
     ...persisted,
+    ...(resumedEarlierMetadataPull(syncAttempt)
+      ? { resumedEarlierPull: true as const }
+      : {}),
     shouldRequestFollowupSync: shouldRequestContainerMetadataFollowup({
       persisted,
       settleOutgoingPass: () =>

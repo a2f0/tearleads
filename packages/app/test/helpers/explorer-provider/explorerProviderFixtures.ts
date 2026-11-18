@@ -56,12 +56,17 @@ export function listedContainer(
     | "depth"
     | "effectiveAccessLevel"
     | "metadataReferencedPrincipals"
+    | "metadataVersionVector"
     | "updatedAt"
   > &
     Partial<
       Pick<
         ContainerSummary,
-        "createdAt" | "depth" | "metadataReferencedPrincipals" | "updatedAt"
+        | "createdAt"
+        | "depth"
+        | "metadataReferencedPrincipals"
+        | "metadataVersionVector"
+        | "updatedAt"
       >
     >,
 ): ContainerSummary {
@@ -70,6 +75,8 @@ export function listedContainer(
     depth: overrides.parentId === null ? 0 : 1,
     effectiveAccessLevel: "admin",
     metadataReferencedPrincipals: [],
+    // No stored metadata update: any local copy covers it.
+    metadataVersionVector: "",
     updatedAt: TEST_SYNC_TIMESTAMP,
     ...overrides,
   };
@@ -191,6 +198,7 @@ export async function createExplorerMetadataCreateResponse(
   }));
 
   return {
+    bundleDigest: "b".repeat(64),
     id: documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
     contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
