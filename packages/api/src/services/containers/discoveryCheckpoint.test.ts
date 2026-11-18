@@ -47,6 +47,12 @@ test("rotating API processes resume the same database cursor and a lagging acces
       afterParentPage: { parentId: null, watermark: cursor },
       lanes: [
         {
+          containerId: crypto.randomUUID(),
+          laneId: "absent",
+          limit: 1,
+          watermark: null,
+        },
+        {
           containerId: rootContainerId,
           laneId: "probe",
           limit: 1,
@@ -55,7 +61,9 @@ test("rotating API processes resume the same database cursor and a lagging acces
       ],
     });
   };
-  expect((await probe(watermark)).results[0]).toHaveProperty("page");
+  expect((await probe(watermark)).results).toContainEqual(
+    expect.objectContaining({ laneId: "probe", page: expect.anything() }),
+  );
   const key = await readDiscoveryKey(runtime);
   const cursor = discoveryCursor(key, [userId, "containers", null], null);
   const future = cursor.seal(

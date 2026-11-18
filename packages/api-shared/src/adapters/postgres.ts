@@ -21,6 +21,7 @@ import {
   readPostgresStreamConfig,
 } from "./postgresConfig";
 import { PostgresPool } from "./postgresPool";
+import { prepareDiscoveryMigration } from "./prepareDiscoveryMigration";
 import { createRequestScopedDatabaseRuntime } from "./requestScopedDatabase";
 import { withDatabaseTransactionCompletion } from "./transactionCompletion";
 import type {
@@ -122,9 +123,10 @@ async function migrateOnOneSession(
   const client = await pool.connect();
   try {
     const session = drizzleNodePostgres({ client, schema });
-    await migrateWithHistory(session, migrationsFolder, (config) =>
-      migrateNodePostgres(session, config),
-    );
+    await migrateWithHistory(session, migrationsFolder, async (config) => {
+      await prepareDiscoveryMigration(session, migrationsFolder);
+      await migrateNodePostgres(session, config);
+    });
   } finally {
     client.release();
   }

@@ -1,71 +1,22 @@
--- Private publication metadata. A database retains its cursor key across
--- rolling API deployments and server-secret rotations.
-CREATE SCHEMA IF NOT EXISTS drizzle;
+-- PostgreSQL upgrades fill rows in short transactions and build indexes
+-- concurrently before the journaled migration. Empty installations and
+-- single-writer PGlite use the same schema directly.
+DO $$ BEGIN
+  IF NOT (SELECT backfill_complete FROM drizzle.discovery_cursor_key WHERE singleton) THEN
+    UPDATE public.containers SET discovery_order = public.historical_discovery_order(updated_at, false) WHERE discovery_order = 0;
+    UPDATE public.documents SET discovery_order = public.historical_discovery_order(updated_at, false) WHERE discovery_order = 0;
+    UPDATE public.container_sync_tombstones SET discovery_order = public.historical_discovery_order(updated_at, true) WHERE discovery_order = 0;
+    UPDATE public.container_document_sync_tombstones SET discovery_order = public.historical_discovery_order(updated_at, true) WHERE discovery_order = 0;
+    UPDATE drizzle.discovery_cursor_key SET backfill_complete = true WHERE singleton;
+  END IF;
+END $$;
 --> statement-breakpoint
-CREATE TABLE drizzle.discovery_cursor_key (
-  singleton boolean PRIMARY KEY CHECK (singleton),
-  key_material text NOT NULL
-);
+CREATE INDEX IF NOT EXISTS "document_tombstones_container_discovery_idx" ON "container_document_sync_tombstones" USING btree ("container_id","discovery_order","document_id");
 --> statement-breakpoint
-INSERT INTO drizzle.discovery_cursor_key VALUES (true, gen_random_uuid()::text || gen_random_uuid()::text);
+CREATE INDEX IF NOT EXISTS "container_tombstones_user_parent_discovery_idx" ON "container_sync_tombstones" USING btree ("user_id","parent_id","discovery_order","container_id");
 --> statement-breakpoint
--- A lane can span organizations and mix live rows with removals. One order is
--- shared by all four sources. CACHE 1 prevents a session from reserving later
--- values that it could publish after another session used a larger value.
-CREATE SEQUENCE public.discovery_publication_order AS bigint CACHE 1;
+CREATE INDEX IF NOT EXISTS "container_tombstones_user_root_discovery_idx" ON "container_sync_tombstones" USING btree ("user_id","root_discovery_visible","discovery_order","container_id");
 --> statement-breakpoint
--- Preserve the order of existing entity timestamps including microseconds.
--- On a historical exact timestamp tie an object's removal follows its live
--- state. Different IDs at the same order remain pageable by ID.
-WITH live_containers AS (
-  UPDATE public.containers
-  SET discovery_order = (extract(epoch FROM updated_at) * 1000000)::bigint * 2
-  RETURNING discovery_order
-), removed_containers AS (
-  UPDATE public.container_sync_tombstones
-  SET discovery_order = (extract(epoch FROM updated_at) * 1000000)::bigint * 2 + 1
-  RETURNING discovery_order
-), live_documents AS (
-  UPDATE public.documents
-  SET discovery_order = (extract(epoch FROM updated_at) * 1000000)::bigint * 2
-  RETURNING discovery_order
-), removed_documents AS (
-  UPDATE public.container_document_sync_tombstones
-  SET discovery_order = (extract(epoch FROM updated_at) * 1000000)::bigint * 2 + 1
-  RETURNING discovery_order
-)
-SELECT setval('public.discovery_publication_order', greatest(1,
-  (SELECT max(discovery_order) FROM live_containers),
-  (SELECT max(discovery_order) FROM removed_containers),
-  (SELECT max(discovery_order) FROM live_documents),
-  (SELECT max(discovery_order) FROM removed_documents)
-));
+CREATE INDEX IF NOT EXISTS "containers_parent_discovery_idx" ON "containers" USING btree ("parent_id","discovery_order","id");
 --> statement-breakpoint
-CREATE FUNCTION public.publish_discovery_order() RETURNS trigger
-LANGUAGE plpgsql AS $$
-BEGIN
-  -- Only publication serializes. The row was already locked by the mutation.
-  -- Sequence gaps after rollback are harmless. This UPDATE cannot enqueue this
-  -- trigger again because it does not name updated_at.
-  PERFORM pg_advisory_xact_lock(7315420191);
-  EXECUTE format('UPDATE %s SET discovery_order = nextval(''public.discovery_publication_order'') WHERE id = $1',
-                 TG_RELID::regclass) USING NEW.id;
-  RETURN NULL;
-END;
-$$;
---> statement-breakpoint
-CREATE CONSTRAINT TRIGGER publish_container_discovery
-AFTER INSERT OR UPDATE OF updated_at ON public.containers
-DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.publish_discovery_order();
---> statement-breakpoint
-CREATE CONSTRAINT TRIGGER publish_container_removal_discovery
-AFTER INSERT OR UPDATE OF updated_at ON public.container_sync_tombstones
-DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.publish_discovery_order();
---> statement-breakpoint
-CREATE CONSTRAINT TRIGGER publish_document_discovery
-AFTER INSERT OR UPDATE OF updated_at ON public.documents
-DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.publish_discovery_order();
---> statement-breakpoint
-CREATE CONSTRAINT TRIGGER publish_document_removal_discovery
-AFTER INSERT OR UPDATE OF updated_at ON public.container_document_sync_tombstones
-DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.publish_discovery_order();
+CREATE INDEX IF NOT EXISTS "documents_discovery_idx" ON "documents" USING btree ("discovery_order","id");

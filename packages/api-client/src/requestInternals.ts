@@ -260,14 +260,20 @@ export function listContainerParentLanesRequestKey(
 export function listContainerDocumentLanesRequestKey(
   input: ListContainerDocumentLanesRequest,
 ): string {
-  return JSON.stringify(
-    input.lanes.map((lane) => ({
+  return JSON.stringify({
+    afterParentPage: input.afterParentPage
+      ? [
+          input.afterParentPage.parentId,
+          syncWatermarkRequestKey(input.afterParentPage.watermark),
+        ]
+      : null,
+    lanes: input.lanes.map((lane) => ({
       containerId: lane.containerId,
       laneId: lane.laneId,
       limit: lane.limit ?? null,
       watermark: syncWatermarkRequestKey(lane.watermark),
     })),
-  );
+  });
 }
 
 /**

@@ -110,7 +110,7 @@ because a page can mix live rows and removals, and root discovery crosses
 organizations. Deferred triggers take a transaction-scoped lock before drawing
 from the sequence and hold it through commit. A rollback can leave a gap.
 Entity timestamps retain their original meaning. See the
-[publication migration](../packages/api-shared/drizzle/0005_publish_discovery_order.sql).
+[publication migration](../packages/api-shared/drizzle/0004_discovery_order.sql).
 
 Each lane reads its live rows and tombstones in a single SQL statement, so
 both come from the same snapshot. Each page orders by publication position and ID.
@@ -127,7 +127,7 @@ A repeated folder in one crawl is reapplied when its listing changes.
 Parent lanes checkpoint each applied page. Document lanes checkpoint after
 applying the complete lane. After a restart, each resumes from its last
 durable checkpoint, replaying any intervening pages.
-Postgres and PGlite run the same migration. The SQLite client stores the
+Postgres and PGlite install the same schema. The SQLite client stores the
 cursor verbatim. See [API database support](./developer/api-persistence.md#database).
 
 When a cached container or descendant carries a later entity timestamp than
@@ -144,10 +144,17 @@ those received after a live item on an earlier page, reach the signed-head
 check for locally held placements. These client-side recovery changes require
 the updated SDK. Earlier clients can read and resume the new cursors. On
 upgrade, the SDK recognizes document-lane publication cursors saved by an older
-build and replays any unlinks an earlier client already checkpointed. Deploy
-the additive
-database migration before the API. Old writers populate the new positions
-through the same triggers. The SDK can arrive before or after the API. A
+build and replays any unlinks an earlier client already checkpointed.
+
+Deploy the additive database migrations before the API. A populated PostgreSQL
+database installs the triggers in one short transaction. Existing writers then
+publish immediately while the migrator fills historical rows in batches of 512
+and builds the five indexes concurrently. Restarting the migrator resumes this
+work, including a concurrent index build interrupted before becoming valid.
+Fresh installations and PGlite apply the journal directly. See the
+[discovery preparation](../packages/api-shared/src/adapters/prepareDiscoveryMigration.ts)
+and [historical backfill](../packages/api-shared/drizzle/0005_publish_discovery_order.sql).
+The SDK can arrive before or after the API. A
 device running the older SDK benefits from commit-ordered paging when the
 API updates, and receives the backwards-clock application fixes when its SDK
 updates.

@@ -161,7 +161,7 @@ async function listLanes(
     Array.from(
       {
         length: Math.min(
-          CONTAINER_DOCUMENT_LANE_CONCURRENCY,
+          request.afterParentPage ? 1 : CONTAINER_DOCUMENT_LANE_CONCURRENCY,
           request.lanes.length,
         ),
       },
