@@ -27,7 +27,7 @@ export function requireGitRoot(root = checkRoot()): string {
     realpathSync(
       execFileSync("git", ["-C", root, "rev-parse", "--show-toplevel"], {
         encoding: "utf8",
-      }).trimEnd(),
+      }).replace(/\n$/, ""),
     ) !== root
   )
     throw new Error(`This command requires its own Git checkout: ${root}`);

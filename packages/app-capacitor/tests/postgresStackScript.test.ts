@@ -11,6 +11,8 @@ import {
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
+import { commitDeploymentFixture } from "./deploymentGit.testUtils";
+
 async function runWrapper(
   args: string[],
   options: {
@@ -22,9 +24,10 @@ async function runWrapper(
     stateSecret?: string;
   } = {},
 ) {
-  const root = await realpath(
+  const matrix = await realpath(
     await mkdtemp(resolve(tmpdir(), "tearleads-postgres-stack-")),
   );
+  const root = resolve(matrix, "checkouts/tearleads");
   const bin = resolve(root, "bin");
   const scripts = resolve(root, "terraform/scripts");
   const log = resolve(root, "calls.log");
@@ -36,7 +39,26 @@ async function runWrapper(
     args[0] === "staging" ? "staging" : "prod",
   );
   try {
-    await mkdir(bin);
+    await mkdir(bin, { recursive: true });
+    commitDeploymentFixture(matrix, "matrix");
+    commitDeploymentFixture(root, "checkout");
+    const outerSecrets = resolve(
+      matrix,
+      ".secrets",
+      args[0] === "staging" ? "staging" : "prod",
+    );
+    await Bun.write(
+      resolve(outerSecrets, "shared.env"),
+      "TF_VAR_cloudflare_account_id=parent-only",
+    );
+    await Bun.write(
+      resolve(outerSecrets, "app.env"),
+      "TF_STATE_ACCESS_KEY_ID=parent-id\nTF_STATE_SECRET_ACCESS_KEY=parent-secret",
+    );
+    await Bun.write(
+      resolve(outerSecrets, "planetscale.env"),
+      "PLANETSCALE_SERVICE_TOKEN_ID=parent-id\nPLANETSCALE_SERVICE_TOKEN=parent-token",
+    );
     await mkdir(scripts, { recursive: true });
     await mkdir(secrets, { recursive: true });
     for (const file of [
@@ -77,10 +99,6 @@ async function runWrapper(
     );
     await Bun.write(log, "");
     await Bun.write(
-      resolve(bin, "git"),
-      '#!/bin/sh\nprintf "%s\\n" "$POSTGRES_TEST_ROOT"\n',
-    );
-    await Bun.write(
       resolve(bin, "terraform"),
       [
         "#!/bin/sh",
@@ -97,20 +115,24 @@ async function runWrapper(
         "fi",
       ].join("\n"),
     );
-    await chmod(resolve(bin, "git"), 0o755);
     await chmod(resolve(bin, "terraform"), 0o755);
 
     const child = Bun.spawn(
-      ["bash", resolve(scripts, "run-postgres-stack.sh"), ...args],
+      [
+        "bash",
+        "checkouts/tearleads/terraform/scripts/run-postgres-stack.sh",
+        ...args,
+      ],
       {
-        cwd: tmpdir(),
+        cwd: matrix,
         env: {
           PATH: `${bin}:/usr/bin:/bin`,
           AWS_PROFILE: "inherited-profile",
           AWS_DEFAULT_PROFILE: "inherited-profile",
           AWS_SESSION_TOKEN: "inherited-session",
           AWS_SECURITY_TOKEN: "inherited-session",
-          POSTGRES_TEST_ROOT: root,
+          GIT_DIR: resolve(matrix, ".git"),
+          GIT_WORK_TREE: matrix,
           POSTGRES_TEST_LOG: log,
           POSTGRES_TEST_INIT_STATUS: options.initStatus ?? "0",
         },
@@ -134,7 +156,7 @@ async function runWrapper(
         .filter(Boolean),
     };
   } finally {
-    await rm(root, { recursive: true, force: true });
+    await rm(matrix, { recursive: true, force: true });
   }
 }
 

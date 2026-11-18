@@ -29,6 +29,20 @@ async function deployFixture(tier: "staging" | "production", failure = "") {
   const uploads = join(root, "uploads.log");
   const suffix = tier === "staging" ? "Staging" : "Production";
   await mkdir(scripts, { recursive: true });
+  await mkdir(join(root, "scripts/lib"), { recursive: true });
+  for (const name of ["withBuildInfoEnv.sh", "packageVersions.ts"])
+    await copyFile(
+      join(import.meta.dir, "../../../scripts/lib", name),
+      join(root, "scripts/lib", name),
+    );
+  await write(
+    join(root, "package.json"),
+    '{"workspaces":["packages/app-web"]}',
+  );
+  await write(
+    join(root, "packages/app-web/package.json"),
+    '{"name":"app-web","version":"1.0.0"}',
+  );
   for (const name of [
     "deployAppWeb.sh",
     "sentryEnv.sh",
@@ -89,7 +103,9 @@ purge_cloudflare_cache_for_hosts() { printf 'purge|%s\\n' "$*" >> "$WEB_DEPLOY_L
     `#!/bin/bash
 set -eu
 case "$1 $2" in
+  '--no-env-file --config=/dev/null') exec "$WEB_DEPLOY_BUN" "$@" ;;
   'run build')
+    sh "$WEB_DEPLOY_ROOT/scripts/lib/withBuildInfoEnv.sh" sh -c 'test "$BUN_PUBLIC_GIT_SHA" = "$WEB_DEPLOY_EXPECTED_SHA"'
     test -z "\${SENTRY_AUTH_TOKEN:-}"
     test "$BUN_PUBLIC_API_BASE_URL" = "https://$WEB_DEPLOY_API_HOSTNAME"
     umask 077
@@ -153,6 +169,8 @@ esac
           GIT_WORK_TREE: matrix,
           PATH: `${join(root, "bin")}:${PATH ?? ""}`,
           WEB_DEPLOY_ROOT: root,
+          WEB_DEPLOY_BUN: process.execPath,
+          WEB_DEPLOY_EXPECTED_SHA: git(root, "rev-parse", "--short", "HEAD"),
           WEB_DEPLOY_LOG: log,
           WEB_DEPLOY_UPLOADS: uploads,
           WEB_DEPLOY_FAILURE: failure,

@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+} from "node:fs";
 import { join, relative, resolve } from "node:path";
 import {
   apiMigrationHistoryErrors,
@@ -30,9 +36,11 @@ test("migration checks at the checkout root compare its own Git history", () => 
     for (const [file, content] of base)
       repo.write(join(apiMigrationsPath, file), content);
     repo.commit();
+    const cwd = process.platform === "win32" ? repo.cwd : `${repo.cwd} `;
+    if (cwd !== repo.cwd) renameSync(repo.cwd, cwd);
     const run = () =>
       Bun.spawnSync([process.execPath, "scripts/checks/lintApiMigrations.ts"], {
-        cwd: repo.cwd,
+        cwd,
         env: {
           ...decoy.env,
           API_MIGRATIONS_BASE_REF: "HEAD",
@@ -45,7 +53,7 @@ test("migration checks at the checkout root compare its own Git history", () => 
     const result = run();
     expect(result.exitCode, result.stderr.toString()).toBe(0);
     expect(result.stdout.toString()).toContain("API migrations append to HEAD");
-    rmSync(join(repo.cwd, ".git"), { recursive: true });
+    rmSync(join(cwd, ".git"), { recursive: true });
     const exported = run();
     expect(exported.exitCode).toBe(1);
     expect(exported.stderr.toString()).toContain(

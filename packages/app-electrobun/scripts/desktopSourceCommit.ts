@@ -14,7 +14,7 @@ export function desktopSourceCommit(
   const env = { ...process.env };
   for (const name of Object.keys(env))
     if (name.startsWith("GIT_")) delete env[name];
-  return execFileSync("git", ["rev-parse", "HEAD"], {
+  return execFileSync("git", ["--git-dir=.git", "rev-parse", "HEAD"], {
     cwd: repoRoot,
     env,
     encoding: "utf8",
