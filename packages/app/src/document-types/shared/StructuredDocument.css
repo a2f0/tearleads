@@ -130,12 +130,8 @@
   width: 100%;
   /* Keep personal-document previews near card size in a large window. */
   max-width: 20rem;
-  border: var(--border-width) dashed currentColor;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, currentColor 6%, transparent),
-    transparent
-  );
+  border: 0;
+  background: none;
   object-fit: contain;
 }
 
@@ -147,12 +143,6 @@
   cursor: pointer;
   overflow: hidden;
   text-align: center;
-}
-
-.structured-document-slot-preview-button:hover,
-.structured-document-slot-preview-button:focus-visible {
-  border-style: solid;
-  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 .structured-document-slot-preview-button:focus-visible {
@@ -171,8 +161,19 @@
   display: grid;
   place-items: center;
   gap: var(--space-sm);
+  border: var(--border-width) dashed currentColor;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, currentColor 6%, transparent),
+    transparent
+  );
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
+}
+
+button.structured-document-slot-placeholder:is(:hover, :focus-visible) {
+  border-style: solid;
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 .structured-document-slot-spinner {
