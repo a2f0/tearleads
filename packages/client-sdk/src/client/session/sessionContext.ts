@@ -16,7 +16,7 @@ export function hostSessionUpdate(
   context: SessionContext,
 ): [SessionContext, "boundary"?] {
   if (
-    context.isAuthenticated === false ||
+    ("isAuthenticated" in context && !context.isAuthenticated) ||
     ("authToken" in context && typeof context.authToken !== "string")
   )
     return [

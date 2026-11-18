@@ -197,3 +197,21 @@ test("a second expiry cannot replace verification of the provisional bearer", as
   }
   expect(credential()).toBe(true);
 });
+
+test("credentials captured during a renewal belong to its initiating bearer", async () => {
+  let token = "original";
+  const tracker = new SessionRenewalTracker(() => token);
+  const confirmation = Promise.withResolvers<boolean>();
+  const renewal = tracker.renew(() => confirmation.promise);
+  try {
+    token = "first";
+    tracker.tokenChanged();
+    token = "second";
+    tracker.tokenChanged();
+    expect(tracker.captureCredential()()).toBe(false);
+  } finally {
+    confirmation.resolve(true);
+    await renewal;
+  }
+  expect(tracker.currentToken("original")).toBeNull();
+});

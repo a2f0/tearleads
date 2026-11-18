@@ -53,7 +53,7 @@ export class SessionRenewalTracker {
   captureCredential(): () => boolean | Promise<boolean> {
     // A request born after the handler installs a candidate still belongs to
     // the last verified credential until that handler confirms the change.
-    const revision = this.provisionalRenewal()?.revision ?? this.revision;
+    const revision = this.inFlight?.revision ?? this.revision;
     return () => {
       const renewal = this.provisionalRenewal();
       if (renewal && renewal.previousUnverifiedChange <= revision)

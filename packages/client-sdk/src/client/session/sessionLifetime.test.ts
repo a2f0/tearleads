@@ -225,8 +225,12 @@ test("a delayed SQL read only delivers rows to its owning sign-in", async () => 
   }
 });
 
-for (const context of [{ authToken: undefined }, { isAuthenticated: false }]) {
-  test(`host context ${Object.keys(context)} signs out its owning scope`, () => {
+for (const context of [
+  { authToken: undefined },
+  { isAuthenticated: false },
+  { isAuthenticated: undefined },
+]) {
+  test(`host context ${Object.entries(context).flat().join("=")} signs out its owning scope`, () => {
     const sdk = new Tearleads();
     try {
       sdk.session.setContext({ authToken: "one", isAuthenticated: true });
