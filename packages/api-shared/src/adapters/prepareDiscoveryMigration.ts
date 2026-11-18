@@ -23,7 +23,8 @@ async function fillHistoricalRows(
   while (true) {
     // Each statement commits one batch, releasing all row locks. A concurrent
     // application write publishes a positive position and cannot be overwritten.
-    const result = await db.execute<BackfillProgress>(sql`
+    const result: { rows: BackfillProgress[] } =
+      await db.execute<BackfillProgress>(sql`
       with batch as materialized (
         select id from ${table} where discovery_order = 0
           ${cursor ? sql`and id > ${cursor}::uuid` : sql``}
