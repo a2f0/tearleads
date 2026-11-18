@@ -10,6 +10,7 @@ import {
 } from "@tearleads/crypto";
 import type { OrganizationProvisioningRequest } from "@tearleads/validators/request";
 import { z } from "zod";
+import { servedAccessManifestBundleDigest } from "../../access/read/accessManifestBundleDigest";
 import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
 import {
@@ -139,6 +140,7 @@ export async function storeInitialRootContainer(
   input: OrganizationProvisioningRequest,
   signer: RootContainerSigner,
 ): Promise<{
+  bundleDigest: string;
   metadataAccessEpoch: number;
   metadataAccessStateHash: string;
   metadataDocumentId: string;
@@ -225,6 +227,7 @@ export async function storeInitialRootContainer(
     tx,
   );
   return {
+    bundleDigest: await servedAccessManifestBundleDigest(manifest),
     metadataAccessEpoch: manifest.state.epoch,
     metadataAccessStateHash: manifest.manifestHash,
     metadataDocumentId: manifest.state.metadataDocumentId,

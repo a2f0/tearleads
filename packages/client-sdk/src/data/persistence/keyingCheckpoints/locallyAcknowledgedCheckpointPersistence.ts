@@ -6,7 +6,15 @@ import {
   type PrincipalPolicyCheckpoint,
   verifyAccessManifestLocalCheckpoint,
 } from "@tearleads/crypto";
+import type { ServedAccessManifestBundleWireResponse } from "@tearleads/validators/util";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
+import {
+  type AuthoredManifestBundle,
+  acknowledgedAuthoredBundle,
+} from "../verifiedCitations/authoredBundleCitation";
+
+export type { AuthoredManifestBundle } from "../verifiedCitations/authoredBundleCitation";
+
 import { loadContainerRetirementCheck } from "../principalContracts/principalGrantRetirementPersistence";
 import {
   accessManifestObjectKey,
@@ -20,6 +28,11 @@ import {
 export interface LocallyAcknowledgedAccessManifestHead {
   readonly checkpoint: AccessManifestCheckpoint;
   readonly previousManifestHash: string | null;
+  /**
+   * The head's bundle as a projection serves it, when the acknowledgement's
+   * digest matched the plan; stored for citation with the checkpoint.
+   */
+  readonly servedBundle?: ServedAccessManifestBundleWireResponse | null;
 }
 
 export function locallyAuthoredAccessManifestHead(plan: {
@@ -32,6 +45,20 @@ export function locallyAuthoredAccessManifestHead(plan: {
       manifestHash: plan.manifestHash,
     }),
     previousManifestHash: plan.manifest.previousManifestHash,
+  };
+}
+
+/**
+ * An authored head with its served bundle for citation, when the
+ * acknowledgement's digest names exactly the bundle the plan builds.
+ */
+export async function locallyAcknowledgedAuthoredHead(
+  plan: AuthoredManifestBundle,
+  bundleDigest: string,
+): Promise<LocallyAcknowledgedAccessManifestHead> {
+  return {
+    ...locallyAuthoredAccessManifestHead(plan),
+    servedBundle: await acknowledgedAuthoredBundle(plan, bundleDigest),
   };
 }
 

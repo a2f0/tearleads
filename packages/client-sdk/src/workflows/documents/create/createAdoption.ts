@@ -16,6 +16,7 @@ import type {
   CreateRemoteDocumentResult,
   DocumentCreateApi,
 } from "../../../data/documents/shared/types";
+import { checkWithHeldBundleRecovery } from "../../../data/keyingProjectionVerification";
 import {
   readAccessEvent,
   readAccessManifest,
@@ -134,8 +135,19 @@ export async function adoptExistingRemoteDocument(
   if (!writerProjection) return null;
 
   // Reject a foreign collision before verification can pin its checkpoints.
-  assertExpectedAdoptionScope(input, writerProjection);
-  assertCreateEventSignedLocally(input, writerProjection);
+  // A refusal drops any held bundles the projection took, so a retry
+  // fetches them.
+  await checkWithHeldBundleRecovery(
+    {
+      execSql: input.execSql,
+      projection: writerProjection,
+      stillCurrent: input.stillCurrent,
+    },
+    async () => {
+      assertExpectedAdoptionScope(input, writerProjection);
+      assertCreateEventSignedLocally(input, writerProjection);
+    },
+  );
   const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
   const principalPolicyCache = new Map<string, VerifiedPrincipalPolicy>();
   const targets = await assertDocumentWriterProjectionConsistent(

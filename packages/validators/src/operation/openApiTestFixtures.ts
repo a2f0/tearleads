@@ -36,6 +36,7 @@ export function createContainerMutation() {
 
 export function createContainerMutationResponse() {
   return {
+    bundleDigest: "b".repeat(64),
     containerId: "container-1",
     containerKek: {
       containerKeyEpoch: 1,
@@ -92,6 +93,7 @@ export function createContainerWithMetadataDocumentResponse() {
 function createDocumentMutationAcknowledgement() {
   const contentKeyBundle = createContentKeyBundleResponse();
   return {
+    bundleDigest: "b".repeat(64),
     contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
     eventHash: "document-event-hash",
     id: "document-1",

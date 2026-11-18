@@ -1,4 +1,5 @@
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import { projectionGeneration } from "../projectionGeneration";
 import type {
   ContainerState,
@@ -38,7 +39,9 @@ export function getCachedContainerWriterProjection(
   containerState: ContainerState,
 ): ContainerWriterProjectionResponse | null {
   const projection = containerState.containerWriterProjection ?? null;
+  // A projection a verifier refused is fetched again, never reused.
   return projection &&
+    !isRejectedDecodedProjection(projection) &&
     cachedProjectionMatchesContainerState({ containerState, projection })
     ? projection
     : null;

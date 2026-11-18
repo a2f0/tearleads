@@ -11,6 +11,7 @@ import {
   keyingCheckpointTables,
 } from "../../sqlite/schema/keyingCheckpointSchema";
 import { principalPolicyTables } from "../../sqlite/schema/principalPolicySchema";
+import { verifiedManifestBundleTables } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -19,6 +20,7 @@ import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import {
   type VerifiedManifestBundleRow,
   verifiedManifestBundleRows,
+  writeVerifiedManifestBundlesInTransaction,
 } from "../verifiedManifestBundlePersistence";
 import type { DocumentPurgeCheckpoint } from "./documentPurgeCheckpointPersistence";
 import {
@@ -138,15 +140,37 @@ export class KeyingCheckpointRepository {
     await runtime.transaction(advance, { behavior: "immediate" });
   }
 
-  /** Whether the heads committed; false only when `stillCurrent` turned false. */
+  /**
+   * Whether the heads committed; false only when `stillCurrent` turned false.
+   * A head's authored bundle, when its acknowledgement matched, is stored for
+   * citation in the same transaction, so it commits only with its pin.
+   */
   async advanceLocallyAcknowledgedAccessManifestHeadsAtomically(
     advance: LocallyAcknowledgedAdvance,
   ): Promise<boolean> {
-    await ensureSqlTables(this.execSql, keyingCheckpointTables);
+    const bundleRows = await verifiedManifestBundleRows(
+      advance.heads.flatMap(({ checkpoint, servedBundle }) =>
+        servedBundle ? [{ bundle: servedBundle, checkpoint }] : [],
+      ),
+    );
+    await ensureSqlTables(this.execSql, [
+      ...keyingCheckpointTables,
+      ...(bundleRows.length > 0 ? verifiedManifestBundleTables : []),
+    ]);
     const updatedAt = this.now().toISOString();
     const runtime = getClientSQLitePersistenceRuntime(this.execSql);
-    const acknowledge = (tx: ClientSQLiteTransactionScope) =>
-      acknowledgeLocallyAuthoredHeadsInTransaction(tx, advance, updatedAt);
+    const acknowledge = async (tx: ClientSQLiteTransactionScope) => {
+      await acknowledgeLocallyAuthoredHeadsInTransaction(
+        tx,
+        advance,
+        updatedAt,
+      );
+      await writeVerifiedManifestBundlesInTransaction(
+        tx,
+        bundleRows,
+        updatedAt,
+      );
+    };
     if (advance.stillCurrent) {
       return (
         await runtime.guardedTransaction(acknowledge, advance.stillCurrent, {

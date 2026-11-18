@@ -3,6 +3,7 @@ import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerReciteRequest } from "@tearleads/validators/request";
 import type { ContainerReciteResponse } from "@tearleads/validators/response";
+import { servedAccessManifestBundleDigest } from "../../../access/read/accessManifestBundleDigest";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import {
@@ -114,6 +115,7 @@ async function persistRecitation(
     ...(isContainerSystemSlot(container.systemSlot)
       ? { systemSlot: container.systemSlot }
       : {}),
+    bundleDigest: await servedAccessManifestBundleDigest(manifest),
     containerId: manifest.state.containerId,
     organizationId: manifest.state.organizationId,
     parentId: manifest.state.parentContainerId,

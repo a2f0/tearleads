@@ -86,9 +86,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // metadata sync (and its discovery read) follows.
       total: 3,
       // The create cites its parent's KEK state instead of carrying it:
-      // 32.6 KB sent (36.4 KB before) and 1.8 KB received; keep about 10%
-      // headroom.
-      bodyBytes: { request: 36_000, response: 2_000 },
+      // 32.6 KB sent (36.4 KB before) and 2.0 KB received, the head's bundle
+      // digest included (1.8 KB before); keep about 10% headroom.
+      bodyBytes: { request: 36_000, response: 2_200 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
@@ -144,10 +144,11 @@ test("folder creation, document linking, unlinking and trash have separate reque
     // The device holds the document and no attachment row for it, so the
     // link cites no blob rewraps without listing; the server's binding check
     // at commit would refuse a stale view (measured 2, 3 before). 9.6 KB sent
-    // and 0.6 KB received; keep about 10% headroom.
+    // and 0.7 KB received, the head's bundle digest included; keep about 10%
+    // headroom.
     budget: {
       total: 2,
-      bodyBytes: { request: 10_500, response: 700 },
+      bodyBytes: { request: 10_500, response: 760 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
@@ -243,10 +244,11 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // (measured 6, 8 before). A restart, a change, or the server's
       // stale-baseline refusal proves again. No attachment listing: the
       // device holds no attachment row for the document (measured 5, 6
-      // before). 17.9 KB sent and 30.2 KB received (44.3 KB before); keep
-      // about 10% headroom.
+      // before). 17.9 KB sent and 30.2 KB received (44.3 KB before). The
+      // projection cites the heads this device authored and cached at
+      // acknowledgement: 21.9 KB received; keep about 7% headroom.
       total: 5,
-      bodyBytes: { request: 20_000, response: 33_000 },
+      bodyBytes: { request: 20_000, response: 23_500 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 2,
         "GET /principals/group/:groupId/policy": 0,
@@ -287,9 +289,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // the sync, the document projection and a policy read). 27.3 KB sent
       // and 22.4 KB received; served bundles leave off the state their
       // signed bytes name (the container key copy among it): 19.9 KB
-      // received; keep about 8% headroom.
+      // received. Reads cite the heads this device authored and cached at
+      // acknowledgement: 9.5 KB received; keep about 10% headroom.
       total: 4,
-      bodyBytes: { request: 30_000, response: 21_500 },
+      bodyBytes: { request: 30_000, response: 10_500 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
@@ -331,8 +334,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // it: 16.6 KB sent (34.3 KB before). Syncs no longer echo the bundle and
       // KEK targets the request named: 40.7 KB received (44.3 KB before).
       // Served bundles leave off the state their signed bytes name: 38.0 KB
-      // received; keep about 5% headroom.
-      bodyBytes: { request: 18_500, response: 40_000 },
+      // received. Reads cite the heads this device authored and cached at
+      // acknowledgement: 19.3 KB received; keep about 8% headroom.
+      bodyBytes: { request: 18_500, response: 21_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 4,
         "GET /principals/group/:groupId/policy": 0,
@@ -370,9 +374,11 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // Projection reads cite the KEK levels the device holds by digest, and
       // syncs no longer echo the bundle and KEK targets the request named:
       // 53.2 KB received (56.7 KB before). Served bundles leave off the state
-      // their signed bytes name: 46.5 KB received; keep about 4% headroom.
+      // their signed bytes name: 46.5 KB received. Reads cite the heads this
+      // device authored and cached at acknowledgement: 35.8 KB received;
+      // keep about 5% headroom.
       // The move cites its parent KEK state: 16.8 KB sent (20.6 KB before).
-      bodyBytes: { request: 18_500, response: 48_500 },
+      bodyBytes: { request: 18_500, response: 37_500 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 3,
         "GET /principals/group/:groupId/policy": 0,

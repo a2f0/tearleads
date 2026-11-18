@@ -31,6 +31,7 @@ export function requireProjectionUserKeyResolver(
   return requireTrustedUserIdentityResolver(resolveProjectionUserKey);
 }
 
+export { checkWithHeldBundleRecovery } from "./checkpoints/heldBundleRecovery";
 export { verifiedContainerCreateManifest } from "./container/containerCreateManifest";
 export { verifyContainerDestinationProjection } from "./container/containerDestinationVerification";
 export {

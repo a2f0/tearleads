@@ -1,3 +1,4 @@
+import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import type {
   BlobAttachmentService,
   BlobByteSource,
@@ -333,7 +334,9 @@ async function uploadPendingAttachmentBytes(input: {
 }): Promise<PendingAttachmentUploadOutcome> {
   const { pendingAttachment, state } = input.pendingUpload;
   const writerProjection =
-    state.writerProjection?.documentId === input.pendingUpload.remoteDocumentId
+    state.writerProjection?.documentId ===
+      input.pendingUpload.remoteDocumentId &&
+    !isRejectedDecodedProjection(state.writerProjection)
       ? state.writerProjection
       : null;
   const writerProjectionGeneration = state.writerProjectionGeneration;

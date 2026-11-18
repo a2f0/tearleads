@@ -161,6 +161,22 @@ evidence and current heads, keys and key material always travel. Stored rows
 carry a SHA-256 digest of their exact JSON; a mismatched row is dropped instead
 of cited.
 
+A head the device authored is stored the same way when its mutation is
+acknowledged: every container mutation, document create, link and unlink,
+recitation, registration and `POST /organizations` acknowledgement names the
+`bundleDigest` of the bundle a projection would serve for the new head, and the
+SDK stores the bundle it builds from its own signed plan only when that bundle
+has exactly this digest, inside the transaction that advances the head's
+checkpoint. Such a row holds the bytes a projection would serve; citing it is
+still only a request to omit them, and the refilled projection is verified
+from scratch. A projection that took held bundles and fails verification on a
+bundle's own bytes drops those rows and reports the read as unavailable, so
+the next read fetches them from the server and its verification decides; a
+stored row never refuses a device permanently. KEK levels are stored only
+from verified projections: seeding an authored level would add a walk of the
+level's manifest history to every server mutation, which costs more than the
+bytes it saves.
+
 Verified bundles are stored inside the transaction that advances, or for a move
 destination re-validates, the projection's checkpoints. They commit only under
 that transaction's generation and lease guard, and no cache write outlives the

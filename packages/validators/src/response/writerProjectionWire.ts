@@ -220,6 +220,121 @@ function decodeKeyingPath(
   };
 }
 
+// The held bundles each decoded projection took from the caller's citations
+// rather than from the response, exactly as the caller held them.
+const heldBundlesByProjection = new WeakMap<object, readonly ServedBundle[]>();
+
+/**
+ * The held bundles a decoded projection filled omissions from. A verifier
+ * that refuses such a projection drops exactly those held rows, so the next
+ * read fetches them from the server instead of failing the same way.
+ */
+export function heldBundlesUsedBy(projection: object): readonly ServedBundle[] {
+  return heldBundlesByProjection.get(projection) ?? [];
+}
+
+// Decoded projections a verifier refused after they took held bundles: a
+// cache must not hand one out again.
+const rejectedProjections = new WeakSet<object>();
+// A projection derived from a decoded one (a path of a document projection,
+// a sliced path) answers for the decoded projection it came from.
+const decodedOrigins = new WeakMap<object, object>();
+
+/**
+ * Carries a decoded projection's held bundles to a projection built from it,
+ * so a refusal of the derived one drops those bundles and refuses the decoded
+ * projection a cache holds.
+ */
+export function deriveDecodedProjection<T extends object>(
+  from: object,
+  to: T,
+): T {
+  const held = heldBundlesByProjection.get(from);
+  if (held) {
+    // Only the held bundles this projection still carries: verifying it
+    // vouches for those and no others.
+    const carried = manifestHashesIn(to);
+    const kept = held.filter((bundle) => carried.has(bundle.manifestHash));
+    if (kept.length > 0) heldBundlesByProjection.set(to, kept);
+  }
+  decodedOrigins.set(to, decodedOrigins.get(from) ?? from);
+  return to;
+}
+
+function manifestHashesIn(value: unknown, found = new Set<string>()) {
+  if (Array.isArray(value)) {
+    for (const item of value) manifestHashesIn(item, found);
+  } else if (typeof value === "object" && value !== null) {
+    for (const [key, child] of Object.entries(value)) {
+      if (key === "manifestHash" && typeof child === "string") found.add(child);
+      else manifestHashesIn(child, found);
+    }
+  }
+  return found;
+}
+
+// The exact held bytes refused projections took: any other projection
+// rebuilt from the same bytes is refused with them.
+const rejectedHeldBytes = new Set<string>();
+const MAX_REJECTED_HELD_BUNDLES = 64;
+
+/** Marks a decoded projection refused, so no cache serves it again. */
+export function rejectDecodedProjection(projection: object): void {
+  rejectedProjections.add(projection);
+  const origin = decodedOrigins.get(projection);
+  if (origin) rejectedProjections.add(origin);
+  for (const bundle of heldBundlesUsedBy(projection)) {
+    rejectedHeldBytes.add(JSON.stringify(bundle));
+    // Bounded: the oldest refusals go first. Their projections stay refused
+    // by identity; only rebuilds from the same bytes are no longer caught.
+    if (rejectedHeldBytes.size > MAX_REJECTED_HELD_BUNDLES) {
+      const [oldest] = rejectedHeldBytes;
+      if (oldest !== undefined) rejectedHeldBytes.delete(oldest);
+    }
+  }
+}
+
+/**
+ * Whether a projection, or the decoded projection it was derived from, was
+ * refused: refusing any projection built from a decoded one refuses every
+ * other projection built from it too.
+ */
+/**
+ * A projection whose held bundles just verified: those bytes are good again
+ * for every other projection rebuilt from them.
+ */
+export function acceptDecodedProjection(projection: object): void {
+  if (rejectedHeldBytes.size === 0) return;
+  for (const bundle of heldBundlesUsedBy(projection))
+    rejectedHeldBytes.delete(JSON.stringify(bundle));
+}
+
+export function isRejectedDecodedProjection(projection: unknown): boolean {
+  if (typeof projection !== "object" || projection === null) return false;
+  const origin = decodedOrigins.get(projection);
+  return (
+    rejectedProjections.has(projection) ||
+    (origin !== undefined && rejectedProjections.has(origin)) ||
+    (rejectedHeldBytes.size > 0 &&
+      heldBundlesUsedBy(projection).some((bundle) =>
+        rejectedHeldBytes.has(JSON.stringify(bundle)),
+      ))
+  );
+}
+
+function withHeldBundles<T extends object>(
+  projection: T,
+  omittedBundles: readonly string[],
+  held: ReadonlyMap<string, ServedBundle>,
+): T {
+  const used = omittedBundles.flatMap((hash) => {
+    const bundle = held.get(hash);
+    return bundle ? [bundle] : [];
+  });
+  if (used.length > 0) heldBundlesByProjection.set(projection, used);
+  return projection;
+}
+
 /**
  * Null for any wire inconsistency or an omission `held` (bundles) or
  * `heldLevels` (KEK levels by digest) cannot fill; the caller treats either
@@ -239,7 +354,9 @@ export function decodeContainerWriterProjection(
   const path = resolve
     ? decodeKeyingPath(projection, resolve, heldLevels)
     : null;
-  return path ? { ...projection, ...path } : null;
+  return path
+    ? withHeldBundles({ ...projection, ...path }, omittedBundles, held)
+    : null;
 }
 
 /** See {@link decodeContainerWriterProjection}. */
@@ -265,16 +382,20 @@ export function decodeDocumentWriterProjection(
   }
   const [firstPath, ...otherPaths] = authorizingContainerPaths;
   if (!firstPath) return null;
-  return {
-    ...projection,
-    authorizingContainerPaths: [firstPath, ...otherPaths],
-    documentContainerManifestHistory:
-      projection.documentContainerManifestHistory.map(resolve),
-    documentManifest: resolve(projection.documentManifest),
-    documentManifestContainerPaths:
-      projection.documentManifestContainerPaths.map((path) =>
-        path.map(resolve),
-      ),
-    documentManifestHistory: projection.documentManifestHistory.map(resolve),
-  };
+  return withHeldBundles(
+    {
+      ...projection,
+      authorizingContainerPaths: [firstPath, ...otherPaths],
+      documentContainerManifestHistory:
+        projection.documentContainerManifestHistory.map(resolve),
+      documentManifest: resolve(projection.documentManifest),
+      documentManifestContainerPaths:
+        projection.documentManifestContainerPaths.map((path) =>
+          path.map(resolve),
+        ),
+      documentManifestHistory: projection.documentManifestHistory.map(resolve),
+    },
+    omittedBundles,
+    held,
+  );
 }

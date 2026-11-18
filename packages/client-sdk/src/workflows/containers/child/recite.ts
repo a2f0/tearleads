@@ -9,7 +9,7 @@ import {
   rememberAcknowledgedContainerHead,
 } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { locallyAuthoredAccessManifestHead } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { locallyAcknowledgedAuthoredHead } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import {
   type ExecSql,
@@ -94,7 +94,9 @@ async function recitePinnedPath(
     acknowledged = await new KeyingCheckpointRepository(
       input.execSql,
     ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-      heads: [locallyAuthoredAccessManifestHead(plan)],
+      heads: [
+        await locallyAcknowledgedAuthoredHead(plan, response.bundleDigest),
+      ],
       expectedAccessManifestCheckpoints: path.map((head) => ({
         objectKind: "container",
         objectId: head.state.containerId,

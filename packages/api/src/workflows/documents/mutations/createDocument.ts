@@ -305,7 +305,7 @@ async function createDocumentInTransaction(
       created: {
         id: document.id,
         createdAt: document.createdAt.toISOString(),
-        ...documentMutationAcknowledgement(manifest, contentKeyBundle),
+        ...(await documentMutationAcknowledgement(manifest, contentKeyBundle)),
       },
       linkedContainerIds: manifest.state.linkedContainerIds,
       organizationId: contentKeyBundle.currentTargets.organizationId,
