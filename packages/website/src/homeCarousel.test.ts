@@ -154,9 +154,13 @@ test("each page's own script registers the shared elements", async () => {
   }
 });
 
-test("a screen page's heading names its screen; the index keeps its own", () => {
+test("the product tour shows the index heading and visually hides screen headings", () => {
+  for (const page of [screen, gallery]) {
+    expect(page).toContain(">Product tour</p>");
+    expect(page).not.toContain("Every captured screen in desktop");
+  }
   expect(screen).toContain(
-    '<h1 id="page-title" class="site-h1">Notes, phone screenshot</h1>',
+    '<h1 id="page-title" class="site-h1 visually-hidden">Notes, phone screenshot</h1>',
   );
   expect(gallery).toContain(
     '<h1 id="page-title" class="site-h1">Screenshots</h1>',
