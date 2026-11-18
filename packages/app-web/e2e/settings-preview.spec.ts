@@ -2,12 +2,13 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./appTest";
 import { openWindowedDesktop } from "./windowedDesktop";
 
-async function openSettings(page: Page) {
+async function openSettingsFromTray(page: Page) {
   await openWindowedDesktop(page);
   const pane = page.locator(".pane:not(.pane-hidden)").first();
   await pane
-    .locator(".pane-main")
-    .click({ button: "right", position: { x: 200, y: 100 } });
+    .getByRole("list", { name: "System tray" })
+    .getByRole("button", { name: /Switch to .* theme/ })
+    .click({ button: "right" });
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   return pane.getByRole("region", { name: "Settings", exact: true });
 }
@@ -16,7 +17,7 @@ test("previews fit full tile height without changing desktop tile sizes", async 
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const display = await openSettings(page);
+  const display = await openSettingsFromTray(page);
   // A host may import the generic wallpaper rule after Settings.
   await page.addStyleTag({
     content: `.wallpaper-pattern[data-pattern]::before {
@@ -83,7 +84,7 @@ test("the initial window fits every wallpaper, theme, and tray switch without sc
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const display = await openSettings(page);
+  const display = await openSettingsFromTray(page);
   await expect(display).toHaveCSS("width", "500px");
   await expect(display).toHaveCSS("height", "470px");
   const scroller = display.locator(".window-body-content-scroll");
@@ -109,7 +110,7 @@ test("a narrow desktop keeps all display controls reachable by scrolling", async
   page,
 }) => {
   await page.setViewportSize({ width: 1024, height: 360 });
-  const display = await openSettings(page);
+  const display = await openSettingsFromTray(page);
   for (const label of ["Loom", "None", "Dark", "Dusk", "Light"]) {
     const card = display.locator("label").filter({
       has: page.getByRole("radio", { name: label, exact: true }),
