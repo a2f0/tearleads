@@ -23,6 +23,8 @@ interface MemberGroupUsersMutationInput {
   actor: TestUser;
   memberUserIds: readonly string[];
   organizationId: string;
+  /** Sends the policy commit; defaults to the preparation-following route. */
+  request?: (path: string, init: RequestInit) => Response | Promise<Response>;
 }
 
 async function updateMemberGroupUsers(
@@ -95,6 +97,7 @@ async function updateMemberGroupUsers(
   const response = await submitOrganizationGroupPolicyCommit({
     actor: input.actor,
     groupId: organization.memberGroupId,
+    ...(input.request ? { request: input.request } : {}),
     groupPolicy: await withGroupMembershipContainerMutations({
       actor: input.actor,
       currentPolicy,

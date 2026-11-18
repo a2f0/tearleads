@@ -43,6 +43,19 @@ export type OrganizationReadModelQuery = z.infer<
   typeof OrganizationReadModelQuerySchema
 >;
 
+/**
+ * The organization read-model cursor a mutation's caller holds, as the query
+ * of a mutation that may stamp the read model. It stays out of the body, which
+ * a stored receipt binds, so a retry carrying a newer cursor still replays.
+ */
+export const OrganizationReadModelHeldCursorQuerySchema = loosePlainObject({
+  readModelCursor: z.string().optional(),
+});
+
+export type OrganizationReadModelHeldCursorQuery = z.infer<
+  typeof OrganizationReadModelHeldCursorQuerySchema
+>;
+
 export const UpdateOrganizationRosterEntryRequestSchema = loosePlainObject({
   profileDocumentId: uuidV4StringSchema.nullable(),
 });

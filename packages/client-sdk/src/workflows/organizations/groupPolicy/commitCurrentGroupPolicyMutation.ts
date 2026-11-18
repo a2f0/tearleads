@@ -3,7 +3,11 @@ import type {
   VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
+import {
+  committedReadModelDelta,
+  type OrganizationReadModelDeltaResponse,
+  type PrincipalPolicyMutationResponse,
+} from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
@@ -49,10 +53,15 @@ interface CommitInput extends GroupPolicyChange {
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
+/** The group's acknowledgement, with the read-model delta the commit carried. */
+export type CommittedGroupPolicy = PrincipalPolicyMutationResponse & {
+  readonly readModel?: OrganizationReadModelDeltaResponse | undefined;
+};
+
 /** Commit and retain the group, optional roster enrollment and directory together. */
 export async function commitCurrentGroupPolicyMutation(
   input: CommitInput,
-): Promise<PrincipalPolicyMutationResponse> {
+): Promise<CommittedGroupPolicy> {
   const { context } = input;
   assertProjectionVerificationCurrent(context.stillCurrent);
   const [signer] = await resolveRequiredUserIdentities({
@@ -128,7 +137,13 @@ export async function commitCurrentGroupPolicyMutation(
     context.stillCurrent,
   );
   assertProjectionVerificationCurrent(context.stillCurrent);
-  return response.groupPolicy;
+  const readModel = committedReadModelDelta(
+    response.readModel,
+    input.organizationId,
+  );
+  return readModel
+    ? { ...response.groupPolicy, readModel }
+    : response.groupPolicy;
 }
 
 async function prepareChange(

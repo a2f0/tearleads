@@ -386,6 +386,47 @@ async function stampGroupMembershipChanges(
   }
 }
 
+/** The first and last cursor one transaction stamped for an organization. */
+export interface TransactionOrganizationReadModelStamps {
+  readonly first: bigint;
+  readonly last: bigint;
+}
+
+const stampsByTransaction = new WeakMap<
+  DatabaseTransaction,
+  Map<string, TransactionOrganizationReadModelStamps>
+>();
+
+function recordTransactionStamp(
+  tx: DatabaseTransaction,
+  organizationId: string,
+  cursor: bigint,
+): void {
+  let byOrganization = stampsByTransaction.get(tx);
+  if (!byOrganization) {
+    byOrganization = new Map();
+    stampsByTransaction.set(tx, byOrganization);
+  }
+  const recorded = byOrganization.get(organizationId);
+  byOrganization.set(organizationId, {
+    first: recorded?.first ?? cursor,
+    last: cursor,
+  });
+}
+
+/**
+ * The cursors this transaction has stamped for an organization so far. Every
+ * stamp holds the head row lock until commit, so no other writer's stamp lies
+ * between the first and the last, and the head before the first stamp is
+ * `first - 1`. The memo is keyed by the transaction object and dies with it.
+ */
+export function transactionOrganizationReadModelStamps(
+  tx: DatabaseTransaction,
+  organizationId: string,
+): TransactionOrganizationReadModelStamps | undefined {
+  return stampsByTransaction.get(tx)?.get(organizationId);
+}
+
 /**
  * Record an organization read-model invalidation inside its source mutation.
  *
@@ -400,6 +441,7 @@ export async function appendOrganizationReadModelChangeInTransaction(
 ): Promise<OrganizationReadModelChangeResult> {
   const cursor = await advanceOrganizationReadModelHead(tx, input);
   await stampGroupMembershipChanges(tx, input, cursor);
+  recordTransactionStamp(tx, input.organizationId, cursor);
   const store = organizationReadModelChangeScope.getStore();
   if (store) {
     const observed = observedOrganizationState(store, input.organizationId);

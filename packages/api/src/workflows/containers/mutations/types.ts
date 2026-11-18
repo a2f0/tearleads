@@ -29,6 +29,8 @@ export interface MutateContainerInput {
 /** The public boundary: a rotation may carry its descendant rekeys. */
 export interface MutateContainerRotationInput
   extends Omit<MutateContainerInput, "request"> {
+  /** The read-model cursor a sharer holds, for the committed delta. */
+  readonly readModelCursor?: string | undefined;
   readonly request: ContainerRotationRequest;
 }
 

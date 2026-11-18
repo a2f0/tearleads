@@ -6,6 +6,7 @@ import {
   CreateOrganizationGroupWithPolicyRequestSchema,
   DeleteOrganizationGroupRequestSchema,
   OrganizationProvisioningRequestSchema,
+  OrganizationReadModelHeldCursorQuerySchema,
   OrganizationReadModelQuerySchema,
   UpdateOrganizationProfileRequestSchema,
   UpdateOrganizationRosterEntryRequestSchema,
@@ -207,6 +208,7 @@ test("organization management operations own their HTTP contracts", () => {
     id: "organizations.groups.create",
     method: "POST",
     params: OrganizationPathParamsSchema,
+    query: OrganizationReadModelHeldCursorQuerySchema,
     responses: {
       200: CreateOrganizationGroupResponseSchema,
       202: PrincipalHistoryPreparationResponseSchema,
@@ -214,6 +216,7 @@ test("organization management operations own their HTTP contracts", () => {
     runtimeRefinements: [
       organizationProvisioningContainerKeyringRefinement,
       principalHistoryRollbackRefinement,
+      ...organizationReadModelResponseRuntimeRefinements,
     ],
   });
   expect(createOrganizationGroupOperation.failureResponses).toEqual({

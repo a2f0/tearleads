@@ -19,6 +19,7 @@ import type {
   ContainerDeleteResponse,
   ContainerMutationResponse,
   ContainerRotationResponse,
+  ContainerShareResponse,
 } from "@tearleads/validators/response";
 import { bindPrototypeMethods } from "../requestInternals";
 import {
@@ -146,14 +147,15 @@ export class ContainerMutationArea {
     containerId: string,
     input: ContainerMutationRequest,
     options: RequestResultOptions = {},
-  ): Promise<RequestResult<ContainerMutationResponse>> {
+  ): Promise<RequestResult<ContainerShareResponse>> {
+    const { readModelCursor, ...requestOptions } = options;
     try {
       return await this.context.sendResult(
         containerShare,
-        containerShare.path(containerId),
+        containerShare.path(containerId, readModelCursor),
         shareContainerOperation,
         input,
-        options,
+        requestOptions,
       );
     } finally {
       this.self.clearWriterProjectionCaches();

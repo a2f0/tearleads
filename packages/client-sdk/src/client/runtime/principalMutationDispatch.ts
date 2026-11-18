@@ -4,14 +4,17 @@ import type {
   RequestResultOptions,
 } from "@tearleads/api-client";
 import {
+  committedReadModelDelta,
   isCommitOrganizationGroupPolicyResponse,
   isCreateOrganizationGroupResponse,
   isDeleteOrganizationGroupResponse,
   isPrincipalPolicyMutationResponse,
+  type OrganizationReadModelDeltaResponse,
 } from "@tearleads/validators/response";
 import type { AuthoredPrincipalMutation } from "../../data/principals/principalMutationJournal";
 import type { PrincipalMutationResponse } from "../../workflows/organizations";
 import {
+  beginCommittedReadModel,
   type PrincipalMutationJournalContext,
   submitJournaledPrincipalMutation,
 } from "../../workflows/organizations";
@@ -74,26 +77,64 @@ function unsupportedMutation(_mutation: never): never {
   throw new Error("Unsupported principal mutation operation");
 }
 
-export function createJournaledPrincipalMutations(
-  api: ApiClient,
-  context: (
-    organizationId: string,
-  ) => Omit<PrincipalMutationJournalContext, "submit">,
-  dispatch: ReturnType<typeof createPrincipalMutationDispatcher>,
-): JournaledPrincipalMutationMethods {
-  async function submit<T extends PrincipalMutationResponse>(
-    organizationId: string,
-    mutation: AuthoredPrincipalMutation,
-    validator: (value: unknown) => value is T,
-    options: RequestResultOptions = {},
-  ): Promise<RequestResult<T>> {
+type JournalContext = (organizationId: string) => Omit<
+  PrincipalMutationJournalContext,
+  "submit"
+> & {
+  /** The runtime's domain scope, which keys committed read-model offers. */
+  readonly domainScope: object;
+  /** The session generation the mutation's committed lease belongs to. */
+  readonly sessionGeneration: number;
+};
+
+interface JournaledSubmission<T extends PrincipalMutationResponse> {
+  readonly api: ApiClient;
+  readonly context: JournalContext;
+  readonly dispatch: ReturnType<typeof createPrincipalMutationDispatcher>;
+  readonly mutation: AuthoredPrincipalMutation;
+  readonly options: RequestResultOptions | undefined;
+  readonly organizationId: string;
+  readonly validator: (value: unknown) => value is T;
+  /** Reads the read-model delta field a response carries; set to send a cursor. */
+  readonly committedReadModel?: ((response: T) => unknown) | undefined;
+}
+
+/** A group create stamps twice: its group row, then its first policy. */
+const GROUP_CREATE_READ_MODEL_STAMPS = 2;
+
+async function submitJournaled<T extends PrincipalMutationResponse>(
+  input: JournaledSubmission<T>,
+): Promise<RequestResult<T>> {
+  const { organizationId } = input;
+  const journal = input.context(organizationId);
+  // A group create or group commit sends the read-model cursor its caller
+  // holds, so the response can carry the delta from it.
+  const lease = input.committedReadModel
+    ? await beginCommittedReadModel(
+        {
+          domainScope: journal.domainScope,
+          execSql: journal.execSql,
+          sessionGeneration: journal.sessionGeneration,
+          organizationId,
+          userId: journal.scope.userId,
+        },
+        input.mutation.kind === "group-create"
+          ? GROUP_CREATE_READ_MODEL_STAMPS
+          : undefined,
+      )
+    : undefined;
+  const options = lease?.heldCursor
+    ? { ...input.options, readModelCursor: lease.heldCursor }
+    : input.options;
+  let delta: OrganizationReadModelDeltaResponse | undefined;
+  try {
     const result = await submitJournaledPrincipalMutation({
-      ...context(organizationId),
-      mutation,
+      ...journal,
+      mutation: input.mutation,
       submit: (saved) =>
-        dispatch(options, (dispatchOptions) =>
+        input.dispatch(options, (dispatchOptions) =>
           dispatchAuthoredPrincipalMutation(
-            api,
+            input.api,
             organizationId,
             saved,
             dispatchOptions,
@@ -103,10 +144,40 @@ export function createJournaledPrincipalMutations(
     if (!result.ok) return result;
     // The session already verified this operation before clearing its row.
     // This check narrows the union for each existing public API signature.
-    if (!validator(result.data))
+    if (!input.validator(result.data))
       throw new Error("Unexpected principal receipt operation");
+    delta = committedReadModelDelta(
+      input.committedReadModel?.(result.data),
+      organizationId,
+    );
     return { ok: true, data: result.data };
+  } finally {
+    lease?.settle(delta);
   }
+}
+
+export function createJournaledPrincipalMutations(
+  api: ApiClient,
+  context: JournalContext,
+  dispatch: ReturnType<typeof createPrincipalMutationDispatcher>,
+): JournaledPrincipalMutationMethods {
+  const submit = <T extends PrincipalMutationResponse>(
+    organizationId: string,
+    mutation: AuthoredPrincipalMutation,
+    validator: (value: unknown) => value is T,
+    options: RequestResultOptions | undefined,
+    committedReadModel?: (response: T) => unknown,
+  ) =>
+    submitJournaled({
+      api,
+      committedReadModel,
+      context,
+      dispatch,
+      mutation,
+      options,
+      organizationId,
+      validator,
+    });
   const commit: ApiClient["commitOrganizationGroupPolicyResult"] = (
     organizationId,
     groupId,
@@ -118,6 +189,7 @@ export function createJournaledPrincipalMutations(
       { kind: "compound", groupId, request },
       isCommitOrganizationGroupPolicyResponse,
       options,
+      (response) => response.readModel,
     );
   const create: ApiClient["createOrganizationGroupResult"] = (
     organizationId,
@@ -129,6 +201,7 @@ export function createJournaledPrincipalMutations(
       { kind: "group-create", groupId: request.groupId, request },
       isCreateOrganizationGroupResponse,
       options,
+      (response) => response.readModel,
     );
   const remove: ApiClient["deleteOrganizationGroupResult"] = (
     organizationId,

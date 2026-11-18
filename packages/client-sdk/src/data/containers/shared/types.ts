@@ -26,7 +26,9 @@ import type {
   ContainerKekResponse,
   ContainerMutationResponse,
   ContainerRotationResponse,
+  ContainerShareResponse,
   ContainerWriterProjectionResponse,
+  OrganizationReadModelDeltaResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import type { PrincipalPolicyCurrentEvidence } from "../../principalContracts/principalPolicyEvidence";
@@ -156,8 +158,19 @@ export interface ContainerShareApi extends ContainerReciteApi {
     containerId: string,
     input: ContainerMutationRequest,
     options?: ContainerMutationRequestOptions,
-  ): Promise<ContainerMutationSubmitResult<ContainerMutationResponse>>;
+  ): Promise<ContainerMutationSubmitResult<ContainerShareResponse>>;
   evictContainerWriterProjection?(containerId: string): void;
+}
+
+/**
+ * Sends the organization read-model cursor a share holds, so its response can
+ * carry the delta from it; the share settles the lease once it ends.
+ */
+export interface ContainerShareCommittedReadModel {
+  begin(): Promise<{
+    readonly heldCursor: string | undefined;
+    settle(delta: OrganizationReadModelDeltaResponse | undefined): void;
+  }>;
 }
 
 /**

@@ -84,6 +84,7 @@ export {
   isCreateContainerWithMetadataDocumentOperationRequest,
   isCreateContainerWithMetadataDocumentOperationResponse,
   isDeleteContainerOperationResponse,
+  isShareContainerOperationResponse,
   moveContainerOperation,
   reciteContainerOperation,
   rekeyContainerOperation,

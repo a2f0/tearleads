@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
+import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
   CommitOrganizationGroupPolicyRequestSchema,
   isCommitOrganizationGroupPolicyRequest,
   isOrganizationPrincipalPolicyRequest,
   OrganizationPrincipalPolicyRequestSchema,
+  OrganizationReadModelHeldCursorQuerySchema,
 } from "../request";
 import {
   CommitOrganizationGroupPolicyConflictResponseSchema,
@@ -161,10 +163,11 @@ export const commitOrganizationGroupPolicyOperation = defineJsonOperation({
   id: "organizations.groups.policy.commit",
   summary: "Advance a group policy and its signed directory head",
   description:
-    "Commits a group's next signed principal policy, its member envelopes, the matching organization policy successor, and the container grant updates the change requires, all in one transaction. Only organization administrators may call it; a stale head returns 409. A 202 asks for the identical request to be retried after preparation, and only a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.",
+    "Commits a group's next signed principal policy, its member envelopes, the matching organization policy successor, and the container grant updates the change requires, all in one transaction. Only organization administrators may call it; a stale head returns 409. When `readModelCursor` names the read-model head the commit advanced from, the response carries the read-model delta a feed read from that cursor returns. A 202 asks for the identical request to be retried after preparation, and only a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.",
   method: "PUT",
   params: OrganizationGroupPolicyPathParamsSchema,
   path: "/organizations/{organizationId}/groups/{groupId}/policy-commit",
+  query: OrganizationReadModelHeldCursorQuerySchema,
   responseDescriptions: preparationResponseDescriptions,
   responses: {
     200: CommitOrganizationGroupPolicyResponseSchema,
@@ -173,6 +176,7 @@ export const commitOrganizationGroupPolicyOperation = defineJsonOperation({
   runtimeRefinements: [
     organizationProvisioningContainerKeyringRefinement,
     principalHistoryRollbackRefinement,
+    ...organizationReadModelResponseRuntimeRefinements,
   ],
 });
 

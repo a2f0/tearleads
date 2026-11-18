@@ -91,6 +91,7 @@ export async function createOrganizationGroup(
   sessionUserId: string,
   input: CreateOrganizationGroupWithPolicyRequest,
   requestUrl?: string,
+  readModelCursor?: string,
 ): Promise<CreateOrganizationGroupResponse> {
   return runCreateOrganizationGroupWorkflow(
     runtime.db,
@@ -98,6 +99,7 @@ export async function createOrganizationGroup(
     sessionUserId,
     input,
     resolveApiIdentityTrustDomain(runtime.identityTrustDomain, requestUrl),
+    readModelCursor,
   );
 }
 

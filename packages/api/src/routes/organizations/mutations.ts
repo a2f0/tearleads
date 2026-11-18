@@ -15,6 +15,7 @@ import {
 } from "../../services/organizations/orgManager";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { queryParamsValidator } from "../../validators/queryParams";
 import { toPrincipalHistoryPreparationResponse } from "../principals/preparationResponse";
 import {
   type OrganizationsRouterDeps,
@@ -36,6 +37,7 @@ export function createOrganizationMutationsRoute({
       createOrganizationGroupOperation.params,
       "Invalid organizationId",
     ),
+    queryParamsValidator(createOrganizationGroupOperation.query),
     async (c) => {
       const { organizationId } = c.req.valid("param");
 
@@ -47,6 +49,7 @@ export function createOrganizationMutationsRoute({
             c.get("session").userId,
             c.req.valid("json"),
             c.req.url,
+            c.req.valid("query").readModelCursor,
           ),
         );
       } catch (error) {

@@ -24,7 +24,10 @@ export type OrgManagerRequestKind =
 export type DirectoryRefreshOptions = {
   afterMutation?: boolean;
   /** The read model the mutation already reconciled after it committed. */
-  mutationResult?: OrganizationGroupMutationResult | null;
+  mutationResult?: Pick<
+    OrganizationGroupMutationResult,
+    "directoryAndGroups"
+  > | null;
   clearError?: boolean;
   localOnly?: boolean;
   manageLoading?: boolean;

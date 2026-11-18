@@ -250,3 +250,16 @@ export function organizationReadModelFailure(input: {
     statusText: input.status === null ? "" : "failed",
   };
 }
+
+/** A real version 6 cursor at `position`, as the API encodes it. */
+export function organizationReadModelCursorAt(
+  position: number,
+  organizationId: string = organizationReadModelOrganizationId,
+): string {
+  return btoa(
+    JSON.stringify({ version: 6, organizationId, cursor: String(position) }),
+  )
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
+}

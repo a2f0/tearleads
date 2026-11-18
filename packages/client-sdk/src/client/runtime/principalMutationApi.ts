@@ -47,6 +47,8 @@ type MutationOverrides = JournaledPrincipalMutationMethods &
 
 interface PrincipalMutationApiCustodyInput {
   readonly api: ApiClient;
+  /** Binds a mutation's committed read-model lease to its session. */
+  readonly readSessionGeneration?: (() => number) | undefined;
   readonly readScope: () => PrincipalMutationRuntimeScope | null;
   readonly principalMutationTimeoutMs?: number | undefined;
 }
@@ -61,6 +63,8 @@ function mutationContext(
       "Principal mutations require an authenticated signing identity, a trusted API origin and durable local storage",
     );
   return {
+    domainScope: scope.database,
+    sessionGeneration: input.readSessionGeneration?.() ?? 0,
     execSql: scope.execSql,
     signingKeyPair: scope.signingKeyPair,
     scope: {
