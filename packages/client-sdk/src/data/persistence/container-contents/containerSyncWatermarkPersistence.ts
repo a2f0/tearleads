@@ -33,6 +33,7 @@ interface SelectedContainerSyncWatermark {
   laneId: string;
   laneKind: string;
   updatedAt: string | null;
+  cursorFormat: number;
   watermarkId: string | null;
   watermarkUpdatedAt: string | null;
 }
@@ -133,7 +134,10 @@ function mapSelectedWatermarkRecord(
   if (
     row.watermarkId === null ||
     row.watermarkUpdatedAt === null ||
-    row.updatedAt === null
+    row.updatedAt === null ||
+    (row.cursorFormat === 1 &&
+      row.laneKind === CONTAINER_DOCUMENTS_LANE &&
+      row.watermarkId.includes("/"))
   ) {
     return null;
   }
@@ -226,6 +230,7 @@ async function selectWatermarkRows(
           laneId: containerSyncWatermarks.laneId,
           laneKind: containerSyncWatermarks.laneKind,
           updatedAt: containerSyncWatermarks.updatedAt,
+          cursorFormat: containerSyncWatermarks.cursorFormat,
           watermarkId: containerSyncWatermarks.watermarkId,
           watermarkUpdatedAt: containerSyncWatermarks.watermarkUpdatedAt,
         })
@@ -357,6 +362,7 @@ export class ContainerSyncWatermarkRepository {
       ...(fetch.watermark
         ? {
             updatedAt: now,
+            cursorFormat: 2,
             watermarkId: fetch.watermark.id,
             watermarkUpdatedAt: fetch.watermark.updatedAt,
           }

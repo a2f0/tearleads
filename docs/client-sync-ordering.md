@@ -115,7 +115,9 @@ Entity timestamps retain their original meaning. See the
 Each lane reads its live rows and tombstones in a single SQL statement, so
 both come from the same snapshot. Each page orders by publication position and ID.
 Existing clients already save and echo both watermark strings. The opaque ID
-now contains the position and row ID. A device resuming from a timestamp-only
+seals the position and row ID with authenticated encryption bound to the user,
+lane, and cursor timestamp. A server cursor-key rotation starts a bounded
+replay. A device resuming from a timestamp-only
 cursor replays the lane once, in bounded pages, recovering earlier omissions.
 Parent lanes checkpoint each applied page. Document lanes checkpoint after
 applying the complete lane. After a restart, each resumes from its last
@@ -127,12 +129,22 @@ When a cached container or descendant carries a later entity timestamp than
 its removal, the SDK checks current access to the affected rows with bounded
 document-lane reads. It retains readable descendants and applies confirmed
 denials or absence only if the local rows still match the pre-request snapshot.
-An inconclusive read leaves the page retryable. Document removals, including
+An inconclusive read leaves the page retryable. When a live folder's entity
+clock moves backwards, hydration verifies the current signed placement and
+rechecks that checkpoint inside its local transaction. A move that restores
+inherited access prunes the superseded revocation for the moved subtree.
+Document removals, including
 those received after a live item on an earlier page, reach the signed-head
 check for locally held placements. These client-side recovery changes require
 the updated SDK. Earlier clients can read and resume the new cursors. On
-upgrade, the SDK clears document-lane publication cursors once, so it also
-replays any unlinks an earlier client already checkpointed.
+upgrade, the SDK recognizes document-lane publication cursors saved by an older
+build and replays any unlinks an earlier client already checkpointed. Deploy
+the additive
+database migration before the API. Old writers populate the new positions
+through the same triggers. The SDK can arrive before or after the API. A
+device running the older SDK benefits from commit-ordered paging when the
+API updates, and receives the backwards-clock application fixes when its SDK
+updates.
 
 ### Container metadata under lost hints
 

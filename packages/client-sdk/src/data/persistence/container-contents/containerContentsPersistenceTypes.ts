@@ -132,6 +132,7 @@ export interface ContainerDeletionGuard {
 }
 
 export interface SaveContainerOptions {
+  verifiedPlacement?: AccessManifestCheckpoint | undefined;
   createIntent?: ContainerCreateIntentInput;
   stillCurrent?: (() => boolean) | undefined;
   localUpdatedAt?: string;
@@ -395,20 +396,7 @@ export interface ContainerContentsPersistence
       pendingUpdate?: PendingUpdateFields | undefined;
       preserveDurableStructureWhenPending?: boolean | undefined;
       record: ContainerMetadataRecord;
-      saveOptions?:
-        | {
-            createIntent?: ContainerCreateIntentInput;
-            localUpdatedAt?: string;
-            moveIntent?: ContainerMoveIntentInput | undefined;
-            serverTimestamps?:
-              | {
-                  createdAt?: string | null;
-                  updatedAt?: string | null;
-                }
-              | undefined;
-            updatedAt?: string;
-          }
-        | undefined;
+      saveOptions?: Omit<SaveContainerOptions, "stillCurrent"> | undefined;
       settleAcceptedPendingOnConflict: boolean;
       stillCurrent?: (() => boolean) | undefined;
     },

@@ -210,7 +210,7 @@ test("container discovery watermarks exhaust every mixed change exactly once", a
       expect(page.nextWatermark).toEqual(
         expectedLastChange
           ? {
-              id: expectedDiscoveryId(expectedLastChange.id),
+              id: expectedDiscoveryId(),
               updatedAt: expectedLastChange.updatedAt,
             }
           : watermark,

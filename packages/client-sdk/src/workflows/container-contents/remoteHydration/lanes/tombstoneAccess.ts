@@ -97,9 +97,9 @@ export async function resolveTombstoneCascade(input: {
     ],
     input.isCurrent,
   );
-  // A readable root contradicts the removal. Its grant restoration prunes the
-  // tombstone; retry from the same cursor until the views agree.
-  if (!access || access.readable.has(input.tombstone.containerId)) return null;
+  // A move before the server upgrade may have left a superseded removal in
+  // its old lane. Preserve a currently readable root and advance past it.
+  if (!access) return null;
   return {
     cascade: cascade(
       new Set([...input.preservedContainerIds, ...access.readable]),

@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { insertQueuedUpdateRows } from "../../../../test/helpers/data/queuedUpdateRows";
-import type { ExecSql } from "../../sqlite/sqlSchema";
+import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
+import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import { upsertAccessManifestCheckpointInTransaction } from "../keyingCheckpoints/keyingCheckpointPersistence";
 import { sqlContainerContentsPersistence as persistence } from "./containerContentsPersistence";
 
 const T1 = "2026-01-01T00:00:00.000Z";
@@ -257,5 +260,60 @@ test("hydration never commits a folder into an organization it left", async () =
     ).resolves.toBe(false);
   } finally {
     await close();
+  }
+});
+
+test("a verified folder move can advance placement across a backward entity clock", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "commit-ordered-placement",
+  );
+  try {
+    await persistence.ensureSchema(execSql);
+    await ensureSqlTables(execSql, keyingCheckpointTables);
+    await persistence.saveContainer(
+      execSql,
+      { ...container, serverUpdatedAt: T2 },
+      record,
+    );
+    const held = await persistence.loadContainerMetadataState(
+      execSql,
+      container.id,
+    );
+    if (!held?.record) throw new Error("Expected held folder");
+    const placement = {
+      objectKind: "container" as const,
+      objectId: container.id,
+      organizationId: container.organizationId,
+      epoch: 2,
+      manifestHash: "verified-move",
+    };
+    const update = {
+      acceptedPendingUpdateIds: [],
+      container: { ...held.container, parentId: "next-parent" },
+      expectedContainer: held.container,
+      expectedRecord: held.record,
+      record: held.record,
+      saveOptions: {
+        serverTimestamps: { updatedAt: T1 },
+        verifiedPlacement: placement,
+      },
+      settleAcceptedPendingOnConflict: false,
+    };
+    expect(
+      await persistence.commitMetadataMutation(execSql, update),
+    ).toMatchObject({ committed: false });
+    await upsertAccessManifestCheckpointInTransaction(
+      getClientSQLitePersistenceRuntime(execSql).db,
+      placement,
+      T2,
+    );
+    expect(
+      await persistence.commitMetadataMutation(execSql, update),
+    ).toMatchObject({
+      committed: true,
+      container: { parentId: "next-parent", serverUpdatedAt: T1 },
+    });
+  } finally {
+    close();
   }
 });

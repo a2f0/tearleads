@@ -32,6 +32,7 @@ import {
   type ContainerDocumentTombstoneRow,
   selectContainerDocumentPage,
 } from "./containerDocumentPage";
+import { discoveryCursor } from "./discoveryCursor";
 import { readDiscoverySources } from "./discoverySnapshot";
 import {
   normalizeSyncPageLimit,
@@ -277,6 +278,13 @@ function documentTombstonesQuery(input: {
     .from(containerDocumentSyncTombstones)
     .where(sql`
       ${containerDocumentSyncTombstones.containerId} = ${input.containerId}
+      and not exists (
+        select 1 from ${accessManifestHeads} head
+        join ${accessManifestDocumentLinkProjection} link on link.manifest_hash = head.manifest_hash
+        where head.object_kind = 'document'
+          and head.object_id = ${containerDocumentSyncTombstones.documentId}
+          and link.container_id = ${containerDocumentSyncTombstones.containerId}
+      )
       ${watermarkPredicate(
         sql`${containerDocumentSyncTombstones.discoveryOrder}`,
         textExpression(sql`${containerDocumentSyncTombstones.documentId}`),
@@ -404,7 +412,7 @@ export async function listContainerDocuments(
     options.limit,
     () => new ListContainerDocumentsError("Invalid limit", 400),
   );
-  const watermark = normalizeSyncWatermark(
+  const requestedWatermark = normalizeSyncWatermark(
     options.watermark,
     () => new ListContainerDocumentsError("Invalid watermark", 400),
   );
@@ -419,6 +427,12 @@ export async function listContainerDocuments(
     userId,
     context,
   );
+  const cursor = discoveryCursor(
+    runtime.documentSyncCursorHmacKey,
+    [userId, "documents", containerId],
+    requestedWatermark,
+  );
+  const watermark = cursor.position;
   const query = { containerId, limit, runtime, watermark };
   const rows = await readDiscoverySources(
     runtime,
@@ -429,7 +443,7 @@ export async function listContainerDocuments(
   const tombstoneRows = rows.removed.map((row) =>
     removedDocumentRow.parse(row),
   );
-  return buildListContainerDocumentsResponse({
+  const response = await buildListContainerDocumentsResponse({
     containerAccess,
     containerId,
     context,
@@ -440,4 +454,5 @@ export async function listContainerDocuments(
     userId,
     watermark,
   });
+  return { ...response, nextWatermark: cursor.seal(response.nextWatermark) };
 }

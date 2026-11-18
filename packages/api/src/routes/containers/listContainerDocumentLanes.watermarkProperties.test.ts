@@ -208,10 +208,7 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
     containerId: owner.rootContainerId,
     limit: 1,
     token: owner.token,
-    watermark: {
-      id: "1788177600000100/00000000-0000-4000-8000-000000000001",
-      updatedAt: "2026-08-31T12:00:00.000100Z",
-    },
+    watermark: null,
   });
   expect(first.items).toHaveLength(0);
   expect(first.hasMore).toBe(true);
@@ -272,7 +269,7 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
       expect(page.nextWatermark).toEqual(
         expectedLastChange
           ? {
-              id: expectedDiscoveryId(expectedLastChange.id),
+              id: expectedDiscoveryId(),
               updatedAt: expectedLastChange.updatedAt,
             }
           : watermark,

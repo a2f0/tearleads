@@ -216,6 +216,7 @@ async function updateExistingRemoteContainerState(input: {
   containerIdsWithPendingStructuralIntents: ReadonlySet<string>;
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
+  verifiedPlacement?: AccessManifestCheckpoint | undefined;
   existingState: ContainerState;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
@@ -258,10 +259,13 @@ async function updateExistingRemoteContainerState(input: {
       ...(nextParentId !== undefined ? { parentId: nextParentId } : {}),
     },
     false,
-    remoteContainerHydrationSaveOptions({
-      localUpdatedAt,
-      remoteContainer,
-    }),
+    {
+      ...remoteContainerHydrationSaveOptions({
+        localUpdatedAt,
+        remoteContainer,
+      }),
+      verifiedPlacement: input.verifiedPlacement,
+    },
     {
       preserveDurableStructureWhenPending: true,
     },
@@ -368,7 +372,10 @@ export async function upsertRemoteContainerState(
     ...input,
     heldBinding,
     supersededListing,
-    refresh: !!input.expectedHydrationTombstone,
+    refresh:
+      !!input.expectedHydrationTombstone ||
+      (heldState?.container.serverUpdatedAt != null &&
+        heldState.container.serverUpdatedAt > listed.updatedAt),
     onVerifiedCheckpoint: (checkpoint) => {
       expectedPlacementCheckpoint = checkpoint;
     },
@@ -443,6 +450,7 @@ function persistVerifiedRemoteContainer(
   const { existingState, expectedPlacementCheckpoint } = input;
   return existingState
     ? updateExistingRemoteContainerState({
+        verifiedPlacement: expectedPlacementCheckpoint,
         childIdsByParentId: input.childIdsByParentId,
         containerIdsWithPendingMetadataUpdates:
           input.containerIdsWithPendingMetadataUpdates,

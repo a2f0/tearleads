@@ -296,7 +296,7 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(source.containerId);
   expect(recipientBaseline.nextWatermark).toEqual({
-    id: expectedDiscoveryId(source.containerId),
+    id: expectedDiscoveryId(),
     updatedAt: expect.any(String),
   });
 
@@ -314,7 +314,7 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     signer: owner,
   });
 
-  await expectMutationSuccess(
+  const movedAway = await expectMutationSuccess(
     await postMutation({
       path: `/containers/${source.containerId}/move`,
       request: moveRequest,
@@ -342,7 +342,39 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     },
   ]);
   expect(recipientDelta.nextWatermark).toEqual({
-    id: expectedDiscoveryId(source.containerId),
+    id: expectedDiscoveryId(),
     updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
+  const movedBundle = accessManifestFromResponse(movedAway);
+  const restore = await buildMoveRequest({
+    destinationParent: sharedOldParentBundle,
+    destinationParentKekState: sharedOldParentKekState,
+    destinationParentPath: [root.bundle, sharedOldParentBundle],
+    previous: movedBundle,
+    previousContainerPath: [
+      root.bundle,
+      accessManifestFromResponse(destination),
+      movedBundle,
+    ],
+    previousKekState: kekStateFromResponse(movedAway),
+    signer: owner,
+  });
+  await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${source.containerId}/move`,
+      request: restore,
+      token: owner.token,
+    }),
+  );
+  const restored = await readLanePage(
+    await listContainersForUser({
+      parentId: oldParent.containerId,
+      token: recipient.token,
+      limit: 1,
+      watermark: recipientBaseline.nextWatermark,
+    }),
+  );
+  expect(restored.items.map((row) => row.id)).toEqual([source.containerId]);
+  expect(restored.tombstones).toEqual([]);
+  expect(restored.hasMore).toBe(false);
 });

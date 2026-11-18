@@ -16,6 +16,7 @@ import {
   resolveReadableContainerAccess,
 } from "../../../keyingReadAccess";
 import { appendOrganizationReadModelChangeInTransaction } from "../../../organizations/readModelChanges";
+import { pruneRegainedAccessTombstones } from "../../../regainedAccessTombstones";
 import {
   userIdsForGrant,
   userIdsWithReadableAccessThroughPath,
@@ -187,6 +188,7 @@ function previousContainerPathDepth(input: {
 async function persistMoveAccessLossTombstones(input: {
   readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedContainerAccessManifest;
+  readonly destinationParentPath: readonly VerifiedContainerAccessManifest[];
   readonly previousContainerPath: readonly VerifiedContainerAccessManifest[];
   readonly previousManifest: VerifiedContainerAccessManifest | null;
   readonly updatedAt: Date;
@@ -202,6 +204,17 @@ async function persistMoveAccessLossTombstones(input: {
   const previouslyReadableUserIds = await userIdsWithReadableAccessThroughPath({
     executor,
     path: previousContainerPath,
+  });
+  const previousReaders = new Set(previouslyReadableUserIds);
+  const currentReaders = await userIdsWithReadableAccessThroughPath({
+    executor,
+    path: [...input.destinationParentPath, manifest],
+  });
+  await pruneRegainedAccessTombstones({
+    executor,
+    organizationId: manifest.state.organizationId,
+    userIds: currentReaders.filter((id) => !previousReaders.has(id)),
+    withinSubtreesOf: [manifest.state.containerId],
   });
   if (previouslyReadableUserIds.length === 0) {
     return;
@@ -271,6 +284,7 @@ async function persistMutationTombstones(input: {
   executor: DatabaseTransaction;
   manifest: VerifiedContainerAccessManifest;
   previousContainerPath: readonly VerifiedContainerAccessManifest[] | undefined;
+  destinationParentPath: readonly VerifiedContainerAccessManifest[] | undefined;
   previousManifest: VerifiedContainerAccessManifest | null;
   updatedAt: Date;
 }): Promise<void> {
@@ -287,11 +301,12 @@ async function persistMutationTombstones(input: {
     manifest,
     previousManifest,
   });
-  if (input.previousContainerPath) {
+  if (input.previousContainerPath && input.destinationParentPath) {
     await persistMoveAccessLossTombstones({
       executor,
       manifest,
       previousContainerPath: input.previousContainerPath,
+      destinationParentPath: input.destinationParentPath,
       previousManifest,
       updatedAt,
     });
@@ -304,6 +319,7 @@ export async function persistVerifiedMutation(
   verifiedKekMutation: VerifiedContainerKekMutationState,
   previousManifest: VerifiedContainerAccessManifest | null,
   previousContainerPath?: readonly VerifiedContainerAccessManifest[],
+  destinationParentPath?: readonly VerifiedContainerAccessManifest[],
 ): Promise<ContainerMutationResponse> {
   const { executor } = context;
   const {
@@ -336,6 +352,7 @@ export async function persistVerifiedMutation(
     executor,
     manifest,
     previousContainerPath,
+    destinationParentPath,
     previousManifest,
     updatedAt,
   });

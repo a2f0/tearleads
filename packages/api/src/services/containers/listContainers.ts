@@ -18,6 +18,7 @@ import {
   resolveReadableContainerAccessBatch,
 } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
+import { discoveryCursor } from "./discoveryCursor";
 import { readDiscoverySources } from "./discoverySnapshot";
 import {
   type AccessibleContainerRow,
@@ -285,11 +286,17 @@ export async function listContainers(
     () => new ListContainersError("Invalid limit", 400),
   );
   const parentId = normalizeParentId(options.parentId);
-  const watermark = normalizeSyncWatermark(
+  const requestedWatermark = normalizeSyncWatermark(
     options.watermark,
     () => new ListContainersError("Invalid watermark", 400),
   );
 
+  const cursor = discoveryCursor(
+    runtime.documentSyncCursorHmacKey,
+    [userId, "containers", parentId],
+    requestedWatermark,
+  );
+  const watermark = cursor.position;
   const query = { limit, parentId, userId, watermark };
   const rows = await readDiscoverySources(
     runtime,
@@ -315,9 +322,10 @@ export async function listContainers(
     userId,
   });
 
-  return buildListContainersResponse({
+  const response = buildListContainersResponse({
     pageSelection,
     tombstoneRows,
     visibleContainers,
   });
+  return { ...response, nextWatermark: cursor.seal(response.nextWatermark) };
 }

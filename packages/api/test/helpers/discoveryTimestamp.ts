@@ -11,6 +11,6 @@ export function fixtureDiscoveryOrder(timestamp: SQLWrapper) {
   return sql`(extract(epoch from ${timestamp}) * 1000000)::bigint`;
 }
 
-export function expectedDiscoveryId(id: string) {
-  return expect.stringMatching(new RegExp(`^[0-9]+/${id}$`, "u"));
+export function expectedDiscoveryId() {
+  return expect.stringMatching(/^d1\/[A-Za-z0-9_-]{114}$/u);
 }

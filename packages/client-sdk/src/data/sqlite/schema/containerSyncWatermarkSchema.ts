@@ -1,4 +1,9 @@
-import { primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
 
 /**
@@ -21,6 +26,7 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  *   null until a watermark is saved.
  * - `watermarkId`: Server id tie-breaker for the stored watermark; null
  *   exactly when `watermarkUpdatedAt` is.
+ * - `cursorFormat`: SDK format that applied the saved watermark.
  * - `updatedAt`: Local timestamp for when the cursor was saved.
  * - `checkedAt`: Local timestamp for the most recent fully drained lane check;
  *   null until one completes.
@@ -35,6 +41,7 @@ export const containerSyncWatermarks = sqliteTable(
     laneId: text("lane_id").notNull(),
     watermarkUpdatedAt: text("watermark_updated_at"),
     watermarkId: text("watermark_id"),
+    cursorFormat: integer("cursor_format").notNull().default(1),
     updatedAt: text("updated_at"),
     checkedAt: text("checked_at"),
   },
@@ -44,6 +51,6 @@ export const containerSyncWatermarks = sqliteTable(
 export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
   {
     ...defineSqlTableSchema(containerSyncWatermarks),
-    requiredColumns: ["checked_at"],
+    requiredColumns: ["checked_at", "cursor_format"],
   },
 ];

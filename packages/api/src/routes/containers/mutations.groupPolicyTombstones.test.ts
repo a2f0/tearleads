@@ -77,7 +77,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(created.containerId);
   expect(recipientBaseline.nextWatermark).toEqual({
-    id: expectedDiscoveryId(created.containerId),
+    id: expectedDiscoveryId(),
     updatedAt: expect.any(String),
   });
 
@@ -124,7 +124,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
     },
   ]);
   expect(recipientDelta.nextWatermark).toEqual({
-    id: expectedDiscoveryId(created.containerId),
+    id: expectedDiscoveryId(),
     updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
 
@@ -208,7 +208,7 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(created.containerId);
   expect(recipientBaseline.nextWatermark).toEqual({
-    id: expectedDiscoveryId(created.containerId),
+    id: expectedDiscoveryId(),
     updatedAt: expect.any(String),
   });
 
@@ -247,7 +247,7 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
     recipientDelta.items.map((container: { id: string }) => container.id),
   ).toContain(created.containerId);
   expect(recipientDelta.nextWatermark).toEqual({
-    id: expectedDiscoveryId(created.containerId),
+    id: expectedDiscoveryId(),
     updatedAt: expect.any(String),
   });
   expect(recipientDelta.nextWatermark).not.toEqual(

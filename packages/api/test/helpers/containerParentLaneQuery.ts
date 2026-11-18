@@ -36,6 +36,7 @@ export function requestContainerParentLanes(
 }
 
 export function requestSingleContainerParentLane(input: {
+  readonly limit?: number;
   readonly parentId?: string | null | undefined;
   readonly token: string;
   readonly watermark?:
@@ -47,6 +48,7 @@ export function requestSingleContainerParentLane(input: {
   return requestContainerParentLanes(input.token, [
     {
       laneId: parentId ?? "root",
+      ...(input.limit === undefined ? {} : { limit: input.limit }),
       parentId,
       watermark: input.watermark ?? null,
     },

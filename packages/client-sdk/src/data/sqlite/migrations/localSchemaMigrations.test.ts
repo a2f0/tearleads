@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  ContainerSyncWatermarkRepository,
+  containerContentsSyncLane,
+  containerParentSyncLane,
+} from "../../persistence/container-contents/containerSyncWatermarkPersistence";
 import { organizationReadModelTables } from "../schema";
 import { documentTables } from "../schema/documentRecordSchema";
 import { ensureSqlTables } from "../sqlSchema";
@@ -159,7 +164,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
   }
 });
 
-test("step 4 replays only document lanes an earlier SDK advanced in publication order", async () => {
+test("step 4 distinguishes document cursors saved before signed unlink recovery", async () => {
   const { close, execSql } = await createTestExecSql(
     "local-schema-discovery-replay",
   );
@@ -167,28 +172,31 @@ test("step 4 replays only document lanes an earlier SDK advanced in publication 
     await migrateLocalSchema(execSql, {
       migrations: localSchemaMigrations.slice(0, 2),
     });
+    await execSql(`CREATE TABLE container_sync_watermarks (
+      lane_kind TEXT NOT NULL, lane_id TEXT NOT NULL, watermark_id TEXT, watermark_updated_at TEXT,
+      updated_at TEXT, checked_at TEXT, PRIMARY KEY(lane_kind,lane_id))`);
     await execSql(
-      "CREATE TABLE container_sync_watermarks (lane_id TEXT PRIMARY KEY, lane_kind TEXT, watermark_id TEXT)",
+      `INSERT INTO container_sync_watermarks VALUES
+      ('container_documents', 'replay', '123/doc', ?, ?, NULL),
+      ('container_documents', 'legacy', 'doc', ?, ?, NULL),
+      ('container_parent', 'root', '123/folder', ?, ?, NULL)`,
+      Array(6).fill(CREATED_AT),
     );
-    await execSql(`INSERT INTO container_sync_watermarks VALUES
-      ('skipped-unlink', 'container_documents', '123/doc'),
-      ('legacy', 'container_documents', 'doc'),
-      ('parent', 'container_parent', '123/folder')`);
     expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+    const repository = new ContainerSyncWatermarkRepository(execSql);
+    const lane = containerContentsSyncLane("replay");
+    expect(await repository.loadWatermark(lane)).toBeNull();
     expect(
-      await execSql(
-        "SELECT lane_id FROM container_sync_watermarks ORDER BY lane_id",
-      ),
-    ).toEqual([{ lane_id: "legacy" }, { lane_id: "parent" }]);
-    await execSql(
-      "INSERT INTO container_sync_watermarks VALUES ('replayed', 'container_documents', '124/doc')",
-    );
-    expect((await migrateLocalSchema(execSql)).status).toBe("current");
+      await repository.loadWatermark(containerContentsSyncLane("legacy")),
+    ).toEqual({ id: "doc", updatedAt: CREATED_AT });
     expect(
-      await execSql(
-        "SELECT lane_id FROM container_sync_watermarks WHERE lane_id = 'replayed'",
-      ),
-    ).toHaveLength(1);
+      await repository.loadWatermark(containerParentSyncLane(null)),
+    ).toEqual({ id: "123/folder", updatedAt: CREATED_AT });
+    const next = { id: "124/doc", updatedAt: CREATED_AT };
+    await repository.saveWatermark(lane, next);
+    expect(
+      await new ContainerSyncWatermarkRepository(execSql).loadWatermark(lane),
+    ).toEqual(next);
   } finally {
     close();
   }

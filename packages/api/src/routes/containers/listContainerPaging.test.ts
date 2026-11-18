@@ -48,7 +48,10 @@ test("parent-lanes/query supports client-owned watermark resume", async () => {
   const replay = await requestContainerParentLanes(owner.token, [
     { laneId: "root", limit: 1, parentId: null, watermark: oldCursor },
   ]);
-  expect(await readContainerParentLanePage(replay, "root")).toEqual(firstBody);
+  expect(await readContainerParentLanePage(replay, "root")).toEqual({
+    ...firstBody,
+    nextWatermark: rootWatermark(roots[0]),
+  });
   const firstWatermark = firstBody.nextWatermark;
   if (!firstWatermark) {
     throw new Error("Expected a root lane watermark");
@@ -164,7 +167,7 @@ test("parent-lanes/query advances a lane watermark over filtered candidates", as
     hasMore: true,
     items: [],
     nextWatermark: {
-      id: expectedDiscoveryId(owner.rootContainerId),
+      id: expectedDiscoveryId(),
       updatedAt: "2026-05-05T00:00:00.000Z",
     },
     tombstones: [],
@@ -184,7 +187,7 @@ test("parent-lanes/query advances a lane watermark over filtered candidates", as
     hasMore: true,
     items: [],
     nextWatermark: {
-      id: expectedDiscoveryId(tombstoneContainerId),
+      id: expectedDiscoveryId(),
       updatedAt: "2026-05-05T00:00:01.000Z",
     },
     tombstones: [
@@ -216,7 +219,7 @@ test("parent-lanes/query advances a lane watermark over filtered candidates", as
       }),
     ],
     nextWatermark: {
-      id: expectedDiscoveryId(metadata.id),
+      id: expectedDiscoveryId(),
       updatedAt: "2026-05-05T00:00:02.000Z",
     },
     tombstones: [],

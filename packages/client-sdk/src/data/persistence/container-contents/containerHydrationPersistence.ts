@@ -138,9 +138,12 @@ export async function recordContainerHydrationTombstones(input: {
   }
 }
 
-async function placementCheckpointMatches(
+export async function placementCheckpointMatches(
   tx: ClientSQLiteTransactionScope,
-  input: Parameters<ContainerContentsPersistence["commitHydratedContainer"]>[1],
+  input: Pick<
+    Parameters<ContainerContentsPersistence["commitHydratedContainer"]>[1],
+    "container" | "expectedPlacementCheckpoint"
+  >,
 ): Promise<boolean> {
   const expected = input.expectedPlacementCheckpoint;
   if (!expected) return true;

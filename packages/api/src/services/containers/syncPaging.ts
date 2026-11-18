@@ -68,9 +68,8 @@ export function watermarkPredicate(
   idExpression: SQL,
   watermark: SyncWatermark | null | undefined,
 ): SQL {
-  // Old clients persist and echo both opaque strings verbatim. A cursor from
-  // the former clock order starts a bounded replay, including previously
-  // missed rows. PostgreSQL IDs in the previous format contain no slash.
+  // Only the service's authenticated, decoded position reaches a scan.
+  // Legacy and unreadable wire cursors replay from the beginning.
   const match = watermark?.id.match(/^(-?\d{1,19})\/(.+)$/u);
   if (!match) return sql``;
   const order = BigInt(match[1] ?? "");

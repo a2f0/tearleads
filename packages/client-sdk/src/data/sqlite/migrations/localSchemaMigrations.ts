@@ -79,8 +79,9 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
       if (!(await context.hasTable("container_sync_watermarks"))) return;
       // A previous SDK could save a publication cursor past an older-clock
       // unlink. Original UUID cursors already replay on the upgraded server.
-      await execSql(`DELETE FROM container_sync_watermarks
-        WHERE lane_kind = 'container_documents' AND instr(watermark_id, '/') > 0`);
+      await execSql(
+        "ALTER TABLE container_sync_watermarks ADD COLUMN cursor_format INTEGER NOT NULL DEFAULT 1",
+      );
     },
     version: 4,
   },

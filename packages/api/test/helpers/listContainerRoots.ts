@@ -4,6 +4,7 @@ import { containers } from "@tearleads/api-shared/schema";
 import type { TestUser } from "@tearleads/test-utils";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { and, asc, eq, isNull } from "drizzle-orm";
+import { expectedDiscoveryId } from "./discoveryTimestamp";
 
 /** Expected persisted root candidates in the lane's (discoveryOrder, id) order. */
 export async function loadRegisteredContainerRoots(owner: TestUser) {
@@ -44,7 +45,7 @@ export function rootWatermark(
 ) {
   if (!root) throw new Error("Expected a root candidate");
   return {
-    id: `${root.discoveryOrder}/${root.id}`,
+    id: expectedDiscoveryId(),
     updatedAt: root.updatedAt.toISOString(),
   };
 }
