@@ -334,6 +334,7 @@ interface RemoteContainerIngestor {
 }
 
 export function createRemoteContainerIngestor(input: {
+  ownsScope?: () => boolean;
   getSerializationBarrier?: (() => Promise<void> | null) | undefined;
   host: RemoteContainerHydrationHost;
   state: RemoteContainerHydrationState;
@@ -343,7 +344,20 @@ export function createRemoteContainerIngestor(input: {
   const generationByContainerId: RemoteContainerIngestGenerationMap = new Map();
   let ingestRemoteContainersPromise: Promise<void> | null = null;
 
+  const settleStale = (generation: RemoteContainerIngestGeneration) =>
+    settleStaleRemoteContainerIngestGeneration({
+      generation,
+      generationByContainerId,
+      queue: pendingRemoteContainersById,
+      state,
+    });
+
   const runNextGeneration = (): Promise<void> => {
+    if (input.ownsScope?.() === false) {
+      pendingRemoteContainersById.clear();
+      generationByContainerId.clear();
+      return Promise.resolve();
+    }
     if (ingestRemoteContainersPromise) {
       return ingestRemoteContainersPromise.then(
         runNextGeneration,
@@ -370,6 +384,7 @@ export function createRemoteContainerIngestor(input: {
       return runNextGeneration();
     }
     const isCurrent = () =>
+      input.ownsScope?.() !== false &&
       isRemoteContainerIngestGenerationCurrent(state, generation);
     const guardedHost = createGenerationGuardedHydrationHost({
       host,
@@ -387,23 +402,11 @@ export function createRemoteContainerIngestor(input: {
         }),
       )
       .then(() => {
-        if (!isCurrent()) {
-          settleStaleRemoteContainerIngestGeneration({
-            generation,
-            generationByContainerId,
-            queue: pendingRemoteContainersById,
-            state,
-          });
-        }
+        if (!isCurrent()) settleStale(generation);
       })
       .catch((error: unknown) => {
         if (!isCurrent() || error instanceof StaleRemoteHydrationError) {
-          settleStaleRemoteContainerIngestGeneration({
-            generation,
-            generationByContainerId,
-            queue: pendingRemoteContainersById,
-            state,
-          });
+          settleStale(generation);
           return;
         }
         throw error;

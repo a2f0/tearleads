@@ -162,8 +162,8 @@ async function applyRemoteContainerPage(input: {
         remoteContainer: container,
         state,
       },
-      () => {
-        failure = "refused";
+      (outcome) => {
+        failure = outcome;
       },
     );
     if (!upserted) {

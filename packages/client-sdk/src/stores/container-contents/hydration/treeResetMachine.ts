@@ -12,17 +12,20 @@ type Event =
   | { type: "start"; owner: Owner; fullTree: boolean }
   | { type: "covered"; reset: Reset };
 
+function sameOwner(left: Owner, right: Owner): boolean {
+  return (
+    left.lifecycleGeneration === right.lifecycleGeneration &&
+    left.writeGeneration === right.writeGeneration
+  );
+}
+
 function transition(state: State, event: Event): State {
   switch (event.type) {
     case "requested":
       return { status: "queued", owner: event.owner };
     case "start":
       if (state.status === "idle") return state;
-      if (
-        state.owner.lifecycleGeneration !== event.owner.lifecycleGeneration ||
-        state.owner.writeGeneration !== event.owner.writeGeneration
-      )
-        return { status: "idle" };
+      if (!sameOwner(state.owner, event.owner)) return { status: "idle" };
       if (state.status === "incomplete" && !event.fullTree) return state;
       return { status: "incomplete", owner: state.owner };
     case "covered":
@@ -55,12 +58,15 @@ export function queueTreeReset(store: Owner): void {
 export function claimTreeReset(
   store: Owner,
   fullTree: boolean,
-): (() => void) | undefined {
+): { isOwned: () => boolean; cover: () => void } | undefined {
   const previous = resets.get(store);
   if (!previous) return;
   const reset = dispatch(store, { type: "start", owner: store, fullTree });
   if (reset.status !== "incomplete" || reset === previous) return;
-  return () => {
-    dispatch(store, { type: "covered", reset });
+  return {
+    isOwned: () => sameOwner(reset.owner, store),
+    cover: () => {
+      dispatch(store, { type: "covered", reset });
+    },
   };
 }

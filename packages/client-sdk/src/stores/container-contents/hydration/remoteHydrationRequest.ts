@@ -38,6 +38,7 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
   };
 
 interface RemoteHydrationRequestInput {
+  ownsBorrowedReset?: () => boolean;
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
   reconnect?: ReconnectCrawl | undefined;
@@ -156,8 +157,9 @@ function prepareTreeReset(
     followDiscoveredParentLanes: true,
     resetAllLaneWatermarks: true,
     recreateOnFullyHydratedAtStart: false,
+    ownsBorrowedReset: coverReset.isOwned,
     onFullyHydrated: () => {
-      coverReset();
+      coverReset.cover();
       return onCovered?.();
     },
   };
@@ -244,7 +246,7 @@ function retryRemoteHydrationAfterReset(
     // A superseded crawl still owes the manual refresh whose reset it consumed.
     // Complete that request under the live store's own generation guard.
     if (
-      !input.resetAllLaneWatermarks ||
+      !input.ownsBorrowedReset?.() ||
       input.state.runtime.liveHydrationStatus?.() === "retired"
     )
       return Promise.resolve();
@@ -352,13 +354,21 @@ function consumeQueuedHydrationScope(
   };
 }
 
+function ownsHydrationRequest(input: RemoteHydrationRequestInput): boolean {
+  return (
+    ownsContainerStore(input.state) &&
+    input.ownsBorrowedReset?.() !== false &&
+    input.reconnect?.isCurrent() !== false
+  );
+}
+
 function captureHydrationScope(
   input: RemoteHydrationRequestInput,
 ): () => boolean {
   const { state } = input;
   const { lifecycleGeneration, structuralGeneration } = state;
   return () =>
-    input.reconnect?.isCurrent() !== false &&
+    ownsHydrationRequest(input) &&
     isRequestGenerationCurrent({
       state,
       lifecycleGeneration,
@@ -370,8 +380,7 @@ export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
   const { host, scheduleSync, state } = input;
-  if (!ownsContainerStore(state) || input.reconnect?.isCurrent() === false)
-    return Promise.resolve();
+  if (!ownsHydrationRequest(input)) return Promise.resolve();
   queueRequestedParentIds(input);
   const readinessBarrier = waitForRemoteHydrationReadiness(input);
   if (readinessBarrier) {

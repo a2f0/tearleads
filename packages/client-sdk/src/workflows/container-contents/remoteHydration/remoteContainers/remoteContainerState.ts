@@ -422,20 +422,23 @@ export async function upsertRemoteContainerState(
  */
 export async function upsertIsolatedRemoteContainerState(
   input: UpsertRemoteContainerStateInput,
-  onProofRefused?: () => void,
+  recordIncompleteItem?: (outcome: "refused" | "retry") => void,
 ): Promise<ContainerState | null> {
   try {
     return await upsertRemoteContainerState(input);
   } catch (error) {
     if (isKeyingVerificationError(error)) {
-      onProofRefused?.();
+      recordIncompleteItem?.("refused");
       return null;
     }
+    if (isProjectionVerificationCancelledError(error)) return null;
     if (
-      isProjectionVerificationCancelledError(error) ||
-      error instanceof ProjectionDependencyUnavailableError
-    )
+      error instanceof ProjectionDependencyUnavailableError &&
+      recordIncompleteItem
+    ) {
+      recordIncompleteItem("retry");
       return null;
+    }
     throw error;
   }
 }

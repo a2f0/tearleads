@@ -124,7 +124,12 @@ test("requests queued across a reset settle with the recovery crawl", async () =
   }
 });
 
-test.each(["superseded", "offline", "listing unavailable"] as const)(
+test.each([
+  "superseded",
+  "offline",
+  "listing unavailable",
+  "replacement owner",
+] as const)(
   "a manual reset survives a reconnect handoff: %s",
   async (scenario) => {
     const offline = scenario === "offline";
@@ -209,13 +214,23 @@ test.each(["superseded", "offline", "listing unavailable"] as const)(
         };
         await resumeContainerContentsRecoveryHydration(state);
       }
+      if (scenario === "replacement owner") {
+        state.writeGeneration = 1;
+        state.structuralGeneration++;
+        state.runtime = {
+          ...state.runtime,
+          auth: { ...state.runtime.auth, organizationId: "replacement-org" },
+        };
+      }
       const replacement = requestContainerContentsRemoteHydration({
         ...input,
         reconnect: { isCurrent: () => true, record: () => {} },
       });
       holds[1]?.resolve();
       await Promise.all([active, reconnect, manual, replacement]);
-      expect(await cursors.loadWatermark(lane)).toEqual(reset);
+      expect(await cursors.loadWatermark(lane)).toEqual(
+        scenario === "replacement owner" ? initial : reset,
+      );
     } finally {
       for (const hold of holds) hold.resolve();
       await close();
