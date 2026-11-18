@@ -74,7 +74,8 @@ for (const full of [false, true]) {
     // last, once. PostgreSQL counts two transaction-control statements too.
     // Verifying the Admins head as a strict authority beside its policy costs
     // two statements here and spares the first Admins-governed group create a
-    // 202 preparation round.
+    // 202 preparation round. Reading the commit position after the
+    // transaction, for the seeded documents' first reads, costs one.
     console.info("create-seed-registration", {
       full,
       statements: counter.statements,
@@ -109,7 +110,7 @@ for (const full of [false, true]) {
       updates.map(() => 1),
     );
     expect(counter.statements).toBeLessThanOrEqual(
-      (full ? 405 : 201) + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+      (full ? 406 : 202) + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
     );
   });
 }

@@ -107,7 +107,7 @@ test("group creation and adding a peer have separate request budgets", async () 
         // The first add enrolls the peer in Members and the custom group in
         // one write, including metadata discovery, read-only sync, and billing.
         // The second add reuses the roster membership.
-        // First enrollment measures 38 calls with private metadata-root
+        // First enrollment measures 37 calls with private metadata-root
         // authority, its group create included (30 for the add itself). The
         // add applies the SDK's post-commit read model instead of reading it
         // again, and the hint naming that cursor costs no read (later adds

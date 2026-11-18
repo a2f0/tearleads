@@ -26,6 +26,7 @@ import {
   isWebSocketTicketResponse,
   ListSessionsResponseSchema,
   RegistrationResponseSchema,
+  registrationCommitCheckpointRefinements,
   SessionFailureResponseSchema,
   UserIdentityResponseSchema,
   VerifyFailureResponseSchema,
@@ -113,6 +114,7 @@ export const registerOperation = defineJsonOperation({
     ...documentSyncRequestRuntimeRefinements,
     ...organizationProvisioningRequestRuntimeRefinements,
     ...organizationProvisioningResponseRuntimeRefinements,
+    ...registrationCommitCheckpointRefinements,
   ],
 });
 
