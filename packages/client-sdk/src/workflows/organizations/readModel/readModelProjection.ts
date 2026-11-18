@@ -89,8 +89,13 @@ function toDirectoryAndGroups(
   };
 }
 
+/** A projection load; a pass's guard gates its integrity purge's commit. */
+type ProjectionLoadInput = OrganizationReadModelProjectionInput & {
+  readonly stillCurrent?: (() => boolean) | undefined;
+};
+
 async function loadProjection(
-  input: OrganizationReadModelProjectionInput,
+  input: ProjectionLoadInput,
 ): Promise<OrganizationReadModelProjection | null> {
   return runOrganizationPresentationRead(
     organizationPresentationAccessInput(input),
@@ -100,13 +105,14 @@ async function loadProjection(
 }
 
 function loadRawProjection(
-  input: OrganizationReadModelProjectionInput,
+  input: ProjectionLoadInput,
 ): Promise<OrganizationReadModelProjection | null> {
   return new OrganizationReadModelRepository(
     input.execSql,
   ).loadOrganizationReadModelProjection(
     input.organizationId,
     input.currentUserId,
+    input.stillCurrent,
   );
 }
 

@@ -75,14 +75,14 @@ export class OrganizationReadModelRepository {
    * snapshot instead of every read and repair pass failing on the same row.
    */
   private async loadWithOrganizationReadModelIntegrityPurge<T>(input: {
+    /** A refused commit rolls the purge back and loads nothing. */
+    readonly canCommit?: (() => boolean) | undefined;
     readonly load: (tx: ClientSQLiteTransactionScope) => Promise<T | null>;
     readonly organizationId: string;
   }): Promise<T | null> {
     await ensureSqlTables(this.execSql, organizationReadModelTables);
     let purgedInvalidRows = false;
-    const result = await getClientSQLitePersistenceRuntime(
-      this.execSql,
-    ).transaction(async (tx) => {
+    const { committed, result } = await this.write(async (tx) => {
       try {
         return await input.load(tx);
       } catch (error) {
@@ -96,8 +96,8 @@ export class OrganizationReadModelRepository {
         purgedInvalidRows = true;
         return null;
       }
-    });
-    if (purgedInvalidRows) {
+    }, input.canCommit);
+    if (committed && purgedInvalidRows) {
       // Realtime consumers may hold a caught-up lease over rows that no longer
       // exist; the notification lets them drop it and refetch authoritatively.
       notifyOrganizationReadModelInvalidated(
@@ -111,8 +111,11 @@ export class OrganizationReadModelRepository {
   async loadOrganizationReadModelProjection(
     organizationId: string,
     currentUserId: string,
+    /** A reconcile pass's session guard; see the load shell. */
+    canCommit?: (() => boolean) | undefined,
   ): Promise<OrganizationReadModelProjection | null> {
     return this.loadWithOrganizationReadModelIntegrityPurge({
+      canCommit,
       organizationId,
       load: (tx) =>
         loadOrganizationReadModelProjectionInTransaction({

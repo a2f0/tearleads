@@ -286,7 +286,8 @@ class OrganizationReadModelCoordinatorImpl
       active.organizationId,
       active.userId,
     );
-    const existing = byKey.get(key);
+    const passKey = this.passKey(active);
+    const existing = byKey.get(passKey);
     if (existing) {
       return existing;
     }
@@ -309,16 +310,7 @@ class OrganizationReadModelCoordinatorImpl
       "readModel",
     );
     const domainScope = active.runtime.state.domainScope;
-    // A logout and login of the same identity keeps the domain scope and the
-    // database; only the session generation tells the replacement apart.
-    const { sessionGeneration } = this.runtimeService;
-    const stillCurrent = () =>
-      this.runtimeService.sessionGeneration === sessionGeneration &&
-      isOrganizationDataRuntimeCurrent(
-        this.runtimeService,
-        active,
-        domainScope,
-      );
+    const stillCurrent = this.passGuard(active);
 
     const reconciliation = reconcileOrganizationDirectoryAndGroups({
       apiClient: active.runtime.apiClient,
@@ -356,22 +348,53 @@ class OrganizationReadModelCoordinatorImpl
       })
       .then(
         (presented) => {
+          // A pass its session outlived publishes nothing, cursor included.
+          if (!stillCurrent()) return null;
           if (presented) presentedCursors.set(key, presented.readModelCursor);
           else presentedCursors.delete(key);
           return presented;
         },
         (error: unknown) => {
-          presentedCursors.delete(key);
+          if (stillCurrent()) presentedCursors.delete(key);
           throw error;
         },
       )
       .finally(() => {
-        if (byKey.get(key) === reconciliation) {
-          byKey.delete(key);
+        if (byKey.get(passKey) === reconciliation) {
+          byKey.delete(passKey);
         }
       });
-    byKey.set(key, reconciliation);
+    byKey.set(passKey, reconciliation);
     return reconciliation;
+  }
+
+  /**
+   * Whether the session and scope `active` was read in are still current. A
+   * logout and login of the same identity keeps the domain scope and the
+   * database; only the scope generation tells the replacement apart (a token
+   * renewal leaves it, so a replayed request still answers its pass).
+   */
+  private passGuard(active: ActiveOrganizationDataRuntime): () => boolean {
+    const { domainScope } = active.runtime.state;
+    const { scopeGeneration } = this.runtimeService;
+    return () =>
+      this.runtimeService.scopeGeneration === scopeGeneration &&
+      isOrganizationDataRuntimeCurrent(
+        this.runtimeService,
+        active,
+        domainScope,
+      );
+  }
+
+  /**
+   * The in-flight pass key: the requester within its session's scope, so a
+   * logout and login of the same identity starts its own pass.
+   */
+  private passKey(active: ActiveOrganizationDataRuntime): string {
+    return JSON.stringify([
+      this.runtimeService.scopeGeneration,
+      organizationAccessScopeKey(active.organizationId, active.userId),
+    ]);
   }
 
   async reconcileAfterMutation(
@@ -413,7 +436,7 @@ class OrganizationReadModelCoordinatorImpl
     active: ActiveOrganizationDataRuntime,
   ): Promise<void> {
     await this.reconciliationMap(active)
-      .get(organizationAccessScopeKey(active.organizationId, active.userId))
+      .get(this.passKey(active))
       ?.catch(() => null);
   }
 }

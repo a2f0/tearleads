@@ -95,6 +95,8 @@ export interface InternalRuntime {
   >;
   retirePrincipalHistoryProtection(): void;
   readonly sessionGeneration: number;
+  /** Advances on a session scope, database or identity change; not renewal. */
+  readonly scopeGeneration: number;
   readonly adoptRootContainer: ContainerContentsRootAdopter;
   readonly deleteDocumentPlacements: DocumentPlacementCleanup;
   readonly containerContentsOrganizations: ContainerContentsOrganizationHost;
@@ -235,6 +237,9 @@ export function createRuntime(
     retirePrincipalHistoryProtection: historyProtection.retire,
     get sessionGeneration() {
       return runtimeSubscription.sessionGeneration;
+    },
+    get scopeGeneration() {
+      return runtimeSubscription.mutationGeneration;
     },
     adoptRootContainer: (input) =>
       adoptSessionRootContainer(dependencies, input),

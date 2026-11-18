@@ -224,13 +224,16 @@ warm client discards its cursor for a fresh snapshot only on
 
 A pass belongs to the session and scope that started it. A logout and login of
 the same identity keeps the domain scope and database, so the pass also binds
-the runtime's session generation. A response that arrives after its session
-ended is dropped: a delayed 403 neither denies, marks nor purges the
-replacement session's projection, and a delayed page is not applied. Every
-write the pass makes (the denial marker, the purge, and the page apply) commits
-only while that session still holds, checked in the commit's own synchronous
-slice. The replacement session runs its own reconcile, so nothing waits on the
-dropped response.
+the runtime's scope generation, which a token renewal leaves alone: a request
+replayed after a renewal still answers its pass. A response that arrives after
+its session ended is dropped: a delayed 403 neither denies, marks nor purges
+the replacement session's projection, a delayed page is not applied, and the
+stale pass neither publishes a directory nor moves the presented cursor. Every
+write the pass makes (the denial marker, the purges, a load's integrity purge,
+and the page apply) commits only while that session still holds, checked in
+the commit's own synchronous slice. The replacement session never joins the
+stale pass: it starts its own reconcile, so nothing waits on the dropped
+response.
 
 ## Realtime behavior
 

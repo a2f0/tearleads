@@ -6,6 +6,7 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
+import { subscribeOrganizationReadModelInvalidation } from "./organizationReadModelInvalidation";
 import { OrganizationReadModelRepository } from "./organizationReadModelRepository";
 
 const organizationId = organizationReadModelOrganizationId;
@@ -21,7 +22,7 @@ async function seeded(name: string) {
     requestedCursor: null,
     response: organizationReadModelSnapshot({ cursor: "cursor-1" }),
   });
-  return { close, repository };
+  return { close, execSql, repository };
 }
 
 test("a refused commit guard applies, records and purges nothing", async () => {
@@ -86,6 +87,42 @@ test("a passing commit guard writes as before", async () => {
       repository.hasOrganizationPresentationDenial(scope, "readModel"),
     ).resolves.toBe(true);
   } finally {
+    close();
+  }
+});
+
+test("a refused guard keeps an integrity purge from committing on load", async () => {
+  const { close, execSql, repository } = await seeded(
+    "read-model-integrity-guard-test",
+  );
+  const invalidations: string[] = [];
+  const unsubscribe = subscribeOrganizationReadModelInvalidation(
+    execSql,
+    (invalidated) => invalidations.push(invalidated),
+  );
+  try {
+    await execSql(
+      `UPDATE organization_read_model_groups
+       SET key_fingerprint = NULL
+       WHERE organization_id = ? AND state_hash IS NOT NULL`,
+      [organizationId],
+    );
+
+    await expect(
+      repository.loadOrganizationReadModelProjection(
+        organizationId,
+        userId,
+        refused,
+      ),
+    ).resolves.toBeNull();
+    expect(invalidations).toEqual([]);
+    // The unguarded load still finds the invalid rows, and purges them.
+    await expect(
+      repository.loadOrganizationReadModelProjection(organizationId, userId),
+    ).resolves.toBeNull();
+    expect(invalidations).toEqual([organizationId]);
+  } finally {
+    unsubscribe();
     close();
   }
 });
