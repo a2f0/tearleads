@@ -126,6 +126,7 @@ export interface ReconnectCrawl {
 }
 
 export interface RemoteContainerHydrationState {
+  readonly parentLaneRequestPrefix?: string;
   /**
    * Container listing requests that failed or timed out, in a current crawl.
    * An explicit refresh compares it across its wait to tell whether a listing

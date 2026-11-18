@@ -34,6 +34,7 @@ export async function fetchContainerParentLaneBatch(input: {
   state: RemoteContainerHydrationState;
 }): Promise<ReadonlyArray<FetchedContainerParentLanePage> | null> {
   const { batch, state } = input;
+  const prefix = input.laneIdPrefix ?? state.parentLaneRequestPrefix ?? "lane";
   const expectedContainerStates = new Map(
     Array.from(state.containersById, ([containerId, containerState]) => [
       containerId,
@@ -47,7 +48,7 @@ export async function fetchContainerParentLaneBatch(input: {
     batch.map((lane, index) =>
       prepareContainerParentLanePage({
         lane,
-        laneId: `${input.laneIdPrefix ?? "lane"}-${index}`,
+        laneId: `${prefix}-${index}`,
         state,
       }),
     ),

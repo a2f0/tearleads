@@ -45,6 +45,7 @@ export interface ContainerContentsStoreSyncAgent {
 }
 
 export interface ContainerContentsStoreSyncState {
+  readonly parentLaneRequestPrefix?: string;
   /** Container listing requests that failed or timed out in a current crawl. */
   containerListingFailures: number;
   containersById: Map<string, ContainerState>;

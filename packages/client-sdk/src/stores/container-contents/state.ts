@@ -80,12 +80,17 @@ function didStructuralRuntimeChange(
   );
 }
 
+// Request correlation is scoped to the store instance. A reopened tree can
+// issue an identical listing while the retired tree is waiting on the API.
+let storeSequence = 0;
+
 export function createContainerContentsStoreState(
   initialRuntime: ContainerContentsStoreRuntime,
   persistence: ContainerContentsPersistence,
   logLabel?: string | undefined,
 ): ContainerContentsStoreState {
   return {
+    parentLaneRequestPrefix: `s${++storeSequence}`,
     containerListingFailures: 0,
     containersById: new ContainerStateMap(),
     containerParentIdsNeedingHydration: new Set(),
