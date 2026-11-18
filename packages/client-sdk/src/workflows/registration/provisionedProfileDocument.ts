@@ -5,7 +5,7 @@ import type {
   DocumentCreateAuthor,
   MaterializedDocumentCreatePlan,
 } from "../../data/documents/shared/types";
-import { buildInitialDocumentSyncRequest } from "../documents/sync/initialSync";
+import { buildInitialDocumentCreateSeed } from "../documents/sync/initialSync";
 import {
   createInitializedOrganizationProfileDocument,
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
@@ -26,7 +26,7 @@ async function buildProvisionedDocumentRequest(
 ): Promise<ProvisionedDocumentRequest> {
   return {
     ...input.materializedDocument.plan.request,
-    initialSync: await buildInitialDocumentSyncRequest(input),
+    initialSync: await buildInitialDocumentCreateSeed(input),
   };
 }
 

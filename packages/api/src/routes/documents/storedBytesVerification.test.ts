@@ -13,7 +13,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestUser } from "@tearleads/test-utils";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { writerResolver } from "../../../test/helpers/coldSdkRematerialization";
-import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
+import { withCreatedDocumentArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import {
   asVerifiedContainerManifest,
@@ -104,7 +104,7 @@ test("a cold device verifies every hash-acknowledged write from its stored bytes
     });
     const request = await buildDocumentLinkRequest({
       child: await withStoredContainerMutation(rekeyed.response),
-      createdDocument: withDocumentMutationArtifacts(
+      createdDocument: await withCreatedDocumentArtifacts(
         created.plan.request,
         created.response,
       ),

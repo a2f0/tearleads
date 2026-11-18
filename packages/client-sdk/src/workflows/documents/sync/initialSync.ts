@@ -3,7 +3,12 @@ import {
   satisfiesVersionVector,
   versionVectorsEqual,
 } from "@tearleads/loro";
-import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import {
+  type DocumentCreateRequest,
+  type DocumentCreateSeedRequest,
+  type DocumentSyncRequest,
+  documentCreateSeedSyncRequest,
+} from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
@@ -18,29 +23,45 @@ import type { PendingUpdateRecord } from "../../../data/persistence/documents/re
 import { signDocumentOutgoingUpdate } from "../syncPlan/syncPlanIdentity";
 
 /**
- * Builds the single encrypted initial write for a provisioned document. The
- * server commits it with the organization and document manifest transaction.
+ * The seed a create carries: the signed update alone. The API rebuilds the
+ * sync it stands for from the create (`documentCreateSeedSyncRequest`), which
+ * names the same bundle, hashes and path the update's write header signs.
  */
-export async function buildInitialDocumentSyncRequest(input: {
+export function documentCreateSeed(
+  sync: DocumentSyncRequest,
+): DocumentCreateSeedRequest {
+  return { outgoingUpdates: [...sync.outgoingUpdates] };
+}
+
+/**
+ * Builds the seed of a provisioned document: its single encrypted initial
+ * write, which the server commits in the organization and document manifest
+ * transaction.
+ */
+export async function buildInitialDocumentCreateSeed(input: {
   readonly author: DocumentCreateAuthor;
   readonly containerProjection: ContainerWriterProjectionResponse;
   readonly initialUpdate: Uint8Array;
   readonly materializedDocument: MaterializedDocumentCreatePlan;
-}): Promise<DocumentSyncRequest> {
+}): Promise<DocumentCreateSeedRequest> {
   const pendingFields = createPendingUpdateFields(input.initialUpdate);
   if (!pendingFields) {
     throw new Error("Initial document sync update is empty");
   }
-  return buildDocumentCreateSeedRequest({
-    ...input,
-    pendingUpdate: { id: crypto.randomUUID(), ...pendingFields },
-  });
+  return documentCreateSeed(
+    await buildDocumentCreateSeedRequest({
+      ...input,
+      pendingUpdate: { id: crypto.randomUUID(), ...pendingFields },
+    }),
+  );
 }
 
 /**
- * Builds a create's seed: the one queued update that holds a new document's
- * whole content, signed against the create plan, so the create commits it and
- * no follow-up sync is needed. The update keeps its queue row id.
+ * Builds the sync a create's seed stands for: the one queued update that
+ * holds a new document's whole content, signed against the create plan, so
+ * the create commits it and no follow-up sync is needed. The update keeps its
+ * queue row id. A create sends only `documentCreateSeed` of it; an attachment
+ * bind carries it whole.
  */
 export async function buildDocumentCreateSeedRequest(input: {
   readonly author: DocumentCreateAuthor;
@@ -123,12 +144,29 @@ export function documentCreateSeedCandidate(input: {
 const TEXT_ENCODER = new TextEncoder();
 
 /**
- * A seed is held to the sync request limit (the API refuses a larger one), so
- * a seed that does not fit is left out and the row syncs in ordinary batches.
+ * A document sync is held to the sync request limit (the API refuses a larger
+ * one), so a first update that does not fit is left out and the row syncs in
+ * ordinary batches.
  */
-export function documentCreateSeedFits(seed: DocumentSyncRequest): boolean {
+export function documentSyncFits(sync: DocumentSyncRequest): boolean {
   return (
-    TEXT_ENCODER.encode(JSON.stringify(seed)).byteLength <=
+    TEXT_ENCODER.encode(JSON.stringify(sync)).byteLength <=
     MAX_DOCUMENT_SYNC_REQUEST_BYTES
+  );
+}
+
+/**
+ * Whether the sync a create's seed stands for, as the API rebuilds it from
+ * `create`, fits the sync request limit.
+ */
+export function documentCreateSeedFits(
+  create: Pick<
+    DocumentCreateRequest,
+    "contentKeyBundle" | "targetContainerPathRefs"
+  >,
+  sync: DocumentSyncRequest,
+): boolean {
+  return documentSyncFits(
+    documentCreateSeedSyncRequest(create, documentCreateSeed(sync)),
   );
 }

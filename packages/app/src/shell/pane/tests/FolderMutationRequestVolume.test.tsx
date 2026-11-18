@@ -89,8 +89,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // 32.6 KB sent (36.4 KB before) and 2.0 KB received, the head's bundle
       // digest included (1.8 KB before); keep about 10% headroom. The create
       // sends its manifest hash, not the manifest: 32.1 KB sent; sending the
-      // manifest again (32.6 KB) exceeds this ceiling.
-      bodyBytes: { request: 32_350, response: 2_200 },
+      // manifest again (32.6 KB) exceeds this ceiling. The metadata seed
+      // carries its update alone and the metadata create sends its manifest
+      // hash alone: 30.2 KB sent (32.1 KB with them exceeds this ceiling).
+      bodyBytes: { request: 31_100, response: 2_200 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,

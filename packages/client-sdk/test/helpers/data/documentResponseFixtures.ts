@@ -93,14 +93,24 @@ export function createResponse(
 export async function createResponseFromRequest(
   request: DocumentCreateRequest,
 ): Promise<DocumentCreateFixture> {
-  const manifest = request.manifest as Record<string, unknown>;
   const body = request.body as Record<string, unknown>;
-  const documentId = String(Reflect.get(manifest, "objectId"));
-  const eventHash = await computeAccessEventHash(
-    request.event as unknown as AccessEvent,
-  );
+  const event = request.event as unknown as AccessEvent;
+  const documentId = event.objectId;
+  const eventHash = await computeAccessEventHash(event);
   const linkedContainerId = String(Reflect.get(body, "containerId"));
   const targets = request.contentKeyBundle.targets.map(targetEnvelopeReference);
+  // The request carries only the hash; derive the initial manifest as the
+  // API does.
+  const state = {
+    version: 1 as const,
+    documentId,
+    organizationId: event.organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash,
+    linkedContainerIds: [linkedContainerId],
+  };
+  const manifest = { ...(await deriveDocumentLinkSetManifest(state)) };
 
   return {
     bundleDigest: UNMATCHED_BUNDLE_DIGEST,
@@ -118,15 +128,7 @@ export async function createResponseFromRequest(
       },
       manifest,
       manifestHash: request.expectedManifestHash,
-      state: {
-        version: 1,
-        documentId,
-        organizationId: String(Reflect.get(manifest, "organizationId")),
-        epoch: Number(Reflect.get(manifest, "epoch")),
-        previousManifestHash: Reflect.get(manifest, "previousManifestHash"),
-        eventHash,
-        linkedContainerIds: [linkedContainerId],
-      },
+      state,
     },
     contentKeyBundle: {
       documentId,

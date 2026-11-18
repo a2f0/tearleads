@@ -8,11 +8,12 @@ import { arraySchema, loosePlainObject, uuidV4StringSchema } from "../schema";
 import { OrganizationReplacementAuthorizationSchema } from "../util/organizationReplacement";
 import { ContainerMutationRequestSchema } from "./container";
 import { containerCreateWithMetadataDocumentRequestShape } from "./containerMetadata";
+import { documentCreateRequestShape } from "./document";
 import {
-  DocumentSyncRequestSchema,
-  documentCreateRequestShape,
-} from "./document";
-import { refineSingleUpdateSeed } from "./documentCreateSeed";
+  DocumentCreateSeedRequestSchema,
+  refineCreateSeedSync,
+  refineSingleUpdateSeed,
+} from "./documentCreateSeed";
 import { CreateOrganizationGroupRequestSchema } from "./organization";
 import { OrganizationPrincipalPolicyRequestSchema } from "./principal";
 
@@ -23,7 +24,7 @@ import { OrganizationPrincipalPolicyRequestSchema } from "./principal";
  */
 const provisionedSystemContainerRequestShape = {
   ...containerCreateWithMetadataDocumentRequestShape,
-  initialMetadataSync: DocumentSyncRequestSchema,
+  initialMetadataSync: DocumentCreateSeedRequestSchema,
 };
 
 /**
@@ -32,7 +33,7 @@ const provisionedSystemContainerRequestShape = {
  */
 const provisionedDocumentRequestShape = {
   ...documentCreateRequestShape,
-  initialSync: DocumentSyncRequestSchema,
+  initialSync: DocumentCreateSeedRequestSchema,
 };
 
 export const ProvisionedDocumentRequestSchema =
@@ -43,6 +44,10 @@ export const ProvisionedDocumentRequestSchema =
           message:
             "provisioned document seed requires one update and no container rekeys",
           path: "initialSync",
+        });
+        refineCreateSeedSync(value, value.initialSync, context, {
+          path: "initialSync",
+          withinSyncLimit: true,
         });
       },
     ),
@@ -62,6 +67,13 @@ export const ProvisionedSystemContainerRequestSchema =
             "provisioned system-container metadata seed requires one update and no container rekeys",
           path: "initialMetadataSync",
         });
+        if (typeof value.metadataDocument === "object")
+          refineCreateSeedSync(
+            value.metadataDocument,
+            value.initialMetadataSync,
+            context,
+            { path: "initialMetadataSync", withinSyncLimit: true },
+          );
       },
     ),
     [organizationProvisioningContainerSeedRefinement],

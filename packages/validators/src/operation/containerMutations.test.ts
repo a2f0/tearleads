@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import Ajv2020 from "ajv/dist/2020";
 import { containerCreateMetadataSeedRefinement } from "../documentCreateSeedRefinements";
-import { documentSyncRequestRuntimeRefinements } from "../documentSyncRefinements";
+import { documentSyncRequestRotationRefinement } from "../documentSyncRefinements";
 import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
 import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
@@ -77,7 +77,7 @@ test("container mutation operations own their complete wire metadata", () => {
     runtimeRefinements: [
       organizationProvisioningContainerKeyringRefinement,
       containerCreateMetadataSeedRefinement,
-      ...documentSyncRequestRuntimeRefinements,
+      documentSyncRequestRotationRefinement,
     ],
   });
   expect(deleteContainerOperation).toMatchObject({
@@ -177,7 +177,7 @@ test("OpenAPI declares the container keyring runtime-only invariant", () => {
     ...runtimeRefinements,
     ...organizationReadModelResponseRuntimeRefinements,
   ]);
-  // The metadata seed adds its own rule and the nested sync request's.
+  // The metadata seed adds its own rule and its update's rotation rule.
   expect(
     openApiDocument.paths["/containers/with-metadata-document"]?.post?.[
       "x-tearleads-runtime-refinements"
@@ -185,7 +185,7 @@ test("OpenAPI declares the container keyring runtime-only invariant", () => {
   ).toEqual([
     ...runtimeRefinements,
     containerCreateMetadataSeedRefinement,
-    ...documentSyncRequestRuntimeRefinements,
+    documentSyncRequestRotationRefinement,
   ]);
 
   const responseSchema =

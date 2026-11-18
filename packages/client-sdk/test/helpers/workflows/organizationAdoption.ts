@@ -1,15 +1,8 @@
-import {
-  computeAccessManifestHash,
-  makeVerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import {
-  readAccessEvent,
-  readAccessManifest,
-} from "../../../src/data/keyingProjectionVerification/readers";
-import { locallyAuthoredAccessManifestHead } from "../../../src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { readAccessEvent } from "../../../src/data/keyingProjectionVerification/readers";
 import { PrincipalPolicyBundleRepository } from "../../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { ExecSql } from "../../../src/data/sqlite/sqlSchema";
 import { createOrganization } from "../../../src/workflows/registration/organizationCreation/createOrganization";
@@ -123,7 +116,7 @@ export async function acknowledgePolicy(
 }
 
 /** The same complete head inventory the bootstrap acknowledges. */
-export async function adoptionAccessHeads(request: CreateOrganizationRequest) {
+export function adoptionAccessHeads(request: CreateOrganizationRequest) {
   const containers = [
     request.initialRosterProfileContainer,
     request.initialOrganizationMetadataContainer,
@@ -138,34 +131,21 @@ export async function adoptionAccessHeads(request: CreateOrganizationRequest) {
       container ? [container.container, container.metadataDocument] : [],
     ),
   ].filter((create) => create !== undefined);
-  return Promise.all(
-    creates.map(async (create) => {
-      // A container create carries only its manifest hash: its head is
-      // epoch 1 of the object its signed event names.
-      if (!("manifest" in create)) {
-        const event = readAccessEvent(
-          create.event,
-          "Organization adoption event",
-        );
-        return {
-          checkpoint: {
-            objectKind: event.objectKind,
-            objectId: event.objectId,
-            organizationId: event.organizationId,
-            epoch: 1,
-            manifestHash: create.expectedManifestHash,
-          },
-          previousManifestHash: null,
-        };
-      }
-      const manifest = readAccessManifest(
-        create.manifest,
-        "Organization adoption manifest",
-      );
-      const manifestHash = await computeAccessManifestHash(manifest);
-      return locallyAuthoredAccessManifestHead({ manifest, manifestHash });
-    }),
-  );
+  // A create carries only its manifest hash: its head is epoch 1 of the
+  // object its signed event names.
+  return creates.map((create) => {
+    const event = readAccessEvent(create.event, "Organization adoption event");
+    return {
+      checkpoint: {
+        objectKind: event.objectKind,
+        objectId: event.objectId,
+        organizationId: event.organizationId,
+        epoch: 1,
+        manifestHash: create.expectedManifestHash,
+      },
+      previousManifestHash: null,
+    };
+  });
 }
 
 export function signSuccessorPolicy(

@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { documents } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
+import { eq } from "drizzle-orm";
 import { authenticate } from "../../test/helpers/authenticate";
 import { currentDocumentLinkRows } from "../../test/helpers/currentDocumentLinks";
 import { withDocumentMutationArtifacts } from "../../test/helpers/documentAcknowledgementFixture";
@@ -12,6 +15,7 @@ import { createChildContainer } from "../../test/helpers/keyingWriterProjectionC
 import {
   bootstrapRoot,
   createDocument,
+  createDocumentRequest,
 } from "../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../test/helpers/registerUser";
 import { routeApp } from "../routeApp";
@@ -82,4 +86,32 @@ test("a link or unlink naming a hash its event does not derive is refused and ch
   expect(await linkedIds()).toEqual(both);
   expect((await post("unlink", unlink)).status).toBe(200);
   expect(await linkedIds()).toEqual([root.kekState.containerId]);
+});
+
+test("a create naming a hash its event does not derive is refused and commits nothing", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const request = await createDocumentRequest({ owner, root });
+  const response = await routeApp.request("/documents", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ...request, expectedManifestHash: FORGED_HASH }),
+  });
+  // A create carries only the hash: the API derives the initial manifest.
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "document link-set manifest hash does not match derived state",
+  });
+  const documentId = String(Reflect.get(request.event, "objectId"));
+  expect(
+    await db
+      .select({ id: documents.id })
+      .from(documents)
+      .where(eq(documents.id, documentId)),
+  ).toEqual([]);
 });

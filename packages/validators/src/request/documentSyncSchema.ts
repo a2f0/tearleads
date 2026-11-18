@@ -137,10 +137,11 @@ export const DocumentOutgoingUpdateSchema = createDocumentOutgoingUpdateSchema(
   nonEmptyStringSchema,
 );
 
-const DocumentSyncOutgoingUpdateSchema = createDocumentOutgoingUpdateSchema(
-  boundedNonEmptyStringSchema(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
-  boundedNonEmptyStringSchema(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
-);
+export const DocumentSyncOutgoingUpdateSchema =
+  createDocumentOutgoingUpdateSchema(
+    boundedNonEmptyStringSchema(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
+    boundedNonEmptyStringSchema(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
+  );
 
 export type DocumentOutgoingUpdate = z.infer<
   typeof DocumentOutgoingUpdateSchema

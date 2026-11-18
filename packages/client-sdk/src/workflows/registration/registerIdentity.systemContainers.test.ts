@@ -3,7 +3,10 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
-import { isDocumentSyncRequest } from "@tearleads/validators/request";
+import {
+  documentCreateSeedSyncRequest,
+  isDocumentSyncRequest,
+} from "@tearleads/validators/request";
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
 
 test("registration includes initial metadata in the personal-org transaction", async () => {
@@ -54,20 +57,34 @@ test("registration includes initial metadata in the personal-org transaction", a
   });
 
   expect(response).toBeNull();
-  const initialMetadataSyncs = [
-    initialRootMetadataDocument?.initialSync,
-    initialRosterProfileContainer?.initialMetadataSync,
-    initialOrganizationMetadataContainer?.initialMetadataSync,
-  ];
-  for (const initialMetadataSync of initialMetadataSyncs) {
-    expect(isDocumentSyncRequest(initialMetadataSync)).toBe(true);
-    expect(initialMetadataSync?.outgoingUpdates).toHaveLength(1);
-  }
+  if (
+    !initialRootMetadataDocument ||
+    !initialRosterProfileContainer ||
+    !initialOrganizationMetadataContainer
+  )
+    throw new Error("Expected provisioned metadata documents");
   expect(initialSystemContainers).toHaveLength(1);
   const provisionedTrash = initialSystemContainers?.[0];
-  expect(provisionedTrash?.systemSlot).toMatch(/^sys_v1_[A-Za-z0-9_-]{43}$/);
-  expect(isDocumentSyncRequest(provisionedTrash?.initialMetadataSync)).toBe(
-    true,
-  );
-  expect(provisionedTrash?.initialMetadataSync.outgoingUpdates).toHaveLength(1);
+  if (!provisionedTrash) throw new Error("Expected provisioned Trash");
+  expect(provisionedTrash.systemSlot).toMatch(/^sys_v1_[A-Za-z0-9_-]{43}$/);
+  // Each seed carries its update alone and forms a document sync with its
+  // document's own bundle and path.
+  for (const [document, seed] of [
+    [initialRootMetadataDocument, initialRootMetadataDocument.initialSync],
+    [
+      initialRosterProfileContainer.metadataDocument,
+      initialRosterProfileContainer.initialMetadataSync,
+    ],
+    [
+      initialOrganizationMetadataContainer.metadataDocument,
+      initialOrganizationMetadataContainer.initialMetadataSync,
+    ],
+    [provisionedTrash.metadataDocument, provisionedTrash.initialMetadataSync],
+  ] as const) {
+    expect(Object.keys(seed)).toEqual(["outgoingUpdates"]);
+    expect(seed.outgoingUpdates).toHaveLength(1);
+    expect(
+      isDocumentSyncRequest(documentCreateSeedSyncRequest(document, seed)),
+    ).toBe(true);
+  }
 });

@@ -80,6 +80,11 @@ export {
   isDocumentSyncRequest,
 } from "./document";
 export {
+  type DocumentCreateSeedRequest,
+  DocumentCreateSeedRequestSchema,
+  documentCreateSeedSyncRequest,
+} from "./documentCreateSeed";
+export {
   type CreateOrganizationGroupRequest,
   CreateOrganizationGroupRequestSchema,
   type CreateOrganizationGroupWithPolicyRequest,

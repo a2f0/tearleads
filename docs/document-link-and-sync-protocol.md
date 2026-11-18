@@ -13,9 +13,9 @@ document. Document create and link-set mutation routes use signed document
 `DocumentCreateRequest` and `DocumentLinkSetMutationRequest` carry:
 
 - signed `event` and typed `body`
-- `expectedManifestHash`
-- for a create only, the derived document manifest; a link or unlink sends the
-  hash alone, and the API derives the manifest and compares the hashes
+- `expectedManifestHash`, never the manifest: the API derives the manifest
+  (for a create, the initial link-set manifest from the signed event and the
+  target path) and compares the hashes
 - target and authorizing container path references (`{containerId,
   manifestHash}` citations of stored manifests; the API resolves the previous
   link-set manifest from its own store, and a create has none)
@@ -30,26 +30,31 @@ the document link-set manifest, stores the manifest head, and validates the subm
 content-key bundle against derived document
 [KEK targets](./glossary/keys.md#key-target).
 
-A create may also carry an `initialSync` seed: a `DocumentSyncRequest` holding
-exactly one outgoing [update](./glossary/content.md#loro-update) and no container
-rekeys, whose start is empty and whose `localVersionVector` is the update's end.
-It is the client's one queued update that holds the new document's whole
-content. Content known at creation (a contact's names, an imported file's fields
-and rows) is opened into that birth update rather than written after it, so such
-a document qualifies. The API commits the seed in the create transaction under
-the same [write-header](./glossary/content.md#signed-write-header), target, and
-billing checks as a standalone sync, so a seed a sync would refuse fails the
-create, and nothing commits. The response's `initialSync` names the accepted
-update id and the commit position, which the client records as its first sync's.
-The route publishes the seed's [update hint](./developer/realtime-hints.md); the
-client settles its queued row only when that acknowledgement names it. Settling
-the seed answers only the update signal the client held before submitting the
-create, so the pass
-[skips its pull](./client-sync-ordering.md#remote-pull-eligibility). A peer can
-edit the document before the response arrives, so the client matches update
-hints against the id it submitted the create under until the response installs
-it, and any such hint keeps the pull owed. A folder's metadata document takes
-the folder's id, so a seeded folder create matches hints for it the same way.
+A create may also carry an `initialSync` seed: exactly one outgoing
+[update](./glossary/content.md#loro-update), whose start is empty, and nothing
+else. The API rebuilds the document sync the seed stands for from the create:
+its content-key bundle, link-set and target hashes and epoch, its target path as
+the authorizing path, and the update's end as the local version. The update's
+signed write header names the same values, and that sync must parse and fit the
+sync request limit. A seed that names any other sync field (such as a `minLsn`
+precondition) is refused. It is the client's one queued update that holds the
+new document's whole content. Content known at creation (a contact's names, an
+imported file's fields and rows) is opened into that birth update rather than
+written after it, so such a document qualifies. The API commits the seed in the
+create transaction under the same
+[write-header](./glossary/content.md#signed-write-header), target, and billing
+checks as a standalone sync, so a seed a sync would refuse fails the create, and
+nothing commits. The response's `initialSync` names the accepted update id and
+the commit position, which the client records as its first sync's. The route
+publishes the seed's [update hint](./developer/realtime-hints.md); the client
+settles its queued row only when that acknowledgement names it. Settling the
+seed answers only the update signal the client held before submitting the
+create, so the pass [skips its
+pull](./client-sync-ordering.md#remote-pull-eligibility). A peer can edit the
+document before the response arrives, so the client matches update hints against
+the id it submitted the create under until the response installs it, and any
+such hint keeps the pull owed. A folder's metadata document takes the folder's
+id, so a seeded folder create matches hints for it the same way.
 
 A refused seed falls back once to the plain create, after which the row syncs
 normally. A lost response is adopted through

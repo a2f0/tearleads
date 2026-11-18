@@ -34,8 +34,10 @@ afterEach(async () => {
 // registered pane and explorer have already settled their bootstrap sync, so
 // this only covers the upload itself (local import -> document sync -> blob
 // bytes upload -> attachment binding). Run with DUAL_PANE_REQUEST_PROFILE=1 to
-// print the observed volume when re-baselining.
-const EXPLORER_UPLOAD_BODY_BYTES = { request: 38_000, response: 2_300 };
+// print the observed volume when re-baselining. The document create sends its
+// manifest hash alone: 34,208 request bytes (34,756 with the manifest, which
+// exceeds this ceiling).
+const EXPLORER_UPLOAD_BODY_BYTES = { request: 34_500, response: 2_300 };
 
 const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Seven mutation/blob requests and three directory discovery reads (one per

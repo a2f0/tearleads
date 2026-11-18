@@ -38,9 +38,9 @@ test.each([false, true])(
       signer: owner,
     });
     const document = {
-      accessManifest: { state: metadataDocument.manifest },
+      accessManifest: { state: metadataDocument.event },
       contentKeyBundle: metadataDocument.contentKeyBundle,
-      id: String(Reflect.get(metadataDocument.manifest, "objectId")),
+      id: String(Reflect.get(metadataDocument.event, "objectId")),
     } as unknown as CreatedDocumentFixture;
     const seed = await createFirstUpdateSyncRequest({
       document,
@@ -59,7 +59,13 @@ test.each([false, true])(
           request: {
             container,
             metadataDocument,
-            ...(seeded ? { initialMetadataSync: seed.request } : {}),
+            ...(seeded
+              ? {
+                  initialMetadataSync: {
+                    outgoingUpdates: seed.request.outgoingUpdates,
+                  },
+                }
+              : {}),
           },
         }),
       ),

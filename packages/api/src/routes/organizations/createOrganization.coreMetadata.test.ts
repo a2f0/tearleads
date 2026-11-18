@@ -12,6 +12,7 @@ import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
   type DocumentCreateRequest,
   type DocumentSyncRequest,
+  documentCreateSeedSyncRequest,
   isProvisionedDocumentRequest,
   isProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
@@ -145,17 +146,26 @@ test("POST /organizations atomically stores core metadata bodies readable on loc
 
   await expectProvisionedDocumentReadable({
     documentId: documentCreateRequestId(rootMetadata),
-    initialSync: rootMetadata.initialSync,
+    initialSync: documentCreateSeedSyncRequest(
+      rootMetadata,
+      rootMetadata.initialSync,
+    ),
     user,
   });
   await expectProvisionedDocumentReadable({
     documentId: documentCreateRequestId(rosterContainer.metadataDocument),
-    initialSync: rosterContainer.initialMetadataSync,
+    initialSync: documentCreateSeedSyncRequest(
+      rosterContainer.metadataDocument,
+      rosterContainer.initialMetadataSync,
+    ),
     user,
   });
   await expectProvisionedDocumentReadable({
     documentId: documentCreateRequestId(organizationContainer.metadataDocument),
-    initialSync: organizationContainer.initialMetadataSync,
+    initialSync: documentCreateSeedSyncRequest(
+      organizationContainer.metadataDocument,
+      organizationContainer.initialMetadataSync,
+    ),
     user,
   });
   const profileUpdateIds: string[] = [];
@@ -172,7 +182,7 @@ test("POST /organizations atomically stores core metadata bodies readable on loc
     );
     await expectProvisionedDocumentReadable({
       documentId: documentCreateRequestId(profile),
-      initialSync: profile.initialSync,
+      initialSync: documentCreateSeedSyncRequest(profile, profile.initialSync),
       user,
     });
   }

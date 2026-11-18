@@ -898,11 +898,6 @@
                 "type": "string",
                 "minLength": 1
               },
-              "manifest": {
-                "type": "object",
-                "properties": {},
-                "additionalProperties": {}
-              },
               "targetContainerPathRefs": {
                 "type": "array",
                 "items": {
@@ -916,8 +911,7 @@
               "body",
               "contentKeyBundle",
               "event",
-              "expectedManifestHash",
-              "manifest"
+              "expectedManifestHash"
             ],
             "additionalProperties": {}
           },
@@ -933,7 +927,7 @@
             ]
           },
           "initialMetadataSync": {
-            "$ref": "#/components/schemas/DocumentSyncRequest",
+            "$ref": "#/components/schemas/DocumentCreateSeedRequest",
             "description": "The metadata document's first queued update, committed in the same transaction."
           }
         },
@@ -3011,11 +3005,6 @@
             "type": "string",
             "minLength": 1
           },
-          "manifest": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": {}
-          },
           "targetContainerPathRefs": {
             "type": "array",
             "items": {
@@ -3025,7 +3014,7 @@
             "minItems": 1
           },
           "initialSync": {
-            "$ref": "#/components/schemas/DocumentSyncRequest",
+            "$ref": "#/components/schemas/DocumentCreateSeedRequest",
             "description": "The document's first queued update, committed in the create transaction under every check a sync makes."
           }
         },
@@ -3033,11 +3022,10 @@
           "body",
           "contentKeyBundle",
           "event",
-          "expectedManifestHash",
-          "manifest"
+          "expectedManifestHash"
         ],
         "additionalProperties": {},
-        "description": "A signed document create: the document's first link-set manifest, its content-key bundle, and optionally its first encrypted update."
+        "description": "A signed document create: the hash of the document's first link-set manifest (the API derives the manifest), its content-key bundle, and optionally its first encrypted update."
       },
       "DocumentCreateResponse": {
         "type": "object",
@@ -3130,6 +3118,75 @@
         ],
         "additionalProperties": {},
         "description": "Acknowledges a document create by hash."
+      },
+      "DocumentCreateSeedRequest": {
+        "type": "object",
+        "properties": {
+          "outgoingUpdates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "checkpointKind": {
+                  "type": "string",
+                  "const": "rotate_baseline"
+                },
+                "checkpointPayloadKind": {
+                  "type": "string",
+                  "const": "full_history_snapshot"
+                },
+                "encryptedData": {
+                  "maxLength": 16777216,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                "partialEndVersionVector": {
+                  "maxLength": 16777216,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "partialStartVersionVector": {
+                  "maxLength": 16777216,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "plaintextHash": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sourceVersionVector": {
+                  "maxLength": 16777216,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "writeHeader": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {}
+                }
+              },
+              "required": [
+                "encryptedData",
+                "id",
+                "partialEndVersionVector",
+                "partialStartVersionVector",
+                "plaintextHash",
+                "writeHeader"
+              ],
+              "additionalProperties": {}
+            },
+            "maxItems": 64
+          }
+        },
+        "required": [
+          "outgoingUpdates"
+        ],
+        "additionalProperties": {},
+        "description": "A create's seed: the one encrypted update a document is born with. The API checks and commits it as the document sync it stands for, made from the create's content-key bundle, expected hashes and target path."
       },
       "DocumentEditAttributionRangeResponse": {
         "type": "object",
@@ -9044,11 +9101,6 @@
             "type": "string",
             "minLength": 1
           },
-          "manifest": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": {}
-          },
           "targetContainerPathRefs": {
             "type": "array",
             "items": {
@@ -9058,7 +9110,7 @@
             "minItems": 1
           },
           "initialSync": {
-            "$ref": "#/components/schemas/DocumentSyncRequest",
+            "$ref": "#/components/schemas/DocumentCreateSeedRequest",
             "description": "The document's first update, committed with the provisioning."
           }
         },
@@ -9067,7 +9119,6 @@
           "contentKeyBundle",
           "event",
           "expectedManifestHash",
-          "manifest",
           "initialSync"
         ],
         "additionalProperties": {},
@@ -9105,11 +9156,6 @@
                 "type": "string",
                 "minLength": 1
               },
-              "manifest": {
-                "type": "object",
-                "properties": {},
-                "additionalProperties": {}
-              },
               "targetContainerPathRefs": {
                 "type": "array",
                 "items": {
@@ -9123,8 +9169,7 @@
               "body",
               "contentKeyBundle",
               "event",
-              "expectedManifestHash",
-              "manifest"
+              "expectedManifestHash"
             ],
             "additionalProperties": {}
           },
@@ -9141,7 +9186,7 @@
             "description": "Opaque id of the container's system role."
           },
           "initialMetadataSync": {
-            "$ref": "#/components/schemas/DocumentSyncRequest",
+            "$ref": "#/components/schemas/DocumentCreateSeedRequest",
             "description": "The metadata document's first update, committed with the provisioning."
           }
         },
@@ -12859,43 +12904,15 @@
         "security": [],
         "x-tearleads-runtime-refinements": [
           {
-            "description": "inlineRekeyCommitId must be present exactly when containerRekeys is non-empty",
-            "id": "request.inline-rekey-commit-marker"
-          },
-          {
-            "description": "authorizingContainerPathRefs is required when outgoingUpdates is non-empty",
-            "id": "request.authorizing-paths-for-writes"
-          },
-          {
-            "description": "containerRekeys may be non-empty only when outgoingUpdates is non-empty",
-            "id": "request.container-rekeys-require-write"
-          },
-          {
-            "description": "outgoing update ids must be unique within the request",
-            "id": "request.unique-outgoing-update-ids"
-          },
-          {
-            "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
-            "id": "request.pull-continuation-read-only"
-          },
-          {
-            "description": "historyMode \"raw\" must not be combined with outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
-            "id": "request.raw-history-read-only"
-          },
-          {
-            "description": "historyMode \"raw\" requires localVersionVector to be null so the complete retained history is requested",
-            "id": "request.raw-history-null-frontier"
-          },
-          {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
             "id": "request.rotation-checkpoint-fields"
           },
           {
-            "description": "each provisioned system-container metadata seed must contain exactly one outgoing update and no container rekeys",
+            "description": "each provisioned system-container metadata seed must contain exactly one outgoing update and no container rekeys, and with its metadata document's content-key bundle and target path form a valid document sync that serializes within the document sync request limit",
             "id": "request.organization-provisioning-container-seed"
           },
           {
-            "description": "each provisioned document seed must contain exactly one outgoing update and no container rekeys",
+            "description": "each provisioned document seed must contain exactly one outgoing update and no container rekeys, and with its document's content-key bundle and target path form a valid document sync that serializes within the document sync request limit",
             "id": "request.organization-provisioning-document-seed"
           },
           {
@@ -15063,36 +15080,8 @@
             "id": "response.organization-provisioning-container-keyring"
           },
           {
-            "description": "a container create metadata seed must contain exactly one outgoing update and no container rekeys, and serialize within the document sync request limit",
+            "description": "a container create metadata seed must contain exactly one outgoing update and no container rekeys, and with the metadata document's content-key bundle and target path form a valid document sync that serializes within the document sync request limit",
             "id": "request.container-create-metadata-seed"
-          },
-          {
-            "description": "inlineRekeyCommitId must be present exactly when containerRekeys is non-empty",
-            "id": "request.inline-rekey-commit-marker"
-          },
-          {
-            "description": "authorizingContainerPathRefs is required when outgoingUpdates is non-empty",
-            "id": "request.authorizing-paths-for-writes"
-          },
-          {
-            "description": "containerRekeys may be non-empty only when outgoingUpdates is non-empty",
-            "id": "request.container-rekeys-require-write"
-          },
-          {
-            "description": "outgoing update ids must be unique within the request",
-            "id": "request.unique-outgoing-update-ids"
-          },
-          {
-            "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
-            "id": "request.pull-continuation-read-only"
-          },
-          {
-            "description": "historyMode \"raw\" must not be combined with outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
-            "id": "request.raw-history-read-only"
-          },
-          {
-            "description": "historyMode \"raw\" requires localVersionVector to be null so the complete retained history is requested",
-            "id": "request.raw-history-null-frontier"
           },
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
@@ -17980,36 +17969,8 @@
         ],
         "x-tearleads-runtime-refinements": [
           {
-            "description": "a document create seed must contain exactly one outgoing update and no container rekeys, and serialize within the document sync request limit",
+            "description": "a document create seed must contain exactly one outgoing update and no container rekeys, and with the create's content-key bundle and target path form a valid document sync that serializes within the document sync request limit",
             "id": "request.document-create-seed"
-          },
-          {
-            "description": "inlineRekeyCommitId must be present exactly when containerRekeys is non-empty",
-            "id": "request.inline-rekey-commit-marker"
-          },
-          {
-            "description": "authorizingContainerPathRefs is required when outgoingUpdates is non-empty",
-            "id": "request.authorizing-paths-for-writes"
-          },
-          {
-            "description": "containerRekeys may be non-empty only when outgoingUpdates is non-empty",
-            "id": "request.container-rekeys-require-write"
-          },
-          {
-            "description": "outgoing update ids must be unique within the request",
-            "id": "request.unique-outgoing-update-ids"
-          },
-          {
-            "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
-            "id": "request.pull-continuation-read-only"
-          },
-          {
-            "description": "historyMode \"raw\" must not be combined with outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
-            "id": "request.raw-history-read-only"
-          },
-          {
-            "description": "historyMode \"raw\" requires localVersionVector to be null so the complete retained history is requested",
-            "id": "request.raw-history-null-frontier"
           },
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
@@ -21301,43 +21262,15 @@
         ],
         "x-tearleads-runtime-refinements": [
           {
-            "description": "inlineRekeyCommitId must be present exactly when containerRekeys is non-empty",
-            "id": "request.inline-rekey-commit-marker"
-          },
-          {
-            "description": "authorizingContainerPathRefs is required when outgoingUpdates is non-empty",
-            "id": "request.authorizing-paths-for-writes"
-          },
-          {
-            "description": "containerRekeys may be non-empty only when outgoingUpdates is non-empty",
-            "id": "request.container-rekeys-require-write"
-          },
-          {
-            "description": "outgoing update ids must be unique within the request",
-            "id": "request.unique-outgoing-update-ids"
-          },
-          {
-            "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
-            "id": "request.pull-continuation-read-only"
-          },
-          {
-            "description": "historyMode \"raw\" must not be combined with outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
-            "id": "request.raw-history-read-only"
-          },
-          {
-            "description": "historyMode \"raw\" requires localVersionVector to be null so the complete retained history is requested",
-            "id": "request.raw-history-null-frontier"
-          },
-          {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
             "id": "request.rotation-checkpoint-fields"
           },
           {
-            "description": "each provisioned system-container metadata seed must contain exactly one outgoing update and no container rekeys",
+            "description": "each provisioned system-container metadata seed must contain exactly one outgoing update and no container rekeys, and with its metadata document's content-key bundle and target path form a valid document sync that serializes within the document sync request limit",
             "id": "request.organization-provisioning-container-seed"
           },
           {
-            "description": "each provisioned document seed must contain exactly one outgoing update and no container rekeys",
+            "description": "each provisioned document seed must contain exactly one outgoing update and no container rekeys, and with its document's content-key bundle and target path form a valid document sync that serializes within the document sync request limit",
             "id": "request.organization-provisioning-document-seed"
           },
           {

@@ -94,8 +94,10 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // 0.37 MB received. Reads cite the heads this device authored and cached
   // at acknowledgement: 0.34 MB received; keep about 4% headroom. Container
   // mutations and links send manifest hashes alone: 105,868 bytes sent
-  // (108,516 with manifests, which exceeds this ceiling).
-  bodyBytes: { request: 107_200, response: 350_000 },
+  // (108,516 with manifests, which exceeds this ceiling). Seeds carry their
+  // update alone and document creates send manifest hashes alone: 103,478
+  // bytes sent (105,868 with them, which exceeds this ceiling).
+  bodyBytes: { request: 104_700, response: 350_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,

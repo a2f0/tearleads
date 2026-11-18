@@ -106,8 +106,9 @@ export async function buildDocumentCreatePlan({
     request: {
       event: readCanonicalRecord(event, "Document create event"),
       body: readCanonicalRecord(body, "Document create body"),
+      // The API derives the initial manifest; the request commits to it by
+      // hash.
       expectedManifestHash: manifestHash,
-      manifest: readCanonicalRecord(manifest, "Document create manifest"),
       targetContainerPathRefs: containerPathRefs(containerProjection.path),
       contentKeyBundle: {
         contentKeyEpoch,

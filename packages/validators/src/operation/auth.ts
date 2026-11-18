@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { documentSyncRequestRuntimeRefinements } from "../documentSyncRefinements";
+import { documentSyncRequestRotationRefinement } from "../documentSyncRefinements";
 import {
   organizationProvisioningRequestRuntimeRefinements,
   organizationProvisioningResponseRuntimeRefinements,
@@ -111,7 +111,7 @@ export const registerOperation = defineJsonOperation({
     200: RegistrationResponseSchema,
   },
   runtimeRefinements: [
-    ...documentSyncRequestRuntimeRefinements,
+    documentSyncRequestRotationRefinement,
     ...organizationProvisioningRequestRuntimeRefinements,
     ...organizationProvisioningResponseRuntimeRefinements,
     ...registrationCommitCheckpointRefinements,

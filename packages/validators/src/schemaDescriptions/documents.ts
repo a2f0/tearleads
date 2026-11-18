@@ -3,6 +3,7 @@ import {
   DocumentContentKeyBundleRequestSchema,
   DocumentContentKeyTargetEnvelopeSchema,
   DocumentCreateRequestSchema,
+  DocumentCreateSeedRequestSchema,
   DocumentLinkSetMutationRequestSchema,
   DocumentOutgoingUpdateSchema,
   DocumentPurgeRequestSchema,
@@ -200,11 +201,16 @@ describeSchema(
 
 describeSchema(
   DocumentCreateRequestSchema,
-  "A signed document create: the document's first link-set manifest, its content-key bundle, and optionally its first encrypted update.",
+  "A signed document create: the hash of the document's first link-set manifest (the API derives the manifest), its content-key bundle, and optionally its first encrypted update.",
   {
     initialSync:
       "The document's first queued update, committed in the create transaction under every check a sync makes.",
   },
+);
+
+describeSchema(
+  DocumentCreateSeedRequestSchema,
+  "A create's seed: the one encrypted update a document is born with. The API checks and commits it as the document sync it stands for, made from the create's content-key bundle, expected hashes and target path.",
 );
 
 describeSchema(

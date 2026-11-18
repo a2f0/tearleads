@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { containerCreateMetadataSeedRefinement } from "../documentCreateSeedRefinements";
-import { documentSyncRequestRuntimeRefinements } from "../documentSyncRefinements";
+import { documentSyncRequestRotationRefinement } from "../documentSyncRefinements";
 import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
 import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
@@ -97,7 +97,7 @@ export const createContainerWithMetadataDocumentOperation = defineJsonOperation(
     runtimeRefinements: [
       ...containerMutationRuntimeRefinements,
       containerCreateMetadataSeedRefinement,
-      ...documentSyncRequestRuntimeRefinements,
+      documentSyncRequestRotationRefinement,
     ],
   },
 );

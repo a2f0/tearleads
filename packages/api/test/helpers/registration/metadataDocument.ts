@@ -11,6 +11,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { rememberRequestManifest } from "../requestManifests";
 import { signRegistrationEvent } from "./signing";
 import { toWireRecord } from "./wire";
 
@@ -81,29 +82,31 @@ export async function createRootMetadataDocumentRequest(input: {
     },
   );
 
-  return {
-    event: toWireRecord(event, "root metadata document request event"),
-    body: toWireRecord(body, "root metadata document request body"),
-    expectedManifestHash: manifestHash,
-    manifest: toWireRecord(manifest, "root metadata document request manifest"),
-    targetContainerPathRefs: input.containerProjection.path.map((bundle) => ({
-      containerId: (bundle.state as { containerId: string }).containerId,
-      manifestHash: bundle.manifestHash,
-    })),
-    contentKeyBundle: {
-      contentKeyEpoch: 1,
-      linkSetManifestHash: manifestHash,
-      targetHash,
-      targets: [
-        {
-          ...target,
-          wrappedKey: bytesToBase64(wrappedContentKey.ciphertext),
-          wrappingMetadata: {
-            suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
-            iv: bytesToBase64(wrappedContentKey.iv),
+  return rememberRequestManifest(
+    {
+      event: toWireRecord(event, "root metadata document request event"),
+      body: toWireRecord(body, "root metadata document request body"),
+      expectedManifestHash: manifestHash,
+      targetContainerPathRefs: input.containerProjection.path.map((bundle) => ({
+        containerId: (bundle.state as { containerId: string }).containerId,
+        manifestHash: bundle.manifestHash,
+      })),
+      contentKeyBundle: {
+        contentKeyEpoch: 1,
+        linkSetManifestHash: manifestHash,
+        targetHash,
+        targets: [
+          {
+            ...target,
+            wrappedKey: bytesToBase64(wrappedContentKey.ciphertext),
+            wrappingMetadata: {
+              suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+              iv: bytesToBase64(wrappedContentKey.iv),
+            },
           },
-        },
-      ],
+        ],
+      },
     },
-  };
+    manifest,
+  );
 }

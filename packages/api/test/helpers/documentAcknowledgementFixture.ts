@@ -1,3 +1,4 @@
+import { deriveDocumentLinkSetManifest } from "@tearleads/crypto";
 import type {
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
@@ -11,7 +12,10 @@ import {
   type DocumentWriterProjectionResponse,
   documentKekTargetsFromContentKeyBundle,
 } from "@tearleads/validators/response";
-import { rememberedRequestManifest } from "./requestManifests";
+import {
+  rememberedRequestManifest,
+  rememberRequestManifest,
+} from "./requestManifests";
 
 /**
  * A document create or link-set acknowledgement plus the committed material a
@@ -114,4 +118,32 @@ export function documentFixtureFromWriterProjection<
     contentKeyBundle: writerProjection.contentKeyBundle,
     documentKekTargets: writerProjection.documentKekTargets,
   };
+}
+
+/**
+ * As {@link withDocumentMutationArtifacts} for a create a client built (such
+ * as the SDK's plan), which carries only its manifest hash: the initial
+ * link-set manifest is derived from the signed event and the acknowledgement.
+ */
+export async function withCreatedDocumentArtifacts(
+  request: DocumentCreateRequest,
+  response: DocumentCreateResponse,
+): Promise<CreatedDocumentFixture> {
+  if (!rememberedRequestManifest(request)) {
+    const { organizationId } = readRecord(request.event, "event");
+    const { containerId } = readRecord(request.body, "body");
+    rememberRequestManifest(
+      request,
+      await deriveDocumentLinkSetManifest({
+        version: 1,
+        documentId: response.id,
+        organizationId: String(organizationId),
+        epoch: 1,
+        previousManifestHash: null,
+        eventHash: response.eventHash,
+        linkedContainerIds: [String(containerId)],
+      }),
+    );
+  }
+  return withDocumentMutationArtifacts(request, response);
 }

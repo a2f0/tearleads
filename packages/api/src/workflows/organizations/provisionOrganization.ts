@@ -6,9 +6,10 @@ import {
   organizations,
 } from "@tearleads/api-shared/schema";
 import { normalizePrincipalContainerGrants } from "@tearleads/crypto";
-import type {
-  OrganizationProvisioningRequest,
-  PutPrincipalPolicyRequest,
+import {
+  documentCreateSeedSyncRequest,
+  type OrganizationProvisioningRequest,
+  type PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type {
   ContainerCreateWithMetadataDocumentResponse,
@@ -235,7 +236,10 @@ async function createInitialRootMetadataDocument(
     fingerprint: signer.fingerprint,
     lockedContainerHeads,
     createdDocumentSeed,
-    request: input.initialRootMetadataDocument.initialSync,
+    request: documentCreateSeedSyncRequest(
+      input.initialRootMetadataDocument,
+      input.initialRootMetadataDocument.initialSync,
+    ),
     signingPublicKey: signer.signingPublicKey,
     userId: input.userId,
   });

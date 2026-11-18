@@ -13,6 +13,7 @@ import {
   computeAccessEventHash,
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
+  deriveDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import {
   createContainerParentLaneBatchMock,
@@ -235,9 +236,8 @@ export type StoredDocumentFixture = DocumentCreateResponse & {
 export async function createDocumentCreateResponse(
   request: DocumentCreateRequest,
 ): Promise<StoredDocumentFixture> {
-  const manifest = request.manifest as Record<string, unknown>;
   const body = request.body as Record<string, unknown>;
-  const documentId = String(Reflect.get(manifest, "objectId"));
+  const documentId = String(Reflect.get(request.event, "objectId"));
   const event = assertAccessEvent(request.event, "document create event");
   const eventHash = await computeAccessEventHash(event);
   const linkedContainerId = String(Reflect.get(body, "containerId"));
@@ -258,17 +258,15 @@ export async function createDocumentCreateResponse(
     targetHash: request.contentKeyBundle.targetHash,
     accessManifest: {
       event: { event: { ...event }, body, eventHash },
-      manifest,
-      manifestHash: request.expectedManifestHash,
-      state: {
-        version: 1,
+      // The request carries only the hash; derive the initial manifest as
+      // the API does.
+      ...(await initialLinkSetBundleParts({
         documentId,
-        organizationId: String(Reflect.get(manifest, "organizationId")),
-        epoch: Number(Reflect.get(manifest, "epoch")),
-        previousManifestHash: Reflect.get(manifest, "previousManifestHash"),
         eventHash,
-        linkedContainerIds: [linkedContainerId],
-      },
+        linkedContainerId,
+        organizationId: event.organizationId,
+      })),
+      manifestHash: request.expectedManifestHash,
     },
     contentKeyBundle: {
       documentId,
@@ -450,4 +448,25 @@ export interface DocumentRuntimePatch {
     DocumentsRuntimeInput["crypto"]["signingKeyPair"]
   >;
   userId: string;
+}
+
+async function initialLinkSetBundleParts(input: {
+  readonly documentId: string;
+  readonly eventHash: string;
+  readonly linkedContainerId: string;
+  readonly organizationId: string;
+}) {
+  const state = {
+    version: 1 as const,
+    documentId: input.documentId,
+    organizationId: input.organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash: input.eventHash,
+    linkedContainerIds: [input.linkedContainerId],
+  };
+  return {
+    manifest: { ...(await deriveDocumentLinkSetManifest(state)) },
+    state,
+  };
 }

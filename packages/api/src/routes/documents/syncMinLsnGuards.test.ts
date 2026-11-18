@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   attachmentBindings,
-  documents,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
@@ -13,7 +12,6 @@ import {
   buildBind,
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
-import type { CreatedDocumentFixture } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
   createFirstUpdateSyncRequest,
   createSignedDocumentSyncRequest,
@@ -21,7 +19,6 @@ import {
 import {
   bootstrapRoot,
   createDocument,
-  createDocumentRequest,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
@@ -209,40 +206,6 @@ test("direct page, unpaged and unpaged response readers retain their minimum-LSN
     expect(result).toMatchObject({ status: 503, message: minLsnError });
     expect(commitLsnEvents(events).map(({ scope }) => scope)).toEqual(["root"]);
   }
-});
-
-test("an unsatisfied create seed minLsn rolls back both document and update", async () => {
-  const input = await registeredRoot();
-  const create = await createDocumentRequest(input);
-  const document = {
-    accessManifest: { state: create.manifest },
-    contentKeyBundle: create.contentKeyBundle,
-    id: String(Reflect.get(create.manifest, "objectId")),
-  } as unknown as CreatedDocumentFixture;
-  const sync = await createFirstUpdateSyncRequest({ ...input, document });
-  const { events, result } = await post(input.owner.token, "/documents", {
-    ...create,
-    initialSync: { ...sync.request, minLsn: unreachableMinLsn },
-  });
-  expect(result.status).toBe(503);
-  expect(await result.json()).toEqual({ error: minLsnError });
-  expect(commitLsnEvents(events).map(({ scope }) => scope)).toEqual([
-    "transaction",
-  ]);
-  expect(events).toContainEqual({ kind: "rolledBack" });
-  expect(await storedUpdates(document.id)).toEqual([]);
-  expect(
-    await db
-      .select({ id: documents.id })
-      .from(documents)
-      .where(eq(documents.id, document.id)),
-  ).toEqual([]);
-  const retry = await post(input.owner.token, "/documents", {
-    ...create,
-    initialSync: { ...sync.request, minLsn: await readCurrentCommitLsn(db) },
-  });
-  expect(retry.result.status).toBe(200);
-  expect(await storedUpdates(document.id)).toEqual([{ id: sync.id }]);
 });
 
 test("an unsatisfied carried-sync minLsn rolls back binding and update", async () => {

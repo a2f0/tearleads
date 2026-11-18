@@ -176,9 +176,9 @@ test("a seeded document create stays within its statement budget", async () => {
   const create = await createDocumentRequest({ owner, root });
   // The seed is signed against the create's own manifest and key bundle.
   const planned = {
-    accessManifest: { state: create.manifest },
+    accessManifest: { state: create.event },
     contentKeyBundle: create.contentKeyBundle,
-    id: String(Reflect.get(create.manifest, "objectId")),
+    id: String(Reflect.get(create.event, "objectId")),
   } as unknown as CreatedDocumentFixture;
   const { request: seed } = await createSignedDocumentSyncRequest({
     created: planned,
@@ -189,10 +189,7 @@ test("a seeded document create stays within its statement budget", async () => {
   invariant(update, "expected a seed update");
   const request: DocumentCreateRequest = {
     ...create,
-    initialSync: {
-      ...seed,
-      localVersionVector: update.partialEndVersionVector,
-    },
+    initialSync: { outgoingUpdates: [update] },
   };
 
   const seeded = await counted(() => post(owner.token, "/documents", request));

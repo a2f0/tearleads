@@ -40,6 +40,7 @@ import {
 } from "./containerMutationRotations";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import { principalPolicyRefs } from "./principalPolicyRefs";
+import { rememberRequestManifest } from "./requestManifests";
 
 export async function signAndCheckContainerEvent(input: {
   readonly body: ContainerAccessEventBody;
@@ -276,34 +277,36 @@ export async function buildMetadataDocumentCreateRequest(input: {
   const manifestHash = await computeAccessManifestHash(manifest);
   const targetHash = await computeDocumentContentKeyTargetHash([target]);
 
-  return {
-    event: event as unknown as Record<string, unknown>,
-    body: body as unknown,
-    expectedManifestHash: manifestHash,
-    manifest: manifest as unknown as Record<string, unknown>,
-    targetContainerPathRefs: [
-      {
-        containerId: parentState.containerId,
-        manifestHash: input.parent.manifestHash,
-      },
-      {
-        containerId: target.containerId,
-        manifestHash: childBundle.manifestHash,
-      },
-    ],
-    contentKeyBundle: {
-      contentKeyEpoch: 1,
-      linkSetManifestHash: manifestHash,
-      targetHash,
-      targets: [
+  return rememberRequestManifest(
+    {
+      event: event as unknown as Record<string, unknown>,
+      body: body as unknown,
+      expectedManifestHash: manifestHash,
+      targetContainerPathRefs: [
         {
-          ...target,
-          ...contentKeyEnvelopeFixture(
-            "Document",
-            `metadata-document-key:${containerBody.metadataDocumentId}`,
-          ),
+          containerId: parentState.containerId,
+          manifestHash: input.parent.manifestHash,
+        },
+        {
+          containerId: target.containerId,
+          manifestHash: childBundle.manifestHash,
         },
       ],
+      contentKeyBundle: {
+        contentKeyEpoch: 1,
+        linkSetManifestHash: manifestHash,
+        targetHash,
+        targets: [
+          {
+            ...target,
+            ...contentKeyEnvelopeFixture(
+              "Document",
+              `metadata-document-key:${containerBody.metadataDocumentId}`,
+            ),
+          },
+        ],
+      },
     },
-  };
+    manifest,
+  );
 }

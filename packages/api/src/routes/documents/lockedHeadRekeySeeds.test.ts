@@ -35,12 +35,14 @@ test.each([false, true])(
     };
     const create = await createDocumentRequest({ owner, root: nextRoot });
     const planned = {
-      accessManifest: { state: create.manifest },
+      accessManifest: { state: create.event },
       contentKeyBundle: create.contentKeyBundle,
-      id: String(Reflect.get(create.manifest, "objectId")),
+      id: String(Reflect.get(create.event, "objectId")),
     } as unknown as CreatedDocumentFixture;
-    // The stale seed still has a valid signature and matching dependency hashes.
-    // The head pin must keep its 409 precedence over later target-scope checks.
+    // The stale seed still has a valid signature, but its write header cites
+    // the pre-rekey root path. The sync the seed stands for authorizes with
+    // the create's current path, so the header is refused with 409 and the
+    // inline rekey rolls back with the create.
     const { request: seed } = await createSignedDocumentSyncRequest({
       created: planned,
       owner,
@@ -57,10 +59,7 @@ test.each([false, true])(
       body: JSON.stringify({
         ...create,
         containerRekeys: [rekey.request],
-        initialSync: {
-          ...seed,
-          localVersionVector: update.partialEndVersionVector,
-        },
+        initialSync: { outgoingUpdates: [update] },
       }),
     });
     const body = await response.json();
@@ -80,7 +79,9 @@ test.each([false, true])(
       .from(documentUpdates)
       .where(eq(documentUpdates.documentId, planned.id));
     if (staleSeed) {
-      expect(body.error).toContain("is stale");
+      expect(body.error).toBe(
+        "write header does not cite its complete authorizing container paths",
+      );
       expect(rootHead?.manifestHash).toBe(root.bundle.manifestHash);
       expect(documentHead).toBeNull();
       expect(updates).toEqual([]);

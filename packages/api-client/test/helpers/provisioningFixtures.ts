@@ -61,19 +61,8 @@ function initialPolicy(
 }
 
 function initialDocumentSync(): RegistrationRequest["initialRootMetadataDocument"]["initialSync"] {
+  // A seed carries its update alone.
   return {
-    authorizingContainerPathRefs: [
-      [
-        {
-          containerId: rootContainerId,
-          manifestHash: "container-manifest-hash",
-        },
-      ],
-    ],
-    contentKeyEpoch: 1,
-    expectedLinkSetManifestHash: "document-link-set-hash",
-    expectedTargetHash: "target-hash",
-    localVersionVector: '{"actor":1}',
     outgoingUpdates: [
       {
         encryptedData: "ciphertext",
@@ -84,7 +73,6 @@ function initialDocumentSync(): RegistrationRequest["initialRootMetadataDocument
         writeHeader: { updateId: initialUpdateId },
       },
     ],
-    supportsPullPagination: true,
   };
 }
 
@@ -146,7 +134,6 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
       event: { eventType: "document.link" },
       expectedManifestHash: "document-manifest-hash",
       initialSync: initialDocumentSync(),
-      manifest: { objectKind: "document" },
       targetContainerPathRefs: [
         {
           containerId: rootContainerId,

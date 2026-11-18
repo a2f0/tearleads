@@ -1,225 +1,83 @@
-# Issue #2903 (P23, greenfield flag day): a principal payload is only its
-# ciphertext beside its state, so requests drop `cipherSuite` and
-# `ciphertextHash` and responses drop the payload record's other fields.
-# Remove these exact diagnostics as soon as main contains the new contract.
-GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/payload/anyOf[#/components/schemas/PrincipalStatePayloadResponse]/cipherSuite` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/payload/anyOf[#/components/schemas/PrincipalStatePayloadResponse]/ciphertextHash` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/payload/anyOf[#/components/schemas/PrincipalStatePayloadResponse]/createdAt` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/payload/anyOf[#/components/schemas/PrincipalStatePayloadResponse]/principalId` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/payload/anyOf[#/components/schemas/PrincipalStatePayloadResponse]/principalType` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/payload/anyOf[#/components/schemas/PrincipalStatePayloadResponse]/stateHash` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/purge removed the required property `policyEvidence/organizationPayloads/items/payload/cipherSuite` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/purge removed the required property `policyEvidence/organizationPayloads/items/payload/ciphertextHash` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/purge removed the required property `policyEvidence/organizationPayloads/items/payload/createdAt` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/purge removed the required property `policyEvidence/organizationPayloads/items/payload/principalId` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/purge removed the required property `policyEvidence/organizationPayloads/items/payload/principalType` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/purge removed the required property `policyEvidence/organizationPayloads/items/payload/stateHash` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/purge removed the required property `policyEvidence/organizationPayloads/items/payload/cipherSuite` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/purge removed the required property `policyEvidence/organizationPayloads/items/payload/ciphertextHash` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/purge removed the required property `policyEvidence/organizationPayloads/items/payload/createdAt` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/purge removed the required property `policyEvidence/organizationPayloads/items/payload/principalId` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/purge removed the required property `policyEvidence/organizationPayloads/items/payload/principalType` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/purge removed the required property `policyEvidence/organizationPayloads/items/payload/stateHash` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/payload/anyOf[#/components/schemas/PrincipalStatePayloadResponse]/cipherSuite` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/payload/anyOf[#/components/schemas/PrincipalStatePayloadResponse]/ciphertextHash` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/payload/anyOf[#/components/schemas/PrincipalStatePayloadResponse]/createdAt` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/payload/anyOf[#/components/schemas/PrincipalStatePayloadResponse]/principalId` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/payload/anyOf[#/components/schemas/PrincipalStatePayloadResponse]/principalType` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/payload/anyOf[#/components/schemas/PrincipalStatePayloadResponse]/stateHash` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /organizations/{organizationId}/policy-history removed the required property `evidence/organizationPayloads/items/payload/cipherSuite` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /organizations/{organizationId}/policy-history removed the required property `evidence/organizationPayloads/items/payload/ciphertextHash` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /organizations/{organizationId}/policy-history removed the required property `evidence/organizationPayloads/items/payload/createdAt` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /organizations/{organizationId}/policy-history removed the required property `evidence/organizationPayloads/items/payload/principalId` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /organizations/{organizationId}/policy-history removed the required property `evidence/organizationPayloads/items/payload/principalType` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /organizations/{organizationId}/policy-history removed the required property `evidence/organizationPayloads/items/payload/stateHash` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /principals/{principalType}/{principalId}/policy removed the required property `anyOf[#/components/schemas/PrincipalPolicyPageResponse]/currentPayload/cipherSuite` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /principals/{principalType}/{principalId}/policy removed the required property `anyOf[#/components/schemas/PrincipalPolicyPageResponse]/currentPayload/ciphertextHash` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /principals/{principalType}/{principalId}/policy removed the required property `anyOf[#/components/schemas/PrincipalPolicyPageResponse]/currentPayload/createdAt` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /principals/{principalType}/{principalId}/policy removed the required property `anyOf[#/components/schemas/PrincipalPolicyPageResponse]/currentPayload/principalId` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /principals/{principalType}/{principalId}/policy removed the required property `anyOf[#/components/schemas/PrincipalPolicyPageResponse]/currentPayload/principalType` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-GET /principals/{principalType}/{principalId}/policy removed the required property `anyOf[#/components/schemas/PrincipalPolicyPageResponse]/currentPayload/stateHash` from the response with the `200` status
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the request property `initialAdminGroup/initialGroupPolicy/encryptedPayload/cipherSuite` (shared schema: `CreateOrganizationGroupRequest`, also at `initialMemberGroup/initialGroupPolicy/encryptedPayload/cipherSuite`)
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the request property `initialAdminGroup/initialGroupPolicy/encryptedPayload/ciphertextHash` (shared schema: `CreateOrganizationGroupRequest`, also at `initialMemberGroup/initialGroupPolicy/encryptedPayload/ciphertextHash`)
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the request property `initialOrganizationPolicy/encryptedPayload/cipherSuite`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the request property `initialOrganizationPolicy/encryptedPayload/ciphertextHash`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the request property `initialAdminGroup/initialGroupPolicy/encryptedPayload/cipherSuite` (shared schema: `CreateOrganizationGroupRequest`, also at `initialMemberGroup/initialGroupPolicy/encryptedPayload/cipherSuite`)
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the request property `initialAdminGroup/initialGroupPolicy/encryptedPayload/ciphertextHash` (shared schema: `CreateOrganizationGroupRequest`, also at `initialMemberGroup/initialGroupPolicy/encryptedPayload/ciphertextHash`)
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the request property `initialOrganizationPolicy/encryptedPayload/cipherSuite`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the request property `initialOrganizationPolicy/encryptedPayload/ciphertextHash`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the request property `initialGroupPolicy/encryptedPayload/cipherSuite`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the request property `initialGroupPolicy/encryptedPayload/ciphertextHash`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the request property `organizationPolicy/encryptedPayload/cipherSuite`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the request property `organizationPolicy/encryptedPayload/ciphertextHash`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /organizations/{organizationId}/groups/{groupId} removed the request property `organizationPolicy/encryptedPayload/cipherSuite`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /organizations/{organizationId}/groups/{groupId} removed the request property `organizationPolicy/encryptedPayload/ciphertextHash`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `groupPolicy/encryptedPayload/cipherSuite` (shared schema: `PutPrincipalPolicyRequest`, also at `memberPolicy/encryptedPayload/cipherSuite`)
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `groupPolicy/encryptedPayload/ciphertextHash` (shared schema: `PutPrincipalPolicyRequest`, also at `memberPolicy/encryptedPayload/ciphertextHash`)
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `organizationPolicy/encryptedPayload/cipherSuite`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `organizationPolicy/encryptedPayload/ciphertextHash`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-PUT /principals/{principalType}/{principalId}/policy removed the request property `encryptedPayload/cipherSuite`
-
-# Issue #2903 P23: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-PUT /principals/{principalType}/{principalId}/policy removed the request property `encryptedPayload/ciphertextHash`
+# Issue #2903 (P20, greenfield flag day): a create's seed carries its update
+# alone (the API rebuilds the sync it stands for from the create), and document
+# creates send expectedManifestHash without the manifest the API derives. Every
+# entry below is one of those removed request properties. Remove this whole
+# file as soon as main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/authorizingContainerPathRefs` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/authorizingContainerPathRefs`, `initialSystemContainers/items/initialMetadataSync/authorizingContainerPathRefs`)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/containerRekeys`, `initialSystemContainers/items/initialMetadataSync/containerRekeys`)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/contentKeyBundle` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/contentKeyBundle`, `initialSystemContainers/items/initialMetadataSync/contentKeyBundle`)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/contentKeyEpoch` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/contentKeyEpoch`, `initialSystemContainers/items/initialMetadataSync/contentKeyEpoch`)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/expectedLinkSetManifestHash` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/expectedLinkSetManifestHash`, `initialSystemContainers/items/initialMetadataSync/expectedLinkSetManifestHash`)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/expectedTargetHash` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/expectedTargetHash`, `initialSystemContainers/items/initialMetadataSync/expectedTargetHash`)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/historyMode` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/historyMode`, `initialSystemContainers/items/initialMetadataSync/historyMode`)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/inlineRekeyCommitId` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/inlineRekeyCommitId`, `initialSystemContainers/items/initialMetadataSync/inlineRekeyCommitId`)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/localVersionVector` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/localVersionVector`, `initialSystemContainers/items/initialMetadataSync/localVersionVector`)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/minLsn` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/minLsn`, `initialSystemContainers/items/initialMetadataSync/minLsn`)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/pullCursor` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/pullCursor`, `initialSystemContainers/items/initialMetadataSync/pullCursor`)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/supportsPullPagination` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/supportsPullPagination`, `initialSystemContainers/items/initialMetadataSync/supportsPullPagination`)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/metadataDocument/manifest` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/metadataDocument/manifest`, `initialSystemContainers/items/metadataDocument/manifest`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/authorizingContainerPathRefs` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/authorizingContainerPathRefs`, `initialRosterProfileDocument/initialSync/authorizingContainerPathRefs`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/containerRekeys`, `initialRosterProfileDocument/initialSync/containerRekeys`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/contentKeyBundle` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/contentKeyBundle`, `initialRosterProfileDocument/initialSync/contentKeyBundle`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/contentKeyEpoch` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/contentKeyEpoch`, `initialRosterProfileDocument/initialSync/contentKeyEpoch`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/expectedLinkSetManifestHash` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/expectedLinkSetManifestHash`, `initialRosterProfileDocument/initialSync/expectedLinkSetManifestHash`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/expectedTargetHash` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/expectedTargetHash`, `initialRosterProfileDocument/initialSync/expectedTargetHash`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/historyMode` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/historyMode`, `initialRosterProfileDocument/initialSync/historyMode`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/inlineRekeyCommitId` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/inlineRekeyCommitId`, `initialRosterProfileDocument/initialSync/inlineRekeyCommitId`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/localVersionVector` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/localVersionVector`, `initialRosterProfileDocument/initialSync/localVersionVector`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/minLsn` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/minLsn`, `initialRosterProfileDocument/initialSync/minLsn`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/pullCursor` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/pullCursor`, `initialRosterProfileDocument/initialSync/pullCursor`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/supportsPullPagination` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/supportsPullPagination`, `initialRosterProfileDocument/initialSync/supportsPullPagination`)
+POST /auth/register removed the request property `initialOrganizationProfileDocument/manifest` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/manifest`, `initialRosterProfileDocument/manifest`)
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/authorizingContainerPathRefs`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/containerRekeys`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/contentKeyBundle`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/contentKeyEpoch`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/expectedLinkSetManifestHash`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/expectedTargetHash`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/historyMode`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/inlineRekeyCommitId`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/localVersionVector`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/minLsn`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/pullCursor`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/supportsPullPagination`
+POST /containers/with-metadata-document removed the request property `metadataDocument/manifest`
+POST /documents removed the request property `initialSync/authorizingContainerPathRefs`
+POST /documents removed the request property `initialSync/containerRekeys`
+POST /documents removed the request property `initialSync/contentKeyBundle`
+POST /documents removed the request property `initialSync/contentKeyEpoch`
+POST /documents removed the request property `initialSync/expectedLinkSetManifestHash`
+POST /documents removed the request property `initialSync/expectedTargetHash`
+POST /documents removed the request property `initialSync/historyMode`
+POST /documents removed the request property `initialSync/inlineRekeyCommitId`
+POST /documents removed the request property `initialSync/localVersionVector`
+POST /documents removed the request property `initialSync/minLsn`
+POST /documents removed the request property `initialSync/pullCursor`
+POST /documents removed the request property `initialSync/supportsPullPagination`
+POST /documents removed the request property `manifest`
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/authorizingContainerPathRefs` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/authorizingContainerPathRefs`, `initialSystemContainers/items/initialMetadataSync/authorizingContainerPathRefs`)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/containerRekeys`, `initialSystemContainers/items/initialMetadataSync/containerRekeys`)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/contentKeyBundle` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/contentKeyBundle`, `initialSystemContainers/items/initialMetadataSync/contentKeyBundle`)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/contentKeyEpoch` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/contentKeyEpoch`, `initialSystemContainers/items/initialMetadataSync/contentKeyEpoch`)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/expectedLinkSetManifestHash` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/expectedLinkSetManifestHash`, `initialSystemContainers/items/initialMetadataSync/expectedLinkSetManifestHash`)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/expectedTargetHash` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/expectedTargetHash`, `initialSystemContainers/items/initialMetadataSync/expectedTargetHash`)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/historyMode` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/historyMode`, `initialSystemContainers/items/initialMetadataSync/historyMode`)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/inlineRekeyCommitId` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/inlineRekeyCommitId`, `initialSystemContainers/items/initialMetadataSync/inlineRekeyCommitId`)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/localVersionVector` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/localVersionVector`, `initialSystemContainers/items/initialMetadataSync/localVersionVector`)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/minLsn` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/minLsn`, `initialSystemContainers/items/initialMetadataSync/minLsn`)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/pullCursor` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/pullCursor`, `initialSystemContainers/items/initialMetadataSync/pullCursor`)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/supportsPullPagination` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/initialMetadataSync/supportsPullPagination`, `initialSystemContainers/items/initialMetadataSync/supportsPullPagination`)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/metadataDocument/manifest` (shared schema: `ProvisionedSystemContainerRequest`, also at `initialRosterProfileContainer/metadataDocument/manifest`, `initialSystemContainers/items/metadataDocument/manifest`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/authorizingContainerPathRefs` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/authorizingContainerPathRefs`, `initialRosterProfileDocument/initialSync/authorizingContainerPathRefs`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/containerRekeys`, `initialRosterProfileDocument/initialSync/containerRekeys`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/contentKeyBundle` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/contentKeyBundle`, `initialRosterProfileDocument/initialSync/contentKeyBundle`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/contentKeyEpoch` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/contentKeyEpoch`, `initialRosterProfileDocument/initialSync/contentKeyEpoch`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/expectedLinkSetManifestHash` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/expectedLinkSetManifestHash`, `initialRosterProfileDocument/initialSync/expectedLinkSetManifestHash`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/expectedTargetHash` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/expectedTargetHash`, `initialRosterProfileDocument/initialSync/expectedTargetHash`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/historyMode` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/historyMode`, `initialRosterProfileDocument/initialSync/historyMode`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/inlineRekeyCommitId` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/inlineRekeyCommitId`, `initialRosterProfileDocument/initialSync/inlineRekeyCommitId`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/localVersionVector` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/localVersionVector`, `initialRosterProfileDocument/initialSync/localVersionVector`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/minLsn` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/minLsn`, `initialRosterProfileDocument/initialSync/minLsn`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/pullCursor` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/pullCursor`, `initialRosterProfileDocument/initialSync/pullCursor`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/supportsPullPagination` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/initialSync/supportsPullPagination`, `initialRosterProfileDocument/initialSync/supportsPullPagination`)
+POST /organizations removed the request property `initialOrganizationProfileDocument/manifest` (shared schema: `ProvisionedDocumentRequest`, also at `initialRootMetadataDocument/manifest`, `initialRosterProfileDocument/manifest`)
