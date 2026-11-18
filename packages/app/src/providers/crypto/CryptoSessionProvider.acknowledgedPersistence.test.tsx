@@ -11,7 +11,9 @@ import * as SessionPersistence from "./localCryptoSessionPersistence";
 
 test("only a server-acknowledged user ID is persisted with the crypto session", async () => {
   const sessionListeners = new Set<() => void>();
+  const current = () => true;
   const session = {
+    captureSignIn: () => current,
     bootstrapLocalRootContainer: () => Promise.resolve(),
     login: () => Promise.resolve(true),
     logout: () => undefined,

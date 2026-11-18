@@ -13,15 +13,16 @@ function mergedUserId(
 }
 
 export function hostSessionUpdate(
-  previous: SessionSnapshot,
   context: SessionContext,
 ): [SessionContext, "boundary"?] {
   if (
-    "authToken" in context &&
-    typeof context.authToken !== "string" &&
-    (previous.authToken !== null || previous.isAuthenticated)
+    context.isAuthenticated === false ||
+    ("authToken" in context && typeof context.authToken !== "string")
   )
-    return [{ ...context, isAuthenticated: false, isRoot: false }, "boundary"];
+    return [
+      { ...context, authToken: null, isAuthenticated: false, isRoot: false },
+      "boundary",
+    ];
   if (context.isAuthenticated === true && typeof context.authToken === "string")
     return [context, "boundary"];
   return [context];

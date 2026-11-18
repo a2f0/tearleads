@@ -123,8 +123,9 @@ export class SessionRenewalTracker {
   async renew(handler: RenewSession): Promise<boolean> {
     const from = this.readToken();
     if (!from) return false;
-    const existing = this.pending(from);
-    if (existing) return existing;
+    // An expiry on the candidate bearer joins its outstanding verification.
+    // Only a sign-in boundary can release the slot before that callback settles.
+    if (this.inFlight) return this.inFlight.promise;
     const confirmation = Promise.withResolvers<boolean>();
     const pending = {
       from,

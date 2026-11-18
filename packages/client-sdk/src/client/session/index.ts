@@ -407,7 +407,7 @@ class SessionService implements Session {
   }
 
   setContext(context: SessionContext): void {
-    this.commitContext(...hostSessionUpdate(this.snapshotValue, context));
+    this.commitContext(...hostSessionUpdate(context));
   }
 
   commitContext(

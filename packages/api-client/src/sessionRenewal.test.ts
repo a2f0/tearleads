@@ -171,3 +171,29 @@ test("a synchronous sign-in during renewal leaves the new session free to renew"
     await retired;
   }
 });
+
+test("a second expiry cannot replace verification of the provisional bearer", async () => {
+  let token = "original";
+  const tracker = new SessionRenewalTracker(() => token);
+  const confirmation = Promise.withResolvers<boolean>();
+  const original = tracker.renew(() => {
+    token = "candidate";
+    tracker.tokenChanged();
+    return confirmation.promise;
+  });
+  const credential = tracker.captureCredential();
+  let secondCalls = 0;
+  const second = tracker.renew(() => {
+    secondCalls++;
+    return false;
+  });
+  try {
+    expect(tracker.captureCredential()()).toBeInstanceOf(Promise);
+    expect(credential()).toBeInstanceOf(Promise);
+    expect(secondCalls).toBe(0);
+  } finally {
+    confirmation.resolve(true);
+    await Promise.all([original, second]);
+  }
+  expect(credential()).toBe(true);
+});

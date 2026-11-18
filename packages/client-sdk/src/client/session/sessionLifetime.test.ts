@@ -225,16 +225,18 @@ test("a delayed SQL read only delivers rows to its owning sign-in", async () => 
   }
 });
 
-test("an explicitly undefined host bearer signs out its owning scope", () => {
-  const sdk = new Tearleads();
-  try {
-    sdk.session.setContext({ authToken: "one", isAuthenticated: true });
-    const current = sdk.session.captureSignIn();
-    sdk.session.setContext({ authToken: undefined });
-    expect(sdk.session.authToken).toBeNull();
-    expect(sdk.session.isAuthenticated).toBe(false);
-    expect(current()).toBe(false);
-  } finally {
-    sdk.dispose();
-  }
-});
+for (const context of [{ authToken: undefined }, { isAuthenticated: false }]) {
+  test(`host context ${Object.keys(context)} signs out its owning scope`, () => {
+    const sdk = new Tearleads();
+    try {
+      sdk.session.setContext({ authToken: "one", isAuthenticated: true });
+      const current = sdk.session.captureSignIn();
+      sdk.session.setContext(context);
+      expect(sdk.session.authToken).toBeNull();
+      expect(sdk.session.isAuthenticated).toBe(false);
+      expect(current()).toBe(false);
+    } finally {
+      sdk.dispose();
+    }
+  });
+}

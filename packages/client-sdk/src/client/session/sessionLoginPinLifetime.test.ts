@@ -72,46 +72,56 @@ test("superseding a login during the pin transaction leaves the next login to es
   }
 });
 
-test("removing the host bearer cancels a pending verified renewal", async () => {
-  const sqlite = await createTestExecSql("remove-host-bearer");
-  const sdk = new Tearleads({
-    apiBaseUrl: "https://api.example.test",
-    database: { execSql: sqlite.execSql, id: "bearer" },
-    blobStoreFactory: () => createMemoryBlobStore(),
-    logger: quietLogger,
-  });
-  const entered = Promise.withResolvers<void>();
-  const release = Promise.withResolvers<void>();
-  const userId = "11111111-1111-4111-8111-111111111111";
-  const api = Reflect.get(sdk, "apiClient") as ApiClient;
-  api.authenticate = async () => {
-    entered.resolve();
-    await release.promise;
-    return {
-      userId,
-      organizationId: "org",
-      rootContainerId: null,
-      token: "renewed",
-      wsTicket: "ticket",
-      authenticated: true,
-      isRoot: false,
+for (const signedIn of [false, true]) {
+  test(`host sign-out cancels authentication started signedIn=${signedIn}`, async () => {
+    const sqlite = await createTestExecSql("remove-host-bearer");
+    const sdk = new Tearleads({
+      apiBaseUrl: "https://api.example.test",
+      database: { execSql: sqlite.execSql, id: "bearer" },
+      blobStoreFactory: () => createMemoryBlobStore(),
+      logger: quietLogger,
+    });
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const userId = "11111111-1111-4111-8111-111111111111";
+    const api = Reflect.get(sdk, "apiClient") as ApiClient;
+    api.authenticate = async () => {
+      entered.resolve();
+      await release.promise;
+      return {
+        userId,
+        organizationId: "org",
+        rootContainerId: null,
+        token: "renewed",
+        wsTicket: "ticket",
+        authenticated: true,
+        isRoot: false,
+      };
     };
-  };
-  try {
-    await setGeneratedIdentity(sdk.identity);
-    sdk.session.setContext({ authToken: "old", isAuthenticated: true, userId });
-    const previous = sdk.session.captureSignIn();
-    const renewal = Reflect.get(sdk.session, "renewExpired")();
-    await entered.promise;
-    sdk.session.setAuthToken(null);
-    release.resolve();
-    await expect(renewal).resolves.toBe(false);
-    expect(previous()).toBe(false);
-    expect(sdk.session.authToken).toBeNull();
-    expect(sdk.session.isAuthenticated).toBe(false);
-  } finally {
-    release.resolve();
-    sdk.dispose();
-    sqlite.close();
-  }
-});
+    try {
+      await setGeneratedIdentity(sdk.identity);
+      if (signedIn)
+        sdk.session.setContext({
+          authToken: "old",
+          isAuthenticated: true,
+          userId,
+        });
+      const previous = sdk.session.captureSignIn();
+      const renewal = signedIn
+        ? Reflect.get(sdk.session, "renewExpired")()
+        : sdk.session.login();
+      await entered.promise;
+      if (signedIn) sdk.session.setAuthToken(null);
+      else sdk.session.setContext({ authToken: null });
+      release.resolve();
+      await expect(renewal).resolves.toBe(false);
+      expect(previous()).toBe(false);
+      expect(sdk.session.authToken).toBeNull();
+      expect(sdk.session.isAuthenticated).toBe(false);
+    } finally {
+      release.resolve();
+      sdk.dispose();
+      sqlite.close();
+    }
+  });
+}
