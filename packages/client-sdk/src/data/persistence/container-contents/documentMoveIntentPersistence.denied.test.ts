@@ -271,3 +271,33 @@ test("denied scoping resolves organizations via containers", async () => {
     await close();
   }
 });
+
+test("a refused session guard leaves denied move intents parked", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-move-denied-session-guard",
+  );
+  try {
+    await persistence(execSql).ensureSchema();
+    await persistence(execSql).enqueueMoveIntent({
+      documentId: "remote-a",
+      localId: "doc-a",
+      replaceLinkedContainers: false,
+      sourceContainerId: "from",
+      targetContainerId: "to",
+    });
+    await persistence(execSql).recordMoveIntentError({
+      denied: true,
+      documentId: "remote-a",
+      message: "Remote document move was rejected or unavailable: (403)",
+    });
+
+    await persistence(execSql).resetDeniedMoveIntents({
+      stillCurrent: () => false,
+    });
+
+    expect(await persistence(execSql).hasDeniedMoveIntents()).toBe(true);
+    expect(await persistence(execSql).listPendingMoveIntents()).toEqual([]);
+  } finally {
+    await close();
+  }
+});

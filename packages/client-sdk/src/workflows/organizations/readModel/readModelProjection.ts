@@ -52,12 +52,15 @@ export interface ReconcileOrganizationDirectoryAndGroupsInput
     | ((message: string | Error, cause?: unknown) => void)
     | undefined;
   /**
-   * Whether the session and scope that started this pass are still current. A
-   * response that arrives after they end is dropped: no denial, purge or
-   * apply, and every write the pass makes commits only while it holds.
+   * Whether the pass's session and scope hold: a response after they end is
+   * dropped, and every write of the pass commits only while they hold.
    */
   readonly stillCurrent?: (() => boolean) | undefined;
 }
+
+/** A dropped pass resolves `undefined`, so it never counts as caught up. */
+const DROPPED = { kind: "done", value: undefined } as const;
+const OVERTAKEN = { kind: "done", value: null } as const;
 
 /** The pass's session ended: what arrives for it touches nothing. */
 function sessionEnded(
@@ -213,7 +216,7 @@ async function requestReadModelPage(
     { reportErrors: false },
   );
   // A response for a replaced session answers nothing, a denial included.
-  if (sessionEnded(input)) return { kind: "done", value: null };
+  if (sessionEnded(input)) return DROPPED;
   if (result.ok) {
     return { kind: "response", response: result.data };
   }
@@ -247,7 +250,7 @@ async function requestReadModelPage(
     } catch (error) {
       input.logError?.("Failed to purge denied organization access", error);
     }
-    return { kind: "done", value: null };
+    return sessionEnded(input) ? DROPPED : { kind: "done", value: null };
   }
   if (
     isInvalidReadModelCursorFailure(result) &&
@@ -291,6 +294,15 @@ function reconciliationIsCurrent(
   );
 }
 
+/** The step of a dropped or overtaken pass; `null` while it may continue. */
+function staleStep(
+  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  state: ReconciliationState,
+): ReconciliationStep | null {
+  if (sessionEnded(input)) return DROPPED;
+  return reconciliationIsCurrent(input, state) ? null : OVERTAKEN;
+}
+
 type ApplyResponseStep =
   | ReconciliationStep
   | {
@@ -329,9 +341,8 @@ async function applyResponse(
         canCommit: input.stillCurrent,
       },
     );
-    if (!reconciliationIsCurrent(input, state) || sessionEnded(input)) {
-      return { kind: "done", value: null };
-    }
+    const stale = staleStep(input, state);
+    if (stale) return stale;
     state.projection = null;
     resetRequestCursor(state);
     return { kind: "continue" };
@@ -359,9 +370,8 @@ async function prepareDeniedProjectionForApply(
     input.logError?.("Failed to replace denied organization read model", error);
     return { kind: "done", value: null };
   }
-  if (!reconciliationIsCurrent(input, state) || sessionEnded(input)) {
-    return { kind: "done", value: null };
-  }
+  const stale = staleStep(input, state);
+  if (stale) return stale;
   state.expectedLocalCursor = null;
   state.preparedDeniedProjection = true;
   state.projection = null;
@@ -390,9 +400,8 @@ async function applyReadModelPage(
 
   const accessInput = organizationPresentationAccessInput(input);
   return runOrganizationPresentationMutation(input.execSql, async () => {
-    if (!reconciliationIsCurrent(input, state) || sessionEnded(input)) {
-      return { kind: "done", value: null };
-    }
+    const stale = staleStep(input, state);
+    if (stale) return stale;
     const preparation = await prepareDeniedProjectionForApply(input, state);
     if (preparation) {
       return preparation;
@@ -404,9 +413,8 @@ async function applyReadModelPage(
     }
 
     state.projection = await loadRawProjection(input);
-    if (!reconciliationIsCurrent(input, state) || sessionEnded(input)) {
-      return { kind: "done", value: null };
-    }
+    const overtaken = staleStep(input, state);
+    if (overtaken) return overtaken;
     if (applied.result === "stale") {
       return retryStaleApply(input, state);
     }
@@ -447,7 +455,8 @@ export async function loadLocalOrganizationGroupMembers(
  * Resolves the reconciled projection, `null` when the pass completed
  * authoritatively with nothing presentable (including a denial that purged
  * the projection), or `undefined` when the feed failed — even when local
- * rows remain available. A failed pass must not count as caught up.
+ * rows remain available — or the pass's session ended. A failed or dropped
+ * pass must not count as caught up.
  */
 export async function reconcileOrganizationDirectoryAndGroups(
   input: ReconcileOrganizationDirectoryAndGroupsInput,

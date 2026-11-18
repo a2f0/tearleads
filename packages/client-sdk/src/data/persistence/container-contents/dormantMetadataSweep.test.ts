@@ -148,3 +148,29 @@ test("an expired generation cannot complete its sweep", async () => {
     await close();
   }
 });
+
+test("a refused session guard requests no restoration sweep", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "dormant-metadata-sweep-session-guard",
+  );
+  try {
+    await ensureContainerTables(execSql);
+    await execSql(
+      `INSERT INTO dormant_container_metadata
+        (container_id, organization_id, retained_at)
+       VALUES ('marker', 'org-1', '2000-01-01T00:00:00.000Z')`,
+    );
+
+    await expect(
+      requestDormantMetadataRestorationSweeps(execSql, {
+        requesterUserId: "user-1",
+        stillCurrent: () => false,
+      }),
+    ).resolves.toBe(0);
+    expect(await listDormantMetadataSweepRequests(execSql, "user-1")).toEqual(
+      [],
+    );
+  } finally {
+    await close();
+  }
+});

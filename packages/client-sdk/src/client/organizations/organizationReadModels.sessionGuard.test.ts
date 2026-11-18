@@ -106,7 +106,7 @@ test("a denial answered after a relogin leaves the new session's projection", as
     f.relogin();
     f.releaseFeed();
 
-    await expect(reconciled).resolves.toBeNull();
+    await expect(reconciled).resolves.toBeUndefined();
     // The old session's 403 neither denied, marked nor purged the new one's.
     await expect(f.coordinator.loadLocal()).resolves.toMatchObject({
       readModelCursor: "cursor-1",
@@ -136,7 +136,7 @@ test("a page answered after a relogin is not applied", async () => {
     f.relogin();
     f.releaseFeed();
 
-    await expect(reconciled).resolves.toBeNull();
+    await expect(reconciled).resolves.toBeUndefined();
     await expect(
       f.repository.loadOrganizationReadModelProjection(organizationId, userId),
     ).resolves.toMatchObject({ cursor: "cursor-1" });
@@ -213,7 +213,7 @@ test("a relogin starts its own pass while the old one is pending", async () => {
     expect(fresh).not.toBe(stale);
     await expect(fresh).resolves.toMatchObject({ readModelCursor: "cursor-2" });
     f.releaseFeed();
-    await expect(stale).resolves.toBeNull();
+    await expect(stale).resolves.toBeUndefined();
     expect(f.requests()).toBe(2);
     // The stale pass neither purged nor unpublished the fresh one's cursor.
     await expect(f.coordinator.loadAppliedCursor()).resolves.toBe("cursor-2");

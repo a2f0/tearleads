@@ -52,6 +52,8 @@ export function leaveRequestVerifier(
   runtimeService: InternalRuntime,
   runtime: InternalWorkflowRuntimeInput,
   organization: { readonly organizationId: string; readonly userId: string },
+  /** A reconcile pass's session guard; by default, the domain scope's. */
+  passIsCurrent?: () => boolean,
 ): LeaveRequestVerifier {
   const { domainScope } = runtime.state;
   return {
@@ -62,8 +64,10 @@ export function leaveRequestVerifier(
       currentUserId: organization.userId,
       organizationId: organization.organizationId,
       runtime,
-      stillCurrent: () =>
-        runtimeService.workflowInput().state.domainScope === domainScope,
+      stillCurrent:
+        passIsCurrent ??
+        (() =>
+          runtimeService.workflowInput().state.domainScope === domainScope),
     }),
   };
 }
@@ -98,11 +102,12 @@ export interface OrganizationReadModelCoordinator {
   ): Promise<OrganizationUserDetail | null>;
   /**
    * Resolves `undefined` when the runtime declines without I/O (offline,
-   * database not ready, organization mismatch) or when the feed failed,
-   * even with locally retained data — passes that must not count as caught
-   * up; `null` when the reconcile completed but produced nothing presentable
-   * — including an authoritative denial that purged the projection, which
-   * consumers must repaint.
+   * database not ready, organization mismatch), when the feed failed, even
+   * with locally retained data, or when the session or scope that started the
+   * pass ended — passes that must not count as caught up; `null` when the
+   * reconcile completed but produced nothing presentable — including an
+   * authoritative denial that purged the projection, which consumers must
+   * repaint.
    */
   reconcile(
     organizationId?: string | undefined,
@@ -338,18 +343,23 @@ class OrganizationReadModelCoordinatorImpl
         if (!stillCurrent()) return null;
         return withVerifiedLeaveRequests(
           await hydrateOrganizationGroupNamesForRuntime(
-            this.runtimeService,
             active,
-            domainScope,
+            stillCurrent,
             directoryAndGroups,
           ),
-          leaveRequestVerifier(this.runtimeService, active.runtime, active),
+          leaveRequestVerifier(
+            this.runtimeService,
+            active.runtime,
+            active,
+            stillCurrent,
+          ),
         );
       })
       .then(
         (presented) => {
-          // A pass its session outlived publishes nothing, cursor included.
-          if (!stillCurrent()) return null;
+          // A pass its session outlived publishes nothing, cursor included,
+          // and does not count as caught up.
+          if (!stillCurrent()) return undefined;
           if (presented) presentedCursors.set(key, presented.readModelCursor);
           else presentedCursors.delete(key);
           return presented;

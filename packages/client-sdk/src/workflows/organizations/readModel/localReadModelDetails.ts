@@ -27,6 +27,8 @@ interface LocalReadModelInput {
   readonly currentUserId: string;
   readonly execSql: ExecSql;
   readonly organizationId: string;
+  /** A reconcile pass's session guard, gating a load's integrity purge. */
+  readonly stillCurrent?: (() => boolean) | undefined;
 }
 
 type PolicyPrincipalType = ReferencedPrincipalStateResponse["principalType"];
@@ -292,6 +294,7 @@ export async function loadLocalOrganizationPolicyReference(
       ).loadOrganizationReadModelProjection(
         input.organizationId,
         input.currentUserId,
+        input.stillCurrent,
       );
       if (!projection?.requester) {
         return null;

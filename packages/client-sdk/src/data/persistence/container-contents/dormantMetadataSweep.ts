@@ -39,7 +39,11 @@ export interface DormantMetadataSweepPersistence {
 
 export async function requestDormantMetadataRestorationSweeps(
   execSql: ExecSql,
-  input: { requesterUserId: string },
+  input: {
+    requesterUserId: string;
+    /** Checked as the request write dispatches; a refusal requests nothing. */
+    stillCurrent?: (() => boolean) | undefined;
+  },
 ): Promise<number> {
   await ensureContainerTables(execSql);
   const requestedAt = new Date().toISOString();
@@ -50,7 +54,7 @@ export async function requestDormantMetadataRestorationSweeps(
       })
       .from(dormantContainerMetadata)
       .orderBy(dormantContainerMetadata.organizationId);
-    if (organizations.length === 0) {
+    if (organizations.length === 0 || input.stillCurrent?.() === false) {
       return 0;
     }
 

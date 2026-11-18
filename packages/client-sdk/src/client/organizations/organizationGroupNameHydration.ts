@@ -1,25 +1,17 @@
-import type { DomainScope } from "../../data/shared/domainScope";
 import { loadLocalOrganizationPolicyReference } from "../../workflows/organizations";
 import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../workflows/organizations/groupMetadata/currentGroupMetadataAuthority";
 import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadata/groupMetadataRuntime";
 import { hydrateOrganizationGroupNames } from "../../workflows/organizations/groupNames/organizationGroupNames";
 import type { OrganizationDirectoryAndGroups } from "../../workflows/organizations/readModel";
-
-import type { InternalRuntime } from "../runtime/workflowRuntime";
-import {
-  type ActiveOrganizationDataRuntime,
-  isOrganizationDataRuntimeCurrent,
-} from "./organizationWorkflowRuntime";
+import type { ActiveOrganizationDataRuntime } from "./organizationWorkflowRuntime";
 
 export async function hydrateOrganizationGroupNamesForRuntime(
-  runtimeService: InternalRuntime,
   active: ActiveOrganizationDataRuntime,
-  domainScope: DomainScope,
+  /** The reconcile pass's session guard; its loads commit only under it. */
+  stillCurrent: () => boolean,
   directoryAndGroups: OrganizationDirectoryAndGroups | null | undefined,
 ) {
   if (directoryAndGroups && active.runtime.crypto.encapsulationKeyPair) {
-    const stillCurrent = () =>
-      isOrganizationDataRuntimeCurrent(runtimeService, active, domainScope);
     // Labels and their metadata root belong to this one reconciliation view.
     const currentRecovery = {
       resolveCurrentPolicy:
@@ -37,6 +29,7 @@ export async function hydrateOrganizationGroupNamesForRuntime(
         organizationId: active.organizationId,
         principalId: active.organizationId,
         principalType: "organization",
+        stillCurrent,
       }),
       reportSecurityIncident: active.runtime.util.reportSecurityIncident,
       createCurrentNameReader: (authority) =>

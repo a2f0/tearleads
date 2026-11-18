@@ -439,6 +439,8 @@ export class DocumentMoveIntentRepository {
   async resetDeniedMoveIntents(input?: {
     localId?: string;
     organizationId?: string;
+    /** Checked as the update dispatches; a refusal resets nothing. */
+    stillCurrent?: (() => boolean) | undefined;
   }): Promise<void> {
     await this.ensureSchema();
     await ensureSqlTables(this.execSql, [
@@ -446,6 +448,7 @@ export class DocumentMoveIntentRepository {
       ...containerTables,
     ]);
     await runSerializedSqlMutation(this.execSql, async (lockedExecSql) => {
+      if (input?.stillCurrent?.() === false) return;
       // Organization scoping resolves each intent's organization through the
       // container joins above: restoring one organization's access must not
       // un-park moves that another organization still denies. Rows with no

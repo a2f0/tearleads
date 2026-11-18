@@ -7,8 +7,10 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
+import { subscribeOrganizationReadModelInvalidation } from "../../../data/persistence/organizations/organizationReadModelInvalidation";
 import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
+import { loadLocalOrganizationPolicyReference } from "./localReadModelDetails";
 import { reconcileOrganizationDirectoryAndGroups } from "./readModelProjection";
 
 const organizationId = organizationReadModelOrganizationId;
@@ -64,7 +66,7 @@ test("a session that ends inside the denial marker's write rolls it back", async
     /insert into "organization_presentation_denials"/iu,
   );
   try {
-    expect(f.reconciled).toBeNull();
+    expect(f.reconciled).toBeUndefined();
     await expect(
       f.repository.hasOrganizationPresentationDenial(scope, "readModel"),
     ).resolves.toBe(false);
@@ -82,7 +84,7 @@ test("a session that ends inside the denial purge's write rolls it back", async 
     /delete from "organization_read_model_requesters"/iu,
   );
   try {
-    expect(f.reconciled).toBeNull();
+    expect(f.reconciled).toBeUndefined();
     // The marker committed while the session held; the purge did not.
     await expect(
       f.repository.hasOrganizationPresentationDenial(scope, "readModel"),
@@ -92,5 +94,51 @@ test("a session that ends inside the denial purge's write rolls it back", async 
     ).resolves.toMatchObject({ cursor: "cursor-1" });
   } finally {
     f.close();
+  }
+});
+
+test("a policy reference load commits no integrity purge for an ended session", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "read-model-reference-integrity-guard-test",
+  );
+  const repository = new OrganizationReadModelRepository(execSql);
+  const invalidations: string[] = [];
+  const unsubscribe = subscribeOrganizationReadModelInvalidation(
+    execSql,
+    (invalidated) => invalidations.push(invalidated),
+  );
+  const reference = {
+    currentUserId: userId,
+    execSql,
+    organizationId,
+    principalId: organizationId,
+    principalType: "organization" as const,
+  };
+  try {
+    await repository.applyOrganizationReadModelResponse({
+      currentUserId: userId,
+      requestedCursor: null,
+      response: organizationReadModelSnapshot({ cursor: "cursor-1" }),
+    });
+    await execSql(
+      `UPDATE organization_read_model_groups
+       SET key_fingerprint = NULL
+       WHERE organization_id = ? AND state_hash IS NOT NULL`,
+      [organizationId],
+    );
+
+    await expect(
+      loadLocalOrganizationPolicyReference({
+        ...reference,
+        stillCurrent: () => false,
+      }),
+    ).resolves.toBeNull();
+    expect(invalidations).toEqual([]);
+    // Without a guard the same load purges the invalid rows.
+    await loadLocalOrganizationPolicyReference(reference);
+    expect(invalidations).toEqual([organizationId]);
+  } finally {
+    unsubscribe();
+    close();
   }
 });

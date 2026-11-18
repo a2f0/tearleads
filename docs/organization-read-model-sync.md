@@ -231,9 +231,11 @@ the replacement session's projection, a delayed page is not applied, and the
 stale pass neither publishes a directory nor moves the presented cursor. Every
 write the pass makes (the denial marker, the purges, a load's integrity purge,
 and the page apply) commits only while that session still holds, checked in
-the commit's own synchronous slice. The replacement session never joins the
-stale pass: it starts its own reconcile, so nothing waits on the dropped
-response.
+the commit's own synchronous slice. The pass's presentation steps (group-name
+hydration, leave-request checks and access recovery) run under the same
+guard. A dropped pass resolves `undefined`, like a failed one, so no caller
+counts it as caught up, and the replacement session never joins it: it starts
+its own reconcile, so nothing waits on the dropped response.
 
 ## Realtime behavior
 

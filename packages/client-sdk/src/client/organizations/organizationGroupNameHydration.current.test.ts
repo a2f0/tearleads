@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { createCurrentOrganizationRuntimeFixture } from "../../../test/helpers/workflows/currentOrganizationRuntime";
-import { createInternalRuntimeFixture } from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { hydrateOrganizationGroupNamesForRuntime } from "./organizationGroupNameHydration";
 
 test("runtime group labels use bounded policy recovery through private custody", async () => {
@@ -27,9 +26,8 @@ test("runtime group labels use bounded policy recovery through private custody",
       readModelCursor: "cursor",
     };
     const result = await hydrateOrganizationGroupNamesForRuntime(
-      createInternalRuntimeFixture(() => f.runtime),
       { organizationId, userId: "founder", runtime: f.runtime },
-      f.runtime.state.domainScope,
+      () => true,
       directory,
     );
     expect(result?.groups.map((group) => group.name).sort()).toEqual([

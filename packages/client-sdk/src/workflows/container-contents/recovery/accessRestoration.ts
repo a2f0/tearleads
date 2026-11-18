@@ -35,7 +35,7 @@ export async function recoverOrganizationAccess(input: {
   ) {
     // Parked permission-denied moves (row 7) only replay once flipped
     // back to pending; restore them before re-arming the lanes.
-    await moveIntents.resetDeniedMoveIntents({ organizationId });
+    await moveIntents.resetDeniedMoveIntents({ organizationId, stillCurrent });
     if (stillCurrent()) requestAllDomainSyncLanes(domainScope);
   }
   // Keep dormant cleanup independent from the write-lane evidence gate,
@@ -45,6 +45,7 @@ export async function recoverOrganizationAccess(input: {
     const requestedDormantSweepCount =
       await requestDormantMetadataRestorationSweeps(execSql, {
         requesterUserId: userId,
+        stillCurrent,
       });
     if (requestedDormantSweepCount > 0 && stillCurrent()) {
       requestDomainSyncLane(domainScope, CONTAINER_CONTENTS_SYNC_LANE_KEY);

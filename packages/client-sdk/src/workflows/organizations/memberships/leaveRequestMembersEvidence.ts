@@ -68,6 +68,7 @@ export function createRuntimeLeaveRequestMembershipCheck(
         organizationId: input.organizationId,
         principalId: input.organizationId,
         principalType: "organization",
+        stillCurrent: input.stillCurrent,
       });
       if (!organizationReference) return null;
       const authority = await loadCurrentOrganizationAuthority({
