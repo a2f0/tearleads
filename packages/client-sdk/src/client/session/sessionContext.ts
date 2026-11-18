@@ -12,6 +12,20 @@ function mergedUserId(
   return "userId" in context ? (context.userId ?? null) : previous.userId;
 }
 
+export function hostSessionUpdate(
+  previous: SessionSnapshot,
+  context: SessionContext,
+): [SessionContext, "boundary"?] {
+  if (
+    context.authToken === null &&
+    (previous.authToken !== null || previous.isAuthenticated)
+  )
+    return [{ ...context, isAuthenticated: false, isRoot: false }, "boundary"];
+  if (context.isAuthenticated === true && typeof context.authToken === "string")
+    return [context, "boundary"];
+  return [context];
+}
+
 export function mergeSessionContext(
   previous: SessionSnapshot,
   context: SessionContext,

@@ -125,6 +125,10 @@ export class ApiRequestRuntime {
     return changed;
   }
 
+  captureCredential(): () => boolean {
+    return this.sessionRenewals.captureCredential();
+  }
+
   withSessionSignal(options: RequestResultOptions): RequestResultOptions {
     return this.sessionRenewals.withSessionSignal(options);
   }

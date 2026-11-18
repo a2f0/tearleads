@@ -6,7 +6,9 @@ Part of the [client SDK guide](../client-sdk.md).
 
 A successful explicit login and a host restore through
 `session.setContext({ authToken, isAuthenticated: true, ... })` begin a sign-in.
-Logout retires it. Verified token renewal keeps existing work current.
+Logout or removing the bearer with `session.setAuthToken(null)` retires it.
+A non-null token-only update keeps the established sign-in. Verified token
+renewal keeps existing work current, including pending principal write receipts.
 The first sign-in adopts unclaimed device work. Later sign-ins receive fresh
 workflow scopes over the identity's saved database and attachments.
 

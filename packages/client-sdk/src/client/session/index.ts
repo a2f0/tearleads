@@ -7,6 +7,7 @@ import {
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
 import {
   emptySessionSnapshot,
+  hostSessionUpdate,
   mergeSessionContext,
   registrationSessionResult,
   sessionSnapshotsEqual,
@@ -397,7 +398,8 @@ class SessionService implements Session {
   }
 
   setAuthToken(authToken: string | null): void {
-    this.setSnapshot({ ...this.snapshotValue, authToken });
+    if (authToken === null) this.logout();
+    else this.setSnapshot({ ...this.snapshotValue, authToken });
   }
 
   setContainerId(containerId: string | null): void {
@@ -405,9 +407,7 @@ class SessionService implements Session {
   }
 
   setContext(context: SessionContext): void {
-    const restore =
-      context.isAuthenticated === true && typeof context.authToken === "string";
-    this.commitContext(context, restore ? "boundary" : undefined);
+    this.commitContext(...hostSessionUpdate(this.snapshotValue, context));
   }
 
   commitContext(

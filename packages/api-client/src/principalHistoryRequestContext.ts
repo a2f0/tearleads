@@ -16,7 +16,7 @@ export class PrincipalHistoryRequestContext {
     options: RequestResultOptions | undefined,
     // Requests of one operation share the identity they started under.
     private readonly identity = {
-      token: runtime.getAuthToken(),
+      credentialCurrent: runtime.captureCredential(),
       session: runtime.responseRequest.sessionSignal?.(),
     },
   ) {
@@ -26,7 +26,6 @@ export class PrincipalHistoryRequestContext {
         options?.retryOnSessionExpired === false ? false : "renew-only",
       onSessionRenewed: () => {
         if (method === "GET" && !options?.signal?.aborted) {
-          this.identity.token = runtime.getAuthToken();
           this.renewedRead = true;
         }
       },
@@ -52,7 +51,7 @@ export class PrincipalHistoryRequestContext {
     return (
       this.identity.session?.aborted === true ||
       this.options.signal?.aborted === true ||
-      this.runtime.getAuthToken() !== this.identity.token
+      !this.identity.credentialCurrent()
     );
   }
 

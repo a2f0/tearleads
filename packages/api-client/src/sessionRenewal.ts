@@ -27,6 +27,7 @@ type RenewSession = (() => boolean | Promise<boolean>) | null;
 /** An identity change invalidates renewal evidence, including an awaited callback. */
 export class SessionRenewalTracker {
   private revision = 0;
+  private lastUnverifiedChange = 0;
   private sessionRequests = new AbortController();
   private renewalWaiters = new AbortController();
   private readonly sourceSignals = new WeakMap<
@@ -38,6 +39,11 @@ export class SessionRenewalTracker {
   private inFlight: { from: string; promise: Promise<boolean> } | null = null;
 
   constructor(private readonly readToken: () => string | null) {}
+
+  captureCredential(): () => boolean {
+    const revision = this.revision;
+    return () => this.lastUnverifiedChange <= revision;
+  }
 
   get signal(): AbortSignal {
     return this.sessionRequests.signal;
@@ -80,6 +86,7 @@ export class SessionRenewalTracker {
       this.inFlight = null;
     }
     this.revision += 1;
+    this.lastUnverifiedChange = this.revision;
     this.known = null;
   }
 
@@ -120,13 +127,18 @@ export class SessionRenewalTracker {
     handler: RenewSession,
   ): Promise<boolean> {
     const session = this.sessionRequests;
+    const previousUnverifiedChange = this.lastUnverifiedChange;
     const renewed = await (handler?.() ?? false);
     if (session !== this.sessionRequests) return false;
     const to = this.readToken();
     // The trusted callback authenticates the same identity and installs one
     // replacement token. A second transition cannot borrow that renewal.
-    if (renewed && to && from !== to && this.revision === revision + 1)
+    if (renewed && to && from !== to && this.revision === revision + 1) {
       this.known = { from, to };
+      // Requests keep their original ownership through consecutive verified
+      // renewals without retaining a history of bearer tokens.
+      this.lastUnverifiedChange = previousUnverifiedChange;
+    }
     return renewed;
   }
 }
