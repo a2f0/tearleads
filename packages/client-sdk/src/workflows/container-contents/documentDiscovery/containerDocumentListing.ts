@@ -11,7 +11,10 @@ import type {
   ContainerDocumentTombstone,
   ListedContainerDocument,
 } from "./documentDiscoveryTypes";
-import { isPublicationWatermark } from "./publicationWatermark";
+import {
+  changesDiscoveryOrder,
+  isPublicationWatermark,
+} from "./publicationWatermark";
 
 type ContainerDocumentLaneApi = Pick<
   ContainerDocumentDiscoveryApi,
@@ -69,6 +72,7 @@ interface PendingContainerDocumentLane {
   readonly items: ListedContainerDocument[];
   readonly tombstones: ContainerDocumentTombstone[];
   watermark: SyncWatermark | null;
+  isContinuation: boolean;
 }
 
 function removedDocumentPlacements(
@@ -138,6 +142,7 @@ export async function listAllContainerDocumentLanes(input: {
     pending.push({
       containerId,
       isFullListing: watermark === null,
+      isContinuation: false,
       items: [],
       tombstones: [],
       watermark,
@@ -149,14 +154,24 @@ export async function listAllContainerDocumentLanes(input: {
     const pages = await input.listContainerDocumentLanes(
       batch.map(({ containerId, watermark }) => ({ containerId, watermark })),
     );
+    if (!pages) {
+      for (const lane of batch) listed.set(lane.containerId, "unavailable");
+      continue;
+    }
     batch.forEach((lane, index) => {
-      if (!pages) {
-        listed.set(lane.containerId, "unavailable");
-        return;
-      }
       const page = pages[index] ?? null;
       if (!page) {
         listed.set(lane.containerId, null);
+        return;
+      }
+      if (
+        changesDiscoveryOrder(
+          lane.watermark,
+          page.nextWatermark,
+          lane.isContinuation,
+        )
+      ) {
+        listed.set(lane.containerId, "unavailable");
         return;
       }
       lane.items.push(...page.items);
@@ -170,6 +185,7 @@ export async function listAllContainerDocumentLanes(input: {
           tombstones: lane.tombstones,
         });
       } else if (lane.watermark) {
+        lane.isContinuation = true;
         pending.push(lane);
       } else {
         listed.set(lane.containerId, null);

@@ -118,8 +118,9 @@ Existing clients already save and echo both watermark strings. The opaque ID
 seals the position, row ID, and highest publication visible to the listing
 with authenticated encryption bound to the user, lane and timestamp. A
 database-owned key survives API deployments and server-secret rotations.
-A device resuming from a legacy UUID cursor replays the lane once,
-in bounded pages, recovering earlier omissions.
+A saved legacy UUID cursor replays from the start in bounded pages on the new
+API. The updated SDK retries from its durable cursor if the server changes
+ordering mid-crawl or downgrades a saved publication cursor.
 An access recheck sends its parent cursor. The API checks the counter and
 reads permissions in one repeatable-read snapshot. A lagging replica leaves
 the cursor unchanged. An unsuccessful probe marks the refresh incomplete and

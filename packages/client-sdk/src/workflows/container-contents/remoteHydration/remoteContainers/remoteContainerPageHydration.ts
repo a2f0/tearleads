@@ -2,6 +2,7 @@ import {
   createPrincipalPolicyOperation,
   type PrincipalPolicyOperation,
 } from "../../../principals/principalPolicyService";
+import { changesDiscoveryOrder } from "../../documentDiscovery/publicationWatermark";
 import { prefetchDestinationProjections } from "../destination/destinationPrefetch";
 import { cachedDestinationRole } from "../destination/destinationRoleCache";
 import { markContainerParentLaneFetched } from "../lanes/laneFetchMarkers";
@@ -263,15 +264,7 @@ async function applyContainerParentLanePage(input: {
   seenContainerObservations: Map<string, string>;
   state: RemoteContainerHydrationState;
 }): Promise<HydrationProgress> {
-  const {
-    childIdsByParentId,
-    fetchedPage,
-    host,
-    queueContinuationLane,
-    queueParentLane,
-    seenContainerObservations,
-    state,
-  } = input;
+  const { childIdsByParentId, fetchedPage, host, state } = input;
   const {
     expectedContainerStates,
     expectedHydrationTombstones,
@@ -283,6 +276,14 @@ async function applyContainerParentLanePage(input: {
     return { changedCount, outcome: "retry", shouldStop: true };
   }
 
+  if (
+    changesDiscoveryOrder(
+      lane.watermark,
+      response.nextWatermark,
+      !!lane.continuationCursors,
+    )
+  )
+    return { changedCount, outcome: "retry", shouldStop: false };
   const remoteContainerItems = getApplicableRemoteContainerItems(response);
   const isPaused = await loadPausedContainerFilter(state);
   const tombstoneResult = await applyContainerTombstones({
@@ -318,8 +319,8 @@ async function applyContainerParentLanePage(input: {
     isPaused,
     items: remoteContainerItems.filter((item) => !isPaused(item)),
     policyOperation: input.policyOperation,
-    queueParentLane,
-    seenContainerObservations,
+    queueParentLane: input.queueParentLane,
+    seenContainerObservations: input.seenContainerObservations,
     state,
   });
   changedCount += appliedPage.changedCount;
@@ -339,7 +340,7 @@ async function applyContainerParentLanePage(input: {
     return { changedCount, outcome: "retry", shouldStop: true };
   }
 
-  queueNextPage(fetchedPage, skipWatermarkWrite, queueContinuationLane);
+  queueNextPage(fetchedPage, skipWatermarkWrite, input.queueContinuationLane);
   return { changedCount, outcome, shouldStop: false };
 }
 

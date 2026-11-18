@@ -7,3 +7,16 @@ export function isPublicationWatermark(
 ): boolean {
   return watermark?.id.startsWith("d1/") === true;
 }
+
+/** An initial legacy cursor can replay on the upgraded API. Once a page has
+ * been read, both sides of the continuation must use the same ordering. */
+export function changesDiscoveryOrder(
+  previous: SyncWatermark | null | undefined,
+  next: SyncWatermark | null,
+  isContinuation: boolean,
+): boolean {
+  if (!previous || !next) return false;
+  return isPublicationWatermark(previous)
+    ? !isPublicationWatermark(next)
+    : isContinuation && isPublicationWatermark(next);
+}

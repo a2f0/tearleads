@@ -181,8 +181,8 @@ test("a manual refresh queued behind reconnect still resets child watermarks", a
   }
 });
 
-test.each(["terminal", "continuation"])(
-  "a %s page cannot rewind to the child's starting cursor",
+test.each(["terminal", "continuation", "new API", "old API"])(
+  "a %s page cannot rewind or switch the child lane ordering",
   async (ending) => {
     const { execSql, close } = await createTestExecSql("starting-cursor-cycle");
     const domainScope = createDomainScope();
@@ -190,6 +190,13 @@ test.each(["terminal", "continuation"])(
       id,
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
+    const middle = ending === "old API" ? "d1/b" : "b";
+    const last =
+      ending === "old API"
+        ? "old-tail"
+        : ending === "new API"
+          ? "d1/tail"
+          : "a";
     const reads: string[] = [];
     const apiClient = createMockApiClient({
       listContainerParentLanes: batchParentLanes(
@@ -199,7 +206,7 @@ test.each(["terminal", "continuation"])(
           return {
             ...emptyListContainersResponse(),
             hasMore: watermark?.id === "a" || ending === "continuation",
-            nextWatermark: cursor(watermark?.id === "a" ? "b" : "a"),
+            nextWatermark: cursor(watermark?.id === "a" ? middle : last),
           };
         },
       ),
@@ -227,14 +234,14 @@ test.each(["terminal", "continuation"])(
         "child continuation did not start",
       );
       await waitForDomainSyncCoordinatorToSettle(domainScope);
-      expect(reads).toEqual(["a", "b"]);
+      expect(reads).toEqual(["a", middle]);
       await waitFor(
         () => reads.length >= 4,
         "child continuation was not retried",
         2500,
       );
       expect(await cursors.loadWatermark(lane)).toEqual(cursor("a"));
-      expect(reads).toEqual(["a", "b", "a", "b"]);
+      expect(reads).toEqual(["a", middle, "a", middle]);
     } finally {
       disposeDomainSyncCoordinator(domainScope);
       await close();

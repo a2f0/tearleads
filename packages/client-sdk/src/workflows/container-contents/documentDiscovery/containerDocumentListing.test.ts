@@ -175,6 +175,69 @@ test("lanes beyond the request bound split while rows stay within one page", asy
   expect(listed.size).toBe(33);
 });
 
+test.each([
+  ["d1/first", "old-second"],
+  ["old-first", "d1/second"],
+])(
+  "a document crawl retries when ordering changes from %s to %s",
+  async (first, second) => {
+    const cursor = (id: string) => ({ ...watermarkA, id });
+    const saved = cursor("legacy-saved");
+    const requested: string[] = [];
+    let upgraded = false;
+    const run = () =>
+      listAllContainerDocumentLanes({
+        lanes: [
+          { containerId: "container-a", watermark: saved },
+          { containerId: "unaffected", watermark: null },
+        ],
+        listContainerDocumentLanes: async (lanes) =>
+          lanes.map(({ containerId, watermark }) => {
+            if (containerId === "unaffected") return page(["unaffected"]);
+            if (!watermark) throw new Error("Expected the lane cursor");
+            requested.push(watermark.id);
+            if (requested.length > 4)
+              throw new Error("Ordering switch did not end the crawl");
+            if (upgraded)
+              return watermark.id === saved.id
+                ? page(["a"], cursor("d1/fresh"))
+                : { ...page(["b"]), nextWatermark: cursor("d1/end") };
+            return page(
+              ["replayed"],
+              cursor(watermark.id === saved.id ? first : second),
+            );
+          }),
+      });
+    const mixed = await run();
+    expect(mixed.get("container-a")).toBe("unavailable");
+    expect(mixed.get("unaffected")).toMatchObject({
+      items: [{ id: "unaffected" }],
+    });
+    expect(requested).toEqual([saved.id, first]);
+    upgraded = true;
+    expect((await run()).get("container-a")).toMatchObject({
+      items: [{ id: "a" }, { id: "b" }],
+      nextWatermark: cursor("d1/end"),
+    });
+    expect(requested).toEqual([saved.id, first, saved.id, "d1/fresh"]);
+  },
+);
+
+test("a legacy terminal response cannot replace a saved publication", async () => {
+  const result = await listAllContainerDocumentLanes({
+    lanes: [
+      {
+        containerId: "container-a",
+        watermark: { ...watermarkA, id: "d1/saved" },
+      },
+    ],
+    listContainerDocumentLanes: async () => [
+      { ...page(["old"]), nextWatermark: watermarkA },
+    ],
+  });
+  expect(result.get("container-a")).toBe("unavailable");
+});
+
 test("a changed publication lane retries before applying either placement or checkpoint", async () => {
   const cursor = { ...watermarkA, id: "d1/start" };
   const next = { ...cursor, id: "d1/middle" };
