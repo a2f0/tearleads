@@ -1,7 +1,11 @@
 import { KeyIcon } from "@phosphor-icons/react/dist/csr/Key";
 import { LockIcon } from "@phosphor-icons/react/dist/csr/Lock";
 import { LockOpenIcon } from "@phosphor-icons/react/dist/csr/LockOpen";
-import { MenuItem, type MenuPosition } from "@tearleads/windowing";
+import {
+  LauncherMenuItem,
+  MenuItem,
+  type MenuPosition,
+} from "@tearleads/windowing";
 import { MINI_APP_MENU_ITEMS } from "../../../mini-apps/catalog";
 import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItems";
 import { useAppNavigationState } from "../../../navigation/AppNavigationProvider";
@@ -11,6 +15,7 @@ import { usePaneLockMenuAction } from "./usePaneLockMenuAction";
 import { usePaneWindowMenuActions } from "./usePaneWindowMenuActions";
 
 interface PaneContextMenuItemsProps {
+  appEntryMenus: boolean;
   identityTransitionInFlight: boolean;
   hasSigningKeyPair: boolean;
   paneLocked: boolean;
@@ -20,6 +25,7 @@ interface PaneContextMenuItemsProps {
 }
 
 export function PaneContextMenuItems({
+  appEntryMenus,
   identityTransitionInFlight,
   hasSigningKeyPair,
   paneLocked,
@@ -36,6 +42,7 @@ export function PaneContextMenuItems({
   const { definition } = useAppNavigationState();
   const displayProperties = definition.apps["display-properties"];
 
+  const AppItem = appEntryMenus ? LauncherMenuItem : MenuItem;
   const needsIdentity = !hasSigningKeyPair && !paneLocked;
 
   return (
@@ -63,7 +70,7 @@ export function PaneContextMenuItems({
         .map(({ appId }) => {
           const app = definition.apps[appId];
           return app ? (
-            <MenuItem
+            <AppItem
               key={appId}
               icon={app.icon}
               label={app.iconLabel ?? app.title}
@@ -72,7 +79,7 @@ export function PaneContextMenuItems({
           ) : null;
         })}
       {displayProperties && (
-        <MenuItem
+        <AppItem
           icon={displayProperties.icon}
           label={displayProperties.iconLabel ?? displayProperties.title}
           onClick={() => openMiniApp("display-properties")}

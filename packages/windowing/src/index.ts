@@ -37,6 +37,7 @@ export {
   ROUTED_TABLET_QUERY,
   WINDOWED_LAYOUT_MIN_WIDTH_PX,
 } from "./launcher/breakpoints";
+export { LauncherMenuItem } from "./launcher/LauncherMenuItem";
 export {
   type LauncherNavigationActions,
   LauncherNavigationProvider,

@@ -40,6 +40,32 @@ test("tablet rail links leave modified clicks to the browser", () => {
   }
 });
 
+test("the tablet rail opens the right-clicked app only after Open is chosen", () => {
+  const restore = forceTabletRoutedTier();
+  const view = renderRoutedPane();
+  try {
+    fireEvent.click(
+      view.getByRole("button", { name: "Expand navigation rail" }),
+    );
+    const contacts = view.getByRole("link", { name: "Contacts" });
+    expect(fireEvent.contextMenu(contacts)).toBe(false);
+    expect(view.getByText("Explorer content")).toBeTruthy();
+    const open = view.getByRole("button", { name: "Open" });
+    expect(open.closest(".menu")?.textContent).toBe("Open");
+    fireEvent.keyDown(open, { key: "Escape" });
+    expect(document.activeElement).toBe(contacts);
+    expect(view.queryByText("Open")).toBeNull();
+
+    fireEvent.contextMenu(contacts);
+    fireEvent.click(view.getByRole("button", { name: "Open" }));
+    expect(view.getByText("Contacts content")).toBeTruthy();
+    expect(view.queryByText("Open")).toBeNull();
+  } finally {
+    view.unmount();
+    restore();
+  }
+});
+
 test("mobile sheet tiles leave modified clicks to the browser", () => {
   const restoreMatchMedia = forceMobileRoutedTier();
   let view: ReturnType<typeof renderRoutedPane> | undefined;
