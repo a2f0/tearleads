@@ -19,7 +19,7 @@ if [ -z "${AGENT_TOOL_PUSH_GATE:-}" ] || [ "$(pwd -P)" != "$REPO_ROOT" ]; then
   for name in $(git rev-parse --local-env-vars); do unset "$name"; done
 fi
 # Keep explicit tool paths relative to the caller when changing directories.
-case "${OASDIFF_BIN:-}" in ""|/*) ;; *) OASDIFF_BIN="$PWD/$OASDIFF_BIN" ;; esac
+case "${OASDIFF_BIN:-}" in ""|/*|[A-Za-z]:/*) ;; *) OASDIFF_BIN="$PWD/$OASDIFF_BIN" ;; esac
 cd "$REPO_ROOT"
 git_root=$(git rev-parse --show-toplevel)
 if [ "$(CDPATH='' cd -P -- "$git_root" && pwd -P)" != "$REPO_ROOT" ]; then

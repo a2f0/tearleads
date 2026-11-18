@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-CDPATH='' cd -- "$(dirname -- "$0")/../.."
+CDPATH='' cd -P -- "$(dirname -- "$0")/../.."
 
 force=""
 # Rebuild the positional parameters, pulling out --force. --force is a turbo
