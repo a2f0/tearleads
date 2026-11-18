@@ -40,6 +40,13 @@ function validateInitialPolicyBundle(input: {
     );
   }
 
+  if (bundle.memberEnvelopeChanges !== undefined) {
+    throw new OrganizationProvisioningError(
+      `${label} has no predecessor to send member envelope changes against`,
+      400,
+    );
+  }
+
   if (
     state.version !== 1 ||
     state.prevStateHash !== null ||

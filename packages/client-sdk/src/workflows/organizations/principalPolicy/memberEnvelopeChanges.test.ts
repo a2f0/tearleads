@@ -1,67 +1,11 @@
 import { expect, test } from "bun:test";
-import {
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
-  toFingerprint,
-} from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import {
-  buildInitialGroupPolicyRequest,
-  testGroupMetadataKey,
-} from "../../../../test/helpers/data/groupMetadata";
-import { policyBundleFromInitialRequest } from "../../../../test/helpers/data/principalPolicyFixtures";
-import { createFixtureUserIdentity } from "../../../../test/helpers/data/trustedUserIdentity";
+import { sameEpochAdd } from "../../../../test/helpers/workflows/sameEpochGroupAdd";
 import { PrincipalPolicyBundleRepository } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import {
   withHeldMemberEnvelopeChanges,
   withMemberEnvelopeChanges,
 } from "../../../data/principals/memberEnvelopeReferences";
-import { buildAddGroupUserPolicyRequest } from "../groupPolicy/groupPolicyRequests";
-
-/** A group and its successor adding one member in the same key epoch. */
-async function sameEpochAdd() {
-  const signingKeyPair = generateSigningSeedAndKeyPair();
-  const creatorKem = generateKemSeedAndKeyPair();
-  const signerUserId = crypto.randomUUID();
-  const organizationId = crypto.randomUUID();
-  const groupId = crypto.randomUUID();
-  const signingFingerprint = await toFingerprint(
-    signingKeyPair.signingPublicKey,
-  );
-  const predecessor = await policyBundleFromInitialRequest(
-    await buildInitialGroupPolicyRequest({
-      identityTrustDomain: "https://api.example.test",
-      metadataKey: testGroupMetadataKey(organizationId),
-      creatorEncapsulationKeyPair: creatorKem,
-      groupId,
-      name: "Operators",
-      signerUserId,
-      signingFingerprint,
-      signingKeyPair,
-    }),
-  );
-  const { identity: added } = await createFixtureUserIdentity({
-    userId: crypto.randomUUID(),
-  });
-  const successor = await buildAddGroupUserPolicyRequest({
-    currentPolicy: predecessor,
-    currentPolicySignerPublicKeys: [
-      {
-        userId: signerUserId,
-        signingKeyFingerprint: signingFingerprint,
-        signingPublicKey: signingKeyPair.signingPublicKey,
-      },
-    ],
-    currentUsers: [],
-    currentUserSecretKey: creatorKem.secretKey,
-    localPolicyCheckpoint: null,
-    signerUserId,
-    signingFingerprint,
-    signingKeyPair,
-    targetUser: added,
-  });
-  return { added, organizationId, predecessor, successor };
-}
 
 test("a same-epoch leg sends only its added envelope", async () => {
   const f = await sameEpochAdd();
@@ -109,4 +53,17 @@ test("a journaled mutation uses changes only against a held, rooted predecessor"
   } finally {
     close();
   }
+});
+
+test("an envelope with fields beyond the signed four is sent whole", async () => {
+  const f = await sameEpochAdd();
+  const leg = {
+    ...f.successor,
+    memberEnvelopes: f.successor.memberEnvelopes.map((envelope) =>
+      Object.assign({}, envelope, { annotation: "kept" }),
+    ),
+  };
+  expect(
+    withMemberEnvelopeChanges(leg, f.predecessor).memberEnvelopeChanges,
+  ).toBeUndefined();
 });

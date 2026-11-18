@@ -9,8 +9,6 @@ import {
   isDeleteOrganizationGroupResponse,
   isPrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
-import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
-import { withHeldMemberEnvelopeChanges } from "../../data/principals/memberEnvelopeReferences";
 import type { AuthoredPrincipalMutation } from "../../data/principals/principalMutationJournal";
 import type { PrincipalMutationResponse } from "../../workflows/organizations";
 import {
@@ -19,6 +17,7 @@ import {
 } from "../../workflows/organizations";
 
 import type { createPrincipalMutationDispatcher } from "./principalMutationDeadline";
+import { sendWithHeldEnvelopeChanges } from "./principalMutationWireForm";
 
 export type JournaledPrincipalMutationMethods = Pick<
   ApiClient,
@@ -72,7 +71,7 @@ export function dispatchAuthoredPrincipalMutation(
   }
 }
 
-/** Each journaled request goes out with held envelope sets by reference. */
+/** Each journaled request goes out inside the mutation deadline. */
 function sendByReference(input: {
   readonly api: ApiClient;
   readonly dispatch: ReturnType<typeof createPrincipalMutationDispatcher>;
@@ -80,22 +79,22 @@ function sendByReference(input: {
   readonly options: RequestResultOptions;
   readonly organizationId: string;
 }): PrincipalMutationJournalContext["submit"] {
-  return async (saved) => {
-    const wire = await withHeldMemberEnvelopeChanges(
-      input.journal.execSql,
-      saved,
+  return (saved) =>
+    input.dispatch(input.options, (dispatchOptions) =>
+      sendWithHeldEnvelopeChanges({
+        execSql: input.journal.execSql,
+        saved,
+        send: (mutation) =>
+          dispatchAuthoredPrincipalMutation(
+            input.api,
+            input.organizationId,
+            mutation,
+            dispatchOptions,
+          ),
+        signal: dispatchOptions.signal,
+        stillCurrent: input.journal.stillCurrent,
+      }),
     );
-    // The cache read awaited: a switched session or database sends nothing.
-    assertProjectionVerificationCurrent(input.journal.stillCurrent);
-    return input.dispatch(input.options, (dispatchOptions) =>
-      dispatchAuthoredPrincipalMutation(
-        input.api,
-        input.organizationId,
-        wire,
-        dispatchOptions,
-      ),
-    );
-  };
 }
 
 function unsupportedMutation(_mutation: never): never {

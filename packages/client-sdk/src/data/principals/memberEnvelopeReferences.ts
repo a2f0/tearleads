@@ -10,8 +10,17 @@ import type { AuthoredPrincipalMutation } from "./principalMutationJournalShape"
 
 type Envelope = PutPrincipalPolicyRequest["memberEnvelopes"][number];
 
+const ENVELOPE_FIELDS = 4;
+
+/**
+ * Field-for-field equal, and with no field beyond the signed four: the server
+ * rebuilds retained envelopes from its stored rows, so an envelope carrying
+ * anything else is sent whole.
+ */
 function sameEnvelope(left: Envelope, right: Envelope): boolean {
   return (
+    Object.keys(left).length === ENVELOPE_FIELDS &&
+    Object.keys(right).length === ENVELOPE_FIELDS &&
     left.userId === right.userId &&
     left.memberKeyFingerprint === right.memberKeyFingerprint &&
     left.kemCipherText === right.kemCipherText &&
@@ -89,8 +98,39 @@ async function heldPredecessor(
     : null;
 }
 
-/** The wire form of a journaled mutation; the journal keeps it in full. */
+/**
+ * The wire form of a journaled mutation; the journal keeps it in full. It is
+ * `mutation` itself when no leg goes by reference.
+ */
 export async function withHeldMemberEnvelopeChanges(
+  execSql: ExecSql,
+  mutation: AuthoredPrincipalMutation,
+): Promise<AuthoredPrincipalMutation> {
+  const wire = await wireForm(execSql, mutation);
+  return legsOf(wire).some((leg, index) => leg !== legsOf(mutation)[index])
+    ? wire
+    : mutation;
+}
+
+function legsOf(
+  mutation: AuthoredPrincipalMutation,
+): ReadonlyArray<PutPrincipalPolicyRequest | undefined> {
+  switch (mutation.kind) {
+    case "compound":
+      return [
+        mutation.request.groupPolicy,
+        mutation.request.memberPolicy,
+        mutation.request.organizationPolicy,
+      ];
+    case "group-create":
+    case "group-delete":
+      return [mutation.request.organizationPolicy];
+    case "organization":
+      return [mutation.request];
+  }
+}
+
+async function wireForm(
   execSql: ExecSql,
   mutation: AuthoredPrincipalMutation,
 ): Promise<AuthoredPrincipalMutation> {
