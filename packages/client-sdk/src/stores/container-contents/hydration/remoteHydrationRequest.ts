@@ -159,7 +159,11 @@ function waitForActiveRemoteHydration(
     // Another request's crawl may have taken over this request's queued
     // lanes. Settle with that crawl rather than at once, so the request never
     // resolves before the listing that covers it.
-    return needsCurrentGenerationHydration ||
+    // A queued manual crawl must reset every child watermark. A reconnect
+    // or targeted crawl may have consumed its lane IDs without that reset.
+    return (input.resetAllLaneWatermarks &&
+      input.followDiscoveredParentLanes) ||
+      needsCurrentGenerationHydration ||
       state.containerParentIdsNeedingHydration.size > 0
       ? requestContainerContentsRemoteHydration(input)
       : (state.remoteHydrationPromise ?? undefined);
@@ -343,6 +347,7 @@ export function requestContainerContentsRemoteHydration(
   state.remoteHydrationStructuralGeneration = structuralGeneration;
   const hydrationPromise = refreshLocalContainerStates({
     host: hydrationHost,
+    stillCurrent: input.reconnect?.isCurrent,
     state,
   })
     .then(() => {

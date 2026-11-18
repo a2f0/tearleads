@@ -183,21 +183,19 @@ function reportLocalContainerRefreshFailure(
 
 export function refreshLocalContainerStates(input: {
   host: LocalContainerRefreshHost;
+  stillCurrent?: (() => boolean) | undefined;
   state: LocalContainerRefreshState;
 }): Promise<void> {
   const { host, state } = input;
+  if (input.stillCurrent?.() === false) return Promise.resolve();
   if (state.localContainerRefreshPromise) {
-    const activeRefresh = state.localContainerRefreshPromise;
-    if (
-      state.localContainerRefreshGeneration === state.lifecycleGeneration &&
-      state.localContainerRefreshStructuralGeneration ===
-        state.structuralGeneration
-    ) {
-      return activeRefresh;
-    }
-    // A stale refresh owns its replacement retry in `finally`, so callers can
-    // share that promise without scheduling a second replacement load.
-    return activeRefresh;
+    // If a cancelled reconnect owned the read, its successor still needs the
+    // local snapshot before it can enumerate the child lanes.
+    return state.localContainerRefreshPromise.then(() =>
+      state.localContainersNeedRefresh
+        ? refreshLocalContainerStates(input)
+        : undefined,
+    );
   }
 
   if (
@@ -211,6 +209,7 @@ export function refreshLocalContainerStates(input: {
   const lifecycleGeneration = state.lifecycleGeneration;
   const structuralGeneration = state.structuralGeneration;
   const isCurrent = () =>
+    input.stillCurrent?.() !== false &&
     state.lifecycleGeneration === lifecycleGeneration &&
     state.structuralGeneration === structuralGeneration;
   state.localContainersNeedRefresh = false;

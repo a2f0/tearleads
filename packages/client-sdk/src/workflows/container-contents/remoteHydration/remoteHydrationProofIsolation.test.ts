@@ -5,6 +5,7 @@ import type { ListContainersResponse } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../../test/helpers/data/signedContainerDirectory";
 import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { containerContentsOrganizationHost } from "../../organizations/containerContentsHost";
 import {
@@ -41,6 +42,7 @@ for (const failure of [
   "withheld",
   "tampered",
   "mixed",
+  "dependency",
   "expired",
   "runtime",
 ] as const) {
@@ -97,6 +99,10 @@ for (const failure of [
                   return directory.getContainerWriterProjection(id);
                 badProofReads += 1;
                 if (failure === "withheld") return null;
+                if (failure === "dependency")
+                  throw new ProjectionDependencyUnavailableError(
+                    "signer unavailable",
+                  );
                 if (failure === "runtime") throw unexpectedFailure;
                 if (failure === "expired")
                   assertProjectionVerificationCurrent(() => false);
@@ -115,20 +121,26 @@ for (const failure of [
               listContainerParentLanes: async (
                 request: ListContainerParentLanesRequest,
               ) => ({
-                results: request.lanes.map(({ laneId, parentId }) => {
-                  requestedParents.push(parentId);
-                  return {
-                    laneId,
-                    page: {
-                      hasMore: false,
-                      items: containers.filter(
-                        (container) => container.parentId === parentId,
-                      ),
-                      nextWatermark: watermark,
-                      tombstones: [],
-                    },
-                  };
-                }),
+                results: request.lanes.map(
+                  ({ laneId, parentId, watermark: after }) => {
+                    requestedParents.push(parentId);
+                    return {
+                      laneId,
+                      page: {
+                        hasMore: parentId === firstRoot.id && !after,
+                        items: containers.filter((container) => {
+                          if (container.parentId !== parentId) return false;
+                          if (parentId !== firstRoot.id) return true;
+                          return after
+                            ? container.id === sibling.id
+                            : container.id !== sibling.id;
+                        }),
+                        nextWatermark: watermark,
+                        tombstones: [],
+                      },
+                    };
+                  },
+                ),
               }),
             },
             auth: { isAuthenticated: true },
@@ -179,7 +191,9 @@ for (const failure of [
         }
         expect(requestedParents).not.toContain(bad.id);
         // A rejected prefetch leaves no projection, so verification reads again.
-        expect(badProofReads).toBe(failure === "expired" ? 2 : 1);
+        expect(badProofReads).toBe(
+          failure === "expired" || failure === "dependency" ? 2 : 1,
+        );
         const watermarks = new ContainerSyncWatermarkRepository(execSql);
         expect(
           await watermarks.loadWatermark(

@@ -9,6 +9,7 @@ import {
   heldContainerBinding,
   listingRepeatsHeldOrdinaryBinding,
 } from "../../../../data/persistence/container-contents/containerBinding";
+import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import {
   isKeyingVerificationError,
   runWithSecurityIncidentReporting,
@@ -430,7 +431,11 @@ export async function upsertIsolatedRemoteContainerState(
       onProofRefused?.();
       return null;
     }
-    if (isProjectionVerificationCancelledError(error)) return null;
+    if (
+      isProjectionVerificationCancelledError(error) ||
+      error instanceof ProjectionDependencyUnavailableError
+    )
+      return null;
     throw error;
   }
 }

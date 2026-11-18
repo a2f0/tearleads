@@ -86,6 +86,7 @@ export async function hydrateRemoteContainers(input: {
     }
   };
   const result = await hydrateContainerParentLanes({
+    continuePastIncompletePages: !!input.reconnect,
     childIdsByParentId,
     host,
     isCurrent: input.isCurrent,

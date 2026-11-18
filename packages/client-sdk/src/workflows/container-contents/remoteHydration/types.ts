@@ -181,6 +181,9 @@ export interface RemoteContainerHydrationHost {
 }
 
 export interface ContainerParentHydrationLane {
+  /** An earlier page is incomplete. Continue discovery without persisting a cursor past it. */
+  skipWatermarkWrite?: boolean;
+  continuationCursors?: Set<string>;
   parentId: string | null;
   watermark?: ListContainersResponse["nextWatermark"];
 }

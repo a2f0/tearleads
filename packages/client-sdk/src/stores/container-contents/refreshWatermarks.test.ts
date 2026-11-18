@@ -130,3 +130,53 @@ test.each([false, true])(
     }
   },
 );
+
+test("a manual refresh queued behind reconnect still resets child watermarks", async () => {
+  const { execSql, close } = await createTestExecSql("queued-reset-watermarks");
+  const domainScope = createDomainScope();
+  const release = Promise.withResolvers<void>();
+  const started = Promise.withResolvers<void>();
+  const childWatermarks: unknown[] = [];
+  const apiClient = createMockApiClient({
+    listContainerParentLanes: batchParentLanes(
+      async ({ parentId, watermark }) => {
+        if (parentId === "root") childWatermarks.push(watermark);
+        started.resolve();
+        await release.promise;
+        return emptyListContainersResponse();
+      },
+    ),
+  });
+  const runtime = createContainerContentsTestRuntime({
+    apiClient,
+    domainScope,
+    execSql,
+    containerId: "root",
+  });
+  try {
+    await seedLocalRootContainer(execSql, { rootContainerId: "root" });
+    const watermarks = new ContainerSyncWatermarkRepository(execSql);
+    await watermarks.markChecked(createContainerParentSyncLane(null));
+    await watermarks.saveWatermark(createContainerParentSyncLane("root"), {
+      id: "held",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    const store = createContainerContentsStore(runtime);
+    store.updateRuntime(runtime);
+    await waitFor(() => store.getSnapshot().ready, "store not ready");
+    const active = store.refreshRootLane();
+    await started.promise;
+    store.updateRuntime({
+      ...runtime,
+      state: { ...runtime.state, serverEventsConnectionGeneration: 1 },
+    });
+    const manual = store.refresh();
+    release.resolve();
+    await Promise.all([active, manual]);
+    expect(childWatermarks).toContain(null);
+  } finally {
+    release.resolve();
+    disposeDomainSyncCoordinator(domainScope);
+    await close();
+  }
+});
