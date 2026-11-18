@@ -223,6 +223,10 @@ function useRestorePersistedSession(input: {
     inFlightFingerprint.current = signingFingerprint;
     const sameSignIn = tearleads.session.captureSignIn("restore");
     void restorePersistedCryptoSession({
+      isCurrent: () =>
+        !cancelled &&
+        sameSignIn() &&
+        tearleads.identity.signingFingerprint === signingFingerprint,
       localPersistence,
       signingFingerprint,
     })

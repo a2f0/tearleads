@@ -191,3 +191,33 @@ test("a completed local root lookup cannot replace a newer sign-in's root", asyn
     sqlite.close();
   }
 });
+
+test("a delayed SQL read only delivers rows to its owning sign-in", async () => {
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const execSql = createExecSql({
+    async exec() {
+      started.resolve();
+      await release.promise;
+      return { rows: [{ title: "saved" }] };
+    },
+  });
+  const sdk = new Tearleads({ database: { execSql, id: "same" } });
+  try {
+    const signedIn = { authToken: "same", isAuthenticated: true };
+    sdk.session.setContext(signedIn);
+    const pending = sdk.runtime
+      .input()
+      .infra.execSql("SELECT title FROM draft");
+    await started.promise;
+    sdk.session.setContext(signedIn);
+    release.resolve();
+    await expect(pending).rejects.toThrow();
+    await expect(
+      sdk.runtime.input().infra.execSql("SELECT title FROM draft"),
+    ).resolves.toEqual([{ title: "saved" }]);
+  } finally {
+    release.resolve();
+    sdk.dispose();
+  }
+});

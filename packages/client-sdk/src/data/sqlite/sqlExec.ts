@@ -81,7 +81,12 @@ export function createScopedExecSql(
       previous = undefined;
     }
     assertCurrent();
-    return execSql(sql, bind, options);
+    const rows = await execSql(sql, bind, options);
+    // Preserve the acknowledgement for an accepted transaction boundary. Its
+    // caller must know it opened a transaction in order to roll it back.
+    if (!/^\s*(?:BEGIN|COMMIT|END|ROLLBACK|SAVEPOINT|RELEASE)\b/i.test(sql))
+      assertCurrent();
+    return rows;
   });
   scopedExecutors.set(scoped, { connection: execSql, assertCurrent });
   return scoped;
