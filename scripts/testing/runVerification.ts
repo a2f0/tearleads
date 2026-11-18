@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import { checkArguments } from "../lib/checkRoot";
 import { verificationPlan, verificationUsage } from "./verificationPlan";
 import {
@@ -143,7 +144,9 @@ try {
     console.log(verificationUsage);
   } else {
     const root = verificationGit(target, "rev-parse", "--show-toplevel");
-    process.exitCode = await verify(root, verificationPlan(root, args));
+    if (realpathSync(root) !== target)
+      throw new Error(`Verification requires its own Git checkout: ${target}`);
+    process.exitCode = await verify(target, verificationPlan(target, args));
   }
 } catch (error) {
   console.error(String(error));

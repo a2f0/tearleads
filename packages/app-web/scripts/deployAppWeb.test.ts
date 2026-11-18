@@ -79,6 +79,8 @@ purge_cloudflare_cache_for_hosts() { printf 'purge|%s\\n' "$*" >> "$WEB_DEPLOY_L
     "checkout",
   );
   const commit = git(root, "rev-parse", "HEAD");
+  // The release identifies the whole checkout, even with a nested Git directory.
+  git(join(root, "packages/app-web"), "init", "--quiet");
   await write(
     join(root, "bin/bun"),
     `#!/bin/bash

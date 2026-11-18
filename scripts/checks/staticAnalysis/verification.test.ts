@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { resolve } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
+import { delimiter, resolve } from "node:path";
 import { fixture } from "./fixture.testUtils";
 import { verificationFixture } from "./verification.testUtils";
 
@@ -61,6 +67,36 @@ test("verification uses the selected checkout when invoked from a parent Git rep
     expect(existsSync(resolve(parent.cwd, ".git/verification"))).toBe(false);
   } finally {
     rmSync(parent.cwd, { recursive: true, force: true });
+  }
+});
+
+test("verification refuses an exported tree nested in a Git repository", () => {
+  const parent = verificationFixture();
+  try {
+    const { PATH = "" } = parent.env;
+    const exported = resolve(parent.cwd, "exported");
+    mkdirSync(exported);
+    const result = Bun.spawnSync(
+      [
+        process.execPath,
+        resolve(import.meta.dir, "../../testing/runVerification.ts"),
+        "--check-root",
+        exported,
+        "full",
+      ],
+      {
+        cwd: exported,
+        env: {
+          ...parent.env,
+          PATH: `${resolve(parent.cwd, "bin")}${delimiter}${PATH}`,
+        },
+      },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.toString()).toContain("requires its own Git checkout");
+    expect(existsSync(resolve(parent.cwd, ".git/verification"))).toBe(false);
+  } finally {
+    parent.cleanup();
   }
 });
 

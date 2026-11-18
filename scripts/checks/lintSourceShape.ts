@@ -1,3 +1,5 @@
+import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
 import { checkArguments } from "../lib/checkRoot";
 import {
   type FileSizeBudget,
@@ -16,10 +18,18 @@ const byteLimit = 20_000;
 // so documents get a larger byte budget under the same line limit.
 const markdownByteLimit = 40_000;
 
-// Git hooks select their checkout and, for partial commits, their index.
+// Older installed hooks call --staged directly during partial commits. Git
+// gives those hooks a temporary index and runs them at the checkout root.
+const argsFromGit = process.argv.slice(2);
+const stagedInOwnCheckout =
+  argsFromGit[0] === "--staged" &&
+  realpathSync(".") === resolve(import.meta.dir, "../..");
 const { root, args } =
-  process.argv[2] === "--git-hook"
-    ? { root: process.cwd(), args: process.argv.slice(3) }
+  argsFromGit[0] === "--git-hook" || stagedInOwnCheckout
+    ? {
+        root: process.cwd(),
+        args: stagedInOwnCheckout ? argsFromGit : argsFromGit.slice(1),
+      }
     : checkArguments();
 process.chdir(root);
 const snapshot = sourceShapeSnapshot(args);
