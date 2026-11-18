@@ -221,8 +221,9 @@ export function disposeDomainSyncCoordinator(domainScope: DomainScope): void {
     return;
   }
 
-  coordinator.dispose();
+  // A disposal listener can synchronously reopen this scope.
   coordinatorsByScope.delete(domainScope);
+  coordinator.dispose();
 }
 
 export function getDomainSyncCoordinatorSnapshot(
