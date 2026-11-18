@@ -10,16 +10,22 @@ export class PrincipalHistoryRequestContext {
   private renewedRead = false;
   private restartedRead = false;
 
+  static captureIdentity(runtime: ApiRequestRuntime) {
+    return {
+      credentialCurrent: runtime.captureCredential(),
+      session: runtime.responseRequest.sessionSignal?.(),
+    };
+  }
+
   constructor(
     private readonly runtime: ApiRequestRuntime,
     private readonly method: HttpMethod,
     private readonly path: string,
     options: RequestResultOptions | undefined,
     // Requests of one operation share the identity they started under.
-    private readonly identity = {
-      credentialCurrent: runtime.captureCredential(),
-      session: runtime.responseRequest.sessionSignal?.(),
-    },
+    private readonly identity = PrincipalHistoryRequestContext.captureIdentity(
+      runtime,
+    ),
   ) {
     this.options = {
       ...options,

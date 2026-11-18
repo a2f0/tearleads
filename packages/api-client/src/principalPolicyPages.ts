@@ -163,6 +163,8 @@ export async function* readPrincipalPolicyPages(
   principalType: "group" | "organization",
   principalId: string,
   options: PrincipalPolicyPageReadOptions,
+  // Default parameters run when the iterator is created, before its first pull.
+  identity = PrincipalHistoryRequestContext.captureIdentity(runtime),
 ): AsyncGenerator<RequestResult<PrincipalPolicyPageResponse>, void> {
   const position = preparePrincipalPolicyRead(
     runtime,
@@ -180,6 +182,7 @@ export async function* readPrincipalPolicyPages(
     "GET",
     firstPath,
     options,
+    identity,
   );
   let pinned = resume?.current;
   let pinnedBytes = resume?.bytes;
