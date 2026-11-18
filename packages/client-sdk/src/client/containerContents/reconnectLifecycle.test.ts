@@ -139,6 +139,8 @@ test.each(["reopen", "organization ABA"])(
       await started.promise;
       if (change === "reopen") {
         disposeDomainSyncCoordinator(scope);
+        expect(await old.refresh()).toBe(false);
+        expect(await old.refreshRootLane()).toBe(false);
         const reopened = contents.openTree();
         reopened.updateRuntime(contents.workflowRuntime());
         await waitFor(

@@ -1,4 +1,6 @@
 import { expect, mock, test } from "bun:test";
+import { createDomainScope } from "../../data/shared/domainScope";
+import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
@@ -60,7 +62,9 @@ test.each(["replace persistence", "dispose during read", "host rotates scope"])(
         container: ContainerState["container"],
       ) => container,
     } as unknown as ContainerContentsPersistence;
+    const coordinator = getOrCreateDomainSyncCoordinator(createDomainScope());
     const state: LocalContainerRefreshState = {
+      syncLane: coordinator.registerLane("local-read", { run: async () => {} }),
       containersById: new ContainerStateMap(),
       documentStoresNeedPriming: false,
       initialized: true,
@@ -86,13 +90,14 @@ test.each(["replace persistence", "dispose during read", "host rotates scope"])(
     const refresh = refreshLocalContainerStates({
       host,
       state,
-      stillCurrent: change === "host rotates scope" ? undefined : () => live,
+      stillCurrent: () => true,
     });
     for (let attempt = 0; staleLoad.mock.calls.length === 0; attempt += 1) {
       if (attempt === 100) throw new Error("stale local load did not start");
       await Bun.sleep(1);
     }
-    if (change !== "replace persistence") live = false;
+    if (change === "dispose during read") coordinator.dispose();
+    else if (change === "host rotates scope") live = false;
     else state.structuralGeneration += 1;
     state.persistence = { ...persistence, loadContainers: replacementLoad };
     resolveStaleLoad([loadedContainer("stale-document", "Stale")]);

@@ -52,6 +52,12 @@ test("dispose() tears down reconcilers/coordinators across all scopes", async ()
   expect(scopeB).not.toBe(scopeA);
   const coordinatorB = getOrCreateDomainSyncCoordinator(scopeB);
 
+  const previous = sdk.deviceFirst.open();
+  let reopened = previous;
+  coordinatorA.subscribe(() => {
+    if (coordinatorA.isDisposed()) reopened = sdk.deviceFirst.open();
+  });
+
   let ranA = 0;
   let ranB = 0;
   const laneA = coordinatorA.registerLane("probe-a", {
@@ -74,6 +80,12 @@ test("dispose() tears down reconcilers/coordinators across all scopes", async ()
   expect(ranB).toBe(0);
   expect(getOrCreateDomainSyncCoordinator(scopeA)).not.toBe(coordinatorA);
   expect(getOrCreateDomainSyncCoordinator(scopeB)).not.toBe(coordinatorB);
+  try {
+    expect(reopened).not.toBe(previous);
+    expect(sdk.deviceFirst.open()).toBe(reopened);
+  } finally {
+    sdk.dispose();
+  }
 });
 
 test("SDK teardown retires only the coordinator it started with", () => {

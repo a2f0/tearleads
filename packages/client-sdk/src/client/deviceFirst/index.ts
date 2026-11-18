@@ -81,6 +81,7 @@ export function createDeviceFirst(
 }
 
 interface DeviceFirstScopeEntry {
+  retiring?: boolean;
   coordinator: DomainSyncCoordinator;
   contents: DeviceFirstContainerContents;
   disconnectReconciliationTriggers: () => void;
@@ -89,11 +90,11 @@ interface DeviceFirstScopeEntry {
 }
 
 function stopScopeEntry(entry: DeviceFirstScopeEntry): void {
+  entry.coordinator.dispose();
   entry.contents.reconciler.stop();
   entry.disconnectReconciliationTriggers();
   entry.unsubscribePersistedDocumentDeletions();
   entry.unsubscribePersistedDocuments();
-  entry.coordinator.dispose();
 }
 
 function createInitialDocumentProbeHost(
@@ -169,9 +170,15 @@ class DeviceFirstService implements DeviceFirst {
     // scope's reconciler subscribed and its coordinator pump live; tear them
     // all down. Force-stop each scope's coordinator (which runs the reconciler
     // lane) alongside stopping the service.
-    const entries = Array.from(this.entriesByScope.values());
-    this.entriesByScope.clear();
-    for (const entry of entries) stopScopeEntry(entry);
+    const entries = Array.from(this.entriesByScope);
+    for (const [, entry] of entries) entry.retiring = true;
+    for (const [scope, entry] of entries) this.retireEntry(scope, entry);
+  }
+
+  private retireEntry(scope: DomainScope, entry: DeviceFirstScopeEntry): void {
+    if (this.entriesByScope.get(scope) !== entry) return;
+    this.entriesByScope.delete(scope);
+    stopScopeEntry(entry);
   }
 
   private workflowRuntime(): ContainerContentsStoreWorkflowRuntime {
@@ -184,9 +191,8 @@ class DeviceFirstService implements DeviceFirst {
     const runtime = this.workflowRuntime();
     const domainScope = runtime.state.domainScope;
     const existing = this.entriesByScope.get(domainScope);
-    if (existing?.coordinator.isDisposed()) {
-      this.entriesByScope.delete(domainScope);
-      stopScopeEntry(existing);
+    if (existing && (existing.retiring || existing.coordinator.isDisposed())) {
+      this.retireEntry(domainScope, existing);
       return this.getOrCreateEntry(options);
     }
     if (existing) {
