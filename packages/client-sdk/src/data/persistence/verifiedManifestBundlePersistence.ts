@@ -264,26 +264,32 @@ export type HeldDirectorySource = (
 ) => Promise<readonly HeldDirectoryCitation[]>;
 
 /**
- * The directory read's own budget, from the start of the citation load.
- * Directory citations are an extra: once manifest citations are collected,
- * the load waits for directories only until this much time has passed since
- * it began, and not at all after that, so a slow directory read never pushes
- * the load past the time the manifest collection alone took (or this budget)
- * and never spends the shared citation deadline on the manifest hints.
+ * How long after the citation load began the directory read may still run.
+ * Directory citations are an extra: the load collects the manifest and
+ * KEK-level citations first, then reads directories only with the time left
+ * before this point, which stays inside the API client's 250 ms citation
+ * deadline with room for its own preparation. A slow or stalled directory
+ * read therefore never delays or discards the manifest hints.
  */
-const DIRECTORY_CITATION_BUDGET_MS = 50;
+const DIRECTORY_CITATION_DEADLINE_MS = 150;
 
-function directoriesWithinBudget(
-  pending: Promise<readonly HeldDirectoryCitation[]>,
+async function directoriesBeforeDeadline(
+  source: HeldDirectorySource | undefined,
+  execSql: ExecSql,
+  organizationId: string,
   startedAt: number,
 ): Promise<readonly HeldDirectoryCitation[]> {
   const remaining =
-    startedAt + DIRECTORY_CITATION_BUDGET_MS - performance.now();
+    startedAt + DIRECTORY_CITATION_DEADLINE_MS - performance.now();
+  if (!source || remaining <= 0) return [];
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const budget = new Promise<readonly HeldDirectoryCitation[]>((resolve) => {
-    timer = setTimeout(() => resolve([]), Math.max(0, remaining));
+  const deadline = new Promise<readonly HeldDirectoryCitation[]>((resolve) => {
+    timer = setTimeout(() => resolve([]), remaining);
   });
-  return Promise.race([pending, budget]).finally(() => clearTimeout(timer));
+  return Promise.race([
+    source(execSql, organizationId).catch(() => []),
+    deadline,
+  ]).finally(() => clearTimeout(timer));
 }
 
 export async function loadVerifiedManifestCitations(
@@ -317,6 +323,7 @@ async function loadCitableManifestCitations(
   limit: number,
   heldDirectories: HeldDirectorySource | undefined,
 ): Promise<HeldProjectionCitation[]> {
+  const startedAt = performance.now();
   await ensureSqlTables(execSql, [
     ...verifiedManifestBundleTables,
     ...containerTables,
@@ -324,16 +331,10 @@ async function loadCitableManifestCitations(
     ...documentProjectionTables,
     ...localIntentTables,
   ]);
-  const startedAt = performance.now();
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const objects = await citedObjects(db, target);
   const organizationId = await targetOrganization(db, target, objects);
   if (organizationId === null) return [];
-  // Read held directories beside the manifest collection; they are cited
-  // beside the manifest quota, never in its place.
-  const directories = (
-    heldDirectories?.(execSql, organizationId) ?? Promise.resolve([])
-  ).catch(() => []);
   const { cited, damaged } = await collectVerifiedManifestCitations(
     db,
     organizationId,
@@ -343,7 +344,17 @@ async function loadCitableManifestCitations(
   );
   if (damaged.length > 0)
     await dropVerifiedManifestBundles(execSql, damaged).catch(() => undefined);
-  return [...cited, ...(await directoriesWithinBudget(directories, startedAt))];
+  // Directories are cited beside the manifest quota, never in its place,
+  // and read only after the manifest citations, with the time left.
+  return [
+    ...cited,
+    ...(await directoriesBeforeDeadline(
+      heldDirectories,
+      execSql,
+      organizationId,
+      startedAt,
+    )),
+  ];
 }
 
 // Manifest hashes whose held rows a refused read is dropping: no read cites

@@ -201,3 +201,43 @@ test("a stalled or failing directory read never costs the manifest citations", a
     fixture.close();
   }
 });
+
+test("directories are read only after the manifest citations, with the time left", async () => {
+  const fixture = await citationDatabase();
+  try {
+    await fixture.container("c0", null);
+    await remember(fixture.execSql, [entry("c0", 1, 1)]);
+    let consulted = 0;
+    const source = async () => {
+      consulted += 1;
+      return [];
+    };
+    await loadVerifiedManifestCitations(
+      fixture.execSql,
+      { kind: "container", id: "c0" },
+      undefined,
+      source,
+    );
+    expect(consulted).toBe(1);
+    // A slow executor spends the directory budget on the manifest reads:
+    // the manifest citations arrive, and the directory read never starts.
+    const slow = new Proxy(fixture.execSql, {
+      apply: async (target, thisArg, args) => {
+        await Bun.sleep(40);
+        return Reflect.apply(target, thisArg, args);
+      },
+    });
+    const citations = await loadVerifiedManifestCitations(
+      slow,
+      { kind: "container", id: "c0" },
+      undefined,
+      source,
+    );
+    expect(
+      citations.map((citation) => Reflect.get(citation, "manifestHash")),
+    ).toEqual([hash(1)]);
+    expect(consulted).toBe(1);
+  } finally {
+    fixture.close();
+  }
+});
