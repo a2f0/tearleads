@@ -4,6 +4,7 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
+import { getOrCreateDomainSyncCoordinator } from "../../workflows/sync/coordination";
 import { persistContainerState } from "./containerState/containerStatePersistence";
 import { createTreeRefreshMethods } from "./hydration/remoteHydrationRefresh";
 import {
@@ -39,7 +40,8 @@ import {
 import {
   type ContainerContentsStoreRuntime,
   type ContainerContentsStoreSyncAgent,
-  createContainerContentsStoreSyncAgent,
+  type createContainerContentsStoreSyncAgent,
+  prepareContainerContentsStoreSyncAgent,
 } from "./syncAgent";
 import { oweContainerMetadataRead } from "./syncAgent/metadataRevalidation";
 import { findRootContainerState } from "./systemContainers/systemContainerLookup";
@@ -55,6 +57,8 @@ const containerContentsStoresByScope = new WeakMap<
 >();
 
 interface ContainerContentsStoreEntry {
+  registerLane: () => void;
+  isDisposed: () => boolean;
   requestDocumentPriming: () => void;
   store: ContainerContentsStore;
   updateOptions: (options: ContainerContentsStoreOptions) => void;
@@ -76,16 +80,6 @@ function applyContainerContentsStoreOptions(
       syncAgent,
     );
   }
-}
-
-function getCachedContainerWriterProjectionForStore(
-  state: ContainerContentsStoreState,
-  containerId: string,
-) {
-  const containerState = state.containersById.get(containerId);
-  return containerState
-    ? getCachedContainerWriterProjection(containerState)
-    : null;
 }
 
 function createContainerContentsStoreSyncHost(
@@ -403,13 +397,19 @@ function createContainerContentsStoreEntry(
     options.persistence ?? persistence,
     options.logLabel,
   );
-  const syncAgent = createContainerContentsStoreSyncAgent({
-    host: createContainerContentsStoreSyncHost(state),
-    state,
-  });
+  const { agent: syncAgent, registerLane } =
+    prepareContainerContentsStoreSyncAgent({
+      host: createContainerContentsStoreSyncHost(state),
+      state,
+    });
+  const coordinator = getOrCreateDomainSyncCoordinator(
+    initialRuntime.state.domainScope,
+  );
   const writeMethods = createContainerWriteMethods(state, syncAgent);
 
   return {
+    registerLane,
+    isDisposed: coordinator.isDisposed,
     requestDocumentPriming: () => {
       state.documentStoresNeedPriming = true;
       syncAgent.scheduleSync();
@@ -425,8 +425,10 @@ function createContainerContentsStoreEntry(
         return syncAgent.refreshLocalContainers();
       },
       requestSync: () => syncAgent.scheduleSync(),
-      getCachedContainerWriterProjection: (containerId) =>
-        getCachedContainerWriterProjectionForStore(state, containerId),
+      getCachedContainerWriterProjection: (containerId) => {
+        const container = state.containersById.get(containerId);
+        return container ? getCachedContainerWriterProjection(container) : null;
+      },
       getSnapshot: () => state.snapshot,
       subscribe: (listener) =>
         subscribeToContainerContentsStore(state, listener),
@@ -443,8 +445,15 @@ export function createContainerContentsStore(
   persistence: ContainerContentsPersistence = defaultContainerContentsPersistence,
   options: ContainerContentsStoreOptions = {},
 ): ContainerContentsStore {
-  return createContainerContentsStoreEntry(initialRuntime, persistence, options)
-    .store;
+  const entry = createContainerContentsStoreEntry(
+    initialRuntime,
+    persistence,
+    options,
+  );
+  entry.registerLane();
+  if (entry.isDisposed())
+    throw new Error("Container scope retired during registration");
+  return entry.store;
 }
 
 export function getOrCreateContainerContentsStore(
@@ -453,7 +462,7 @@ export function getOrCreateContainerContentsStore(
   options: ContainerContentsStoreOptions = {},
 ): ContainerContentsStore {
   const existingEntry = containerContentsStoresByScope.get(domainScope);
-  if (existingEntry) {
+  if (existingEntry && !existingEntry.isDisposed()) {
     existingEntry.updateOptions(options);
     return existingEntry.store;
   }
@@ -464,17 +473,16 @@ export function getOrCreateContainerContentsStore(
     options,
   );
   containerContentsStoresByScope.set(domainScope, nextEntry);
-  return nextEntry.store;
+  // Registering the lane publishes a snapshot and can synchronously reopen this tree.
+  nextEntry.registerLane();
+  const current = containerContentsStoresByScope.get(domainScope);
+  if (!current || current.isDisposed())
+    throw new Error("Container scope retired during registration");
+  return current.store;
 }
 
-/**
- * Arm the next structural pass's document-priming scan for a domain scope.
- * Priming normally re-arms only on store creation and topology changes, so a
- * caller that just tore down a document's local state uses this to have the
- * still-listed server document re-created without waiting for an app
- * restart. Returns false when the scope has no container-contents store yet;
- * the startup priming pass covers that case.
- */
+/** Re-arm priming after a local deletion so the next pass re-creates still-listed documents.
+ * A new store already primes its documents on startup. */
 export function requestContainerContentsDocumentPriming(
   domainScope: DomainScope,
 ): boolean {

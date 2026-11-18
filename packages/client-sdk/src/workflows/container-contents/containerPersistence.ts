@@ -1,11 +1,12 @@
-import { createPendingUpdateFields } from "../../data/documents/documentSync";
-import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import {
+  type ContainerContentsPersistence,
+  sqlContainerContentsPersistence as defaultContainerContentsPersistence,
+} from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
   type ContainerSyncWatermarkLane,
   containerContentsSyncLane,
   containerParentSyncLane,
 } from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 export type {
   ContainerContentsPersistence,
@@ -17,7 +18,6 @@ export type {
   LocalRootDescendantReparentInput,
   StoredContainerState,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
-export { sqlContainerContentsPersistence as defaultContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 export type { ContainerMetadataRevalidation } from "../../data/persistence/container-contents/containerMetadataRevalidations";
 export type { ContainerRecord } from "../../data/persistence/container-contents/containerPersistence";
 export {
@@ -25,29 +25,7 @@ export {
   ContainerSyncWatermarkRepository,
 } from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 export type { ExecSql } from "../../data/sqlite/sqlSchema";
-
-export async function enqueuePendingContainerUpdate(
-  execSql: ExecSql,
-  persistence: ContainerContentsPersistence,
-  params: {
-    containerId: string;
-    sourceVersionVector?: string | null | undefined;
-    update: Uint8Array;
-  },
-): Promise<string | null> {
-  const pendingUpdateFields = createPendingUpdateFields(
-    params.update,
-    params.sourceVersionVector,
-  );
-  if (!pendingUpdateFields) {
-    return null;
-  }
-
-  return persistence.enqueuePendingUpdate(execSql, {
-    containerId: params.containerId,
-    ...pendingUpdateFields,
-  });
-}
+export { defaultContainerContentsPersistence };
 
 export function createContainerParentSyncLane(
   parentId: string | null,
@@ -59,4 +37,35 @@ export function createContainerContentsSyncLane(
   containerId: string,
 ): ContainerSyncWatermarkLane {
   return containerContentsSyncLane(containerId);
+}
+
+export function resolveAtomicContainerSave(
+  persistence: ContainerContentsPersistence,
+): NonNullable<
+  ContainerContentsPersistence["saveContainerWithPendingUpdate"]
+> | null {
+  const saveContainerWithPendingUpdate =
+    persistence.saveContainerWithPendingUpdate;
+  if (!saveContainerWithPendingUpdate) return null;
+  const inheritedSqlAtomicSave =
+    saveContainerWithPendingUpdate ===
+      defaultContainerContentsPersistence.saveContainerWithPendingUpdate &&
+    (persistence.saveContainer !==
+      defaultContainerContentsPersistence.saveContainer ||
+      persistence.enqueuePendingUpdate !==
+        defaultContainerContentsPersistence.enqueuePendingUpdate);
+  return inheritedSqlAtomicSave
+    ? null
+    : saveContainerWithPendingUpdate.bind(persistence);
+}
+
+export function requireAtomicContainerSave(
+  persistence: ContainerContentsPersistence,
+) {
+  const save = resolveAtomicContainerSave(persistence);
+  if (!save)
+    throw new Error(
+      "Container persistence must implement saveContainerWithPendingUpdate to repair pending metadata",
+    );
+  return save;
 }

@@ -1,12 +1,13 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates, importUpdates } from "@tearleads/loro";
+import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import {
-  type ContainerContentsPersistence,
-  type ContainerMetadataRecord,
-  enqueuePendingContainerUpdate,
-  type StoredContainerState,
+import type {
+  ContainerContentsPersistence,
+  ContainerMetadataRecord,
+  StoredContainerState,
 } from "./containerPersistence";
+import { requireAtomicContainerSave } from "./containerPersistence";
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,
@@ -54,6 +55,7 @@ function replaySaveOptions(
 
 export async function hydrateStoredContainerState(input: {
   execSql: ExecSql;
+  isCurrent?: (() => boolean) | undefined;
   persistence: ContainerContentsPersistence;
   storedContainer: StoredContainerState;
 }): Promise<ContainerState> {
@@ -75,12 +77,10 @@ export async function hydrateStoredContainerState(input: {
       name: metadata.name,
     };
     if (metadataProjectionChanged(container, nextContainer)) {
-      await persistence.saveContainer(
-        execSql,
-        nextContainer,
-        nextRecord,
-        replaySaveOptions(container),
-      );
+      await persistence.saveContainer(execSql, nextContainer, nextRecord, {
+        ...replaySaveOptions(container),
+        stillCurrent: input.isCurrent,
+      });
     }
   } else {
     writeContainerMetadataValue(doc, {
@@ -92,17 +92,28 @@ export async function hydrateStoredContainerState(input: {
       container,
       metadataUpdates: bytesToBase64(initialUpdate),
     });
-    await persistence.saveContainer(execSql, nextContainer, nextRecord);
 
     // A device-first child's first metadata waits for its create. A root's
     // never does: only registration creates a root remotely, and provisioning
     // commits the root's metadata itself, so a queued copy would only be
     // replayed after login as duplicate ops.
-    if (!container.metadataDocumentId && container.parentId !== null) {
-      await enqueuePendingContainerUpdate(execSql, persistence, {
-        containerId: container.id,
-        update: initialUpdate,
+    const pendingUpdate =
+      !container.metadataDocumentId && container.parentId !== null
+        ? createPendingUpdateFields(initialUpdate)
+        : null;
+    if (pendingUpdate) {
+      const save = requireAtomicContainerSave(persistence);
+      await save(execSql, nextContainer, nextRecord, {
+        pendingUpdate,
+        stillCurrent: input.isCurrent,
       });
+    } else {
+      await persistence.saveContainer(
+        execSql,
+        nextContainer,
+        nextRecord,
+        input.isCurrent ? { stillCurrent: input.isCurrent } : undefined,
+      );
     }
   }
 

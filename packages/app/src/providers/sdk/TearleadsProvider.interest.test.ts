@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk";
 import { MAX_WS_INTEREST_CONTAINER_IDS } from "@tearleads/validators/realtime";
 import {
   createMswEventRouter,
@@ -394,3 +395,37 @@ test("a grant during initial authorization preserves its acknowledgment barrier"
   expect(sent).toHaveLength(2);
   handle.stop();
 });
+
+test.each([true, false])(
+  "a replacement tree declares interest on a fresh socket (initial ack pending: %s)",
+  (pending) => {
+    const retired = createFakeStore(["prior"]);
+    const replacement = createFakeStore(["current"]);
+    let tree = retired;
+    const sdk = tearleadsWithStore(() => tree.store);
+    const { ws, sent, close } = fakeSocket(WebSocket.OPEN);
+    const declaration = startContainerInterestDeclaration(sdk, ws);
+    try {
+      const initial = JSON.parse(sent[0] ?? "null");
+      if (!pending) acknowledgeInitialDeclaration(declaration, sent);
+      tree = replacement;
+      getOrCreateDomainSyncCoordinator(sdk.domainScope).dispose();
+      expect(declaration.acknowledge(initial.declarationId, ["prior"])).toBe(
+        false,
+      );
+      expect(close).toHaveBeenCalledTimes(1);
+      const fresh = fakeSocket(WebSocket.OPEN);
+      const next = startContainerInterestDeclaration(sdk, fresh.ws);
+      expect(fresh.sent.map((entry) => JSON.parse(entry))).toMatchObject([
+        { type: "known_containers", containerIds: ["current"] },
+      ]);
+      const current = JSON.parse(fresh.sent[0] ?? "null");
+      expect(next.acknowledge(current.declarationId, ["current"])).toBe(true);
+      next.stop();
+      retired.setNodes(["retired-update"]);
+      expect(sent).toHaveLength(1);
+    } finally {
+      declaration.stop();
+    }
+  },
+);

@@ -125,7 +125,7 @@ test("loadLocalContainerStates materializes metadata records and pending updates
     icon: "folder",
     name: "Local folder",
   });
-  expect(savedContainers).toEqual([
+  expect(savedContainers).toMatchObject([
     {
       container,
       execSql,
@@ -301,5 +301,45 @@ test("loadLocalContainerStates keeps replayed remote metadata snapshots synced",
     });
   } finally {
     close();
+  }
+});
+
+test("a local hydration repair cannot write stale metadata after disposal", async () => {
+  const database = await createTestExecSql("cancel-local-repair");
+  const persistence = defaultContainerContentsPersistence;
+  let current = true;
+  let repairs = 0;
+  const container = createContainerRecord({
+    id: "stale-repair",
+    parentId: null,
+    name: "Cached root",
+    icon: null,
+  });
+  try {
+    await persistence.ensureSchema(database.execSql);
+    await persistence.saveContainer(database.execSql, container, null);
+    const input = {
+      runtime: { infra: { execSql: database.execSql } },
+      isCurrent: () => current,
+      persistence: {
+        ...persistence,
+        saveContainer: async (
+          ...args: Parameters<ContainerContentsPersistence["saveContainer"]>
+        ) => {
+          repairs++;
+          current = false;
+          return persistence.saveContainer(...args);
+        },
+      },
+    };
+    await loadLocalContainerStates(input);
+    expect(repairs).toBe(1);
+    const stored = await persistence.loadContainerMetadataState(
+      database.execSql,
+      container.id,
+    );
+    expect(stored?.record).toBeNull();
+  } finally {
+    await database.close();
   }
 });

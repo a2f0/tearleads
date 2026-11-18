@@ -99,6 +99,8 @@ export interface InternalRuntime {
   >;
   retirePrincipalHistoryProtection(): void;
   readonly sessionGeneration: number;
+  /** Storage and session custody, stable through transport token renewal. */
+  readonly scopeGeneration: number;
   readonly adoptRootContainer: ContainerContentsRootAdopter;
   readonly deleteDocumentPlacements: DocumentPlacementCleanup;
   readonly containerContentsOrganizations: ContainerContentsOrganizationHost;
@@ -205,18 +207,11 @@ function sessionExecutor(
     : null;
 }
 
-export function createRuntime(
+function createRuntimeHistoryProtection(
   dependencies: WorkflowRuntimeDependencies,
-): InternalRuntime {
-  const readyExecSql = () => sessionExecutor(dependencies);
-  const runtimeSubscription = createRuntimeSubscription(dependencies);
-  const { trustedUserIdentityService, resolveTrustedUserIdentity } =
-    createRuntimeIdentityResolution(
-      dependencies,
-      readyExecSql,
-      () => runtimeSubscription.recoveryGeneration,
-    );
-  const historyProtection = createPrincipalHistoryProtectionCustody({
+  readGeneration: () => number,
+) {
+  return createPrincipalHistoryProtectionCustody({
     keyProvider: dependencies.principalHistoryKeyProvider,
     readScope: () => {
       const signingFingerprint = dependencies.identity.signingFingerprint;
@@ -233,10 +228,27 @@ export function createRuntime(
         database: dependencies.database.requireExecSql(
           "principal history protection",
         ),
-        generation: runtimeSubscription.recoveryGeneration,
+        generation: readGeneration(),
       };
     },
   });
+}
+
+export function createRuntime(
+  dependencies: WorkflowRuntimeDependencies,
+): InternalRuntime {
+  const readyExecSql = () => sessionExecutor(dependencies);
+  const runtimeSubscription = createRuntimeSubscription(dependencies);
+  const { trustedUserIdentityService, resolveTrustedUserIdentity } =
+    createRuntimeIdentityResolution(
+      dependencies,
+      readyExecSql,
+      () => runtimeSubscription.recoveryGeneration,
+    );
+  const historyProtection = createRuntimeHistoryProtection(
+    dependencies,
+    () => runtimeSubscription.recoveryGeneration,
+  );
   const runtimeInput = createRuntimeInputFactory(
     dependencies,
     bindSessionIdentityResolver(
@@ -255,6 +267,9 @@ export function createRuntime(
     identityTrustDomain: dependencies.identityTrustDomain,
     identityLinks: trustedUserIdentityService,
     retirePrincipalHistoryProtection: historyProtection.retire,
+    get scopeGeneration() {
+      return runtimeSubscription.mutationGeneration;
+    },
     get sessionGeneration() {
       return runtimeSubscription.sessionGeneration;
     },
@@ -393,6 +408,7 @@ function createRuntimeInputFactory(
       // connectivity signal for host/UI. See Session.syncEnabled.
       online: dependencies.network.online && dependencies.session.syncEnabled,
       peerScope: dependencies.peerScope ?? null,
+      serverEventsConnected: dependencies.events.connected,
       serverEventsConnectionGeneration:
         dependencies.events.connectionGeneration,
       serverEventsPendingConnectAttempt:

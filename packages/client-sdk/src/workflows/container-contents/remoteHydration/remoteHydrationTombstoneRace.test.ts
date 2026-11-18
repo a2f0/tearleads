@@ -349,10 +349,13 @@ test.each(["newer", "older"] as const)(
         }),
       } as unknown as RemoteContainerHydrationState;
 
+      const outcomes: string[] = [];
       const hydrate = (
         parentIds: readonly (string | null)[] = [parentState.container.id],
+        reconnect?: Parameters<typeof hydrateRemoteContainers>[0]["reconnect"],
       ) =>
         hydrateRemoteContainers({
+          reconnect,
           host: {
             persistContainerState: async () => {
               throw new Error("tombstone page must not upsert containers");
@@ -386,7 +389,13 @@ test.each(["newer", "older"] as const)(
         loadParentWatermark(execSql, parentState.container.id),
       ).resolves.toEqual(legacyCursor);
 
-      await hydrate();
+      await hydrate(undefined, {
+        isCurrent: () => true,
+        record: (outcome) => {
+          outcomes.push(outcome);
+        },
+      });
+      expect(outcomes).toEqual(["retry"]);
       expect(fetchCount).toBe(2);
       expect(state.containerListingFailures).toBe(1);
       expect([...retryParents]).toEqual([parentState.container.id]);

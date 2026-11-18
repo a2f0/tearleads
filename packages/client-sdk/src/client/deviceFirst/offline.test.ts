@@ -6,6 +6,7 @@ import {
   createWorkflowInputFixture,
 } from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
+import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerContents } from "../containerContents";
 import { createDocuments } from "../documents";
@@ -137,5 +138,34 @@ test("offline edits update the device-first view and survive reopening without A
   } finally {
     deviceFirst.dispose();
     close();
+  }
+});
+
+test("device-first reopens a retired coordinator with a fresh local tree", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "device-first-reopen-coordinator",
+  );
+  const input = createWorkflowInputFixture({
+    apiClient: createMockApiClient(),
+    execSql,
+    online: false,
+  });
+  const runtime = createInternalRuntimeFixture(() => input);
+  const facade = createDeviceFirst(runtime, {} as ContainerContents);
+  try {
+    const first = facade.open();
+    getOrCreateDomainSyncCoordinator(input.state.domainScope).dispose();
+    const replacement = facade.open();
+    expect(replacement.containerStore).not.toBe(first.containerStore);
+    expect(replacement.reconciler).not.toBe(first.reconciler);
+    expect(facade.open()).toBe(replacement);
+    replacement.view.updateRuntime(createDeviceFirstWorkflowRuntime(runtime));
+    await waitFor(
+      () => replacement.view.getSnapshot().ready,
+      "replacement did not load",
+    );
+  } finally {
+    facade.dispose();
+    await close();
   }
 });

@@ -19,6 +19,7 @@ export const CONTAINER_CONTENTS_SYNC_LANE_KEY = "container-contents";
 
 export function registerContainerContentsSyncLane(input: {
   readonly domainScope: DomainScope;
+  readonly onDispose?: () => void;
   /** Host diagnostics sink; bare runtimes do not structure errors. */
   readonly logError?: ((message: string, error: unknown) => void) | undefined;
   /**
@@ -27,21 +28,25 @@ export function registerContainerContentsSyncLane(input: {
    */
   readonly run: (policyOperation: PrincipalPolicyOperation) => Promise<void>;
 }): ContainerContentsSyncLane {
-  return getOrCreateDomainSyncCoordinator(input.domainScope).registerLane(
-    CONTAINER_CONTENTS_SYNC_LANE_KEY,
-    {
-      label: "Container contents",
-      phase: "structural",
-      // Fixed literal: no container or identity id may reach a report. The
-      // mapped stack identifies which lane body threw. Returning the host's
-      // result hands a rejection to the lane reporter's wrapper; discarding it
-      // would surface as an unhandled rejection instead.
-      reportUnexpectedError: (error) =>
-        input.logError?.("Container contents: sync lane failed", error),
-      run: input.run,
-      shouldIgnoreError: isDatabaseUnavailableError,
-    },
-  );
+  const coordinator = getOrCreateDomainSyncCoordinator(input.domainScope);
+  if (input.onDispose) {
+    const onDispose = input.onDispose;
+    coordinator.subscribe(() => {
+      if (coordinator.isDisposed()) onDispose();
+    });
+  }
+  return coordinator.registerLane(CONTAINER_CONTENTS_SYNC_LANE_KEY, {
+    label: "Container contents",
+    phase: "structural",
+    // Fixed literal: no container or identity id may reach a report. The
+    // mapped stack identifies which lane body threw. Returning the host's
+    // result hands a rejection to the lane reporter's wrapper; discarding it
+    // would surface as an unhandled rejection instead.
+    reportUnexpectedError: (error) =>
+      input.logError?.("Container contents: sync lane failed", error),
+    run: input.run,
+    shouldIgnoreError: isDatabaseUnavailableError,
+  });
 }
 
 /** The lane's run counters, for work that waits on a pass it requested. */

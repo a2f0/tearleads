@@ -28,7 +28,6 @@ export function createRefreshState(input: {
     localContainerRefreshStructuralGeneration: null,
     localContainersNeedRefresh: true,
     persistence: {
-      enqueuePendingUpdate: async () => {},
       ensureSchema: async () => {},
       loadContainers: input.loadContainers,
       reconcileLocalRootContainer:
@@ -36,6 +35,7 @@ export function createRefreshState(input: {
       reconcileLocalSystemContainer:
         input.reconcileLocalSystemContainer ?? (async () => {}),
       saveContainer,
+      saveContainerWithPendingUpdate: saveContainer,
     } as unknown as ContainerContentsPersistence,
     runtime: {
       apiClient: input.apiClient,

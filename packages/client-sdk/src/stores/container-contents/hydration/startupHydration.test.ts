@@ -16,7 +16,7 @@ import {
 } from "../../../workflows/container-contents/documentQueries/documentQueries.testFixtures";
 import {
   hasStartupContainerSyncWork,
-  scheduleStaleStartupRemoteHydration,
+  inspectStartupHydration,
 } from "./startupHydration";
 
 const TEST_ORGANIZATION_ID = "org-1";
@@ -96,7 +96,6 @@ test("startup restores a fresh durable root-lane hydration marker", async () => 
     await new ContainerSyncWatermarkRepository(execSql).markChecked(
       createContainerParentSyncLane(null),
     );
-    let hydrationRequestCount = 0;
     const state = {
       containerParentIdsNeedingHydration: new Set<string | null>(),
       containersById: new Map([
@@ -121,16 +120,12 @@ test("startup restores a fresh durable root-lane hydration marker", async () => 
       },
     };
 
-    const shouldScheduleStaleRootRecovery =
-      await scheduleStaleStartupRemoteHydration({
-        requestHydration: async () => {
-          hydrationRequestCount += 1;
-        },
-        state,
-      });
+    const shouldScheduleStaleRootRecovery = await inspectStartupHydration({
+      state,
+    });
 
     expect(state.rootLaneHydrated).toBe(true);
-    expect(hydrationRequestCount).toBe(0);
+    expect(state.containerParentIdsNeedingHydration.size).toBe(0);
     expect(shouldScheduleStaleRootRecovery).toBe(false);
   } finally {
     close();
@@ -145,7 +140,6 @@ test("startup schedules stale-root recovery with no durable sync work", async ()
     await new ContainerSyncWatermarkRepository(execSql).markChecked(
       createContainerParentSyncLane(null),
     );
-    let hydrationRequestCount = 0;
     const state = {
       containerParentIdsNeedingHydration: new Set<string | null>(),
       containersById: new Map([
@@ -170,16 +164,12 @@ test("startup schedules stale-root recovery with no durable sync work", async ()
       },
     };
 
-    const shouldScheduleStaleRootRecovery =
-      await scheduleStaleStartupRemoteHydration({
-        requestHydration: async () => {
-          hydrationRequestCount += 1;
-        },
-        state,
-      });
+    const shouldScheduleStaleRootRecovery = await inspectStartupHydration({
+      state,
+    });
 
     expect(state.rootLaneHydrated).toBe(true);
-    expect(hydrationRequestCount).toBe(0);
+    expect(state.containerParentIdsNeedingHydration.size).toBe(0);
     expect(shouldScheduleStaleRootRecovery).toBe(true);
   } finally {
     close();
@@ -204,9 +194,8 @@ test("stale startup marker failures are not reported", async () => {
   };
   let current = true;
   try {
-    const hydration = scheduleStaleStartupRemoteHydration({
+    const hydration = inspectStartupHydration({
       isCurrent: () => current,
-      requestHydration: async () => {},
       state: {
         containerParentIdsNeedingHydration: new Set(),
         containersById: new Map(),

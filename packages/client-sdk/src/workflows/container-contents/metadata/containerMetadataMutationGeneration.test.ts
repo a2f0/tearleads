@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { enqueuePendingContainerUpdate } from "../containerPersistence";
+import { enqueuePendingContainerUpdate } from "./metadata.testFixtures";
 
 test("a refused metadata generation rolls back the mutation transaction", async () => {
   const { close, execSql } = await createTestExecSql(
