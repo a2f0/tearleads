@@ -1,7 +1,7 @@
 import type { DocumentSummary } from "../../data/documents/documentSummary";
-import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../../workflows/container-contents/projectionView";
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
+import { getOrCreateDomainSyncCoordinator } from "../../workflows/sync/coordination";
 import type { ContainerContentsStoreRuntime } from "../container-contents";
 import {
   isReconcilableContainerNode,
