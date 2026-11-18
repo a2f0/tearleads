@@ -102,6 +102,7 @@ test("the real SDK verifies a projection whose cited directory payload was refil
     );
     expect(served.at(-1)?.omitted).toBe(1);
   } finally {
+    device.close();
     await server.stop(true);
   }
 });

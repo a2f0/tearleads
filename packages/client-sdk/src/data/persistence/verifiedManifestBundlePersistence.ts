@@ -263,6 +263,23 @@ export type HeldDirectorySource = (
   organizationId: string,
 ) => Promise<readonly HeldDirectoryCitation[]>;
 
+/**
+ * How long manifest citations, once collected, wait for the directory read.
+ * Directory citations are an extra: a slow read must not spend the shared
+ * citation deadline and cost the manifest and KEK-level hints too.
+ */
+const DIRECTORY_CITATION_GRACE_MS = 50;
+
+function directoriesWithinGrace(
+  pending: Promise<readonly HeldDirectoryCitation[]>,
+): Promise<readonly HeldDirectoryCitation[]> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const grace = new Promise<readonly HeldDirectoryCitation[]>((resolve) => {
+    timer = setTimeout(() => resolve([]), DIRECTORY_CITATION_GRACE_MS);
+  });
+  return Promise.race([pending, grace]).finally(() => clearTimeout(timer));
+}
+
 export async function loadVerifiedManifestCitations(
   execSql: ExecSql,
   target: WriterProjectionTarget,
@@ -305,6 +322,11 @@ async function loadCitableManifestCitations(
   const objects = await citedObjects(db, target);
   const organizationId = await targetOrganization(db, target, objects);
   if (organizationId === null) return [];
+  // Read held directories beside the manifest collection; they are cited
+  // beside the manifest quota, never in its place.
+  const directories = (
+    heldDirectories?.(execSql, organizationId) ?? Promise.resolve([])
+  ).catch(() => []);
   const { cited, damaged } = await collectVerifiedManifestCitations(
     db,
     organizationId,
@@ -314,11 +336,7 @@ async function loadCitableManifestCitations(
   );
   if (damaged.length > 0)
     await dropVerifiedManifestBundles(execSql, damaged).catch(() => undefined);
-  // Directories are cited beside the manifest quota, never in its place.
-  return [
-    ...cited,
-    ...((await heldDirectories?.(execSql, organizationId)) ?? []),
-  ];
+  return [...cited, ...(await directoriesWithinGrace(directories))];
 }
 
 // Manifest hashes whose held rows a refused read is dropping: no read cites

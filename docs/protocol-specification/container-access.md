@@ -155,6 +155,16 @@ manifest citations equal the stub's; otherwise it refetches once with no hints.
 Hints grant nothing: the projection is authorized, and the rebuilt projection
 validated and verified, exactly as without them.
 
+Beside those 48, the header may carry up to 8 `d:<state hash>` entries
+(`KNOWN_DIRECTORY_HINT_LIMIT`): organization states whose directory payloads
+the device holds in its verified policy bundles. The client cites one only when
+the payload hashes to the `payloadCiphertextHash` its signed state commits.
+The API serves `policyEvidence.organizationPayloads[].payload` as `null` for
+each cited state, and the client fills each null from the payload it cited
+before verifying the evidence as usual; an uncited null makes the response
+unusable, and the client refetches once with no hints (see
+[directory payload citations](../projection-policy-evidence.md#directory-payload-citations)).
+
 The client cites from its
 [verified-bundle cache](../projection-policy-evidence.md#cost-and-retained-history-tradeoff),
 never across organizations: the latest verified KEK level of each container on

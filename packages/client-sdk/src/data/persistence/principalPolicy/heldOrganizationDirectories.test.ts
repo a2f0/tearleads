@@ -172,3 +172,28 @@ test("a device that stored no policy bundle cites manifests alone", async () => 
     fixture.close();
   }
 });
+
+test("a stalled or failing directory read never costs the manifest citations", async () => {
+  const fixture = await citationDatabase();
+  try {
+    await fixture.container("c0", null);
+    await remember(fixture.execSql, [entry("c0", 1, 1)]);
+    for (const source of [
+      // Never answers: the manifest citations wait only a short grace.
+      () => new Promise<never>(() => undefined),
+      () => Promise.reject(new Error("policy store unavailable")),
+    ]) {
+      const citations = await loadVerifiedManifestCitations(
+        fixture.execSql,
+        { kind: "container", id: "c0" },
+        undefined,
+        source,
+      );
+      expect(
+        citations.map((citation) => Reflect.get(citation, "manifestHash")),
+      ).toEqual([hash(1)]);
+    }
+  } finally {
+    fixture.close();
+  }
+});
