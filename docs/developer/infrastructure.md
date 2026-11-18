@@ -58,7 +58,9 @@ handling the zone's MX.
 
 3. When the DNS answer matches the issued value, verify the domain in
    Balebase. Bind `legal@tearleads.com` to an inbox named **Legal** and
-   copy the generated forwarding address from that inbox.
+   copy the generated forwarding address from that inbox. Inbox access is
+   organization-wide. Review the Tearleads member list and confirm every
+   member may read legal and privacy mail before enabling forwarding.
 4. In the Google Admin console, open **Apps → Google Workspace → Gmail →
    Routing** for the top-level organizational unit. Add an **Email forwarding
    using recipient address map** rule mapping only `legal@tearleads.com`
