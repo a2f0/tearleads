@@ -17,9 +17,9 @@ import {
   acknowledgedDocumentCreate,
   persistedDocumentStateFromAcknowledgement,
 } from "../../../../data/documents/shared/responses";
+import { locallyAcknowledgedDocumentHead } from "../../../../data/documents/shared/sync/mutationAcknowledgement";
 import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
-import { locallyAuthoredAccessManifestHead } from "../../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   type buildMaterializedContainerCreatePlan,
@@ -137,7 +137,10 @@ async function acknowledgeContainerWithMetadata(input: {
   ).advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
     heads: [
       containerHead,
-      locallyAuthoredAccessManifestHead(input.metadataDocumentPlan),
+      await locallyAcknowledgedDocumentHead(
+        input.metadataDocumentPlan,
+        input.response.metadataDocument.bundleDigest,
+      ),
     ],
     stillCurrent: input.stillCurrent,
   });

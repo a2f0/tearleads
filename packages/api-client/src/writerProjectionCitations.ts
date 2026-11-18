@@ -1,3 +1,4 @@
+import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import { BoundedCache } from "./ApiCache";
 
 function collectCitedArrayItems(
@@ -70,11 +71,13 @@ export class CitingProjectionCache<V> extends BoundedCache<Promise<V | null>> {
     Promise<V | null>,
     ReadonlySet<string>
   >();
+  private readonly resolved = new WeakMap<Promise<V | null>, V>();
 
   override set(key: string, value: Promise<V | null>): this {
     void value.then(
       (projection) => {
         if (projection !== null) {
+          this.resolved.set(value, projection);
           this.citations.set(
             value,
             writerProjectionCitedContainerIds(projection),
@@ -84,6 +87,16 @@ export class CitingProjectionCache<V> extends BoundedCache<Promise<V | null>> {
       () => undefined,
     );
     return super.set(key, value);
+  }
+
+  /** A projection a verifier refused is never served again: it refetches. */
+  override get(key: string): Promise<V | null> | undefined {
+    const entry = super.get(key);
+    if (entry && isRejectedDecodedProjection(this.resolved.get(entry))) {
+      this.delete(key);
+      return undefined;
+    }
+    return entry;
   }
 
   /** Evicts the entries that cite any of the containers or are unresolved. */

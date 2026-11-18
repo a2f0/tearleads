@@ -78,6 +78,7 @@ function createContainerKek(): ContainerWriterProjectionResponse["containerKeks"
 
 export function createContainerMutationResponse(): ContainerMutationResponse {
   return {
+    bundleDigest: "b".repeat(64),
     containerId: "container-1",
     createdAt: "2026-05-06T18:00:00.000Z",
     eventHash: "container-event-hash",
@@ -204,6 +205,7 @@ export type DocumentLinkSetMutationFixture = DocumentLinkSetMutationResponse & {
 
 export function createDocumentLinkSetMutationResponse(): DocumentLinkSetMutationFixture {
   return {
+    bundleDigest: "b".repeat(64),
     id: "document-1",
     contentKeyEpoch: 1,
     eventHash: "document-event-hash",

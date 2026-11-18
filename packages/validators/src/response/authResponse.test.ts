@@ -12,6 +12,7 @@ const VALID_CHALLENGE = "a".repeat(64);
 
 function createDocumentCreateResponse() {
   return {
+    bundleDigest: "b".repeat(64),
     contentKeyEpoch: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
     eventHash: "event-hash",
@@ -25,6 +26,7 @@ function createMetadataContainerResponse() {
   const metadataDocument = createDocumentCreateResponse();
   return {
     container: {
+      bundleDigest: "b".repeat(64),
       containerId: "ctr-organization-metadata",
       containerKek: {
         containerKeyEpoch: 1,
@@ -51,6 +53,7 @@ test("isRegistrationResponse", () => {
     organizationId: "org-456",
     organizationMetadataContainer: createMetadataContainerResponse(),
     organizationMetadataContainerId: "ctr-organization-metadata",
+    rootBundleDigest: "b".repeat(64),
     rootContainerId: "ctr-789",
     rootMetadataDocumentId: "doc-root",
     rootMetadataAccessEpoch: 1,

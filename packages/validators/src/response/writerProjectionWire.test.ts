@@ -9,10 +9,15 @@ import { toServedAccessManifestBundle } from "../util";
 import type { ContainerWriterProjectionResponse } from "./container";
 import type { DocumentWriterProjectionResponse } from "./documentMutation";
 import {
+  acceptDecodedProjection,
   decodeContainerWriterProjection,
   decodeDocumentWriterProjection,
+  deriveDecodedProjection,
   encodeContainerWriterProjection,
   encodeDocumentWriterProjection,
+  heldBundlesUsedBy,
+  isRejectedDecodedProjection,
+  rejectDecodedProjection,
 } from "./writerProjectionWire";
 
 function bundle(manifestHash: string) {
@@ -247,4 +252,70 @@ test("a served state omits what the bundle's signed bytes name", () => {
   const forged = Object(jsonRoundTrip(wire));
   Reflect.set(forged.bundles.root.state, "containerKeyPublicKey", "forged");
   expect(decodeContainerWriterProjection(forged)?.path).toEqual([stored]);
+});
+
+test("a projection derived from a decoded one answers for it", () => {
+  const wire = encodeContainerWriterProjection(
+    containerProjection(),
+    new Set(["root"]),
+  );
+  const root = toServedAccessManifestBundle(bundle("root"));
+  const held = new Map([["root", root]]);
+  const decoded = decodeContainerWriterProjection(jsonRoundTrip(wire), held);
+  if (!decoded) throw new Error("projection did not decode");
+  expect(heldBundlesUsedBy(decoded)).toEqual([root]);
+  const sliced = deriveDecodedProjection(decoded, {
+    ...decoded,
+    path: decoded.path.slice(0, 1),
+  });
+  // Another projection built from the same decoded one, held elsewhere.
+  const intermediate = deriveDecodedProjection(decoded, { ...decoded });
+  const pathOfSlice = deriveDecodedProjection(sliced, { ...sliced });
+  expect(heldBundlesUsedBy(pathOfSlice)).toEqual([root]);
+  // A derived projection that no longer carries a held bundle does not
+  // answer for it.
+  expect(
+    heldBundlesUsedBy(
+      deriveDecodedProjection(decoded, {
+        ...decoded,
+        containerKeks: [],
+        path: [],
+      }),
+    ),
+  ).toEqual([]);
+  // Refusing any derived projection refuses the decoded one a cache holds
+  // and every other projection built from it.
+  rejectDecodedProjection(pathOfSlice);
+  expect(isRejectedDecodedProjection(decoded)).toBe(true);
+  expect(isRejectedDecodedProjection(intermediate)).toBe(true);
+});
+
+test("refusing a projection refuses others rebuilt from the same held bytes", () => {
+  const wire = encodeContainerWriterProjection(
+    containerProjection(),
+    new Set(["root"]),
+  );
+  // Bytes no other test in this file refuses.
+  const root = bundle("root");
+  const held = toServedAccessManifestBundle({
+    ...root,
+    event: { ...root.event, eventHash: "shared-held-bytes" },
+  });
+  const decode = () =>
+    decodeContainerWriterProjection(
+      jsonRoundTrip(wire),
+      new Map([["root", structuredClone(held)]]),
+    );
+  // Two reads, each with its own copy of the same held bundle.
+  const first = decode();
+  const second = decode();
+  if (!first || !second) throw new Error("projection did not decode");
+  expect(isRejectedDecodedProjection(second)).toBe(false);
+  rejectDecodedProjection(first);
+  expect(isRejectedDecodedProjection(second)).toBe(true);
+  // Once a read verifies with those bytes again, others may reuse them.
+  const third = decode();
+  if (!third) throw new Error("projection did not decode");
+  acceptDecodedProjection(third);
+  expect(isRejectedDecodedProjection(decode())).toBe(false);
 });

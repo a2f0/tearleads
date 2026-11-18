@@ -14,6 +14,7 @@ import type {
   DocumentKekTargetsResponse,
   DocumentLinkSetMutationResponse,
 } from "@tearleads/validators/response";
+import { servedAccessManifestBundleDigest } from "../../../../access/read/accessManifestBundleDigest";
 import type {
   StoredDocumentContentKeyBundle,
   DocumentContentKeyTargetEnvelope as StoredDocumentContentKeyTargetEnvelope,
@@ -30,16 +31,18 @@ import { DocumentMutationError, documentShapeError } from "../errors";
 /**
  * The hash acknowledgement of a committed document create or link-set
  * mutation: the signed event and manifest hashes, the stored content-key
- * epoch, and the KEK target hash this transaction resolved.
+ * epoch, the KEK target hash this transaction resolved, and the citation
+ * digest of the bundle a writer projection serves for the new head.
  */
-export function documentMutationAcknowledgement(
+export async function documentMutationAcknowledgement(
   manifest: VerifiedDocumentLinkSetManifest,
   contentKeyBundle: {
     readonly contentKeyEpoch: number;
     readonly currentTargets: { readonly documentKeyTargetHash: string };
   },
-): Omit<DocumentLinkSetMutationResponse, "id"> {
+): Promise<Omit<DocumentLinkSetMutationResponse, "id">> {
   return {
+    bundleDigest: await servedAccessManifestBundleDigest(manifest),
     contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
     eventHash: manifest.event.eventHash,
     manifestHash: manifest.manifestHash,

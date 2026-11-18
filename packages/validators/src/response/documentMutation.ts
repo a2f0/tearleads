@@ -6,6 +6,7 @@ import {
   nonEmptyArraySchema,
   nonEmptyStringSchema,
   positiveIntegerSchema,
+  sha256HexStringSchema,
 } from "../schema";
 import {
   AccessEventBundleWireResponseSchema,
@@ -72,6 +73,7 @@ export type DocumentCreateSeedResponse = z.infer<
  * that plan.
  */
 const documentMutationAcknowledgementShape = {
+  bundleDigest: sha256HexStringSchema,
   contentKeyEpoch: positiveIntegerSchema,
   eventHash: nonEmptyStringSchema,
   id: z.string(),

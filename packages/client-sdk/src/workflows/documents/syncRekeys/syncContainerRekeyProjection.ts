@@ -1,5 +1,8 @@
 import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  type DocumentWriterProjectionResponse,
+  deriveDecodedProjection,
+} from "@tearleads/validators/response";
 import type { MaterializedContainerRekeyPlan } from "../../../data/containers/shared/types";
 import {
   normalizeDocumentKekTargetResponse,
@@ -75,7 +78,7 @@ export async function applyContainerRekeyPlan(
   }
   const documentKeyTargetHash =
     await computeDocumentContentKeyTargetHash(targets);
-  return {
+  return deriveDecodedProjection(writerProjection, {
     ...writerProjection,
     authorizingContainerPaths,
     ...(documentKeyTargetHash === writerProjection.contentKeyBundle.targetHash
@@ -92,7 +95,7 @@ export async function applyContainerRekeyPlan(
       ),
       targets: targets.map((target) => ({ ...target })),
     },
-  };
+  });
 }
 
 export async function applyDocumentSyncContainerRekeys(input: {

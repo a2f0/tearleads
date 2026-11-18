@@ -1449,6 +1449,13 @@
       "ContainerMutationResponse": {
         "type": "object",
         "properties": {
+          "bundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "Citation digest of the bundle a writer projection serves for the new head; the author caches its own bundle for citation only when it matches."
+          },
           "containerId": {
             "type": "string"
           },
@@ -1562,6 +1569,7 @@
           }
         },
         "required": [
+          "bundleDigest",
           "containerId",
           "createdAt",
           "eventHash",
@@ -1645,6 +1653,12 @@
       "ContainerReciteResponse": {
         "type": "object",
         "properties": {
+          "bundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string"
+          },
           "containerId": {
             "type": "string"
           },
@@ -1702,6 +1716,7 @@
           }
         },
         "required": [
+          "bundleDigest",
           "containerId",
           "createdAt",
           "eventHash",
@@ -1873,6 +1888,12 @@
       "ContainerRotationResponse": {
         "type": "object",
         "properties": {
+          "bundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string"
+          },
           "containerId": {
             "type": "string"
           },
@@ -1988,6 +2009,7 @@
           }
         },
         "required": [
+          "bundleDigest",
           "containerId",
           "createdAt",
           "eventHash",
@@ -2482,6 +2504,13 @@
           "organizationProfileDocumentId": {
             "type": "string"
           },
+          "rootBundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "Citation digest of the bundle a writer projection serves for the root container's genesis manifest; the author caches its own bundle for citation only when it matches."
+          },
           "rootContainerId": {
             "type": "string"
           },
@@ -2541,6 +2570,7 @@
           "organizationId",
           "organizationMetadataContainer",
           "organizationMetadataContainerId",
+          "rootBundleDigest",
           "rootContainerId",
           "rootMetadataAccessEpoch",
           "rootMetadataAccessStateHash",
@@ -2882,6 +2912,13 @@
       "DocumentCreateResponse": {
         "type": "object",
         "properties": {
+          "bundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "Citation digest of the bundle a writer projection serves for the new link-set manifest; the author caches its own bundle for citation only when it matches."
+          },
           "contentKeyEpoch": {
             "exclusiveMinimum": 0,
             "maximum": 1.7976931348623157e+308,
@@ -2953,6 +2990,7 @@
           }
         },
         "required": [
+          "bundleDigest",
           "contentKeyEpoch",
           "eventHash",
           "id",
@@ -3210,6 +3248,13 @@
       "DocumentLinkSetMutationResponse": {
         "type": "object",
         "properties": {
+          "bundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "Citation digest of the bundle a writer projection serves for the new link-set manifest; the author caches its own bundle for citation only when it matches."
+          },
           "contentKeyEpoch": {
             "exclusiveMinimum": 0,
             "maximum": 1.7976931348623157e+308,
@@ -3234,6 +3279,7 @@
           }
         },
         "required": [
+          "bundleDigest",
           "contentKeyEpoch",
           "eventHash",
           "id",
@@ -8888,6 +8934,13 @@
           "organizationProfileDocumentId": {
             "type": "string"
           },
+          "rootBundleDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "Citation digest of the bundle a writer projection serves for the root container's genesis manifest; the author caches its own bundle for citation only when it matches."
+          },
           "rootContainerId": {
             "type": "string"
           },
@@ -8943,6 +8996,7 @@
           "organizationId",
           "organizationMetadataContainer",
           "organizationMetadataContainerId",
+          "rootBundleDigest",
           "rootContainerId",
           "rootMetadataAccessEpoch",
           "rootMetadataAccessStateHash",

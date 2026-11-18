@@ -30,6 +30,7 @@ test("persistedDocumentCreateStateFromResponse stores verified create bundles", 
   // The wire acknowledgement carries hashes only; the persisted state is the
   // plan the client signed, exactly as the old echo carried it.
   const response: DocumentCreateResponse = {
+    bundleDigest: fixture.bundleDigest,
     contentKeyEpoch: fixture.contentKeyEpoch,
     createdAt: fixture.createdAt,
     eventHash: fixture.eventHash,
