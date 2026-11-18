@@ -348,20 +348,20 @@ else if (tool === "psql") {
   if (sql.includes("current_database()")) output(`tearleads-${tier}`);
   else if (sql.includes("pg_tables"))
     output(fault("wrong-schema") ? tables.slice(0, -1) : tables);
-  else if (sql.includes("json_agg(hash"))
-    output([
-      createHash("sha256")
-        .update(
-          readFileSync(
-            join(
-              root,
-              "repo/packages/api-shared/drizzle/0000_greenfield_baseline.sql",
-            ),
-          ),
-        )
-        .digest("hex"),
-    ]);
-  else
+  else if (sql.includes("__drizzle_migrations")) {
+    const files = ["0000_greenfield_baseline.sql", "0001_rename_users.sql"];
+    if (fault("missing-migration")) files.pop();
+    output(
+      files.map((file, index) => [
+        (index + 1) * 1000,
+        createHash("sha256")
+          .update(
+            readFileSync(join(root, "repo/packages/api-shared/drizzle", file)),
+          )
+          .digest("hex"),
+      ]),
+    );
+  } else
     output(
       fault("api-deployed")
         ? tables.map((name) => ({ name, rows: 0 }))

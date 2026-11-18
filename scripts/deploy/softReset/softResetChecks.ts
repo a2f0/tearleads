@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   type Identity,
@@ -8,6 +7,7 @@ import {
   parse,
 } from "./softResetPlans";
 import type { ResetRun } from "./softResetRuntime";
+import type { readResetSchema } from "./softResetSchema";
 
 export async function inventory(run: ResetRun, identity: Identity) {
   const output = async (stack: string, name?: string) =>
@@ -183,27 +183,11 @@ export async function emptyBucket(
   }
 }
 
-export function baseline(run: ResetRun) {
-  const dir = join(run.root, "packages/api-shared/drizzle");
-  const files = readdirSync(dir).filter((name) => name.endsWith(".sql"));
-  if (files.length !== 1 || files[0] !== "0000_greenfield_baseline.sql")
-    throw new Error(
-      "Baseline layout changed; update the reset schema verifier before use.",
-    );
-  const sql = readFileSync(join(dir, files[0]), "utf8");
-  const names = [...sql.matchAll(/^CREATE TABLE "([a-z_][a-z_0-9]*)" \(/gm)]
-    .map((match) => String(match[1]))
-    .sort();
-  if (!names.length) throw new Error("No baseline tables found.");
-  return { names, hash: createHash("sha256").update(sql).digest("hex") };
-}
-
 export async function databaseCheck(
   run: ResetRun,
   connection: ProviderRecord,
-  mode: "reachable" | "empty" | "baseline",
+  expected: "reachable" | "empty" | ReturnType<typeof readResetSchema>,
 ) {
-  const expected = baseline(run);
   const env = {
     PGHOST: String(connection.postgres_host),
     PGPORT: "5432",
@@ -227,7 +211,7 @@ export async function databaseCheck(
       throw new Error("Invalid database verification result.");
     }
   };
-  if (mode === "reachable") {
+  if (expected === "reachable") {
     if (
       (await query("SELECT to_json(current_database())")) !==
       connection.postgres_db
@@ -235,7 +219,7 @@ export async function databaseCheck(
       throw new Error("Direct database connection identity mismatch.");
     return;
   }
-  if (mode === "empty") {
+  if (expected === "empty") {
     const rows = await query(
       "SELECT coalesce(json_agg(c.relname), '[]'::json) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','drizzle')",
     );
@@ -244,12 +228,14 @@ export async function databaseCheck(
     return;
   }
   // pg_tables.tablename is name with C collation, not the database locale.
-  // Its bytewise order matches baseline()'s ASCII identifier sort.
+  // Its bytewise order matches the snapshot's ASCII identifier sort.
   const names = await query(
     "SELECT coalesce(json_agg(tablename ORDER BY tablename), '[]'::json) FROM pg_tables WHERE schemaname='public'",
   );
   if (JSON.stringify(names) !== JSON.stringify(expected.names))
-    throw new Error("Initialized tables differ from the current baseline.");
+    throw new Error(
+      "Initialized tables differ from the current migration snapshot.",
+    );
   const rows = await query(
     `SELECT json_agg(t) FROM (${expected.names.map((name) => `SELECT '${name}' AS name, count(*)::int AS rows FROM public."${name}"`).join(" UNION ALL ")}) t`,
   );
@@ -259,16 +245,19 @@ export async function databaseCheck(
     rows.some((row) => object(row).rows !== 0)
   )
     throw new Error("Application data is not empty after migration.");
-  const hashes = await query(
-    "SELECT json_agg(hash ORDER BY id) FROM drizzle.__drizzle_migrations",
+  const migrations = await query(
+    "SELECT json_agg(json_build_array(created_at, hash) ORDER BY id) FROM drizzle.__drizzle_migrations",
   );
-  if (JSON.stringify(hashes) !== JSON.stringify([expected.hash]))
-    throw new Error("Migration journal does not match the source baseline.");
+  if (JSON.stringify(migrations) !== JSON.stringify(expected.migrations))
+    throw new Error(
+      "Migration journal does not match the source migration history.",
+    );
   writeFileSync(
     join(run.dir, "schema.json"),
     JSON.stringify({
       tables: expected.names,
-      baseline: expected.hash,
+      baseline: expected.migrations[0]?.[1],
+      migrations: expected.migrations,
       empty: true,
     }),
     { mode: 0o600 },

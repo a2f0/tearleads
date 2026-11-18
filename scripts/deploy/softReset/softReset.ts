@@ -2,7 +2,6 @@
 // Intentionally explicit: a reset is not a retryable deployment workflow.
 import { resolve } from "node:path";
 import {
-  baseline,
   bindConnection,
   databaseCheck,
   emptyBucket,
@@ -14,6 +13,7 @@ import {
 import { applyPlan, type Identity, parse, savedPlan } from "./softResetPlans";
 import type { InterruptPolicy } from "./softResetProcessState";
 import { ResetRun, refuseOverrides } from "./softResetRuntime";
+import { readResetSchema } from "./softResetSchema";
 
 async function preflight(run: ResetRun) {
   const buildCheck = (mode: string) =>
@@ -26,9 +26,9 @@ async function preflight(run: ResetRun) {
       ],
       mode === "api" ? "terraform-state" : "bounded-command",
     );
-  const identity = await run.step("credentials", async () => {
+  const { identity, schema } = await run.step("credentials", async () => {
     refuseOverrides(run);
-    baseline(run);
+    const schema = readResetSchema(run.root);
     const { account, organization, domain } = parse(
       await buildCheck("credentials"),
     );
@@ -41,7 +41,7 @@ async function preflight(run: ResetRun) {
       !domain
     )
       throw new Error("Missing configured resource identity.");
-    return { account, organization, domain };
+    return { identity: { account, organization, domain }, schema };
   });
   const before = await run.step("inventory", async () => {
     const snapshot = await inventory(run, identity);
@@ -88,7 +88,7 @@ async function preflight(run: ResetRun) {
   });
   await run.step("web-readiness", () => buildCheck("web"));
   await run.step("api-readiness", () => buildCheck("api"));
-  return { identity, before, postgres, storage };
+  return { identity, before, postgres, storage, schema };
 }
 
 async function verifyFresh(
@@ -120,7 +120,7 @@ function commandHelpers(run: ResetRun) {
 }
 
 async function reset(run: ResetRun) {
-  const { identity, before, postgres, storage } = await preflight(run);
+  const { identity, before, postgres, storage, schema } = await preflight(run);
   const { helper, teardown } = commandHelpers(run);
   // This existing helper retires DOs/crons and drains for 930s. Never replace
   // it with wrangler delete (which also detaches the custom domain).
@@ -183,7 +183,7 @@ async function reset(run: ResetRun) {
     helper("bounded-command", "packages/api/scripts/verifyApi.sh"),
   );
   await run.step("verify-schema", () =>
-    databaseCheck(run, after.connection, "baseline"),
+    databaseCheck(run, after.connection, schema),
   );
   await run.step("deploy-app-demo", () =>
     helper("bounded-command", "packages/app-web/scripts/deployAppWeb.sh"),

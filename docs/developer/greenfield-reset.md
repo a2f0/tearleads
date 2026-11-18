@@ -113,15 +113,15 @@ The explicit data/deploy sequence is:
    PostgreSQL/storage wrappers, not `prepare-*`. Require a different database
    branch ID, the expected bucket/account, and empty application data.
 5. Deploy API through its normal migration/secret reconciliation helper and
-   verify health. Check initialized table names, the baseline migration hash,
-   and zero rows in every application table. The verifier intentionally fails
-   closed if the single-greenfield-baseline layout changes.
+   verify health. Check table names against the latest journaled snapshot and
+   require zero rows in every application table. The applied migration
+   timestamps and SQL hashes must match the entire source journal in order.
 6. Deploy app and demo through `deployAppWeb.sh` (including its `dist-app` and
    `dist-demo` staging), then website with `--skip-terraform`. Check unchanged
    inventory and HTTP 200 on API/app/demo/site without registering test users.
 
-`pg_tables.tablename` is a `name` in `C` collation, so its order matches ASCII
-baseline names, not database locale ([PostgreSQL 12](https://www.postgresql.org/docs/release/12.0/)).
+PostgreSQL sorts `pg_tables.tablename` in `C` collation, matching the snapshot’s
+ASCII order ([PostgreSQL 12](https://www.postgresql.org/docs/release/12.0/)).
 
 This preserves edge/website domain resources, downloads, Terraform backend
 state, signing files, and external payment/store records. It rotates database

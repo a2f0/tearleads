@@ -2,8 +2,21 @@ import { expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fixture } from "./softReset.testUtils";
+import { readResetSchema } from "./softResetSchema";
 
 const command = join(import.meta.dir, "softReset.ts");
+
+test("reset preflight rejects SQL outside the migration journal", () => {
+  const f = fixture();
+  try {
+    f.write("packages/api-shared/drizzle/0002_unregistered.sql", "SELECT 1;");
+    expect(() => readResetSchema(f.repo)).toThrow(
+      "missing from the reset migration journal",
+    );
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
 
 test("authorized reset completes only the application sequence with private timings", () => {
   const f = fixture();
