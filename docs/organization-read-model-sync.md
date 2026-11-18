@@ -240,10 +240,14 @@ the mutation's acknowledgement verified and only while its projection still
 holds the cursor it sent. The acknowledgement validates without the delta: a
 malformed delta, one for another organization, or a failed apply is only
 forgone. A group create and the membership and revocation commits use it as
-their post-commit read; a realtime hint's cursor check first waits, for at most
-ten seconds, for this device's own mutations in flight in the same session and
+their post-commit read. A realtime hint the presented cursor already covers
+needs nothing more; otherwise its cursor check waits, for at most ten seconds,
+for this device's own mutations in flight in the same session that could be
+the commit it names (a share stamps one cursor past the one it sent), and
 applies the deltas they carried, so the hint naming such a commit costs no read.
-A refresh that meets a delta being applied reads the feed after it. A missing,
+Each delta applies once: whichever of the hint check and the mutation's own
+read claims it first applies it, and the other shares that outcome. A refresh
+that meets a delta being applied reads the feed after it. A missing,
 omitted, or no longer applicable delta leaves today's path: the post-commit or
 hint read requests the feed, and a lost response leaves the cursor behind so the
 hint still reads.

@@ -1,25 +1,20 @@
+import { organizationReadModelCursorPosition } from "@tearleads/validators/organizationReadModelCursor";
 import type { OrganizationReadModelDeltaResponse } from "@tearleads/validators/response";
-import { OrganizationReadModelRepository } from "../../data/persistence/organizations/organizationReadModelRepository";
 import type { DomainScope } from "../../data/shared/domainScope";
 import {
   applyCommittedOrganizationReadModel,
+  awaitCommittedReadModelOffers,
   type CommittedReadModelOffer,
+  type CommittedReadModelOutcome,
+  claimCommittedReadModelOffer,
   loadHeldOrganizationReadModelCursor,
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationDirectoryAndGroups,
   loadLocalOrganizationGroupContainers,
   loadLocalOrganizationGroupMembers,
   loadLocalOrganizationUserDetail,
-  type OrganizationContainerGrants,
   type OrganizationDirectoryAndGroups,
-  type OrganizationGroupContainers,
-  type OrganizationGroupMembers,
-  type OrganizationGroupPolicyHistory,
-  type OrganizationPolicyHistory,
-  type OrganizationUserDetail,
   reconcileOrganizationDirectoryAndGroups,
-  takeCommittedReadModelOffer,
-  takeCommittedReadModelOffers,
   withVerifiedLeaveRequests,
   withVerifiedUserLeaveRequest,
 } from "../../workflows/organizations";
@@ -28,10 +23,12 @@ import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { loadBoundedOrganizationGroupHistory } from "./organizationGroupHistory";
 import { loadBoundedOrganizationHistory } from "./organizationHistory";
 import { leaveRequestVerifier } from "./organizationLeaveRequestVerifier";
+import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 import { presentOrganizationReadModelPass } from "./organizationReadModelPresentation";
 import {
   committedScope,
   type InFlightReadModelPass,
+  presentedAppliedCursor,
   scopedMap,
   sessionIsCurrent,
 } from "./organizationReadModelScopes";
@@ -45,64 +42,6 @@ const coordinatorsByRuntime = new WeakMap<
   InternalRuntime,
   OrganizationReadModelCoordinator
 >();
-
-export interface OrganizationReadModelCoordinator {
-  loadLocal(
-    organizationId?: string | undefined,
-  ): Promise<OrganizationDirectoryAndGroups | null>;
-  loadLocalGroupMembers(
-    groupId: string,
-    organizationId?: string | undefined,
-  ): Promise<OrganizationGroupMembers | null>;
-  loadGroupPolicyHistory(
-    groupId: string,
-    organizationId?: string | undefined,
-    beforeVersion?: number | undefined,
-  ): Promise<OrganizationGroupPolicyHistory | null>;
-  loadOrganizationPolicyHistory(
-    organizationId?: string | undefined,
-    beforeVersion?: number | undefined,
-  ): Promise<OrganizationPolicyHistory | null>;
-  loadLocalGrants(
-    organizationId?: string | undefined,
-  ): Promise<OrganizationContainerGrants | null>;
-  loadLocalGroupContainers(
-    groupId: string,
-    organizationId?: string | undefined,
-  ): Promise<OrganizationGroupContainers | null>;
-  loadLocalUserDetail(
-    userId: string,
-    organizationId?: string | undefined,
-  ): Promise<OrganizationUserDetail | null>;
-  /**
-   * Resolves `undefined` when the runtime declines without I/O (offline,
-   * database not ready, organization mismatch) or when the feed failed,
-   * even with locally retained data — passes that must not count as caught
-   * up; `null` when the reconcile completed but produced nothing presentable
-   * — including an authoritative denial that purged the projection, which
-   * consumers must repaint.
-   */
-  reconcile(
-    organizationId?: string | undefined,
-  ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
-  reconcileAfterMutation(
-    organizationId?: string | undefined,
-  ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
-  /** Apply this device's own mutation's committed delta; `undefined` if not. */
-  applyCommittedReadModel(
-    organizationId: string,
-    delta: OrganizationReadModelDeltaResponse | undefined,
-  ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
-  /** An own mutation's post-commit read: its delta, else the feed. */
-  reconcileAfterOwnMutation(
-    organizationId: string,
-    delta: OrganizationReadModelDeltaResponse | undefined,
-  ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
-  /** The applied cursor once this scope's in-flight reconcile settles. */
-  loadAppliedCursor(
-    organizationId?: string | undefined,
-  ): Promise<string | null>;
-}
 
 class OrganizationReadModelCoordinatorImpl
   implements OrganizationReadModelCoordinator
@@ -360,20 +299,26 @@ class OrganizationReadModelCoordinatorImpl
   async applyCommittedReadModel(
     organizationId: string,
     delta: OrganizationReadModelDeltaResponse | undefined,
-  ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
+  ): Promise<CommittedReadModelOutcome> {
     const active = activeOrganizationDataRuntime(
       this.runtimeService,
       organizationId,
     );
+    if (!active || !delta) return undefined;
     const { sessionGeneration } = this.runtimeService;
-    const offer =
-      active && delta
-        ? takeCommittedReadModelOffer(
-            committedScope(active, sessionGeneration),
-            delta,
-          )
-        : undefined;
-    if (!active || !offer) return undefined;
+    // A hint's cursor check may have claimed this delta first; share its apply.
+    return claimCommittedReadModelOffer(
+      committedScope(active, sessionGeneration),
+      delta,
+      (offer) => this.applyClaimedOffer(active, offer, sessionGeneration),
+    );
+  }
+
+  private async applyClaimedOffer(
+    active: ActiveOrganizationDataRuntime,
+    offer: CommittedReadModelOffer,
+    sessionGeneration: number,
+  ): Promise<CommittedReadModelOutcome> {
     await this.settleInFlightReconcile(active);
     return this.applyCommittedOffer(active, offer, sessionGeneration);
   }
@@ -441,35 +386,38 @@ class OrganizationReadModelCoordinatorImpl
     return stillCurrent() ? this.reconcile(active.organizationId) : undefined;
   }
 
-  async loadAppliedCursor(organizationId?: string): Promise<string | null> {
+  async loadAppliedCursor(
+    hintPosition: bigint,
+    organizationId?: string,
+  ): Promise<string | null> {
     const active = activeOrganizationDataRuntime(
       this.runtimeService,
       organizationId,
     );
-    if (!active) {
-      return null;
-    }
-    // A hint's cursor check: this scope's own mutations in flight settle
-    // first, and the deltas they carried apply, so a hint naming one of those
-    // commits needs no read.
+    if (!active) return null;
+    const presentedCursors = scopedMap(this.presentedCursorsByScope, active);
+    // A hint the presentation already covers waits for nothing.
+    const presented = await presentedAppliedCursor(active, presentedCursors);
+    if (
+      presented !== null &&
+      (organizationReadModelCursorPosition(presented, active.organizationId) ??
+        -1n) >= hintPosition
+    )
+      return presented;
+    // Otherwise this scope's own mutations that could be the hint's commit
+    // settle first, and the deltas they carried apply, so a hint naming one of
+    // those commits needs no read.
     const { sessionGeneration } = this.runtimeService;
-    for (const offer of await takeCommittedReadModelOffers(
-      committedScope(active, sessionGeneration),
-    )) {
-      await this.settleInFlightReconcile(active);
-      await this.applyCommittedOffer(active, offer, sessionGeneration);
-    }
+    const scope = committedScope(active, sessionGeneration);
+    for (const offer of await awaitCommittedReadModelOffers(
+      scope,
+      hintPosition,
+    ))
+      await claimCommittedReadModelOffer(scope, offer.delta, (claimed) =>
+        this.applyClaimedOffer(active, claimed, sessionGeneration),
+      );
     await this.settleInFlightReconcile(active);
-    const applied = await new OrganizationReadModelRepository(
-      active.runtime.infra.execSql,
-    ).loadAppliedOrganizationReadModelCursor({
-      organizationId: active.organizationId,
-      requesterUserId: active.userId,
-    });
-    const presented = scopedMap(this.presentedCursorsByScope, active).get(
-      organizationAccessScopeKey(active.organizationId, active.userId),
-    );
-    return applied !== null && applied === presented ? applied : null;
+    return presentedAppliedCursor(active, presentedCursors);
   }
 
   private async settleInFlightReconcile(

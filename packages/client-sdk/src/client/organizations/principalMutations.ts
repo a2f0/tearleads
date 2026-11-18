@@ -13,7 +13,7 @@ import type { ContainerContents } from "../containerContents";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { createCurrentPrincipalMutation } from "./currentPrincipalMutations";
 import { syncOrganizationMetadataProfile } from "./organizationMetadataProfileSync";
-import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
+import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 import type { GroupMemberAdmission } from "./recipientAdmission";
 
 export interface OrganizationGrantRef {

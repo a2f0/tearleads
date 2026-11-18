@@ -10,9 +10,9 @@ import {
 import { OrganizationReadModelRepository } from "../../../data/persistence/organizations/organizationReadModelRepository";
 import {
   applyCommittedOrganizationReadModel,
+  awaitCommittedReadModelOffers,
   beginCommittedReadModel,
-  takeCommittedReadModelOffer,
-  takeCommittedReadModelOffers,
+  claimCommittedReadModelOffer,
 } from "./committedReadModel";
 
 const organizationId = organizationReadModelOrganizationId;
@@ -36,20 +36,23 @@ test("a cold projection holds no cursor, so its mutation earns no delta", async 
     expect(lease.heldCursor).toBeUndefined();
     lease.settle(delta(cursorAt(2)));
     await expect(
-      takeCommittedReadModelOffers({
-        domainScope: {},
-        sessionGeneration: 0,
-        execSql,
-        organizationId,
-        userId,
-      }),
+      awaitCommittedReadModelOffers(
+        {
+          domainScope: {},
+          sessionGeneration: 0,
+          execSql,
+          organizationId,
+          userId,
+        },
+        2n,
+      ),
     ).resolves.toEqual([]);
   } finally {
     close();
   }
 });
 
-test("offers are taken once, by their own delta or by a hint check", async () => {
+test("each offer applies once, its outcome shared by every claimant", async () => {
   const { close, execSql } = await createTestExecSql("committed-take-test");
   const scope = {
     domainScope: {},
@@ -73,15 +76,25 @@ test("offers are taken once, by their own delta or by a hint check", async () =>
     own.settle(ownDelta);
     other.settle(otherDelta);
 
-    expect(takeCommittedReadModelOffer(scope, ownDelta)).toEqual({
-      delta: ownDelta,
-      heldCursor: cursorAt(1),
-    });
-    expect(takeCommittedReadModelOffer(scope, ownDelta)).toBeUndefined();
-    await expect(takeCommittedReadModelOffers(scope)).resolves.toEqual([
+    const applied: unknown[] = [];
+    const apply = async (offer: unknown) => {
+      applied.push(offer);
+      return null;
+    };
+    const first = claimCommittedReadModelOffer(scope, ownDelta, apply);
+    const second = claimCommittedReadModelOffer(scope, ownDelta, apply);
+
+    expect(second).toBe(first);
+    await expect(first).resolves.toBeNull();
+    expect(applied).toEqual([{ delta: ownDelta, heldCursor: cursorAt(1) }]);
+    await expect(awaitCommittedReadModelOffers(scope, 3n)).resolves.toEqual([
       { delta: otherDelta, heldCursor: cursorAt(1) },
     ]);
-    await expect(takeCommittedReadModelOffers(scope)).resolves.toEqual([]);
+    await claimCommittedReadModelOffer(scope, otherDelta, apply);
+    await expect(awaitCommittedReadModelOffers(scope, 3n)).resolves.toEqual([]);
+    expect(
+      claimCommittedReadModelOffer(scope, delta(cursorAt(4)), apply),
+    ).toBeUndefined();
   } finally {
     close();
   }
@@ -105,7 +118,9 @@ test("a hint check stops waiting for a mutation that never settles", async () =>
       response: organizationReadModelSnapshot({ cursor: cursorAt(1) }),
     });
     await beginCommittedReadModel(scope);
-    await expect(takeCommittedReadModelOffers(scope, 5)).resolves.toEqual([]);
+    await expect(awaitCommittedReadModelOffers(scope, 2n, 5)).resolves.toEqual(
+      [],
+    );
   } finally {
     close();
   }
@@ -190,7 +205,7 @@ test("a newer session retires the requester's older offers", async () => {
       undefined,
     );
 
-    await expect(takeCommittedReadModelOffers(scope)).resolves.toEqual([]);
+    await expect(awaitCommittedReadModelOffers(scope, 2n)).resolves.toEqual([]);
   } finally {
     close();
   }
@@ -217,6 +232,48 @@ test("a refused commit guard leaves the projection unapplied", async () => {
     await expect(
       repository.loadOrganizationReadModelCursor(organizationId),
     ).resolves.toBe(cursorAt(1));
+  } finally {
+    close();
+  }
+});
+
+test("a hint waits only for mutations that could be its commit", async () => {
+  const { close, execSql } = await createTestExecSql("committed-bound-test");
+  const scope = {
+    domainScope: {},
+    sessionGeneration: 0,
+    execSql,
+    organizationId,
+    userId,
+  };
+  const within = <T>(promise: Promise<T>, ms: number) =>
+    Promise.race([
+      promise.then(() => "settled" as const),
+      new Promise<"waiting">((resolve) => setTimeout(resolve, ms, "waiting")),
+    ]);
+  try {
+    await new OrganizationReadModelRepository(
+      execSql,
+    ).applyOrganizationReadModelResponse({
+      currentUserId: userId,
+      requestedCursor: null,
+      response: organizationReadModelSnapshot({ cursor: cursorAt(1) }),
+    });
+    // A share held at cursor 1 stamps one cursor: it can commit only 2.
+    const share = await beginCommittedReadModel(scope, 1);
+
+    await expect(
+      within(awaitCommittedReadModelOffers(scope, 1n), 1_000),
+    ).resolves.toBe("settled");
+    await expect(
+      within(awaitCommittedReadModelOffers(scope, 3n), 1_000),
+    ).resolves.toBe("settled");
+    const covering = awaitCommittedReadModelOffers(scope, 2n);
+    await expect(within(covering, 50)).resolves.toBe("waiting");
+    share.settle(delta(cursorAt(2)));
+    await expect(covering).resolves.toEqual([
+      { delta: delta(cursorAt(2)), heldCursor: cursorAt(1) },
+    ]);
   } finally {
     close();
   }

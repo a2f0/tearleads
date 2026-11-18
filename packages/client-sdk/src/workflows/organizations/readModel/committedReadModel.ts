@@ -19,8 +19,25 @@ export interface CommittedReadModelOffer {
   readonly heldCursor: string;
 }
 
+/** A mutation in flight: the cursors it can commit lie in (held, held + stamps]. */
+interface PendingLease {
+  readonly heldPosition: bigint | null;
+  readonly maxStamps: number;
+}
+
+/** What applying an offer presented; `undefined` when it applied nothing. */
+export type CommittedReadModelOutcome =
+  | OrganizationDirectoryAndGroups
+  | null
+  | undefined;
+
 interface ScopeOffers {
-  readonly pending: Set<Promise<void>>;
+  /** Each claimed offer's one apply, shared by every caller that claims it. */
+  readonly applying: WeakMap<
+    OrganizationReadModelDeltaResponse,
+    Promise<CommittedReadModelOutcome>
+  >;
+  readonly pending: Map<Promise<void>, PendingLease>;
   settled: readonly CommittedReadModelOffer[];
 }
 
@@ -65,7 +82,7 @@ function scopeOffers(scope: CommittedReadModelScope): ScopeOffers {
       )
         byScope.delete(existing);
     }
-    offers = { pending: new Set(), settled: [] };
+    offers = { applying: new WeakMap(), pending: new Map(), settled: [] };
     byScope.set(key, offers);
   }
   return offers;
@@ -86,6 +103,8 @@ export interface CommittedReadModelLease {
  */
 export async function beginCommittedReadModel(
   scope: CommittedReadModelScope,
+  /** How many cursors the mutation can stamp; a share stamps one. */
+  maxStamps = Number.POSITIVE_INFINITY,
 ): Promise<CommittedReadModelLease> {
   // An unreadable cursor only forgoes the delta; the mutation still goes out.
   const heldCursor = await loadHeldOrganizationReadModelCursor(scope).catch(
@@ -99,7 +118,13 @@ export async function beginCommittedReadModel(
   const promise = new Promise<void>((settled) => {
     resolve = settled;
   });
-  offers.pending.add(promise);
+  offers.pending.set(promise, {
+    heldPosition: organizationReadModelCursorPosition(
+      heldCursor,
+      scope.organizationId,
+    ),
+    maxStamps,
+  });
   return {
     heldCursor,
     settle: (delta) => {
@@ -114,43 +139,64 @@ export async function beginCommittedReadModel(
   };
 }
 
+/** Whether a mutation in flight could be the commit a hint names. */
+function couldCommit(lease: PendingLease, hintPosition: bigint): boolean {
+  return (
+    lease.heldPosition !== null &&
+    hintPosition > lease.heldPosition &&
+    (lease.maxStamps === Number.POSITIVE_INFINITY ||
+      hintPosition <= lease.heldPosition + BigInt(lease.maxStamps))
+  );
+}
+
 /**
- * Wait, for a bounded time, for this scope's mutations in flight, then take
- * every delta they carried, oldest first. Only a realtime hint's cursor check
- * takes them: a hint names a commit, and an offer at or past it reflects that
+ * Wait, for a bounded time, for this scope's mutations in flight that could
+ * be the commit a realtime hint names, then list every unclaimed delta, oldest
+ * first: a hint names a commit, and an offer at or past it reflects that
  * commit. A mutation still in flight after the wait leaves the check to read.
  */
-export async function takeCommittedReadModelOffers(
+export async function awaitCommittedReadModelOffers(
   scope: CommittedReadModelScope,
+  hintPosition: bigint,
   maxWaitMs = MAX_PENDING_WAIT_MS,
 ): Promise<readonly CommittedReadModelOffer[]> {
   const offers = scopeOffers(scope);
-  if (offers.pending.size > 0) {
+  const awaited = [...offers.pending]
+    .filter(([, lease]) => couldCommit(lease, hintPosition))
+    .map(([promise]) => promise);
+  if (awaited.length > 0) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     await Promise.race([
-      Promise.all(offers.pending),
+      Promise.all(awaited),
       new Promise<void>((resolve) => {
         timer = setTimeout(resolve, maxWaitMs);
       }),
     ]);
     clearTimeout(timer);
   }
-  const taken = offers.settled;
-  offers.settled = [];
-  return taken;
+  return scopeOffers(scope).settled;
 }
 
-/** Take the offer one mutation's own response carried, by its delta. */
-export function takeCommittedReadModelOffer(
+/**
+ * Apply one offer once, by its delta. The first claimant (a hint's cursor
+ * check or the mutation's own reconcile) runs `apply`; a later claimant of the
+ * same delta shares that outcome instead of reading. `undefined` when the
+ * scope holds no such offer.
+ */
+export function claimCommittedReadModelOffer(
   scope: CommittedReadModelScope,
   delta: OrganizationReadModelDeltaResponse,
-): CommittedReadModelOffer | undefined {
+  apply: (offer: CommittedReadModelOffer) => Promise<CommittedReadModelOutcome>,
+): Promise<CommittedReadModelOutcome> | undefined {
   const offers = scopeOffers(scope);
+  const claimed = offers.applying.get(delta);
+  if (claimed) return claimed;
   const offer = offers.settled.find((settled) => settled.delta === delta);
-  if (offer) {
-    offers.settled = offers.settled.filter((settled) => settled !== offer);
-  }
-  return offer;
+  if (!offer) return undefined;
+  offers.settled = offers.settled.filter((settled) => settled !== offer);
+  const outcome = apply(offer);
+  offers.applying.set(delta, outcome);
+  return outcome;
 }
 
 /** The projection cursor a reconcile of this requester would request from. */

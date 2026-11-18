@@ -32,10 +32,8 @@ import {
   type OrganizationContentReconciler,
   type OrganizationMemberships,
 } from "./organizationMemberships";
-import {
-  createOrganizationReadModelCoordinator,
-  type OrganizationReadModelCoordinator,
-} from "./organizationReadModels";
+import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
+import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 import type { Organizations } from "./organizationsTypes";
 import {
   activeOrganizationDataRuntime,
@@ -321,8 +319,8 @@ class OrganizationsService implements Organizations {
     });
   }
 
-  loadAppliedReadModelCursor() {
-    return this.readModelCoordinator.loadAppliedCursor();
+  loadAppliedReadModelCursor(hintPosition: bigint) {
+    return this.readModelCoordinator.loadAppliedCursor(hintPosition);
   }
 
   loadDirectoryAndGroups() {

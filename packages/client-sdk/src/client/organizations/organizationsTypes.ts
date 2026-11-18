@@ -28,7 +28,7 @@ import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import type { OrganizationDataUsageCoordinator } from "./organizationDataUsage";
 import type { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import type { OrganizationMemberships } from "./organizationMemberships";
-import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
+import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 import type {
   AbandonOrganizationPolicyMutationInput,
   DiscardUnreadableOrganizationPolicyMutationInput,
@@ -159,10 +159,13 @@ export interface Organizations {
    */
   loadDeviceDataUsage: () => Promise<OrganizationDeviceDataUsage | null>;
   /**
-   * The opaque read-model cursor the active requester has applied, once any
-   * in-flight reconcile of that scope settles; null when it holds none.
+   * The opaque read-model cursor the active requester has applied and
+   * presented, for a realtime hint at `hintPosition`: at once when it already
+   * covers the hint, else once this device's mutations that could be that
+   * commit and any in-flight reconcile of that scope settle; null when it
+   * holds none.
    */
-  loadAppliedReadModelCursor: () => Promise<string | null>;
+  loadAppliedReadModelCursor: (hintPosition: bigint) => Promise<string | null>;
   loadDirectoryAndGroups: () => ReturnType<
     OrganizationReadModelCoordinator["reconcile"]
   >;

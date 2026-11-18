@@ -50,10 +50,8 @@ import {
   purgeRemoteContainerDocument,
 } from "../../workflows/container-contents/tombstones/documentPurge";
 import type { DocumentsWorkflowRuntime } from "../../workflows/documents";
-import {
-  createOrganizationReadModelCoordinator,
-  type OrganizationReadModelCoordinator,
-} from "../organizations/organizationReadModels";
+import type { OrganizationReadModelCoordinator } from "../organizations/organizationReadModelCoordinator";
+import { createOrganizationReadModelCoordinator } from "../organizations/organizationReadModels";
 import { requireShareRecipient } from "../organizations/recipientAdmission";
 import type {
   InternalRuntime,

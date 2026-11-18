@@ -3,7 +3,7 @@ import { setUpAdminGroupRoot } from "../../../test/helpers/workflows/adminGroupR
 import { missingPrincipalRecoveryFixture } from "../../../test/helpers/workflows/missingPrincipalRecovery";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import type { ContainerContents } from "../containerContents";
-import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
+import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 import { revokeOrganizationGrant } from "./principalMutations";
 
 let signed: Awaited<ReturnType<typeof setUpAdminGroupRoot>>;

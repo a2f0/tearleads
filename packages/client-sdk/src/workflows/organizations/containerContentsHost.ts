@@ -8,6 +8,9 @@ import {
 } from "./groupShare";
 import { beginCommittedReadModel } from "./readModel/committedReadModel";
 
+/** A share stamps the grants lane once, when it persists the manifest. */
+const SHARE_READ_MODEL_STAMPS = 1;
+
 /**
  * The organization operations the composition root hands container contents.
  * A share's committed read-model lease is bound to the session generation the
@@ -20,10 +23,10 @@ export function createContainerContentsOrganizationHost(
     ...containerContentsOrganizationHost,
     committedReadModel: (scope) => ({
       begin: () =>
-        beginCommittedReadModel({
-          ...scope,
-          sessionGeneration: readSessionGeneration(),
-        }),
+        beginCommittedReadModel(
+          { ...scope, sessionGeneration: readSessionGeneration() },
+          SHARE_READ_MODEL_STAMPS,
+        ),
     }),
   };
 }
@@ -32,7 +35,11 @@ export function createContainerContentsOrganizationHost(
 export const containerContentsOrganizationHost: ContainerContentsOrganizationHost =
   {
     committedReadModel: (scope) => ({
-      begin: () => beginCommittedReadModel({ ...scope, sessionGeneration: 0 }),
+      begin: () =>
+        beginCommittedReadModel(
+          { ...scope, sessionGeneration: 0 },
+          SHARE_READ_MODEL_STAMPS,
+        ),
     }),
     createCurrentGroupShare: createRuntimeCurrentGroupShare,
     createCurrentGroupPolicyReader: createRuntimeCurrentSharePrincipalPolicy,

@@ -16,7 +16,7 @@ import {
 } from "../../workflows/organizations";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
-import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
+import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 
 const projectedMembers: OrganizationGroupMembersResponse = {
   organizationId,

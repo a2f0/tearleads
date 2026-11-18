@@ -1,5 +1,7 @@
+import { OrganizationReadModelRepository } from "../../data/persistence/organizations/organizationReadModelRepository";
 import type { DomainScope } from "../../data/shared/domainScope";
 import type { OrganizationDirectoryAndGroups } from "../../workflows/organizations";
+import { organizationAccessScopeKey } from "../../workflows/organizations/readModel/organizationPresentationAccessState";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import {
   type ActiveOrganizationDataRuntime,
@@ -48,4 +50,21 @@ export function sessionIsCurrent(
   return () =>
     runtimeService.sessionGeneration === sessionGeneration &&
     isOrganizationDataRuntimeCurrent(runtimeService, active, domainScope);
+}
+
+/** The applied read-model cursor, when it is the one this scope presented. */
+export async function presentedAppliedCursor(
+  active: ActiveOrganizationDataRuntime,
+  presentedCursors: ReadonlyMap<string, string>,
+): Promise<string | null> {
+  const applied = await new OrganizationReadModelRepository(
+    active.runtime.infra.execSql,
+  ).loadAppliedOrganizationReadModelCursor({
+    organizationId: active.organizationId,
+    requesterUserId: active.userId,
+  });
+  const presented = presentedCursors.get(
+    organizationAccessScopeKey(active.organizationId, active.userId),
+  );
+  return applied !== null && applied === presented ? applied : null;
 }
