@@ -86,6 +86,25 @@ export class PrincipalPolicyBundleRepository {
     return row ? parseSelectedPrincipalPolicyBundle(row) : null;
   }
 
+  /**
+   * The current bundle if its table already exists, with no schema setup: an
+   * optional read (#2903 P17) that must never take the write lock a cold
+   * cache's table creation needs. A missing table rejects; callers treat any
+   * failure as a miss.
+   */
+  async loadStoredPrincipalPolicyBundle(
+    principalType: PrincipalStateResponse["principalType"],
+    principalId: string,
+  ): Promise<PrincipalPolicyBundleResponse | null> {
+    const { db } = getClientSQLitePersistenceRuntime(this.execSql);
+    const [row] = await db
+      .select(principalPolicyBundleSelection)
+      .from(principalPolicyBundles)
+      .where(wherePrincipalPolicyCurrent({ principalType, principalId }))
+      .limit(1);
+    return row ? parseSelectedPrincipalPolicyBundle(row) : null;
+  }
+
   /** Current heads first, then retained bundles. */
   async loadAllPrincipalPolicyBundles(): Promise<
     PrincipalPolicyBundleResponse[]

@@ -1,6 +1,9 @@
 import type { RequestResult } from "@tearleads/api-client";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
-import { withHeldMemberEnvelopeChanges } from "../../data/principals/memberEnvelopeReferences";
+import {
+  withCanonicalEnvelopeOrder,
+  withHeldMemberEnvelopeChanges,
+} from "../../data/principals/memberEnvelopeReferences";
 import type { AuthoredPrincipalMutation } from "../../data/principals/principalMutationJournal";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
@@ -65,10 +68,11 @@ export async function sendWithHeldEnvelopeChanges<
   readonly signal: AbortSignal | undefined;
   readonly stillCurrent: () => boolean;
 }): Promise<Result> {
-  const wire = await boundedWireForm(input.execSql, input.saved, input.signal);
+  const saved = withCanonicalEnvelopeOrder(input.saved);
+  const wire = await boundedWireForm(input.execSql, saved, input.signal);
   assertProjectionVerificationCurrent(input.stillCurrent);
   const result = await input.send(wire);
-  if (wire === input.saved || !refusedUnreadChanges(result)) return result;
+  if (wire === saved || !refusedUnreadChanges(result)) return result;
   assertProjectionVerificationCurrent(input.stillCurrent);
-  return input.send(input.saved);
+  return input.send(saved);
 }

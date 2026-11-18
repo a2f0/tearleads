@@ -1,5 +1,6 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { SigningKeyPair } from "@tearleads/crypto";
+import { withCanonicalEnvelopeOrder } from "../../data/principals/memberEnvelopeReferences";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { recoverJournaledPrincipalMutation } from "../../workflows/organizations";
 import {
@@ -119,12 +120,14 @@ export function createPrincipalMutationApiCustody(
         recoverPendingPrincipalMutation: async (organizationId) => {
           await recoverJournaledPrincipalMutation({
             ...context(organizationId),
+            // The saved request in full, in the envelope order its first
+            // attempt used (#2903 P17).
             submit: (mutation) =>
               dispatch({ reportErrors: false }, (dispatchOptions) =>
                 dispatchAuthoredPrincipalMutation(
                   input.api,
                   organizationId,
-                  mutation,
+                  withCanonicalEnvelopeOrder(mutation),
                   dispatchOptions,
                 ),
               ),

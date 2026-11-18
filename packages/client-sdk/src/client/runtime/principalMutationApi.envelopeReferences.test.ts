@@ -93,3 +93,29 @@ test("an unreadable held-predecessor cache sends the saved request in full", asy
     sqlite.close();
   }
 });
+
+test("the held-predecessor read creates no schema on a cold cache", async () => {
+  const { leg } = await successorLeg();
+  const sqlite = await createTestExecSql("principal-envelope-cold");
+  const statements: string[] = [];
+  const execSql = (async (...args: Parameters<typeof sqlite.execSql>) => {
+    const [sql] = args;
+    if (typeof sql === "string") statements.push(sql);
+    return sqlite.execSql(...args);
+  }) as typeof sqlite.execSql;
+  const mutation = {
+    kind: "organization" as const,
+    groupId: null,
+    request: leg,
+  };
+  try {
+    expect(await withHeldMemberEnvelopeChanges(execSql, mutation)).toBe(
+      mutation,
+    );
+    expect(statements.some((sql) => /create\s+(table|index)/iu.test(sql))).toBe(
+      false,
+    );
+  } finally {
+    sqlite.close();
+  }
+});

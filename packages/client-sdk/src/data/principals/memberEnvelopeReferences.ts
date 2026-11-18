@@ -1,4 +1,5 @@
 import {
+  compareCanonicalStrings,
   computePrincipalMemberEnvelopesRoot,
   computePrincipalStateHash,
 } from "@tearleads/crypto";
@@ -88,7 +89,7 @@ async function heldPredecessor(
   leg: PutPrincipalPolicyRequest,
 ): Promise<PrincipalPolicyBundleResponse | null> {
   if (leg.state.prevStateHash === null) return null;
-  const bundle = await repository.loadPrincipalPolicyBundle(
+  const bundle = await repository.loadStoredPrincipalPolicyBundle(
     leg.state.principalType,
     leg.state.principalId,
   );
@@ -190,5 +191,68 @@ async function wireForm(
       };
     case "organization":
       return { ...mutation, request: await compact(mutation.request) };
+  }
+}
+
+function sortedLeg(leg: PutPrincipalPolicyRequest): PutPrincipalPolicyRequest {
+  const memberEnvelopes = [...leg.memberEnvelopes].sort((left, right) =>
+    compareCanonicalStrings(left.userId, right.userId),
+  );
+  return memberEnvelopes.every(
+    (envelope, index) => envelope === leg.memberEnvelopes[index],
+  )
+    ? leg
+    : { ...leg, memberEnvelopes };
+}
+
+/**
+ * Every leg's envelope list in user-id order, the order the API keys receipts
+ * by (#2903 P17): an API of any version then keys a retry of this request
+ * exactly as it keyed the first attempt. `mutation` itself when already so.
+ */
+export function withCanonicalEnvelopeOrder(
+  mutation: AuthoredPrincipalMutation,
+): AuthoredPrincipalMutation {
+  switch (mutation.kind) {
+    case "compound": {
+      const { groupPolicy, memberPolicy, organizationPolicy } =
+        mutation.request;
+      const sorted = {
+        ...mutation.request,
+        groupPolicy: sortedLeg(groupPolicy),
+        ...(memberPolicy ? { memberPolicy: sortedLeg(memberPolicy) } : {}),
+        organizationPolicy: sortedLeg(organizationPolicy),
+      };
+      return sorted.groupPolicy === groupPolicy &&
+        sorted.memberPolicy === memberPolicy &&
+        sorted.organizationPolicy === organizationPolicy
+        ? mutation
+        : { ...mutation, request: sorted };
+    }
+    case "group-create": {
+      const organizationPolicy = sortedLeg(mutation.request.organizationPolicy);
+      const initialGroupPolicy = sortedLeg(mutation.request.initialGroupPolicy);
+      return organizationPolicy === mutation.request.organizationPolicy &&
+        initialGroupPolicy === mutation.request.initialGroupPolicy
+        ? mutation
+        : {
+            ...mutation,
+            request: {
+              ...mutation.request,
+              initialGroupPolicy,
+              organizationPolicy,
+            },
+          };
+    }
+    case "group-delete": {
+      const organizationPolicy = sortedLeg(mutation.request.organizationPolicy);
+      return organizationPolicy === mutation.request.organizationPolicy
+        ? mutation
+        : { ...mutation, request: { ...mutation.request, organizationPolicy } };
+    }
+    case "organization": {
+      const request = sortedLeg(mutation.request);
+      return request === mutation.request ? mutation : { ...mutation, request };
+    }
   }
 }

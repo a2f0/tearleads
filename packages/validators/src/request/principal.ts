@@ -106,10 +106,6 @@ const PrincipalMemberEnvelopeChangesRequestSchema = loosePlainObject({
   upsert: arraySchema(PrincipalMemberEnvelopeRequestSchema),
 });
 
-export type PrincipalMemberEnvelopeChangesRequest = z.infer<
-  typeof PrincipalMemberEnvelopeChangesRequestSchema
->;
-
 const principalPolicyRequestShape = {
   encryptedPayload: PrincipalStateEncryptedPayloadRequestSchema,
   grants: arraySchema(PrincipalContainerGrantRequestSchema),
