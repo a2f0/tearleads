@@ -38,4 +38,5 @@ export {
   isRegistrationResponse,
   type RegistrationResponse,
   RegistrationResponseSchema,
+  registrationCommitCheckpointRefinements,
 } from "../registration";

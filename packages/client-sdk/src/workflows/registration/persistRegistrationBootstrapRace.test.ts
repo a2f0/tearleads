@@ -54,6 +54,7 @@ test("registration replay keeps the winning record and history checkpoint paired
           },
           initialUpdate: attempt.initialUpdate,
           initialUpdateCommitted: false,
+          lastCommitLsn: null,
           localId,
         }),
       ),
@@ -125,6 +126,7 @@ test("registration birth rolls back when its initial queue insert fails", async 
         },
         initialUpdate: exportAllUpdates(doc),
         initialUpdateCommitted: false,
+        lastCommitLsn: null,
         localId,
       }),
     ).rejects.toThrow();

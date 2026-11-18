@@ -161,7 +161,7 @@ export const commitLsnResponseShape = {
 };
 
 /** The 0/0 sentinel and the untracked mode imply each other. */
-function addCommitLsnIssues(
+export function addCommitLsnIssues(
   response: {
     readonly commitLsn: string | null;
     readonly commitLsnMode: "tracked" | "untracked";

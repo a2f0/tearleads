@@ -152,6 +152,7 @@ export async function registerIdentity(
   await persistOrganizationProvisioningState({
     bootstrap: artifacts.bootstrap,
     canStartDurableMutation: input.isIdentityCurrent,
+    commitLsn: response.commitLsn,
     onPersistQueued: input.onPersistQueued,
     containerId: input.containerId,
     dbClient: input.dbClient,

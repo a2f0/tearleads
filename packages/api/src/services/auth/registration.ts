@@ -66,6 +66,7 @@ export async function registerUser(
 
   return {
     ...toOrganizationProvisioningResponse(result.userId, result),
+    ...result.commitCheckpoint,
     challenge: challengeHex,
   };
 }
