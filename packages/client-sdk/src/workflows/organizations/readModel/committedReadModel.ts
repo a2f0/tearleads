@@ -157,12 +157,16 @@ function couldCommit(lease: PendingLease, hintPosition: bigint): boolean {
  */
 export async function awaitCommittedReadModelOffers(
   scope: CommittedReadModelScope,
-  hintPosition: bigint,
+  /** Without a hint position, every mutation in flight is waited for. */
+  hintPosition: bigint | undefined,
   maxWaitMs = MAX_PENDING_WAIT_MS,
 ): Promise<readonly CommittedReadModelOffer[]> {
   const offers = scopeOffers(scope);
   const awaited = [...offers.pending]
-    .filter(([, lease]) => couldCommit(lease, hintPosition))
+    .filter(
+      ([, lease]) =>
+        hintPosition === undefined || couldCommit(lease, hintPosition),
+    )
     .map(([promise]) => promise);
   if (awaited.length > 0) {
     let timer: ReturnType<typeof setTimeout> | undefined;

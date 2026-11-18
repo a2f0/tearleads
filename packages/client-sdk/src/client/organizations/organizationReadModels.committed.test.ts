@@ -217,3 +217,38 @@ test("a hint the presentation already covers waits for no mutation", async () =>
     f.close();
   }
 });
+
+test("distinct offers apply in turn, so a stale one is not consumed unapplied", async () => {
+  const f = await committedFixture("committed-read-model-distinct-test");
+  try {
+    const first = await beginCommittedReadModel(f.scope);
+    const second = await beginCommittedReadModel(f.scope);
+    const firstDelta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(2),
+      groupName: "Operators",
+    });
+    const secondDelta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(3),
+      groupName: "Auditors",
+    });
+    first.settle(firstDelta);
+    second.settle(secondDelta);
+
+    const applied = f.coordinator.applyCommittedReadModel(
+      organizationId,
+      firstDelta,
+    );
+    const stale = f.coordinator.applyCommittedReadModel(
+      organizationId,
+      secondDelta,
+    );
+
+    await expect(applied).resolves.toMatchObject({
+      readModelCursor: cursorAt(2),
+    });
+    // Both were sent from cursor 1, which the projection no longer holds.
+    await expect(stale).resolves.toBeUndefined();
+  } finally {
+    f.close();
+  }
+});

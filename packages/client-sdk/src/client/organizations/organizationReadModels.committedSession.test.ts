@@ -271,3 +271,29 @@ test("a transition during presentation publishes nothing", async () => {
     f.close();
   }
 });
+
+test("a hint check started before a relogin claims nothing of the next session", async () => {
+  const f = await committedFixture("committed-read-model-hint-relogin-test");
+  try {
+    const nextScope = { ...f.scope, sessionGeneration: 1 };
+    const nextLease = await beginCommittedReadModel(nextScope);
+    // The check starts in session 0; the relogin lands during its first read.
+    const checked = f.coordinator.loadAppliedCursor(2n);
+    f.advanceSession();
+    const nextDelta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(2),
+      groupName: "Operators",
+    });
+    nextLease.settle(nextDelta);
+
+    await expect(checked).resolves.toBeNull();
+    let unclaimed: unknown;
+    await claimCommittedReadModelOffer(nextScope, nextDelta, async (offer) => {
+      unclaimed = offer;
+      return null;
+    });
+    expect(unclaimed).toEqual({ delta: nextDelta, heldCursor: cursorAt(1) });
+  } finally {
+    f.close();
+  }
+});

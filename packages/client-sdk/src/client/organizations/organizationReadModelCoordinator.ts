@@ -65,9 +65,10 @@ export interface OrganizationReadModelCoordinator {
    * The presented applied cursor for a realtime hint naming `hintPosition`:
    * at once when it already covers the hint, else once this scope's own
    * mutations that could be that commit and its reconcile in flight settle.
+   * Without a position, once every own mutation in flight settles.
    */
   loadAppliedCursor(
-    hintPosition: bigint,
+    hintPosition?: bigint | undefined,
     organizationId?: string | undefined,
   ): Promise<string | null>;
 }

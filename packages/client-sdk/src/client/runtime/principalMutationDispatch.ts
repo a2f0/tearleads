@@ -99,6 +99,9 @@ interface JournaledSubmission<T extends PrincipalMutationResponse> {
   readonly committedReadModel?: ((response: T) => unknown) | undefined;
 }
 
+/** A group create stamps twice: its group row, then its first policy. */
+const GROUP_CREATE_READ_MODEL_STAMPS = 2;
+
 async function submitJournaled<T extends PrincipalMutationResponse>(
   input: JournaledSubmission<T>,
 ): Promise<RequestResult<T>> {
@@ -107,13 +110,18 @@ async function submitJournaled<T extends PrincipalMutationResponse>(
   // A group create or group commit sends the read-model cursor its caller
   // holds, so the response can carry the delta from it.
   const lease = input.committedReadModel
-    ? await beginCommittedReadModel({
-        domainScope: journal.domainScope,
-        execSql: journal.execSql,
-        sessionGeneration: journal.sessionGeneration,
-        organizationId,
-        userId: journal.scope.userId,
-      })
+    ? await beginCommittedReadModel(
+        {
+          domainScope: journal.domainScope,
+          execSql: journal.execSql,
+          sessionGeneration: journal.sessionGeneration,
+          organizationId,
+          userId: journal.scope.userId,
+        },
+        input.mutation.kind === "group-create"
+          ? GROUP_CREATE_READ_MODEL_STAMPS
+          : undefined,
+      )
     : undefined;
   const options = lease?.heldCursor
     ? { ...input.options, readModelCursor: lease.heldCursor }

@@ -319,7 +319,7 @@ class OrganizationsService implements Organizations {
     });
   }
 
-  loadAppliedReadModelCursor(hintPosition: bigint) {
+  loadAppliedReadModelCursor(hintPosition?: bigint) {
     return this.readModelCoordinator.loadAppliedCursor(hintPosition);
   }
 

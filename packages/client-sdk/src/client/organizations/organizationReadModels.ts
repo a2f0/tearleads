@@ -24,6 +24,9 @@ import { loadBoundedOrganizationGroupHistory } from "./organizationGroupHistory"
 import { loadBoundedOrganizationHistory } from "./organizationHistory";
 import { leaveRequestVerifier } from "./organizationLeaveRequestVerifier";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
+
+export type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
+
 import { presentOrganizationReadModelPass } from "./organizationReadModelPresentation";
 import {
   committedScope,
@@ -319,7 +322,14 @@ class OrganizationReadModelCoordinatorImpl
     offer: CommittedReadModelOffer,
     sessionGeneration: number,
   ): Promise<CommittedReadModelOutcome> {
-    await this.settleInFlightReconcile(active);
+    // Distinct offers apply one after another: each waits out every pass in
+    // flight, so none joins another's apply and is consumed unapplied.
+    const key = organizationAccessScopeKey(
+      active.organizationId,
+      active.userId,
+    );
+    while (this.reconciliationMap(active).has(key))
+      await this.settleInFlightReconcile(active);
     return this.applyCommittedOffer(active, offer, sessionGeneration);
   }
 
@@ -387,7 +397,7 @@ class OrganizationReadModelCoordinatorImpl
   }
 
   async loadAppliedCursor(
-    hintPosition: bigint,
+    hintPosition?: bigint,
     organizationId?: string,
   ): Promise<string | null> {
     const active = activeOrganizationDataRuntime(
@@ -395,10 +405,19 @@ class OrganizationReadModelCoordinatorImpl
       organizationId,
     );
     if (!active) return null;
+    // The check belongs to the session it started in, before any await.
+    const { sessionGeneration } = this.runtimeService;
+    const stillCurrent = sessionIsCurrent(
+      this.runtimeService,
+      active,
+      sessionGeneration,
+    );
     const presentedCursors = scopedMap(this.presentedCursorsByScope, active);
     // A hint the presentation already covers waits for nothing.
     const presented = await presentedAppliedCursor(active, presentedCursors);
+    if (!stillCurrent()) return null;
     if (
+      hintPosition !== undefined &&
       presented !== null &&
       (organizationReadModelCursorPosition(presented, active.organizationId) ??
         -1n) >= hintPosition
@@ -407,15 +426,16 @@ class OrganizationReadModelCoordinatorImpl
     // Otherwise this scope's own mutations that could be the hint's commit
     // settle first, and the deltas they carried apply, so a hint naming one of
     // those commits needs no read.
-    const { sessionGeneration } = this.runtimeService;
     const scope = committedScope(active, sessionGeneration);
     for (const offer of await awaitCommittedReadModelOffers(
       scope,
       hintPosition,
-    ))
+    )) {
+      if (!stillCurrent()) return null;
       await claimCommittedReadModelOffer(scope, offer.delta, (claimed) =>
         this.applyClaimedOffer(active, claimed, sessionGeneration),
       );
+    }
     await this.settleInFlightReconcile(active);
     return presentedAppliedCursor(active, presentedCursors);
   }

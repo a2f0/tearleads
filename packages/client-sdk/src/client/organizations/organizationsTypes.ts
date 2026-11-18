@@ -160,12 +160,14 @@ export interface Organizations {
   loadDeviceDataUsage: () => Promise<OrganizationDeviceDataUsage | null>;
   /**
    * The opaque read-model cursor the active requester has applied and
-   * presented, for a realtime hint at `hintPosition`: at once when it already
-   * covers the hint, else once this device's mutations that could be that
-   * commit and any in-flight reconcile of that scope settle; null when it
-   * holds none.
+   * presented, once this device's mutations in flight and any in-flight
+   * reconcile of that scope settle; null when it holds none. Given a realtime
+   * hint's `hintPosition`, it returns at once when it already covers the hint
+   * and waits only for mutations that could be that commit.
    */
-  loadAppliedReadModelCursor: (hintPosition: bigint) => Promise<string | null>;
+  loadAppliedReadModelCursor: (
+    hintPosition?: bigint | undefined,
+  ) => Promise<string | null>;
   loadDirectoryAndGroups: () => ReturnType<
     OrganizationReadModelCoordinator["reconcile"]
   >;
