@@ -86,3 +86,39 @@ test("the next sign-in can finish a schema migration interrupted at verification
     sqlite.close();
   }
 });
+
+test("a new sign-in retains saved attachment bytes when a pending source is retired", async () => {
+  const sdk = new Tearleads();
+  const reading = Promise.withResolvers<void>();
+  const finish = Promise.withResolvers<void>();
+  try {
+    sdk.session.setContext({ authToken: "first", isAuthenticated: true });
+    const old = sdk.runtime.input().infra.blobStore;
+    await old.writeBytes("attachment", Uint8Array.of(1));
+    const pending = old.writeByteSource("attachment", {
+      byteLength: 1,
+      read: async () => {
+        reading.resolve();
+        await finish.promise;
+        return Uint8Array.of(2);
+      },
+    });
+    await reading.promise;
+    sdk.session.logout();
+    sdk.session.setContext({ authToken: "next", isAuthenticated: true });
+    const fresh = sdk.runtime.input().infra.blobStore;
+    finish.resolve();
+    await expect(pending).rejects.toThrow();
+    await expect(fresh.readBytes("attachment")).resolves.toEqual(
+      Uint8Array.of(1),
+    );
+    await expect(old.deleteBytes("attachment")).rejects.toThrow();
+    await fresh.writeBytes("attachment", Uint8Array.of(3));
+    await expect(fresh.readBytes("attachment")).resolves.toEqual(
+      Uint8Array.of(3),
+    );
+  } finally {
+    finish.resolve();
+    sdk.dispose();
+  }
+});

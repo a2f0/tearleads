@@ -68,6 +68,7 @@ export async function getBlobBytes(
       { params: { blobId } },
       { ...options, reportErrors: false },
     );
+    if (options.signal?.aborted) return null;
     if (!result.ok) {
       return descriptorFailureFallback(transport, blobId, result, options);
     }
@@ -211,6 +212,7 @@ async function getBlobStream(
   const encryptedBytes =
     response.body ?? bufferedResponseBodyStream(await response.arrayBuffer());
 
+  if (options.signal?.aborted) return null;
   return {
     blobId: headers[blobWireHeaderKeys.blobId],
     byteLength,

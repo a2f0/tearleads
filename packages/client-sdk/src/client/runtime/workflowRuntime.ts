@@ -107,6 +107,7 @@ export interface InternalRuntime {
   pinLocalUserIdentity(
     userId: string,
     candidate: LocalUserIdentityCandidate,
+    assertCurrent?: () => void,
   ): Promise<void>;
   readonly primeProvisionedState: ProvisionedStatePrimer;
   workflowInput(
@@ -265,7 +266,7 @@ export function createRuntime(
     ),
     boundUserId: (signingKeyFingerprint) =>
       trustedUserIdentityService.boundUserId(signingKeyFingerprint),
-    async pinLocalUserIdentity(userId, candidate) {
+    async pinLocalUserIdentity(userId, candidate, assertCurrent) {
       await runWithSecurityIncidentReporting(
         dependencies.reportSecurityIncident,
         {
@@ -274,7 +275,8 @@ export function createRuntime(
           operation: "user.identity.pin_local",
           organizationId: dependencies.session.organizationId,
         },
-        () => trustedUserIdentityService.pinLocal(userId, candidate),
+        () =>
+          trustedUserIdentityService.pinLocal(userId, candidate, assertCurrent),
       );
     },
     primeProvisionedState: createRuntimeProvisioningPrimer(
@@ -373,7 +375,9 @@ function createRuntimeInputFactory(
       signingKeyPair: dependencies.identity.signingKeyPair,
     });
     infra = reuseIfShallowEqual(infra, {
-      blobStore: dependencies.blobs.store,
+      blobStore: sessionLifetime(dependencies.session).bindBlobStore(
+        dependencies.blobs.store,
+      ),
       dbStatus,
       documentProjectors: dependencies.documentProjectors,
       // Runtime consumers branch on dbStatus before touching SQLite. The

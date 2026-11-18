@@ -19,6 +19,7 @@ import {
   listSessions as authListSessions,
   logout as authLogout,
 } from "../routes/auth/session";
+import type { SessionBoundary } from "../sessionRenewal";
 import type { HttpMethod } from "../types";
 import type { VerifiedManifestCitations } from "../verifiedManifestCitations";
 import { WebSocketTickets } from "../webSocketTickets";
@@ -79,10 +80,11 @@ export class SessionArea {
     this.context.verifiedManifestCitations = source;
   }
 
-  setAuthToken(token: string | null, options?: { newSession?: boolean }): void {
-    if (
-      this.context.runtime.setAuthToken(token, options?.newSession === true)
-    ) {
+  setAuthToken(
+    token: string | null,
+    options?: { boundary?: SessionBoundary | undefined },
+  ): void {
+    if (this.context.runtime.setAuthToken(token, options?.boundary)) {
       this.context.clearAuthScopedCaches();
     }
   }

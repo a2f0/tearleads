@@ -1,6 +1,8 @@
+import type { BlobStore } from "../../data/blobs/blobContracts";
 import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { createScopedExecSql, type ExecSql } from "../../data/sqlite/sqlExec";
 import { SessionAuthentication } from "./authenticationMachine";
+import { createSessionBlobStore } from "./sessionBlobStore";
 import type { SessionSnapshot } from "./sessionTypes";
 
 class SessionLifetime {
@@ -9,6 +11,7 @@ class SessionLifetime {
   private hasSignedIn = false;
   onBoundary?: () => void;
   lastRenewal: SessionSnapshot | null = null;
+  private stores = new WeakMap<BlobStore, BlobStore>();
   private executors = new WeakMap<ExecSql, ExecSql>();
 
   guard(): () => void {
@@ -32,8 +35,17 @@ class SessionLifetime {
     if (signedIn) this.hasSignedIn = true;
     if (!retire) return false;
     this.epoch += 1;
+    this.stores = new WeakMap();
     this.executors = new WeakMap();
     return true;
+  }
+
+  bindBlobStore(store: BlobStore): BlobStore {
+    const existing = this.stores.get(store);
+    if (existing) return existing;
+    const bound = createSessionBlobStore(store, this.guard());
+    this.stores.set(store, bound);
+    return bound;
   }
 
   bind(execSql: ExecSql): ExecSql {

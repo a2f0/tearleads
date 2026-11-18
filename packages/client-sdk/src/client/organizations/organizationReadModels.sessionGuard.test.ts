@@ -30,7 +30,7 @@ const userId = "11111111-1111-4111-8111-111111111111";
 /**
  * A coordinator over a projection at `cursor-1` whose first feed request
  * waits until released, then answers `answer`; later requests answer `next`
- * at once. `relogin` logs the same identity out and back in, which keeps the
+ * at once. `relogin` explicitly signs the same identity in again, keeping the
  * database. The SDK owns both the sign-in and its workflow executor.
  */
 async function delayedFeedFixture(

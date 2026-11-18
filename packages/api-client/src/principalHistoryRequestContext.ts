@@ -1,4 +1,5 @@
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
+import { retiredRequest } from "./sessionResponse";
 import type { HttpMethod, RequestFailure, RequestResultOptions } from "./types";
 
 /** Keep continuations within their authentication context without hiding commit uncertainty. */
@@ -14,7 +15,10 @@ export class PrincipalHistoryRequestContext {
     private readonly path: string,
     options: RequestResultOptions | undefined,
     // Requests of one operation share the identity they started under.
-    private readonly identity = { token: runtime.getAuthToken() },
+    private readonly identity = {
+      token: runtime.getAuthToken(),
+      session: runtime.responseRequest.sessionSignal?.(),
+    },
   ) {
     this.options = {
       ...options,
@@ -46,6 +50,7 @@ export class PrincipalHistoryRequestContext {
 
   cancelled(): boolean {
     return (
+      this.identity.session?.aborted === true ||
       this.options.signal?.aborted === true ||
       this.runtime.getAuthToken() !== this.identity.token
     );
@@ -75,7 +80,7 @@ export class PrincipalHistoryRequestContext {
 
   failure(response?: Response, timedOut = false): RequestFailure {
     void response?.body?.cancel().catch(() => {});
-    return this.runtime.responseRequest.reportFailure({
+    const failure = {
       code: this.submitted
         ? "principal_history_outcome_unknown"
         : timedOut
@@ -102,6 +107,9 @@ export class PrincipalHistoryRequestContext {
       path: this.path,
       status: null,
       statusText: "",
-    });
+    } as const;
+    return this.identity.session?.aborted
+      ? { ...retiredRequest(this.method, this.path), ...failure }
+      : this.runtime.responseRequest.reportFailure(failure);
   }
 }

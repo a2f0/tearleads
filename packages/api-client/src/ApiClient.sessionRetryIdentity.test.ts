@@ -145,7 +145,7 @@ for (const route of ["health", "sessions"] as const) {
         const pending =
           route === "health" ? client.getHealth() : client.listSessions();
         await reading.promise;
-        client.setAuthToken("second", { newSession: true });
+        client.setAuthToken("second", { boundary: "replacement" });
         finish.resolve();
         await expect(pending).resolves.toBeNull();
       } finally {
@@ -155,3 +155,36 @@ for (const route of ["health", "sessions"] as const) {
     },
   );
 }
+
+testApiClient(
+  "an independent sign-in releases requests waiting on the former session's renewal",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("first");
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<boolean>();
+    const errors: string[] = [];
+    client.setOnError((error) => errors.push(error));
+    client.setOnSessionExpired(() => {
+      entered.resolve();
+      return release.promise;
+    });
+    server.use(http.delete(path, expired));
+    const request = client.deleteContainerResult("target", {
+      reportErrors: false,
+    });
+    await entered.promise;
+    client.setAuthToken("second", { boundary: "replacement" });
+    try {
+      const settled = await Promise.race([
+        request,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 0)),
+      ]);
+      expect(settled).toMatchObject({ ok: false, kind: "cancelled" });
+    } finally {
+      release.reject(new Error("Delayed renewal failed"));
+      await Promise.resolve();
+    }
+    expect(errors).toEqual([]);
+  },
+);

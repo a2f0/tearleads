@@ -1,3 +1,4 @@
+import { createKeyedQueue } from "../shared/keyedQueue";
 import { type ExecSql, resolveCanonicalExecSql } from "../sqlite/sqlSchema";
 import {
   type PrincipalMutationJournalScope,
@@ -31,23 +32,6 @@ export interface PrincipalPolicyCoordinator {
     scope: PrincipalMutationJournalScope,
     run: () => Promise<T>,
   ): Promise<T>;
-}
-
-/** Runs work for a key after the work already queued for it; idle keys hold nothing. */
-function createKeyedQueue() {
-  const tails = new Map<string, Promise<void>>();
-  return <T>(key: string, work: () => Promise<T>): Promise<T> => {
-    const operation = (tails.get(key) ?? Promise.resolve()).then(work);
-    const settled = operation.then(
-      () => undefined,
-      () => undefined,
-    );
-    tails.set(key, settled);
-    void settled.then(() => {
-      if (tails.get(key) === settled) tails.delete(key);
-    });
-    return operation;
-  };
 }
 
 function createPrincipalPolicyCoordinator(): PrincipalPolicyCoordinator {

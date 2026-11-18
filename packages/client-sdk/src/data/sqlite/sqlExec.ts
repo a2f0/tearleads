@@ -92,6 +92,11 @@ function connectionOf(execSql: ExecSql): ExecSql {
   return scopedExecutors.get(canonical)?.connection ?? canonical;
 }
 
+/** Identity only: coordination spanning sign-ins must share one physical lock. */
+export function sqlConnectionIdentity(execSql: ExecSql): object {
+  return connectionOf(execSql);
+}
+
 // Completed once-per-connection keys (schema ensures).
 // Only COMPLETED runs are recorded — never in-flight promises — so two lock
 // contexts racing the same key both run the (idempotent) work instead of one
@@ -252,6 +257,8 @@ function createSerializedSqlExec(execSql: ExecSql): ExecSql {
 
   const scope = scopedExecutors.get(execSql);
   const serializedExecSql = defineExecSql((sql, bind, options) => {
+    if (!isSerializedSqlExec(serializedExecSql))
+      throw new Error("SQLite mutation lock has been released");
     // Drizzle rolls back the outer transaction on its locked handle.
     if (scope && sql.trim().toUpperCase() === "ROLLBACK")
       return scope.connection(sql, bind, options);
@@ -317,13 +324,15 @@ export async function runSerializedSqlMutation<T>(
     });
   }
 
+  const locked = createSerializedSqlExec(execSql);
   let failed = true;
   try {
     scopedExecutors.get(execSql)?.assertCurrent();
-    const result = await operation(createSerializedSqlExec(execSql));
+    const result = await operation(locked);
     failed = false;
     return result;
   } finally {
+    serializedSqlExecs.delete(locked);
     const releasedAtMs = readUserTimingClock();
     releaseCurrent();
     if (sqlMutationQueue.get(connection) === queuedCurrent) {

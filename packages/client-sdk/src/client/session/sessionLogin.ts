@@ -19,6 +19,7 @@ export async function authenticateSession(
   dependencies: SessionDependencies,
   session: Session & {
     commitContext(context: SessionContext, kind: "renewal" | "boundary"): void;
+    clearAuthentication(renewal: boolean): void;
   },
   acknowledgments: SessionIdentityAcknowledgments,
   challengeHex: string | undefined,
@@ -83,7 +84,7 @@ async function runAuthentication(
     challengeHex,
     () => {
       if (isCurrent() && session.authToken === snapshotAtStart.authToken)
-        session.logout();
+        session.clearAuthentication(renewal);
     },
   );
 
@@ -94,7 +95,7 @@ async function runAuthentication(
   }
 
   if (!authentication) {
-    session.logout();
+    session.clearAuthentication(renewal);
     dependencies.log("Authentication failed");
     return false;
   }
@@ -102,20 +103,24 @@ async function runAuthentication(
   try {
     acknowledgments.assertMatches(authentication.userId, fingerprint);
     if (renewal && authentication.userId !== snapshotAtStart.userId) {
-      session.logout();
+      session.clearAuthentication(renewal);
       return false;
     }
-    await pinLocalUserIdentity(authentication.userId, {
-      encapsulationPublicKey: encapsulationKeyPair.publicKey,
-      signingKeyFingerprint: fingerprint,
-      signingPublicKey: signingKeyPair.signingPublicKey,
-    });
+    await pinLocalUserIdentity(
+      authentication.userId,
+      {
+        encapsulationPublicKey: encapsulationKeyPair.publicKey,
+        signingKeyFingerprint: fingerprint,
+        signingPublicKey: signingKeyPair.signingPublicKey,
+      },
+      () => assertSignInCurrent(identityCurrent),
+    );
     if (!identityCurrent()) return false;
     acknowledgments.remember(authentication.userId, fingerprint);
   } catch (error) {
     if (!isCurrent()) return false;
     return refuseSessionLogin(error, authentication.userId, {
-      clear: () => session.logout(),
+      clear: () => session.clearAuthentication(renewal),
       report: dependencies.reportSecurityIncident,
     });
   }
@@ -133,7 +138,8 @@ async function runAuthentication(
       userId: authentication.userId,
     },
     onRefused: () => {
-      if (session.snapshot === snapshotAtStart) session.logout();
+      if (session.snapshot === snapshotAtStart)
+        session.clearAuthentication(renewal);
     },
     reporter: dependencies.reportSecurityIncident,
     root: authentication,
@@ -146,6 +152,10 @@ async function runAuthentication(
   });
   dependencies.log("Authentication successful");
   return true;
+}
+
+function assertSignInCurrent(isCurrent: () => boolean): void {
+  if (!isCurrent()) throw new Error("Sign-in attempt was superseded");
 }
 
 function authenticate(

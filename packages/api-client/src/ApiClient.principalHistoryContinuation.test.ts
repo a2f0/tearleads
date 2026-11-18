@@ -333,3 +333,68 @@ testApiClient(
     expect([reads, writes]).toEqual([2, 2]);
   },
 );
+
+testApiClient(
+  "a signed-out renewal preserves the definitive 401 for a prepared write",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("expired");
+    client.setOnSessionExpired(() => {
+      client.setAuthToken(null, { boundary: "renewal-refused" });
+      return false;
+    });
+    server.use(
+      http.put(path, () =>
+        HttpResponse.json(
+          {
+            code: SESSION_ERROR_CODES.refreshRequired,
+            error: "Expired session",
+          },
+          { status: 401 },
+        ),
+      ),
+    );
+    const result = await client.commitOrganizationGroupPolicyResult(
+      organizationId,
+      groupId,
+      request(),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      kind: "http",
+      status: 401,
+      code: SESSION_ERROR_CODES.refreshRequired,
+    });
+    if (!result.ok)
+      expect(
+        client.getRequestFailure({ method: result.method, path: result.path }),
+      ).toBeNull();
+  },
+);
+
+testApiClient(
+  "a new sign-in with the same bearer stops the next preparation request",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("same");
+    let calls = 0;
+    server.use(
+      http.put(path, () => {
+        if (++calls > 1) return HttpResponse.json(response());
+        // The first response is decoded before the continuation delay expires.
+        setTimeout(
+          () => client.setAuthToken("same", { boundary: "replacement" }),
+          0,
+        );
+        return HttpResponse.json(pending, { status: 202 });
+      }),
+    );
+    const result = await client.commitOrganizationGroupPolicyResult(
+      organizationId,
+      groupId,
+      request(),
+    );
+    expect(result).toMatchObject({ ok: false, kind: "cancelled" });
+    expect(calls).toBe(1);
+  },
+);

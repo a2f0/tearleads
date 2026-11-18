@@ -223,8 +223,7 @@ export class Tearleads {
       logError: this.logError,
       boundUserIdForSigningKey: (signingKeyFingerprint) =>
         this.boundUserId(signingKeyFingerprint),
-      onUserIdentityAvailable: (userId, candidate) =>
-        this.pinLocalUserIdentity(userId, candidate),
+      onUserIdentityAvailable: (...args) => this.pinLocalUserIdentity(...args),
       primeProvisionedState: (input) => this.primeProvisionedState(input),
       provisionedSystemContainers: options.provisionedSystemContainers,
       reportSecurityIncident,
@@ -252,8 +251,7 @@ export class Tearleads {
   private bindTrustedIdentityRuntime(runtime: InternalRuntime): void {
     this.retirePrincipalHistoryProtection =
       runtime.retirePrincipalHistoryProtection;
-    this.pinLocalUserIdentity = (userId, candidate) =>
-      runtime.pinLocalUserIdentity(userId, candidate);
+    this.pinLocalUserIdentity = runtime.pinLocalUserIdentity;
     this.primeProvisionedState = runtime.primeProvisionedState;
     this.boundUserId = (signingKeyFingerprint) =>
       runtime.boundUserId(signingKeyFingerprint);

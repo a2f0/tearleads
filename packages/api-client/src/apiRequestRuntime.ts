@@ -19,6 +19,7 @@ import {
 } from "./requestInternals";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import {
+  type SessionBoundary,
   SessionRenewalTracker,
   sessionAuthChallengeBytes,
 } from "./sessionRenewal";
@@ -116,12 +117,16 @@ export class ApiRequestRuntime {
     this.onPaymentRequired = handler;
   }
 
-  setAuthToken(token: string | null, newSession = false): boolean {
-    const changed = newSession || this.authToken !== token;
-    if (newSession) this.requestFailuresByKey.clear();
-    if (changed) this.sessionRenewals.tokenChanged(newSession);
+  setAuthToken(token: string | null, boundary?: SessionBoundary): boolean {
+    const changed = Boolean(boundary) || this.authToken !== token;
+    if (boundary) this.requestFailuresByKey.clear();
+    if (changed) this.sessionRenewals.tokenChanged(boundary);
     this.authToken = token;
     return changed;
+  }
+
+  withSessionSignal(options: RequestResultOptions): RequestResultOptions {
+    return this.sessionRenewals.withSessionSignal(options);
   }
 
   getAuthToken(): string | null {
@@ -258,6 +263,7 @@ export class ApiRequestRuntime {
   ): Promise<RequestResult<Response>> {
     const session = this.sessionRenewals.signal;
     const callerOptions = options;
+    const waitOptions = this.sessionRenewals.withRenewalWaitSignal(options);
     options = this.sessionRenewals.withSessionSignal(options);
     const result = await this.fetchResponseRequest(
       path,
@@ -291,8 +297,8 @@ export class ApiRequestRuntime {
     };
     if (attempt === 2) return this.httpFailure(failure);
 
-    // The renewal itself may reject and sign out. Only caller cancellation
-    // ends that wait early, so a signed-out refusal keeps its typed error.
+    // An independent replacement or caller cancellation ends this wait. A
+    // refusal from the renewal itself must finish reporting its typed error.
     const shouldRetry = await shouldRetryAfterSessionExpired({
       authToken,
       body,
@@ -301,12 +307,25 @@ export class ApiRequestRuntime {
       isKnownSessionRenewal: (from, to) =>
         this.sessionRenewals.isKnown(from, to),
       pendingSessionRenewal: (from) => this.sessionRenewals.pending(from),
-      options: callerOptions,
+      options: waitOptions,
       refreshSession: () => this.sessionRenewals.renew(this.onSessionExpired),
       reportError: (message) => this.onError?.(message),
       responseStatus: response.status,
     });
-    if (session.aborted) return retiredRequest(method, path);
+    if (session.aborted) {
+      const retired = retiredRequest(method, path);
+      // A renewal refusal follows a definitive pre-dispatch 401. Keep that
+      // answer for the old caller, without reporting to the next sign-in.
+      if (response.status === 401 && this.sessionRenewals.refused(session))
+        return {
+          ...retired,
+          kind: "http",
+          status: 401,
+          statusText: response.statusText,
+          code: errorDescription.code ?? undefined,
+        };
+      return retired;
+    }
     const retryToken = this.sessionRenewals.currentToken(authToken);
     if (!shouldRetry || !retryToken) return this.httpFailure(failure);
     if (options.retryOnSessionExpired === "renew-only")

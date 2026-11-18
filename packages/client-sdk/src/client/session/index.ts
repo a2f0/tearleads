@@ -158,7 +158,7 @@ class SessionService implements Session {
 
   renewExpired = (): Promise<boolean> => {
     if (!this.authToken || !this.dependencies.identity.signingKeyPair) {
-      this.logout();
+      this.clearAuthentication(true);
       return Promise.resolve(false);
     }
     return authenticateSession(
@@ -171,9 +171,13 @@ class SessionService implements Session {
   };
 
   logout(): void {
+    this.clearAuthentication(false);
+  }
+
+  clearAuthentication(renewal: boolean): void {
     this.commitContext(
       { authToken: null, isAuthenticated: false, isRoot: false },
-      "boundary",
+      renewal ? "renewal-refused" : "boundary",
     );
   }
 
@@ -237,6 +241,7 @@ class SessionService implements Session {
     const pinLocalUserIdentity = requireRegistrationIdentityPinner({
       identity: this.dependencies.identity,
       identitySnapshot,
+      isCurrent,
       onUserIdentityAvailable: this.dependencies.onUserIdentityAvailable,
     });
     const keyBound = await registrationKeyAlreadyBound(
@@ -381,7 +386,10 @@ class SessionService implements Session {
     this.commitContext(context);
   }
 
-  commitContext(context: SessionContext, kind?: "boundary" | "renewal"): void {
+  commitContext(
+    context: SessionContext,
+    kind?: "boundary" | "renewal" | "renewal-refused",
+  ): void {
     const wasAcknowledged = this.userIdAcknowledged;
     this.identityAcknowledgments.remember(
       context.userId,
@@ -433,13 +441,15 @@ class SessionService implements Session {
 
   private setSnapshot(
     next: SessionSnapshot,
-    kind?: "boundary" | "renewal",
+    kind?: "boundary" | "renewal" | "renewal-refused",
   ): void {
     const previous = this.snapshotValue;
 
     const lifetime = sessionLifetime(this);
     const boundary =
-      kind === "boundary" || previous.isAuthenticated !== next.isAuthenticated;
+      kind === "boundary" ||
+      kind === "renewal-refused" ||
+      previous.isAuthenticated !== next.isAuthenticated;
     const retired =
       boundary &&
       lifetime.transition(
@@ -448,7 +458,12 @@ class SessionService implements Session {
       );
     if (boundary || previous.authToken !== next.authToken) {
       this.dependencies.api.setAuthToken(next.authToken, {
-        newSession: boundary,
+        boundary:
+          kind === "renewal-refused"
+            ? kind
+            : boundary
+              ? "replacement"
+              : undefined,
       });
     }
     lifetime.lastRenewal = kind === "renewal" ? next : null;

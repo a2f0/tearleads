@@ -20,12 +20,20 @@ export function sessionAuthChallengeBytes(
   return authChallengeSigningBytes({ apiOrigin, challengeHex, fingerprint });
 }
 
+export type SessionBoundary = "replacement" | "renewal-refused";
+
 type RenewSession = (() => boolean | Promise<boolean>) | null;
 
 /** An identity change invalidates renewal evidence, including an awaited callback. */
 export class SessionRenewalTracker {
   private revision = 0;
   private sessionRequests = new AbortController();
+  private renewalWaiters = new AbortController();
+  private readonly sourceSignals = new WeakMap<
+    AbortSignal,
+    AbortSignal | undefined
+  >();
+  private readonly refusedSessions = new WeakSet<AbortSignal>();
   private known: { from: string; to: string } | null = null;
   private inFlight: { from: string; promise: Promise<boolean> } | null = null;
 
@@ -36,17 +44,37 @@ export class SessionRenewalTracker {
   }
 
   withSessionSignal(options: RequestResultOptions): RequestResultOptions {
-    const sessionSignal = this.sessionRequests.signal;
-    return {
-      ...options,
-      signal: options.signal
-        ? AbortSignal.any([options.signal, sessionSignal])
-        : sessionSignal,
-    };
+    const scoped = withSignal(options, this.sessionRequests.signal);
+    this.sourceSignals.set(scoped.signal, this.callerSignal(options));
+    return scoped;
   }
 
-  tokenChanged(newSession = false): void {
-    if (newSession) {
+  withRenewalWaitSignal(options: RequestResultOptions): RequestResultOptions {
+    return withSignal(
+      { ...options, signal: this.callerSignal(options) },
+      this.renewalWaiters.signal,
+    );
+  }
+
+  private callerSignal(options: RequestResultOptions): AbortSignal | undefined {
+    const signal = options.signal;
+    return signal && this.sourceSignals.has(signal)
+      ? this.sourceSignals.get(signal)
+      : signal;
+  }
+
+  refused(session: AbortSignal): boolean {
+    return this.refusedSessions.has(session);
+  }
+
+  tokenChanged(boundary?: SessionBoundary): void {
+    if (boundary) {
+      if (boundary === "renewal-refused") {
+        this.refusedSessions.add(this.sessionRequests.signal);
+      } else {
+        this.renewalWaiters.abort();
+        this.renewalWaiters = new AbortController();
+      }
       this.sessionRequests.abort();
       this.sessionRequests = new AbortController();
       this.inFlight = null;
@@ -100,4 +128,13 @@ export class SessionRenewalTracker {
       this.known = { from, to };
     return renewed;
   }
+}
+
+function withSignal(options: RequestResultOptions, sessionSignal: AbortSignal) {
+  return {
+    ...options,
+    signal: options.signal
+      ? AbortSignal.any([options.signal, sessionSignal])
+      : sessionSignal,
+  };
 }
