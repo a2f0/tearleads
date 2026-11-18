@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "agentToolVersion": "0.1.65",
   "claude": {
     "allow": [
       "Bash(bun run agent-tool --help)",
