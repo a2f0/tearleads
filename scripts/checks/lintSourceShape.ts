@@ -22,8 +22,12 @@ const markdownByteLimit = 40_000;
 // Older pre-commit hooks invoke plain --staged. Preserve Git's temporary
 // partial-commit index only when it belongs to this worktree's Git directory.
 function selection() {
-  if (process.argv[2] === "--git-hook")
-    return { root: process.cwd(), args: process.argv.slice(3) };
+  const { TEARLEADS_GIT_HOOK } = process.env;
+  if (
+    TEARLEADS_GIT_HOOK === "1" &&
+    ["--range", "--staged"].includes(process.argv[2] ?? "")
+  )
+    return { root: process.cwd(), args: process.argv.slice(2) };
   const indexVariable = "GIT_INDEX_FILE";
   const candidate = process.env[indexVariable];
   const selected = checkArguments();

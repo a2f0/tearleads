@@ -23,6 +23,7 @@ export function ciScopes(paths: readonly string[]) {
           /^(packages\/app-capacitor\/|assets\/brand\/)/.test(path) ||
           path === "agent-tool.json" ||
           path === "scripts/lib/buildBrandImages.sh" ||
+          path === "scripts/lib/installDependencies.sh" ||
           path === "scripts/lib/checkRoot.ts" ||
           path === "scripts/testing/runVerifiedTurbo.ts" ||
           path === "scripts/checks/testNativePurchaseBridge.sh",

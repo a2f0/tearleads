@@ -220,7 +220,11 @@ test("detached commits skip only branch naming", () => {
     const commands = readFileSync(repo.log, "utf8");
     expect(commands).not.toContain("run lint:branch-name");
     expect(commands).toContain("run lint:files");
-    expect(commands).toContain("lintSourceShape.ts --git-hook --staged");
+    // An installed hook may be shared with an older linked worktree whose
+    // checker accepts only the original --staged arguments.
+    expect(commands.split("\n")).toContain(
+      "scripts/checks/lintSourceShape.ts --staged",
+    );
     expect(commands).toContain("run agent-tool checks binaries --staged");
     expect(commands).toContain("run lint-staged");
   } finally {
