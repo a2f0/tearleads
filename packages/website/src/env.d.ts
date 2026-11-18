@@ -3,6 +3,7 @@
 
 interface ImportMetaEnv {
   readonly PUBLIC_ENVIRONMENT?: "production" | "staging";
+  readonly PUBLIC_SUPPORT_EMAIL_ENABLED?: string;
   readonly PUBLIC_STRIPE_CUSTOMER_PORTAL_URL?: string;
 }
 

@@ -19,6 +19,7 @@
       ]
     },
     "build": {
+      "env": ["PUBLIC_SUPPORT_EMAIL_ENABLED"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/.screenshots/**",

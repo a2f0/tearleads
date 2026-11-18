@@ -46,9 +46,13 @@ Terraform also needs the tier's R2 state key, `TF_STATE_ACCESS_KEY_ID` and
 `TF_STATE_SECRET_ACCESS_KEY` in `app.env`. No other credentials are needed for
 a standalone website deployment before mail enrollment. Once Tearleads enrolls
 its mail domain, production also needs the Balebase TXT setting and DNS Edit
-permission. See the [legal contact delivery procedure][legal-contact].
+permission. After confirming that the apex Support inbox receives mail,
+set `PUBLIC_SUPPORT_EMAIL_ENABLED=true` in the tier configuration and publish
+the website to display `support@tearleads.com` on the subscription help page.
+The default billing-help contact and the privacy and terms contacts use
+`legal@tearleads.com`. See the [customer email setup][contact-delivery].
 
-[legal-contact]: ../../docs/developer/infrastructure.md#legal-contact-delivery-to-balebase
+[contact-delivery]: ../../docs/developer/infrastructure.md#website-email-delivery-to-balebase
 
 The full
 [`scripts/deploy/deployStaging.sh`](../../scripts/deploy/deployStaging.sh) and
