@@ -9605,6 +9605,31 @@
           "userId": {
             "type": "string"
           },
+          "commitLsn": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9A-Fa-f]{1,8}\\/[0-9A-Fa-f]{1,8}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Commit LSN read after the registration committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read. Null when the position could not be read after the commit."
+          },
+          "commitLsnMode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "tracked"
+              },
+              {
+                "type": "string",
+                "const": "untracked"
+              }
+            ],
+            "description": "`tracked` for a durable backend position; `untracked` with the `0/0` sentinel when the backend cannot report one."
+          },
           "challenge": {
             "maxLength": 64,
             "minLength": 64,
@@ -9627,6 +9652,8 @@
           "rootMetadataDocumentId",
           "systemContainers",
           "userId",
+          "commitLsn",
+          "commitLsnMode",
           "challenge"
         ],
         "additionalProperties": {},
@@ -12871,6 +12898,14 @@
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
+          },
+          {
+            "description": "commitLsnMode \"untracked\" requires the commitLsn \"0/0\" sentinel",
+            "id": "response.untracked-commit-lsn-sentinel"
+          },
+          {
+            "description": "commitLsn \"0/0\" requires commitLsnMode \"untracked\" in the same response",
+            "id": "response.untracked-commit-lsn-mode"
           }
         ]
       }

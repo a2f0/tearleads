@@ -84,6 +84,12 @@ export interface RegistrationBootstrapInput {
   /** Checked inside the mutation queue claim; false skips every write. */
   canStartDurableMutation?: (() => boolean) | undefined;
   /**
+   * The provisioning's commit position, read after its transaction. Every
+   * seeded document keeps it as its last commit, so its first read passes it
+   * as `minLsn` and a clean seed needs no read at all.
+   */
+  commitLsn: string | null;
+  /**
    * @internal Test-only synchronization seam. Invoked synchronously,
    * immediately before this persist joins the serialized mutation queue —
    * no interleaving can separate the two. Lets identity-race tests
@@ -135,6 +141,7 @@ async function persistProvisionedContainerBootstrap(
   input: {
     container: ProvisionedContainerBootstrapInput;
     icon: string | null;
+    lastCommitLsn: string | null;
     name: string;
     organizationId: string;
     parentId: string | null;
@@ -147,7 +154,7 @@ async function persistProvisionedContainerBootstrap(
     accessStateHash: container.accessStateHash,
     documentId: container.metadataDocumentId,
     id: container.containerId,
-    lastCommitLsn: null,
+    lastCommitLsn: input.lastCommitLsn,
     metadataUpdates: container.metadataSnapshot,
     snapshotEndVersion: "",
     contentKeyBundle: metadataState.contentKeyBundle ?? null,
@@ -191,7 +198,7 @@ async function persistRootContainerBootstrap(
     accessStateHash: input.rootMetadataAccessStateHash,
     documentId: input.rootMetadataDocumentId,
     id: input.containerId,
-    lastCommitLsn: null,
+    lastCommitLsn: input.commitLsn,
     metadataUpdates: input.rootMetadataSnapshot,
     snapshotEndVersion: "",
     contentKeyBundle: input.rootMetadataState.contentKeyBundle ?? null,
@@ -247,6 +254,7 @@ async function persistNamedChildContainerBootstrap(
   const seeded = await persistProvisionedContainerBootstrap(execSql, {
     container,
     icon: null,
+    lastCommitLsn: input.commitLsn,
     name,
     organizationId: input.organizationId,
     parentId:
@@ -281,6 +289,7 @@ async function persistSystemContainersBootstrap(
     await persistProvisionedContainerBootstrap(execSql, {
       container: systemContainer,
       icon: systemContainer.icon,
+      lastCommitLsn: input.commitLsn,
       name: systemContainer.name,
       organizationId: input.organizationId,
       parentId: input.containerId,
@@ -312,6 +321,7 @@ async function persistProfileDocumentBootstrap(
     ...profileDocument,
     documentKind,
     documentProjectors: input.documentProjectors,
+    lastCommitLsn: input.commitLsn,
   });
 }
 
@@ -330,6 +340,7 @@ export async function persistInitialDocumentBootstrap(
     >;
     initialUpdate: Uint8Array;
     initialUpdateCommitted: boolean;
+    lastCommitLsn: string | null;
     localId: string;
   },
 ): Promise<void> {
@@ -359,6 +370,7 @@ export async function persistInitialDocumentBootstrap(
       documentKind: input.documentKind,
       documentManifestBundle:
         input.documentState.documentManifestBundle ?? null,
+      lastCommitLsn: input.lastCommitLsn,
       // The create-only persistence primitive stores this frontier and the
       // full-history checkpoint in one transaction.
       snapshotEndVersion: encodeVersionVector(doc),

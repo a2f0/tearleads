@@ -4345,6 +4345,10 @@ export type components = {
         RegistrationResponse: {
             /** @description Sign-in challenge to sign and send to `POST /auth/verify`, so the new identity can sign in without another request. */
             challenge: string;
+            /** @description Commit LSN read after the registration committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read. Null when the position could not be read after the commit. */
+            commitLsn: string | null;
+            /** @description `tracked` for a durable backend position; `untracked` with the `0/0` sentinel when the backend cannot report one. */
+            commitLsnMode: "tracked" | "untracked";
             /** @description Ids of the seeded metadata updates the server committed with the provisioning. */
             committedCoreMetadataUpdateIds: string[];
             /** @description Ids of the seeded profile updates the server committed with the provisioning. */

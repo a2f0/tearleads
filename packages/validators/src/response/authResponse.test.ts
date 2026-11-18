@@ -61,6 +61,8 @@ test("isRegistrationResponse", () => {
     rootMetadataDocument: createDocumentCreateResponse(),
     committedCoreMetadataUpdateIds: [],
     committedProfileUpdateIds: [],
+    commitLsn: "0/16B3748",
+    commitLsnMode: "tracked" as const,
     systemContainers: [],
     challenge: VALID_CHALLENGE,
   };
@@ -69,6 +71,13 @@ test("isRegistrationResponse", () => {
   expect(responseResult.success && responseResult.data).toBe(response);
   expect(isRegistrationResponse(response)).toBe(true);
   expect(isOrganizationProvisioningResponse(response)).toBe(true);
+  for (const key of ["commitLsn", "commitLsnMode"] as const) {
+    // Only registration reports a commit position.
+    const missingPosition = { ...response };
+    Reflect.deleteProperty(missingPosition, key);
+    expect(isRegistrationResponse(missingPosition)).toBe(false);
+    expect(isOrganizationProvisioningResponse(missingPosition)).toBe(true);
+  }
   for (const key of [
     "committedCoreMetadataUpdateIds",
     "committedProfileUpdateIds",
@@ -82,6 +91,17 @@ test("isRegistrationResponse", () => {
     expect(isOrganizationProvisioningResponse(missingAcknowledgement)).toBe(
       false,
     );
+  }
+  // The position is a WAL LSN or, when it could not be read, null; only the
+  // untracked mode carries the 0/0 sentinel.
+  for (const [checkpoint, valid] of [
+    [{ commitLsn: null, commitLsnMode: "tracked" }, true],
+    [{ commitLsn: "0/0", commitLsnMode: "untracked" }, true],
+    [{ commitLsn: "not-a-wal-lsn", commitLsnMode: "tracked" }, false],
+    [{ commitLsn: "0/0", commitLsnMode: "tracked" }, false],
+    [{ commitLsn: "0/16B3748", commitLsnMode: "untracked" }, false],
+  ] as const) {
+    expect(isRegistrationResponse({ ...response, ...checkpoint })).toBe(valid);
   }
   expect(
     isRegistrationResponse({

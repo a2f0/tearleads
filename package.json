@@ -148,11 +148,11 @@
     "packages/windowing"
   ],
   "lint-staged": {
-    "*.{css,html,js,json,jsonc,jsx,mjs,cjs,ts,tsx}": "biome check --fix --error-on-warnings",
+    "*.{css,html,js,json,jsonc,jsx,mjs,cjs,ts,tsx}": "biome check --fix --error-on-warnings --no-errors-on-unmatched",
     "*.md": "bun --bun x markdownlint-cli2 --fix"
   },
   "devDependencies": {
-    "@a2f0/agent-tool": "0.1.62",
+    "@a2f0/agent-tool": "0.1.63",
     "@azure/storage-blob": "12.34.0",
     "@biomejs/biome": "2.5.15",
     "@commitlint/cli": "21.2.4",
