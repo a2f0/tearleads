@@ -54,6 +54,7 @@ export async function applyListedContainerDocuments(
     ),
   );
 
+  const tombstones = getApplicableDocumentTombstones(listedDocuments);
   const verification = await options.verifyDiscoveredDocuments(
     listedDocuments.items.map((document) => ({
       accessEpoch: document.currentAccessEpoch,
@@ -67,7 +68,8 @@ export async function applyListedContainerDocuments(
     })),
     [containerId],
     generation,
-    getApplicableDocumentTombstones(listedDocuments),
+    tombstones,
+    new Set(tombstones.map((row) => row.documentId)),
   );
   if (!(await verification.isCurrent())) return null;
   const verifiedInputs = verification.inputs;
@@ -91,7 +93,8 @@ export async function applyListedContainerDocuments(
   const tombstoneDocumentSummaries = await settleContainerDocumentTombstones({
     containerIds: [containerId],
     store: options,
-    tombstones: getApplicableDocumentTombstones(listedDocuments),
+    isCurrent: verification.isCurrent,
+    tombstones,
   });
 
   const complete = await verification.commit();

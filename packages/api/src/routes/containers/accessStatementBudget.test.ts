@@ -13,6 +13,7 @@ import {
   requestContainerParentLanes,
 } from "../../../test/helpers/containerParentLaneQuery";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
+import { expectedDiscoveryId } from "../../../test/helpers/discoveryTimestamp";
 import { linkEncryptedColdDocument } from "../../../test/helpers/linkEncryptedColdDocument";
 import { createOwnedTree } from "../../../test/helpers/ownedContainerTree";
 import { routeApp } from "../../routeApp";
@@ -141,11 +142,16 @@ test("parent listing lanes share verified policies within one request", async ()
           selected,
         );
         expect(response.status).toBe(200);
-        return Promise.all(
+        const pages = await Promise.all(
           selected.map((lane) =>
             readContainerParentLanePage(response.clone(), lane.laneId),
           ),
         );
+        return pages.map(({ nextWatermark, ...page }) => {
+          // Each encoding uses its own IV. Compare the semantic page fields.
+          expect(nextWatermark?.id).toEqual(expectedDiscoveryId());
+          return { ...page, watermarkUpdatedAt: nextWatermark?.updatedAt };
+        });
       });
     await query(lanes);
     const singles = [];
@@ -161,7 +167,7 @@ test("parent listing lanes share verified policies within one request", async ()
       singles: singleStatements,
       batch: batch.statements,
     });
-    // Current PostgreSQL baseline: 33 separate / 31 batched statements.
+    // Measured PostgreSQL counts: 27 separate / 17 batched statements.
     // Bound the whole request, not savings from now-cheaper singular paths.
     expect(singleStatements).toBeLessThanOrEqual(27);
     expect(batch.statements).toBeLessThanOrEqual(19);

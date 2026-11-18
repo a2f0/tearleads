@@ -9,11 +9,15 @@ import {
 import { toFingerprint } from "@tearleads/crypto";
 import { createTestUser } from "@tearleads/test-utils";
 import type { SyncWatermark } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { readContainerDocumentLaneResults } from "../../../test/helpers/containerDocumentLaneQuery";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
-import { discoveryTimestampValue } from "../../../test/helpers/discoveryTimestamp";
+import {
+  discoveryTimestampValue,
+  expectedDiscoveryId,
+  fixtureDiscoveryOrder,
+} from "../../../test/helpers/discoveryTimestamp";
 import { observeDatabaseSelects } from "../../../test/helpers/observeDatabaseQueries";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createRouteApp, routeApp } from "../../routeApp";
@@ -166,6 +170,19 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
         updatedAt: discoveryTimestampValue(change.updatedAt),
       })),
   );
+  const ids = CHANGES.map((change) => change.id);
+  await db
+    .update(documents)
+    .set({ discoveryOrder: fixtureDiscoveryOrder(documents.updatedAt) })
+    .where(inArray(documents.id, ids));
+  await db
+    .update(containerDocumentSyncTombstones)
+    .set({
+      discoveryOrder: fixtureDiscoveryOrder(
+        containerDocumentSyncTombstones.updatedAt,
+      ),
+    })
+    .where(inArray(containerDocumentSyncTombstones.documentId, ids));
 
   // The first page contains only a tombstone. Its live lookahead must not
   // expand linked-container paths that will not be returned to this caller.
@@ -191,10 +208,7 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
     containerId: owner.rootContainerId,
     limit: 1,
     token: owner.token,
-    watermark: {
-      id: "00000000-0000-4000-8000-000000000001",
-      updatedAt: "2026-08-31T12:00:00.000100Z",
-    },
+    watermark: null,
   });
   expect(first.items).toHaveLength(0);
   expect(first.hasMore).toBe(true);
@@ -255,7 +269,7 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
       expect(page.nextWatermark).toEqual(
         expectedLastChange
           ? {
-              id: expectedLastChange.id,
+              id: expectedDiscoveryId(),
               updatedAt: expectedLastChange.updatedAt,
             }
           : watermark,

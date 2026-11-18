@@ -102,6 +102,93 @@ that view; see
 [operation recovery batch](developer/current-principal-consumers.md#operation-recovery-batch).
 Document syncs scheduled through document stores remain separate operations.
 
+### Discovery watermark order
+
+Each container or document change, including a removal, receives a publication
+position as its database transaction commits. The four sources share a counter
+because a page can mix live rows and removals, and root discovery crosses
+organizations. Deferred triggers increment one counter row and hold its lock
+through commit. A rollback also rolls back the counter increment.
+Entity timestamps retain their original meaning. See the
+[publication migration](../packages/api-shared/drizzle/0004_discovery_order.sql).
+
+Each lane reads its live rows and tombstones in a single SQL statement, so
+both come from the same snapshot. Each page orders by publication position and ID.
+Existing clients already save and echo both watermark strings. The opaque ID
+seals the position, row ID, and highest publication visible to the listing
+with authenticated encryption bound to the user, lane and timestamp. A
+database-owned key survives API deployments and server-secret rotations.
+A saved legacy UUID cursor replays from the start in bounded pages on the new
+API. The updated SDK retries from its durable cursor if the server changes
+ordering mid-crawl or downgrades a saved publication cursor.
+An access recheck sends its parent cursor. The API checks the counter and
+reads permissions in one repeatable-read snapshot. A lagging replica leaves
+the cursor unchanged. An unsuccessful probe marks the refresh incomplete and
+retains the parent lane for the next request.
+A repeated folder in one crawl is reapplied when its listing changes.
+Parent lanes checkpoint applied pages. A reconnect crawl checkpoints a lane
+after draining its continuation pages. Document lanes checkpoint after
+applying the complete lane. After a restart, each resumes from its last
+durable checkpoint, replaying any intervening pages.
+Postgres and PGlite install the same schema. The SQLite client stores the
+cursor verbatim. See [API database support](./developer/api-persistence.md#database).
+
+A publication-ordered subtree removal checks access to cached descendants
+with bounded document-lane reads. It also checks a leaf whose cached timestamp
+is later than its removal. A denial or absence can remove a row only when
+it still matches the pre-request snapshot, preserving readable descendants.
+Before a confirmed removal commits, SQLite checks the held metadata content
+and signed head inside the deletion transaction. It also checks that the
+folder’s separately verified placement still matches the checkpoint held
+before the access request.
+An inconclusive read leaves the page retryable. When a live folder's entity
+clock moves backwards, hydration verifies the current signed placement and
+requires the listed manifest hash and rechecks the signed checkpoint inside
+its local transaction. A folder moved back into a readable path carries a hint
+to check its cached descendants when its earlier revocation row survives.
+The SDK records the reconciled revocation ID. Removing a child that moved
+while the folder was inaccessible requires its own access check. Direct and
+group regrants already prune their earlier revocations.
+Listings omit older revocations when that path already grants access.
+The SDK skips restored-folder reconciliation while its organization is paused.
+Publication-ordered document lanes that cover both a live placement and its
+unlink observed different snapshots. The SDK retries those lanes from their
+last saved cursors before applying any rows. A removal on the retried lane
+reaches the signed-head check for locally held placements. Pending discovery
+retains this requirement across process restarts. Earlier clients can resume
+new cursors. On upgrade, the SDK replays older lanes to consume previously
+checkpointed restored-folder hints and document unlinks.
+
+An explicit full refresh requests a lane from the beginning, discarding its
+saved cursor for that request. A replica can therefore return a previously
+valid removal after a faster replica has already supplied a restored leaf.
+If the restored leaf has an older entity timestamp, the device can remove its
+local copy until a later delta reaches the restoration publication.
+
+Separate document crawls may still overlap locally. The SQLite generation
+tracks trust resets. A crawl already holding an earlier verified placement,
+or receiving its earlier listing after a separately checkpointed unlink,
+can finish later and restore the old projection.
+
+Deploy the additive database migrations before the API. A populated PostgreSQL
+database installs the triggers in one short transaction. Existing writers then
+publish immediately while the migrator fills historical rows in batches of 512
+and builds the five indexes concurrently. Each batch skips busy rows and
+revisits them before indexing. The cutover acquires its metadata
+locks together without waiting and retries for up to one minute when writers
+are active. Restarting the migrator resumes this
+work, including a concurrent index build interrupted before becoming valid.
+Fresh installations and PGlite apply the journal directly. See the
+[discovery preparation](../packages/api-shared/src/adapters/prepareDiscoveryMigration.ts)
+and [historical backfill](../packages/api-shared/drizzle/0005_publish_discovery_order.sql).
+Rotate the [discovery key after a database restore](./developer/api-persistence.md#restored-discovery-cursors).
+Drain the old API fleet before relying on opaque cursors across consecutive
+pages. Alternating old and new servers can restart a multi-page crawl until
+the old instances drain. The SDK can arrive before or after the API. A
+device running the older SDK benefits from commit-ordered paging when the
+API updates, and receives the backwards-clock application fixes when its SDK
+updates.
+
 ### Container metadata under lost hints
 
 A clean container metadata document skips its read. A pass reads it only when
@@ -139,12 +226,11 @@ it with the client's own copy:
   that resumes an earlier paginated pull reads only up to that pull's upper
   bound, and a superseded result discarded what it pulled; neither settles,
   and each hands the read to a fresh pass.
-- Coverage. A metadata write advances its container's `updatedAt`, so the next
-  delta listing of the container's lane returns the row. Every acknowledged
+- Coverage. A metadata write advances its container's publication position.
+  The next delta listing of its lane returns the row. Every acknowledged
   connection re-lists the root lane and every held lane from their
   watermarks, including the first one after a restart or after the store
-  opened, so either recovers a lost metadata hint. This has the clock-skew
-  window that existing discovery accepts.
+  opened, so either recovers a lost metadata hint.
 - No-brick. The forced read uses the stored commit position as its floor, as
   a hint-forced read does, and never waits on another device.
 

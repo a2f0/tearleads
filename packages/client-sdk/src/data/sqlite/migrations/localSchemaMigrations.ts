@@ -73,6 +73,18 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 3,
   },
+  {
+    name: "replay_commit_ordered_discovery",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable("container_sync_watermarks"))) return;
+      // Older SDKs could checkpoint a publication before reconciling an
+      // unlink or a restored subtree. Legacy UUID cursors already replay.
+      await execSql(
+        "ALTER TABLE container_sync_watermarks ADD COLUMN cursor_format INTEGER NOT NULL DEFAULT 1",
+      );
+    },
+    version: 4,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

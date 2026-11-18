@@ -30,14 +30,6 @@ export function syncTimestampExpression(expression: SQL): SQL<string> {
   );
 }
 
-/** Inputs are normalized UTC discovery timestamps with 3 or 6 fractional digits. */
-export function compareSyncTimestamps(left: string, right: string): number {
-  return left
-    .slice(0, -1)
-    .padEnd(26, "0")
-    .localeCompare(right.slice(0, -1).padEnd(26, "0"));
-}
-
 /** Entity timestamps use the same milliseconds as mutation/read-model responses. */
 export function syncItemTimestamp(timestamp: string): string {
   return `${timestamp.slice(0, 23)}Z`;

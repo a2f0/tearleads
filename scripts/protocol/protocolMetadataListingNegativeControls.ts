@@ -7,6 +7,14 @@ const METADATA_LISTING_CONFIG =
 
 export const METADATA_LISTING_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "discovery-publication-without-lock",
+    module: "formal/document-sync/DiscoveryPublication.tla",
+    config: "formal/document-sync/DiscoveryPublication.cfg",
+    constants: { SerializePublication: "FALSE" },
+    expect: { kind: "invariant", name: "NeverSkip" },
+    why: "A writer can commit its smaller position after the client has paged past another writer's larger position.",
+  },
+  {
     id: "metadata-listing-watermark-before-debt",
     module: METADATA_LISTING_MODULE,
     config: METADATA_LISTING_CONFIG,

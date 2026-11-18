@@ -96,9 +96,10 @@ export const listContainerDocumentLanesOperation = defineJsonOperation({
   failureResponses: {
     400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
+    409: ErrorResponseSchema,
     500: ErrorResponseSchema,
   },
-  failureStatuses: [400, 401, 500],
+  failureStatuses: [400, 401, 409, 500],
   id: "containers.documentLanes.query",
   summary: "List container documents by lane",
   description:

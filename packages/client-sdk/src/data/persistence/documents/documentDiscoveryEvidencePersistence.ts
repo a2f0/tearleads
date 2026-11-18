@@ -110,11 +110,13 @@ export class DocumentDiscoveryEvidenceRepository {
     inputs: readonly DiscoveredDocumentCandidate[],
     generation: number,
     removed: readonly RemovedDiscoveryPlacement[] = [],
+    conflictingDocumentIds: ReadonlySet<string> = new Set(),
   ): Promise<boolean> {
     return this.write(async (db) => {
       if (!(await isDocumentDiscoveryGenerationCurrent(db, generation)))
         return false;
-      if (inputs.length === 0 && removed.length === 0) return true;
+      if (!inputs.length && !removed.length && !conflictingDocumentIds.size)
+        return true;
       await db.transaction(async (tx) => {
         const rows = inputs.flatMap((input) =>
           isDiscoveredDocumentCandidate(input)
@@ -135,7 +137,10 @@ export class DocumentDiscoveryEvidenceRepository {
         // One multi-row upsert per chunk. SQLite applies a statement's rows
         // in order, so a repeated placement updates the row the previous
         // entry wrote, exactly as one statement per entry did.
-        const unchanged = sql`${pending.inputJson} = excluded.input_json`;
+        // A later listing can replace a pending hint while its unlink is
+        // already behind the cursor. Keep the required current-head read.
+        const nextInput = sql`case when json_extract(${pending.inputJson}, '$.requiresCurrentHead') then json_set(excluded.input_json, '$.requiresCurrentHead', json('true')) else excluded.input_json end`;
+        const unchanged = sql`${pending.inputJson} = (${nextInput})`;
         for (const chunk of chunked(rows, sqliteInsertBatchSize(pending))) {
           await tx
             .insert(pending)
@@ -145,12 +150,26 @@ export class DocumentDiscoveryEvidenceRepository {
               set: {
                 accessEpoch: excludedValue(pending.accessEpoch),
                 generation: excludedValue(pending.generation),
-                inputJson: excludedValue(pending.inputJson),
+                inputJson: nextInput,
                 retryAt: sql`case when ${unchanged} then ${pending.retryAt} else 0 end`,
                 attempts: sql`case when ${unchanged} then ${pending.attempts} else 0 end`,
               },
               setWhere: lte(pending.generation, generation),
             })
+            .run();
+        }
+        for (const ids of batches([...conflictingDocumentIds])) {
+          await tx
+            .update(pending)
+            .set({
+              inputJson: sql`json_set(${pending.inputJson}, '$.requiresCurrentHead', json('true'))`,
+            })
+            .where(
+              and(
+                inArray(pending.documentId, ids),
+                lte(pending.generation, generation),
+              ),
+            )
             .run();
         }
         // These are untrusted, unapplied hints only. Removing an existing local

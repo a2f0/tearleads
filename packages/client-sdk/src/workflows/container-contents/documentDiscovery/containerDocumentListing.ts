@@ -11,6 +11,10 @@ import type {
   ContainerDocumentTombstone,
   ListedContainerDocument,
 } from "./documentDiscoveryTypes";
+import {
+  changesDiscoveryOrder,
+  isPublicationWatermark,
+} from "./publicationWatermark";
 
 type ContainerDocumentLaneApi = Pick<
   ContainerDocumentDiscoveryApi,
@@ -68,6 +72,52 @@ interface PendingContainerDocumentLane {
   readonly items: ListedContainerDocument[];
   readonly tombstones: ContainerDocumentTombstone[];
   watermark: SyncWatermark | null;
+  isContinuation: boolean;
+}
+
+function removedDocumentPlacements(
+  listed: ReadonlyMap<string, ContainerDocumentLaneListing>,
+) {
+  const removals = new Map<string, Set<string>>();
+  for (const lane of listed.values()) {
+    if (
+      !lane ||
+      lane === "unavailable" ||
+      !isPublicationWatermark(lane.nextWatermark)
+    )
+      continue;
+    for (const row of lane.tombstones) {
+      const containers = removals.get(row.documentId) ?? new Set<string>();
+      containers.add(row.containerId);
+      removals.set(row.documentId, containers);
+    }
+  }
+  return removals;
+}
+
+// Publication-ordered lanes exclude historical unlinks for live placements.
+// Check the whole fetched batch before applying a lane: a linked document
+// carries its placements in other containers as well as the queried one.
+function discardConflictingDocumentPages(
+  listed: Map<string, ContainerDocumentLaneListing>,
+) {
+  const removals = removedDocumentPlacements(listed);
+  if (!removals.size) return;
+  const conflicted = new Set<string>();
+  for (const [id, lane] of listed) {
+    if (!lane || lane === "unavailable") continue;
+    for (const item of lane.items) {
+      const removed = removals.get(item.id);
+      if (!removed) continue;
+      for (const linked of item.linkedContainerIds.filter((container) =>
+        removed.has(container),
+      )) {
+        conflicted.add(id);
+        conflicted.add(linked);
+      }
+    }
+  }
+  for (const id of conflicted) listed.set(id, "unavailable");
 }
 
 /**
@@ -92,6 +142,7 @@ export async function listAllContainerDocumentLanes(input: {
     pending.push({
       containerId,
       isFullListing: watermark === null,
+      isContinuation: false,
       items: [],
       tombstones: [],
       watermark,
@@ -103,14 +154,24 @@ export async function listAllContainerDocumentLanes(input: {
     const pages = await input.listContainerDocumentLanes(
       batch.map(({ containerId, watermark }) => ({ containerId, watermark })),
     );
+    if (!pages) {
+      for (const lane of batch) listed.set(lane.containerId, "unavailable");
+      continue;
+    }
     batch.forEach((lane, index) => {
-      if (!pages) {
-        listed.set(lane.containerId, "unavailable");
-        return;
-      }
       const page = pages[index] ?? null;
       if (!page) {
         listed.set(lane.containerId, null);
+        return;
+      }
+      if (
+        changesDiscoveryOrder(
+          lane.watermark,
+          page.nextWatermark,
+          lane.isContinuation,
+        )
+      ) {
+        listed.set(lane.containerId, "unavailable");
         return;
       }
       lane.items.push(...page.items);
@@ -124,12 +185,14 @@ export async function listAllContainerDocumentLanes(input: {
           tombstones: lane.tombstones,
         });
       } else if (lane.watermark) {
+        lane.isContinuation = true;
         pending.push(lane);
       } else {
         listed.set(lane.containerId, null);
       }
     });
   }
+  discardConflictingDocumentPages(listed);
   return listed;
 }
 

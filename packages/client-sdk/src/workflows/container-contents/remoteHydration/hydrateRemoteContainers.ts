@@ -18,7 +18,7 @@ async function finishRemoteHydration(input: {
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
-  seenContainerIds: ReadonlySet<string>;
+  seenContainerObservations: ReadonlyMap<string, string>;
   containerIdsBeforeHydration: ReadonlySet<string>;
   state: RemoteContainerHydrationState;
 }): Promise<void> {
@@ -28,7 +28,7 @@ async function finishRemoteHydration(input: {
   if (input.changedCount > 0) {
     input.host.updateSnapshot();
     let insertedCount = 0;
-    for (const containerId of input.seenContainerIds) {
+    for (const containerId of input.seenContainerObservations.keys()) {
       if (!input.containerIdsBeforeHydration.has(containerId)) {
         insertedCount++;
       }
@@ -68,7 +68,7 @@ export async function hydrateRemoteContainers(input: {
     return 0;
   }
 
-  const seenContainerIds = new Set<string>();
+  const seenContainerObservations = new Map<string, string>();
   const containerIdsBeforeHydration = new Set(state.containersById.keys());
   const childIdsByParentId = createContainerChildIndex(state.containersById);
   const { lanes, queueParentLane } = createContainerParentHydrationQueue({
@@ -101,7 +101,7 @@ export async function hydrateRemoteContainers(input: {
     isCurrent: input.isCurrent,
     lanes,
     queueParentLane: queueDiscoveredParentLane,
-    seenContainerIds,
+    seenContainerObservations,
     state,
   });
   const { changedCount } = result;
@@ -115,7 +115,7 @@ export async function hydrateRemoteContainers(input: {
     host,
     isCurrent: input.isCurrent,
     onFullyHydrated: input.onFullyHydrated,
-    seenContainerIds,
+    seenContainerObservations,
     state,
   });
   if (input.reconnect?.isCurrent() && canHydrateRemoteContainers(state)) {

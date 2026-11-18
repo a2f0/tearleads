@@ -1,4 +1,5 @@
 import type {
+  ApiClient,
   RequestResult,
   WriterProjectionListing,
 } from "@tearleads/api-client";
@@ -86,6 +87,7 @@ interface RemoteContainerHydrationApi
     containerId: string,
     replacesOrganizationId: string,
   ): Promise<RequestResult<ContainerReplacementAuthorizationsResponse>>;
+  listContainerDocumentLanes: ApiClient["listContainerDocumentLanes"];
   evictContainerWriterProjection(containerId: string): void;
   evictWriterProjectionsCiting(containerIds: readonly string[]): void;
   getContainerWriterProjection(
@@ -132,6 +134,7 @@ export interface RemoteContainerHydrationState {
    * fell short while it ran.
    */
   containerListingFailures?: number | undefined;
+  containerParentIdsNeedingHydration?: Set<string | null>;
   containersById: Map<string, ContainerState>;
   lifecycleGeneration?: number | undefined;
   persistence: ContainerContentsPersistence;

@@ -1,5 +1,6 @@
 import { type InferSelectModel, sql } from "drizzle-orm";
 import {
+  bigint,
   index,
   integer,
   pgTable,
@@ -19,9 +20,13 @@ export const documents = pgTable(
       .notNull(),
     createdByFingerprint: text("created_by_fingerprint").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    discoveryOrder: bigint("discovery_order", { mode: "bigint" })
+      .default(sql`0`)
+      .notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
+    index("documents_discovery_idx").on(table.discoveryOrder, table.id),
     index("documents_updated_at_id_idx").on(table.updatedAt, table.id),
   ],
 );

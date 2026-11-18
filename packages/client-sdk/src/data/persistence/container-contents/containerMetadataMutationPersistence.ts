@@ -30,6 +30,7 @@ import type {
   StoredContainerState,
 } from "./containerContentsPersistenceTypes";
 import { settleContainerCreateIntentRevision } from "./containerCreateIntentSettlement";
+import { placementCheckpointMatches } from "./containerHydrationPersistence";
 import {
   ContainerCreateIntentSupersededError,
   deleteContainerMoveIntentRevision,
@@ -212,7 +213,8 @@ type CommitMetadataMutationInput = Parameters<
   ContainerContentsPersistence["commitMetadataMutation"]
 >[1];
 
-function staleServerMutationResult(
+async function staleServerMutationResult(
+  tx: ClientSQLiteTransactionScope,
   currentState: StoredContainerState | null,
   input: CommitMetadataMutationInput,
 ) {
@@ -226,8 +228,17 @@ function staleServerMutationResult(
     currentState?.record != null &&
     currentState.record.documentId === input.record.documentId &&
     currentState.record.accessEpoch > input.record.accessEpoch;
-  return currentState?.record &&
-    (hasOlderContainerTimestamp || hasOlderMetadataAccessEpoch)
+  const verified = input.saveOptions?.verifiedPlacement;
+  const staleClock =
+    hasOlderContainerTimestamp &&
+    !(
+      verified &&
+      (await placementCheckpointMatches(tx, {
+        container: input.container,
+        expectedPlacementCheckpoint: verified,
+      }))
+    );
+  return currentState?.record && (staleClock || hasOlderMetadataAccessEpoch)
     ? {
         committed: false as const,
         currentState,
@@ -374,7 +385,8 @@ export async function commitStoredMetadataMutation(
           lockedExecSql,
           input.container.id,
         );
-        const staleServerResult = staleServerMutationResult(
+        const staleServerResult = await staleServerMutationResult(
+          tx,
           currentState,
           input,
         );

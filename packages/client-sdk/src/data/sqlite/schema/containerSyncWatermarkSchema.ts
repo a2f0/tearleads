@@ -1,4 +1,9 @@
-import { primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
 
 /**
@@ -14,13 +19,15 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  *
  * Columns:
  * - `laneKind`: Sync lane category, such as `container_parent` or
- *   `container_documents`.
+ *   `container_documents`. `container_restoration` stores the last reconciled
+ *   access loss for a folder.
  * - `laneId`: Lane identity. Root parent sync uses `root`, child sync uses a
  *   parent-prefixed container id, and document lanes use the container id.
  * - `watermarkUpdatedAt`: Server `updatedAt` value for the stored watermark;
  *   null until a watermark is saved.
  * - `watermarkId`: Server id tie-breaker for the stored watermark; null
  *   exactly when `watermarkUpdatedAt` is.
+ * - `cursorFormat`: SDK format that applied the saved watermark.
  * - `updatedAt`: Local timestamp for when the cursor was saved.
  * - `checkedAt`: Local timestamp for the most recent fully drained lane check;
  *   null until one completes.
@@ -35,6 +42,7 @@ export const containerSyncWatermarks = sqliteTable(
     laneId: text("lane_id").notNull(),
     watermarkUpdatedAt: text("watermark_updated_at"),
     watermarkId: text("watermark_id"),
+    cursorFormat: integer("cursor_format").notNull().default(1),
     updatedAt: text("updated_at"),
     checkedAt: text("checked_at"),
   },
@@ -44,6 +52,6 @@ export const containerSyncWatermarks = sqliteTable(
 export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
   {
     ...defineSqlTableSchema(containerSyncWatermarks),
-    requiredColumns: ["checked_at"],
+    requiredColumns: ["checked_at", "cursor_format"],
   },
 ];

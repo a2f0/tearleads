@@ -1,11 +1,16 @@
+import type { ListContainerDocumentLanesRequest } from "@tearleads/validators/request";
 import type {
   ContainerSyncTombstone,
   ListContainersResponse,
 } from "@tearleads/validators/response";
 import { isCanonicalSignedAt } from "@tearleads/validators/util";
 import { removeIndexedContainerChild } from "./lanes/childIndex";
+import {
+  pendingFolderRestorations,
+  recordFolderRestoration,
+} from "./lanes/restorationReceipt";
+import { resolveTombstoneCascade } from "./lanes/tombstoneAccess";
 import { containerStateMatchesFingerprint } from "./remoteContainers/containerStateFingerprint";
-import { collectRemovedContainers } from "./tombstoneReasons";
 import type {
   ContainerChildIndex,
   ExpectedContainerState,
@@ -81,6 +86,8 @@ export function getApplicableRemoteContainerItems(
 }
 
 async function applyContainerTombstoneCascade(input: {
+  reconcileDescendants: boolean;
+  afterParentPage: ListContainerDocumentLanesRequest["afterParentPage"];
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
   isCurrent?: (() => boolean) | undefined;
@@ -88,24 +95,20 @@ async function applyContainerTombstoneCascade(input: {
   state: RemoteContainerHydrationState;
   tombstone: ContainerSyncTombstone;
 }): Promise<{ current: boolean; removedCount: number; settled: boolean }> {
-  const {
-    childIdsByParentId,
-    expectedContainerStates,
-    preservedContainerIds,
-    state,
-    tombstone,
-  } = input;
+  const { childIdsByParentId, expectedContainerStates, state } = input;
+  const resolved = await resolveTombstoneCascade(input);
+  if (!resolved || input.isCurrent?.() === false)
+    return {
+      current: input.isCurrent?.() !== false,
+      removedCount: 0,
+      settled: false,
+    };
   const {
     fenceOnlyContainerIds,
     absentDeletedContainerIds,
     removalByContainerId,
     removedContainerIds,
-  } = collectRemovedContainers({
-    childIdsByParentId,
-    containersById: state.containersById,
-    preservedContainerIds,
-    tombstones: [tombstone],
-  });
+  } = resolved.cascade;
   const affectedContainerIds = new Set([
     ...removedContainerIds,
     ...absentDeletedContainerIds,
@@ -135,11 +138,22 @@ async function applyContainerTombstoneCascade(input: {
     }),
     {
       discoveryOnly: true,
-      expectedContainers: Array.from(affectedContainerIds, (containerId) => ({
-        containerId,
-        expectedContainer:
-          expectedContainerStates.get(containerId)?.container ?? null,
-      })),
+      expectedContainers: Array.from(affectedContainerIds, (containerId) => {
+        const metadata = state.containersById.get(containerId)?.record;
+        return {
+          containerId,
+          ...(resolved.denied?.has(containerId)
+            ? {
+                confirmedAccessLoss: {
+                  placementHash: resolved.denied.get(containerId) ?? null,
+                  expectedMetadata: metadata ? { ...metadata } : null,
+                },
+              }
+            : {}),
+          expectedContainer:
+            expectedContainerStates.get(containerId)?.container ?? null,
+        };
+      }),
       stillCurrent: input.isCurrent,
     },
   );
@@ -164,15 +178,53 @@ async function applyContainerTombstoneCascade(input: {
   };
 }
 
+function preserveOtherRoots(
+  state: RemoteContainerHydrationState,
+  liveContainerIds: ReadonlyArray<string>,
+  tombstoneRootIds: ReadonlySet<string>,
+  rootId: string,
+) {
+  const preservedContainerIds = new Set([
+    ...liveContainerIds,
+    ...tombstoneRootIds,
+    ...Array.from(state.containersById, ([id, state]) =>
+      state.container.metadataDocumentId === null ? id : null,
+    ).filter((id): id is string => id !== null),
+  ]);
+  if (state.containersById.get(rootId)?.container.metadataDocumentId !== null) {
+    preservedContainerIds.delete(rootId);
+  }
+  return preservedContainerIds;
+}
+
 export async function applyContainerTombstones(input: {
+  parentId: string | null;
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
   isCurrent?: (() => boolean) | undefined;
+  isPaused?: (item: ListedRemoteContainerPageItem) => boolean;
   remoteContainerItems: ReadonlyArray<ListedRemoteContainerPageItem>;
   response: ListContainersResponse;
   state: RemoteContainerHydrationState;
 }): Promise<{ changedCount: number; completed: boolean; current: boolean }> {
-  const tombstones = getApplicableContainerTombstones(input.response);
+  // A folder can regain access after one of its cached children moved away.
+  // Its live listing keeps the folder and reconciles the previously held tree.
+  const restored = await pendingFolderRestorations({
+    ...input,
+    items: input.remoteContainerItems,
+    execSql: input.state.runtime.infra.execSql,
+  });
+  const restoredById = new Map(restored.map((item) => [item.id, item]));
+  const tombstones = [
+    ...getApplicableContainerTombstones(input.response),
+    ...restored.map((item) => ({
+      containerId: item.id,
+      parentId: item.parentId,
+      depth: item.depth,
+      updatedAt: item.updatedAt,
+      reason: "access_revoked" as const,
+    })),
+  ];
   if (tombstones.length === 0 || input.isCurrent?.() === false) {
     return {
       changedCount: 0,
@@ -194,29 +246,37 @@ export async function applyContainerTombstones(input: {
     // Apply each root as its own CAS-protected cascade. Other explicit roots
     // stay out of this cascade so their own reason wins and one stale root
     // cannot block independent tombstones or live items on the page.
-    const preservedContainerIds = new Set([
-      ...liveContainerIds,
-      ...tombstoneRootIds,
-      ...Array.from(input.state.containersById, ([id, state]) =>
-        state.container.metadataDocumentId === null ? id : null,
-      ).filter((id): id is string => id !== null),
-    ]);
-    if (
-      input.state.containersById.get(tombstone.containerId)?.container
-        .metadataDocumentId !== null
-    ) {
-      preservedContainerIds.delete(tombstone.containerId);
-    }
+    const preservedContainerIds = preserveOtherRoots(
+      input.state,
+      liveContainerIds,
+      tombstoneRootIds,
+      tombstone.containerId,
+    );
+    const live = restoredById.get(tombstone.containerId);
+    const stillCurrent = () =>
+      input.isCurrent?.() !== false && !(live && input.isPaused?.(live));
     const result = await applyContainerTombstoneCascade({
+      reconcileDescendants: live !== undefined,
+      afterParentPage: input.response.nextWatermark
+        ? { parentId: input.parentId, watermark: input.response.nextWatermark }
+        : undefined,
       childIdsByParentId: input.childIdsByParentId,
       expectedContainerStates: input.expectedContainerStates,
-      isCurrent: input.isCurrent,
+      isCurrent: stillCurrent,
       preservedContainerIds,
       state: input.state,
       tombstone,
     });
     changedCount += result.removedCount;
-    completed = completed && result.settled;
+    if (live && input.isPaused?.(live) && input.isCurrent?.() !== false)
+      continue;
+    const recorded = await recordFolderRestoration(
+      input.state.runtime.infra.execSql,
+      live,
+      result.settled,
+      stillCurrent,
+    );
+    completed = completed && recorded;
     if (!result.current) {
       return { changedCount, completed: false, current: false };
     }

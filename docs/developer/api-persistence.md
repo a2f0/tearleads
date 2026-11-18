@@ -119,6 +119,19 @@ fresh organization id. Purged ids are never recreated under the same
 [checkpoints](../glossary/sync.md#checkpoint) keyed that way cannot observe a false
 rollback.
 
+### Restored discovery cursors
+
+When restoring an older database snapshot, rotate its discovery key on the
+restored writer before reopening API traffic. A restore can reuse published
+positions while devices still hold later cursors. Run this once on the
+restored database. Devices then replay each lane in bounded pages.
+
+```sql
+UPDATE drizzle.discovery_cursor_key
+SET key_material = gen_random_uuid()::text || gen_random_uuid()::text
+WHERE singleton;
+```
+
 ### Connection settings
 
 When `NODE_ENV=production`, `API_DATABASE` must be set explicitly.

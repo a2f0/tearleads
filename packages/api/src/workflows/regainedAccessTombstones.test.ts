@@ -114,19 +114,15 @@ test("pruned lane pages stop serving the stale tombstone", async () => {
     userId: owner.userId,
   });
 
-  // Before the prune the lane serves the stale tombstone alongside the item
-  // — with a newer timestamp, so a client's last-writer filter would keep
-  // the restored container suppressed indefinitely.
+  // Historical revoked rows remain suppressed even before physical pruning.
   const beforeResponse = await requestContainerParentLanes(owner.token, [
     { laneId: "root", parentId: null },
   ]);
   expect(beforeResponse.status).toBe(200);
   const beforeBody = await readContainerParentLanePage(beforeResponse, "root");
-  expect(beforeBody.tombstones).toContainEqual(
-    expect.objectContaining({
-      containerId: owner.rootContainerId,
-      reason: "access_revoked",
-    }),
+  expect(beforeBody.tombstones).toEqual([]);
+  expect(beforeBody.items).toContainEqual(
+    expect.objectContaining({ id: owner.rootContainerId }),
   );
 
   await db.transaction(async (tx) => {

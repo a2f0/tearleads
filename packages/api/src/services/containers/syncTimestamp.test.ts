@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { normalizeSyncWatermark } from "./syncPaging";
 import {
-  compareSyncTimestamps,
   normalizeSyncTimestamp,
   readSyncTimestamp,
   syncItemTimestamp,
@@ -22,27 +21,6 @@ test("discovery cursors retain microseconds through UTC normalization", () => {
   );
   expect(normalizeSyncTimestamp("2026-08-31T12:00:00.1234567Z")).toBeNull();
   expect(normalizeSyncTimestamp("invalid")).toBeNull();
-});
-
-test("mixed millisecond and microsecond changes sort by time before id", () => {
-  expect(
-    compareSyncTimestamps(
-      "2026-08-31T12:00:00.123Z",
-      "2026-08-31T12:00:00.123001Z",
-    ),
-  ).toBeLessThan(0);
-  expect(
-    compareSyncTimestamps(
-      "2026-08-31T12:00:00.123999Z",
-      "2026-08-31T12:00:00.124Z",
-    ),
-  ).toBeLessThan(0);
-  expect(
-    compareSyncTimestamps(
-      "2026-08-31T12:00:00.123Z",
-      "2026-08-31T12:00:00.123000Z",
-    ),
-  ).toBe(0);
 });
 
 test("Date driver values retain milliseconds", () => {

@@ -226,6 +226,11 @@ for the action seams, fairness assumptions, and excluded blob-hydration layer.
 
 ### Container Metadata Under Lost Hints
 
+[`document-sync/DiscoveryPublication.tla`](./document-sync/DiscoveryPublication.tla)
+checks commit-ordered discovery with concurrent live and removal writers.
+Every committed change remains available above a page's saved watermark
+until the client observes it.
+
 [`document-sync/MetadataListingConvergence.tla`](./document-sync/MetadataListingConvergence.tla)
 models a client holding a container metadata document while a peer's edit hint
 is lost: offline, closed, or before its interest is acknowledged. Each

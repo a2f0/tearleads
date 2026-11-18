@@ -17,6 +17,7 @@ import {
 import { containerWriterProjectionFromRotationPlan } from "../../../containers/child/rekey/rekeyProjection";
 import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
 import { defaultContainerContentsPersistence as persistence } from "../../containerPersistence";
+import { persistContainerMetadataStateFromRuntime } from "../../metadata/metadataPersistence";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 import { upsertRemoteContainerState } from "./remoteContainerState";
 
@@ -118,6 +119,7 @@ test.each(["before verification", "before insertion"])(
           apiClient: {
             getContainerWriterProjection: async () => served,
             evictContainerWriterProjection: () => {},
+            evictWriterProjectionsCiting: () => {},
             getCurrentPrincipalPolicy: async () => null,
           },
           auth: {
@@ -144,11 +146,14 @@ test.each(["before verification", "before insertion"])(
         createdAt: "2026-09-25T00:00:00.000Z",
         updatedAt: "2026-09-25T00:00:00.000Z",
       };
-      const hydrate = () =>
+      const hydrate = (
+        remoteContainer = listed,
+        heldFence: typeof fence | null = fence,
+      ) =>
         upsertRemoteContainerState({
-          remoteContainer: listed,
+          remoteContainer,
           state,
-          expectedHydrationTombstone: fence,
+          expectedHydrationTombstone: heldFence,
           containerIdsWithPendingMetadataUpdates: new Set(),
           containerIdsWithPendingStructuralIntents: new Set(),
           host: {
@@ -175,6 +180,68 @@ test.each(["before verification", "before insertion"])(
       expect(
         await persistence.loadContainerHydrationTombstones(execSql),
       ).toEqual([]);
+      if (!restored) throw new Error("Expected restored folder");
+      let active = true;
+      await upsertRemoteContainerState({
+        state,
+        isCurrent: () => active,
+        remoteContainer: {
+          ...listed,
+          parentId: destination.containerId,
+          updatedAt: "2026-09-24T00:00:00.000Z",
+          metadataDocumentId:
+            restored.container.metadataDocumentId ?? listed.metadataDocumentId,
+          metadataAccessStateHash: moved.plan.manifestHash,
+        },
+        containerIdsWithPendingMetadataUpdates: new Set(),
+        containerIdsWithPendingStructuralIntents: new Set(),
+        host: {
+          updateSnapshot: () => {},
+          persistContainerState: async (
+            candidate,
+            patch,
+            _view,
+            saveOptions,
+            options,
+          ) => {
+            // The pause arrives after the signed placement read, while entering
+            // the durable write. Use the same guard and persistence as the host.
+            active = false;
+            const saved = await persistContainerMetadataStateFromRuntime({
+              metadataState: candidate,
+              patch,
+              persistence,
+              runtime: state.runtime,
+              saveOptions,
+              stillCurrent: options?.isCurrent,
+            });
+            return saved
+              ? { status: "persisted", record: saved.record }
+              : { status: "identity-superseded", record: candidate.record };
+          },
+        },
+      });
+      expect(active).toBe(false);
+      expect(
+        (await persistence.loadContainerMetadataState(execSql, listed.id))
+          ?.container.serverUpdatedAt,
+      ).toBe(listed.updatedAt);
+      // A backdated listing names a different manifest. Its proof is signed
+      // and serves the current local pin, but cannot establish the listed move.
+      const mismatch = await hydrate(
+        {
+          ...listed,
+          updatedAt: "2026-09-24T00:00:00.000Z",
+          metadataDocumentId:
+            restored?.container.metadataDocumentId ?? listed.metadataDocumentId,
+          metadataAccessStateHash: "unseen-newer-manifest",
+        },
+        null,
+      );
+      expect(mismatch).toBeNull();
+      expect(
+        state.containersById.get(listed.id)?.record.accessStateHash,
+      ).not.toBe("unseen-newer-manifest");
       expect(
         await new KeyingCheckpointRepository(
           execSql,

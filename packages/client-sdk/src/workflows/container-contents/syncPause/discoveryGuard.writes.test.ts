@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { DocumentContainerProjectionRepository as Links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import {
   clearDocumentDiscoveryEvidenceOnRemoteReset,
   DocumentDiscoveryEvidenceRepository,
@@ -13,7 +14,7 @@ import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { guardDocumentDiscoveryWrites } from "./discoveryGuard";
 
-test.each(["documents", "links"] as const)(
+test.each(["documents", "links", "hold"] as const)(
   "a queued %s write rechecks its generation after the reset lock releases",
   async (kind) => {
     const { execSql, close } = await createTestExecSql(
@@ -31,7 +32,7 @@ test.each(["documents", "links"] as const)(
         documentId: "document",
         linkedContainerIds: ["current"],
       };
-      if (kind === "links") {
+      if (kind !== "documents") {
         await upsertDiscoveredDocuments(execSql, [candidate]);
         await new Links(execSql).replaceDocumentLinks("document", ["current"]);
       }
@@ -44,8 +45,13 @@ test.each(["documents", "links"] as const)(
           isCurrent: () => evidence.isCurrent(generation),
         }),
       });
-      const write = (current: () => Promise<boolean>) =>
-        kind === "documents"
+      const write = (current: () => Promise<boolean>) => {
+        if (kind === "hold")
+          return guarded.holdContainerDocumentTombstones(
+            [{ ...candidate, updatedAt: candidate.createdAt }],
+            current,
+          );
+        return kind === "documents"
           ? guarded.upsertDiscoveredDocuments([candidate], current)
           : guarded.replaceDocumentLinksBatch(
               [
@@ -57,6 +63,7 @@ test.each(["documents", "links"] as const)(
               ],
               current,
             );
+      };
       let release = () => {};
       const held = new Promise<void>((resolve) => {
         release = resolve;
@@ -74,19 +81,24 @@ test.each(["documents", "links"] as const)(
       release();
       await cleanup;
       await stale;
-      const read = async () =>
-        kind === "documents"
+      const read = async () => {
+        if (kind === "hold")
+          return (
+            await new ContainerDocumentTombstoneHoldRepository(
+              execSql,
+            ).listContainerDocumentTombstoneHolds(["current"])
+          ).map((row) => row.documentId);
+        return kind === "documents"
           ? (
               await sqlDocumentsPersistence.listDocumentSummaries(execSql)
             ).rows.map((row) => row.documentId)
           : await new Links(execSql).listLinkedContainerIds("document");
-      expect(await read()).toEqual(kind === "documents" ? [] : ["current"]);
+      };
+      expect(await read()).toEqual(kind === "links" ? ["current"] : []);
       // Prove these are writable inputs once a new listing is current.
       const next = await evidence.begin();
       await write(() => evidence.isCurrent(next));
-      expect(await read()).toEqual(
-        kind === "documents" ? ["document"] : ["stale"],
-      );
+      expect(await read()).toEqual(kind === "links" ? ["stale"] : ["document"]);
     } finally {
       close();
     }

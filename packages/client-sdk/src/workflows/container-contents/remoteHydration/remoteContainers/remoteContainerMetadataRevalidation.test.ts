@@ -18,6 +18,7 @@ import {
   persistContainerMetadataStateFromRuntime,
 } from "../../metadata/metadataPersistence";
 import { hydrateStoredContainerState } from "../../storedContainerState";
+import { hydrateRemoteContainers } from "../index";
 import type {
   ContainerState,
   RemoteContainer,
@@ -82,7 +83,11 @@ async function openRuntime() {
 }
 
 /** Hydrates one listing and returns the host calls in the order they ran. */
-async function hydrateListing(listing: RemoteContainer, heldUpdates: string) {
+async function hydrateListing(
+  listing: RemoteContainer,
+  heldUpdates: string,
+  earlierVersion?: string,
+) {
   const { close, execSql } = await openRuntime();
   try {
     const listed = listing;
@@ -148,6 +153,35 @@ async function hydrateListing(listing: RemoteContainer, heldUpdates: string) {
       },
       updateSnapshot: () => {},
     };
+    if (earlierVersion !== undefined) {
+      let pages = 0;
+      state.runtime.apiClient.listContainerParentLanes = async ({ lanes }) => ({
+        results: lanes.map(({ laneId }) => {
+          pages++;
+          return {
+            laneId,
+            page: {
+              hasMore: pages === 1,
+              nextWatermark: { id: String(pages), updatedAt: RECORDED },
+              tombstones: [],
+              items: [
+                {
+                  ...listed,
+                  depth: 1,
+                  metadataVersionVector:
+                    pages === 1
+                      ? earlierVersion
+                      : listing.metadataVersionVector,
+                },
+              ],
+            },
+          };
+        }),
+      });
+      await hydrateRemoteContainers({ state, host, parentIds: [null] });
+      expect(pages).toBe(2);
+      return calls;
+    }
     await upsertRemoteContainerState({
       containerIdsWithPendingMetadataUpdates: new Set(),
       containerIdsWithPendingStructuralIntents: new Set(),
@@ -197,4 +231,15 @@ test("an unreadable listed version owes a read instead of failing the page", asy
       versions.heldUpdates,
     ),
   ).toEqual(["owe metadata-1", `persist ${LATER}`]);
+});
+
+test("a metadata publication between two pages schedules its missing read", async () => {
+  const versions = await metadataVersions();
+  expect(
+    await hydrateListing(
+      listed({ updatedAt: RECORDED, versionVector: versions.peerVersion }),
+      versions.heldUpdates,
+      versions.heldVersion,
+    ),
+  ).toContain("owe metadata-1");
 });

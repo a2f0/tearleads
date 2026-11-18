@@ -27,6 +27,7 @@ import {
   ensureContainerTables,
 } from "./containerPersistence";
 import { containerRemovalBatches } from "./containerRemovalBatches";
+import { confirmedRemovalMetadataMatches } from "./containerRemovalMetadata";
 import { containerIdsWithRemovalWork } from "./containerRemovalWork";
 import { repairDocumentsForRemovedContainersInTransaction } from "./containerStructuralRepair";
 import { deleteContainerWatermarksInTransaction } from "./containerSyncWatermarkPersistence";
@@ -107,6 +108,13 @@ async function canApplyContainerRemovals(input: {
   removals: ReadonlyArray<ContainerRemoval>;
   tx: ClientSQLiteTransactionScope;
 }): Promise<boolean> {
+  if (
+    !(await confirmedRemovalMetadataMatches(
+      input.tx,
+      input.expectedContainers ?? [],
+    ))
+  )
+    return false;
   const currentRows: GuardedContainerRow[] = [];
   for (const batch of containerRemovalBatches(input.removals)) {
     currentRows.push(
@@ -127,7 +135,8 @@ async function canApplyContainerRemovals(input: {
     const guard = guardById.get(removal.containerId);
     return (
       (!guard || sameGuardedContainerRow(currentRow, guard)) &&
-      (currentRow?.serverUpdatedAt == null ||
+      (guard?.confirmedAccessLoss ||
+        currentRow?.serverUpdatedAt == null ||
         currentRow.serverUpdatedAt <= removal.updatedAt)
     );
   });

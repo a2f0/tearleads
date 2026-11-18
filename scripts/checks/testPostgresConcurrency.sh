@@ -62,6 +62,7 @@ exec bun test \
   src/worker/workerRuntime.interest.pg.test.ts \
   src/worker/workerRuntime.hibernation.pg.test.ts \
   src/worker/workerRuntime.blobs.pg.test.ts \
+  src/routes/containers/listingCommitOrder.pg.test.ts \
   src/routes/containers/createConcurrency.pg.test.ts \
   src/routes/containers/reciteConcurrency.pg.test.ts \
   src/routes/containers/rotationConcurrency.pg.test.ts \

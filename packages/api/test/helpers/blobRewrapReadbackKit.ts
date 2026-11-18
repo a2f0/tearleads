@@ -168,7 +168,15 @@ export async function snapshotBlobRewrap(fixture: BlobRewrapFixture) {
       ),
   ]);
   // Stable row order without normalizing any persisted bytes or timestamps.
-  return rows.map((table) => table.map((row) => JSON.stringify(row)).sort());
+  return rows.map((table) =>
+    table
+      .map((row) =>
+        JSON.stringify(row, (_key, value: unknown) =>
+          typeof value === "bigint" ? value.toString() : value,
+        ),
+      )
+      .sort(),
+  );
 }
 
 export async function expectBlobRewrapUnchanged(

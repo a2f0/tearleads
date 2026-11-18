@@ -19,6 +19,7 @@ import {
   requestContainerDocumentLanes,
 } from "../../../test/helpers/containerDocumentLaneQuery";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
+import { expectedDiscoveryId } from "../../../test/helpers/discoveryTimestamp";
 import { registerUser } from "../../../test/helpers/registerUser";
 
 async function getContainerOrganizationId(containerId: string) {
@@ -60,7 +61,7 @@ test("POST /containers/documents/query lists current manifest-linked documents",
       }),
     ],
     nextWatermark: {
-      id: createdDocument.id,
+      id: expectedDiscoveryId(),
       updatedAt: expect.any(String),
     },
     tombstones: [],
@@ -199,7 +200,7 @@ test("POST /containers/documents/query supports watermark resume", async () => {
       }),
     ],
     nextWatermark: {
-      id: olderDocument.id,
+      id: expectedDiscoveryId(),
       updatedAt: olderUpdatedAt.toISOString(),
     },
     tombstones: [],
@@ -219,7 +220,7 @@ test("POST /containers/documents/query supports watermark resume", async () => {
       }),
     ],
     nextWatermark: {
-      id: newerDocument.id,
+      id: expectedDiscoveryId(),
       updatedAt: newerUpdatedAt.toISOString(),
     },
     tombstones: [],
@@ -247,7 +248,7 @@ test("POST /containers/documents/query returns unlink tombstones by watermark or
     hasMore: false,
     items: [],
     nextWatermark: {
-      id: tombstonedDocumentId,
+      id: expectedDiscoveryId(),
       updatedAt: tombstoneUpdatedAt.toISOString(),
     },
     tombstones: [
@@ -258,6 +259,19 @@ test("POST /containers/documents/query returns unlink tombstones by watermark or
       },
     ],
   });
+  // Relinking a document supersedes its persisted unlink hint. Replaying
+  // this lane should not put a readable placement into periodic verification.
+  await createCurrentDocumentProjection({
+    containerIds: [owner.rootContainerId],
+    documentId: tombstonedDocumentId,
+    createdByFingerprint: await toFingerprint(owner.signing.signingPublicKey),
+    organizationId: await getContainerOrganizationId(owner.rootContainerId),
+  });
+  const relinked = await listContainerDocumentPage(owner.token, {
+    containerId: owner.rootContainerId,
+  });
+  expect(relinked.items.map((item) => item.id)).toEqual([tombstonedDocumentId]);
+  expect(relinked.tombstones).toEqual([]);
 });
 
 test("POST /containers/documents/query rejects malformed watermarks", async () => {

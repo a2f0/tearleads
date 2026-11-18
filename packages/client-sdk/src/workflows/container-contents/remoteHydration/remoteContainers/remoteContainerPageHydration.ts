@@ -2,6 +2,7 @@ import {
   createPrincipalPolicyOperation,
   type PrincipalPolicyOperation,
 } from "../../../principals/principalPolicyService";
+import { changesDiscoveryOrder } from "../../documentDiscovery/publicationWatermark";
 import { prefetchDestinationProjections } from "../destination/destinationPrefetch";
 import { cachedDestinationRole } from "../destination/destinationRoleCache";
 import { markContainerParentLaneFetched } from "../lanes/laneFetchMarkers";
@@ -79,24 +80,17 @@ async function applyRemoteContainerPage(input: {
   expectedHydrationTombstones: FetchedContainerParentLanePage["expectedHydrationTombstones"];
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
-  /** Live pause check; a pause arriving mid-page stops the commit. */
   isPaused: (container: ListedRemoteContainerPageItem) => boolean;
   items: ReadonlyArray<ListedRemoteContainerPageItem>;
   /** The hydration pass's token: its pages share one directory discovery. */
   policyOperation: PrincipalPolicyOperation;
   queueParentLane: QueueContainerParentLane;
-  seenContainerIds: Set<string>;
+  seenContainerObservations: Map<string, string>;
   state: RemoteContainerHydrationState;
 }): Promise<{ changedCount: number; outcome: HydrationOutcome }> {
-  const {
-    expectedContainerStates,
-    expectedHydrationTombstones,
-    queueParentLane,
-    seenContainerIds,
-    state,
-  } = input;
+  const { seenContainerObservations, state } = input;
   let hydratedCount = 0;
-  const policies = await warmListedContainerPolicies(
+  const { items, outcome: policyOutcome } = await warmListedContainerPolicies(
     input.items,
     state.runtime.principalPolicies.createWarmer({
       operation: input.policyOperation,
@@ -104,8 +98,7 @@ async function applyRemoteContainerPage(input: {
     input.reconnect?.recordManualError,
     input.isCurrent,
   );
-  const { items } = policies;
-  let outcome: HydrationOutcome = policies.outcome;
+  let outcome: HydrationOutcome = policyOutcome;
   if (input.isCurrent?.() === false) {
     return { changedCount: 0, outcome: "retry" };
   }
@@ -128,9 +121,9 @@ async function applyRemoteContainerPage(input: {
   const prefetchedProjections = await prefetchDestinationProjections({
     containers: items.filter(
       (item) =>
-        !seenContainerIds.has(item.id) &&
+        !seenContainerObservations.has(item.id) &&
         !state.containersById.has(item.id) &&
-        !expectedHydrationTombstones.get(item.id) &&
+        !input.expectedHydrationTombstones.get(item.id) &&
         !cachedDestinationRole(state.runtime.infra.execSql, item),
     ),
     isCurrent: input.isCurrent,
@@ -140,11 +133,17 @@ async function applyRemoteContainerPage(input: {
     if (input.isCurrent?.() === false) {
       return { changedCount: hydratedCount, outcome: "retry" };
     }
-    if (seenContainerIds.has(container.id)) {
-      queueParentLane(container.id);
+    const observation = JSON.stringify(container);
+    if (
+      seenContainerObservations.get(container.id) === observation &&
+      state.containersById.has(container.id)
+    ) {
+      input.queueParentLane(container.id);
       continue;
     }
-    if (!matchesListedState(state, expectedContainerStates, container.id)) {
+    if (
+      !matchesListedState(state, input.expectedContainerStates, container.id)
+    ) {
       outcome = "retry";
       continue;
     }
@@ -157,7 +156,7 @@ async function applyRemoteContainerPage(input: {
         host: input.host,
         isCurrent: currentUnlessPaused(input, container),
         expectedHydrationTombstone:
-          expectedHydrationTombstones.get(container.id) ?? null,
+          input.expectedHydrationTombstones.get(container.id) ?? null,
         prefetchedProjection: prefetchedProjections.get(container.id),
         remoteContainer: container,
         state,
@@ -171,12 +170,12 @@ async function applyRemoteContainerPage(input: {
       outcome = combineOutcomes(outcome, failure);
       continue;
     }
-    seenContainerIds.add(container.id);
+    seenContainerObservations.set(container.id, observation);
     hydratedCount += 1;
     if (input.isCurrent?.() === false) {
       return { changedCount: hydratedCount, outcome: "retry" };
     }
-    queueParentLane(container.id);
+    input.queueParentLane(container.id);
   }
 
   return { changedCount: hydratedCount, outcome };
@@ -262,18 +261,10 @@ async function applyContainerParentLanePage(input: {
   policyOperation: PrincipalPolicyOperation;
   queueContinuationLane: (lane: ContainerParentHydrationLane) => void;
   queueParentLane: QueueContainerParentLane;
-  seenContainerIds: Set<string>;
+  seenContainerObservations: Map<string, string>;
   state: RemoteContainerHydrationState;
 }): Promise<HydrationProgress> {
-  const {
-    childIdsByParentId,
-    fetchedPage,
-    host,
-    queueContinuationLane,
-    queueParentLane,
-    seenContainerIds,
-    state,
-  } = input;
+  const { childIdsByParentId, fetchedPage, host, state } = input;
   const {
     expectedContainerStates,
     expectedHydrationTombstones,
@@ -285,8 +276,19 @@ async function applyContainerParentLanePage(input: {
     return { changedCount, outcome: "retry", shouldStop: true };
   }
 
+  if (
+    changesDiscoveryOrder(
+      lane.watermark,
+      response.nextWatermark,
+      !!lane.continuationCursors,
+    )
+  )
+    return { changedCount, outcome: "retry", shouldStop: false };
   const remoteContainerItems = getApplicableRemoteContainerItems(response);
+  const isPaused = await loadPausedContainerFilter(state);
   const tombstoneResult = await applyContainerTombstones({
+    isPaused,
+    parentId: lane.parentId,
     childIdsByParentId,
     expectedContainerStates,
     isCurrent: input.isCurrent,
@@ -302,16 +304,11 @@ async function applyContainerParentLanePage(input: {
     return { changedCount, outcome: "retry", shouldStop: true };
   }
   if (tombstoneResult.changedCount > 0) {
-    // A live tombstone cascade may have orphaned documents (row 3); re-arm
-    // document priming so their null-scoped passes run now rather than on
-    // the next startup.
+    // Prime documents orphaned by this cascade during the current pass.
     host.requestDocumentPriming?.();
   }
 
-  // A paused organization's containers stay as the device last saw them.
-  // Skipping them here, after tombstones saw the full page, still lets the
-  // lane complete and its watermark advance; their children are never queued.
-  const isPaused = await loadPausedContainerFilter(state);
+  // Paused folders keep their local state while the lane advances.
   const appliedPage = await applyRemoteContainerPage({
     reconnect: input.reconnect,
     childIdsByParentId,
@@ -322,8 +319,8 @@ async function applyContainerParentLanePage(input: {
     isPaused,
     items: remoteContainerItems.filter((item) => !isPaused(item)),
     policyOperation: input.policyOperation,
-    queueParentLane,
-    seenContainerIds,
+    queueParentLane: input.queueParentLane,
+    seenContainerObservations: input.seenContainerObservations,
     state,
   });
   changedCount += appliedPage.changedCount;
@@ -343,7 +340,7 @@ async function applyContainerParentLanePage(input: {
     return { changedCount, outcome: "retry", shouldStop: true };
   }
 
-  queueNextPage(fetchedPage, skipWatermarkWrite, queueContinuationLane);
+  queueNextPage(fetchedPage, skipWatermarkWrite, input.queueContinuationLane);
   return { changedCount, outcome, shouldStop: false };
 }
 
@@ -379,7 +376,7 @@ async function applyContainerParentLaneBatch(input: {
   lanes: ContainerParentHydrationLane[];
   policyOperation: PrincipalPolicyOperation;
   queueParentLane: QueueContainerParentLane;
-  seenContainerIds: Set<string>;
+  seenContainerObservations: Map<string, string>;
   state: RemoteContainerHydrationState;
 }): Promise<HydrationProgress> {
   const {
@@ -388,7 +385,7 @@ async function applyContainerParentLaneBatch(input: {
     host,
     lanes,
     queueParentLane,
-    seenContainerIds,
+    seenContainerObservations,
     state,
   } = input;
   let changedCount = 0;
@@ -414,7 +411,7 @@ async function applyContainerParentLaneBatch(input: {
       policyOperation: input.policyOperation,
       queueContinuationLane: (lane) => lanes.push(lane),
       queueParentLane,
-      seenContainerIds,
+      seenContainerObservations,
       state,
     });
     changedCount += result.changedCount;
@@ -435,7 +432,7 @@ export async function hydrateContainerParentLanes(input: {
   isCurrent?: (() => boolean) | undefined;
   lanes: ContainerParentHydrationLane[];
   queueParentLane: QueueContainerParentLane;
-  seenContainerIds: Set<string>;
+  seenContainerObservations: Map<string, string>;
   state: RemoteContainerHydrationState;
 }): Promise<HydrationProgress> {
   const {
@@ -443,7 +440,7 @@ export async function hydrateContainerParentLanes(input: {
     host,
     lanes,
     queueParentLane,
-    seenContainerIds,
+    seenContainerObservations,
     state,
   } = input;
   let changedCount = 0;
@@ -483,7 +480,7 @@ export async function hydrateContainerParentLanes(input: {
       lanes,
       policyOperation,
       queueParentLane,
-      seenContainerIds,
+      seenContainerObservations,
       state,
     });
     changedCount += result.changedCount;

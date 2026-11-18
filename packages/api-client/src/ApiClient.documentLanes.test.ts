@@ -61,7 +61,28 @@ testApiClient(
     await firstDocumentsRequestStarted.promise;
     const secondDocumentsRequest =
       client.listContainerDocumentLanes(documentLaneRequest);
+    const stricter = client.listContainerDocumentLanes({
+      ...documentLaneRequest,
+      afterParentPage: {
+        parentId: null,
+        watermark: {
+          id: "newer-checkpoint",
+          updatedAt: "2026-02-01T00:00:00Z",
+        },
+      },
+    });
+    const older = client.listContainerDocumentLanes({
+      ...documentLaneRequest,
+      afterParentPage: {
+        parentId: null,
+        watermark: {
+          id: "older-checkpoint",
+          updatedAt: "2026-02-01T00:00:00Z",
+        },
+      },
+    });
     finishDocumentsRequest.resolve();
+    await Promise.all([stricter, older]);
     await expect(
       Promise.all([firstDocumentsRequest, secondDocumentsRequest]),
     ).resolves.toEqual([
@@ -73,7 +94,12 @@ testApiClient(
       client.listContainerDocumentLanes(documentLaneRequest),
     ).resolves.toEqual(listContainerDocumentLanesResponse);
 
-    expect(calls.map((call) => call.method)).toEqual(["POST", "POST"]);
+    expect(calls.map((call) => call.method)).toEqual([
+      "POST",
+      "POST",
+      "POST",
+      "POST",
+    ]);
   },
 );
 
