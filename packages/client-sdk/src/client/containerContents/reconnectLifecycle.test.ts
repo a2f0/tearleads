@@ -213,48 +213,62 @@ test("a queued rename on the disposed tree cannot change the reopened root", asy
   }
 });
 
-test("a reconnect becomes stale as soon as the live socket acknowledgement changes", async () => {
-  const { execSql, close } = await createTestExecSql("live-ack");
-  const initial = createWorkflowInputFixture({
-    apiClient: createMockApiClient(),
-    execSql,
-  });
-  let input = {
-    ...initial,
-    state: { ...initial.state, serverEventsConnectionGeneration: 1 },
-  };
-  const contents = createContainerContents(
-    createInternalRuntimeFixture(() => input),
-  );
-  const state = createContainerContentsStoreState(
-    contents.workflowRuntime(),
-    defaultContainerContentsPersistence,
-  );
-  state.initialized = true;
-  state.snapshot = { ...state.snapshot, ready: true };
-  const guard = Promise.withResolvers<() => boolean>();
-  const release = Promise.withResolvers<void>();
-  try {
-    consumePendingContainerContentsReconnectRefresh(state, async (options) => {
-      if (!options?.reconnect) throw new Error("expected a reconnect");
-      guard.resolve(options.reconnect.isCurrent);
-      await release.promise;
-      return true;
+test.each(["disconnect", "new acknowledgement"] as const)(
+  "a reconnect becomes stale on %s",
+  async (change) => {
+    const { execSql, close } = await createTestExecSql("live-ack");
+    const initial = createWorkflowInputFixture({
+      apiClient: createMockApiClient(),
+      execSql,
     });
-    const isCurrent = await guard.promise;
-    expect(isCurrent()).toBe(true);
-    input = {
-      ...input,
-      state: { ...input.state, serverEventsConnectionGeneration: 2 },
+    let input = {
+      ...initial,
+      state: {
+        ...initial.state,
+        serverEventsConnected: true,
+        serverEventsConnectionGeneration: 1,
+      },
     };
-    expect(isCurrent()).toBe(false);
-  } finally {
-    state.reconnectRefresh.reset("disposed");
-    release.resolve();
-    disposeDomainSyncCoordinator(input.state.domainScope);
-    await close();
-  }
-});
+    const contents = createContainerContents(
+      createInternalRuntimeFixture(() => input),
+    );
+    const state = createContainerContentsStoreState(
+      contents.workflowRuntime(),
+      defaultContainerContentsPersistence,
+    );
+    state.initialized = true;
+    state.snapshot = { ...state.snapshot, ready: true };
+    const guard = Promise.withResolvers<() => boolean>();
+    const release = Promise.withResolvers<void>();
+    try {
+      consumePendingContainerContentsReconnectRefresh(
+        state,
+        async (options) => {
+          if (!options?.reconnect) throw new Error("expected a reconnect");
+          guard.resolve(options.reconnect.isCurrent);
+          await release.promise;
+          return true;
+        },
+      );
+      const isCurrent = await guard.promise;
+      expect(isCurrent()).toBe(true);
+      input = {
+        ...input,
+        state: {
+          ...input.state,
+          serverEventsConnected: change !== "disconnect",
+          serverEventsConnectionGeneration: change === "disconnect" ? 1 : 2,
+        },
+      };
+      expect(isCurrent()).toBe(false);
+    } finally {
+      state.reconnectRefresh.reset("disposed");
+      release.resolve();
+      disposeDomainSyncCoordinator(input.state.domainScope);
+      await close();
+    }
+  },
+);
 
 test.each(["reconnect", "manual"])(
   "a reopened tree issues a fresh %s request",

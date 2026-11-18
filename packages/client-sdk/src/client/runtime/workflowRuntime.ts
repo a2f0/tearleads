@@ -408,6 +408,7 @@ function createRuntimeInputFactory(
       // connectivity signal for host/UI. See Session.syncEnabled.
       online: dependencies.network.online && dependencies.session.syncEnabled,
       peerScope: dependencies.peerScope ?? null,
+      serverEventsConnected: dependencies.events.connected,
       serverEventsConnectionGeneration:
         dependencies.events.connectionGeneration,
       serverEventsPendingConnectAttempt:

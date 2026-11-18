@@ -397,13 +397,13 @@ test("a grant during initial authorization preserves its acknowledgment barrier"
 });
 
 test.each([true, false])(
-  "a connected socket follows a replacement tree (initial ack pending: %s)",
-  async (pending) => {
+  "a replacement tree declares interest on a fresh socket (initial ack pending: %s)",
+  (pending) => {
     const retired = createFakeStore(["prior"]);
     const replacement = createFakeStore(["current"]);
     let tree = retired;
     const sdk = tearleadsWithStore(() => tree.store);
-    const { ws, sent } = fakeSocket(WebSocket.OPEN);
+    const { ws, sent, close } = fakeSocket(WebSocket.OPEN);
     const declaration = startContainerInterestDeclaration(sdk, ws);
     try {
       const initial = JSON.parse(sent[0] ?? "null");
@@ -413,17 +413,17 @@ test.each([true, false])(
       expect(declaration.acknowledge(initial.declarationId, ["prior"])).toBe(
         false,
       );
-      await Promise.resolve();
-      expect(sent.slice(1).map((entry) => JSON.parse(entry))).toMatchObject([
+      expect(close).toHaveBeenCalledTimes(1);
+      const fresh = fakeSocket(WebSocket.OPEN);
+      const next = startContainerInterestDeclaration(sdk, fresh.ws);
+      expect(fresh.sent.map((entry) => JSON.parse(entry))).toMatchObject([
         { type: "known_containers", containerIds: ["current"] },
       ]);
-      const current = JSON.parse(sent[1] ?? "null");
-      expect(declaration.acknowledge(current.declarationId, ["current"])).toBe(
-        true,
-      );
-      const count = sent.length;
+      const current = JSON.parse(fresh.sent[0] ?? "null");
+      expect(next.acknowledge(current.declarationId, ["current"])).toBe(true);
+      next.stop();
       retired.setNodes(["retired-update"]);
-      expect(sent.length).toBe(count);
+      expect(sent).toHaveLength(1);
     } finally {
       declaration.stop();
     }

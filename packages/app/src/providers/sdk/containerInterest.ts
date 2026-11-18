@@ -1,7 +1,4 @@
-import type {
-  getOrCreateDomainSyncCoordinator,
-  Tearleads,
-} from "@tearleads/client-sdk";
+import type { Tearleads } from "@tearleads/client-sdk";
 import {
   MAX_WS_INTEREST_CONTAINER_IDS,
   serializeWsClientDeclaration,
@@ -184,52 +181,12 @@ type InterestTree = NonNullable<
   ReturnType<typeof resolveContainerInterestStore>
 >;
 
-/** A replacement tree owns a fresh authoritative declaration and its acknowledgements. */
 export function startContainerInterestDeclaration(
   sdk: Tearleads,
   ws: WebSocket,
-  coordinatorForScope?: typeof getOrCreateDomainSyncCoordinator,
 ): ContainerInterestDeclaration {
   const tree = resolveContainerInterestStore(sdk);
-  if (!tree) return INACTIVE_DECLARATION;
-  let current = declareInterest(ws, tree);
-  if (!coordinatorForScope) return current;
-  const getCoordinator = coordinatorForScope;
-  const scope = sdk.domainScope;
-  let stopped = false;
-  const observeRetirement = (): (() => void) => {
-    const coordinator = getCoordinator(scope);
-    return coordinator.subscribe(() => {
-      if (!coordinator.isDisposed()) return;
-      current.stop();
-      current = INACTIVE_DECLARATION;
-      if (sdk.domainScope !== scope) return;
-      sdk.events.setConnected(false);
-      // End the old barrier immediately. Open the replacement after the host
-      // finishes its synchronous identity or database transition.
-      queueMicrotask(() => {
-        if (stopped || sdk.domainScope !== scope) return;
-        const next = resolveContainerInterestStore(sdk);
-        if (!next) return;
-        detach = observeRetirement();
-        current = declareInterest(ws, next);
-      });
-    });
-  };
-  let detach = observeRetirement();
-  return {
-    acknowledge: (id, accepted) => current.acknowledge(id, accepted),
-    awaitingInitialAcknowledgement: () =>
-      current.awaitingInitialAcknowledgement(),
-    invalidate: (id) => current.invalidate(id),
-    retryRefused: () => current.retryRefused(),
-    sync: () => current.sync(),
-    stop: () => {
-      stopped = true;
-      detach();
-      current.stop();
-    },
-  };
+  return tree ? declareInterest(ws, tree) : INACTIVE_DECLARATION;
 }
 
 function declareInterest(

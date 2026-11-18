@@ -1,4 +1,4 @@
-import { expect } from "bun:test";
+import { expect, mock } from "bun:test";
 import { createDomainScope, type Tearleads } from "@tearleads/client-sdk";
 import type { startContainerInterestDeclaration } from "../containerInterest";
 
@@ -58,9 +58,12 @@ export function tearleadsWithStore(openTree: () => unknown): Tearleads {
 
 export function fakeSocket(readyState: number) {
   const sent: string[] = [];
+  const close = mock(() => {});
   return {
     sent,
+    close,
     ws: {
+      close,
       readyState,
       send: (message: string) => {
         sent.push(message);

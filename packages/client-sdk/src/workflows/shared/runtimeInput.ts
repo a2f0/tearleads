@@ -34,6 +34,8 @@ export interface WorkflowRuntimeStateInput {
   readonly domainScope: DomainScope;
   readonly events: ReadonlyArray<unknown>;
   readonly online: boolean;
+  /** True while the current socket has acknowledged its container interest. */
+  readonly serverEventsConnected?: boolean | undefined;
   /**
    * Increments after each acknowledged server-events interest declaration.
    * Unlike a boolean connection edge, this survives coalesced runtime

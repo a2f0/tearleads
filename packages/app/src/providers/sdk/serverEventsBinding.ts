@@ -23,7 +23,26 @@ export function startContainerInterestDeclaration(
   tearleads: Tearleads,
   ws: WebSocket,
 ) {
-  return declareInterest(tearleads, ws, getOrCreateDomainSyncCoordinator);
+  const scope = tearleads.domainScope;
+  const coordinator = getOrCreateDomainSyncCoordinator(scope);
+  const handle = declareInterest(tearleads, ws);
+  // A socket owns its declaration queue and its acknowledged tree. Retiring
+  // them together lets the existing reconnect loop establish a fresh barrier.
+  const retire = () => {
+    if (!coordinator.isDisposed()) return;
+    handle.stop();
+    if (tearleads.domainScope === scope) tearleads.events.setConnected(false);
+    ws.close();
+  };
+  const detach = coordinator.subscribe(retire);
+  retire();
+  return {
+    ...handle,
+    stop: () => {
+      detach();
+      handle.stop();
+    },
+  };
 }
 
 // Revalidate affected contents, then re-list the root lane plus each flagged

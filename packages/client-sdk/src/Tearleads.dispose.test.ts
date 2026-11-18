@@ -131,3 +131,25 @@ test("a scope observer sees the device-first handle that owns both replacement l
     sdk.dispose();
   }
 });
+
+test.each(["container-contents", "reconciliation:documents"])(
+  "retiring a scope during %s registration cancels that open",
+  (lane) => {
+    const sdk = new Tearleads({ logger: quietLogger, online: false });
+    const coordinator = getOrCreateDomainSyncCoordinator(sdk.domainScope);
+    coordinator.subscribe(() => {
+      if (coordinator.getSnapshot().lanes.some(({ key }) => key === lane))
+        coordinator.dispose();
+    });
+    try {
+      expect(() => sdk.deviceFirst.open()).toThrow(
+        /retired during registration/,
+      );
+      const next = sdk.deviceFirst.open();
+      expect(sdk.deviceFirst.open()).toBe(next);
+      expect(next.containerStore).toBe(sdk.containerContents.openTree());
+    } finally {
+      sdk.dispose();
+    }
+  },
+);

@@ -212,6 +212,8 @@ class DeviceFirstService implements DeviceFirst {
     // finished opening this scope while that notification was in progress.
     if (this.entriesByScope.has(domainScope))
       return this.getOrCreateEntry(options);
+    if (coordinator.isDisposed())
+      throw new Error("Device-first scope retired during registration");
     const service = createReconciliationService(
       this.createReconciliationHost(store, domainScope, coordinator),
     );
@@ -249,7 +251,12 @@ class DeviceFirstService implements DeviceFirst {
     };
     this.entriesByScope.set(domainScope, entry);
     service.start();
-    return entry;
+    const current = this.entriesByScope.get(domainScope);
+    if (!current || current.coordinator.isDisposed()) {
+      this.retireEntry(domainScope, entry);
+      throw new Error("Device-first scope retired during registration");
+    }
+    return current;
   }
 
   private createReconciliationHost(

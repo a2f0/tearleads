@@ -4,6 +4,7 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
+import { getOrCreateDomainSyncCoordinator } from "../../workflows/sync/coordination";
 import { persistContainerState } from "./containerState/containerStatePersistence";
 import { createTreeRefreshMethods } from "./hydration/remoteHydrationRefresh";
 import {
@@ -79,16 +80,6 @@ function applyContainerContentsStoreOptions(
       syncAgent,
     );
   }
-}
-
-function getCachedContainerWriterProjectionForStore(
-  state: ContainerContentsStoreState,
-  containerId: string,
-) {
-  const containerState = state.containersById.get(containerId);
-  return containerState
-    ? getCachedContainerWriterProjection(containerState)
-    : null;
 }
 
 function createContainerContentsStoreSyncHost(
@@ -411,11 +402,14 @@ function createContainerContentsStoreEntry(
       host: createContainerContentsStoreSyncHost(state),
       state,
     });
+  const coordinator = getOrCreateDomainSyncCoordinator(
+    initialRuntime.state.domainScope,
+  );
   const writeMethods = createContainerWriteMethods(state, syncAgent);
 
   return {
     registerLane,
-    isDisposed: () => state.syncLane?.isDisposed?.() ?? false,
+    isDisposed: coordinator.isDisposed,
     requestDocumentPriming: () => {
       state.documentStoresNeedPriming = true;
       syncAgent.scheduleSync();
@@ -431,8 +425,10 @@ function createContainerContentsStoreEntry(
         return syncAgent.refreshLocalContainers();
       },
       requestSync: () => syncAgent.scheduleSync(),
-      getCachedContainerWriterProjection: (containerId) =>
-        getCachedContainerWriterProjectionForStore(state, containerId),
+      getCachedContainerWriterProjection: (containerId) => {
+        const container = state.containersById.get(containerId);
+        return container ? getCachedContainerWriterProjection(container) : null;
+      },
       getSnapshot: () => state.snapshot,
       subscribe: (listener) =>
         subscribeToContainerContentsStore(state, listener),
@@ -455,6 +451,8 @@ export function createContainerContentsStore(
     options,
   );
   entry.registerLane();
+  if (entry.isDisposed())
+    throw new Error("Container scope retired during registration");
   return entry.store;
 }
 
@@ -477,7 +475,10 @@ export function getOrCreateContainerContentsStore(
   containerContentsStoresByScope.set(domainScope, nextEntry);
   // Registering the lane publishes a snapshot and can synchronously reopen this tree.
   nextEntry.registerLane();
-  return nextEntry.store;
+  const current = containerContentsStoresByScope.get(domainScope);
+  if (!current || current.isDisposed())
+    throw new Error("Container scope retired during registration");
+  return current.store;
 }
 
 /** Re-arm priming after a local deletion so the next pass re-creates still-listed documents.
