@@ -42,8 +42,12 @@ export function presentOrganizationReadModelPass(
     isOrganizationDataRuntimeCurrent(runtimeService, active, domainScope) &&
     passIsCurrent();
 
+  const obsolete = () =>
+    runtimeService.workflowInput().state.domainScope === domainScope
+      ? null
+      : undefined;
   return pass().then(async (directoryAndGroups) => {
-    if (!stillCurrent()) return undefined;
+    if (!stillCurrent()) return obsolete();
     // Feed success restores retry eligibility even if name decryption fails.
     const accessWasRestored =
       accessWasDenied &&
@@ -57,7 +61,7 @@ export function presentOrganizationReadModelPass(
         stillCurrent,
         userId: active.userId,
       });
-    if (!stillCurrent()) return undefined;
+    if (!stillCurrent()) return obsolete();
     const presented = await withVerifiedLeaveRequests(
       await hydrateOrganizationGroupNamesForRuntime(
         runtimeService,
@@ -68,6 +72,6 @@ export function presentOrganizationReadModelPass(
       leaveRequestVerifier(runtimeService, active.runtime, active),
     );
     // A transition during presentation publishes nothing for the old scope.
-    return stillCurrent() ? presented : undefined;
+    return stillCurrent() ? presented : obsolete();
   });
 }

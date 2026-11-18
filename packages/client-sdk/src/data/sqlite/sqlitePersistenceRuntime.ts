@@ -7,6 +7,7 @@ import { clientSQLiteSchema } from "./schema";
 import {
   closeTransactionSchemaMemoScope,
   openTransactionSchemaMemoScope,
+  rollbackSqlSavepoint,
 } from "./sqlExec";
 import {
   assertClientSQLiteCommitAllowed,
@@ -183,7 +184,7 @@ async function runNestedSavepointScope<T>(
     .then(async () => {
       const depth = transactionDepthByCanonicalExecSql.get(canonical) ?? 0;
       transactionDepthByCanonicalExecSql.set(canonical, depth + 1);
-      const savepoint = `runtime_transaction_sp_${depth}`;
+      const savepoint = `runtime_transaction_sp_${depth}` as const;
       const discardNestedGuards = captureClientSQLiteCommitGuards(canonical);
       openTransactionSchemaMemoScope(canonical);
       let released = false;
@@ -194,11 +195,8 @@ async function runNestedSavepointScope<T>(
         released = true;
         return result;
       } catch (error: unknown) {
-        await lockedExecSql(`ROLLBACK TO SAVEPOINT ${savepoint}`).then(
+        await rollbackSqlSavepoint(lockedExecSql, savepoint).then(
           discardNestedGuards,
-          () => undefined,
-        );
-        await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`).catch(
           () => undefined,
         );
         throw error;

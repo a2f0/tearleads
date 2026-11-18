@@ -288,7 +288,16 @@ function scheduleOrganizationReadModelReconciliationPass(
       });
       if (
         checking.status === "checking" &&
-        (await passNeedsRead(tearleads, state, reconciliation, checking))
+        (await passNeedsRead(tearleads, state, reconciliation, checking)) &&
+        state.reconciliationsByOrganizationId.get(organizationId) ===
+          reconciliation &&
+        passScopeStillCurrent(
+          tearleads,
+          state,
+          reconciliation,
+          checking.iteration,
+          passScope,
+        )
       ) {
         const reading = dispatchPass(reconciliation, {
           type: "readStarted",

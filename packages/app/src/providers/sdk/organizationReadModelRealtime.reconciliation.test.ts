@@ -402,3 +402,30 @@ test("ignores undemanded scope and catches up demanded scope on reconnect", asyn
   detachSecond();
   unsubscribe();
 });
+
+test("a pass overtaken during its pre-read check leaves the replacement sign-in one read", async () => {
+  const runtime = createRuntimeHarness();
+  subscribeOrganizationReadModelRealtime(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    () => undefined,
+  );
+  const old = scheduleOrganizationReadModelReconciliation(
+    runtime.tearleads,
+    ORGANIZATION_A,
+  );
+  await Promise.resolve();
+  expect(runtime.reconcileCalls).toBe(0);
+  runtime.transitionDomainScope();
+  subscribeOrganizationReadModelRealtime(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    () => undefined,
+  );
+  const current = scheduleOrganizationReadModelReconciliation(
+    runtime.tearleads,
+    ORGANIZATION_A,
+  );
+  await Promise.all([old, current]);
+  expect(runtime.reconcileCalls).toBe(1);
+});

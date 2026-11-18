@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import {
@@ -15,8 +16,8 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   });
 }
 
-describe("session expiry", () => {
-  test("renews a restored stale auth token after session expiry", async () => {
+for (const sameUser of [true, false]) {
+  test(`restored token renewal preserves the acknowledged user (same user: ${sameUser})`, async () => {
     const { close, execSql } = await createTestExecSql(
       "session-expiry-identity-trust",
     );
@@ -60,7 +61,9 @@ describe("session expiry", () => {
           isRoot: false,
           organizationId: "org-2",
           token: "fresh-token",
-          userId: "22222222-2222-4222-8222-222222222222",
+          userId: sameUser
+            ? "22222222-2222-4222-8222-222222222222"
+            : "11111111-1111-4111-8111-111111111111",
         });
       }
 
@@ -92,6 +95,16 @@ describe("session expiry", () => {
         userId: "22222222-2222-4222-8222-222222222222",
       });
 
+      if (!sameUser) {
+        await expect(sdk.session.listSessions()).rejects.toBeInstanceOf(
+          KeyingVerificationError,
+        );
+        expect(sdk.session.isAuthenticated).toBe(false);
+        expect(
+          requests.filter((request) => request.path === "/auth/sessions"),
+        ).toHaveLength(1);
+        return;
+      }
       const before = sdk.runtime.input();
       await expect(sdk.session.listSessions()).resolves.toEqual([]);
       expect(sdk.domainScope).toBe(before.state.domainScope);
@@ -143,4 +156,4 @@ describe("session expiry", () => {
       close();
     }
   });
-});
+}

@@ -10,10 +10,12 @@ import {
 
 function dataUsageRuntime(input: {
   readonly dbId: string;
+  readonly scopeId?: number;
   readonly dbStatus: string;
   readonly userId: string;
 }) {
   return {
+    state: { domainScope: { id: input.scopeId ?? 1 } },
     auth: {
       isAuthenticated: true,
       organizationId: "org-a",
@@ -40,6 +42,15 @@ test("data usage scope follows requester storage, not database readiness", () =>
     userId: "user-b",
   });
 
+  const nextSignIn = dataUsageRuntime({
+    dbId: "db-a",
+    dbStatus: "ready",
+    userId: "user-a",
+    scopeId: 2,
+  });
+  expect(getOrgManagerDataUsageScopeKey(ready)).not.toBe(
+    getOrgManagerDataUsageScopeKey(nextSignIn),
+  );
   expect(getOrgManagerDataUsageScopeKey(ready)).toBe(
     getOrgManagerDataUsageScopeKey(idle),
   );

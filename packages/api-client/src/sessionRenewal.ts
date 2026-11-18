@@ -31,6 +31,10 @@ export class SessionRenewalTracker {
 
   constructor(private readonly readToken: () => string | null) {}
 
+  get signal(): AbortSignal {
+    return this.sessionRequests.signal;
+  }
+
   withSessionSignal(options: RequestResultOptions): RequestResultOptions {
     const sessionSignal = this.sessionRequests.signal;
     return {

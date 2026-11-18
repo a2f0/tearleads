@@ -24,9 +24,32 @@ export async function authenticateSession(
   challengeHex: string | undefined,
   renewal: boolean,
 ): Promise<boolean> {
-  const lifetime = sessionLifetime(session);
-  const epoch = lifetime.epoch;
-  const isCurrent = () => epoch === lifetime.epoch;
+  const attempt = sessionLifetime(session).authentication.start(renewal);
+  try {
+    return (
+      attempt.current() &&
+      (await runAuthentication(
+        dependencies,
+        session,
+        acknowledgments,
+        challengeHex,
+        renewal,
+        attempt.current,
+      ))
+    );
+  } finally {
+    attempt.finish();
+  }
+}
+
+async function runAuthentication(
+  dependencies: SessionDependencies,
+  session: Parameters<typeof authenticateSession>[1],
+  acknowledgments: SessionIdentityAcknowledgments,
+  challengeHex: string | undefined,
+  renewal: boolean,
+  isCurrent: () => boolean,
+): Promise<boolean> {
   const signingKeyPair = dependencies.identity.requireSigningKeyPair("login");
   const fingerprint =
     (await dependencies.identity.refreshSigningFingerprint()) ?? null;
@@ -76,9 +99,12 @@ export async function authenticateSession(
     return false;
   }
 
-  if (renewal && authentication.userId !== snapshotAtStart.userId) return false;
   try {
     acknowledgments.assertMatches(authentication.userId, fingerprint);
+    if (renewal && authentication.userId !== snapshotAtStart.userId) {
+      session.logout();
+      return false;
+    }
     await pinLocalUserIdentity(authentication.userId, {
       encapsulationPublicKey: encapsulationKeyPair.publicKey,
       signingKeyFingerprint: fingerprint,

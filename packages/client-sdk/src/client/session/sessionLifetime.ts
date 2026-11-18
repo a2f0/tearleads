@@ -1,9 +1,12 @@
 import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { createScopedExecSql, type ExecSql } from "../../data/sqlite/sqlExec";
+import { SessionAuthentication } from "./authenticationMachine";
 import type { SessionSnapshot } from "./sessionTypes";
 
 class SessionLifetime {
   epoch = 0;
+  readonly authentication = new SessionAuthentication();
+  private hasSignedIn = false;
   onBoundary?: () => void;
   lastRenewal: SessionSnapshot | null = null;
   private executors = new WeakMap<ExecSql, ExecSql>();
@@ -21,9 +24,16 @@ class SessionLifetime {
     return () => this.epoch === epoch;
   }
 
-  advance(): void {
+  transition(wasSignedIn: boolean, signedIn: boolean): boolean {
+    this.authentication.invalidate();
+    // The first sign-in adopts the device's unclaimed local work. A client
+    // that has already had a sign-in gives every replacement a fresh scope.
+    const retire = wasSignedIn || (signedIn && this.hasSignedIn);
+    if (signedIn) this.hasSignedIn = true;
+    if (!retire) return false;
     this.epoch += 1;
     this.executors = new WeakMap();
+    return true;
   }
 
   bind(execSql: ExecSql): ExecSql {

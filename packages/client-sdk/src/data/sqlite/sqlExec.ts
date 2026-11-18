@@ -252,14 +252,8 @@ function createSerializedSqlExec(execSql: ExecSql): ExecSql {
 
   const scope = scopedExecutors.get(execSql);
   const serializedExecSql = defineExecSql((sql, bind, options) => {
-    // The lock owner can always unwind its transaction after expiry. The
-    // outer commit still goes through the guard if a savepoint is released.
-    if (
-      scope &&
-      /^(?:rollback(?: to savepoint runtime_transaction_sp_\d+)?|release savepoint runtime_transaction_sp_\d+)$/i.test(
-        sql.trim(),
-      )
-    )
+    // Drizzle rolls back the outer transaction on its locked handle.
+    if (scope && sql.trim().toUpperCase() === "ROLLBACK")
       return scope.connection(sql, bind, options);
     return execSql(sql, bind, options);
   });
@@ -269,6 +263,19 @@ function createSerializedSqlExec(execSql: ExecSql): ExecSql {
     resolveCanonicalExecSql(execSql),
   );
   return serializedExecSql;
+}
+
+/** Unwind an open savepoint even after its owning sign-in expired. Only
+ * release it after rollback succeeded: a standalone RELEASE would commit. */
+export async function rollbackSqlSavepoint(
+  locked: ExecSql,
+  name: "local_schema_migration" | `runtime_transaction_sp_${number}`,
+): Promise<void> {
+  if (!isSerializedSqlExec(locked))
+    throw new Error("Savepoint requires the mutation lock");
+  const connection = connectionOf(locked);
+  await connection(`ROLLBACK TO SAVEPOINT ${name}`);
+  await connection(`RELEASE SAVEPOINT ${name}`);
 }
 
 // SQLite transactions are scoped to the shared connection, so we must hold a

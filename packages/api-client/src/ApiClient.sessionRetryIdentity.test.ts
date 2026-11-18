@@ -119,3 +119,39 @@ testApiClient(
     expect(calls).toEqual(["Bearer identity-a"]);
   },
 );
+
+for (const route of ["health", "sessions"] as const) {
+  testApiClient(
+    `a buffered ${route} reply finishing after a new sign-in is discarded`,
+    async () => {
+      const client = new ApiClient(apiBaseUrl);
+      client.setAuthToken("first");
+      const reading = Promise.withResolvers<void>();
+      const finish = Promise.withResolvers<void>();
+      const originalFetch = globalThis.fetch;
+      const payload = route === "health" ? { message: "ok" } : { sessions: [] };
+      class BufferedResponse extends Response {
+        override async json() {
+          reading.resolve();
+          await finish.promise;
+          return payload;
+        }
+      }
+      globalThis.fetch = Object.assign(
+        async () => new BufferedResponse(null, { status: 200 }),
+        originalFetch,
+      );
+      try {
+        const pending =
+          route === "health" ? client.getHealth() : client.listSessions();
+        await reading.promise;
+        client.setAuthToken("second", { newSession: true });
+        finish.resolve();
+        await expect(pending).resolves.toBeNull();
+      } finally {
+        finish.resolve();
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
+}

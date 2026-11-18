@@ -183,6 +183,7 @@ async function readResponse(
       ? deadline.options
       : { ...deadline.options, reportErrors: false };
   try {
+    const session = runtime.responseRequest.sessionSignal?.();
     const response = await runtime.responseRequest(
       input.path,
       input.method,
@@ -209,6 +210,7 @@ async function readResponse(
       response.data,
       input.path,
       options,
+      session,
     );
     if (context.cancelled() || deadline.expired())
       return interruptedFailure(context, deadline, response.data);

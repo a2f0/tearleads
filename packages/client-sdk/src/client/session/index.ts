@@ -440,19 +440,24 @@ class SessionService implements Session {
     const lifetime = sessionLifetime(this);
     const boundary =
       kind === "boundary" || previous.isAuthenticated !== next.isAuthenticated;
-    if (boundary) lifetime.advance();
+    const retired =
+      boundary &&
+      lifetime.transition(
+        previous.isAuthenticated || previous.authToken !== null,
+        next.isAuthenticated,
+      );
     if (boundary || previous.authToken !== next.authToken) {
       this.dependencies.api.setAuthToken(next.authToken, {
         newSession: boundary,
       });
     }
     lifetime.lastRenewal = kind === "renewal" ? next : null;
-    if (!boundary && sessionSnapshotsEqual(previous, next)) {
+    if (!retired && sessionSnapshotsEqual(previous, next)) {
       return;
     }
 
     this.snapshotValue = next;
-    if (boundary) lifetime.onBoundary?.();
+    if (retired) lifetime.onBoundary?.();
     this.listeners.notify();
   }
 }

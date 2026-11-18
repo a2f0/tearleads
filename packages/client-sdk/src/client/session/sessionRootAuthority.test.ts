@@ -320,3 +320,46 @@ test("a refused login never logs out a newer login that completed during its rep
   expect(session.isAuthenticated).toBe(true);
   expect(session.authToken).toBe("token-0");
 });
+
+test("a pending older login cannot clear a newer sign-in attempt", async () => {
+  const started = Promise.withResolvers<void>();
+  const freshStarted = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const freshRelease = Promise.withResolvers<void>();
+  let calls = 0;
+  const harness = createSessionHarness({
+    api: createApi({
+      authenticate: async () => {
+        if (++calls === 1) {
+          started.resolve();
+          await release.promise;
+          return null;
+        }
+        freshStarted.resolve();
+        await freshRelease.promise;
+        return {
+          ...personalRoot,
+          authenticated: true,
+          wsTicket: "ticket",
+          isRoot: false,
+          token: "fresh",
+        };
+      },
+    }),
+  });
+  await setGeneratedIdentity(harness.identity);
+  try {
+    const old = harness.session.login();
+    await started.promise;
+    const fresh = harness.session.login();
+    await freshStarted.promise;
+    release.resolve();
+    await expect(old).resolves.toBe(false);
+    freshRelease.resolve();
+    await expect(fresh).resolves.toBe(true);
+    expect(harness.session.authToken).toBe("fresh");
+  } finally {
+    release.resolve();
+    freshRelease.resolve();
+  }
+});

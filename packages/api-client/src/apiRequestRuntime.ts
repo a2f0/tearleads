@@ -13,18 +13,17 @@ import {
   bindPrototypeMethods,
   describeErrorResponse,
   type ErrorResponseDescription,
-  errorMessage,
-  hasHeader,
   isSuccessfulResponse,
   normalizeApiBaseUrl,
   requestFailureKey,
 } from "./requestInternals";
-import { responseBodyFailure } from "./responseBodyFailure";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import {
   SessionRenewalTracker,
   sessionAuthChallengeBytes,
 } from "./sessionRenewal";
+import { sessionRequestInit } from "./sessionRequestInit";
+import { readSessionJson, retiredRequest } from "./sessionResponse";
 import type {
   HttpMethod,
   OperationRequestFn,
@@ -69,6 +68,7 @@ export class ApiRequestRuntime {
     this.requestResult = this.makeRequestResult;
     this.responseRequest = Object.assign(this.makeResponseRequest, {
       reportFailure: this.reportResponseRequestFailure,
+      sessionSignal: () => this.sessionRenewals.signal,
     });
   }
 
@@ -118,6 +118,7 @@ export class ApiRequestRuntime {
 
   setAuthToken(token: string | null, newSession = false): boolean {
     const changed = newSession || this.authToken !== token;
+    if (newSession) this.requestFailuresByKey.clear();
     if (changed) this.sessionRenewals.tokenChanged(newSession);
     this.authToken = token;
     return changed;
@@ -129,20 +130,6 @@ export class ApiRequestRuntime {
 
   getRequestFailure(input: { method: HttpMethod; path: string }) {
     return this.requestFailuresByKey.get(requestFailureKey(input)) ?? null;
-  }
-
-  private buildHeaders(
-    body: RequestBody | undefined,
-    headers: Record<string, string> | undefined,
-    authToken: string | null,
-  ): Record<string, string> {
-    return {
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-      ...(typeof body === "string" && !hasHeader(headers, "Content-Type")
-        ? { "Content-Type": "application/json" }
-        : {}),
-      ...headers,
-    };
   }
 
   private async makeRequest<T>(
@@ -217,6 +204,7 @@ export class ApiRequestRuntime {
     options: RequestResultOptions | undefined,
     failureOperation: Parameters<OperationRequestFn>[5],
   ): Promise<RequestResult<T>> {
+    const session = this.sessionRenewals.signal;
     const responseResult = await this.makeResponseRequest(
       path,
       method,
@@ -231,28 +219,17 @@ export class ApiRequestRuntime {
 
     const response = responseResult.data;
     const reportErrors = options?.reportErrors ?? true;
-    let data: unknown;
-    try {
-      data = await response.json();
-    } catch (error) {
-      const failure = responseBodyFailure(
-        error,
-        errorMessage(error),
-        options?.signal?.aborted === true,
-      );
-      if (failure.kind === "network") this.onNetworkError?.();
-      return this.requestFailure({
-        ...failure,
-        message: `${method} ${path}: ${failure.message}`,
-        method,
-        path,
-        reportErrors: failure.kind !== "cancelled" && reportErrors,
-        stalePrincipalHeads: undefined,
-        status: response.status,
-        statusText: response.statusText,
-      });
-    }
-
+    const decoded = await readSessionJson(
+      this.responseRequest,
+      response,
+      method,
+      path,
+      options ?? {},
+      session,
+    );
+    if (session.aborted) return retiredRequest(method, path);
+    if (!decoded.ok) return decoded;
+    const data = decoded.data;
     if (!validator(data)) {
       return this.requestFailure({
         kind: "shape",
@@ -277,28 +254,45 @@ export class ApiRequestRuntime {
     additionalSuccessStatuses: readonly number[],
     failureOperation: Parameters<OperationResponseRequestFn>[5],
     authToken = this.authToken,
+    attempt = 1,
   ): Promise<RequestResult<Response>> {
+    const session = this.sessionRenewals.signal;
+    const callerOptions = options;
     options = this.sessionRenewals.withSessionSignal(options);
-    const responseResult = await this.fetchResponseRequest(
+    const result = await this.fetchResponseRequest(
       path,
       method,
       body,
       options,
       authToken,
       failureOperation,
+      attempt,
     );
-    if (!responseResult.ok) return responseResult;
-    const response = responseResult.data;
+    if (session.aborted) return retiredRequest(method, path);
+    if (!result.ok) return result;
+    const response = result.data;
     if (isSuccessfulResponse(response, additionalSuccessStatuses)) {
       this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
-      return { data: response, ok: true };
+      return result;
     }
-
     const errorDescription = await describeErrorResponse(
       response,
       failureOperation,
       options.expectedPaymentRequiredOrganizationId,
     );
+    if (session.aborted) return retiredRequest(method, path);
+    const failure = {
+      errorDescription,
+      failureOperation,
+      method,
+      options,
+      path,
+      response,
+    };
+    if (attempt === 2) return this.httpFailure(failure);
+
+    // The renewal itself may reject and sign out. Only caller cancellation
+    // ends that wait early, so a signed-out refusal keeps its typed error.
     const shouldRetry = await shouldRetryAfterSessionExpired({
       authToken,
       body,
@@ -307,64 +301,32 @@ export class ApiRequestRuntime {
       isKnownSessionRenewal: (from, to) =>
         this.sessionRenewals.isKnown(from, to),
       pendingSessionRenewal: (from) => this.sessionRenewals.pending(from),
-      options,
+      options: callerOptions,
       refreshSession: () => this.sessionRenewals.renew(this.onSessionExpired),
       reportError: (message) => this.onError?.(message),
       responseStatus: response.status,
     });
-    const retryAuthToken = this.sessionRenewals.currentToken(authToken);
-    // Recheck after the awaited helper and the host's renewal notification.
-    if (shouldRetry && retryAuthToken) {
-      if (options.retryOnSessionExpired === "renew-only")
-        return this.httpFailure({
-          errorDescription,
-          failureOperation,
-          method,
-          options: {
-            ...options,
-            reportErrors: method === "GET" ? false : options.reportErrors,
-          },
-          path,
-          response,
-        });
-      const retryResult = await this.fetchResponseRequest(
-        path,
-        method,
-        body,
-        options,
-        retryAuthToken,
-        failureOperation,
-        2,
-      );
-      if (!retryResult.ok) return retryResult;
-      const retryResponse = retryResult.data;
-      if (isSuccessfulResponse(retryResponse, additionalSuccessStatuses)) {
-        this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
-        return { data: retryResponse, ok: true };
-      }
-
+    if (session.aborted) return retiredRequest(method, path);
+    const retryToken = this.sessionRenewals.currentToken(authToken);
+    if (!shouldRetry || !retryToken) return this.httpFailure(failure);
+    if (options.retryOnSessionExpired === "renew-only")
       return this.httpFailure({
-        errorDescription: await describeErrorResponse(
-          retryResponse,
-          failureOperation,
-          options.expectedPaymentRequiredOrganizationId,
-        ),
-        failureOperation,
-        method,
-        options,
-        path,
-        response: retryResponse,
+        ...failure,
+        options: {
+          ...options,
+          reportErrors: method === "GET" ? false : options.reportErrors,
+        },
       });
-    }
-
-    return this.httpFailure({
-      errorDescription,
-      failureOperation,
-      method,
-      options,
+    return this.makeResponseRequest(
       path,
-      response,
-    });
+      method,
+      body,
+      callerOptions,
+      additionalSuccessStatuses,
+      failureOperation,
+      retryToken,
+      2,
+    );
   }
 
   private async fetchResponseRequest(
@@ -377,19 +339,14 @@ export class ApiRequestRuntime {
     /** 2 is the retry after a session renewal. */
     attempt = 1,
   ): Promise<RequestResult<Response>> {
+    const session = this.sessionRenewals.signal;
     const reportErrors = options.reportErrors ?? true;
-    const headers = this.buildHeaders(body, options.headers, authToken);
-    const init: RequestInit & { duplex?: "half" } = {
+    const { headers, init } = sessionRequestInit(
       method,
-      headers,
-      ...(options.signal ? { signal: options.signal } : {}),
-    };
-    if (body !== undefined) {
-      init.body = body;
-      if (body instanceof ReadableStream) {
-        init.duplex = "half";
-      }
-    }
+      body,
+      options,
+      authToken,
+    );
 
     let response: Response;
     const startedAt = Date.now();
@@ -401,6 +358,7 @@ export class ApiRequestRuntime {
         options.signal,
       );
     } catch (error) {
+      if (session.aborted) return retiredRequest(method, path);
       const { cancelled, networkError } = await settleNetworkFailure({
         attempt,
         baseUrl: this.baseUrl,
@@ -415,6 +373,7 @@ export class ApiRequestRuntime {
         signal: options.signal,
         onNetworkFailure: (failure) => this.onNetworkFailure?.(failure),
       });
+      if (session.aborted) return retiredRequest(method, path);
       return this.requestFailure({
         ...(cancelled ? { code: "request_aborted" } : {}),
         kind: cancelled ? "cancelled" : "network",
@@ -429,6 +388,7 @@ export class ApiRequestRuntime {
       });
     }
 
+    if (session.aborted) return retiredRequest(method, path);
     this.onNetworkSuccess?.();
     const apiVersion = parseApiVersion(
       response.headers.get(apiVersionHeaderName),

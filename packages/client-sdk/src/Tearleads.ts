@@ -87,7 +87,7 @@ export class Tearleads {
   private retirePrincipalHistoryProtection = () => {};
   // Tracks the storage/identity pair that owns domain-scoped runtime state.
   private domainScopeKey: string | null = null;
-  // Recreated when the storage database or signing identity changes.
+  // Recreated when the storage database, signing identity, or sign-in changes.
   private domainScopeValue: DomainScope = createDomainScope();
   private readonly logErrorHandler: (
     message: string | Error,
