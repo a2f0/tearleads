@@ -115,7 +115,9 @@ test("tablet form column stops at the measure", async ({ page }) => {
   expect(geometry.panelWidth).toBeCloseTo(geometry.width, 0);
 });
 
-test("passport preview stays card-sized in a wide pane", async ({ page }) => {
+test("passport preview stays card-sized and drops its frame after upload", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/app/explorer");
 
@@ -158,6 +160,31 @@ test("passport preview stays card-sized in a wide pane", async ({ page }) => {
   expect(previewBox).not.toBeNull();
   expect(previewBox?.width).toBeCloseTo(320, 0);
   expect(previewBox?.height).toBeCloseTo(320 / 1.58, 0);
+  await expect(attachmentSlots.getByText("No image selected")).toHaveCSS(
+    "border-top-style",
+    "dashed",
+  );
+  await attachmentSlots
+    .getByLabel("Passport Image", { exact: true })
+    .setInputFiles({
+      buffer: Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="6"><rect width="8" height="6"/></svg>',
+      ),
+      mimeType: "image/svg+xml",
+      name: "sample.svg",
+    });
+  const openImage = attachmentSlots.getByRole("button", {
+    name: "Open Passport Image",
+  });
+  await expect(openImage.locator("img")).toBeVisible();
+  await expect(openImage).toHaveCSS("border-top-width", "0px");
+  await openImage.hover();
+  await expect(openImage).toHaveCSS("border-top-width", "0px");
+  await expect(openImage).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(openImage).toHaveCSS("background-image", "none");
+  await page.keyboard.press("Tab");
+  await openImage.focus();
+  await expect(openImage).toHaveCSS("outline-style", "solid");
 });
 
 /*
