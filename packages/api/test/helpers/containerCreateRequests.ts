@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 import type {
   AccessEvent,
   ContainerAccessEventBody,
+  ContainerAccessManifestState,
   DocumentLinkAccessEventBody,
   DocumentLinkSetManifestState,
   KeyingCanonicalJson,
@@ -13,6 +14,7 @@ import {
   computeAccessEventHash,
   computeAccessManifestHash,
   computeDocumentContentKeyTargetHash,
+  deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
   signAccessEvent,
   verifySignedAccessEvent,
@@ -166,7 +168,6 @@ export async function buildCreateRequest(input: {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
-    manifest: bundle.manifest,
     parentContainerPathRefs: containerManifestRefs(parentContainerPath),
     principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
@@ -195,30 +196,36 @@ export async function buildMetadataDocumentCreateRequest(input: {
   const containerEventHash = await computeAccessEventHash(
     input.containerRequest.event as unknown as AccessEvent,
   );
+  const childState = {
+    containerKeyPublicKey: containerBody.containerKeyPublicKey,
+    systemSlot: null,
+    version: 1,
+    containerId: input.containerId,
+    organizationId: parentState.organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash: containerEventHash,
+    parentContainerId: containerBody.parentContainerId,
+    parentManifestHash: containerBody.parentManifestHash,
+    metadataDocumentId: containerBody.metadataDocumentId,
+    containerKeyEpochId: containerBody.containerKeyEpochId,
+    directGrants: [],
+    referencedPrincipalHeads: [],
+  };
+  // The request carries the hash; the manifest is derived from the state.
   const childBundle: AccessManifestBundleWire = {
     event: {
       event: input.containerRequest.event,
       body: input.containerRequest.body,
       eventHash: containerEventHash,
     },
-    manifest: input.containerRequest.manifest,
-    manifestHash: input.containerRequest.expectedManifestHash,
-    state: {
-      containerKeyPublicKey: containerBody.containerKeyPublicKey,
-      systemSlot: null,
-      version: 1,
-      containerId: input.containerId,
-      organizationId: parentState.organizationId,
-      epoch: 1,
-      previousManifestHash: null,
-      eventHash: containerEventHash,
-      parentContainerId: containerBody.parentContainerId,
-      parentManifestHash: containerBody.parentManifestHash,
-      metadataDocumentId: containerBody.metadataDocumentId,
-      containerKeyEpochId: containerBody.containerKeyEpochId,
-      directGrants: [],
-      referencedPrincipalHeads: [],
+    manifest: {
+      ...(await deriveContainerAccessManifest(
+        childState as ContainerAccessManifestState,
+      )),
     },
+    manifestHash: input.containerRequest.expectedManifestHash,
+    state: childState,
   };
   const target = {
     containerId: input.containerId,

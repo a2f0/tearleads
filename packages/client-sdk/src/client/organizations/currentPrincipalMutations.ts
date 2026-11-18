@@ -116,6 +116,8 @@ export function createCurrentPrincipalMutation(
         const response = await commitCurrentGroupPolicyMutation({
           ...input,
           apiClient: input.runtime.apiClient,
+          currentUserSecretKey:
+            input.runtime.crypto.encapsulationKeyPair?.secretKey ?? null,
           groupId,
           ...primary,
           member,

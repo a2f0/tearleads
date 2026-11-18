@@ -2,6 +2,7 @@ import {
   encodeVersionVector,
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
+import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import {
   createDocumentWriterPublicKeyResolver,
   type DocumentRecord,
@@ -228,7 +229,8 @@ function runRemoteDocumentSync(
       operation: input.policyOperation,
     }),
     writerProjection:
-      state.writerProjection?.documentId === currentRecord.documentId
+      state.writerProjection?.documentId === currentRecord.documentId &&
+      !isRejectedDecodedProjection(state.writerProjection)
         ? state.writerProjection
         : undefined,
   });

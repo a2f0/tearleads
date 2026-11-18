@@ -45,6 +45,7 @@ function createDocumentKekTargetsResponse(overrides = {}) {
 
 function createDocumentMutationAcknowledgement(overrides = {}) {
   return {
+    bundleDigest: "b".repeat(64),
     id: "550e8400-e29b-41d4-a716-446655440001",
     contentKeyEpoch: 1,
     eventHash: "document-event-hash",
@@ -95,6 +96,7 @@ function createContainerKekResponse(overrides = {}) {
 
 function createContainerMutationResponse(overrides = {}) {
   return {
+    bundleDigest: "b".repeat(64),
     containerId: "550e8400-e29b-41d4-a716-446655440000",
     createdAt: new Date().toISOString(),
     organizationId: "550e8400-e29b-41d4-a716-446655440099",

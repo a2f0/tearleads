@@ -4,7 +4,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import type { ServedAccessManifestBundleWireResponse } from "@tearleads/validators/util";
 import { asc } from "drizzle-orm";
 import { principalPolicyCheckpoints } from "../../sqlite/schema";
 import {
@@ -60,7 +60,7 @@ function bundle(objectId: string): VerifiedManifestBundle {
   return {
     bundle: {
       manifestHash: head.manifestHash,
-    } as unknown as AccessManifestBundleWireResponse,
+    } as unknown as ServedAccessManifestBundleWireResponse,
     checkpoint: head.checkpoint,
   };
 }

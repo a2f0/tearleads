@@ -41,8 +41,11 @@ export async function currentPolicyPublicationFixture(
     );
     const organizationRequest =
       await buildOrganizationGroupDirectoryPolicyRequest({
+        currentUserSecretKey: null,
         adminProjection: history.admin.currentProjection,
         adminUsers: [identity],
+        // Without the signer's key the successor rotates, so the
+        // publication also retires the predecessor's key.
         currentPolicy: history.directory,
         descriptor,
         groupHeads: replaceOrganizationGroupHead({

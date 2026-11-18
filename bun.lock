@@ -27,7 +27,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.162",
+      "version": "0.1.167",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1161.0",
         "@aws-sdk/s3-request-presigner": "3.1161.0",
@@ -67,7 +67,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.61",
+      "version": "0.1.64",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.225",
+      "version": "0.1.229",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -189,7 +189,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.60",
+      "version": "0.1.61",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -235,7 +235,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.242",
+      "version": "0.1.246",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -252,7 +252,7 @@
     },
     "packages/crypto": {
       "name": "@tearleads/crypto",
-      "version": "0.1.36",
+      "version": "0.1.39",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@noble/post-quantum": "0.7.1",
@@ -285,7 +285,7 @@
     },
     "packages/loro": {
       "name": "@tearleads/loro",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "dependencies": {
         "@tearleads/encoding": "workspace:*",
         "drizzle-orm": "0.45.4",
@@ -327,7 +327,7 @@
     },
     "packages/test-utils": {
       "name": "@tearleads/test-utils",
-      "version": "0.1.11",
+      "version": "0.1.13",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -351,7 +351,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.69",
+      "version": "0.1.72",
       "dependencies": {
         "zod": "catalog:",
       },

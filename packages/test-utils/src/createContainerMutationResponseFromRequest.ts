@@ -7,9 +7,11 @@ import {
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
   computeAccessEventHash,
+  computeAccessManifestBundleDigest,
   computeContainerKekKeyringHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
+  deriveContainerAccessManifest,
 } from "@tearleads/crypto";
 import type {
   ContainerManifestRef,
@@ -21,6 +23,7 @@ import type {
   ContainerReciteResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
 
@@ -296,7 +299,12 @@ export async function createContainerMutationResponseFromRequest(
       body: request.body as Record<string, unknown>,
       eventHash,
     },
-    manifest: request.manifest,
+    // The request carries only the hash; the server derives the manifest.
+    manifest: {
+      ...(await deriveContainerAccessManifest(
+        state as unknown as ContainerAccessManifestState,
+      )),
+    },
     manifestHash: request.expectedManifestHash,
     state: state as unknown as Record<string, unknown>,
   };
@@ -306,9 +314,14 @@ export async function createContainerMutationResponseFromRequest(
   const keyEpochHash = await computeContainerKeyEpochHash(keyEpoch);
   const keyTargetHash =
     await computeContainerKekRecipientTargetHash(recipientTargets);
+  const bundleDigest = await computeAccessManifestBundleDigest(
+    toServedAccessManifestBundle(accessManifest),
+  );
+  if (bundleDigest === null) throw new Error("Fixture bundle is not canonical");
   return {
     // The server echoes the stored slot column exactly when it is non-null.
     ...(state.systemSlot === null ? {} : { systemSlot: state.systemSlot }),
+    bundleDigest,
     containerId: event.objectId,
     createdAt: "2026-05-05T00:00:00.000Z",
     eventHash,

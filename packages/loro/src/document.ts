@@ -217,6 +217,27 @@ export function mergeVersionVectors(
   return encodeEncodedVersionVector(VersionVector.parseJSON(merged));
 }
 
+/**
+ * Encode per-peer counters, such as a server aggregates from stored update
+ * spans, in the same form as `encodeVersionVector`.
+ */
+export function encodeVersionVectorCounters(
+  counters: Readonly<Record<string, number>>,
+): string {
+  const entries = new Map<`${number}`, number>();
+  for (const [peerId, counter] of Object.entries(counters)) {
+    if (!isNumericPeerId(peerId)) {
+      throw new Error("Version vector peer id must be numeric.");
+    }
+    entries.set(peerId, counter);
+  }
+  return encodeEncodedVersionVector(VersionVector.parseJSON(entries));
+}
+
+function isNumericPeerId(value: string): value is `${number}` {
+  return /^\d+$/u.test(value);
+}
+
 export function listVersionVectorSpans(input: {
   partialStartVersionVector: string;
   partialEndVersionVector: string;

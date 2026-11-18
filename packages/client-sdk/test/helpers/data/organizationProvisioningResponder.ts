@@ -93,6 +93,7 @@ export async function respondToOrganizationProvisioning(
         : null,
     userId: request.userId,
     organizationId: request.organizationId,
+    rootBundleDigest: "b".repeat(64),
     rootContainerId: request.rootContainerId,
     rootMetadataDocumentId: rootMetadataDocument.id,
     rootMetadataAccessEpoch: 1,

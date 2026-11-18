@@ -9,8 +9,12 @@ import {
   type ContainerWriterProjectionWireResponse,
   containerKekWireLevel,
   encodeContainerWriterProjection,
+  rejectDecodedProjection,
 } from "@tearleads/validators/response";
-import { parseKnownManifestHints } from "@tearleads/validators/util";
+import {
+  parseKnownManifestHints,
+  toServedAccessManifestBundle,
+} from "@tearleads/validators/util";
 import { HttpResponse, http } from "msw";
 import { createContainerWriterProjectionResponse } from "../test/helpers/apiClientTestFactories";
 import {
@@ -39,7 +43,12 @@ function projection(): ContainerWriterProjectionResponse {
       {
         ...kek,
         containerManifestHistory: [
-          { ...leaf, manifestHash: GENESIS, state: { epoch: 0 } },
+          {
+            ...leaf,
+            manifest: { ...leaf.manifest, epoch: 0 },
+            manifestHash: GENESIS,
+            state: { ...leaf.state, epoch: 0 },
+          },
         ],
       },
     ],
@@ -52,7 +61,11 @@ function held(...hashes: string[]): VerifiedManifestCitations {
       projection().path[0],
       projection().containerKeks[0]?.containerManifestHistory[0],
     ].flatMap((bundle) =>
-      bundle ? [[bundle.manifestHash, bundle] as const] : [],
+      // The device holds bundles as served: their state leaves off what the
+      // signed bytes name, which a refill restores.
+      bundle
+        ? [[bundle.manifestHash, toServedAccessManifestBundle(bundle)] as const]
+        : [],
     ),
   );
   return {
@@ -366,5 +379,31 @@ testApiClient(
       await client.getContainerWriterProjection(projection().containerId),
     ).toEqual(projection());
     expect(hints).toEqual([null]);
+  },
+);
+
+testApiClient(
+  "a projection a verifier refused is read again instead of served from cache",
+  async () => {
+    const hints = serve((known) => known);
+    const client = new ApiClient(apiBaseUrl);
+    client.setVerifiedManifestCitations(held(LEAF));
+    const first = await client.getContainerWriterProjection(
+      projection().containerId,
+    );
+    if (!first) throw new Error("projection did not load");
+    // Cached: the same read is answered without a request.
+    expect(
+      await client.getContainerWriterProjection(projection().containerId),
+    ).toBe(first);
+    expect(hints).toEqual([`m:${LEAF}`]);
+    // The verifier refused it after it took held bundles; the store dropped
+    // the cited rows, so the next read cites nothing and fetches them.
+    rejectDecodedProjection(first);
+    client.setVerifiedManifestCitations(held());
+    expect(
+      await client.getContainerWriterProjection(projection().containerId),
+    ).toEqual(projection());
+    expect(hints).toEqual([`m:${LEAF}`, null]);
   },
 );

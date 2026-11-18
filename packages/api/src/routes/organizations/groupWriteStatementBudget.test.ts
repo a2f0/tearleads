@@ -12,6 +12,7 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import { createGroupRequest } from "../../../test/helpers/organizationGroup";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
+  buildOrganizationGroupPolicyCommitRequest,
   getDefaultOrganizationId,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
@@ -105,7 +106,9 @@ async function signGroupSuccessor(actor: TestUser, groupId: string) {
 // reusing roster sync's Members reachability for seats and publishing the
 // history progress rows in one upsert: 86 and 105. PostgreSQL keeps its two /
 // four transaction-control allowances; admission reads remain at every
-// original guard.
+// original guard. Counting the route alone, a commit whose organization
+// directory keeps its key measures the same as one that rotates it (96 on
+// PGlite), and sends the same bytes.
 test("group create and group policy commit stay within their statement budgets", async () => {
   const actor = createTestUser();
   await registerUser(actor);
@@ -132,12 +135,43 @@ test("group create and group policy commit stay within their statement budgets",
     }),
   );
 
+  // Route execution alone, each request built first: a commit whose
+  // organization directory keeps its key against one that rotates it.
+  const routeStatements = async (keepKeyWith?: Uint8Array) => {
+    const body = await buildOrganizationGroupPolicyCommitRequest({
+      actor,
+      groupPolicy: await signGroupSuccessor(actor, groupId),
+      keepKeyWith,
+      organizationId,
+    });
+    return countStatements(async () =>
+      routeApp.request(
+        `/organizations/${organizationId}/groups/${groupId}/policy-commit`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${actor.token}`,
+          },
+          body: JSON.stringify(body),
+        },
+      ),
+    );
+  };
+  const rotatedRoute = await routeStatements();
+  const keptRoute = await routeStatements(actor.kem.secretKey);
+
   expect(create).toBeLessThanOrEqual(
     86 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
   expect(commit).toBeLessThanOrEqual(
     105 + (getDefaultApiDatabaseKind() === "postgres" ? 4 : 0),
   );
+  for (const statements of [rotatedRoute, keptRoute])
+    expect(statements).toBeLessThanOrEqual(
+      96 + (getDefaultApiDatabaseKind() === "postgres" ? 4 : 0),
+    );
+  expect(keptRoute).toBeLessThanOrEqual(rotatedRoute);
 });
 
 // An Admins-governed create cites the current Admins head as its external

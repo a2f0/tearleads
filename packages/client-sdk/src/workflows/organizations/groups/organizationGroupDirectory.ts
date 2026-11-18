@@ -1,4 +1,5 @@
 import type {
+  EncapsulationKeyPair,
   ReferencedPrincipalHead,
   SigningKeyPair,
 } from "@tearleads/crypto";
@@ -58,6 +59,8 @@ export async function commitCreatedGroupToDirectory(input: {
   readonly name: string;
   readonly readEncryptedName?: GroupPolicyNameReader;
   readonly apiClient: OrganizationPrincipalPolicyApi;
+  /** The creator's KEM key; its envelope must open the kept directory key. */
+  readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
   readonly execSql: ExecSql;
   readonly externalAdminPolicy: NonNullable<
     Awaited<ReturnType<typeof loadOrganizationExternalAdminPolicy>>
@@ -102,6 +105,7 @@ export async function commitCreatedGroupToDirectory(input: {
       adminProjection,
       adminUsers,
       currentPolicy: input.externalAdminPolicy.bundle,
+      currentUserSecretKey: input.creatorEncapsulationKeyPair.secretKey,
       descriptor: input.externalAdminPolicy.descriptor,
       groupHeads: [
         ...input.externalAdminPolicy.descriptor.groupHeads,

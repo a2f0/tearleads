@@ -5,10 +5,11 @@ import type {
 } from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../data/containers/shared/mutationAcknowledgement";
 import { assertDocumentCreateResponseMatchesPlan } from "../../data/documents/shared/responses";
+import { locallyAcknowledgedDocumentHead } from "../../data/documents/shared/sync/mutationAcknowledgement";
 import type { AuthoredDiscoveryHead } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import {
   type LocallyAcknowledgedAccessManifestHead,
-  locallyAuthoredAccessManifestHead,
+  locallyAcknowledgedAuthoredHead,
 } from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 
 type ContainerPlan = Parameters<
@@ -73,16 +74,48 @@ async function containerArtifactHeads(input: {
       plan: input.artifact.containerPlan,
       response: input.response.container,
     }),
-    locallyAuthoredAccessManifestHead(input.artifact.metadataDocumentPlan),
+    await locallyAcknowledgedDocumentHead(
+      input.artifact.metadataDocumentPlan,
+      input.response.metadataDocument.bundleDigest,
+    ),
   ];
 }
 
 function documentHead(input: {
   plan: DocumentPlan;
   response: DocumentCreateResponse;
-}): LocallyAcknowledgedAccessManifestHead {
+}): Promise<LocallyAcknowledgedAccessManifestHead> {
   assertDocumentCreateResponseMatchesPlan(input.plan, input.response);
-  return locallyAuthoredAccessManifestHead(input.plan);
+  return locallyAcknowledgedDocumentHead(
+    input.plan,
+    input.response.bundleDigest,
+  );
+}
+
+function assertProvisionedArtifactIds(
+  input: Parameters<typeof provisioningAcknowledgedAccessHeads>[0],
+): void {
+  const { response } = input;
+  assertId(
+    response.rosterProfileContainerId,
+    input.rosterProfile.containerPlan.containerId,
+    "roster profile container id",
+  );
+  assertId(
+    response.rosterProfileDocumentId,
+    input.rosterProfileDocumentPlan.documentId,
+    "roster profile document id",
+  );
+  assertId(
+    response.organizationMetadataContainerId,
+    input.organizationMetadata.containerPlan.containerId,
+    "organization metadata container id",
+  );
+  assertId(
+    response.organizationProfileDocumentId,
+    input.organizationProfileDocumentPlan.documentId,
+    "organization profile document id",
+  );
 }
 
 export async function provisioningAcknowledgedAccessHeads(input: {
@@ -119,26 +152,7 @@ export async function provisioningAcknowledgedAccessHeads(input: {
     response.organizationProfileDocument,
     "organization profile document",
   );
-  assertId(
-    response.rosterProfileContainerId,
-    input.rosterProfile.containerPlan.containerId,
-    "roster profile container id",
-  );
-  assertId(
-    response.rosterProfileDocumentId,
-    input.rosterProfileDocumentPlan.documentId,
-    "roster profile document id",
-  );
-  assertId(
-    response.organizationMetadataContainerId,
-    input.organizationMetadata.containerPlan.containerId,
-    "organization metadata container id",
-  );
-  assertId(
-    response.organizationProfileDocumentId,
-    input.organizationProfileDocumentPlan.documentId,
-    "organization profile document id",
-  );
+  assertProvisionedArtifactIds(input);
 
   const systemResponses = response.systemContainers;
   if (systemResponses.length !== input.systemContainers.length) {
@@ -147,13 +161,19 @@ export async function provisioningAcknowledgedAccessHeads(input: {
     );
   }
   const heads: LocallyAcknowledgedAccessManifestHead[] = [
-    locallyAuthoredAccessManifestHead(input.rootContainerPlan),
-    locallyAuthoredAccessManifestHead(input.rootMetadataDocumentPlan),
+    await locallyAcknowledgedAuthoredHead(
+      input.rootContainerPlan,
+      response.rootBundleDigest,
+    ),
+    await locallyAcknowledgedDocumentHead(
+      input.rootMetadataDocumentPlan,
+      response.rootMetadataDocument.bundleDigest,
+    ),
     ...(await containerArtifactHeads({
       artifact: input.rosterProfile,
       response: rosterContainer,
     })),
-    documentHead({
+    await documentHead({
       plan: input.rosterProfileDocumentPlan,
       response: rosterDocument,
     }),
@@ -161,7 +181,7 @@ export async function provisioningAcknowledgedAccessHeads(input: {
       artifact: input.organizationMetadata,
       response: organizationContainer,
     })),
-    documentHead({
+    await documentHead({
       plan: input.organizationProfileDocumentPlan,
       response: organizationDocument,
     }),

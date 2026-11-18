@@ -1,7 +1,9 @@
 import {
   type AccessEvent,
   computeAccessEventHash,
+  computeAccessManifestHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+  deriveDocumentLinkSetManifest,
   type WriteHeader,
 } from "@tearleads/crypto";
 import type {
@@ -37,10 +39,17 @@ export type DocumentCreateFixture = DocumentCreateResponse &
 export type DocumentLinkSetFixture = DocumentLinkSetMutationResponse &
   AcknowledgedDocumentMutation;
 
+/**
+ * Fixture acknowledgements name no real bundle digest, so their authored
+ * bundles are not cached; tests of that seeding compute the digest.
+ */
+const UNMATCHED_BUNDLE_DIGEST = "b".repeat(64);
+
 export function createResponse(
   plan: DocumentCreatePlan,
 ): DocumentCreateFixture {
   return {
+    bundleDigest: UNMATCHED_BUNDLE_DIGEST,
     id: plan.documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
     contentKeyEpoch: plan.request.contentKeyBundle.contentKeyEpoch,
@@ -94,6 +103,7 @@ export async function createResponseFromRequest(
   const targets = request.contentKeyBundle.targets.map(targetEnvelopeReference);
 
   return {
+    bundleDigest: UNMATCHED_BUNDLE_DIGEST,
     id: documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
     contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
@@ -145,7 +155,6 @@ export async function createLinkSetResponseFromRequest(
   request: DocumentLinkSetMutationRequest,
 ): Promise<DocumentLinkSetFixture> {
   const body = request.body as Record<string, unknown>;
-  const manifest = request.manifest as Record<string, unknown>;
   const event = request.event as unknown as AccessEvent;
   const eventHash = await computeAccessEventHash(event);
   // The server no longer receives the previous manifest bundle; the new
@@ -157,8 +166,18 @@ export async function createLinkSetResponseFromRequest(
     ),
   ].sort();
   const targets = request.contentKeyBundle.targets.map(targetEnvelopeReference);
+  // The request carries only the manifest hash, as the server receives it;
+  // the server derives the manifest, so this fixture does too.
+  const { manifest, state } = await derivedLinkSetManifest({
+    documentId,
+    event,
+    eventHash,
+    expectedManifestHash: request.expectedManifestHash,
+    linkedContainerIds,
+  });
 
   return {
+    bundleDigest: UNMATCHED_BUNDLE_DIGEST,
     id: documentId,
     contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
     eventHash,
@@ -172,17 +191,7 @@ export async function createLinkSetResponseFromRequest(
       },
       manifest,
       manifestHash: request.expectedManifestHash,
-      state: {
-        version: 1,
-        documentId,
-        organizationId: String(Reflect.get(manifest, "organizationId")),
-        epoch: Number(Reflect.get(manifest, "epoch")),
-        previousManifestHash: String(
-          Reflect.get(request.event, "previousManifestHash"),
-        ),
-        eventHash,
-        linkedContainerIds,
-      },
+      state,
     },
     contentKeyBundle: {
       documentId,
@@ -386,3 +395,34 @@ export async function createSyncResponse(
 }
 
 export { createSignedSyncResponseUpdate } from "./signedSyncResponseUpdate";
+
+/**
+ * The link-set manifest a request commits to by hash. The fixture does not
+ * track the document's epoch, so it takes the epoch whose derived manifest
+ * has the requested hash (the next head's epoch is small in every test).
+ */
+async function derivedLinkSetManifest(input: {
+  readonly documentId: string;
+  readonly event: AccessEvent;
+  readonly eventHash: string;
+  readonly expectedManifestHash: string;
+  readonly linkedContainerIds: readonly string[];
+}) {
+  const stateAt = (epoch: number) => ({
+    version: 1 as const,
+    documentId: input.documentId,
+    organizationId: input.event.organizationId,
+    epoch,
+    previousManifestHash: input.event.previousManifestHash,
+    eventHash: input.eventHash,
+    linkedContainerIds: [...input.linkedContainerIds],
+  });
+  for (let epoch = 1; epoch <= 64; epoch += 1) {
+    const manifest = await deriveDocumentLinkSetManifest(stateAt(epoch));
+    if (
+      (await computeAccessManifestHash(manifest)) === input.expectedManifestHash
+    )
+      return { manifest: { ...manifest }, state: stateAt(epoch) };
+  }
+  throw new Error("Link-set fixture: no epoch derives the requested hash");
+}

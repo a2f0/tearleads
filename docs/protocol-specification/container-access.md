@@ -41,7 +41,9 @@ initial metadata `DocumentCreateRequest`, and an optional
 Each signed mutation request carries:
 
 - signed event and event body
-- expected manifest hash and derived manifest state
+- the expected manifest hash, never the manifest: the API derives the manifest
+  from the event and the state it already stores, and refuses the request when
+  the derived manifest's hash differs
 - optional `previousManifestRef`, `previousContainerPathRefs`,
   `parentContainerPathRefs`, `destinationParentContainerPathRefs`, and
   `containerManifestHistoryRefs`: `{containerId, manifestHash}` citations of
@@ -108,13 +110,32 @@ once, in a `bundles` map keyed by manifest hash. Every manifest position cites
 that map by hash: the container `path`, each KEK's `containerManifestHistory`,
 and, for documents, every authorizing path, `documentManifest`,
 `documentManifestHistory`, `documentContainerManifestHistory`, and each
-`documentManifestContainerPaths` row. Bundles are the stored bytes, so no signed
-bytes change. A cited hash without a bundle, a bundle stored under a key other
-than its own `manifestHash`, or a bundle nothing cites is a response-shape
-failure. The client resolves every citation to its own copy of the bundle
-before any cache or verifier sees the projection, then verifies the result,
-recomputing each cited manifest's hash before any position that cites it is
-trusted.
+`documentManifestContainerPaths` row. A served bundle is the stored signed
+event, body and manifest with a reduced `state`: the derived fields the
+bundle's own signed bytes name are left off, namely the version, object id,
+organization, epoch, predecessor and event hash the hash-committed manifest
+carries, and for a container the key epoch and public key its signed body
+carries. Exactly those fields are omitted. The state keeps every other field:
+a container's parent pin, metadata document, system slot, direct grants and
+principal heads, and a document's linked containers. The parent pin appears
+only in a create or move body and the others only as hashes in the manifest,
+so filling them back would need the predecessor chain; the principal heads,
+which every container manifest names in full, are kept as served state for
+now. No signed bytes change. A
+cited hash without a bundle, a bundle stored under a key other than its own
+`manifestHash`, or a bundle nothing cites is a response-shape failure. The
+client resolves every citation to its own copy of the bundle before any cache
+or verifier sees the projection and fills each omitted field back from that
+bundle's manifest and body; a served copy of such a field never overrides the
+signed one. The verifier then derives the state from the recursively verified
+predecessor and requires the completed state to equal it, recomputes each cited
+manifest's hash before any position that cites it is trusted, resolves a
+container's parent path from the parent pin its signed bodies name rather than
+the served state, and selects cited ancestors by the manifest's object id.
+Document purge proofs carry the full stored state: a purge may verify the
+document head as a hash-only snapshot. Clients built before this served shape
+cannot decode it; it ships as a greenfield flag day with no compatibility path
+(#2903).
 
 A projection GET may send `x-known-manifests`: up to 48 unique typed digests of
 bytes the device durably holds verified. `m:<hash>` names a manifest bundle by
@@ -196,20 +217,29 @@ The response carries the identity the client signed (`containerId`,
 `updatedAt`, `eventHash`, `manifestHead`, and, except for a recitation,
 `containerKek` with `containerKeyEpochId`, `containerKeyEpoch`, `keyEpochHash`,
 `keyTargetHash`, `keyringHash` (null exactly at epoch 1), and
-`parentContainerKeyEpochId`. It never echoes the signed event, body, manifest,
+`parentContainerKeyEpochId`, plus `bundleDigest`, the citation digest of the
+bundle a writer projection would serve for the new head (a domain-separated
+SHA-256 of its canonical `event`, `manifest`, `manifestHash`, and served
+`state`). It never echoes the signed event, body, manifest,
 state, key epoch, wraps, keyring, recipient targets, or KEK history. The client
 compares each hash with the plan it signed and records state built from that
 plan; any mismatch refuses the acknowledgement. The manifest hash commits to
 the derived state, and `keyTargetHash` commits to every wrap recipient, so a
 wrap stored for anyone else cannot match. Later writer projections still verify
-what the server stored.
+what the server stored. When the client's own plan yields the same
+`bundleDigest`, the acknowledgement transaction also stores that bundle in the
+[verified-bundle cache](../projection-policy-evidence.md#cost-and-retained-history-tradeoff),
+so the author's next projection read cites its own head instead of
+downloading it back; a different digest only means the bundle travels.
 
 Document creates (including a with-metadata-document's metadata document and
 every provisioning document) and link-set mutations acknowledge the same way:
 `id`, the signed `eventHash`, the committed `manifestHash`, the stored
-`contentKeyEpoch`, the resolved KEK `targetHash`, and, for a create,
-`createdAt` and the seed's `initialSync`. The client records the manifest,
-content-key bundle, and KEK targets from its plan. A document sync likewise
+`contentKeyEpoch`, the resolved KEK `targetHash`, the head's
+`bundleDigest`, and, for a create, `createdAt` and the seed's `initialSync`.
+Organization provisioning adds `rootBundleDigest` for the root container. The
+client records the manifest, content-key bundle, and KEK targets from its plan,
+and caches each authored bundle whose digest matches. A document sync likewise
 returns no current content-key bundle or KEK targets: the client persists the
 bundle and targets its request named. An attachment bind returns the binding
 identity, `eventHash`, `contentKeyEpoch`, `writeHeaderHash`, and the hashes of

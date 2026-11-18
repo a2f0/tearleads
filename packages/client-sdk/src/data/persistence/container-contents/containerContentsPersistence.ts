@@ -27,6 +27,7 @@ import {
   settleQueuedDocumentUpdatesInTransaction,
 } from "../documents/records/documentPendingUpdatePersistence";
 import { getLatestTimestamp } from "../latestTimestamp";
+import { containerMetadataRevalidationPersistence } from "./containerMetadataRevalidations";
 import { loadContainerById } from "./containerPersistence";
 import {
   claimDormantMetadataSweepAttempt,
@@ -124,6 +125,7 @@ async function saveStoredContainer(
 
 export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   ...containerIntentPersistence,
+  ...containerMetadataRevalidationPersistence,
   ...containerMetadataPullContinuationPersistence,
   commitHydratedContainer: commitStoredHydratedContainer,
   commitMetadataMutation: commitStoredMetadataMutation,

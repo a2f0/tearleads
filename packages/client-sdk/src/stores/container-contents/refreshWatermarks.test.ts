@@ -81,3 +81,45 @@ test("reconnect preserves child watermarks while an explicit refresh resets them
     close();
   }
 });
+
+test("a store opened after the connection was acknowledged still re-lists its lanes", async () => {
+  const { execSql, close } = await createTestExecSql(
+    `refresh-watermarks-late-store-${crypto.randomUUID()}`,
+  );
+  const domainScope = createDomainScope();
+  const listedLanes: (string | null)[] = [];
+  const apiClient = createMockApiClient({
+    listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
+      listedLanes.push(parentId ?? null);
+      return emptyListContainersResponse();
+    }),
+  });
+  const base = createContainerContentsTestRuntime({
+    apiClient,
+    domainScope,
+    execSql,
+    online: true,
+    containerId: "root",
+  });
+  // The socket's interest was acknowledged before this store existed.
+  const runtime = {
+    ...base,
+    state: { ...base.state, serverEventsConnectionGeneration: 1 },
+  };
+  try {
+    await seedLocalRootContainer(execSql, { rootContainerId: "root" });
+    const watermarks = new ContainerSyncWatermarkRepository(execSql);
+    await watermarks.markChecked(createContainerParentSyncLane(null));
+    await watermarks.markChecked(createContainerParentSyncLane("root"));
+    const store = createContainerContentsStore(runtime);
+    store.updateRuntime(runtime);
+    await waitFor(
+      () => listedLanes.includes("root"),
+      "A late-opened store never re-listed its lanes",
+    );
+    await waitForDomainSyncCoordinatorToSettle(domainScope);
+  } finally {
+    disposeDomainSyncCoordinator(domainScope);
+    close();
+  }
+});

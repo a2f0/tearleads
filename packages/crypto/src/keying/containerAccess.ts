@@ -70,7 +70,7 @@ export async function verifyContainerAccessManifest({
     }
 
     const verifiedManifest = await verifyAccessManifest({
-      manifest,
+      manifest: manifest ?? derivedManifest,
       expectedManifestHash,
       event,
       expectedObject: {

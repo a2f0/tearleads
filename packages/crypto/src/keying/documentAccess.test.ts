@@ -117,6 +117,17 @@ test("verifyDocumentLinkSetManifest advances signed link and unlink heads", asyn
     authorizingContainerPaths: [[firstContainer]],
     targetContainerPath: [secondContainer],
   });
+  // A link request carries only the hash: the derived manifest verifies the
+  // same way.
+  expect(
+    await verifyDocumentLinkSetManifest({
+      expectedManifestHash: linkedManifest.manifestHash,
+      event: linkEvent,
+      previousManifest: initialResult.value,
+      authorizingContainerPaths: [[firstContainer]],
+      targetContainerPath: [secondContainer],
+    }),
+  ).toEqual(linkResult);
 
   expect(linkResult.ok).toBe(true);
   if (!linkResult.ok) {

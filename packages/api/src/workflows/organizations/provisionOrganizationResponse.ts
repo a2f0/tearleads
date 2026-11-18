@@ -14,6 +14,7 @@ export function toOrganizationProvisioningResponse(
   return {
     userId,
     organizationId: provisioned.organizationId,
+    rootBundleDigest: provisioned.rootBundleDigest,
     rootContainerId: provisioned.rootContainerId,
     rootMetadataDocumentId: provisioned.rootMetadataDocumentId,
     rootMetadataAccessEpoch: provisioned.rootMetadataAccessEpoch,

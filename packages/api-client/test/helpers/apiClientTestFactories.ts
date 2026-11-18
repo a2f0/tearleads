@@ -27,7 +27,6 @@ export function createContainerMutationRequest(): ContainerMutationRequest {
     event: { eventType: "container.create" },
     body: { eventType: "container.create" },
     expectedManifestHash: "manifest-hash",
-    manifest: { objectKind: "container" },
     keyEpoch: { containerKeyEpochId: "container-key-epoch-id" },
     predecessorBridge: null,
     keyring: null,
@@ -78,6 +77,7 @@ function createContainerKek(): ContainerWriterProjectionResponse["containerKeks"
 
 export function createContainerMutationResponse(): ContainerMutationResponse {
   return {
+    bundleDigest: "b".repeat(64),
     containerId: "container-1",
     createdAt: "2026-05-06T18:00:00.000Z",
     eventHash: "container-event-hash",
@@ -127,7 +127,6 @@ export function createDocumentLinkSetMutationRequest(): DocumentLinkSetMutationR
     event: { eventType: "document.link" },
     body: { eventType: "document.link" },
     expectedManifestHash: "document-manifest-hash",
-    manifest: { objectKind: "document" },
     targetContainerPathRefs: [
       { containerId: "container-1", manifestHash: "container-manifest-hash" },
     ],
@@ -204,6 +203,7 @@ export type DocumentLinkSetMutationFixture = DocumentLinkSetMutationResponse & {
 
 export function createDocumentLinkSetMutationResponse(): DocumentLinkSetMutationFixture {
   return {
+    bundleDigest: "b".repeat(64),
     id: "document-1",
     contentKeyEpoch: 1,
     eventHash: "document-event-hash",

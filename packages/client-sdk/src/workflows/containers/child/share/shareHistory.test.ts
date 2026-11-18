@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import {
   type AccessEvent,
-  type AccessManifest,
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
   type ContainerUserRecipientKey,
@@ -85,7 +84,6 @@ test("repeated shares submit every same-container manifest needed by retained wr
       const verifiedManifest = await verifyContainerAccessManifest({
         event: verifiedEvent.value,
         expectedManifestHash: request.expectedManifestHash,
-        manifest: request.manifest as unknown as AccessManifest,
         previousContainerPath: [currentManifest],
         previousManifest: currentManifest,
       });

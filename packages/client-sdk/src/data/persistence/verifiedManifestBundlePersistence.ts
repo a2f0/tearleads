@@ -4,8 +4,10 @@ import type {
   WriterProjectionTarget,
 } from "@tearleads/api-client";
 import { toFingerprint } from "@tearleads/crypto";
-import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import { KNOWN_MANIFEST_HINT_LIMIT } from "@tearleads/validators/util";
+import {
+  KNOWN_MANIFEST_HINT_LIMIT,
+  type ServedAccessManifestBundleWireResponse,
+} from "@tearleads/validators/util";
 import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { containerTables, localIntentTables } from "../sqlite/schema";
 import {
@@ -42,7 +44,8 @@ export const MAX_VERIFIED_MANIFEST_BUNDLES = 1024;
 const STATEMENT_BATCH = 200;
 
 interface VerifiedBundle {
-  readonly bundle: AccessManifestBundleWireResponse;
+  /** The served bytes; the decoded state is rebuilt from them on refill. */
+  readonly bundle: ServedAccessManifestBundleWireResponse;
   readonly checkpoint: {
     readonly objectKind: string;
     readonly organizationId: string;
@@ -257,6 +260,23 @@ export async function loadVerifiedManifestCitations(
 ): Promise<HeldProjectionCitation[]> {
   const limit = Math.min(KNOWN_MANIFEST_HINT_LIMIT, Math.floor(requestedLimit));
   if (!(limit > 0)) return [];
+  const loadGeneration = evictionGeneration;
+  citationLoadsInFlight += 1;
+  try {
+    return await loadCitableManifestCitations(execSql, target, limit).then(
+      (cited) => cited.filter((citation) => citable(citation, loadGeneration)),
+    );
+  } finally {
+    citationLoadsInFlight -= 1;
+    if (citationLoadsInFlight === 0) evictedInGeneration.clear();
+  }
+}
+
+async function loadCitableManifestCitations(
+  execSql: ExecSql,
+  target: WriterProjectionTarget,
+  limit: number,
+): Promise<HeldProjectionCitation[]> {
   await ensureSqlTables(execSql, [
     ...verifiedManifestBundleTables,
     ...containerTables,
@@ -276,16 +296,113 @@ export async function loadVerifiedManifestCitations(
     limit,
   );
   if (damaged.length > 0)
-    await getClientSQLitePersistenceRuntime(execSql)
-      .runMutation(async (handle) => {
-        for (const batch of batches([...new Set(damaged)]))
-          await handle
-            .delete(bundles)
-            .where(inArray(bundles.manifestHash, batch))
-            .run();
-      })
-      .catch(() => undefined);
+    await dropVerifiedManifestBundles(execSql, damaged).catch(() => undefined);
   return cited;
+}
+
+// Manifest hashes whose held rows a refused read is dropping: no read cites
+// them meanwhile, so none can be rebuilt from the bytes being dropped. Each
+// eviction also advances a generation, so a citation load that started
+// before it never returns the rows it read: they may already be gone.
+const suppressedCitations = new Map<string, number>();
+const evictedInGeneration = new Map<string, number>();
+let evictionGeneration = 0;
+// Loads in flight; once none overlap, the eviction log has nothing to guard.
+let citationLoadsInFlight = 0;
+
+/** Keeps these held bundles out of citations until the release runs. */
+export function suppressHeldCitations(
+  manifestHashes: readonly string[],
+): () => void {
+  evictionGeneration += 1;
+  for (const hash of manifestHashes) {
+    suppressedCitations.set(hash, (suppressedCitations.get(hash) ?? 0) + 1);
+    evictedInGeneration.set(hash, evictionGeneration);
+  }
+  return () => {
+    // The drop is complete: a load that started before now may hold the
+    // dropped bytes, so it is newer than none of them.
+    evictionGeneration += 1;
+    for (const hash of manifestHashes) {
+      evictedInGeneration.set(hash, evictionGeneration);
+      const count = (suppressedCitations.get(hash) ?? 1) - 1;
+      if (count > 0) suppressedCitations.set(hash, count);
+      else suppressedCitations.delete(hash);
+    }
+  };
+}
+
+function citable(
+  citation: HeldProjectionCitation,
+  loadGeneration: number,
+): boolean {
+  if (!("manifestHash" in citation)) return true;
+  const { manifestHash } = citation;
+  return (
+    !suppressedCitations.has(manifestHash) &&
+    (evictedInGeneration.get(manifestHash) ?? 0) <= loadGeneration
+  );
+}
+
+/**
+ * Drops the stored rows of held bundles a projection that cited them failed
+ * to verify with, so the next read fetches them from the server. Only a row
+ * still holding the exact bytes cited goes, so a newer verified copy written
+ * meanwhile stays; nothing is dropped once `stillCurrent` turns false.
+ * Resolves whether the drop committed.
+ */
+export async function dropHeldManifestBundles(
+  execSql: ExecSql,
+  heldBundles: readonly ServedAccessManifestBundleWireResponse[],
+  stillCurrent?: () => boolean,
+): Promise<boolean> {
+  if (heldBundles.length === 0) return true;
+  const cited = await Promise.all(
+    heldBundles.map(async (bundle) => ({
+      manifestHash: bundle.manifestHash,
+      bundleDigest: await sha256Hex(JSON.stringify(bundle)),
+    })),
+  );
+  await ensureSqlTables(execSql, verifiedManifestBundleTables);
+  const runtime = getClientSQLitePersistenceRuntime(execSql);
+  const drop = async (tx: ClientSQLiteTransactionScope) => {
+    for (const row of cited)
+      await tx
+        .delete(bundles)
+        .where(
+          and(
+            eq(bundles.manifestHash, row.manifestHash),
+            eq(bundles.bundleDigest, row.bundleDigest),
+          ),
+        )
+        .run();
+  };
+  if (!stillCurrent) {
+    await runtime.transaction(drop, { behavior: "immediate" });
+    return true;
+  }
+  const { committed } = await runtime.guardedTransaction(drop, stillCurrent, {
+    behavior: "immediate",
+  });
+  return committed;
+}
+
+/** Drops damaged stored rows so no later read cites them. */
+async function dropVerifiedManifestBundles(
+  execSql: ExecSql,
+  manifestHashes: readonly string[],
+): Promise<void> {
+  if (manifestHashes.length === 0) return;
+  await ensureSqlTables(execSql, verifiedManifestBundleTables);
+  await getClientSQLitePersistenceRuntime(execSql).runMutation(
+    async (handle) => {
+      for (const batch of batches([...new Set(manifestHashes)]))
+        await handle
+          .delete(bundles)
+          .where(inArray(bundles.manifestHash, batch))
+          .run();
+    },
+  );
 }
 
 /** Cites from whichever database the signed-in identity currently uses. */

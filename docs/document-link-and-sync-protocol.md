@@ -14,7 +14,8 @@ document. Document create and link-set mutation routes use signed document
 
 - signed `event` and typed `body`
 - `expectedManifestHash`
-- derived document manifest state
+- for a create only, the derived document manifest; a link or unlink sends the
+  hash alone, and the API derives the manifest and compares the hashes
 - target and authorizing container path references (`{containerId,
   manifestHash}` citations of stored manifests; the API resolves the previous
   link-set manifest from its own store, and a create has none)
