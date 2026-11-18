@@ -92,6 +92,8 @@ export {
   isUpdateOrganizationMembershipRequest,
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
+  type OrganizationReadModelHeldCursorQuery,
+  OrganizationReadModelHeldCursorQuerySchema,
   type OrganizationReadModelQuery,
   OrganizationReadModelQuerySchema,
   type UpdateOrganizationMembershipRequest,

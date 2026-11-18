@@ -119,7 +119,8 @@ test("local identity links onboard contacts and roster users; a mismatch never g
       .slice(before)
       .filter(
         (request) =>
-          request.method === "PUT" && request.url.endsWith("/policy-commit"),
+          request.method === "PUT" &&
+          new URL(request.url).pathname.endsWith("/policy-commit"),
       ),
   ).toHaveLength(0);
   await interact(() =>

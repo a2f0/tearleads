@@ -25,4 +25,12 @@ export const READ_MODEL_STAMP_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "CaughtUpDirectoryMatchesRole" },
     why: "The directory's content depends on the reader's role, so a change to Admins must stamp it or a new administrator never receives pending leave requests (#2666).",
   },
+  {
+    id: "read-model-committed-delta-before-last-stamp",
+    module: "formal/realtime/OrganizationReadModelStamps.tla",
+    config: "formal/realtime/OrganizationReadModelStamps.cfg",
+    constants: { DeltaAfterLastStamp: "FALSE" },
+    expect: { kind: "invariant", name: "CursorCoversChanges" },
+    why: "A mutation's committed delta must be built after its last stamp, or a group write hands the client its final cursor without the second stamp's changes (#2903 P11).",
+  },
 ];

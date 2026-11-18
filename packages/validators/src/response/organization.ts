@@ -125,15 +125,6 @@ export type OrganizationGroupSummaryResponse = z.infer<
   typeof OrganizationGroupSummaryResponseSchema
 >;
 
-export const CreateOrganizationGroupResponseSchema = loosePlainObject({
-  group: OrganizationGroupSummaryResponseSchema,
-  organizationPolicy: PrincipalPolicyMutationResponseSchema,
-});
-
-export type CreateOrganizationGroupResponse = z.infer<
-  typeof CreateOrganizationGroupResponseSchema
->;
-
 export const DeleteOrganizationGroupResponseSchema = loosePlainObject({
   deleted: z.literal(true),
   groupId: z.string(),
@@ -349,12 +340,6 @@ export function isOrganizationUserDetailResponse(
   value: unknown,
 ): value is OrganizationUserDetailResponse {
   return OrganizationUserDetailResponseSchema.safeParse(value).success;
-}
-
-export function isCreateOrganizationGroupResponse(
-  value: unknown,
-): value is CreateOrganizationGroupResponse {
-  return CreateOrganizationGroupResponseSchema.safeParse(value).success;
 }
 
 export function isDeleteOrganizationGroupResponse(

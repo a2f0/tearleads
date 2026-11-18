@@ -2,7 +2,9 @@ import type {
   ContainerAccessManifestState,
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
+import type { ContainerShareCommittedReadModel } from "../../../data/containers/shared/types";
 import type { PrincipalPolicyCurrentEvidence } from "../../../data/principalContracts/principalPolicyEvidence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type {
   createRuntimeCurrentGroupShare,
   shareRemoteContainerWithGroup,
@@ -45,6 +47,13 @@ export type ContainerContentsCurrentGroupPolicyReader = <Result>(
  * them.
  */
 export interface ContainerContentsOrganizationHost {
+  /** Sends a share's held read-model cursor and keeps the delta it carries. */
+  readonly committedReadModel: (scope: {
+    readonly domainScope: object;
+    readonly execSql: ExecSql;
+    readonly organizationId: string;
+    readonly userId: string;
+  }) => ContainerShareCommittedReadModel;
   /** Shares with a group on current evidence; `undefined` without private paged recovery. */
   readonly createCurrentGroupShare: (
     runtime: GroupShareRuntime,

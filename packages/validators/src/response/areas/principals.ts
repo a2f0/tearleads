@@ -1,11 +1,8 @@
 export type { HeldDirectoryPayloads } from "../policyEvidenceWire";
 export {
   CommitOrganizationGroupPolicyConflictResponseSchema,
-  type CommitOrganizationGroupPolicyResponse,
-  CommitOrganizationGroupPolicyResponseSchema,
   type CurrentPrincipalMemberEnvelopesResponse,
   CurrentPrincipalMemberEnvelopesResponseSchema,
-  isCommitOrganizationGroupPolicyResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalPolicyMutationResponse,

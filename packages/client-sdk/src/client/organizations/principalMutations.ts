@@ -13,7 +13,7 @@ import type { ContainerContents } from "../containerContents";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { createCurrentPrincipalMutation } from "./currentPrincipalMutations";
 import { syncOrganizationMetadataProfile } from "./organizationMetadataProfileSync";
-import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
+import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 import type { GroupMemberAdmission } from "./recipientAdmission";
 
 export interface OrganizationGrantRef {
@@ -117,9 +117,13 @@ export async function addUserToOrganizationGroup(
         throw new ProjectionDependencyUnavailableError(
           "Principal history recovery is unavailable",
         );
+      // The post-commit read belongs to the session the mutation began in.
+      const startedIn = input.readModelCoordinator.sessionGuard(
+        signingContext.organizationId,
+      );
       const {
         memberGroupId,
-        response: bundle,
+        response: { readModel, ...bundle },
         enrolled,
       } = await mutateCurrent(input.groupId, {
         kind: "add",
@@ -134,11 +138,14 @@ export async function addUserToOrganizationGroup(
           organizationId: signingContext.organizationId,
         });
       }
-      // The verified post-commit read is the mutation's own: callers apply
-      // this directory instead of reading the read model a second time.
+      // The verified post-commit read is the mutation's own, from the delta
+      // its response carried when that applies: callers apply this directory
+      // instead of reading the read model a second time.
       const directoryAndGroups =
-        await input.readModelCoordinator.reconcileAfterMutation(
+        await input.readModelCoordinator.reconcileAfterOwnMutation(
           signingContext.organizationId,
+          readModel,
+          startedIn,
         );
       return { directoryAndGroups, receipt: bundle };
     },
@@ -148,6 +155,7 @@ export async function addUserToOrganizationGroup(
 export function createGroupForOrganization(
   input: OrganizationMutationScope & {
     readonly name: string;
+    readonly readModelCoordinator: OrganizationReadModelCoordinator;
     readonly stillCurrent: () => boolean;
   },
 ) {
@@ -160,7 +168,7 @@ export function createGroupForOrganization(
       operation: "group.create",
       organizationId: signingContext.organizationId,
     },
-    () => {
+    async () => {
       const creatorEncapsulationKeyPair = requireEncapsulationKeyPair(
         input.runtime,
       );
@@ -169,7 +177,7 @@ export function createGroupForOrganization(
         throw new ProjectionDependencyUnavailableError(
           "Principal history recovery is unavailable",
         );
-      return mutate(
+      const { readModel, ...group } = await mutate(
         { ...signingContext, stillCurrent: input.stillCurrent },
         (context) =>
           createCurrentOrganizationGroup({
@@ -194,6 +202,14 @@ export function createGroupForOrganization(
               input.runtime.resolveTrustedUserIdentity,
           }),
       );
+      // The create's own post-commit read, from the delta its response
+      // carried; `undefined` leaves the caller's after-mutation read to it.
+      const directoryAndGroups =
+        (await input.readModelCoordinator.applyCommittedReadModel(
+          signingContext.organizationId,
+          readModel,
+        )) ?? undefined;
+      return { ...group, directoryAndGroups };
     },
   );
 }
@@ -259,14 +275,18 @@ export async function removeUserFromOrganizationGroup(
         throw new ProjectionDependencyUnavailableError(
           "Principal history recovery is unavailable",
         );
-      const { memberGroupId, response: bundle } = await mutateCurrent(
-        input.groupId,
-        {
-          kind: "remove",
-          expectedGroupName: input.expectedGroupName,
-          removedUserId: input.removedUserId,
-        },
+      // The post-commit read belongs to the session the mutation began in.
+      const startedIn = input.readModelCoordinator.sessionGuard(
+        signingContext.organizationId,
       );
+      const {
+        memberGroupId,
+        response: { readModel, ...bundle },
+      } = await mutateCurrent(input.groupId, {
+        kind: "remove",
+        expectedGroupName: input.expectedGroupName,
+        removedUserId: input.removedUserId,
+      });
       if (input.groupId === memberGroupId) {
         await syncOrganizationMetadataProfile({
           containerContents: input.containerContents,
@@ -274,11 +294,14 @@ export async function removeUserFromOrganizationGroup(
           organizationId: signingContext.organizationId,
         });
       }
-      // The verified post-commit read is the mutation's own: callers apply
-      // this directory instead of reading the read model a second time.
+      // The verified post-commit read is the mutation's own, from the delta
+      // its response carried when that applies: callers apply this directory
+      // instead of reading the read model a second time.
       const directoryAndGroups =
-        await input.readModelCoordinator.reconcileAfterMutation(
+        await input.readModelCoordinator.reconcileAfterOwnMutation(
           signingContext.organizationId,
+          readModel,
+          startedIn,
         );
       return { directoryAndGroups, receipt: bundle };
     },
@@ -314,14 +337,19 @@ export async function revokeOrganizationGrant(
             throw new ProjectionDependencyUnavailableError(
               "Principal history recovery is unavailable",
             );
-          return (
+          // The post-commit read belongs to the session the revoke began in.
+          const startedIn = input.readModelCoordinator.sessionGuard(
+            signingContext.organizationId,
+          );
+          const { readModel, ...receipt } = (
             await mutateCurrent(input.subjectId, {
               kind: "revoke",
               revokedContainerId: input.containerId,
             })
           ).response;
+          return { readModel, receipt, startedIn };
         }
-        return revokeOrganizationContainerGrant({
+        const receipt = await revokeOrganizationContainerGrant({
           stillCurrent: input.stillCurrent,
           containerId: input.containerId,
           containers: new ContainerMutationService({
@@ -341,12 +369,15 @@ export async function revokeOrganizationGrant(
             input.runtime.principalPolicies.createWarmer(),
           ...signingContext,
         });
+        return { readModel: undefined, receipt, startedIn: undefined };
       };
-      const response = await revoke();
-      await input.readModelCoordinator.reconcileAfterMutation(
+      const { readModel, receipt, startedIn } = await revoke();
+      await input.readModelCoordinator.reconcileAfterOwnMutation(
         signingContext.organizationId,
+        readModel,
+        startedIn,
       );
-      return response;
+      return receipt;
     },
   );
 }

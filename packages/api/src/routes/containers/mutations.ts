@@ -10,12 +10,16 @@ import {
   revokeContainerOperation,
   shareContainerOperation,
 } from "@tearleads/validators/operation";
-import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
+import type {
+  ContainerCreateWithMetadataDocumentRequest,
+  ContainerRotationRequest,
+} from "@tearleads/validators/request";
 import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
   type ContainerCreateWithMetadataDocumentResponse,
   type ContainerDeleteResponse,
   type ContainerRotationResponse,
+  type ContainerShareResponse,
 } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -52,8 +56,7 @@ type ContainerMutationOperation =
   | typeof createContainerOperation
   | typeof moveContainerOperation
   | typeof rekeyContainerOperation
-  | typeof revokeContainerOperation
-  | typeof shareContainerOperation;
+  | typeof revokeContainerOperation;
 
 type ContainerMutationRouteParams =
   | Record<string, never>
@@ -76,6 +79,53 @@ function handleContainerMetadataCreateError(error: unknown) {
   return null;
 }
 
+interface ContainerMutationRequestInput {
+  readonly expectedContainerId: string | undefined;
+  readonly expectedEventType: AccessEventType;
+  readonly readModelCursor?: string | undefined;
+  readonly request: ContainerRotationRequest;
+  readonly session: {
+    readonly fingerprint: string;
+    readonly id: string;
+    readonly userId: string;
+  };
+}
+
+/** Commit one container mutation, then publish its hints best-effort. */
+async function commitContainerMutation(
+  deps: Pick<ContainerMutationsRouteDeps, "publish" | "runtime">,
+  input: ContainerMutationRequestInput,
+): Promise<ContainerShareResponse> {
+  const { expectedContainerId, expectedEventType, request, session } = input;
+  const { previousParentId, readModel, response } = await mutateContainer(
+    deps.runtime,
+    {
+      expectedEventType,
+      fingerprint: session.fingerprint,
+      readModelCursor: input.readModelCursor,
+      request,
+      userId: session.userId,
+      ...(expectedContainerId === undefined ? {} : { expectedContainerId }),
+    },
+  );
+  await publishContainerMutationCreated({
+    expectedEventType,
+    origin: { sessionId: session.id, userId: session.userId },
+    previousParentId,
+    publish: deps.publish,
+    request,
+    resolveGroupMemberUserIds: (groupId) =>
+      listGroupMemberUserIds(deps.runtime, groupId),
+    response,
+  });
+  await publishCarriedContainerRekeys({
+    carried: response.containerRekeys ?? [],
+    origin: { sessionId: session.id, userId: session.userId },
+    publish: deps.publish,
+  });
+  return readModel ? { ...response, readModel } : response;
+}
+
 function addContainerMutationRoute({
   expectedEventType,
   operation,
@@ -91,37 +141,59 @@ function addContainerMutationRoute({
     jsonRequestValidator(operation.body),
     pathParamsValidator<ContainerMutationRouteParams>(operation.params),
     async (c) => {
-      const session = c.get("session");
-
       try {
         const params = c.req.valid("param");
-        const request = c.req.valid("json");
-        const expectedContainerId =
-          "containerId" in params ? params.containerId : undefined;
-        const { previousParentId, response } = await mutateContainer(runtime, {
-          expectedEventType,
-          fingerprint: session.fingerprint,
-          request,
-          userId: session.userId,
-          ...(expectedContainerId === undefined ? {} : { expectedContainerId }),
-        });
-        await publishContainerMutationCreated({
-          expectedEventType,
-          origin: { sessionId: session.id, userId: session.userId },
-          previousParentId,
-          publish,
-          request,
-          resolveGroupMemberUserIds: (groupId) =>
-            listGroupMemberUserIds(runtime, groupId),
-          response,
-        });
-        await publishCarriedContainerRekeys({
-          carried: response.containerRekeys ?? [],
-          origin: { sessionId: session.id, userId: session.userId },
-          publish,
-        });
+        return c.json<ContainerRotationResponse>(
+          await commitContainerMutation(
+            { publish, runtime },
+            {
+              expectedContainerId:
+                "containerId" in params ? params.containerId : undefined,
+              expectedEventType,
+              request: c.req.valid("json"),
+              session: c.get("session"),
+            },
+          ),
+        );
+      } catch (error) {
+        if (error instanceof ContainerMutationError) {
+          return c.json(error.body ?? { error: error.message }, error.status);
+        }
 
-        return c.json<ContainerRotationResponse>(response);
+        throw error;
+      }
+    },
+  );
+}
+
+/** A share may also carry the sharer's read-model delta for its held cursor. */
+function addShareContainerRoute({
+  publish,
+  requireAuth,
+  route,
+  runtime,
+}: Omit<AddContainerMutationRouteInput, "expectedEventType" | "operation">) {
+  route.on(
+    shareContainerOperation.method,
+    operationRoutePath(shareContainerOperation),
+    requireAuth,
+    jsonRequestValidator(shareContainerOperation.body),
+    pathParamsValidator(shareContainerOperation.params),
+    queryParamsValidator(shareContainerOperation.query),
+    async (c) => {
+      try {
+        return c.json<ContainerShareResponse>(
+          await commitContainerMutation(
+            { publish, runtime },
+            {
+              expectedContainerId: c.req.valid("param").containerId,
+              expectedEventType: "container.grant",
+              readModelCursor: c.req.valid("query").readModelCursor,
+              request: c.req.valid("json"),
+              session: c.get("session"),
+            },
+          ),
+        );
       } catch (error) {
         if (error instanceof ContainerMutationError) {
           return c.json(error.body ?? { error: error.message }, error.status);
@@ -214,11 +286,7 @@ export function createContainerMutationsRoute({
     expectedEventType: "container.create",
     operation: createContainerOperation,
   });
-  addContainerMutationRoute({
-    ...routeDeps,
-    expectedEventType: "container.grant",
-    operation: shareContainerOperation,
-  });
+  addShareContainerRoute(routeDeps);
   addContainerMutationRoute({
     ...routeDeps,
     expectedEventType: "container.revoke",

@@ -5,6 +5,7 @@ import type {
 import type {
   ListOrganizationGroupsResponse,
   OrganizationDirectoryResponse,
+  OrganizationReadModelDeltaResponse,
   OrganizationReadModelDirectoryResponse,
   OrganizationReadModelGrantsResponse,
   OrganizationReadModelGroupMembershipsResponse,
@@ -152,7 +153,7 @@ async function loadDeltaResponse(
   input: ReadModelResponseContext,
   head: OrganizationReadModelHead,
   requestedCursor: bigint,
-): Promise<OrganizationReadModelResponse> {
+): Promise<OrganizationReadModelDeltaResponse> {
   const changed = (lane: keyof OrganizationReadModelHead["laneCursors"]) =>
     head.laneCursors[lane] > requestedCursor;
   const lanes: ReadModelLanes = {};
@@ -191,20 +192,28 @@ async function loadDeltaResponse(
   };
 }
 
-async function getReadModelInTransaction(input: {
-  readonly encodedCursor: string | undefined;
+interface ReadModelReadInput {
   readonly organizationId: string;
   readonly sessionUserId: string;
   readonly tx: DatabaseTransaction;
-}): Promise<OrganizationReadModelResponse> {
-  const accessInput = {
+}
+
+/**
+ * Screen the caller, then read the head and lane cursors under the shared
+ * head lock. A transaction that already stamped the head holds its row
+ * exclusively, so the shared lock is granted at once and the head includes
+ * its own uncommitted stamps.
+ */
+async function screenAndLockHead(
+  input: ReadModelReadInput,
+): Promise<OrganizationReadModelHead> {
+  // Screen before the shared head lock so a caller without organization access
+  // never holds it; the verified check below is the authoritative decision.
+  await requireOrganizationAccessCandidate({
     executor: input.tx,
     organizationId: input.organizationId,
     userId: input.sessionUserId,
-  };
-  // Screen before the shared head lock so a caller without organization access
-  // never holds it; the verified check below is the authoritative decision.
-  await requireOrganizationAccessCandidate(accessInput);
+  });
   const head = await lockOrganizationReadModelHeadInTransaction(
     input.tx,
     input.organizationId,
@@ -212,15 +221,20 @@ async function getReadModelInTransaction(input: {
   if (head === null) {
     throw new Error("Organization read-model cursor head is missing");
   }
-  const access = await requireDirectOrganizationAccess(accessInput);
-  const requestedCursor =
-    input.encodedCursor === undefined
-      ? null
-      : decodeOrganizationReadModelCursor(
-          input.encodedCursor,
-          input.organizationId,
-        );
-  const context: ReadModelResponseContext = {
+  return head;
+}
+
+/** The authoritative access decision, verified against the signed policies. */
+async function authorizedReadModelContext(
+  input: ReadModelReadInput,
+  head: OrganizationReadModelHead,
+): Promise<ReadModelResponseContext> {
+  const access = await requireDirectOrganizationAccess({
+    executor: input.tx,
+    organizationId: input.organizationId,
+    userId: input.sessionUserId,
+  });
+  return {
     isOrgAdmin: access.isOrgAdmin,
     nextCursor: encodeOrganizationReadModelCursor(
       input.organizationId,
@@ -232,11 +246,40 @@ async function getReadModelInTransaction(input: {
     sessionUserId: input.sessionUserId,
     tx: input.tx,
   };
+}
+
+async function getReadModelInTransaction(
+  input: ReadModelReadInput & { readonly encodedCursor: string | undefined },
+): Promise<OrganizationReadModelResponse> {
+  const head = await screenAndLockHead(input);
+  const context = await authorizedReadModelContext(input, head);
+  const requestedCursor =
+    input.encodedCursor === undefined
+      ? null
+      : decodeOrganizationReadModelCursor(
+          input.encodedCursor,
+          input.organizationId,
+        );
   // A cursor ahead of the head cannot have come from this organization's
   // committed history, so the client resets from a snapshot.
   return requestedCursor === null || requestedCursor > head.cursor
     ? loadSnapshotResponse(context)
     : loadDeltaResponse(context, head, requestedCursor);
+}
+
+/**
+ * The delta a feed read from `requestedCursor`, a cursor at or below the head,
+ * returns at this point of the transaction: the same screen, head read,
+ * verified access decision and lane reloads. A mutation that stamped the head
+ * calls it after its last stamp, so the response is the one that read returns
+ * as soon as the mutation commits.
+ */
+export async function loadOrganizationReadModelDeltaInTransaction(
+  input: ReadModelReadInput & { readonly requestedCursor: bigint },
+): Promise<OrganizationReadModelDeltaResponse> {
+  const head = await screenAndLockHead(input);
+  const context = await authorizedReadModelContext(input, head);
+  return loadDeltaResponse(context, head, input.requestedCursor);
 }
 
 export async function runGetOrganizationReadModelWorkflow(

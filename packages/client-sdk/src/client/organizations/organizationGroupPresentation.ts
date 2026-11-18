@@ -1,6 +1,6 @@
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
-import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
+import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 
 export async function loadOrganizationGroupPresentationDetails(input: {
   readonly groupId: string;

@@ -61,7 +61,7 @@ export async function renderSeededDemo(): Promise<{
           (request) =>
             request.method === "PUT" &&
             request.status === 200 &&
-            request.url.endsWith("/policy-commit"),
+            new URL(request.url).pathname.endsWith("/policy-commit"),
         ).length >= 2,
     "Demo peer roster seeding did not finish.",
     30_000,

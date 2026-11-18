@@ -148,7 +148,7 @@
     "packages/windowing"
   ],
   "lint-staged": {
-    "*.{css,html,js,json,jsonc,jsx,mjs,cjs,ts,tsx}": "biome check --fix --error-on-warnings",
+    "*.{css,html,js,json,jsonc,jsx,mjs,cjs,ts,tsx}": "biome check --fix --error-on-warnings --no-errors-on-unmatched",
     "*.md": "bun --bun x markdownlint-cli2 --fix"
   },
   "devDependencies": {

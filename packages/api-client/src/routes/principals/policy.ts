@@ -18,11 +18,12 @@ export const commitOrganizationGroupPolicy = {
   isRequest: isCommitOrganizationGroupPolicyOperationRequest,
   isResponse: isCommitOrganizationGroupPolicyOperationResponse,
   method: commitOrganizationGroupPolicyOperation.method,
-  path(organizationId: string, groupId: string) {
-    return operationRequestPath(commitOrganizationGroupPolicyOperation, {
-      groupId,
-      organizationId,
-    });
+  path(organizationId: string, groupId: string, readModelCursor?: string) {
+    return operationRequestPathWithQuery(
+      commitOrganizationGroupPolicyOperation,
+      { groupId, organizationId },
+      { readModelCursor },
+    );
   },
 };
 

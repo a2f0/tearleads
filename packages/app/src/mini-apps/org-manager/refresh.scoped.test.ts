@@ -111,7 +111,7 @@ test("a mutation's own post-commit read model replaces the second read", async (
   // A declined reconcile (offline), no result, or a plain refresh reads.
   await loadAfterOptionalMutation(actions, {
     afterMutation: true,
-    mutationResult: { directoryAndGroups: undefined, receipt: {} as never },
+    mutationResult: { directoryAndGroups: undefined },
   });
   await loadAfterOptionalMutation(actions, { afterMutation: true });
   await loadAfterOptionalMutation(actions, { mutationResult: result(null) });

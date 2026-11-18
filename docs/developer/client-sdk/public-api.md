@@ -128,8 +128,8 @@ authored request commits to and rebuilds the current artifacts from that
 request. Group revocation returns `OrganizationGroupMutationReceipt`, that
 acknowledgement; `addUserToGroup` and `removeUserFromGroup` return
 `OrganizationGroupMutationResult`, that receipt plus the read model the SDK
-reconciled after the commit, so a caller applies it instead of reading the read
-model again. Each atomically retains current
+reconciled after the commit, which a caller applies instead of reading it again;
+`createGroup` adds the same field to its group. Each atomically retains current
 artifacts and authenticated progress. Built-in workflows require private paged
 recovery; standalone full-bundle utilities keep their explicit complete-history
 contracts. See [current mutations](../principal-current-mutations.md). Missing or

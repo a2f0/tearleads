@@ -76,16 +76,6 @@ export type PrincipalPolicyMutationResponse = z.infer<
   typeof PrincipalPolicyMutationResponseSchema
 >;
 
-export const CommitOrganizationGroupPolicyResponseSchema = loosePlainObject({
-  groupPolicy: PrincipalPolicyMutationResponseSchema,
-  memberPolicy: PrincipalPolicyMutationResponseSchema.optional(),
-  organizationPolicy: PrincipalPolicyMutationResponseSchema,
-});
-
-export type CommitOrganizationGroupPolicyResponse = z.infer<
-  typeof CommitOrganizationGroupPolicyResponseSchema
->;
-
 export const PrincipalPolicyErrorResponseSchema = BillingErrorResponseSchema;
 
 export type PrincipalPolicyErrorResponse = z.infer<
@@ -144,12 +134,6 @@ export function isPrincipalPolicyMutationResponse(
   value: unknown,
 ): value is PrincipalPolicyMutationResponse {
   return PrincipalPolicyMutationResponseSchema.safeParse(value).success;
-}
-
-export function isCommitOrganizationGroupPolicyResponse(
-  value: unknown,
-): value is CommitOrganizationGroupPolicyResponse {
-  return CommitOrganizationGroupPolicyResponseSchema.safeParse(value).success;
 }
 
 export function isPrincipalPolicyStaleErrorResponse(

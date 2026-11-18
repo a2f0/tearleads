@@ -13,10 +13,12 @@ const heldLocksByTransaction = new WeakMap<
 
 /**
  * Whether this transaction already holds `key` in a mode at least as strong as
- * `mode`. Transaction-scoped locks are held until commit or rollback, and the
- * API opens no savepoints, so a lock this transaction acquired stays held for
- * the rest of it. The memo is keyed by the transaction object and dies with
- * it; the root executor never records anything.
+ * `mode`. Transaction-scoped locks are held until commit or rollback. The API's
+ * only savepoint, the read that builds a committed read-model delta, runs on
+ * its own transaction object and so records nothing here; a lock this
+ * transaction acquired stays held for the rest of it. The memo is keyed by the
+ * transaction object and dies with it; the root executor never records
+ * anything.
  */
 export function transactionHoldsLock(
   executor: DatabaseSession,

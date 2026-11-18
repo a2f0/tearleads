@@ -3,9 +3,11 @@ import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerMutationResponse,
   ContainerRotationResponse,
+  OrganizationReadModelDeltaResponse,
 } from "@tearleads/validators/response";
 import { readProjectionAccessEvent } from "../../../keyingProjectionRecords";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
+import { loadCommittedReadModelDeltaInTransaction } from "../../organizations/readModelMutationDelta";
 import { createContainerWriterProjectionContext } from "../writerProjection";
 import {
   ContainerMutationError,
@@ -31,9 +33,13 @@ export { assertContainerPathEdges } from "./shared/manifests";
 export type { MutateContainerRotationInput };
 export { ContainerMutationError };
 
-/** A committed rotation, plus the moved container's previous parent. */
+/**
+ * A committed rotation, plus the moved container's previous parent and the
+ * caller's read-model delta when its held cursor earned one.
+ */
 export interface ContainerRotationOutcome {
   readonly previousParentId: string | null | undefined;
+  readonly readModel?: OrganizationReadModelDeltaResponse | undefined;
   readonly response: ContainerRotationResponse;
 }
 
@@ -239,7 +245,13 @@ export async function runContainerMutationWorkflow(
         outcome.response.organizationId,
         input.userId,
       );
-      return outcome;
+      const readModel = await loadCommittedReadModelDeltaInTransaction({
+        heldCursor: input.readModelCursor,
+        organizationId: outcome.response.organizationId,
+        sessionUserId: input.userId,
+        tx,
+      });
+      return readModel ? { ...outcome, readModel } : outcome;
     });
   } catch (error) {
     const mutationError = toMutationError(error);

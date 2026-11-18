@@ -3,7 +3,7 @@ import { setUpAdminGroupRoot } from "../../../test/helpers/workflows/adminGroupR
 import { missingPrincipalRecoveryFixture } from "../../../test/helpers/workflows/missingPrincipalRecovery";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
 import type { ContainerContents } from "../containerContents";
-import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
+import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 import { revokeOrganizationGrant } from "./principalMutations";
 
 let signed: Awaited<ReturnType<typeof setUpAdminGroupRoot>>;
@@ -67,10 +67,14 @@ for (const missing of ["custody", "pages"] as const) {
         stillCurrent: () => true,
         containerContents: {} as ContainerContents,
         readModelCoordinator: {
-          reconcileAfterMutation: async () => {
-            f.calls.push("host:reconcileAfterMutation");
+          reconcileAfterOwnMutation: async () => {
+            f.calls.push("host:reconcileAfterOwnMutation");
+            return undefined;
           },
-        } as OrganizationReadModelCoordinator,
+        } as Pick<
+          OrganizationReadModelCoordinator,
+          "reconcileAfterOwnMutation"
+        > as OrganizationReadModelCoordinator,
       }).catch((error: unknown) => error);
       // A missing dependency gets the revoke's one bounded refresh (evict and
       // refetch the projection) and then fails the same way, still before any

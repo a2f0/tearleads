@@ -28,7 +28,7 @@ import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import type { OrganizationDataUsageCoordinator } from "./organizationDataUsage";
 import type { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import type { OrganizationMemberships } from "./organizationMemberships";
-import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
+import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 import type {
   AbandonOrganizationPolicyMutationInput,
   DiscardUnreadableOrganizationPolicyMutationInput,
@@ -75,7 +75,17 @@ export interface Organizations {
   addUserToGroup: (
     input: AddOrganizationGroupUserInput,
   ) => Promise<OrganizationGroupMutationResult>;
-  createGroup: (name: string) => ReturnType<typeof createOrganizationGroup>;
+  /**
+   * The created group, plus the read model the SDK applied from the create's
+   * own response (`undefined` when it carried none or no longer applied, so
+   * the caller reads after the mutation as before).
+   */
+  createGroup: (
+    name: string,
+  ) => Promise<
+    Awaited<ReturnType<typeof createOrganizationGroup>> &
+      Pick<OrganizationGroupMutationResult, "directoryAndGroups">
+  >;
   deleteGroup: (
     groupId: string,
   ) => ReturnType<typeof deleteGroupForOrganization>;
@@ -149,10 +159,15 @@ export interface Organizations {
    */
   loadDeviceDataUsage: () => Promise<OrganizationDeviceDataUsage | null>;
   /**
-   * The opaque read-model cursor the active requester has applied, once any
-   * in-flight reconcile of that scope settles; null when it holds none.
+   * The opaque read-model cursor the active requester has applied and
+   * presented, once this device's mutations in flight and any in-flight
+   * reconcile of that scope settle; null when it holds none. Given a realtime
+   * hint's `hintPosition`, it returns at once when it already covers the hint
+   * and waits only for mutations that could be that commit.
    */
-  loadAppliedReadModelCursor: () => Promise<string | null>;
+  loadAppliedReadModelCursor: (
+    hintPosition?: bigint | undefined,
+  ) => Promise<string | null>;
   loadDirectoryAndGroups: () => ReturnType<
     OrganizationReadModelCoordinator["reconcile"]
   >;

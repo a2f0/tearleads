@@ -32,6 +32,7 @@ import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
 import { organizationGroupCreationOutcome } from "./organizationGroupOperationOutcome";
 import { isCurrentOrganizationAdminAuthority } from "./principalPolicyExternalAuthority";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
+import { loadCommittedReadModelDeltaInTransaction } from "./readModelMutationDelta";
 
 function toPrincipalWriteError(
   error: unknown,
@@ -176,12 +177,70 @@ function validateOrganizationGroupCreation(
   }
 }
 
+/** Insert the group row and store its verified initial policy. */
+async function insertCreatedGroup({
+  identityTrustDomain,
+  input,
+  organizationId,
+  sessionUserId,
+  tx,
+}: {
+  readonly identityTrustDomain: string;
+  readonly input: CreateOrganizationGroupWithPolicyRequest;
+  readonly organizationId: string;
+  readonly sessionUserId: string;
+  readonly tx: DatabaseTransaction;
+}) {
+  const [insertedGroup] = await tx
+    .insert(groupsTable)
+    .values({
+      id: input.groupId,
+      organizationId,
+    })
+    .onConflictDoNothing({ target: groupsTable.id })
+    .returning({
+      groupId: groupsTable.id,
+      organizationId: groupsTable.organizationId,
+      createdAt: groupsTable.createdAt,
+    });
+
+  if (!insertedGroup) {
+    throw new OrganizationManagerError("Group already exists", 409);
+  }
+
+  const storedState = await storeVerifiedPrincipalPolicyInTransaction(
+    {
+      state: input.initialGroupPolicy.state,
+      encryptedPayload: input.initialGroupPolicy.encryptedPayload,
+      projection: input.initialGroupPolicy.projection,
+      grants: input.initialGroupPolicy.grants,
+      memberEnvelopes: input.initialGroupPolicy.memberEnvelopes,
+    },
+    tx,
+    {
+      identityTrustDomain,
+      authorizeExternalAdminSigner: (authorization) =>
+        authorization.signerUserId === sessionUserId
+          ? isCurrentOrganizationAdminAuthority({
+              executor: tx,
+              organizationId,
+              signerUserId: authorization.signerUserId,
+              submittedAuthority:
+                authorization.normalizedInput.state.externalAuthority,
+            })
+          : Promise.resolve(false),
+    },
+  );
+  return { insertedGroup, storedState };
+}
+
 export async function runCreateOrganizationGroupWorkflow(
   db: ApiDatabase,
   organizationId: string,
   sessionUserId: string,
   input: CreateOrganizationGroupWithPolicyRequest,
   identityTrustDomain: string,
+  readModelCursor?: string,
 ): Promise<CreateOrganizationGroupResponse> {
   validateOrganizationGroupCreation(input);
 
@@ -204,46 +263,13 @@ export async function runCreateOrganizationGroupWorkflow(
       organizationId,
     });
 
-    const [insertedGroup] = await tx
-      .insert(groupsTable)
-      .values({
-        id: input.groupId,
-        organizationId,
-      })
-      .onConflictDoNothing({ target: groupsTable.id })
-      .returning({
-        groupId: groupsTable.id,
-        organizationId: groupsTable.organizationId,
-        createdAt: groupsTable.createdAt,
-      });
-
-    if (!insertedGroup) {
-      throw new OrganizationManagerError("Group already exists", 409);
-    }
-
-    const storedState = await storeVerifiedPrincipalPolicyInTransaction(
-      {
-        state: input.initialGroupPolicy.state,
-        encryptedPayload: input.initialGroupPolicy.encryptedPayload,
-        projection: input.initialGroupPolicy.projection,
-        grants: input.initialGroupPolicy.grants,
-        memberEnvelopes: input.initialGroupPolicy.memberEnvelopes,
-      },
+    const { insertedGroup, storedState } = await insertCreatedGroup({
+      identityTrustDomain,
+      input,
+      organizationId,
+      sessionUserId,
       tx,
-      {
-        identityTrustDomain,
-        authorizeExternalAdminSigner: (authorization) =>
-          authorization.signerUserId === sessionUserId
-            ? isCurrentOrganizationAdminAuthority({
-                executor: tx,
-                organizationId,
-                signerUserId: authorization.signerUserId,
-                submittedAuthority:
-                  authorization.normalizedInput.state.externalAuthority,
-              })
-            : Promise.resolve(false),
-      },
-    );
+    });
 
     // A brand-new group's initial policy goes through this route rather than
     // the policy PUT, so it needs the same roster rule: a group must not be
@@ -283,7 +309,14 @@ export async function runCreateOrganizationGroupWorkflow(
       organizationPolicy: organization.policy,
     };
     await outcome.save(result);
-    return result;
+    // After the last write, and outside the stored receipt a replay returns.
+    const readModel = await loadCommittedReadModelDeltaInTransaction({
+      heldCursor: readModelCursor,
+      organizationId,
+      sessionUserId,
+      tx,
+    });
+    return readModel ? { ...result, readModel } : result;
   }).catch((error: unknown) => {
     throw toPrincipalWriteError(error) ?? error;
   });
