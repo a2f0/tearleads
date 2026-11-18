@@ -8,6 +8,8 @@ import {
   isContainerCreateWithMetadataDocumentRequest,
   isDocumentCreateRequest,
   isDocumentSyncRequest,
+  isProvisionedDocumentRequest,
+  isProvisionedSystemContainerRequest,
 } from "./index";
 import { createDocumentContentKeyBundle } from "./requestTestFixtures";
 
@@ -226,6 +228,42 @@ test("a create seed carries nothing but its update, and malformed parts fail clo
         }),
       ),
       initialSync: seed,
+    }),
+  ).toBe(false);
+});
+
+test("a provisioned seed's sync is held to the sync request limit too", () => {
+  const document = documentCreate();
+  const syncOverhead = byteLength(
+    documentCreateSeedSyncRequest(document, {
+      outgoingUpdates: [seedUpdate("")],
+    }),
+  );
+  const seedOf = (length: number) => ({
+    outgoingUpdates: [seedUpdate("a".repeat(length))],
+  });
+  const fits = seedOf(MAX_DOCUMENT_SYNC_REQUEST_BYTES - syncOverhead);
+  const over = seedOf(MAX_DOCUMENT_SYNC_REQUEST_BYTES - syncOverhead + 1);
+  expect(isProvisionedDocumentRequest({ ...document, initialSync: fits })).toBe(
+    true,
+  );
+  expect(isProvisionedDocumentRequest({ ...document, initialSync: over })).toBe(
+    false,
+  );
+  const container = {
+    container: createContainerMutationRequest(),
+    metadataDocument: document,
+  };
+  expect(
+    isProvisionedSystemContainerRequest({
+      ...container,
+      initialMetadataSync: fits,
+    }),
+  ).toBe(true);
+  expect(
+    isProvisionedSystemContainerRequest({
+      ...container,
+      initialMetadataSync: over,
     }),
   ).toBe(false);
 });

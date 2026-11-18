@@ -47,7 +47,7 @@ export const ProvisionedDocumentRequestSchema =
         });
         refineCreateSeedSync(value, value.initialSync, context, {
           path: "initialSync",
-          withinSyncLimit: false,
+          withinSyncLimit: true,
         });
       },
     ),
@@ -72,7 +72,7 @@ export const ProvisionedSystemContainerRequestSchema =
             value.metadataDocument,
             value.initialMetadataSync,
             context,
-            { path: "initialMetadataSync", withinSyncLimit: false },
+            { path: "initialMetadataSync", withinSyncLimit: true },
           );
       },
     ),
