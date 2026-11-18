@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
 } from "node:fs";
 import { delimiter, resolve } from "node:path";
@@ -61,7 +62,7 @@ test("verification uses the selected checkout when invoked from a parent Git rep
         JAVA_BIN: "./custom/tools",
         TLA_TOOLS_ROOT: "./custom/tools",
         LEAN_TOOLCHAIN_ROOT: "./custom/tools",
-        EXPECT_TOOLS: resolve(parent.cwd, "custom/tools"),
+        EXPECT_TOOLS: resolve(realpathSync(parent.cwd), "custom/tools"),
         GIT_DIR: resolve(parent.cwd, ".git"),
         GIT_WORK_TREE: parent.cwd,
       },
