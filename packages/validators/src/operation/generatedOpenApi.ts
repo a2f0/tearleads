@@ -392,7 +392,7 @@ export type paths = {
         put?: never;
         /**
          * Create a container
-         * @description Creates a container from a signed `container.create` event, its derived access manifest, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`.
+         * @description Creates a container from a signed `container.create` event, the hash of the access manifest it derives, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`.
          */
         post: operations["containers.create"];
         delete?: never;
@@ -2140,7 +2140,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         }) | components["schemas"]["PrincipalPolicyStaleErrorResponse"];
-        /** @description A signed container mutation (create, share, or the container part of a larger write): the event, the manifest it derives, and the KEK material, citing stored heads instead of resending them. */
+        /** @description A signed container mutation (create, share, or the container part of a larger write): the event, the hash of the manifest it derives (the API derives the manifest itself), and the KEK material, citing stored heads instead of resending them. */
         ContainerMutationRequest: {
             /** @description Event-type-specific body the signature commits to. */
             body: unknown;
@@ -2159,9 +2159,6 @@ export type components = {
             };
             /** @description For a KEK rotation, every predecessor KEK sealed under the new KEK; null otherwise. */
             keyring: components["schemas"]["ContainerKekKeyringWireRecord"] | null;
-            manifest: {
-                [key: string]: unknown;
-            };
             /** @description Current path to the parent container. */
             parentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             /** @description The parent's current KEK epoch, for a child container; any other epoch is refused as stale. */
@@ -2243,9 +2240,6 @@ export type components = {
             };
             /** @description Hash of the manifest this re-citation derives. */
             expectedManifestHash: string;
-            manifest: {
-                [key: string]: unknown;
-            };
             /** @description The container's current path, from its root. */
             previousContainerPathRefs: components["schemas"]["ContainerManifestRef"][];
             /** @description The container's current manifest head. */
@@ -2289,9 +2283,6 @@ export type components = {
                 [key: string]: unknown;
             };
             keyring: components["schemas"]["ContainerKekKeyringWireRecord"] | null;
-            manifest: {
-                [key: string]: unknown;
-            };
             parentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             parentKekRef?: ({
                 containerId: string;
@@ -2395,6 +2386,8 @@ export type components = {
             metadataDocumentId: string;
             /** @description Principal policy heads the metadata document's access depends on. */
             metadataReferencedPrincipals: components["schemas"]["ReferencedPrincipalStateResponse"][];
+            /** @description Loro version vector of every update the server holds for the metadata document, encoded like a sync update's version vectors. A client whose copy does not cover it owes the document a read. */
+            metadataVersionVector: string;
             organizationId: string;
             parentId: string | null;
             /** @description Opaque id of a system container's role, such as Trash, or null for an ordinary container. */
@@ -2754,9 +2747,6 @@ export type components = {
             };
             /** @description Hash of the link-set manifest this mutation derives. */
             expectedManifestHash: string;
-            manifest: {
-                [key: string]: unknown;
-            };
             /** @description For an unlink, a rotation baseline covering every committed update; omitted only when the document has none, and never sent with a link. */
             rotationBaseline?: components["schemas"]["DocumentOutgoingUpdate"];
             /** @description Path to the container being linked or unlinked. */
@@ -2909,9 +2899,6 @@ export type components = {
                 keyring: {
                     [key: string]: unknown;
                 } | null;
-                manifest: {
-                    [key: string]: unknown;
-                };
                 parentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
                 parentKekRef?: ({
                     containerId: string;

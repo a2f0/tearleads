@@ -35,7 +35,6 @@ function containerRekey(policyGeneration: number): ContainerMutationRequest {
     expectedManifestHash: "container-manifest-hash",
     keyEpoch: { id: "container-key-epoch-id" },
     keyring: null,
-    manifest: { objectKind: "container" },
     predecessorBridge: null,
     principalPolicyRefs: [
       {

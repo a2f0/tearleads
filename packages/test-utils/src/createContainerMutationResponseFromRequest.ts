@@ -11,6 +11,7 @@ import {
   computeContainerKekKeyringHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
+  deriveContainerAccessManifest,
 } from "@tearleads/crypto";
 import type {
   ContainerManifestRef,
@@ -298,7 +299,12 @@ export async function createContainerMutationResponseFromRequest(
       body: request.body as Record<string, unknown>,
       eventHash,
     },
-    manifest: request.manifest,
+    // The request carries only the hash; the server derives the manifest.
+    manifest: {
+      ...(await deriveContainerAccessManifest(
+        state as unknown as ContainerAccessManifestState,
+      )),
+    },
     manifestHash: request.expectedManifestHash,
     state: state as unknown as Record<string, unknown>,
   };

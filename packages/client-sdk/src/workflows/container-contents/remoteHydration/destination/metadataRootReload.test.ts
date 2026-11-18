@@ -47,6 +47,7 @@ async function staleMetadataRoot() {
     metadataDocumentId:
       artifacts.organizationMetadataBootstrap.containerPlan.plan
         .metadataDocumentId,
+    metadataVersionVector: "",
     metadataReferencedPrincipals: [],
     organizationId: artifacts.organizationId,
     parentId: null,

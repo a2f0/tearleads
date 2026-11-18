@@ -79,6 +79,12 @@ export interface ContainerContentsStoreSyncState {
    */
   metadataSyncSignalSeqById: Map<string, number>;
   /**
+   * Whether this store's first sync pass has requeued the metadata reads a
+   * previous run still owed (`container_metadata_revalidations`). Reset with
+   * the store, so a replacement database is restored on its own first pass.
+   */
+  owedMetadataReadsRestored: boolean;
+  /**
    * Metadata document ids of folder creates in flight. A remote hint for one
    * queues the folder's first read before the create response installs the id.
    */
