@@ -2,6 +2,7 @@ import {
   type CSSProperties,
   type PropsWithChildren,
   type RefObject,
+  useContext,
   useEffect,
   useEffectEvent,
   useLayoutEffect,
@@ -10,6 +11,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import "./Menu.css";
+import {
+  menuContainsTarget,
+  ParentMenu,
+  registerMenuParent,
+} from "./menuOwnership";
 import { useMenuKeyboard } from "./useMenuKeyboard";
 
 const MENU_VIEWPORT_MARGIN_PX = 8;
@@ -67,13 +73,7 @@ function useMenuOutsideDismissal(
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      const target = e.target;
-      if (!(target instanceof Node)) {
-        close();
-        return;
-      }
-
-      if (menuRef.current && !menuRef.current.contains(target)) {
+      if (menuRef.current && !menuContainsTarget(menuRef.current, e.target)) {
         close();
       }
     }
@@ -85,13 +85,10 @@ function useMenuOutsideDismissal(
   // anywhere else would leave it floating where the trigger used to be. Close
   // it instead. Scrolls inside the menu — its own overflow, or a list it
   // hosts — are the menu working as intended. Capture phase, because scroll
-  // events do not bubble. The check covers this menu's own subtree only: a
-  // nested Menu is portaled to the body too, so scrolling one would close its
-  // parent. Nothing nests menus today; revisit here if that changes.
+  // events do not bubble. Include any child menus portaled to the body.
   useEffect(() => {
     function handleScroll(e: Event) {
-      const target = e.target;
-      if (target instanceof Node && menuRef.current?.contains(target)) {
+      if (menuRef.current && menuContainsTarget(menuRef.current, e.target)) {
         return;
       }
       close();
@@ -193,6 +190,12 @@ export function Menu({
   keyboardNavigation?: boolean;
 }>) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const parent = useContext(ParentMenu);
+  useLayoutEffect(() => {
+    return parent && menuRef.current
+      ? registerMenuParent(menuRef.current, parent)
+      : undefined;
+  }, [parent]);
   useMenuOutsideDismissal(menuRef, onClose);
   const { x, y } = position;
   const [placement, setPlacement] = useState(() =>
@@ -270,7 +273,7 @@ export function Menu({
       style={menuStyle}
       tabIndex={-1}
     >
-      {children}
+      <ParentMenu.Provider value={menuRef}>{children}</ParentMenu.Provider>
     </div>,
     document.body,
   );
