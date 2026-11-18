@@ -15,7 +15,7 @@ import { usePaneLockMenuAction } from "./usePaneLockMenuAction";
 import { usePaneWindowMenuActions } from "./usePaneWindowMenuActions";
 
 interface PaneContextMenuItemsProps {
-  appEntryMenus: boolean;
+  surface: "desktop" | "start";
   identityTransitionInFlight: boolean;
   hasSigningKeyPair: boolean;
   paneLocked: boolean;
@@ -25,7 +25,7 @@ interface PaneContextMenuItemsProps {
 }
 
 export function PaneContextMenuItems({
-  appEntryMenus,
+  surface,
   identityTransitionInFlight,
   hasSigningKeyPair,
   paneLocked,
@@ -40,9 +40,9 @@ export function PaneContextMenuItems({
   const { canLockPane, lockPane } = usePaneLockMenuAction(onClose);
   const visibleMenuItems = useVisibleMiniAppItems(MINI_APP_MENU_ITEMS);
   const { definition } = useAppNavigationState();
-  const displayProperties = definition.apps["display-properties"];
+  const settings = definition.apps["display-properties"];
 
-  const AppItem = appEntryMenus ? LauncherMenuItem : MenuItem;
+  const AppItem = surface === "start" ? LauncherMenuItem : MenuItem;
   const needsIdentity = !hasSigningKeyPair && !paneLocked;
 
   return (
@@ -78,14 +78,14 @@ export function PaneContextMenuItems({
             />
           ) : null;
         })}
-      {displayProperties && (
+      {settings && (
         <AppItem
-          icon={displayProperties.icon}
-          label={displayProperties.iconLabel ?? displayProperties.title}
+          icon={settings.icon}
+          label={settings.iconLabel ?? settings.title}
           onClick={() => openMiniApp("display-properties")}
         />
       )}
-      <AppScreensaverMenuItem onClose={onClose} />
+      {surface === "desktop" && <AppScreensaverMenuItem onClose={onClose} />}
     </>
   );
 }

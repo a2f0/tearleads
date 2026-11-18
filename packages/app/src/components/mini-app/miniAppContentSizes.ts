@@ -9,8 +9,8 @@ const DOCUMENT = { height: 560, width: 720 } as const;
 const DIAGNOSTICS = { height: 560, width: 800 } as const;
 
 // Lists, editors, and logs have no finite natural height. Give them useful
-// working viewports instead of expanding to every record or line. Display
-// Properties reports its measured, finite content size from its own component.
+// working viewports instead of expanding to every record or line. Settings
+// reports its measured, finite content size from its own component.
 export const MINI_APP_CONTENT_SIZES = {
   "backup-restore": FORM,
   contacts: FORM,

@@ -46,7 +46,7 @@ messaging adapter.
 Mini-apps and [tray apps](../tray-apps/README.md), the system tray's
 controls, do not import each other in either direction. Code both need lives
 in a lower layer they share, such as `components/` or `stores/`; see the
-tray-apps README for the enforced rules. Display Properties reaches the tray
+tray-apps README for the enforced rules. Settings reaches the tray
 only through `@tearleads/windowing`'s system tray provider, which its
 `DisplayProperties` reads to list a switch per tray app.
 
@@ -65,7 +65,7 @@ The app boundary registers bounded working sizes from
 [`miniAppContentSizes.ts`](../components/mini-app/miniAppContentSizes.ts):
 compact form views, larger document/list views, and wider diagnostics. These
 are useful viewports, not an attempt to show every record or editor line.
-[`DisplayPropertiesApp`](display-properties/DisplayPropertiesApp.tsx) instead
+[`SettingsApp`](settings/SettingsApp.tsx) instead
 measures its fixed-width gallery and updates the fit target when its controls
 change size. It opts out of the boundary's target so each window has one owner
 of its content size. The routed layout stays responsive and has no fit action.

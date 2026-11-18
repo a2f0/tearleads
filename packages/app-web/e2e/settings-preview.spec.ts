@@ -2,24 +2,23 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./appTest";
 import { openWindowedDesktop } from "./windowedDesktop";
 
-async function openDisplayProperties(page: Page) {
+async function openSettingsFromTray(page: Page) {
   await openWindowedDesktop(page);
   const pane = page.locator(".pane:not(.pane-hidden)").first();
   await pane
-    .locator(".pane-main")
-    .click({ button: "right", position: { x: 200, y: 100 } });
-  await page
-    .getByRole("button", { name: "Display Properties", exact: true })
-    .click();
-  return pane.getByRole("region", { name: "Display Properties", exact: true });
+    .getByRole("list", { name: "System tray" })
+    .getByRole("button", { name: /Switch to .* theme/ })
+    .click({ button: "right" });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  return pane.getByRole("region", { name: "Settings", exact: true });
 }
 
 test("previews fit full tile height without changing desktop tile sizes", async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const display = await openDisplayProperties(page);
-  // A host may import the generic wallpaper rule after Display Properties.
+  const display = await openSettingsFromTray(page);
+  // A host may import the generic wallpaper rule after Settings.
   await page.addStyleTag({
     content: `.wallpaper-pattern[data-pattern]::before {
       -webkit-mask-size: var(--wallpaper-size);
@@ -72,11 +71,9 @@ test("previews fit full tile height without changing desktop tile sizes", async 
   }
   for (const theme of ["Light", "Dark", "Dusk"]) {
     await display.getByText(theme, { exact: true }).click();
-    await testInfo.attach(`display-properties-${theme.toLowerCase()}`, {
+    await testInfo.attach(`settings-${theme.toLowerCase()}`, {
       body: await display.screenshot({
-        path: testInfo.outputPath(
-          `display-properties-${theme.toLowerCase()}.png`,
-        ),
+        path: testInfo.outputPath(`settings-${theme.toLowerCase()}.png`),
       }),
       contentType: "image/png",
     });
@@ -87,7 +84,7 @@ test("the initial window fits every wallpaper, theme, and tray switch without sc
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const display = await openDisplayProperties(page);
+  const display = await openSettingsFromTray(page);
   await expect(display).toHaveCSS("width", "500px");
   await expect(display).toHaveCSS("height", "470px");
   const scroller = display.locator(".window-body-content-scroll");
@@ -100,7 +97,10 @@ test("the initial window fits every wallpaper, theme, and tray switch without sc
   expect(sizes.content).toBeLessThanOrEqual(sizes.height);
   await expect(display.locator(".display-properties-wallpaper")).toHaveCount(7);
   await expect(display.locator(".display-properties-theme")).toHaveCount(3);
-  await expect(display.getByRole("switch")).toHaveCount(4);
+  await expect(display.getByRole("switch")).toHaveCount(3);
+  await expect(
+    display.getByRole("switch", { name: /screensaver/i }),
+  ).toHaveCount(0);
   for (const card of await display.locator("label").all()) {
     await expect(card).toBeInViewport({ ratio: 1 });
   }
@@ -110,7 +110,7 @@ test("a narrow desktop keeps all display controls reachable by scrolling", async
   page,
 }) => {
   await page.setViewportSize({ width: 1024, height: 360 });
-  const display = await openDisplayProperties(page);
+  const display = await openSettingsFromTray(page);
   for (const label of ["Loom", "None", "Dark", "Dusk", "Light"]) {
     const card = display.locator("label").filter({
       has: page.getByRole("radio", { name: label, exact: true }),

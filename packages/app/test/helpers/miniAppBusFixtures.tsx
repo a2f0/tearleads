@@ -20,7 +20,7 @@ export function createMiniApps(
     },
     "display-properties": {
       createComponent: () => EmptyMiniApp,
-      title: "Display Properties",
+      title: "Settings",
     },
     explorer: {
       createComponent: () => EmptyMiniApp,

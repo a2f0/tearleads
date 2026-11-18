@@ -40,7 +40,7 @@ function renderThemedPane() {
 }
 
 test(
-  "the desktop menu opens Display Properties, which repaints the wallpaper",
+  "the desktop menu opens Settings, which repaints the wallpaper",
   async () => {
     const view = renderThemedPane();
     const wallpaper = () =>
@@ -57,13 +57,13 @@ test(
       });
     });
     await act(async () => {
-      clickPaneAppMenuItem(view, "Display Properties");
+      clickPaneAppMenuItem(view, "Settings");
     });
 
     const background = await view.findByRole("group", { name: "Background" });
     const dialog = background.closest<HTMLElement>(".window");
     expect(dialog?.querySelector(".window-titlebar-title")?.textContent).toBe(
-      "Display Properties",
+      "Settings",
     );
     expect(
       within(background)

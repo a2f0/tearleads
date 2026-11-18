@@ -15,7 +15,7 @@ import {
   within,
 } from "@testing-library/react";
 import { type ComponentType, type PropsWithChildren, useMemo } from "react";
-import { DisplayPropertiesApp } from "../../mini-apps/display-properties/DisplayPropertiesApp";
+import { SettingsApp } from "../../mini-apps/settings/SettingsApp";
 import type { MiniAppId } from "../../mini-apps/types";
 import { DiagnosticsProvider } from "../../providers/logging/DiagnosticsProvider";
 import { MiniAppBoundary } from "./MiniAppBoundary";
@@ -153,7 +153,7 @@ test.each(["contacts", "notes", "root"] as const)(
   },
 );
 
-test("display properties fits measured fractional content without automatic resizing", () => {
+test("Settings fits measured fractional content without automatic resizing", () => {
   const originalObserver = globalThis.ResizeObserver;
   const observers = new Map<Element, () => void>();
   globalThis.ResizeObserver = class implements ResizeObserver {
@@ -175,10 +175,7 @@ test("display properties fits measured fractional content without automatic resi
     const view = render(
       <DiagnosticsProvider value={undefined}>
         <WindowStateProvider>
-          <Desktop
-            appId="display-properties"
-            component={DisplayPropertiesApp}
-          />
+          <Desktop appId="display-properties" component={SettingsApp} />
         </WindowStateProvider>
       </DiagnosticsProvider>,
     );
@@ -192,9 +189,7 @@ test("display properties fits measured fractional content without automatic resi
     const pane = window.querySelector<HTMLElement>(
       ".window-body-content-scroll",
     );
-    const content = window.querySelector<HTMLElement>(
-      ".app-display-properties",
-    );
+    const content = window.querySelector<HTMLElement>(".app-settings");
     if (!pane || !content) throw new Error("Missing settings content");
     rect(window, 1200, 900);
     rect(pane, 1180, 840);

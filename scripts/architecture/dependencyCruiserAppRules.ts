@@ -90,7 +90,7 @@ export const appDependencyRules = [
     name: "app-mini-apps-do-not-import-tray-apps",
     severity: "error",
     comment:
-      "Mini-apps and tray apps are separate kinds of app: neither imports the other. Lift code both need into a lower layer they share (components/ for UI, stores/ for state machines, providers/, navigation/, or utils/). A mini-app reaches the tray only through the user's switches in Display Properties.",
+      "Mini-apps and tray apps are separate kinds of app: neither imports the other. Lift code both need into a lower layer they share (components/ for UI, stores/ for state machines, providers/, navigation/, or utils/). A mini-app reaches the tray only through the user's switches in Settings.",
     from: {
       path: `${appSourceRoot}mini-apps/`,
       pathNot: testFilePattern.source,

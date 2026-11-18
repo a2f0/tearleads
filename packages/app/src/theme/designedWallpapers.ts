@@ -2,7 +2,7 @@ import type { WallpaperDefinition } from "@tearleads/windowing";
 
 // These are alpha artwork, not colored pictures: the host's theme supplies the
 // ground and pigment. Keep both colors on the wallpaper element so scoped
-// themes and the Display Properties swatches resolve the same palette.
+// themes and the Settings swatches resolve the same palette.
 function palette(accent: string) {
   return {
     base: `color-mix(in srgb, var(--tearleads-background, var(--color-light)) 94%, ${accent})`,

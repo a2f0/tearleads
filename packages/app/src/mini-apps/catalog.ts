@@ -18,7 +18,8 @@ import type { MiniAppId } from "./types";
 export const MINI_APP_TITLES: Readonly<Record<MiniAppId, string>> = {
   "backup-restore": "Backup / Restore",
   contacts: "Contacts",
-  "display-properties": "Display Properties",
+  // Keep the route ID stable for existing links.
+  "display-properties": "Settings",
   explorer: "Explorer",
   "identity-manager": "Identity Manager",
   notes: "Notes",
@@ -48,7 +49,7 @@ interface MiniAppMenuItem {
   appId: MiniAppId;
 }
 
-// The windowed desktop opens Display Properties from its context menu, so it
+// The windowed desktop opens Settings from its context menu, so it
 // is left out of the menu order.
 export const MINI_APP_ORDER = [
   "explorer",
@@ -70,8 +71,8 @@ export const MINI_APP_MENU_ITEMS: ReadonlyArray<MiniAppMenuItem> =
     appId,
   }));
 
-// The routed shell has no desktop menu, so its navigation lists Display
-// Properties last: there its theme and tray-app switches stay reachable even
+// The routed shell has no desktop menu, so its navigation lists Settings
+// last: there its theme and tray-app switches stay reachable even
 // with every tray app turned off.
 export const ROUTED_MINI_APP_NAV_ITEMS: ReadonlyArray<MiniAppMenuItem> = [
   ...MINI_APP_MENU_ITEMS,

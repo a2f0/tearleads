@@ -6,15 +6,13 @@ import {
   switchToWindowedDesktop,
 } from "./windowedDesktop";
 
-async function openDisplayProperties(page: Page) {
+async function openSettings(page: Page) {
   const pane = page.locator(".pane:not(.pane-hidden)").first();
   await pane
     .locator(".pane-main")
     .click({ button: "right", position: { x: 600, y: 100 } });
-  await page
-    .getByRole("button", { name: "Display Properties", exact: true })
-    .click();
-  return pane.getByRole("region", { name: "Display Properties", exact: true });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  return pane.getByRole("region", { name: "Settings", exact: true });
 }
 
 test("designed wallpapers switch, persist, and leave legacy choices reachable", async ({
@@ -26,7 +24,7 @@ test("designed wallpapers switch, persist, and leave legacy choices reachable", 
     .locator(".pane:not(.pane-hidden) .desktop-wallpaper")
     .first();
   await expect(wallpaper).toHaveAttribute("data-wallpaper", "honeycomb");
-  const display = await openDisplayProperties(page);
+  const display = await openSettings(page);
   await expect(
     display.getByRole("radio", { name: "Honeycomb", exact: true }),
   ).toBeChecked();
@@ -72,7 +70,7 @@ for (const [label, id] of [
   }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
     await openWindowedDesktop(page);
-    const display = await openDisplayProperties(page);
+    const display = await openSettings(page);
     const wallpaper = page
       .locator(".pane:not(.pane-hidden) .desktop-wallpaper")
       .first();
@@ -138,7 +136,7 @@ test("the desktop and its swatches render grayscale in Light and Dark, tinted in
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
   await openWindowedDesktop(page);
-  const display = await openDisplayProperties(page);
+  const display = await openSettings(page);
   await display.getByText("Tidal", { exact: true }).click();
   const wallpaper = page
     .locator(".pane:not(.pane-hidden) .desktop-wallpaper")

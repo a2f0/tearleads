@@ -71,7 +71,11 @@ function PaneInner({
         <TestSystemBanner />
         <PaneFooter label={label} tray={<AppSystemTray />} />
         {contextMenu && (
-          <PaneMenu position={contextMenu} onClose={closeContextMenu} />
+          <PaneMenu
+            surface="desktop"
+            position={contextMenu}
+            onClose={closeContextMenu}
+          />
         )}
       </SystemMonitorProvider>
     </section>

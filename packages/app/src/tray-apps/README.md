@@ -7,8 +7,8 @@ and the user can switch each one off:
 
 - right-click it (or press the context-menu key, or hold a finger on it) and
   choose **Disable**, or
-- use its switch in Display Properties' **System Tray** section, which also
-  turns it back on. The tray's context menu opens Display Properties, and the
+- use its switch in the **System Tray** section in Settings, which also
+  turns it back on. The tray's context menu opens Settings, and the
   routed launcher lists it, so the switches stay reachable in either layout.
 
 The platform is `@tearleads/windowing`'s system tray (see its
@@ -19,12 +19,11 @@ switch. This folder supplies the apps:
 
 - [`registry.ts`](registry.ts) — `TRAY_APPS`, each app's component, title, and
   icon, and the tray's order. The shell mounts it once in `Layout`, above every
-  pane, so every tray and Display Properties share one choice.
+  pane, so every tray and Settings share one choice.
 - [`AppSystemTray.tsx`](AppSystemTray.tsx) — the tray the windowed footer and
-  routed taskbar render, with a Display Properties item in each app's menu.
-- One folder per tray app: [`screensaver/`](screensaver/),
-  [`theme/`](theme/), [`navigation-mode/`](navigation-mode/), and
-  [`sync-status/`](sync-status/).
+  routed taskbar render, with a Settings item in each app's menu.
+- One folder per tray app: [`theme/`](theme/),
+  [`navigation-mode/`](navigation-mode/), and [`sync-status/`](sync-status/).
 
 ## Layout standard
 

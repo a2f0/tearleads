@@ -344,7 +344,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Tray Apps",
     package: "app",
     responsibility:
-      "The system tray's apps and their registry for windowing's SystemTray: the screensaver button, theme switch, layout switch, and sync status, each in its own folder, plus the tray the shells mount with its Display Properties menu item. Tray apps import no mini-app, and mini-apps import no tray app.",
+      "The system tray's apps and their registry for windowing's SystemTray: the theme switch, layout switch, and sync status, each in its own folder, plus the tray the shells mount with its Settings menu item. Tray apps import no mini-app, and mini-apps import no tray app.",
     seam: "tray-apps/registry; tray-apps/AppSystemTray",
     paths: [`${app}/tray-apps/`],
     surface: [
@@ -409,9 +409,9 @@ export const subsystems: readonly Subsystem[] = [
     name: "Theming",
     package: "app",
     responsibility:
-      "Color themes and desktop wallpapers: the app's theme list for windowing's ThemeProvider (persisted selection, the `<html data-theme>` stamp), the wallpaper list for windowing's WallpaperProvider, and the Display Properties mini-app that picks both and switches tray apps on and off. The per-theme token blocks live in @tearleads/ui's styles.css.",
-    seam: "theme/ThemeProvider; theme/themes; theme/WallpaperProvider; mini-apps/display-properties",
-    paths: [`${app}/theme/`, `${app}/mini-apps/display-properties/`],
+      "Color themes and desktop wallpapers: the app's theme list for windowing's ThemeProvider (persisted selection, the `<html data-theme>` stamp), the wallpaper list for windowing's WallpaperProvider, and the Settings mini-app that picks both and switches tray apps on and off. The per-theme token blocks live in @tearleads/ui's styles.css.",
+    seam: "theme/ThemeProvider; theme/themes; theme/WallpaperProvider; mini-apps/settings",
+    paths: [`${app}/theme/`, `${app}/mini-apps/settings/`],
   },
   {
     name: "App Identity Provisioning",

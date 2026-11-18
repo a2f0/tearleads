@@ -7,13 +7,13 @@ import {
   MINI_APP_TITLES,
 } from "./catalog";
 import { ContactsApp } from "./contacts/ContactsApp";
-import { DisplayPropertiesApp } from "./display-properties/DisplayPropertiesApp";
 import { ExplorerApp } from "./explorer/ExplorerApp";
 import { IdentityManagerApp } from "./identity-manager/IdentityManagerApp";
 import { createNotesWindowComponent } from "./notes/NotesApp";
 import { OrgManagerApp } from "./org-manager/OrgManagerApp";
 import { OrganizationsApp } from "./organizations/OrganizationsApp";
 import { RootApp } from "./root/RootApp";
+import { SettingsApp } from "./settings/SettingsApp";
 import { SystemMonitorApp } from "./system-monitor/SystemMonitorApp";
 import type { MiniAppDefinition, MiniAppId } from "./types";
 
@@ -34,7 +34,7 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
     title: MINI_APP_TITLES.contacts,
   },
   "display-properties": {
-    createComponent: () => DisplayPropertiesApp,
+    createComponent: () => SettingsApp,
     icon: MINI_APP_ICONS["display-properties"],
     initialShowSidebar: false,
     title: MINI_APP_TITLES["display-properties"],

@@ -29,7 +29,7 @@ export function PaneFooter({
         className="tearleads-action-button pane-footer-menu-button"
         icon={<TearleadsLogo className="pane-footer-menu-logo" />}
         renderMenu={({ close, position }) => (
-          <PaneMenu appEntryMenus position={position} onClose={close} />
+          <PaneMenu surface="start" position={position} onClose={close} />
         )}
       />
       {windows.map((w) => (

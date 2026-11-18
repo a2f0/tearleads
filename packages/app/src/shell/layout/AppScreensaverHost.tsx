@@ -10,7 +10,7 @@ import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringL
 
 // One host inside the shared runtime, above all workspace/window state. The
 // isolated demo deliberately has no host: its peers have independent PINs, so
-// the desktop menu item and the Screensaver Button tray app hide there.
+// the desktop menu omits the screensaver action there.
 export function AppScreensaverHost({ children }: PropsWithChildren) {
   const { pinCodeEnabled, verifyPinCode } = useLocalKeyringLock();
 
