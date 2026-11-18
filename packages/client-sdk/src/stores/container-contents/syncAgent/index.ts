@@ -307,10 +307,15 @@ function createHydrationRequester(input: {
     });
 }
 
-export function createContainerContentsStoreSyncAgent(input: {
+interface AgentInput {
   host: RemoteContainerHydrationHost;
   state: ContainerContentsStoreSyncState;
-}): ContainerContentsStoreSyncAgent {
+}
+
+export function prepareContainerContentsStoreSyncAgent(input: AgentInput): {
+  agent: ContainerContentsStoreSyncAgent;
+  registerLane: () => void;
+} {
   const { host, state } = input;
   const scheduleSync = () => requestContainerContentsStoreSync(state);
   const remoteContainerIngestion = createRemoteContainerIngestionController({
@@ -320,20 +325,10 @@ export function createContainerContentsStoreSyncAgent(input: {
   });
   const resumeRecoveryWork = remoteContainerIngestion.resumeInterruptedWork;
 
-  const requestHydration = createHydrationRequester({
-    host,
-    resumeRecoveryWork,
-    scheduleSync,
-    state,
-  });
+  const hydrationInput = { host, resumeRecoveryWork, scheduleSync, state };
+  const requestHydration = createHydrationRequester(hydrationInput);
   const requestRefreshHydration = (options: RemoteHydrationRefreshOptions) =>
-    requestContainerContentsRemoteHydration({
-      ...options,
-      host,
-      resumeRecoveryWork,
-      scheduleSync,
-      state,
-    });
+    requestContainerContentsRemoteHydration({ ...hydrationInput, ...options });
   const scheduleHydration = (
     options?: Parameters<typeof requestHydration>[0],
   ) => observeContainerBackgroundHydration(state, requestHydration(options));
@@ -356,26 +351,28 @@ export function createContainerContentsStoreSyncAgent(input: {
     state,
   });
 
-  state.syncLane = registerContainerContentsSyncLane({
-    onDispose: () => retireContainerStore(state),
-    domainScope: state.runtime.state.domainScope,
-    logError: (message, error) => logSyncLaneFailure(state, message, error),
-    run: (policyOperation) =>
-      runContainerContentsStoreSyncIteration({
-        host,
-        policyOperation,
-        reconcileRestoredAccess,
-        requestRemoteReconciliation: (parentContainerId) => {
-          scheduleHydration({
-            followDiscoveredParentLanes: false,
-            parentIds: [parentContainerId],
-          });
-        },
-        state,
-      }),
-  });
+  const registerLane = () => {
+    state.syncLane = registerContainerContentsSyncLane({
+      onDispose: () => retireContainerStore(state),
+      domainScope: state.runtime.state.domainScope,
+      logError: (message, error) => logSyncLaneFailure(state, message, error),
+      run: (policyOperation) =>
+        runContainerContentsStoreSyncIteration({
+          host,
+          policyOperation,
+          reconcileRestoredAccess,
+          requestRemoteReconciliation: (parentContainerId) => {
+            scheduleHydration({
+              followDiscoveredParentLanes: false,
+              parentIds: [parentContainerId],
+            });
+          },
+          state,
+        }),
+    });
+  };
 
-  return {
+  const agent: ContainerContentsStoreSyncAgent = {
     ensureInitialized: () => {
       ensureContainerContentsStoreInitialized({
         handleRemoteEvents,
@@ -404,4 +401,13 @@ export function createContainerContentsStoreSyncAgent(input: {
     scheduleRemoteHydration: scheduleHydration,
     scheduleSync,
   };
+  return { agent, registerLane };
+}
+
+export function createContainerContentsStoreSyncAgent(
+  input: AgentInput,
+): ContainerContentsStoreSyncAgent {
+  const prepared = prepareContainerContentsStoreSyncAgent(input);
+  prepared.registerLane();
+  return prepared.agent;
 }

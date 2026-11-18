@@ -184,69 +184,52 @@ type InterestTree = NonNullable<
   ReturnType<typeof resolveContainerInterestStore>
 >;
 
-function subscribeToInterestTree(
+/** A replacement tree owns a fresh authoritative declaration and its acknowledgements. */
+export function startContainerInterestDeclaration(
   sdk: Tearleads,
-  first: InterestTree,
-  changed: (store: InterestTree) => void,
+  ws: WebSocket,
   coordinatorForScope?: typeof getOrCreateDomainSyncCoordinator,
-): () => void {
-  if (!coordinatorForScope) return first.subscribe(() => changed(first));
+): ContainerInterestDeclaration {
+  const tree = resolveContainerInterestStore(sdk);
+  if (!tree) return INACTIVE_DECLARATION;
+  let current = declareInterest(ws, tree);
+  if (!coordinatorForScope) return current;
   const getCoordinator = coordinatorForScope;
   const scope = sdk.domainScope;
   let stopped = false;
-  let detachTree = () => {};
-  let detachCoordinator = () => {};
-  function attach(store: InterestTree) {
+  const observeRetirement = (): (() => void) => {
     const coordinator = getCoordinator(scope);
-    detachTree = store.subscribe(() => changed(store));
-    detachCoordinator = coordinator.subscribe(() => {
+    return coordinator.subscribe(() => {
       if (!coordinator.isDisposed()) return;
-      detachTree();
-      detachCoordinator();
-      // A sign-in transition retires its coordinator before installing its new scope.
+      current.stop();
+      current = INACTIVE_DECLARATION;
+      if (sdk.domainScope !== scope) return;
+      sdk.events.setConnected(false);
+      // End the old barrier immediately. Open the replacement after the host
+      // finishes its synchronous identity or database transition.
       queueMicrotask(() => {
         if (stopped || sdk.domainScope !== scope) return;
         const next = resolveContainerInterestStore(sdk);
         if (!next) return;
-        attach(next);
-        changed(next);
+        detach = observeRetirement();
+        current = declareInterest(ws, next);
       });
     });
-  }
-  attach(first);
-  return () => {
-    stopped = true;
-    detachTree();
-    detachCoordinator();
   };
-}
-
-/**
- * A socket opens with no server-side interest. Once the local tree is ready,
- * send one acknowledged authoritative declaration, then push add/remove
- * deltas. Interest is routing state, not an authorization grant.
- */
-export function startContainerInterestDeclaration(
-  tearleads: Tearleads,
-  ws: WebSocket,
-  coordinatorForScope?: typeof getOrCreateDomainSyncCoordinator,
-): ContainerInterestDeclaration {
-  const initialStore = resolveContainerInterestStore(tearleads);
-  if (!initialStore) return INACTIVE_DECLARATION;
-  let store = initialStore;
-  return declareInterest(ws, {
-    getSnapshot: () => store.getSnapshot(),
-    subscribe: (notify) =>
-      subscribeToInterestTree(
-        tearleads,
-        store,
-        (next) => {
-          store = next;
-          notify();
-        },
-        coordinatorForScope,
-      ),
-  });
+  let detach = observeRetirement();
+  return {
+    acknowledge: (id, accepted) => current.acknowledge(id, accepted),
+    awaitingInitialAcknowledgement: () =>
+      current.awaitingInitialAcknowledgement(),
+    invalidate: (id) => current.invalidate(id),
+    retryRefused: () => current.retryRefused(),
+    sync: () => current.sync(),
+    stop: () => {
+      stopped = true;
+      detach();
+      current.stop();
+    },
+  };
 }
 
 function declareInterest(

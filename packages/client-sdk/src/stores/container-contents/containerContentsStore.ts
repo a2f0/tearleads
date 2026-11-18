@@ -39,7 +39,8 @@ import {
 import {
   type ContainerContentsStoreRuntime,
   type ContainerContentsStoreSyncAgent,
-  createContainerContentsStoreSyncAgent,
+  type createContainerContentsStoreSyncAgent,
+  prepareContainerContentsStoreSyncAgent,
 } from "./syncAgent";
 import { oweContainerMetadataRead } from "./syncAgent/metadataRevalidation";
 import { findRootContainerState } from "./systemContainers/systemContainerLookup";
@@ -55,6 +56,7 @@ const containerContentsStoresByScope = new WeakMap<
 >();
 
 interface ContainerContentsStoreEntry {
+  registerLane: () => void;
   isDisposed: () => boolean;
   requestDocumentPriming: () => void;
   store: ContainerContentsStore;
@@ -404,13 +406,15 @@ function createContainerContentsStoreEntry(
     options.persistence ?? persistence,
     options.logLabel,
   );
-  const syncAgent = createContainerContentsStoreSyncAgent({
-    host: createContainerContentsStoreSyncHost(state),
-    state,
-  });
+  const { agent: syncAgent, registerLane } =
+    prepareContainerContentsStoreSyncAgent({
+      host: createContainerContentsStoreSyncHost(state),
+      state,
+    });
   const writeMethods = createContainerWriteMethods(state, syncAgent);
 
   return {
+    registerLane,
     isDisposed: () => state.syncLane?.isDisposed?.() ?? false,
     requestDocumentPriming: () => {
       state.documentStoresNeedPriming = true;
@@ -445,8 +449,13 @@ export function createContainerContentsStore(
   persistence: ContainerContentsPersistence = defaultContainerContentsPersistence,
   options: ContainerContentsStoreOptions = {},
 ): ContainerContentsStore {
-  return createContainerContentsStoreEntry(initialRuntime, persistence, options)
-    .store;
+  const entry = createContainerContentsStoreEntry(
+    initialRuntime,
+    persistence,
+    options,
+  );
+  entry.registerLane();
+  return entry.store;
 }
 
 export function getOrCreateContainerContentsStore(
@@ -466,17 +475,13 @@ export function getOrCreateContainerContentsStore(
     options,
   );
   containerContentsStoresByScope.set(domainScope, nextEntry);
+  // Registering the lane publishes a snapshot and can synchronously reopen this tree.
+  nextEntry.registerLane();
   return nextEntry.store;
 }
 
-/**
- * Arm the next structural pass's document-priming scan for a domain scope.
- * Priming normally re-arms only on store creation and topology changes, so a
- * caller that just tore down a document's local state uses this to have the
- * still-listed server document re-created without waiting for an app
- * restart. Returns false when the scope has no container-contents store yet;
- * the startup priming pass covers that case.
- */
+/** Re-arm priming after a local deletion so the next pass re-creates still-listed documents.
+ * A new store already primes its documents on startup. */
 export function requestContainerContentsDocumentPriming(
   domainScope: DomainScope,
 ): boolean {

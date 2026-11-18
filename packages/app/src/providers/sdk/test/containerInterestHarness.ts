@@ -49,6 +49,7 @@ export function acknowledgeInitialDeclaration(
 export function tearleadsWithStore(openTree: () => unknown): Tearleads {
   return {
     domainScope: createDomainScope(),
+    events: { setConnected: () => {} },
     deviceFirst: {
       open: () => ({ containerStore: openTree() }),
     },

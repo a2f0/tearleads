@@ -208,6 +208,10 @@ class DeviceFirstService implements DeviceFirst {
       runtime,
       options,
     });
+    // Opening the container store publishes its lane. A subscriber may have
+    // finished opening this scope while that notification was in progress.
+    if (this.entriesByScope.has(domainScope))
+      return this.getOrCreateEntry(options);
     const service = createReconciliationService(
       this.createReconciliationHost(store, domainScope, coordinator),
     );
@@ -224,8 +228,6 @@ class DeviceFirstService implements DeviceFirst {
       (document, change) =>
         store.refreshPersistedDocument(document, change.placementChanged),
     );
-    service.start();
-
     const view: LocalProjectionView = {
       getSnapshot: () => store.getSnapshot(),
       subscribe: (listener) => store.subscribe(listener),
@@ -246,6 +248,7 @@ class DeviceFirstService implements DeviceFirst {
       unsubscribePersistedDocuments,
     };
     this.entriesByScope.set(domainScope, entry);
+    service.start();
     return entry;
   }
 

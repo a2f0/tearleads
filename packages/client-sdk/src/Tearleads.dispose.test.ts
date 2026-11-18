@@ -4,7 +4,10 @@ import {
   setGeneratedIdentity,
 } from "../test/helpers/data/clientTestSupport";
 import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
-import { getOrCreateDomainSyncCoordinator } from "./data/sync/syncCoordinator";
+import {
+  getOrCreateDomainSyncCoordinator,
+  subscribeToDomainSyncCoordinator,
+} from "./data/sync/syncCoordinator";
 import { Tearleads } from "./Tearleads";
 
 test("dispose() force-stops the active scope's coordinator and drops it", async () => {
@@ -103,6 +106,28 @@ test("SDK teardown retires only the coordinator it started with", () => {
     expect(reopened.isDisposed()).toBe(false);
     expect(getOrCreateDomainSyncCoordinator(scope)).toBe(reopened);
   } finally {
+    sdk.dispose();
+  }
+});
+
+test("a scope observer sees the device-first handle that owns both replacement lanes", () => {
+  const sdk = new Tearleads({ logger: quietLogger, online: false });
+  const old = sdk.deviceFirst.open();
+  sdk.dispose();
+  const seen: (typeof old)[] = [];
+  let inspecting = false;
+  const unsubscribe = subscribeToDomainSyncCoordinator(sdk.domainScope, () => {
+    if (inspecting) return;
+    inspecting = true;
+    seen.push(sdk.deviceFirst.open());
+    inspecting = false;
+  });
+  try {
+    const next = sdk.deviceFirst.open();
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((entry) => entry === next)).toBe(true);
+  } finally {
+    unsubscribe();
     sdk.dispose();
   }
 });

@@ -396,26 +396,36 @@ test("a grant during initial authorization preserves its acknowledgment barrier"
   handle.stop();
 });
 
-test("a connected socket follows a replacement tree in the same scope", async () => {
-  const retired = createFakeStore(["prior"]);
-  const replacement = createFakeStore(["current"]);
-  let tree = retired;
-  const sdk = tearleadsWithStore(() => tree.store);
-  const { ws, sent } = fakeSocket(WebSocket.OPEN);
-  const declaration = startContainerInterestDeclaration(sdk, ws);
-  try {
-    acknowledgeInitialDeclaration(declaration, sent);
-    tree = replacement;
-    getOrCreateDomainSyncCoordinator(sdk.domainScope).dispose();
-    await Promise.resolve();
-    expect(sent.slice(1).map((entry) => JSON.parse(entry))).toMatchObject([
-      { type: "known_containers.add", containerIds: ["current"] },
-      { type: "known_containers.remove", containerIds: ["prior"] },
-    ]);
-    const count = sent.length;
-    retired.setNodes(["retired-update"]);
-    expect(sent.length).toBe(count);
-  } finally {
-    declaration.stop();
-  }
-});
+test.each([true, false])(
+  "a connected socket follows a replacement tree (initial ack pending: %s)",
+  async (pending) => {
+    const retired = createFakeStore(["prior"]);
+    const replacement = createFakeStore(["current"]);
+    let tree = retired;
+    const sdk = tearleadsWithStore(() => tree.store);
+    const { ws, sent } = fakeSocket(WebSocket.OPEN);
+    const declaration = startContainerInterestDeclaration(sdk, ws);
+    try {
+      const initial = JSON.parse(sent[0] ?? "null");
+      if (!pending) acknowledgeInitialDeclaration(declaration, sent);
+      tree = replacement;
+      getOrCreateDomainSyncCoordinator(sdk.domainScope).dispose();
+      expect(declaration.acknowledge(initial.declarationId, ["prior"])).toBe(
+        false,
+      );
+      await Promise.resolve();
+      expect(sent.slice(1).map((entry) => JSON.parse(entry))).toMatchObject([
+        { type: "known_containers", containerIds: ["current"] },
+      ]);
+      const current = JSON.parse(sent[1] ?? "null");
+      expect(declaration.acknowledge(current.declarationId, ["current"])).toBe(
+        true,
+      );
+      const count = sent.length;
+      retired.setNodes(["retired-update"]);
+      expect(sent.length).toBe(count);
+    } finally {
+      declaration.stop();
+    }
+  },
+);
