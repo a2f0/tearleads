@@ -27,7 +27,6 @@ export function createContainerMutationRequest(): ContainerMutationRequest {
     event: { eventType: "container.create" },
     body: { eventType: "container.create" },
     expectedManifestHash: "manifest-hash",
-    manifest: { objectKind: "container" },
     keyEpoch: { containerKeyEpochId: "container-key-epoch-id" },
     predecessorBridge: null,
     keyring: null,
@@ -128,7 +127,6 @@ export function createDocumentLinkSetMutationRequest(): DocumentLinkSetMutationR
     event: { eventType: "document.link" },
     body: { eventType: "document.link" },
     expectedManifestHash: "document-manifest-hash",
-    manifest: { objectKind: "document" },
     targetContainerPathRefs: [
       { containerId: "container-1", manifestHash: "container-manifest-hash" },
     ],

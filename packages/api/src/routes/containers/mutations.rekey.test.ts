@@ -120,7 +120,7 @@ test("POST /containers/:containerId/rekey rejects recipient-set changes", async 
   const tamperedManifest = await deriveContainerAccessManifest(
     tamperedManifestState,
   );
-  request.manifest = tamperedManifest as unknown as Record<string, unknown>;
+  // The request claims the hash of a manifest the event does not derive.
   request.expectedManifestHash =
     await computeAccessManifestHash(tamperedManifest);
 

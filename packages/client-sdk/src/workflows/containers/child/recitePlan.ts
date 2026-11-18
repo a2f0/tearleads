@@ -87,7 +87,6 @@ export async function buildContainerRecitePlan(input: {
   const request: ContainerReciteRequest = {
     body,
     event: readCanonicalRecord(event, "Recitation event"),
-    manifest: readCanonicalRecord(manifest, "Recitation manifest"),
     expectedManifestHash: manifestHash,
     previousManifestRef: containerManifestRef(previous.bundle),
     previousContainerPathRefs: input.path.map((head) =>

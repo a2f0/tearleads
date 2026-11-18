@@ -197,14 +197,11 @@ export async function verifyDocumentLinkSetMutationAuthorizationFromRequest(inpu
       ...(authorizingContainerPaths ?? []),
     ],
   );
+  // The request carries only the hash: the manifest is derived from the
+  // signed event and the cited heads, and must hash to it.
   const result = await verifyDocumentLinkSetManifest({
     event: input.event,
     expectedManifestHash: input.request.expectedManifestHash,
-    manifest: readProjectionAccessManifest(
-      input.request.manifest,
-      "Document manifest",
-      documentShapeError,
-    ),
     previousManifest: input.previousManifest,
     principalPolicies,
     ...(targetContainerPath !== undefined ? { targetContainerPath } : {}),

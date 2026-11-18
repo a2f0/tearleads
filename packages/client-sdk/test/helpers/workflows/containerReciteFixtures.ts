@@ -14,10 +14,7 @@ import {
   heldContainerSnapshot,
   rememberAcknowledgedContainerHead,
 } from "../../../src/data/keyingProjectionVerification/checkpoints/heldContainerHeads";
-import {
-  readAccessEvent,
-  readAccessManifest,
-} from "../../../src/data/keyingProjectionVerification/readers";
+import { readAccessEvent } from "../../../src/data/keyingProjectionVerification/readers";
 import { KeyingCheckpointRepository } from "../../../src/data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { locallyAuthoredAccessManifestHead } from "../../../src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { openPrincipalPolicyBundleReader } from "../../../src/data/persistence/principalPolicy/principalPolicyBundleRepository";
@@ -105,10 +102,6 @@ export async function createContainerReciteScenario(extraChildren = 0) {
     const result = await verifyContainerAccessManifest({
       event: event.value,
       expectedManifestHash: request.expectedManifestHash,
-      manifest: readAccessManifest(
-        request.manifest,
-        "Test recitation manifest",
-      ),
       previousManifest: previous,
       previousContainerPath: path,
     });

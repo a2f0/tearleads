@@ -34,7 +34,7 @@ import { ContainerKekKeyringWireRecordSchema } from "../util";
 
 describeSchema(
   ContainerMutationRequestSchema,
-  "A signed container mutation (create, share, or the container part of a larger write): the event, the manifest it derives, and the KEK material, citing stored heads instead of resending them.",
+  "A signed container mutation (create, share, or the container part of a larger write): the event, the hash of the manifest it derives (the API derives the manifest itself), and the KEK material, citing stored heads instead of resending them.",
   {
     body: "Event-type-specific body the signature commits to.",
     containerManifestHistoryRefs:
