@@ -289,6 +289,16 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     signer: owner,
   });
 
+  const formerChild = await createChild({
+    parent: accessManifestFromResponse(source),
+    parentContainerPath: [
+      root.bundle,
+      sharedOldParentBundle,
+      accessManifestFromResponse(source),
+    ],
+    parentKekState: kekStateFromResponse(source),
+    signer: owner,
+  });
   const recipientBaselineResponse = await listContainersForUser({
     parentId: oldParent.containerId,
     token: recipient.token,
@@ -354,6 +364,31 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     .where(eq(containerSyncTombstones.containerId, source.containerId));
   if (!historicalRemoval) throw new Error("Expected the loss to be recorded");
   const movedBundle = accessManifestFromResponse(movedAway);
+  const formerChildBundle = accessManifestFromResponse(formerChild);
+  const relocateChild = await buildMoveRequest({
+    destinationParent: accessManifestFromResponse(destination),
+    destinationParentKekState: kekStateFromResponse(destination),
+    destinationParentPath: [
+      root.bundle,
+      accessManifestFromResponse(destination),
+    ],
+    previous: formerChildBundle,
+    previousContainerPath: [
+      root.bundle,
+      accessManifestFromResponse(destination),
+      movedBundle,
+      formerChildBundle,
+    ],
+    previousKekState: kekStateFromResponse(formerChild),
+    signer: owner,
+  });
+  await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${formerChild.containerId}/move`,
+      request: relocateChild,
+      token: owner.token,
+    }),
+  );
   const restore = await buildMoveRequest({
     destinationParent: sharedOldParentBundle,
     destinationParentKekState: sharedOldParentKekState,
@@ -379,11 +414,12 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
       .select()
       .from(containerSyncTombstones)
       .where(eq(containerSyncTombstones.id, historicalRemoval.id)),
-  ).toEqual([]);
-  // A pre-upgrade move back left this row behind, possibly with a later clock.
+  ).toHaveLength(1);
+  // Test the same restored live folder with an old device's later-clock hint.
   await db
-    .insert(containerSyncTombstones)
-    .values({ ...historicalRemoval, updatedAt: new Date("2099-01-01") });
+    .update(containerSyncTombstones)
+    .set({ updatedAt: new Date("2099-01-01") })
+    .where(eq(containerSyncTombstones.id, historicalRemoval.id));
   const restored = await readLanePage(
     await listContainersForUser({
       parentId: oldParent.containerId,
@@ -392,7 +428,21 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
       watermark: recipientBaseline.nextWatermark,
     }),
   );
-  expect(restored.items.map((row) => row.id)).toEqual([source.containerId]);
+  expect(restored.items).toEqual([
+    expect.objectContaining({
+      id: source.containerId,
+      reconcileDescendants: true,
+    }),
+  ]);
+  const children = await readLanePage(
+    await listContainersForUser({
+      parentId: source.containerId,
+      token: recipient.token,
+    }),
+  );
+  expect(children.items.map((row) => row.id)).not.toContain(
+    formerChild.containerId,
+  );
   expect(restored.tombstones).toEqual([]);
   expect(restored.hasMore).toBe(false);
 });

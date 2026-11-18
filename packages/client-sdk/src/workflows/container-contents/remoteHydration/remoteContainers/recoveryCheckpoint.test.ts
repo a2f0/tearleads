@@ -118,6 +118,7 @@ test.each(["before verification", "before insertion"])(
           apiClient: {
             getContainerWriterProjection: async () => served,
             evictContainerWriterProjection: () => {},
+            evictWriterProjectionsCiting: () => {},
             getCurrentPrincipalPolicy: async () => null,
           },
           auth: {
@@ -144,11 +145,14 @@ test.each(["before verification", "before insertion"])(
         createdAt: "2026-09-25T00:00:00.000Z",
         updatedAt: "2026-09-25T00:00:00.000Z",
       };
-      const hydrate = () =>
+      const hydrate = (
+        remoteContainer = listed,
+        heldFence: typeof fence | null = fence,
+      ) =>
         upsertRemoteContainerState({
-          remoteContainer: listed,
+          remoteContainer,
           state,
-          expectedHydrationTombstone: fence,
+          expectedHydrationTombstone: heldFence,
           containerIdsWithPendingMetadataUpdates: new Set(),
           containerIdsWithPendingStructuralIntents: new Set(),
           host: {
@@ -175,6 +179,22 @@ test.each(["before verification", "before insertion"])(
       expect(
         await persistence.loadContainerHydrationTombstones(execSql),
       ).toEqual([]);
+      // A backdated listing names a different manifest. Its proof is signed
+      // and serves the current local pin, but cannot establish the listed move.
+      const mismatch = await hydrate(
+        {
+          ...listed,
+          updatedAt: "2026-09-24T00:00:00.000Z",
+          metadataDocumentId:
+            restored?.container.metadataDocumentId ?? listed.metadataDocumentId,
+          metadataAccessStateHash: "unseen-newer-manifest",
+        },
+        null,
+      );
+      expect(mismatch).toBeNull();
+      expect(
+        state.containersById.get(listed.id)?.record.accessStateHash,
+      ).not.toBe("unseen-newer-manifest");
       expect(
         await new KeyingCheckpointRepository(
           execSql,

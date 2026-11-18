@@ -68,6 +68,7 @@ async function readTombstoneCascadeAccess(
 }
 
 export async function resolveTombstoneCascade(input: {
+  reconcileDescendants: boolean;
   afterParentPage: ListContainerDocumentLanesRequest["afterParentPage"];
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
@@ -92,7 +93,8 @@ export async function resolveTombstoneCascade(input: {
       input.expectedContainerStates.get(id)?.container.serverUpdatedAt;
     return held != null && held > input.tombstone.updatedAt;
   });
-  if (!clockConflict) return { cascade: candidates, denied: null };
+  if (!input.reconcileDescendants && !clockConflict)
+    return { cascade: candidates, denied: null };
 
   if (!input.afterParentPage) return null;
   const access = await readTombstoneCascadeAccess(
@@ -109,6 +111,10 @@ export async function resolveTombstoneCascade(input: {
   // A move before the server upgrade may have left a superseded removal in
   // its old lane. Preserve a currently readable root and advance past it.
   if (!access) return null;
+  // A restored row only asks to reconcile its descendants. A newer loss of
+  // the root itself has its own publication.
+  if (input.reconcileDescendants)
+    access.denied.delete(input.tombstone.containerId);
   return {
     // A cached descendant may have moved away from a still-readable ancestor.
     // The batch checked every candidate independently.

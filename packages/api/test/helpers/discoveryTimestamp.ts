@@ -12,5 +12,5 @@ export function fixtureDiscoveryOrder(timestamp: SQLWrapper) {
 }
 
 export function expectedDiscoveryId() {
-  return expect.stringMatching(/^d1\/[A-Za-z0-9_-]{138}$/u);
+  return expect.stringMatching(/^d1\/[A-Za-z0-9_-]{114}$/u);
 }

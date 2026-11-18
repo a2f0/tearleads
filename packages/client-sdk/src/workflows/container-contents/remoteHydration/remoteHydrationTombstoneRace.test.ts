@@ -1,9 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type {
-  ListContainerParentLanesResponse,
-  ListContainersResponse,
-} from "@tearleads/validators/response";
+import type { ListContainerParentLanesResponse } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../../test/helpers/data/signedContainerDirectory";
 import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { createDomainScope } from "../../../data/shared/domainScope";
@@ -15,62 +12,17 @@ import {
   defaultContainerContentsPersistence,
 } from "../containerPersistence";
 import { hydrateRemoteContainers } from "./index";
-import type { ContainerState, RemoteContainerHydrationState } from "./types";
-
-const timestamp = "2026-01-01T00:00:00.000Z";
+import {
+  existingContainerState,
+  remoteContainer,
+  timestamp,
+} from "./lanes/tombstoneApplication.testFixtures";
+import type { RemoteContainerHydrationState } from "./types";
 
 function loadParentWatermark(execSql: ExecSql, parentId: string) {
   return new ContainerSyncWatermarkRepository(execSql).loadWatermark(
     createContainerParentSyncLane(parentId),
   );
-}
-
-function remoteContainer(
-  id: string,
-  parentId: string | null,
-): ListContainersResponse["items"][number] {
-  return {
-    createdAt: timestamp,
-    depth: parentId ? 1 : 0,
-    effectiveAccessLevel: "write",
-    id,
-    metadataAccessEpoch: 1,
-    metadataAccessStateHash: `access-${id}`,
-    metadataDocumentId: `metadata-${id}`,
-    metadataVersionVector: "",
-    metadataReferencedPrincipals: [],
-    organizationId: "organization-1",
-    parentId,
-    systemSlot: null,
-    updatedAt: timestamp,
-  };
-}
-
-function existingContainerState(
-  id: string,
-  parentId: string | null,
-): ContainerState {
-  const remote = remoteContainer(id, parentId);
-  return {
-    container: {
-      id: remote.id,
-      icon: null,
-      metadataDocumentId: remote.metadataDocumentId,
-      name: id,
-      organizationId: remote.organizationId,
-      parentId: remote.parentId,
-      updatedAt: remote.updatedAt,
-    },
-    doc: {},
-    record: {
-      accessEpoch: remote.metadataAccessEpoch,
-      accessStateHash: remote.metadataAccessStateHash,
-      documentId: remote.metadataDocumentId,
-      id: remote.id,
-      metadataUpdates: "",
-      snapshotEndVersion: "",
-    },
-  } as unknown as ContainerState;
 }
 
 test("a stale tombstone does not starve independent page work", async () => {

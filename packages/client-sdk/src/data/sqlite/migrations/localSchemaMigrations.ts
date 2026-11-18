@@ -74,11 +74,11 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     version: 3,
   },
   {
-    name: "replay_commit_ordered_document_discovery",
+    name: "replay_commit_ordered_discovery",
     up: async (execSql, context) => {
       if (!(await context.hasTable("container_sync_watermarks"))) return;
-      // A previous SDK could save a publication cursor past an older-clock
-      // unlink. Original UUID cursors already replay on the upgraded server.
+      // Older SDKs could checkpoint a publication before reconciling an
+      // unlink or a restored subtree. Legacy UUID cursors already replay.
       await execSql(
         "ALTER TABLE container_sync_watermarks ADD COLUMN cursor_format INTEGER NOT NULL DEFAULT 1",
       );

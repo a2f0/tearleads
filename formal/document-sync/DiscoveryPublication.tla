@@ -9,7 +9,8 @@ Init == /\ phase = [r \in Rows |-> "writing"]
         /\ order = [r \in Rows |-> 0]
         /\ nextOrder = 1 /\ watermark = 0 /\ applied = {}
 
-\* Each mutation may do arbitrary work before publishing its row.
+\* Each mutation may do arbitrary work before locking the publication counter.
+\* Aborted reservations are conservatively allowed to leave a gap.
 Publish(r) ==
   /\ phase[r] = "writing"
   /\ ~SerializePublication \/ \A t \in Rows : phase[t] # "publishing"

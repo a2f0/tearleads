@@ -2,6 +2,7 @@ import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
   accessManifests,
+  containerSyncTombstones,
   containers,
   documentUpdateSpans,
 } from "@tearleads/api-shared/schema";
@@ -23,6 +24,7 @@ export interface AccessibleContainerRow {
   /** Raw column value; `listContainers` admits only a known system slot. */
   systemSlot: unknown;
   discoveryOrder: bigint;
+  reconcileDescendants: boolean;
   depth: number;
   id: string;
   metadataAccessEpoch?: number;
@@ -42,6 +44,7 @@ const accessibleContainerRowSchema = z.looseObject({
     .regex(/^-?\d+$/u)
     .transform(BigInt),
   id: z.string(),
+  reconcileDescendants: z.boolean(),
   metadataDocumentId: z.string().nullable(),
   metadataVersion: z.record(z.string(), z.number().int().nonnegative()),
   organizationId: z.string(),
@@ -288,6 +291,9 @@ export function accessibleContainersQuery(input: {
       ${textExpression(sql`accessible.parent_id`)} as "parentId",
       ${intExpression(sql`accessible.depth`)} as "depth",
       accessible.discovery_order::text as "discoveryOrder",
+      exists (select 1 from ${containerSyncTombstones} loss
+        where loss.user_id = ${input.userId} and loss.container_id = accessible.id
+          and loss.reason = 'access_revoked') as "reconcileDescendants",
       ${syncTimestampExpression(sql`accessible.created_at`)} as "createdAt",
       ${syncTimestampExpression(sql`accessible.updated_at`)} as "updatedAt",
       ${intExpression(sql`accessible.epoch`)} as "metadataAccessEpoch",

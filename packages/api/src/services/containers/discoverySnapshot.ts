@@ -2,20 +2,17 @@ import { type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { ApiServiceRuntime } from "../runtime";
 
-export const discoveryWalPosition = sql`(case when pg_is_in_recovery() then pg_last_wal_replay_lsn() else pg_current_wal_insert_lsn() end)`;
-
 export async function readDiscoveryKey(
   runtime: ApiServiceRuntime,
 ): Promise<string> {
   const result = await runtime.db.execute(
-    sql`select key_material from drizzle.discovery_cursor_key where singleton`,
+    sql`select key_material from drizzle.discovery_cursor_key where singleton and backfill_complete`,
   );
   return z.object({ key_material: z.string().min(32) }).parse(result.rows[0])
     .key_material;
 }
 
 const sources = z.object({
-  walPosition: z.string(),
   live: z.array(z.unknown()),
   removed: z.array(z.unknown()),
 });
@@ -27,7 +24,7 @@ export async function readDiscoverySources(
   removed: SQL,
 ) {
   const result = await runtime.db.execute(sql`
-    select ${discoveryWalPosition}::text as "walPosition",
+    select
       (select coalesce(jsonb_agg(rows order by rows."discoveryOrder"::bigint, rows.id), '[]'::jsonb)
        from (${live}) rows) as live,
       (select coalesce(jsonb_agg(rows order by rows."discoveryOrder"::bigint, rows.id), '[]'::jsonb)

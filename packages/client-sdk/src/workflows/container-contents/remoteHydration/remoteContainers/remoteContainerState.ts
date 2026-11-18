@@ -368,19 +368,26 @@ export async function upsertRemoteContainerState(
     ));
   if (input.isCurrent?.() === false) return null;
   invalidateListedProjectionCaches(input);
+  const backwardsClock =
+    heldState?.container.serverUpdatedAt != null &&
+    heldState.container.serverUpdatedAt > listed.updatedAt;
   const verified = await verifyRemoteContainerDestination({
     ...input,
     heldBinding,
     supersededListing,
-    refresh:
-      !!input.expectedHydrationTombstone ||
-      (heldState?.container.serverUpdatedAt != null &&
-        heldState.container.serverUpdatedAt > listed.updatedAt),
+    refresh: !!input.expectedHydrationTombstone || backwardsClock,
     onVerifiedCheckpoint: (checkpoint) => {
       expectedPlacementCheckpoint = checkpoint;
     },
   });
   if (!verified || input.isCurrent?.() === false) return null;
+  // A signed projection from a lagging replica can still repeat our old pin.
+  // Retry until it covers the manifest whose listing would be checkpointed.
+  if (
+    backwardsClock &&
+    expectedPlacementCheckpoint?.manifestHash !== listed.metadataAccessStateHash
+  )
+    return null;
   input = { ...input, remoteContainer: verified };
   const existingState = input.state.containersById.get(
     input.remoteContainer.id,

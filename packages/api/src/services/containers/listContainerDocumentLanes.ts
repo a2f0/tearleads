@@ -13,7 +13,7 @@ import {
 import { KeyingReadAccessError } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 import { discoveryCursor } from "./discoveryCursor";
-import { discoveryWalPosition, readDiscoveryKey } from "./discoverySnapshot";
+import { readDiscoveryKey } from "./discoverySnapshot";
 import {
   ListContainerDocumentsError,
   listContainerDocuments,
@@ -98,7 +98,7 @@ export async function listContainerDocumentLanes(
   if (!proof)
     return listLanes(runtime, userId, request, await readDiscoveryKey(runtime));
   // Keep the floor and subsequent authorization reads on one connection.
-  // READ COMMITTED takes a new snapshot after the replay position was checked.
+  // READ COMMITTED takes a new snapshot after the publication row was checked.
   return runtime.db.transaction(
     async (tx) => {
       const pinned = { ...runtime, db: tx };
@@ -107,14 +107,14 @@ export async function listContainerDocumentLanes(
         key,
         [userId, "containers", proof.parentId],
         proof.watermark,
-      ).walPosition;
+      ).publication;
       if (!floor)
         throw new ListContainerDocumentsError(
           "Invalid parent page checkpoint",
           400,
         );
       const reached = await tx.execute(
-        sql`select ${discoveryWalPosition} >= ${floor}::pg_lsn as reached`,
+        sql`select publication >= ${floor}::bigint as reached from drizzle.discovery_cursor_key where singleton and backfill_complete`,
       );
       if (
         !z.object({ reached: z.literal(true) }).safeParse(reached.rows[0])

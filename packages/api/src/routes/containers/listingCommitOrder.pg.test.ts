@@ -79,6 +79,13 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   "a second publisher waits until the transaction that allocated its predecessor commits",
   async () => {
     const { registration } = await registerServiceUser();
+    const visible = async () =>
+      (
+        await db.execute<{ value: string }>(
+          sql`select publication::text as value from drizzle.discovery_cursor_key where singleton`,
+        )
+      ).rows[0]?.value;
+    const before = await visible();
     const first = await holdPostgresLock(async (tx) => {
       await tx.insert(containerSyncTombstones).values({
         containerId: crypto.randomUUID(),
@@ -91,6 +98,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         sql`set constraints publish_container_removal_discovery immediate`,
       );
     });
+    expect(await visible()).toBe(before);
     const second = db.transaction(async (tx) => {
       await tx
         .update(containers)
@@ -115,6 +123,9 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       await first.release();
       await second;
     }
+    expect(BigInt((await visible()) ?? "0")).toBeGreaterThan(
+      BigInt(before ?? "0"),
+    );
   },
   30_000,
 );

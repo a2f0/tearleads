@@ -16,25 +16,24 @@ CREATE SCHEMA IF NOT EXISTS drizzle;
 CREATE TABLE IF NOT EXISTS drizzle.discovery_cursor_key (
   singleton boolean PRIMARY KEY CHECK (singleton),
   key_material text NOT NULL,
+  publication bigint NOT NULL DEFAULT 0,
   backfill_complete boolean NOT NULL DEFAULT false
 );
 --> statement-breakpoint
 INSERT INTO drizzle.discovery_cursor_key (singleton, key_material) VALUES (true, gen_random_uuid()::text || gen_random_uuid()::text) ON CONFLICT (singleton) DO NOTHING;
 --> statement-breakpoint
--- A lane can span organizations and mix live rows with removals. One order is
--- shared by all four sources. CACHE 1 prevents a session from reserving later
--- values that it could publish after another session used a larger value.
-CREATE SEQUENCE IF NOT EXISTS public.discovery_publication_order AS bigint CACHE 1;
---> statement-breakpoint
 CREATE OR REPLACE FUNCTION public.publish_discovery_order() RETURNS trigger
 LANGUAGE plpgsql AS $$
+DECLARE position bigint;
 BEGIN
   -- Only publication serializes. The row was already locked by the mutation.
-  -- Sequence gaps after rollback are harmless. This UPDATE cannot enqueue this
-  -- trigger again because it does not name updated_at.
-  PERFORM pg_advisory_xact_lock(7315420191);
-  EXECUTE format('UPDATE %s SET discovery_order = nextval(''public.discovery_publication_order'') WHERE id = $1',
-                 TG_RELID::regclass) USING NEW.id;
+  -- The row lock lasts through commit. A reader sees the same counter
+  -- version as the changes it covers, including on a standby.
+  UPDATE drizzle.discovery_cursor_key SET publication = publication + 1
+    WHERE singleton RETURNING publication INTO STRICT position;
+  -- An update to discovery_order alone does not enqueue this trigger.
+  EXECUTE format('UPDATE %s SET discovery_order = $1 WHERE id = $2', TG_RELID::regclass)
+    USING position, NEW.id;
   RETURN NULL;
 END;
 $$;

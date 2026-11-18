@@ -164,7 +164,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
   }
 });
 
-test("step 4 distinguishes document cursors saved before signed unlink recovery", async () => {
+test("step 4 replays publication cursors saved before unlink and restored-folder recovery", async () => {
   const { close, execSql } = await createTestExecSql(
     "local-schema-discovery-replay",
   );
@@ -191,7 +191,7 @@ test("step 4 distinguishes document cursors saved before signed unlink recovery"
     ).toEqual({ id: "doc", updatedAt: CREATED_AT });
     expect(
       await repository.loadWatermark(containerParentSyncLane(null)),
-    ).toEqual({ id: "123/folder", updatedAt: CREATED_AT });
+    ).toBeNull();
     const next = { id: "124/doc", updatedAt: CREATED_AT };
     await repository.saveWatermark(lane, next);
     expect(

@@ -135,9 +135,7 @@ function mapSelectedWatermarkRecord(
     row.watermarkId === null ||
     row.watermarkUpdatedAt === null ||
     row.updatedAt === null ||
-    (row.cursorFormat === 1 &&
-      row.laneKind === CONTAINER_DOCUMENTS_LANE &&
-      row.watermarkId.includes("/"))
+    (row.cursorFormat === 1 && row.watermarkId.includes("/"))
   ) {
     return null;
   }

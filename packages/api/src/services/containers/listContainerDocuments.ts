@@ -457,6 +457,6 @@ export async function listContainerDocuments(
   });
   return {
     ...response,
-    nextWatermark: cursor.seal(response.nextWatermark, rows.walPosition),
+    nextWatermark: cursor.seal(response.nextWatermark),
   };
 }

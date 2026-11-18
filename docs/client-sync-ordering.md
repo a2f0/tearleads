@@ -105,24 +105,25 @@ Document syncs scheduled through document stores remain separate operations.
 ### Discovery watermark order
 
 Each container or document change, including a removal, receives a publication
-position as its database transaction commits. The four sources share a sequence
+position as its database transaction commits. The four sources share a counter
 because a page can mix live rows and removals, and root discovery crosses
-organizations. Deferred triggers take a transaction-scoped lock before drawing
-from the sequence and hold it through commit. A rollback can leave a gap.
+organizations. Deferred triggers increment one counter row and hold its lock
+through commit. A rollback also rolls back the counter increment.
 Entity timestamps retain their original meaning. See the
 [publication migration](../packages/api-shared/drizzle/0004_discovery_order.sql).
 
 Each lane reads its live rows and tombstones in a single SQL statement, so
 both come from the same snapshot. Each page orders by publication position and ID.
 Existing clients already save and echo both watermark strings. The opaque ID
-seals the position, row ID, and WAL checkpoint with authenticated encryption
+seals the position and row ID with authenticated encryption
 bound to the user, lane, and cursor timestamp. Each database owns a durable
 cursor key shared across API deployments and server-secret rotations.
 A device resuming from a legacy UUID cursor replays the lane once,
 in bounded pages, recovering earlier omissions.
 An access recheck for a conflicting removal supplies its parent cursor.
-The API checks its WAL floor before reading permissions on the same database
-connection. A lagging replica leaves the page retryable.
+The API checks that its committed counter covers the parent page before
+reading permissions on the same connection. A lagging replica leaves the
+page retryable. Retrying the same publication requires the same position.
 A repeated folder in one crawl is reapplied when its listing changes.
 Parent lanes checkpoint each applied page. Document lanes checkpoint after
 applying the complete lane. After a restart, each resumes from its last
@@ -136,17 +137,19 @@ document-lane reads. It retains readable descendants and applies confirmed
 denials or absence only if the local rows still match the pre-request snapshot.
 An inconclusive read leaves the page retryable. When a live folder's entity
 clock moves backwards, hydration verifies the current signed placement and
-rechecks that checkpoint inside its local transaction. A move that restores
-inherited access prunes the superseded revocation for the moved subtree.
-Listings suppress older revocations when that path already grants access.
+requires the listed manifest hash and rechecks the signed checkpoint inside
+its local transaction. A folder that regained access carries a hint to check
+its cached descendants. A child that moved while the folder was inaccessible
+is removed only after its own access check. Listings omit older revocations
+when that path already grants access.
 Document removals, including
 those received after a live item on an earlier page, reach the signed-head
 check for locally held placements. A conflicting pending discovery retains its
 requirement to read the current signed head across process restarts. These
 client-side recovery changes require the updated SDK. Earlier clients can read
 and resume the new cursors. On
-upgrade, the SDK recognizes document-lane publication cursors saved by an older
-build and replays any unlinks an earlier client already checkpointed.
+upgrade, the SDK replays lanes saved by an older build so it also consumes
+restored-folder hints and document unlinks previously checkpointed.
 
 Deploy the additive database migrations before the API. A populated PostgreSQL
 database installs the triggers in one short transaction. Existing writers then
@@ -158,7 +161,9 @@ work, including a concurrent index build interrupted before becoming valid.
 Fresh installations and PGlite apply the journal directly. See the
 [discovery preparation](../packages/api-shared/src/adapters/prepareDiscoveryMigration.ts)
 and [historical backfill](../packages/api-shared/drizzle/0005_publish_discovery_order.sql).
-The SDK can arrive before or after the API. A
+Drain the old API fleet before relying on opaque cursors across consecutive
+pages. Alternating old and new servers can restart a multi-page crawl until
+the old instances drain. The SDK can arrive before or after the API. A
 device running the older SDK benefits from commit-ordered paging when the
 API updates, and receives the backwards-clock application fixes when its SDK
 updates.

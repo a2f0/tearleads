@@ -235,6 +235,9 @@ async function resolveVisibleContainerSummaries(input: {
 
     visibleContainers.push({
       ...(systemSlot ? { systemSlot } : {}),
+      ...(containerRow.reconcileDescendants
+        ? { reconcileDescendants: true }
+        : {}),
       createdAt: containerRow.createdAt,
       depth: containerRow.depth,
       effectiveAccessLevel: accessResult.value.accessLevel,
@@ -336,6 +339,6 @@ export async function listContainers(
   });
   return {
     ...response,
-    nextWatermark: cursor.seal(response.nextWatermark, rows.walPosition),
+    nextWatermark: cursor.seal(response.nextWatermark),
   };
 }

@@ -390,6 +390,7 @@ export type ContainerWriterProjectionWireResponse = z.infer<
 >;
 
 export const ContainerSummaryResponseSchema = loosePlainObject({
+  reconcileDescendants: z.literal(true).optional(),
   createdAt: z.string(),
   depth: nonNegativeIntegerSchema,
   effectiveAccessLevel: EffectiveAccessLevelSchema,

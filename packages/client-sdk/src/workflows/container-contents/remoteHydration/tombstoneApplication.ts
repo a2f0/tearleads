@@ -82,6 +82,7 @@ export function getApplicableRemoteContainerItems(
 }
 
 async function applyContainerTombstoneCascade(input: {
+  reconcileDescendants: boolean;
   afterParentPage: ListContainerDocumentLanesRequest["afterParentPage"];
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
@@ -174,7 +175,23 @@ export async function applyContainerTombstones(input: {
   response: ListContainersResponse;
   state: RemoteContainerHydrationState;
 }): Promise<{ changedCount: number; completed: boolean; current: boolean }> {
-  const tombstones = getApplicableContainerTombstones(input.response);
+  // A folder can regain access after one of its cached children moved away.
+  // Its live listing keeps the folder and reconciles the previously held tree.
+  const restored = input.remoteContainerItems.filter(
+    (item) =>
+      item.reconcileDescendants && input.childIdsByParentId.get(item.id)?.size,
+  );
+  const restoredIds = new Set(restored.map((item) => item.id));
+  const tombstones = [
+    ...getApplicableContainerTombstones(input.response),
+    ...restored.map((item) => ({
+      containerId: item.id,
+      parentId: item.parentId,
+      depth: item.depth,
+      updatedAt: item.updatedAt,
+      reason: "access_revoked" as const,
+    })),
+  ];
   if (tombstones.length === 0 || input.isCurrent?.() === false) {
     return {
       changedCount: 0,
@@ -210,6 +227,7 @@ export async function applyContainerTombstones(input: {
       preservedContainerIds.delete(tombstone.containerId);
     }
     const result = await applyContainerTombstoneCascade({
+      reconcileDescendants: restoredIds.has(tombstone.containerId),
       afterParentPage: input.response.nextWatermark
         ? { parentId: input.parentId, watermark: input.response.nextWatermark }
         : undefined,

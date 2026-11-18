@@ -493,7 +493,6 @@ export async function mutateContainerWithExecutorOutcome(
       verifiedKekMutation,
       artifacts.previousManifest,
       artifacts.previousContainerPath,
-      artifacts.destinationParentContainerPath,
     ),
   };
 }

@@ -2140,6 +2140,10 @@
       "ContainerSummaryResponse": {
         "type": "object",
         "properties": {
+          "reconcileDescendants": {
+            "type": "boolean",
+            "const": true
+          },
           "createdAt": {
             "type": "string"
           },

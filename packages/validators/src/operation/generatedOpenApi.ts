@@ -2387,6 +2387,8 @@ export type components = {
             metadataVersionVector: string;
             organizationId: string;
             parentId: string | null;
+            /** @constant */
+            reconcileDescendants?: true;
             /** @description Opaque id of a system container's role, such as Trash, or null for an ordinary container. */
             systemSlot?: string | null;
             updatedAt: string;
