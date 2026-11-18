@@ -45,9 +45,9 @@ handling the zone's MX.
 2. Save that value, without DNS quotation marks, as
    `TF_VAR_balebase_verification_txt` in the production tier's `app.env`.
    Keep the setting for subsequent deployments. The production website stack
-   manages the record at `_balebase-verification.tearleads.com`; the token for
-   the zone needs DNS Edit. Review a saved plan in a private directory, then
-   apply it after confirming the expected TXT change:
+   manages the record at `_balebase-verification.tearleads.com` and needs
+   DNS Edit permission for the zone. Review the saved plan in a private
+   directory and apply it after confirming the expected TXT change.
 
    ```sh
    RUN_DIR="$(mktemp -d)"
