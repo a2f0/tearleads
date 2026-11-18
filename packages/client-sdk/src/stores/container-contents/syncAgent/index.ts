@@ -1,5 +1,8 @@
 import { loadLocalContainerStates } from "../../../workflows/container-contents/localState";
-import type { RemoteContainerHydrationHost } from "../../../workflows/container-contents/remoteHydration";
+import type {
+  ContainerState,
+  RemoteContainerHydrationHost,
+} from "../../../workflows/container-contents/remoteHydration";
 import {
   isDatabaseUnavailableError,
   registerContainerContentsSyncLane,
@@ -17,7 +20,7 @@ import {
 import { requestContainerContentsRemoteHydration } from "../hydration/remoteHydrationRequest";
 import {
   hasStartupContainerSyncWork,
-  scheduleStaleStartupRemoteHydration,
+  inspectStartupHydration,
 } from "../hydration/startupHydration";
 import { refreshLocalContainerStates } from "../localRefresh";
 import { getContainerContentsStoreLogLabel } from "../logLabel";
@@ -45,6 +48,25 @@ function requestContainerContentsStoreSync(
   state: ContainerContentsStoreSyncState,
 ) {
   state.syncLane?.requestSync();
+}
+
+function publishInitialContainers(
+  state: ContainerContentsStoreSyncState,
+  startup: {
+    containersById: ReadonlyMap<string, ContainerState>;
+    rootLaneHydrated: boolean;
+    containerParentIdsNeedingHydration: ReadonlySet<string | null>;
+  },
+): boolean {
+  for (const [id, row] of startup.containersById) {
+    state.containersById.set(id, row);
+  }
+  state.initialized = true;
+  state.rootLaneHydrated = startup.rootLaneHydrated;
+  for (const id of startup.containerParentIdsNeedingHydration) {
+    state.containerParentIdsNeedingHydration.add(id);
+  }
+  return startup.containerParentIdsNeedingHydration.size > 0;
 }
 
 async function initializeContainerContentsStore(input: {
@@ -83,27 +105,21 @@ async function initializeContainerContentsStore(input: {
     return;
   }
 
-  for (const containerState of localContainerStates) {
-    state.containersById.set(containerState.container.id, containerState);
-  }
-
-  state.initialized = true;
-
-  const shouldScheduleStaleRootRecovery =
-    await scheduleStaleStartupRemoteHydration({
-      isCurrent,
-      requestHydration: () =>
-        requestContainerContentsRemoteHydration({
-          host,
-          resumeRecoveryWork,
-          scheduleSync,
-          state,
-        }),
-      state,
-    });
-  if (!isCurrent()) {
-    return;
-  }
+  // Keep the local tree and marker reads private until this initialization
+  // can publish them together. Another organization can take over between reads.
+  const startup = {
+    runtime: state.runtime,
+    containersById: new Map(
+      localContainerStates.map((row) => [row.container.id, row]),
+    ),
+    containerParentIdsNeedingHydration: new Set<string | null>(),
+    rootLaneHydrated: state.rootLaneHydrated,
+  };
+  const shouldScheduleStaleRootRecovery = await inspectStartupHydration({
+    isCurrent,
+    state: startup,
+  });
+  if (!isCurrent()) return;
   const runtime = state.runtime;
   const hasPendingRestorationSweep =
     typeof runtime.auth.userId === "string" &&
@@ -115,6 +131,18 @@ async function initializeContainerContentsStore(input: {
     ).length > 0;
   if (!isCurrent()) {
     return;
+  }
+
+  if (publishInitialContainers(state, startup)) {
+    observeContainerBackgroundHydration(
+      state,
+      requestContainerContentsRemoteHydration({
+        host,
+        resumeRecoveryWork,
+        scheduleSync,
+        state,
+      }),
+    );
   }
 
   host.updateSnapshot();

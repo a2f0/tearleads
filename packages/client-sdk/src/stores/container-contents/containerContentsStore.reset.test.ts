@@ -127,6 +127,46 @@ async function waitFor(condition: () => boolean): Promise<void> {
   throw new Error("condition was not reached");
 }
 
+test("replacement initialization publishes only its own local rows", async () => {
+  const { close, execSql } = await createTestExecSql("startup-org-handoff");
+  const entered = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  try {
+    await seedLocalRootContainer(execSql, { rootContainerId: "old-row" });
+    const runtime = createRuntime({
+      dbStatus: "ready",
+      execSql,
+      isAuthenticated: true,
+    });
+    let replacement = false;
+    const store = createContainerContentsStore(runtime, {
+      ...defaultContainerContentsPersistence,
+      loadContainers: (sql) =>
+        replacement
+          ? Promise.resolve([])
+          : defaultContainerContentsPersistence.loadContainers(sql),
+      listDormantMetadataSweepRequests: async () => {
+        entered.resolve();
+        await release.promise;
+        return [];
+      },
+    });
+    store.updateRuntime(runtime);
+    await entered.promise;
+    replacement = true;
+    store.updateRuntime({
+      ...runtime,
+      auth: { ...runtime.auth, organizationId: "replacement" },
+    });
+    release.resolve();
+    await waitFor(() => store.getSnapshot().ready);
+    expect(store.getSnapshot().nodes).toEqual([]);
+  } finally {
+    release.resolve();
+    await close();
+  }
+});
+
 test.each(["database status", "organization"])(
   "a change of %s serializes replacement initialization behind a stale load",
   async (change) => {

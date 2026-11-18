@@ -51,6 +51,11 @@ function captureOwner(store: Owner): Owner {
   };
 }
 
+export function captureTreeResetOwner(store: Owner): () => boolean {
+  const owner = captureOwner(store);
+  return () => sameOwner(owner, store);
+}
+
 export function queueTreeReset(store: Owner): () => boolean {
   const owner = captureOwner(store);
   dispatch(store, { type: "requested", owner });

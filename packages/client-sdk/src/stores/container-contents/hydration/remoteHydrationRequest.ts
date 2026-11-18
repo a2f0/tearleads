@@ -19,7 +19,11 @@ import {
   transitionRecoveryHydration,
 } from "./recoveryHydrationMachine";
 
-import { claimTreeReset, queueTreeReset } from "./treeResetMachine";
+import {
+  captureTreeResetOwner,
+  claimTreeReset,
+  queueTreeReset,
+} from "./treeResetMachine";
 
 type RemoteHydrationRequestState = RemoteContainerHydrationState &
   LocalContainerRefreshState & {
@@ -376,10 +380,24 @@ function captureHydrationScope(
     });
 }
 
+function bindManualTreeReset(
+  input: RemoteHydrationRequestInput,
+): RemoteHydrationRequestInput {
+  if (
+    !input.resetAllLaneWatermarks ||
+    input.ownsTreeReset ||
+    input.onFullyHydrated ||
+    input.recreateOnFullyHydratedAfterReset
+  )
+    return input;
+  return { ...input, ownsTreeReset: captureTreeResetOwner(input.state) };
+}
+
 export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
   const { host, scheduleSync, state } = input;
+  input = bindManualTreeReset(input);
   if (!ownsHydrationRequest(input)) return Promise.resolve();
   queueRequestedParentIds(input);
   const readinessBarrier = waitForRemoteHydrationReadiness(input);
