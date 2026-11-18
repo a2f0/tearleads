@@ -119,3 +119,59 @@ test("the held-predecessor read creates no schema on a cold cache", async () => 
     sqlite.close();
   }
 });
+
+test("a new mutation is sealed and sent in canonical envelope order", async () => {
+  const fixture = await principalMutationJournalFixture();
+  const sqlite = await createTestExecSql("principal-envelope-seal");
+  // The scope's own leg with a second envelope, the larger user id first.
+  const leg = fixture.mutation.request.organizationPolicy;
+  const [own] = leg.memberEnvelopes;
+  if (!own) throw new Error("expected the signer's envelope");
+  const reversed = {
+    ...leg,
+    memberEnvelopes: [
+      { ...own, userId: "ffffffff-ffff-4fff-bfff-ffffffffffff" },
+      { ...own, userId: "00000000-0000-4000-8000-000000000000" },
+    ],
+  };
+  const bodies: string[] = [];
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    async fetch(request) {
+      bodies.push(await request.text());
+      return Response.json(fixture.response.organizationPolicy);
+    },
+  });
+  const scope = {
+    ...fixture.scope,
+    identityTrustDomain: server.url.origin,
+    database: {},
+    generation: 1,
+    execSql: sqlite.execSql,
+    signingKeyPair: fixture.signingKeyPair,
+  };
+  try {
+    await createPrincipalMutationApiCustody({
+      api: new ApiClient(server.url.origin),
+      readScope: () => scope,
+    })
+      .bind()
+      .putPrincipalPolicyResult(
+        "organization",
+        fixture.scope.organizationId,
+        reversed,
+        { reportErrors: false },
+      );
+    const [body] = bodies;
+    const sent: { memberEnvelopes: { userId: string }[] } = JSON.parse(
+      body ?? "null",
+    );
+    const userIds = sent.memberEnvelopes.map(({ userId }) => userId);
+    expect(userIds).toHaveLength(2);
+    expect(userIds).toEqual([...userIds].sort());
+  } finally {
+    await server.stop(true);
+    sqlite.close();
+  }
+});

@@ -3,7 +3,6 @@ import type { RequestResult } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sameEpochAdd } from "../../../test/helpers/workflows/sameEpochGroupAdd";
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
-import { withCanonicalEnvelopeOrder } from "../../data/principals/memberEnvelopeReferences";
 import type { AuthoredPrincipalMutation } from "../../data/principals/principalMutationJournal";
 import { sendWithHeldEnvelopeChanges } from "./principalMutationWireForm";
 
@@ -64,8 +63,7 @@ test("an API that refuses the changes form gets the saved request in full", asyn
     });
     expect(result).toEqual({ ok: true, data: "committed" });
     expect(sent.map(byReference)).toEqual([true, false]);
-    // The full form in the canonical envelope order every attempt uses.
-    expect(sent[1]).toEqual(withCanonicalEnvelopeOrder(saved));
+    expect(sent[1]).toBe(saved);
   } finally {
     sqlite.close();
   }
@@ -126,7 +124,7 @@ test("a stalled or cancelled cache read sends the saved request in full", async 
       });
       if (cancel) controller.abort();
       await sending;
-      expect(sent).toEqual([withCanonicalEnvelopeOrder(saved)]);
+      expect(sent).toEqual([saved]);
       expect(Date.now() - started).toBeLessThan(cancel ? 500 : 3_000);
     }
   } finally {
@@ -158,9 +156,11 @@ test("a session switch before the refusal arrives sends nothing more", async () 
   }
 });
 
-test("a request in any envelope order goes out in user-id order", async () => {
+test("the saved request goes out verbatim, in its sealed envelope order", async () => {
   const { saved, sqlite } = await heldSuccessor();
   if (saved.kind !== "organization") throw new Error("expected the leg");
+  // An entry sealed before envelope order was canonical: recovery and the
+  // fallback must send its bytes as they were first sent.
   const reversed: AuthoredPrincipalMutation = {
     ...saved,
     request: {
@@ -183,11 +183,8 @@ test("a request in any envelope order goes out in user-id order", async () => {
       signal: undefined,
       stillCurrent: () => true,
     });
-    const [only] = sent;
-    if (only?.kind !== "organization") throw new Error("expected the leg");
-    const userIds = only.request.memberEnvelopes.map(({ userId }) => userId);
-    expect(userIds).toEqual([...userIds].sort());
-    expect(userIds).toHaveLength(2);
+    expect(sent).toEqual([reversed]);
+    expect(sent[0]).toBe(reversed);
   } finally {
     sqlite.close();
   }

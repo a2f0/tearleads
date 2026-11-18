@@ -9,13 +9,13 @@ import {
   isDeleteOrganizationGroupResponse,
   isPrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
+import { withCanonicalEnvelopeOrder } from "../../data/principals/memberEnvelopeReferences";
 import type { AuthoredPrincipalMutation } from "../../data/principals/principalMutationJournal";
 import type { PrincipalMutationResponse } from "../../workflows/organizations";
 import {
   type PrincipalMutationJournalContext,
   submitJournaledPrincipalMutation,
 } from "../../workflows/organizations";
-
 import type { createPrincipalMutationDispatcher } from "./principalMutationDeadline";
 import { sendWithHeldEnvelopeChanges } from "./principalMutationWireForm";
 
@@ -117,7 +117,9 @@ export function createJournaledPrincipalMutations(
     const journal = context(organizationId);
     const result = await submitJournaledPrincipalMutation({
       ...journal,
-      mutation,
+      // Sealed in canonical envelope order, so every attempt and any API
+      // version key it alike (#2903 P17); recovery replays it verbatim.
+      mutation: withCanonicalEnvelopeOrder(mutation),
       submit: sendByReference({
         api,
         dispatch,

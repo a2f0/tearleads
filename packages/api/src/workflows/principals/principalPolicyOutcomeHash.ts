@@ -49,13 +49,13 @@ function withSortedEnvelopes(leg: unknown): unknown {
   if (!isRecord(leg)) return leg;
   const { memberEnvelopes } = leg;
   if (!Array.isArray(memberEnvelopes)) return leg;
-  return {
-    ...leg,
-    memberEnvelopes: [...memberEnvelopes].sort((left, right) => {
-      const [a, b] = [userIdOf(left), userIdOf(right)];
-      return a < b ? -1 : a > b ? 1 : 0;
-    }),
-  };
+  const sorted = [...memberEnvelopes].sort((left, right) => {
+    const [a, b] = [userIdOf(left), userIdOf(right)];
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+  return sorted.every((envelope, index) => envelope === memberEnvelopes[index])
+    ? leg
+    : { ...leg, memberEnvelopes: sorted };
 }
 
 /**
@@ -65,12 +65,13 @@ function withSortedEnvelopes(leg: unknown): unknown {
 function withCanonicalEnvelopeOrder(request: unknown): unknown {
   const top = withSortedEnvelopes(request);
   if (!isRecord(top)) return top;
-  return Object.fromEntries(
-    Object.entries(top).map(([key, entry]) => [
-      key,
-      LEG_KEYS.has(key) ? withSortedEnvelopes(entry) : entry,
-    ]),
-  );
+  let changed = top !== request;
+  const entries = Object.entries(top).map(([key, entry]) => {
+    const sorted = LEG_KEYS.has(key) ? withSortedEnvelopes(entry) : entry;
+    changed ||= sorted !== entry;
+    return [key, sorted];
+  });
+  return changed ? Object.fromEntries(entries) : request;
 }
 
 /**
@@ -84,12 +85,16 @@ export function principalPolicyOutcomeHashes(value: unknown): {
   readonly matches: readonly string[];
   readonly requestHash: string;
 } {
-  const requestHash = hashCanonicalJson(
-    Array.isArray(value) ? value.map(withCanonicalEnvelopeOrder) : value,
-  );
-  const asSent = hashCanonicalJson(value);
-  return {
-    matches: asSent === requestHash ? [requestHash] : [requestHash, asSent],
-    requestHash,
-  };
+  const canonical = Array.isArray(value)
+    ? value.map(withCanonicalEnvelopeOrder)
+    : value;
+  const requestHash = hashCanonicalJson(canonical);
+  // Already canonical (every SDK request and every rebuilt list): one hash.
+  if (
+    !Array.isArray(value) ||
+    !Array.isArray(canonical) ||
+    canonical.every((part, index) => part === value[index])
+  )
+    return { matches: [requestHash], requestHash };
+  return { matches: [requestHash, hashCanonicalJson(value)], requestHash };
 }
