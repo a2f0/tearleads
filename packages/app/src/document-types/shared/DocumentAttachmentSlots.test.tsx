@@ -212,3 +212,21 @@ test("stored single-image actions remain hidden in read mode", () => {
   expect(view.queryByRole("button", { name: "Clear Front Image" })).toBeNull();
   expect(view.queryByRole("button", { name: "Replace Image" })).toBeNull();
 });
+
+test("a large scan opens its blob detail without an indefinite loading indicator", () => {
+  const opened: DocumentBlobOpenRequest[] = [];
+  const view = renderAttachmentSlots({
+    attachments: [
+      {
+        ...(attachments[0] as DocumentAttachment),
+        byteLength: 6 * 1024 * 1024,
+      },
+    ],
+    attachmentStorageKeyBySlotId: { front: "large-scan" },
+    onOpenBlob: (request) => opened.push(request),
+  });
+  expect(view.getByText("Preview unavailable")).toBeTruthy();
+  expect(view.queryByText("Downloading image...")).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Open Front Image" }));
+  expect(opened).toEqual([{ storageKey: "large-scan" }]);
+});

@@ -252,3 +252,17 @@ test("a non-image blob still opens in a new tab", async () => {
     window.open = originalOpen;
   }
 });
+
+test("HTML attachments keep Download available without an Open action", async () => {
+  const html = { ...TEXT_BLOB, mimeType: "text/html", name: "example.html" };
+  const view = renderBlobBrowser({
+    selectedBlobId: html.blobId,
+    rows: [html],
+    blobStore: createBlobStore({
+      readBytes: async () => new TextEncoder().encode("Sample text"),
+    }),
+  });
+  await view.findByText("Sample text");
+  expect(view.queryByRole("button", { name: "Open" })).toBeNull();
+  expect(view.getByRole("button", { name: "Download" })).toBeTruthy();
+});

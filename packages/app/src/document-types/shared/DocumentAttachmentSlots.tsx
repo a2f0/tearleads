@@ -13,6 +13,7 @@ import {
   expandAttachmentSlots,
   getDocumentAttachmentStatusLabel,
   getLatestDocumentAttachmentBySlotId,
+  isAutomaticBlobPreviewAllowed,
 } from "./documentAttachmentUtils";
 
 // "Choose Blob" hands selection off to the Explorer's blob-browser panel (in
@@ -116,6 +117,8 @@ function DocumentAttachmentSlotPreview(params: {
       <span className="structured-document-slot-spinner" aria-hidden="true" />
       <span>Downloading image...</span>
     </>
+  ) : storedAttachment ? (
+    "Preview unavailable"
   ) : (
     "No image selected"
   );
@@ -166,7 +169,11 @@ function DocumentAttachmentSlotCard(params: {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const statusLabel = getDocumentAttachmentStatusLabel(status);
-  const imageIsLoading = Boolean(storedAttachment && !imageUrl);
+  const imageIsLoading = Boolean(
+    storedAttachment?.mimeType?.startsWith("image/") &&
+      isAutomaticBlobPreviewAllowed(storedAttachment) &&
+      !imageUrl,
+  );
   const blobOpen = useDocumentBlobOpen();
   const openAttachment =
     storedAttachment && attachmentStorageKey && blobOpen

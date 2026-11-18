@@ -20,6 +20,7 @@ export type BlobPreviewState =
   | {
       status: "ready";
       byteLength: number;
+      source: BlobInfo;
       text: string | null;
       truncated: boolean;
       url: string | null;
@@ -60,6 +61,7 @@ async function readBlobPreview(input: {
       objectUrl: null,
       state: {
         byteLength: input.blob.byteLength,
+        source: input.blob,
         status: "ready",
         text: null,
         truncated: false,
@@ -81,11 +83,13 @@ async function readBlobPreview(input: {
     };
   }
 
-  const mimeType = input.blob.mimeType ?? "application/octet-stream";
+  const mimeType =
+    input.blob.mimeType?.split(";")[0]?.trim().toLowerCase() ||
+    "application/octet-stream";
   const objectUrl = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
 
   try {
-    const textPreview = isTextMimeType(input.blob.mimeType)
+    const textPreview = isTextMimeType(mimeType)
       ? decodePreviewText(bytes)
       : null;
 
@@ -93,6 +97,7 @@ async function readBlobPreview(input: {
       objectUrl,
       state: {
         byteLength: bytes.byteLength,
+        source: input.blob,
         status: "ready",
         text: textPreview?.text ?? null,
         truncated: textPreview?.truncated ?? false,
