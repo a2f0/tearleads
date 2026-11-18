@@ -116,29 +116,26 @@ Each lane reads its live rows and tombstones in a single SQL statement, so
 both come from the same snapshot. Each page orders by publication position and ID.
 Existing clients already save and echo both watermark strings. The opaque ID
 seals the position, row ID, and highest publication visible to the listing
-with authenticated encryption
-bound to the user, lane, and cursor timestamp. Each database owns a durable
-cursor key shared across API deployments and server-secret rotations.
+with authenticated encryption bound to the user, lane and timestamp. A
+database-owned key survives API deployments and server-secret rotations.
 A device resuming from a legacy UUID cursor replays the lane once,
 in bounded pages, recovering earlier omissions.
-An access recheck for a conflicting removal supplies its parent cursor.
-The API checks that its committed counter covers the parent page before
-reading permissions in the same repeatable-read snapshot. A lagging replica
-leaves the cursor unchanged. An unsuccessful probe reports an incomplete
-refresh and retains the parent lane for the next request. Retrying the same
-publication requires the same position.
+An access recheck sends its parent cursor. The API checks the counter and
+reads permissions in one repeatable-read snapshot. A lagging replica leaves
+the cursor unchanged. An unsuccessful probe marks the refresh incomplete and
+retains the parent lane for the next request.
 A repeated folder in one crawl is reapplied when its listing changes.
-Parent lanes checkpoint each applied page. Document lanes checkpoint after
+Parent lanes checkpoint applied pages. A reconnect crawl checkpoints a lane
+after draining its continuation pages. Document lanes checkpoint after
 applying the complete lane. After a restart, each resumes from its last
 durable checkpoint, replaying any intervening pages.
 Postgres and PGlite install the same schema. The SQLite client stores the
 cursor verbatim. See [API database support](./developer/api-persistence.md#database).
 
-Before applying a publication-ordered removal to a cached subtree, the SDK
-checks current access to each affected descendant with bounded document-lane
-reads. It also checks a leaf whose cached timestamp is later than its removal.
-It retains readable descendants and applies confirmed
-denials or absence only if the local rows still match the pre-request snapshot.
+A publication-ordered subtree removal checks access to cached descendants
+with bounded document-lane reads. It also checks a leaf whose cached timestamp
+is later than its removal. A denial or absence can remove a row only when
+it still matches the pre-request snapshot, preserving readable descendants.
 Before a confirmed removal commits, SQLite checks the held metadata content
 and signed head inside the deletion transaction. It also checks that the
 folder’s separately verified placement still matches the checkpoint held
@@ -148,22 +145,24 @@ clock moves backwards, hydration verifies the current signed placement and
 requires the listed manifest hash and rechecks the signed checkpoint inside
 its local transaction. A folder moved back into a readable path carries a hint
 to check its cached descendants when its earlier revocation row survives.
-The SDK records the reconciled revocation ID. A
-child that moved while the folder was inaccessible is removed only after its
-own access check. Direct and group regrant workflows prune their earlier
-revocation rows, so those paths retain their existing reconciliation behavior.
+The SDK records the reconciled revocation ID. Removing a child that moved
+while the folder was inaccessible requires its own access check. Direct and
+group regrants already prune their earlier revocations.
 Listings omit older revocations when that path already grants access.
 The SDK skips restored-folder reconciliation while its organization is paused.
 Publication-ordered document lanes that cover both a live placement and its
 unlink observed different snapshots. The SDK retries those lanes from their
 last saved cursors before applying any rows. A removal on the retried lane
-reaches the signed-head check for locally held placements. A conflicting
-pending discovery retains its
-requirement to read the current signed head across process restarts. These
-client-side recovery changes require the updated SDK. Earlier clients can read
-and resume the new cursors. On
-upgrade, the SDK replays lanes saved by an older build so it also consumes
-restored-folder hints and document unlinks previously checkpointed.
+reaches the signed-head check for locally held placements. Pending discovery
+retains this requirement across process restarts. Earlier clients can resume
+new cursors. On upgrade, the SDK replays older lanes to consume previously
+checkpointed restored-folder hints and document unlinks.
+
+An explicit full refresh requests a lane from the beginning, discarding its
+saved cursor for that request. A replica can therefore return a previously
+valid removal after a faster replica has already supplied a restored leaf.
+If the restored leaf has an older entity timestamp, the device can remove its
+local copy until a later delta reaches the restoration publication.
 
 Separate document crawls may still overlap locally. The SQLite generation
 tracks trust resets. A crawl already holding an earlier verified placement,

@@ -89,7 +89,7 @@ async function applyRemoteContainerPage(input: {
 }): Promise<{ changedCount: number; outcome: HydrationOutcome }> {
   const { seenContainerObservations, state } = input;
   let hydratedCount = 0;
-  const policies = await warmListedContainerPolicies(
+  const { items, outcome: policyOutcome } = await warmListedContainerPolicies(
     input.items,
     state.runtime.principalPolicies.createWarmer({
       operation: input.policyOperation,
@@ -97,7 +97,7 @@ async function applyRemoteContainerPage(input: {
     input.reconnect?.recordManualError,
     input.isCurrent,
   );
-  let { items, outcome } = policies;
+  let outcome: HydrationOutcome = policyOutcome;
   if (input.isCurrent?.() === false) {
     return { changedCount: 0, outcome: "retry" };
   }
