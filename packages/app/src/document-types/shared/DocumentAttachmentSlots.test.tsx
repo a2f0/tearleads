@@ -148,6 +148,11 @@ test("shows downloading feedback when an attachment exists before its image byte
     .getByText("Front Image")
     .closest(".structured-document-slot");
   expect(frontSlot?.textContent).toContain("Downloading image...");
+  expect(
+    frontSlot
+      ?.querySelector(".structured-document-slot-placeholder")
+      ?.getAttribute("aria-busy"),
+  ).toBe("true");
   expect(frontSlot?.textContent).not.toContain("No image selected");
 
   const backSlot = view
