@@ -44,7 +44,11 @@ Zone Settings Edit, because its stack owns the zone's Always Use HTTPS setting
 (see [public hostnames](../../docs/developer/infrastructure.md#public-hostnames)).
 Terraform also needs the tier's R2 state key, `TF_STATE_ACCESS_KEY_ID` and
 `TF_STATE_SECRET_ACCESS_KEY` in `app.env`. No other credentials are needed for
-a standalone website deployment.
+a standalone website deployment before mail enrollment. Once Tearleads enrolls
+its mail domain, production also needs the Balebase TXT setting and DNS Edit
+permission. See the [legal contact delivery procedure][legal-contact].
+
+[legal-contact]: ../../docs/developer/infrastructure.md#legal-contact-delivery-to-balebase
 
 The full
 [`scripts/deploy/deployStaging.sh`](../../scripts/deploy/deployStaging.sh) and

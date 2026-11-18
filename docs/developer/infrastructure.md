@@ -230,7 +230,10 @@ website, through
 each step. The production script asks for the domain unless given
 `--auto-approve`; the production teardown steps refuse to run outside it. The
 stack wrappers refuse a production `destroy`; the teardown applies saved destroy
-plans.
+plans. Before tearing down an enrolled production website, restore and verify
+delivery to the original legal mailbox using the [legal contact
+procedure](#legal-contact-delivery-to-balebase). The authorized teardown
+removes the verification record.
 
 The deployed API allows browser requests from every origin (`API_CORS_ORIGINS=*`)
 for [SDK hosts](sdk-hosting.md), with explicit bearer-token and protocol headers
