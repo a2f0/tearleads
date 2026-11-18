@@ -5,10 +5,13 @@ import {
 } from "../../workflows/container-contents/projectionKeys";
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
 import { ContainerStateMap } from "./containerState/containerStateMap";
+import { observeContainerBackgroundHydration } from "./hydration/backgroundHydration";
+import { ReconnectRefresh } from "./hydration/reconnectRefresh";
 import { didContainerWriteRuntimeChange } from "./remoteWrites/writeGeneration";
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncAgent,
+  ContainerContentsStoreSyncState,
 } from "./syncAgent/syncAgentTypes";
 import type {
   ContainerContentsSnapshot,
@@ -77,12 +80,17 @@ function didStructuralRuntimeChange(
   );
 }
 
+// Request correlation is scoped to the store instance. A reopened tree can
+// issue an identical listing while the retired tree is waiting on the API.
+let storeSequence = 0;
+
 export function createContainerContentsStoreState(
   initialRuntime: ContainerContentsStoreRuntime,
   persistence: ContainerContentsPersistence,
   logLabel?: string | undefined,
 ): ContainerContentsStoreState {
   return {
+    parentLaneRequestPrefix: `s${++storeSequence}`,
     containerListingFailures: 0,
     containersById: new ContainerStateMap(),
     containerParentIdsNeedingHydration: new Set(),
@@ -109,8 +117,9 @@ export function createContainerContentsStoreState(
     remoteHydrationStructuralGeneration: null,
     // A store opened after the socket's interest was acknowledged missed that
     // acknowledgement's re-list, which is how hints lost earlier are recovered.
-    remoteReconnectRefreshPending:
+    reconnectRefresh: new ReconnectRefresh(
       (initialRuntime.state.serverEventsConnectionGeneration ?? 0) > 0,
+    ),
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),
     rootLaneHydrated: false,
@@ -220,6 +229,7 @@ export function updateContainerContentsStoreRuntime(
     previousRuntime.state.serverEventsConnectionGeneration !==
     nextRuntime.state.serverEventsConnectionGeneration;
   if (runtimeReplaced) {
+    state.reconnectRefresh.reset("runtimeChanged");
     state.structuralGeneration += 1;
     state.localContainersNeedRefresh = true;
   }
@@ -234,7 +244,7 @@ export function updateContainerContentsStoreRuntime(
   }
   state.runtime = nextRuntime;
   if (serverEventsConnectionChanged) {
-    state.remoteReconnectRefreshPending = true;
+    state.reconnectRefresh.reset("acknowledged");
   }
 
   if (nextRuntime.infra.dbStatus !== "ready") {
@@ -254,12 +264,8 @@ export function updateContainerContentsStoreRuntime(
     return;
   }
 
-  // Gaining authentication within a domain scope does not change identity
-  // (the scope is keyed on the signing fingerprint), so the locally-loaded
-  // tree stays valid. Reconcile it in place instead of resetting — resetting
-  // here is what blanked Explorer and forced a re-read on first open after
-  // register. Identity/storage changes are handled by scope rotation and the
-  // dbStatus-loss branch above.
+  // The signing fingerprint owns the locally loaded tree. When this scope
+  // gains authentication, keep the tree available while reconciling it.
   if (
     state.snapshot.ready &&
     (contextChanged || didRegainSyncPrerequisites(previousRuntime, nextRuntime))
@@ -295,21 +301,31 @@ export function updateContainerContentsStoreRuntime(
   }
 }
 
-export function consumePendingContainerContentsReconnectRefresh(
-  state: {
-    remoteReconnectRefreshPending: boolean;
-    snapshot: { ready: boolean };
-  },
-  refresh: () => Promise<boolean>,
+export function retireContainerStore(
+  state: ContainerContentsStoreSyncState,
 ): void {
-  if (!state.snapshot.ready || !state.remoteReconnectRefreshPending) return;
-  state.remoteReconnectRefreshPending = false;
-  void refresh().then(
-    (refreshed) => {
-      if (!refreshed) state.remoteReconnectRefreshPending = true;
-    },
-    () => {
-      state.remoteReconnectRefreshPending = true;
+  state.lifecycleGeneration++;
+  state.reconnectRefresh.reset("disposed");
+}
+
+export function consumePendingContainerContentsReconnectRefresh(
+  state: ContainerContentsStoreSyncState,
+  refresh: ContainerContentsStoreSyncAgent["refresh"],
+): void {
+  state.reconnectRefresh.runWhenReady(
+    () =>
+      state.snapshot.ready &&
+      state.initialized &&
+      state.runtime.infra.dbStatus === "ready" &&
+      state.runtime.auth.isAuthenticated &&
+      state.runtime.state.online &&
+      (state.runtime.liveHydrationStatus?.() ?? "ready") === "ready" &&
+      state.runtime.isAcknowledgementCurrent?.() !== false &&
+      !state.syncLane?.isDisposed?.(),
+    (options) => {
+      const hydration = refresh(options);
+      observeContainerBackgroundHydration(state, hydration);
+      return hydration;
     },
   );
 }
@@ -322,6 +338,7 @@ export function updateContainerContentsStorePersistence(
   if (state.persistence === nextPersistence) {
     return;
   }
+  state.reconnectRefresh.reset("runtimeChanged");
   state.persistence = nextPersistence;
   state.structuralGeneration += 1;
   state.writeGeneration += 1;

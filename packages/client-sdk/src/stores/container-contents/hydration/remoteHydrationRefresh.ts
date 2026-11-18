@@ -1,3 +1,8 @@
+import type { ReconnectCrawl } from "../../../workflows/container-contents/remoteHydration";
+import {
+  type ContainerStoreScope,
+  ownsContainerStore,
+} from "../containerState/storeScope";
 import type { ContainerContentsStoreSyncAgent } from "../syncAgent/syncAgentTypes";
 import type {
   ContainerContentsStore,
@@ -6,6 +11,7 @@ import type {
 
 export interface RemoteHydrationRefreshOptions {
   followDiscoveredParentLanes?: boolean | undefined;
+  reconnect?: ReconnectCrawl | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
@@ -57,12 +63,12 @@ export function createTreeRefreshMethods(
   };
 }
 
-interface RemoteHydrationRefreshState {
+interface RemoteHydrationRefreshState extends ContainerStoreScope {
   containerParentIdsNeedingHydration: Set<string | null>;
   containersById: ReadonlyMap<string, RefreshRootContainerLike>;
   initialized: boolean;
   remoteHydrationPromise: Promise<void> | null;
-  runtime: {
+  runtime: ContainerStoreScope["runtime"] & {
     auth: {
       isAuthenticated: boolean;
       organizationId?: string | null | undefined;
@@ -129,6 +135,7 @@ function canRefreshRemoteHydration(
   state: RemoteHydrationRefreshState,
 ): boolean {
   return (
+    ownsContainerStore(state) &&
     state.runtime.infra.dbStatus === "ready" &&
     state.initialized &&
     state.runtime.auth.isAuthenticated &&
@@ -137,6 +144,7 @@ function canRefreshRemoteHydration(
 }
 
 export function refreshAllRemoteHydration(input: {
+  reconnect?: ReconnectCrawl | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
   recreateOnFullyHydratedAfterReset?:
     | (() => () => Promise<void> | void)
@@ -161,6 +169,7 @@ export function refreshAllRemoteHydration(input: {
   // container's updatedAt, so a persisted watermark would hide it forever.
   return requestHydration({
     followDiscoveredParentLanes: true,
+    reconnect: input.reconnect,
     onFullyHydrated: input.onFullyHydrated,
     recreateOnFullyHydratedAfterReset: input.recreateOnFullyHydratedAfterReset,
     ...(input.resetAllLaneWatermarks ? { resetAllLaneWatermarks: true } : {}),

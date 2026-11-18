@@ -12,13 +12,17 @@ import {
   captureContainerStateMutationGenerations,
   containerStateMutatedAfter,
 } from "./containerState/containerStateMap";
+import {
+  type ContainerStoreScope,
+  ownsContainerStore,
+} from "./containerState/storeScope";
 import { isRemoteBackedContainerState } from "./remoteEvents/remoteBackedContainerState";
 
 interface LocalContainerRefreshHost {
   updateSnapshot: () => void;
 }
 
-export interface LocalContainerRefreshState {
+export interface LocalContainerRefreshState extends ContainerStoreScope {
   containersById: Map<string, ContainerState>;
   documentStoresNeedPriming: boolean;
   initialized: boolean;
@@ -28,7 +32,7 @@ export interface LocalContainerRefreshState {
   localContainerRefreshStructuralGeneration: number | null;
   localContainersNeedRefresh: boolean;
   persistence: ContainerContentsPersistence;
-  runtime: ContainerContentsWorkflowRuntime;
+  runtime: ContainerContentsWorkflowRuntime & ContainerStoreScope["runtime"];
   structuralGeneration: number;
 }
 
@@ -181,24 +185,39 @@ function reportLocalContainerRefreshFailure(
   }
 }
 
-export function refreshLocalContainerStates(input: {
+const guardedReads = new WeakMap<Promise<void>, () => boolean>();
+
+interface LocalRefreshInput {
   host: LocalContainerRefreshHost;
+  stillCurrent?: (() => boolean) | undefined;
   state: LocalContainerRefreshState;
-}): Promise<void> {
-  const { host, state } = input;
-  if (state.localContainerRefreshPromise) {
-    const activeRefresh = state.localContainerRefreshPromise;
-    if (
-      state.localContainerRefreshGeneration === state.lifecycleGeneration &&
-      state.localContainerRefreshStructuralGeneration ===
-        state.structuralGeneration
-    ) {
-      return activeRefresh;
-    }
-    // A stale refresh owns its replacement retry in `finally`, so callers can
-    // share that promise without scheduling a second replacement load.
-    return activeRefresh;
+}
+
+function joinLocalRead(input: LocalRefreshInput): Promise<void> | null {
+  const { state } = input;
+  const active = state.localContainerRefreshPromise;
+  if (active) {
+    const owner = guardedReads.get(active);
+    // Ordinary callers share the same promise. If a cancelled reconnect
+    // owned the read, the successor still needs a current local snapshot.
+    if (!owner) return active;
+    return active.then(() =>
+      !owner() && state.localContainersNeedRefresh
+        ? refreshLocalContainerStates(input)
+        : undefined,
+    );
   }
+  return null;
+}
+
+export function refreshLocalContainerStates(
+  input: LocalRefreshInput,
+): Promise<void> {
+  const { host, state } = input;
+  if (!ownsContainerStore(state) || input.stillCurrent?.() === false)
+    return Promise.resolve();
+  const joined = joinLocalRead(input);
+  if (joined) return joined;
 
   if (
     !state.localContainersNeedRefresh ||
@@ -211,6 +230,8 @@ export function refreshLocalContainerStates(input: {
   const lifecycleGeneration = state.lifecycleGeneration;
   const structuralGeneration = state.structuralGeneration;
   const isCurrent = () =>
+    ownsContainerStore(state) &&
+    input.stillCurrent?.() !== false &&
     state.lifecycleGeneration === lifecycleGeneration &&
     state.structuralGeneration === structuralGeneration;
   state.localContainersNeedRefresh = false;
@@ -229,6 +250,7 @@ export function refreshLocalContainerStates(input: {
   state.localContainerRefreshGeneration = lifecycleGeneration;
   state.localContainerRefreshStructuralGeneration = structuralGeneration;
   const refreshPromise = loadLocalContainerStates({
+    isCurrent,
     persistence: state.persistence,
     runtime: state.runtime,
   })
@@ -277,6 +299,7 @@ export function refreshLocalContainerStates(input: {
       }
       return undefined;
     });
+  if (input.stillCurrent) guardedReads.set(refreshPromise, input.stillCurrent);
   state.localContainerRefreshPromise = refreshPromise;
 
   return refreshPromise;

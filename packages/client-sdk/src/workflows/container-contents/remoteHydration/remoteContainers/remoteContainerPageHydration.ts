@@ -6,7 +6,7 @@ import { prefetchDestinationProjections } from "../destination/destinationPrefet
 import { cachedDestinationRole } from "../destination/destinationRoleCache";
 import { markContainerParentLaneFetched } from "../lanes/laneFetchMarkers";
 import { fetchContainerParentLaneBatch } from "../lanes/parentLaneFetch";
-import { cacheRemoteContainerPrincipalPolicies } from "../principalPolicyCache";
+import { warmListedContainerPolicies } from "../principalPolicyCache";
 import {
   applyContainerTombstones,
   getApplicableRemoteContainerItems,
@@ -16,8 +16,10 @@ import type {
   ContainerParentHydrationLane,
   ExpectedContainerState,
   FetchedContainerParentLanePage,
+  HydrationOutcome,
   ListedRemoteContainerPageItem,
   QueueContainerParentLane,
+  ReconnectPages,
   RemoteContainerHydrationHost,
   RemoteContainerHydrationState,
 } from "../types";
@@ -33,9 +35,19 @@ const CONTAINER_PARENT_HYDRATION_CONCURRENCY = 4;
 
 interface HydrationProgress {
   changedCount: number;
-  complete: boolean;
+  outcome: HydrationOutcome;
   shouldStop: boolean;
 }
+/** A retryable lane takes precedence over a refused proof elsewhere in the crawl. */
+function combineOutcomes(
+  a: HydrationOutcome,
+  b: HydrationOutcome,
+): HydrationOutcome {
+  if (a === "retry" || b === "retry") return "retry";
+  if (a === "refused" || b === "refused") return "refused";
+  return "complete";
+}
+
 // Re-checked inside the commit: a pause from another device can land after
 // the page was filtered, and its cleanup may already have run.
 function currentUnlessPaused(
@@ -61,6 +73,7 @@ function matchesListedState(
 }
 
 async function applyRemoteContainerPage(input: {
+  reconnect?: ReconnectPages | undefined;
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
   expectedHydrationTombstones: FetchedContainerParentLanePage["expectedHydrationTombstones"];
@@ -74,29 +87,27 @@ async function applyRemoteContainerPage(input: {
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
   state: RemoteContainerHydrationState;
-}): Promise<{ changedCount: number; completed: boolean }> {
+}): Promise<{ changedCount: number; outcome: HydrationOutcome }> {
   const {
-    childIdsByParentId,
     expectedContainerStates,
     expectedHydrationTombstones,
-    host,
-    items,
     queueParentLane,
     seenContainerIds,
     state,
   } = input;
   let hydratedCount = 0;
-  let pageCompleted = true;
-  await cacheRemoteContainerPrincipalPolicies({
-    cacheReferencedPrincipalPolicies:
-      state.runtime.principalPolicies.createWarmer({
-        operation: input.policyOperation,
-      }),
-    remoteContainers: items,
-    stillCurrent: input.isCurrent,
-  });
+  const policies = await warmListedContainerPolicies(
+    input.items,
+    state.runtime.principalPolicies.createWarmer({
+      operation: input.policyOperation,
+    }),
+    input.reconnect?.recordManualError,
+    input.isCurrent,
+  );
+  const { items } = policies;
+  let outcome: HydrationOutcome = policies.outcome;
   if (input.isCurrent?.() === false) {
-    return { changedCount: 0, completed: false };
+    return { changedCount: 0, outcome: "retry" };
   }
   const [
     containerIdsWithPendingMetadataUpdates,
@@ -112,7 +123,7 @@ async function applyRemoteContainerPage(input: {
     }),
   ]);
   if (input.isCurrent?.() === false) {
-    return { changedCount: 0, completed: false };
+    return { changedCount: 0, outcome: "retry" };
   }
   const prefetchedProjections = await prefetchDestinationProjections({
     containers: items.filter(
@@ -127,41 +138,48 @@ async function applyRemoteContainerPage(input: {
   });
   for (const container of items) {
     if (input.isCurrent?.() === false) {
-      return { changedCount: hydratedCount, completed: false };
+      return { changedCount: hydratedCount, outcome: "retry" };
     }
     if (seenContainerIds.has(container.id)) {
       queueParentLane(container.id);
       continue;
     }
     if (!matchesListedState(state, expectedContainerStates, container.id)) {
-      pageCompleted = false;
+      outcome = "retry";
       continue;
     }
-    const upserted = await upsertIsolatedRemoteContainerState({
-      childIdsByParentId,
-      containerIdsWithPendingMetadataUpdates,
-      containerIdsWithPendingStructuralIntents,
-      host,
-      isCurrent: currentUnlessPaused(input, container),
-      expectedHydrationTombstone:
-        expectedHydrationTombstones.get(container.id) ?? null,
-      prefetchedProjection: prefetchedProjections.get(container.id),
-      remoteContainer: container,
-      state,
-    });
+    let failure: HydrationOutcome = "retry";
+    const upserted = await upsertIsolatedRemoteContainerState(
+      {
+        childIdsByParentId: input.childIdsByParentId,
+        containerIdsWithPendingMetadataUpdates,
+        containerIdsWithPendingStructuralIntents,
+        host: input.host,
+        isCurrent: currentUnlessPaused(input, container),
+        expectedHydrationTombstone:
+          expectedHydrationTombstones.get(container.id) ?? null,
+        prefetchedProjection: prefetchedProjections.get(container.id),
+        remoteContainer: container,
+        state,
+      },
+      (outcome) => {
+        failure = outcome;
+      },
+      input.reconnect?.recordManualError,
+    );
     if (!upserted) {
-      pageCompleted = false;
+      outcome = combineOutcomes(outcome, failure);
       continue;
     }
     seenContainerIds.add(container.id);
     hydratedCount += 1;
     if (input.isCurrent?.() === false) {
-      return { changedCount: hydratedCount, completed: false };
+      return { changedCount: hydratedCount, outcome: "retry" };
     }
     queueParentLane(container.id);
   }
 
-  return { changedCount: hydratedCount, completed: pageCompleted };
+  return { changedCount: hydratedCount, outcome };
 }
 
 export function canHydrateRemoteContainers(
@@ -174,7 +192,69 @@ export function canHydrateRemoteContainers(
   );
 }
 
+function cursorKey(
+  watermark: NonNullable<ContainerParentHydrationLane["watermark"]>,
+): string {
+  return JSON.stringify([watermark.updatedAt, watermark.id]);
+}
+
+function hasUnusableContinuation({
+  lane,
+  response,
+}: FetchedContainerParentLanePage): boolean {
+  const next = response.nextWatermark;
+  if (!next) return response.hasMore;
+  // Opaque positions can advance with an older business timestamp.
+  // A drained lane may echo its current position, but never an earlier one.
+  if (
+    next.id === lane.watermark?.id &&
+    next.updatedAt === lane.watermark.updatedAt
+  )
+    return response.hasMore;
+  return lane.continuationCursors?.has(cursorKey(next)) === true;
+}
+
+function queueNextPage(
+  { lane, response }: FetchedContainerParentLanePage,
+  skipWatermarkWrite: boolean,
+  queueContinuationLane: (lane: ContainerParentHydrationLane) => void,
+): void {
+  if (response.hasMore && response.nextWatermark) {
+    const continuationCursors = lane.continuationCursors ?? new Set<string>();
+    if (lane.watermark) continuationCursors.add(cursorKey(lane.watermark));
+    continuationCursors.add(cursorKey(response.nextWatermark));
+    queueContinuationLane({
+      parentId: lane.parentId,
+      watermark: response.nextWatermark,
+      skipWatermarkWrite,
+      continuationCursors,
+    });
+  }
+}
+
+async function checkpointPage(input: {
+  reconnect?: ReconnectPages | undefined;
+  fetchedPage: FetchedContainerParentLanePage;
+  isCurrent?: (() => boolean) | undefined;
+  state: RemoteContainerHydrationState;
+}): Promise<boolean> {
+  const { lane, response, syncLane } = input.fetchedPage;
+  // Only a drained chain can advance a reconnect checkpoint. Otherwise a
+  // cycle can alternate the durable cursor between successive attempts.
+  if (input.reconnect && response.hasMore) return true;
+  const nextWatermark =
+    response.nextWatermark ??
+    (lane.continuationCursors ? (lane.watermark ?? null) : null);
+  return markContainerParentLaneFetched({
+    isCurrent: input.isCurrent,
+    response: { ...response, nextWatermark },
+    state: input.state,
+    syncLane,
+  });
+}
+
 async function applyContainerParentLanePage(input: {
+  reconnect?: ReconnectPages | undefined;
   childIdsByParentId: ContainerChildIndex;
   fetchedPage: FetchedContainerParentLanePage;
   host: RemoteContainerHydrationHost;
@@ -199,11 +279,10 @@ async function applyContainerParentLanePage(input: {
     expectedHydrationTombstones,
     lane,
     response,
-    syncLane,
   } = fetchedPage;
   let changedCount = 0;
   if (input.isCurrent?.() === false) {
-    return { changedCount, complete: false, shouldStop: true };
+    return { changedCount, outcome: "retry", shouldStop: true };
   }
 
   const remoteContainerItems = getApplicableRemoteContainerItems(response);
@@ -216,11 +295,11 @@ async function applyContainerParentLanePage(input: {
     state,
   });
   if (!tombstoneResult.current) {
-    return { changedCount, complete: false, shouldStop: true };
+    return { changedCount, outcome: "retry", shouldStop: true };
   }
   changedCount += tombstoneResult.changedCount;
   if (input.isCurrent?.() === false) {
-    return { changedCount, complete: false, shouldStop: true };
+    return { changedCount, outcome: "retry", shouldStop: true };
   }
   if (tombstoneResult.changedCount > 0) {
     // A live tombstone cascade may have orphaned documents (row 3); re-arm
@@ -234,6 +313,7 @@ async function applyContainerParentLanePage(input: {
   // lane complete and its watermark advance; their children are never queued.
   const isPaused = await loadPausedContainerFilter(state);
   const appliedPage = await applyRemoteContainerPage({
+    reconnect: input.reconnect,
     childIdsByParentId,
     expectedContainerStates,
     expectedHydrationTombstones,
@@ -247,38 +327,24 @@ async function applyContainerParentLanePage(input: {
     state,
   });
   changedCount += appliedPage.changedCount;
-  if (!tombstoneResult.completed || !appliedPage.completed) {
-    // Keep this page retryable without discarding independent lanes, including
-    // children of roots first discovered here. Otherwise the root becomes known
-    // but its children are never fetched by subsequent root-only refreshes.
-    return { changedCount, complete: false, shouldStop: false };
-  }
+  const outcome = tombstoneResult.completed ? appliedPage.outcome : "retry";
   if (input.isCurrent?.() === false) {
-    return { changedCount, complete: false, shouldStop: true };
+    return { changedCount, outcome: "retry", shouldStop: true };
+  }
+  // A bad continuation invalidates the cursor, independently verified rows still apply.
+  if (hasUnusableContinuation(fetchedPage))
+    return { changedCount, outcome: "retry", shouldStop: false };
+  // A refused item leaves a gap in this lane. Later pages can still discover
+  // independent children, but none may move its durable cursor past the gap.
+  if (outcome !== "complete" && !input.reconnect)
+    return { changedCount, outcome, shouldStop: false };
+  const skipWatermarkWrite = lane.skipWatermarkWrite || outcome !== "complete";
+  if (!skipWatermarkWrite && !(await checkpointPage(input))) {
+    return { changedCount, outcome: "retry", shouldStop: true };
   }
 
-  const didMarkFetched = await markContainerParentLaneFetched({
-    isCurrent: input.isCurrent,
-    response,
-    state,
-    syncLane,
-  });
-  if (!didMarkFetched) {
-    return { changedCount, complete: false, shouldStop: true };
-  }
-
-  if (!response.hasMore) {
-    return { changedCount, complete: true, shouldStop: false };
-  }
-  if (!response.nextWatermark) {
-    return { changedCount, complete: false, shouldStop: true };
-  }
-
-  queueContinuationLane({
-    parentId: lane.parentId,
-    watermark: response.nextWatermark,
-  });
-  return { changedCount, complete: true, shouldStop: false };
+  queueNextPage(fetchedPage, skipWatermarkWrite, queueContinuationLane);
+  return { changedCount, outcome, shouldStop: false };
 }
 
 function takeContainerParentLaneBatch(input: {
@@ -305,6 +371,7 @@ function takeContainerParentLaneBatch(input: {
 }
 
 async function applyContainerParentLaneBatch(input: {
+  reconnect?: ReconnectPages | undefined;
   childIdsByParentId: ContainerChildIndex;
   fetchedPages: ReadonlyArray<FetchedContainerParentLanePage>;
   host: RemoteContainerHydrationHost;
@@ -325,11 +392,11 @@ async function applyContainerParentLaneBatch(input: {
     state,
   } = input;
   let changedCount = 0;
-  let complete = true;
+  let outcome: HydrationOutcome = "complete";
 
   for (const fetchedPage of fetchedPages) {
     if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
-      return { changedCount, complete: false, shouldStop: true };
+      return { changedCount, outcome: "retry", shouldStop: true };
     }
     if (
       fetchedPage.lane.parentId !== null &&
@@ -339,6 +406,7 @@ async function applyContainerParentLaneBatch(input: {
     }
 
     const result = await applyContainerParentLanePage({
+      reconnect: input.reconnect,
       childIdsByParentId,
       fetchedPage,
       host,
@@ -350,17 +418,18 @@ async function applyContainerParentLaneBatch(input: {
       state,
     });
     changedCount += result.changedCount;
-    complete &&= result.complete;
+    outcome = combineOutcomes(outcome, result.outcome);
 
     if (result.shouldStop) {
-      return { changedCount, complete: false, shouldStop: true };
+      return { changedCount, outcome: "retry", shouldStop: true };
     }
   }
 
-  return { changedCount, complete, shouldStop: false };
+  return { changedCount, outcome, shouldStop: false };
 }
 
 export async function hydrateContainerParentLanes(input: {
+  reconnect?: ReconnectPages | undefined;
   childIdsByParentId: ContainerChildIndex;
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
@@ -378,13 +447,13 @@ export async function hydrateContainerParentLanes(input: {
     state,
   } = input;
   let changedCount = 0;
-  let complete = true;
+  let outcome: HydrationOutcome = "complete";
   // One hydration pass is one policy operation: its pages share a discovery.
   const policyOperation = createPrincipalPolicyOperation();
 
   while (lanes.length > 0) {
     if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
-      return { changedCount, complete: false, shouldStop: true };
+      return { changedCount, outcome: "retry", shouldStop: true };
     }
 
     const batch = takeContainerParentLaneBatch({ lanes, state });
@@ -394,17 +463,19 @@ export async function hydrateContainerParentLanes(input: {
 
     const fetchedPages = await fetchContainerParentLaneBatch({
       batch,
+      laneIdPrefix: input.reconnect?.laneIdPrefix,
       isCurrent: input.isCurrent,
       state,
     });
     if (!fetchedPages) {
-      return { changedCount, complete: false, shouldStop: true };
+      return { changedCount, outcome: "retry", shouldStop: true };
     }
     if (input.isCurrent?.() === false) {
-      return { changedCount, complete: false, shouldStop: true };
+      return { changedCount, outcome: "retry", shouldStop: true };
     }
 
     const result = await applyContainerParentLaneBatch({
+      reconnect: input.reconnect,
       childIdsByParentId,
       fetchedPages,
       host,
@@ -416,12 +487,12 @@ export async function hydrateContainerParentLanes(input: {
       state,
     });
     changedCount += result.changedCount;
-    complete &&= result.complete;
+    outcome = combineOutcomes(outcome, result.outcome);
 
     if (result.shouldStop) {
-      return { changedCount, complete: false, shouldStop: true };
+      return { changedCount, outcome: "retry", shouldStop: true };
     }
   }
 
-  return { changedCount, complete, shouldStop: false };
+  return { changedCount, outcome, shouldStop: false };
 }

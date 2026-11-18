@@ -1,6 +1,6 @@
 import type { DomainScope } from "../../data/shared/domainScope";
 import {
-  disposeDomainSyncCoordinator,
+  type DomainSyncCoordinator,
   getOrCreateDomainSyncCoordinator,
   isDatabaseUnavailableError,
 } from "../../data/sync/syncCoordinator";
@@ -32,13 +32,14 @@ import {
 import {
   type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
-  createContainerContentsStoreWorkflowRuntimeFromSnapshot,
 } from "../../workflows/container-contents";
 import { listAllContainerDocumentIdsFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { probeUndiscoveredRemoteDocumentBatch } from "../../workflows/container-contents/documentPriming/documentHydrationProbe";
-import type { ContainerContents } from "../containerContents";
+import {
+  type ContainerContents,
+  createContainerContentsStoreRuntime as createDeviceFirstWorkflowRuntime,
+} from "../containerContents";
 import { discoverContainerDocumentLanesForRuntime } from "../containerContents/documentDiscovery";
-import { requireShareRecipient } from "../organizations/recipientAdmission";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { createReconciledDocumentContentPuller } from "./reconciledDocumentContentPull";
 
@@ -80,10 +81,20 @@ export function createDeviceFirst(
 }
 
 interface DeviceFirstScopeEntry {
+  retiring?: boolean;
+  coordinator: DomainSyncCoordinator;
   contents: DeviceFirstContainerContents;
   disconnectReconciliationTriggers: () => void;
   unsubscribePersistedDocumentDeletions: () => void;
   unsubscribePersistedDocuments: () => void;
+}
+
+function stopScopeEntry(entry: DeviceFirstScopeEntry): void {
+  entry.coordinator.dispose();
+  entry.contents.reconciler.stop();
+  entry.disconnectReconciliationTriggers();
+  entry.unsubscribePersistedDocumentDeletions();
+  entry.unsubscribePersistedDocuments();
 }
 
 function createInitialDocumentProbeHost(
@@ -159,14 +170,15 @@ class DeviceFirstService implements DeviceFirst {
     // scope's reconciler subscribed and its coordinator pump live; tear them
     // all down. Force-stop each scope's coordinator (which runs the reconciler
     // lane) alongside stopping the service.
-    for (const [domainScope, entry] of this.entriesByScope) {
-      entry.contents.reconciler.stop();
-      entry.disconnectReconciliationTriggers();
-      entry.unsubscribePersistedDocumentDeletions();
-      entry.unsubscribePersistedDocuments();
-      disposeDomainSyncCoordinator(domainScope);
-    }
-    this.entriesByScope.clear();
+    const entries = Array.from(this.entriesByScope);
+    for (const [, entry] of entries) entry.retiring = true;
+    for (const [scope, entry] of entries) this.retireEntry(scope, entry);
+  }
+
+  private retireEntry(scope: DomainScope, entry: DeviceFirstScopeEntry): void {
+    if (this.entriesByScope.get(scope) !== entry) return;
+    this.entriesByScope.delete(scope);
+    stopScopeEntry(entry);
   }
 
   private workflowRuntime(): ContainerContentsStoreWorkflowRuntime {
@@ -179,6 +191,10 @@ class DeviceFirstService implements DeviceFirst {
     const runtime = this.workflowRuntime();
     const domainScope = runtime.state.domainScope;
     const existing = this.entriesByScope.get(domainScope);
+    if (existing && (existing.retiring || existing.coordinator.isDisposed())) {
+      this.retireEntry(domainScope, existing);
+      return this.getOrCreateEntry(options);
+    }
     if (existing) {
       // Do not call updateRuntime here: facade selectors run during React
       // render, and updateRuntime emits synchronously. Hosts drive runtime
@@ -186,13 +202,20 @@ class DeviceFirstService implements DeviceFirst {
       return existing;
     }
 
+    const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
     const store = getOrCreateLocalProjectionStore({
       domainScope,
       runtime,
       options,
     });
+    // Opening the container store publishes its lane. A subscriber may have
+    // finished opening this scope while that notification was in progress.
+    if (this.entriesByScope.has(domainScope))
+      return this.getOrCreateEntry(options);
+    if (coordinator.isDisposed())
+      throw new Error("Device-first scope retired during registration");
     const service = createReconciliationService(
-      this.createReconciliationHost(store, domainScope),
+      this.createReconciliationHost(store, domainScope, coordinator),
     );
     const disconnectReconciliationTriggers = connectReconciliationTriggers({
       service,
@@ -207,8 +230,6 @@ class DeviceFirstService implements DeviceFirst {
       (document, change) =>
         store.refreshPersistedDocument(document, change.placementChanged),
     );
-    service.start();
-
     const view: LocalProjectionView = {
       getSnapshot: () => store.getSnapshot(),
       subscribe: (listener) => store.subscribe(listener),
@@ -218,6 +239,7 @@ class DeviceFirstService implements DeviceFirst {
     };
 
     const entry: DeviceFirstScopeEntry = {
+      coordinator,
       contents: {
         containerStore: store.getContainerStore(),
         reconciler: service,
@@ -228,12 +250,19 @@ class DeviceFirstService implements DeviceFirst {
       unsubscribePersistedDocuments,
     };
     this.entriesByScope.set(domainScope, entry);
-    return entry;
+    service.start();
+    const current = this.entriesByScope.get(domainScope);
+    if (!current || current.coordinator.isDisposed()) {
+      this.retireEntry(domainScope, entry);
+      throw new Error("Device-first scope retired during registration");
+    }
+    return current;
   }
 
   private createReconciliationHost(
     store: LocalProjectionStore,
     domainScope: ReconciliationHost["domainScope"],
+    coordinator: DomainSyncCoordinator,
   ): ReconciliationHost {
     const runtimeService = this.runtimeService;
     const containerContents = this.containerContents;
@@ -282,8 +311,7 @@ class DeviceFirstService implements DeviceFirst {
     return {
       clock: systemReconciliationClock,
       domainScope,
-      registerLane: (key, config) =>
-        getOrCreateDomainSyncCoordinator(domainScope).registerLane(key, config),
+      registerLane: (key, config) => coordinator.registerLane(key, config),
       canDiscoverContainerDocuments,
       getRuntimeStatus: () => {
         const input = runtimeService.workflowInput();
@@ -354,20 +382,4 @@ function logReconciliationFailure(
   return logError ? logError(message, error) : log(message);
 }
 
-export function createDeviceFirstWorkflowRuntime(
-  runtimeService: InternalRuntime,
-): ContainerContentsStoreWorkflowRuntime {
-  const input = runtimeService.workflowInput();
-  return createContainerContentsStoreWorkflowRuntimeFromSnapshot(
-    { ...input, organizations: runtimeService.containerContentsOrganizations },
-    runtimeService.adoptRootContainer,
-    // Admit against the trust store of the database this runtime writes.
-    (userId, accessLevel) =>
-      requireShareRecipient(
-        runtimeService,
-        input.infra.execSql,
-        userId,
-        accessLevel,
-      ),
-  );
-}
+export { createDeviceFirstWorkflowRuntime };

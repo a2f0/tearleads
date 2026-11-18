@@ -113,7 +113,19 @@ interface RemoteContainerHydrationRuntime
   apiClient: RemoteContainerHydrationApi;
 }
 
+export type HydrationOutcome = "complete" | "refused" | "retry";
+export interface ReconnectPages {
+  laneIdPrefix: string;
+  recordManualError(error: Error): void;
+}
+
+export interface ReconnectCrawl {
+  isCurrent(): boolean;
+  record(outcome: HydrationOutcome, manualRejection?: Error): void;
+}
+
 export interface RemoteContainerHydrationState {
+  readonly parentLaneRequestPrefix?: string;
   /**
    * Container listing requests that failed or timed out, in a current crawl.
    * An explicit refresh compares it across its wait to tell whether a listing
@@ -175,6 +187,9 @@ export interface RemoteContainerHydrationHost {
 }
 
 export interface ContainerParentHydrationLane {
+  /** An earlier page is incomplete. Continue discovery without persisting a cursor past it. */
+  skipWatermarkWrite?: boolean;
+  continuationCursors?: Set<string>;
   parentId: string | null;
   watermark?: ListContainersResponse["nextWatermark"];
 }

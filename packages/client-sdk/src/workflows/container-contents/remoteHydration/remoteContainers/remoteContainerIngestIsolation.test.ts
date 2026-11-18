@@ -1,6 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/workflows/cachedContainerHydrationRuntime";
+import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import { createRemoteContainerIngestor } from "../index";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 
@@ -85,3 +86,79 @@ test("a refused live folder is acknowledged without blocking the batch", async (
     database.close();
   }
 });
+
+test.each(["retired", "dependency unavailable"])(
+  "queued ingestion honors %s during upsert",
+  async (scenario) => {
+    const database = createNativeTestExecSql();
+    const item = listed("new-folder");
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const unavailable = new ProjectionDependencyUnavailableError("temporary");
+    let live = true;
+    let first = true;
+    const commitHydratedContainer = mock(
+      async (_sql: unknown, input: { container: { id: string } }) => ({
+        committed: true,
+        container: input.container,
+      }),
+    );
+    const state = {
+      containersById: new Map(),
+      lifecycleGeneration: 0,
+      structuralGeneration: 0,
+      persistence: {
+        commitHydratedContainer,
+        listPendingCreateIntents: async () => [],
+        listUnsyncedMoveIntents: async () => [],
+        loadContainerHydrationTombstones: async () => [],
+        loadContainerMetadataRecord: async () => null,
+        isSupersededContainerBinding: async () => false,
+        loadHeldContainerBinding: async () => {
+          if (first) {
+            first = false;
+            started.resolve();
+            await release.promise;
+            if (scenario === "dependency unavailable") throw unavailable;
+          }
+          return null;
+        },
+      },
+      runtime: cachedContainerHydrationRuntime([item], database.execSql),
+    } as unknown as RemoteContainerHydrationState;
+    try {
+      const input = {
+        ownsScope: () => live,
+        state,
+        host: {
+          persistContainerState: async () => {
+            throw new Error("new folder must insert");
+          },
+          updateSnapshot: () => {},
+        },
+      };
+      const ingest = createRemoteContainerIngestor(input);
+      const pending = ingest(item);
+      await started.promise;
+      if (scenario === "retired") {
+        live = false;
+        state.lifecycleGeneration = 1;
+      }
+      release.resolve();
+      if (live) {
+        await expect(pending).rejects.toBe(unavailable);
+        expect(ingest.hasPending()).toBe(true);
+        await ingest.resume();
+        expect(commitHydratedContainer).toHaveBeenCalledTimes(1);
+      } else {
+        await pending;
+        await ingest.resume();
+        expect(commitHydratedContainer).not.toHaveBeenCalled();
+      }
+      expect(ingest.hasPending()).toBe(false);
+    } finally {
+      release.resolve();
+      database.close();
+    }
+  },
+);

@@ -1,11 +1,13 @@
 import {
   createGenerationGuardedHydrationHost,
   hydrateRemoteContainers,
+  type ReconnectCrawl,
   type RemoteContainerHydrationHost,
   StaleRemoteHydrationError,
 } from "../../../workflows/container-contents/remoteHydration";
 import type { RemoteContainerHydrationState } from "../../../workflows/container-contents/remoteHydration/types";
 import { isDatabaseUnavailableError } from "../../../workflows/container-contents/syncLane";
+import { ownsContainerStore } from "../containerState/storeScope";
 import {
   type LocalContainerRefreshState,
   refreshLocalContainerStates,
@@ -16,6 +18,12 @@ import {
   type RecoveryHydrationState,
   transitionRecoveryHydration,
 } from "./recoveryHydrationMachine";
+
+import {
+  captureTreeResetOwner,
+  claimTreeReset,
+  queueTreeReset,
+} from "./treeResetMachine";
 
 type RemoteHydrationRequestState = RemoteContainerHydrationState &
   LocalContainerRefreshState & {
@@ -30,11 +38,14 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
       ready: boolean;
     };
     structuralGeneration: number;
+    writeGeneration?: number;
   };
 
 interface RemoteHydrationRequestInput {
+  ownsTreeReset?: () => boolean;
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
+  reconnect?: ReconnectCrawl | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
@@ -62,6 +73,7 @@ function isRequestGenerationCurrent(input: {
   structuralGeneration: number;
 }): boolean {
   return (
+    ownsContainerStore(input.state) &&
     input.state.lifecycleGeneration === input.lifecycleGeneration &&
     input.state.structuralGeneration === input.structuralGeneration
   );
@@ -104,6 +116,7 @@ function hasRemoteHydrationPrerequisites(
   state: RemoteHydrationRequestState,
 ): boolean {
   return (
+    (state.runtime.liveHydrationStatus?.() ?? "ready") === "ready" &&
     state.runtime.infra.dbStatus === "ready" &&
     state.runtime.auth.isAuthenticated &&
     state.runtime.state.online
@@ -125,10 +138,35 @@ function createResetRecoveryInput(
 function resumeRetainedRecoveryHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
+  if (!ownsHydrationRequest(input)) return Promise.resolve();
   queueRecoveryHydrationRequest(input);
   return hasRemoteHydrationPrerequisites(input.state)
     ? input.resumeRecoveryWork()
     : Promise.resolve();
+}
+
+function prepareTreeReset(
+  input: RemoteHydrationRequestInput,
+): RemoteHydrationRequestInput {
+  const coverReset = claimTreeReset(
+    input.state,
+    !!input.reconnect || !!input.resetAllLaneWatermarks,
+  );
+  if (!coverReset) return input;
+  const onCovered = input.recreateOnFullyHydratedAtStart
+    ? input.recreateOnFullyHydratedAfterReset?.()
+    : input.onFullyHydrated;
+  return {
+    ...input,
+    followDiscoveredParentLanes: true,
+    resetAllLaneWatermarks: true,
+    recreateOnFullyHydratedAtStart: false,
+    ownsTreeReset: coverReset.isOwned,
+    onFullyHydrated: () => {
+      coverReset.cover();
+      return onCovered?.();
+    },
+  };
 }
 
 function waitForActiveRemoteHydration(
@@ -144,6 +182,19 @@ function waitForActiveRemoteHydration(
   const needsCurrentGenerationHydration =
     state.remoteHydrationGeneration !== state.lifecycleGeneration ||
     state.remoteHydrationStructuralGeneration !== state.structuralGeneration;
+  // A restoration owns its sweep callback and its sync scheduling policy.
+  // Let it list after prior work settles so its durable claim can complete.
+  const needsOwnCrawl =
+    !!(input.onFullyHydrated || input.recreateOnFullyHydratedAfterReset) &&
+    !!input.resetAllLaneWatermarks &&
+    !!input.followDiscoveredParentLanes;
+  if (
+    !needsOwnCrawl &&
+    input.resetAllLaneWatermarks &&
+    input.followDiscoveredParentLanes
+  ) {
+    input = { ...input, ownsTreeReset: queueTreeReset(state) };
+  }
   const requestQueuedHydration = () => {
     if (
       !isRequestGenerationCurrent({
@@ -157,7 +208,8 @@ function waitForActiveRemoteHydration(
     // Another request's crawl may have taken over this request's queued
     // lanes. Settle with that crawl rather than at once, so the request never
     // resolves before the listing that covers it.
-    return needsCurrentGenerationHydration ||
+    return needsOwnCrawl ||
+      needsCurrentGenerationHydration ||
       state.containerParentIdsNeedingHydration.size > 0
       ? requestContainerContentsRemoteHydration(input)
       : (state.remoteHydrationPromise ?? undefined);
@@ -193,6 +245,17 @@ function waitForActiveInitialization(
 function retryRemoteHydrationAfterReset(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
+  // The reconnect state machine owns its retry across a reset.
+  if (input.reconnect) {
+    // A superseded crawl still owes the manual refresh whose reset it consumed.
+    // Complete that request under the live store's own generation guard.
+    if (
+      !input.ownsTreeReset?.() ||
+      input.state.runtime.liveHydrationStatus?.() === "retired"
+    )
+      return Promise.resolve();
+    input = { ...input, reconnect: undefined };
+  }
   return resumeRetainedRecoveryHydration(createResetRecoveryInput(input));
 }
 
@@ -295,29 +358,61 @@ function consumeQueuedHydrationScope(
   };
 }
 
+function ownsHydrationRequest(input: RemoteHydrationRequestInput): boolean {
+  return (
+    ownsContainerStore(input.state) &&
+    input.ownsTreeReset?.() !== false &&
+    input.reconnect?.isCurrent() !== false
+  );
+}
+
+function captureHydrationScope(
+  input: RemoteHydrationRequestInput,
+): () => boolean {
+  const { state } = input;
+  const { lifecycleGeneration, structuralGeneration } = state;
+  return () =>
+    ownsHydrationRequest(input) &&
+    isRequestGenerationCurrent({
+      state,
+      lifecycleGeneration,
+      structuralGeneration,
+    });
+}
+
+function bindManualTreeReset(
+  input: RemoteHydrationRequestInput,
+): RemoteHydrationRequestInput {
+  if (
+    !input.resetAllLaneWatermarks ||
+    input.ownsTreeReset ||
+    input.onFullyHydrated ||
+    input.recreateOnFullyHydratedAfterReset
+  )
+    return input;
+  return { ...input, ownsTreeReset: captureTreeResetOwner(input.state) };
+}
+
 export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
   const { host, scheduleSync, state } = input;
+  input = bindManualTreeReset(input);
+  if (!ownsHydrationRequest(input)) return Promise.resolve();
   queueRequestedParentIds(input);
   const readinessBarrier = waitForRemoteHydrationReadiness(input);
   if (readinessBarrier) {
     return readinessBarrier;
   }
 
+  input = prepareTreeReset(input);
   const { followDiscoveredParentLanes, parentIds } =
     consumeQueuedHydrationScope(state, input.followDiscoveredParentLanes);
 
   let appliedRemoteContainerChange = false;
   let retainInterruptedHydration = false;
-  const lifecycleGeneration = state.lifecycleGeneration;
-  const structuralGeneration = state.structuralGeneration;
-  const isCurrent = () =>
-    isRequestGenerationCurrent({
-      lifecycleGeneration,
-      state,
-      structuralGeneration,
-    });
+  const { lifecycleGeneration, structuralGeneration } = state;
+  const isCurrent = captureHydrationScope(input);
   const onFullyHydrated = input.recreateOnFullyHydratedAtStart
     ? input.recreateOnFullyHydratedAfterReset?.()
     : input.onFullyHydrated;
@@ -330,6 +425,7 @@ export function requestContainerContentsRemoteHydration(
   state.remoteHydrationStructuralGeneration = structuralGeneration;
   const hydrationPromise = refreshLocalContainerStates({
     host: hydrationHost,
+    stillCurrent: input.reconnect?.isCurrent,
     state,
   })
     .then(() => {
@@ -341,6 +437,7 @@ export function requestContainerContentsRemoteHydration(
         host: hydrationHost,
         isCurrent,
         onFullyHydrated,
+        reconnect: input.reconnect,
         parentIds,
         resetAllLaneWatermarks: input.resetAllLaneWatermarks,
         resetRootLaneWatermark: input.resetRootLaneWatermark,

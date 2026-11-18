@@ -8,7 +8,6 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
-import { enqueuePendingContainerUpdate } from "../containerPersistence";
 import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
@@ -16,6 +15,7 @@ import {
 import {
   createContainerRecord,
   createDocumentRecord,
+  enqueuePendingContainerUpdate,
 } from "./metadata.testFixtures";
 import {
   persistContainerMetadataStateFromRuntime,

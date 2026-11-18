@@ -87,12 +87,11 @@ function reportStartupHydrationError(message: string, error: unknown) {
   console.error(message, error);
 }
 
-export async function scheduleStaleStartupRemoteHydration(input: {
+export async function inspectStartupHydration(input: {
   isCurrent?: (() => boolean) | undefined;
-  requestHydration: () => Promise<void>;
   state: StartupHydrationState;
 }): Promise<boolean> {
-  const { requestHydration, state } = input;
+  const { state } = input;
   if (!state.runtime.auth.isAuthenticated || !state.runtime.state.online) {
     return false;
   }
@@ -128,16 +127,6 @@ export async function scheduleStaleStartupRemoteHydration(input: {
   for (const parentId of parentIds) {
     state.containerParentIdsNeedingHydration.add(parentId);
   }
-  // Startup stays cache-first: only the local freshness-marker read is awaited.
-  // Missing markers on an existing remote cache do not force a first-open poll;
-  // stale checked lanes and empty caches hydrate behind the cached tree.
-  // WebSocket events and explicit refresh bypass this.
-  void requestHydration().catch((error: unknown) => {
-    reportStartupHydrationError(
-      "Failed to schedule startup container contents hydration:",
-      error,
-    );
-  });
   return shouldScheduleStaleRootRecovery;
 }
 

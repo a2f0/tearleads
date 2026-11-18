@@ -3,8 +3,15 @@ import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { createContainerContentsTestRuntime } from "../../../test/helpers/workflows/containerContentsTestRuntime";
 import { createDomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  disposeDomainSyncCoordinator,
+  subscribeToDomainSyncCoordinator,
+} from "../../data/sync/syncCoordinator";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
-import { createContainerContentsStore } from "./containerContentsStore";
+import {
+  createContainerContentsStore,
+  getOrCreateContainerContentsStore,
+} from "./containerContentsStore";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,
@@ -149,5 +156,33 @@ test("persistence replacement retries an in-flight initialization", async () => 
     expect(state.persistence).toBe(replacementPersistence);
   } finally {
     await database.close();
+  }
+});
+
+test("a scope observer opening a tree during replacement receives the registered store", () => {
+  const domainScope = createDomainScope();
+  const runtime = createContainerContentsTestRuntime({
+    domainScope,
+    execSql: async () => [],
+    online: false,
+  });
+  const open = () => getOrCreateContainerContentsStore(domainScope, runtime);
+  const old = open();
+  disposeDomainSyncCoordinator(domainScope);
+  let observed: ReturnType<typeof open> | undefined;
+  let inspecting = false;
+  const unsubscribe = subscribeToDomainSyncCoordinator(domainScope, () => {
+    if (inspecting) return;
+    inspecting = true;
+    observed = open();
+  });
+  try {
+    const replacement = open();
+    expect(replacement).not.toBe(old);
+    expect(observed).toBe(replacement);
+    expect(open()).toBe(replacement);
+  } finally {
+    unsubscribe();
+    disposeDomainSyncCoordinator(domainScope);
   }
 });

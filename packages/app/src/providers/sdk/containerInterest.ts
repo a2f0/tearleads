@@ -177,18 +177,22 @@ function resolveContainerInterestStore(tearleads: Tearleads) {
   }
 }
 
-/**
- * A socket opens with no server-side interest. Once the local tree is ready,
- * send one acknowledged authoritative declaration, then push add/remove
- * deltas. Interest is routing state, not an authorization grant.
- */
+type InterestTree = NonNullable<
+  ReturnType<typeof resolveContainerInterestStore>
+>;
+
 export function startContainerInterestDeclaration(
-  tearleads: Tearleads,
+  sdk: Tearleads,
   ws: WebSocket,
 ): ContainerInterestDeclaration {
-  const store = resolveContainerInterestStore(tearleads);
-  if (!store) return INACTIVE_DECLARATION;
+  const tree = resolveContainerInterestStore(sdk);
+  return tree ? declareInterest(ws, tree) : INACTIVE_DECLARATION;
+}
 
+function declareInterest(
+  ws: WebSocket,
+  tree: Pick<InterestTree, "getSnapshot" | "subscribe">,
+): ContainerInterestDeclaration {
   let declared = new Set<string>();
   const acknowledgments = new ContainerInterestAcknowledgments();
   let treeGeneration = 0;
@@ -216,7 +220,7 @@ export function startContainerInterestDeclaration(
       return;
     }
     syncRequested = false;
-    const snapshot = store.getSnapshot();
+    const snapshot = tree.getSnapshot();
     if (!snapshot.ready) {
       // A cold tree starts as ready=false/nodes=[]. Declaring that placeholder
       // would clear the reconnect barrier before the real tree is covered.
@@ -239,7 +243,7 @@ export function startContainerInterestDeclaration(
   };
 
   syncInterest();
-  const unsubscribe = store.subscribe(() => {
+  const unsubscribe = tree.subscribe(() => {
     treeGeneration++;
     syncInterest();
   });

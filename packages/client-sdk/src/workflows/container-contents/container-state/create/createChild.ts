@@ -7,7 +7,7 @@ import type {
   ContainerContentsPersistence,
   ContainerDocumentRecord as DocumentRecord,
 } from "../../containerPersistence";
-import { defaultContainerContentsPersistence } from "../../containerPersistence";
+import { resolveAtomicContainerSave } from "../../containerPersistence";
 import { createInitializedContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";
 import { loadContainerWriterProjectionForState } from "../projectionCache";
@@ -207,24 +207,6 @@ function createInitialChildContainerDocumentRecord(input: {
   };
 }
 
-function resolveAtomicChildContainerSave(
-  persistence: ContainerContentsPersistence,
-): NonNullable<
-  ContainerContentsPersistence["saveContainerWithPendingUpdate"]
-> | null {
-  const saveContainerWithPendingUpdate =
-    persistence.saveContainerWithPendingUpdate;
-  if (!saveContainerWithPendingUpdate) return null;
-  const inheritedSqlAtomicSave =
-    saveContainerWithPendingUpdate ===
-      defaultContainerContentsPersistence.saveContainerWithPendingUpdate &&
-    (persistence.saveContainer !==
-      defaultContainerContentsPersistence.saveContainer ||
-      persistence.enqueuePendingUpdate !==
-        defaultContainerContentsPersistence.enqueuePendingUpdate);
-  return inheritedSqlAtomicSave ? null : saveContainerWithPendingUpdate;
-}
-
 function childContainerSaveOptions(input: {
   createIntent: { parentContainerId: string } | undefined;
   localUpdatedAt: string | null;
@@ -273,7 +255,7 @@ async function persistCreatedChildContainer(input: {
     : null;
   if (pendingUpdate) {
     const saveContainerWithPendingUpdate =
-      resolveAtomicChildContainerSave(persistence);
+      resolveAtomicContainerSave(persistence);
     if (!saveContainerWithPendingUpdate) return null;
     containerState.container = await saveContainerWithPendingUpdate(
       runtime.infra.execSql,
@@ -339,7 +321,7 @@ export async function createChildContainerState(input: {
   // Refuse before any remote create when an adapter cannot provide
   // that atomic operation; a SQLite transaction cannot roll back adapter-owned
   // side effects.
-  if (queueRemoteSync && !resolveAtomicChildContainerSave(persistence)) {
+  if (queueRemoteSync && !resolveAtomicContainerSave(persistence)) {
     return null;
   }
 

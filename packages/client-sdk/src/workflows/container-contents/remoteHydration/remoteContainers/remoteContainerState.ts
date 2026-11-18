@@ -9,6 +9,7 @@ import {
   heldContainerBinding,
   listingRepeatsHeldOrdinaryBinding,
 } from "../../../../data/persistence/container-contents/containerBinding";
+import { ProjectionDependencyUnavailableError } from "../../../../data/shared/dependencyUnavailable";
 import {
   isKeyingVerificationError,
   runWithSecurityIncidentReporting,
@@ -421,16 +422,28 @@ export async function upsertRemoteContainerState(
  */
 export async function upsertIsolatedRemoteContainerState(
   input: UpsertRemoteContainerStateInput,
+  recordIncompleteItem?: (outcome: "refused" | "retry") => void,
+  recordUnavailable?:
+    | ((error: ProjectionDependencyUnavailableError) => void)
+    | undefined,
 ): Promise<ContainerState | null> {
   try {
     return await upsertRemoteContainerState(input);
   } catch (error) {
+    if (isKeyingVerificationError(error)) {
+      recordIncompleteItem?.("refused");
+      return null;
+    }
+    if (isProjectionVerificationCancelledError(error)) return null;
     if (
-      !isKeyingVerificationError(error) &&
-      !isProjectionVerificationCancelledError(error)
-    )
-      throw error;
-    return null;
+      error instanceof ProjectionDependencyUnavailableError &&
+      recordUnavailable
+    ) {
+      recordUnavailable(error);
+      recordIncompleteItem?.("retry");
+      return null;
+    }
+    throw error;
   }
 }
 
