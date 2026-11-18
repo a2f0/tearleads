@@ -76,7 +76,7 @@ run_terraform_tests() {
 
 # Terraform test's expect_failures handles custom conditions, but cannot
 # match a lifecycle.prevent_destroy diagnostic. Exercise the enrolled state
-# with the mocked provider and require that exact planning failure.
+# with the mocked provider and require destruction errors for both TXT records.
 check_verification_retention() {
   local module_dir="$1" test_dir="$2" result
   cp -R "$module_dir/negative" "$test_dir/" || return 1
@@ -88,12 +88,13 @@ check_verification_retention() {
   if [[ "$result" != *'run "enroll"... pass'* ||
         "$result" != *'run "omit_input"... fail'* ||
         "$result" != *'Resource cloudflare_dns_record.balebase_verification[0] has'* ||
-        "$result" != *'lifecycle.prevent_destroy set'* ||
-        "$(grep -c '^Error:' <<<"$result")" != 1 ]]; then
+        "$result" != *'Resource cloudflare_dns_record.balebase_subdomain_verification[0] has'* ||
+        "$(grep -c 'lifecycle.prevent_destroy set' <<<"$result")" != 2 ||
+        "$(grep -c '^Error:' <<<"$result")" != 2 ]]; then
     echo "$result" >&2
     return 1
   fi
-  echo "Verified that the enrolled Balebase TXT record survives an omitted setting."
+  echo "Verified that both enrolled Balebase TXT records survive omitted settings."
 }
 
 run_tflint() {

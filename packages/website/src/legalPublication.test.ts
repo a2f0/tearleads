@@ -21,13 +21,14 @@ beforeAll(() => {
   ).toBe(0);
 });
 
-for (const [environment, supportEnabled] of [
-  ["production", false],
-  ["production", true],
-  ["staging", false],
-  [undefined, false],
+for (const [environment, supportSetting] of [
+  ["production", undefined],
+  ["production", "true"],
+  ["production", "false"],
+  ["staging", undefined],
+  [undefined, undefined],
 ] as const) {
-  test(`website contacts and legal documents in ${environment ?? "ordinary"} builds (support ${supportEnabled ? "enabled" : "disabled"})`, async () => {
+  test(`website contacts and legal documents in ${environment ?? "ordinary"} builds (support setting ${supportSetting ?? "unset"})`, async () => {
     const output = await mkdtemp(resolve(tmpdir(), "tearleads-legal-build-"));
     const env: NodeJS.ProcessEnv = {
       ...process.env,
@@ -37,8 +38,8 @@ for (const [environment, supportEnabled] of [
         "https://billing.stripe.com/p/login/test",
       ASTRO_TELEMETRY_DISABLED: "1",
     };
-    if (supportEnabled) env.PUBLIC_SUPPORT_EMAIL_ENABLED = "true";
-    else delete env.PUBLIC_SUPPORT_EMAIL_ENABLED;
+    if (supportSetting === undefined) delete env.PUBLIC_SUPPORT_EMAIL_ENABLED;
+    else env.PUBLIC_SUPPORT_EMAIL_ENABLED = supportSetting;
     if (environment === undefined) delete env.PUBLIC_ENVIRONMENT;
     else env.PUBLIC_ENVIRONMENT = environment;
     const child = Bun.spawn(
@@ -137,9 +138,10 @@ for (const [environment, supportEnabled] of [
       const billing = await Bun.file(
         resolve(output, "manage-subscription/index.html"),
       ).text();
-      const billingContact = supportEnabled
-        ? "support@tearleads.com"
-        : legalDetails.email;
+      const billingContact =
+        supportSetting === "true"
+          ? "support@tearleads.com"
+          : legalDetails.email;
       expect(billing).toContain(`href="mailto:${billingContact}"`);
       expect(billing).toContain(`>${billingContact}</a>`);
       for (const [route, contentMarker] of [

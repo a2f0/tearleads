@@ -14,7 +14,9 @@ variables {
 run "enroll" {
   command = apply
   variables {
-    balebase_verification_txt = "balebase-verification=11111111-2222-4333-8444-555555555555"
+    balebase_verification_txt           = "balebase-verification=11111111-2222-4333-8444-555555555555"
+    balebase_subdomain_verification_txt = "balebase-verification=22222222-3333-4444-8555-666666666666"
+    enable_balebase_subdomain_mx        = true
   }
 }
 run "omit_input" {
