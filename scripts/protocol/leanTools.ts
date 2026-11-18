@@ -6,7 +6,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 export const LEAN_PROJECT = "formal/lean";
 
@@ -122,7 +122,9 @@ export function resolveLeanTools(root: string): LeanTools {
   const { LEAN_TOOLCHAIN_ROOT } = process.env;
   let toolchainRoot = LEAN_TOOLCHAIN_ROOT;
   if (!toolchainRoot) {
-    const where = runCommand("mise", ["where", "github:leanprover/lean4"]);
+    const where = runCommand("mise", ["where", "github:leanprover/lean4"], {
+      cwd: root,
+    });
     if (!where.ok) {
       fail(
         "the pinned Lean toolchain is not installed; run `mise install github:leanprover/lean4` or set LEAN_TOOLCHAIN_ROOT.",
@@ -130,7 +132,7 @@ export function resolveLeanTools(root: string): LeanTools {
     }
     toolchainRoot = where.stdout.trim();
   }
-  const binDir = join(toolchainRoot, "bin");
+  const binDir = resolve(toolchainRoot, "bin");
   const lake = join(binDir, "lake");
   checkLeanVersion(root, lake);
   return { binDir, lake };

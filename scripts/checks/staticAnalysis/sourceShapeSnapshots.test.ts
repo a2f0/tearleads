@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import { rmSync } from "node:fs";
+import { chmodSync, readFileSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
 import {
   baselinePath,
   cleanSource,
@@ -47,6 +48,73 @@ test("staged checks accept clean index content even when working content violate
   repo.git("add", "source.ts");
   repo.write("source.ts", suppressedSource.repeat(510));
   expect(repo.scan("--staged").code).toBe(0);
+});
+
+test("an installed pre-commit hook checks Git's temporary index for a partial commit", () => {
+  const repo = setup();
+  repo.write("selected.ts", cleanSource);
+  const base = repo.commit();
+  for (const file of [
+    "scripts/lib/checkRoot.ts",
+    "scripts/checks/lintSourceShape.ts",
+    "scripts/checks/sourceShapeSnapshot.ts",
+    "scripts/checks/sourceShapeBaseline.ts",
+  ]) {
+    repo.write(
+      file,
+      readFileSync(resolve(import.meta.dir, "../../..", file), "utf8"),
+    );
+  }
+  repo.write(
+    ".git/hooks/pre-commit",
+    `#!/bin/sh\nexec "${process.execPath}" scripts/checks/lintSourceShape.ts --staged\n`,
+  );
+  chmodSync(join(repo.cwd, ".git/hooks/pre-commit"), 0o755);
+  repo.write("selected.ts", suppressedSource);
+  const other = setup();
+  other.write("other.ts", cleanSource);
+  other.commit();
+  repo.git("add", "selected.ts");
+  const standalone = Bun.spawnSync(
+    [process.execPath, "scripts/checks/lintSourceShape.ts", "--staged"],
+    {
+      cwd: repo.cwd,
+      env: {
+        ...repo.env,
+        GIT_DIR: join(other.cwd, ".git"),
+        GIT_INDEX_FILE: join(other.cwd, ".git/index"),
+      },
+    },
+  );
+  expect(standalone.exitCode).toBe(1);
+  expect(standalone.stderr.toString() + standalone.stdout.toString()).toContain(
+    "tsIgnore count is 1",
+  );
+  repo.git("reset", "--quiet", "HEAD", "--", "selected.ts");
+  const partial = Bun.spawnSync(
+    [
+      "git",
+      "-c",
+      "commit.gpgsign=false",
+      "-c",
+      "core.hooksPath=.git/hooks",
+      "commit",
+      "--only",
+      "-qm",
+      "partial",
+      "--",
+      "selected.ts",
+    ],
+    {
+      cwd: repo.cwd,
+      env: repo.env,
+    },
+  );
+  expect(partial.exitCode).toBe(1);
+  expect(partial.stdout.toString() + partial.stderr.toString()).toContain(
+    "tsIgnore count is 1",
+  );
+  expect(repo.git("rev-parse", "HEAD")).toBe(base);
 });
 
 test("range checks use the right commit's source and baseline, not HEAD or disk", () => {

@@ -10,10 +10,14 @@ fail() {
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd) ||
   fail "could not resolve the protocol check script directory."
 
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) ||
+for name in $(git rev-parse --local-env-vars); do unset "$name"; done
+REPO_ROOT=$(CDPATH='' cd -P -- "$SCRIPT_DIR/../.." && pwd -P) ||
   fail "Protocol model checks must run inside a Git repository."
 REGISTRY_PATH=formal/protocol-models.txt
 
+# Keep explicit tool paths relative to the caller when changing directories.
+case "${JAVA_BIN:-}" in ""|/*|[A-Za-z]:/*) ;; *) JAVA_BIN="$PWD/$JAVA_BIN" ;; esac
+case "${TLA_TOOLS_ROOT:-}" in ""|/*|[A-Za-z]:/*) ;; *) TLA_TOOLS_ROOT="$PWD/$TLA_TOOLS_ROOT" ;; esac
 cd "$REPO_ROOT"
 
 [ -f "$REGISTRY_PATH" ] || fail "$REGISTRY_PATH does not exist."

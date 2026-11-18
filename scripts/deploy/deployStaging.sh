@@ -19,7 +19,8 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+for name in $(git rev-parse --local-env-vars); do unset "$name"; done
+REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
 SKIP_TERRAFORM=false
 
@@ -54,6 +55,13 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# The API and web releases record this checkout's HEAD. Check it before any
+# Terraform apply so an exported tree cannot leave a partially deployed tier.
+if ! git -c core.fsmonitor=false -C "$REPO_ROOT" --git-dir=.git rev-parse --verify 'HEAD^{commit}' >/dev/null; then
+  echo "Deployment requires its own Git checkout: $REPO_ROOT" >&2
+  exit 1
+fi
 
 # shellcheck source=scripts/lib/stepTimings.sh
 # shellcheck disable=SC1091

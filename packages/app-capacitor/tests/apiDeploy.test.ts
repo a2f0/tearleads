@@ -1,7 +1,16 @@
 import { expect, test } from "bun:test";
-import { chmod, cp, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import {
+  appendFile,
+  chmod,
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { commitDeploymentFixture } from "./deploymentGit.testUtils";
 
 const homeKey = "HOME";
 
@@ -19,6 +28,7 @@ async function deployFixture(
   extraEnv: Readonly<Record<string, string>> = {},
   options: {
     readonly trace?: boolean;
+    readonly dirty?: boolean;
     readonly healthcheckUrl?: string | undefined;
     readonly hyperdriveId?: string;
     readonly tier?: "staging" | "prod";
@@ -26,7 +36,9 @@ async function deployFixture(
     readonly generateCursorKey?: boolean;
   } = {},
 ) {
-  const root = await mkdtemp(resolve(tmpdir(), "tearleads-api-deploy-"));
+  const matrix = await mkdtemp(resolve(tmpdir(), "tearleads-api-deploy-"));
+  commitDeploymentFixture(matrix, "matrix");
+  const root = resolve(matrix, "checkouts/tearleads");
   const log = resolve(root, "calls.log");
   const bin = resolve(root, "bin");
   const script = resolve(root, "packages/api/scripts/deployApi.sh");
@@ -112,17 +124,6 @@ async function deployFixture(
     '#!/bin/sh\ncat "$API_DEPLOY_TEST_ROOT/storage-output.json"\n',
   );
   await executable(
-    resolve(bin, "git"),
-    `#!/bin/sh
-case "$*" in
-  *'rev-parse --show-toplevel') printf '%s\\n' "$API_DEPLOY_TEST_ROOT" ;;
-  *'rev-parse HEAD') printf '%040d\\n' 1 ;;
-  *'status --porcelain') ;;
-  *) exit 1 ;;
-esac
-`,
-  );
-  await executable(
     resolve(bin, "bun"),
     [
       "#!/bin/bash",
@@ -133,6 +134,7 @@ esac
       `    printf 'migrate|%s|%s|%s|%s|%s|%s\\n' "\${POSTGRES_HOST:-}" "\${POSTGRES_PORT:-}" "\${POSTGRES_USER:-}" "\${POSTGRES_DATABASE:-}" "\${DATABASE_URL:-unset}" "\${POSTGRES_URL:-unset}" >> "$API_DEPLOY_TEST_LOG"`,
       "    ;;",
       "  'scripts/workerDefines.ts')",
+      "    printenv GIT_REPLACE_REF_BASE >/dev/null && exit 91",
       '    printf \'API_BUILD_VERSION:123\\nAPI_DIAGNOSTICS_BUILD:{"commit":"abc"}\\n\'',
       "    ;;",
       "  'run sentry:cli sourcemaps upload '*)",
@@ -186,12 +188,24 @@ esac
     ].join("\n"),
   );
   const { PATH } = process.env;
+  const head = commitDeploymentFixture(
+    root,
+    "checkout",
+    "packages/api/scripts/deployApi.sh",
+  );
+  if (options.dirty) await appendFile(script, "\n# fixture change\n");
   const command = options.trace
     ? ["bash", "-x", script, options.tier ?? "staging"]
     : [script, options.tier ?? "staging"];
   const child = Bun.spawn(command, {
-    cwd: root,
+    cwd: matrix,
     env: {
+      GIT_DIR: resolve(matrix, ".git"),
+      GIT_WORK_TREE: matrix,
+      GIT_REPLACE_REF_BASE: "refs/matrix/replacements/",
+      GIT_CONFIG_COUNT: "1",
+      GIT_CONFIG_KEY_0: "core.worktree",
+      GIT_CONFIG_VALUE_0: matrix,
       PATH: `${bin}:${PATH ?? ""}`,
       HOME: process.env[homeKey] ?? root,
       API_DEPLOY_TEST_ROOT: root,
@@ -221,8 +235,9 @@ esac
     resolve(root, ".secrets", options.tier ?? "staging", "worker.env"),
     "utf8",
   ).catch(() => null);
-  await rm(root, { recursive: true, force: true });
+  await rm(matrix, { recursive: true, force: true });
   return {
+    head,
     exitCode,
     stdout,
     stderr,
@@ -247,6 +262,9 @@ test("migrations use the stack's migration login and ignore inherited connection
 test("the Worker receives Hyperdrive, derived origins, and only managed secrets", async () => {
   const run = await deployFixture();
   expect(run.exitCode, run.stderr).toBe(0);
+  expect(run.calls.find((call) => call.startsWith("map-upload|"))).toContain(
+    `--release tearleads-api@${run.head}`,
+  );
   expect(run.secrets).toMatchObject({
     DOCUMENT_SYNC_CURSOR_HMAC_KEY: "fixture-cursor-key-with-at-least-32-bytes",
     BLOB_GC_HEALTHCHECK_URL: "https://hc.example.test/ping/fixture",
@@ -445,3 +463,35 @@ for (const [label, storage] of [
     expect(run.deployedConfig).toBe("");
   });
 }
+
+test("a dirty API checkout stops before Sentry upload or publication", async () => {
+  const run = await deployFixture({}, { dirty: true });
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain("requires a clean checkout");
+  expect(run.calls).toEqual([]);
+});
+
+test("API deployment requires the exported tree's own Git metadata", async () => {
+  const outer = await mkdtemp(resolve(tmpdir(), "tearleads-api-parent-"));
+  try {
+    const path = "checkouts/export/packages/api/scripts/deployApi.sh";
+    await mkdir(dirname(resolve(outer, path)), { recursive: true });
+    await cp(
+      resolve(import.meta.dir, "../../api/scripts/deployApi.sh"),
+      resolve(outer, path),
+    );
+    const env = {
+      PATH: "/usr/bin:/bin",
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_NOSYSTEM: "1",
+    };
+    commitDeploymentFixture(outer, "outer");
+    const result = Bun.spawnSync(["bash", path, "prod"], { cwd: outer, env });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.toString()).toContain(
+      "API deployment requires its own Git checkout",
+    );
+  } finally {
+    await rm(outer, { recursive: true, force: true });
+  }
+});

@@ -20,6 +20,13 @@
         "$TURBO_ROOT$/packages/app/test/container-view-seed/**"
       ]
     },
+    "test": {
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/scripts/lib/withBuildInfoEnv.sh",
+        "$TURBO_ROOT$/scripts/lib/packageVersions.ts"
+      ]
+    },
     "build": {
       "inputs": [
         "$TURBO_EXTENDS$",

@@ -11,11 +11,19 @@ fail() {
   exit 1
 }
 
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) ||
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+REPO_ROOT=$(CDPATH='' cd -P -- "$script_dir/../.." && pwd -P) ||
   fail "OpenAPI compatibility must run inside a Git repository."
 
-script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+for name in $(git rev-parse --local-env-vars); do unset "$name"; done
+# Keep explicit tool paths relative to the caller when changing directories.
+case "${OASDIFF_BIN:-}" in ""|/*|[A-Za-z]:/*) ;; *) OASDIFF_BIN="$PWD/$OASDIFF_BIN" ;; esac
 cd "$REPO_ROOT"
+git_root=$(git rev-parse --show-toplevel)
+if [ "$(CDPATH='' cd -P -- "$git_root" && pwd -P)" != "$REPO_ROOT" ]; then
+  echo "This command requires its own Git checkout: $REPO_ROOT" >&2
+  exit 1
+fi
 
 if [ -n "${OASDIFF_BIN:-}" ]; then
   [ -x "$OASDIFF_BIN" ] || fail "OASDIFF_BIN is not executable: $OASDIFF_BIN"

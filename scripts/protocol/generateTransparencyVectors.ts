@@ -6,8 +6,9 @@
  * (packages/crypto/src/keying/transparencyLeanVectors.test.ts) drives the
  * fixture through the production generator and verifiers.
  */
-import { spawnSync } from "node:child_process";
+
 import { join } from "node:path";
+import { checkRoot } from "../lib/checkRoot";
 import {
   checkProofEscapes,
   LEAN_PROJECT,
@@ -22,16 +23,6 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-function repoRoot(): string {
-  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
-    encoding: "utf8",
-  });
-  if (result.status !== 0) {
-    fail("the vector generator must run inside a Git repository.");
-  }
-  return result.stdout.trim();
-}
-
 const arguments_ = process.argv.slice(2);
 if (
   arguments_.length > 1 ||
@@ -40,7 +31,7 @@ if (
   fail("Usage: bun scripts/protocol/generateTransparencyVectors.ts [--check]");
 }
 
-const root = repoRoot();
+const root = checkRoot();
 const tools = resolveLeanTools(root);
 checkProofEscapes(root);
 

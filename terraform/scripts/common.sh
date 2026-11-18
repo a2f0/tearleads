@@ -3,15 +3,14 @@
 
 # Get the repository root directory
 get_repo_root() {
-  git rev-parse --show-toplevel
+  (CDPATH='' cd -P -- "$COMMON_SCRIPT_DIR/../.." && pwd -P)
 }
 
-COMMON_SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+COMMON_SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd -P)"
 # shellcheck source=terraform/scripts/secretsEnv.sh
 . "$COMMON_SCRIPT_DIR/secretsEnv.sh"
 # shellcheck source=terraform/scripts/stripeEnv.sh
 . "$COMMON_SCRIPT_DIR/stripeEnv.sh"
-unset COMMON_SCRIPT_DIR
 
 # Validate domain
 validate_domain_env() {
@@ -142,15 +141,9 @@ export_wrangler_env() {
 # Cloudflare cache invalidation helpers live in a sibling file to keep this one
 # within the source-shape budget. Resolved relative to this script so callers
 # can source common.sh from any working directory.
-#
-# `BASH_SOURCE` is bash-only. Every script here runs under bash, but this file
-# is also worth sourcing by hand from an interactive shell — and in zsh the
-# unset array collapsed to `dirname ""` → the working directory, so the source
-# failed and the purge helpers went silently missing. `$0` carries the sourced
-# path in zsh, so the fallback covers both.
 # shellcheck source=./cloudflareCache.sh
 # shellcheck disable=SC1091
-. "$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/cloudflareCache.sh"
+. "$COMMON_SCRIPT_DIR/cloudflareCache.sh"
 
 # Get the GitHub owner/repo slug from the git remote origin URL.
 get_github_repo() {
