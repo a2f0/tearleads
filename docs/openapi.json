@@ -4676,6 +4676,45 @@
       "ListContainerDocumentLanesRequest": {
         "type": "object",
         "properties": {
+          "afterParentPage": {
+            "type": "object",
+            "properties": {
+              "parentId": {
+                "anyOf": [
+                  {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "watermark": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "updatedAt": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "updatedAt"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "parentId",
+              "watermark"
+            ],
+            "additionalProperties": false
+          },
           "lanes": {
             "type": "array",
             "items": {

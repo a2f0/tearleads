@@ -33,7 +33,7 @@ import {
   selectContainerDocumentPage,
 } from "./containerDocumentPage";
 import { discoveryCursor } from "./discoveryCursor";
-import { readDiscoverySources } from "./discoverySnapshot";
+import { readDiscoveryKey, readDiscoverySources } from "./discoverySnapshot";
 import {
   normalizeSyncPageLimit,
   normalizeSyncWatermark,
@@ -47,6 +47,7 @@ import {
 import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface ListContainerDocumentsOptions {
+  readonly discoveryKey?: string;
   readonly limit?: number | undefined;
   /** Shared only within a root-executor listing request. */
   readonly context?: ContainerWriterProjectionContext;
@@ -428,7 +429,7 @@ export async function listContainerDocuments(
     context,
   );
   const cursor = discoveryCursor(
-    runtime.documentSyncCursorHmacKey,
+    options.discoveryKey ?? (await readDiscoveryKey(runtime)),
     [userId, "documents", containerId],
     requestedWatermark,
   );
@@ -454,5 +455,8 @@ export async function listContainerDocuments(
     userId,
     watermark,
   });
-  return { ...response, nextWatermark: cursor.seal(response.nextWatermark) };
+  return {
+    ...response,
+    nextWatermark: cursor.seal(response.nextWatermark, rows.walPosition),
+  };
 }

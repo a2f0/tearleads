@@ -1,3 +1,14 @@
+-- Private publication metadata. A database retains its cursor key across
+-- rolling API deployments and server-secret rotations.
+CREATE SCHEMA IF NOT EXISTS drizzle;
+--> statement-breakpoint
+CREATE TABLE drizzle.discovery_cursor_key (
+  singleton boolean PRIMARY KEY CHECK (singleton),
+  key_material text NOT NULL
+);
+--> statement-breakpoint
+INSERT INTO drizzle.discovery_cursor_key VALUES (true, gen_random_uuid()::text || gen_random_uuid()::text);
+--> statement-breakpoint
 -- A lane can span organizations and mix live rows with removals. One order is
 -- shared by all four sources. CACHE 1 prevents a session from reserving later
 -- values that it could publish after another session used a larger value.

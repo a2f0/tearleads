@@ -115,10 +115,14 @@ Entity timestamps retain their original meaning. See the
 Each lane reads its live rows and tombstones in a single SQL statement, so
 both come from the same snapshot. Each page orders by publication position and ID.
 Existing clients already save and echo both watermark strings. The opaque ID
-seals the position and row ID with authenticated encryption bound to the user,
-lane, and cursor timestamp. A server cursor-key rotation starts a bounded
-replay. A device resuming from a legacy UUID cursor replays the lane once,
+seals the position, row ID, and WAL checkpoint with authenticated encryption
+bound to the user, lane, and cursor timestamp. Each database owns a durable
+cursor key shared across API deployments and server-secret rotations.
+A device resuming from a legacy UUID cursor replays the lane once,
 in bounded pages, recovering earlier omissions.
+An access recheck for a conflicting removal supplies its parent cursor.
+The API checks its WAL floor before reading permissions on the same database
+connection. A lagging replica leaves the page retryable.
 A repeated folder in one crawl is reapplied when its listing changes.
 Parent lanes checkpoint each applied page. Document lanes checkpoint after
 applying the complete lane. After a restart, each resumes from its last

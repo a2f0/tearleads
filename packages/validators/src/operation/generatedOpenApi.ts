@@ -3155,6 +3155,13 @@ export type components = {
         };
         /** @description Up to 32 container lanes to list documents for, each with its own watermark and page size (500 rows in total). */
         ListContainerDocumentLanesRequest: {
+            afterParentPage?: {
+                parentId: string | null;
+                watermark: {
+                    id: string;
+                    updatedAt: string;
+                };
+            };
             lanes: {
                 containerId: string;
                 laneId: string;

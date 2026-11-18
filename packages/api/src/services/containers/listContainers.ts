@@ -23,7 +23,7 @@ import {
   discoveryGrantSubjects,
 } from "./containerDiscoveryAccess";
 import { discoveryCursor } from "./discoveryCursor";
-import { readDiscoverySources } from "./discoverySnapshot";
+import { readDiscoveryKey, readDiscoverySources } from "./discoverySnapshot";
 import {
   type AccessibleContainerRow,
   accessibleContainersQuery,
@@ -46,6 +46,7 @@ import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface ListContainersOptions {
   readonly principalPolicyByReference?: PrincipalPolicyReferenceCache;
+  readonly discoveryKey?: string;
   readonly limit?: number | undefined;
   readonly parentId?: string | null | undefined;
   readonly watermark?: SyncWatermark | null;
@@ -298,7 +299,7 @@ export async function listContainers(
   );
 
   const cursor = discoveryCursor(
-    runtime.documentSyncCursorHmacKey,
+    options.discoveryKey ?? (await readDiscoveryKey(runtime)),
     [userId, "containers", parentId],
     requestedWatermark,
   );
@@ -333,5 +334,8 @@ export async function listContainers(
     tombstoneRows,
     visibleContainers,
   });
-  return { ...response, nextWatermark: cursor.seal(response.nextWatermark) };
+  return {
+    ...response,
+    nextWatermark: cursor.seal(response.nextWatermark, rows.walPosition),
+  };
 }

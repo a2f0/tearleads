@@ -178,6 +178,7 @@ export interface DiscoverContainerDocumentsOptions
     containerIds: ReadonlyArray<string>,
     generation: number,
     tombstones?: ReadonlyArray<ContainerDocumentTombstone>,
+    conflictingDocumentIds?: ReadonlySet<string>,
   ) => Promise<{
     inputs: ReadonlyArray<DiscoveredDocumentInput>;
     /** Signed link sets read during this pass, excluding earlier SQLite evidence. */

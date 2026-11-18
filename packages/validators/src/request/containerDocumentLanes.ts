@@ -36,6 +36,12 @@ const ContainerDocumentLaneRequestSchema = z.strictObject({
 });
 
 const ListContainerDocumentLanesRequestViewSchema = z.strictObject({
+  afterParentPage: z
+    .strictObject({
+      parentId: uuidV4StringSchema.nullable(),
+      watermark: ContainerReadLaneWatermarkSchema,
+    })
+    .optional(),
   lanes: boundedNonEmptyArraySchema(
     ContainerDocumentLaneRequestSchema,
     MAX_CONTAINER_DOCUMENT_LANES,

@@ -1,3 +1,4 @@
+import type { ListContainerDocumentLanesRequest } from "@tearleads/validators/request";
 import type {
   ContainerSyncTombstone,
   ListContainersResponse,
@@ -81,6 +82,7 @@ export function getApplicableRemoteContainerItems(
 }
 
 async function applyContainerTombstoneCascade(input: {
+  afterParentPage: ListContainerDocumentLanesRequest["afterParentPage"];
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
   isCurrent?: (() => boolean) | undefined;
@@ -164,6 +166,7 @@ async function applyContainerTombstoneCascade(input: {
 }
 
 export async function applyContainerTombstones(input: {
+  parentId: string | null;
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
   isCurrent?: (() => boolean) | undefined;
@@ -207,6 +210,9 @@ export async function applyContainerTombstones(input: {
       preservedContainerIds.delete(tombstone.containerId);
     }
     const result = await applyContainerTombstoneCascade({
+      afterParentPage: input.response.nextWatermark
+        ? { parentId: input.parentId, watermark: input.response.nextWatermark }
+        : undefined,
       childIdsByParentId: input.childIdsByParentId,
       expectedContainerStates: input.expectedContainerStates,
       isCurrent: input.isCurrent,

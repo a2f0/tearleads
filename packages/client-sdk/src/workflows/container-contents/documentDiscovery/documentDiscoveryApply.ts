@@ -68,6 +68,7 @@ export async function applyListedContainerDocuments(
     [containerId],
     generation,
     unopposedDocumentTombstones(listedDocuments),
+    new Set(listedDocuments.tombstones.map((row) => row.documentId)),
   );
   if (!(await verification.isCurrent())) return null;
   const verifiedInputs = verification.inputs;

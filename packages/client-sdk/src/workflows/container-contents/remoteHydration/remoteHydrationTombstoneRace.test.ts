@@ -255,6 +255,10 @@ test("a replayed removal checks newer-clock descendants before advancing its cur
     for (const row of [unchangedChild, stillReadable, removedRoot]) {
       row.container.serverUpdatedAt = later;
     }
+    const deniedGrandchild = existingContainerState(
+      "denied-grandchild",
+      stillReadable.container.id,
+    );
     const legacyCursor = { id: parentState.container.id, updatedAt: later };
     await new ContainerSyncWatermarkRepository(execSql).saveWatermark(
       createContainerParentSyncLane(parentState.container.id),
@@ -263,6 +267,7 @@ test("a replayed removal checks newer-clock descendants before advancing its cur
     for (const containerState of [
       parentState,
       stillReadable,
+      deniedGrandchild,
       removedRoot,
       staleChild,
       unchangedChild,
@@ -286,6 +291,7 @@ test("a replayed removal checks newer-clock descendants before advancing its cur
           staleChild,
           unchangedChild,
           stillReadable,
+          deniedGrandchild,
         ].map((containerState) => [
           containerState.container.id,
           containerState,
@@ -296,11 +302,17 @@ test("a replayed removal checks newer-clock descendants before advancing its cur
         organizations: containerContentsOrganizationHost,
         apiClient: {
           listContainerDocumentLanes: async ({
+            afterParentPage,
             lanes,
           }: {
+            afterParentPage: unknown;
             lanes: { containerId: string; laneId: string }[];
-          }) =>
-            fetchCount === 2
+          }) => {
+            expect(afterParentPage).toEqual({
+              parentId: parentState.container.id,
+              watermark: pageWatermark,
+            });
+            return fetchCount === 2
               ? null
               : {
                   results: lanes.map(({ containerId, laneId }) =>
@@ -319,7 +331,8 @@ test("a replayed removal checks newer-clock descendants before advancing its cur
                           failure: { status: 403, error: "Forbidden" },
                         },
                   ),
-                },
+                };
+          },
           getCurrentPrincipalPolicy: async () => null,
           listContainerParentLanes: async (request: {
             lanes: ReadonlyArray<{ laneId: string }>;
@@ -371,7 +384,12 @@ test("a replayed removal checks newer-clock descendants before advancing its cur
     await hydrate();
 
     expect(state.containersById.has(stillReadable.container.id)).toBe(true);
-    for (const containerState of [removedRoot, staleChild, unchangedChild]) {
+    for (const containerState of [
+      removedRoot,
+      staleChild,
+      unchangedChild,
+      deniedGrandchild,
+    ]) {
       expect(state.containersById.has(containerState.container.id)).toBe(true);
       await expect(
         defaultContainerContentsPersistence.containerExists(
@@ -399,7 +417,12 @@ test("a replayed removal checks newer-clock descendants before advancing its cur
       ),
     ).resolves.toBe(true);
     expect(state.containersById.has(stillReadable.container.id)).toBe(true);
-    for (const containerState of [removedRoot, staleChild, unchangedChild]) {
+    for (const containerState of [
+      removedRoot,
+      staleChild,
+      unchangedChild,
+      deniedGrandchild,
+    ]) {
       expect(state.containersById.has(containerState.container.id)).toBe(false);
       await expect(
         defaultContainerContentsPersistence.containerExists(

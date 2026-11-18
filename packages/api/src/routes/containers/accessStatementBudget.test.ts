@@ -167,7 +167,7 @@ test("parent listing lanes share verified policies within one request", async ()
       singles: singleStatements,
       batch: batch.statements,
     });
-    // Measured PostgreSQL counts: 24 separate / 16 batched statements.
+    // Measured PostgreSQL counts: 27 separate / 17 batched statements.
     // Bound the whole request, not savings from now-cheaper singular paths.
     expect(singleStatements).toBeLessThanOrEqual(27);
     expect(batch.statements).toBeLessThanOrEqual(19);

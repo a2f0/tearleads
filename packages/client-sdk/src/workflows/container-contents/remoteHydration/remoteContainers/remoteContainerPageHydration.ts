@@ -212,6 +212,7 @@ async function applyContainerParentLanePage(input: {
 
   const remoteContainerItems = getApplicableRemoteContainerItems(response);
   const tombstoneResult = await applyContainerTombstones({
+    parentId: lane.parentId,
     childIdsByParentId,
     expectedContainerStates,
     isCurrent: input.isCurrent,

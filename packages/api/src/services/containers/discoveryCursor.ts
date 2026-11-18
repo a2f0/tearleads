@@ -8,7 +8,7 @@ import {
 import type { SyncWatermark } from "@tearleads/validators/response";
 
 /** Keep the database-wide position private and bind continuation to the same
- * user, lane and timestamp. A legacy cursor or a rotated server key replays
+ * user, lane and timestamp. A legacy cursor or a different database replays
  * from the start, with the ordinary page bound. */
 export function discoveryCursor(
   secret: string,
@@ -20,8 +20,8 @@ export function discoveryCursor(
     .digest();
   const aad = (updatedAt: string) =>
     Buffer.from(JSON.stringify([...scope, updatedAt]));
-  const open = (): SyncWatermark | null => {
-    if (!requested || !/^d1\/[A-Za-z0-9_-]{114}$/.test(requested.id))
+  const open = () => {
+    if (!requested || !/^d1\/[A-Za-z0-9_-]{138}$/.test(requested.id))
       return null;
     const bytes = Buffer.from(requested.id.slice(3), "base64url");
     try {
@@ -36,21 +36,30 @@ export function discoveryCursor(
         cipher.update(bytes.subarray(28)),
         cipher.final(),
       ]);
-      return {
-        updatedAt: requested.updatedAt,
-        id: value.toString().trimStart(),
-      };
+      const [id, walPosition] = value.toString().trimStart().split(",");
+      if (
+        !id ||
+        !walPosition ||
+        !/^[0-9A-F]{1,8}\/[0-9A-F]{1,8}$/iu.test(walPosition)
+      )
+        return null;
+      return { position: { updatedAt: requested.updatedAt, id }, walPosition };
     } catch {
       return null;
     }
   };
-  const position = open();
+  const decoded = open();
+  const position = decoded?.position ?? null;
   return {
     position,
-    seal(next: SyncWatermark | null): SyncWatermark | null {
+    walPosition: decoded?.walPosition ?? null,
+    seal(
+      next: SyncWatermark | null,
+      walPosition: string,
+    ): SyncWatermark | null {
       if (next === position || !next) return requested;
-      // int64 decimal plus '/' and UUID. A fixed width hides sequence magnitude.
-      const input = next.id.padStart(57, " ");
+      // Fixed-width position, UUID, and WAL location hide cross-lane activity.
+      const input = `${next.id},${walPosition}`.padStart(75, " ");
       const iv = randomBytes(12);
       const cipher = createCipheriv("aes-256-gcm", key, iv);
       cipher.setAAD(aad(next.updatedAt));

@@ -1,4 +1,7 @@
-import { MAX_CONTAINER_DOCUMENT_LANES } from "@tearleads/validators/request";
+import {
+  type ListContainerDocumentLanesRequest,
+  MAX_CONTAINER_DOCUMENT_LANES,
+} from "@tearleads/validators/request";
 import type {
   ContainerSyncTombstone,
   ListContainerDocumentLanesResponse,
@@ -28,9 +31,11 @@ function classifyLane(
 async function readTombstoneCascadeAccess(
   api: RemoteContainerHydrationState["runtime"]["apiClient"],
   containerIds: readonly string[],
+  afterParentPage: NonNullable<
+    ListContainerDocumentLanesRequest["afterParentPage"]
+  >,
   isCurrent?: (() => boolean) | undefined,
 ) {
-  const readable = new Set<string>();
   const denied = new Set<string>();
   for (
     let index = 0;
@@ -41,6 +46,7 @@ async function readTombstoneCascadeAccess(
     const ids = containerIds.slice(index, index + MAX_CONTAINER_DOCUMENT_LANES);
     const response = await api.listContainerDocumentLanes(
       {
+        afterParentPage,
         lanes: ids.map((containerId, i) => ({
           containerId,
           laneId: String(i),
@@ -55,13 +61,14 @@ async function readTombstoneCascadeAccess(
       const result = response.results.find((row) => row.laneId === String(i));
       const outcome = classifyLane(result);
       if (outcome === "unknown") return null;
-      (outcome === "readable" ? readable : denied).add(containerId);
+      if (outcome === "denied") denied.add(containerId);
     }
   }
-  return { denied, readable };
+  return { denied };
 }
 
 export async function resolveTombstoneCascade(input: {
+  afterParentPage: ListContainerDocumentLanesRequest["afterParentPage"];
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
   isCurrent?: (() => boolean) | undefined;
@@ -87,6 +94,7 @@ export async function resolveTombstoneCascade(input: {
   });
   if (!clockConflict) return { cascade: candidates, denied: null };
 
+  if (!input.afterParentPage) return null;
   const access = await readTombstoneCascadeAccess(
     input.state.runtime.apiClient,
     [
@@ -95,15 +103,27 @@ export async function resolveTombstoneCascade(input: {
         ...candidates.removedContainerIds,
       ]),
     ],
+    input.afterParentPage,
     input.isCurrent,
   );
   // A move before the server upgrade may have left a superseded removal in
   // its old lane. Preserve a currently readable root and advance past it.
   if (!access) return null;
   return {
-    cascade: cascade(
-      new Set([...input.preservedContainerIds, ...access.readable]),
-    ),
+    // A cached descendant may have moved away from a still-readable ancestor.
+    // The batch checked every candidate independently.
+    cascade: {
+      ...candidates,
+      removedContainerIds: candidates.removedContainerIds.filter((id) =>
+        access.denied.has(id),
+      ),
+      fenceOnlyContainerIds: candidates.fenceOnlyContainerIds.filter((id) =>
+        access.denied.has(id),
+      ),
+      absentDeletedContainerIds: candidates.absentDeletedContainerIds.filter(
+        (id) => access.denied.has(id),
+      ),
+    },
     denied: access.denied,
   };
 }
