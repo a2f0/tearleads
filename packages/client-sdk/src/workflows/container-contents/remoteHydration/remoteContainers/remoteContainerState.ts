@@ -425,12 +425,15 @@ export async function upsertIsolatedRemoteContainerState(
   try {
     return await upsertRemoteContainerState(input);
   } catch (error) {
-    if (
-      !isKeyingVerificationError(error) &&
-      !isProjectionVerificationCancelledError(error)
-    )
-      throw error;
-    return null;
+    if (isKeyingVerificationError(error)) {
+      if (input.isCurrent?.() !== false) {
+        input.state.containerProofRefusals =
+          (input.state.containerProofRefusals ?? 0) + 1;
+      }
+      return null;
+    }
+    if (isProjectionVerificationCancelledError(error)) return null;
+    throw error;
   }
 }
 

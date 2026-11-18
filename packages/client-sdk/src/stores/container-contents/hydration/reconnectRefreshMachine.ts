@@ -2,15 +2,32 @@ const FIRST_RETRY_MS = 1_000;
 const MAX_RETRY_MS = 60_000;
 
 export type ReconnectRefreshState =
-  | { status: "idle" }
+  | { status: "idle" | "deferred" }
   | { status: "pending"; delayMs: number }
   | { status: "crawling" | "backoff"; delayMs: number; crawl: object };
 
 type ReconnectRefreshEvent =
   | { type: "acknowledged" }
+  | { type: "runtimeChanged" }
   | { type: "start"; crawl: object }
-  | { type: "finish"; crawl: object; complete: boolean }
+  | {
+      type: "finish";
+      crawl: object;
+      outcome: "complete" | "retry" | "refused";
+    }
   | { type: "retry"; crawl: object };
+
+function afterCrawl(
+  state: { status: "crawling" | "backoff"; crawl: object; delayMs: number },
+  outcome: "complete" | "retry" | "refused",
+): ReconnectRefreshState {
+  if (outcome === "complete") return { status: "idle" };
+  // Leave a repeatedly refused proof for a fresh signal. A timed-out listing
+  // or unavailable proof keeps retrying even on a quiet connection.
+  if (outcome === "refused" && state.delayMs >= 4_000)
+    return { status: "deferred" };
+  return { ...state, status: "backoff" };
+}
 
 /**
  * An acknowledgement supersedes any previous crawl, including its timer.
@@ -22,6 +39,9 @@ export function transitionReconnectRefresh(
   event: ReconnectRefreshEvent,
 ): ReconnectRefreshState {
   switch (event.type) {
+    case "runtimeChanged":
+      if (state.status !== "deferred") return state;
+      return { status: "pending", delayMs: FIRST_RETRY_MS };
     case "acknowledged":
       return { status: "pending", delayMs: FIRST_RETRY_MS };
     case "start":
@@ -31,9 +51,7 @@ export function transitionReconnectRefresh(
     case "finish":
       if (state.status !== "crawling" || state.crawl !== event.crawl)
         return state;
-      return event.complete
-        ? { status: "idle" }
-        : { ...state, status: "backoff" };
+      return afterCrawl(state, event.outcome);
     case "retry":
       return state.status === "backoff" && state.crawl === event.crawl
         ? {

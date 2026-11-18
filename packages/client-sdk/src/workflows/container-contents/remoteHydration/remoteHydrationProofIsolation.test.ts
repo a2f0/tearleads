@@ -176,6 +176,9 @@ for (const failure of ["withheld", "tampered", "expired", "runtime"] as const) {
           ),
         ).toEqual(watermark);
         expect(completed).toBe(false);
+        expect(state.containerProofRefusals ?? 0).toBe(
+          failure === "tampered" ? 1 : 0,
+        );
         expect(incidents).toHaveLength(failure === "tampered" ? 1 : 0);
       } finally {
         close();

@@ -32,13 +32,12 @@ import {
 import {
   type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
-  createContainerContentsStoreWorkflowRuntimeFromSnapshot,
 } from "../../workflows/container-contents";
 import { listAllContainerDocumentIdsFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { probeUndiscoveredRemoteDocumentBatch } from "../../workflows/container-contents/documentPriming/documentHydrationProbe";
 import type { ContainerContents } from "../containerContents";
 import { discoverContainerDocumentLanesForRuntime } from "../containerContents/documentDiscovery";
-import { requireShareRecipient } from "../organizations/recipientAdmission";
+import { createStoreRuntime as createDeviceFirstWorkflowRuntime } from "../containerContents/storeRuntime";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { createReconciledDocumentContentPuller } from "./reconciledDocumentContentPull";
 
@@ -354,20 +353,4 @@ function logReconciliationFailure(
   return logError ? logError(message, error) : log(message);
 }
 
-export function createDeviceFirstWorkflowRuntime(
-  runtimeService: InternalRuntime,
-): ContainerContentsStoreWorkflowRuntime {
-  const input = runtimeService.workflowInput();
-  return createContainerContentsStoreWorkflowRuntimeFromSnapshot(
-    { ...input, organizations: runtimeService.containerContentsOrganizations },
-    runtimeService.adoptRootContainer,
-    // Admit against the trust store of the database this runtime writes.
-    (userId, accessLevel) =>
-      requireShareRecipient(
-        runtimeService,
-        input.infra.execSql,
-        userId,
-        accessLevel,
-      ),
-  );
-}
+export { createDeviceFirstWorkflowRuntime };

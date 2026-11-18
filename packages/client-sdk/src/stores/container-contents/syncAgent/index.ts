@@ -300,6 +300,7 @@ export function createContainerContentsStoreSyncAgent(input: {
       // Explicit user refresh must rediscover children hidden by unsigned hints.
       resetAllLaneWatermarks: options?.resetAllLaneWatermarks,
       onFullyHydrated: options?.onFullyHydrated,
+      reconnectIsCurrent: options?.reconnectIsCurrent,
       requestHydration: requestRefreshHydration,
       state,
     });

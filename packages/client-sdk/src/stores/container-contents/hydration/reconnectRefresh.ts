@@ -19,9 +19,22 @@ export class ReconnectRefresh {
     });
   }
 
+  runtimeChanged(): void {
+    this.state = transitionReconnectRefresh(this.state, {
+      type: "runtimeChanged",
+    });
+  }
+
   runWhenReady(
     canRun: () => boolean,
-    refresh: (options: { onFullyHydrated: () => void }) => Promise<boolean>,
+    refresh: (options: {
+      onFullyHydrated: () => void;
+      reconnectIsCurrent: () => boolean;
+    }) => Promise<boolean>,
+    evidence: {
+      containerListingFailures: number;
+      containerProofRefusals: number;
+    },
   ): void {
     if (this.state.status !== "pending" || !canRun()) return;
 
@@ -30,11 +43,12 @@ export class ReconnectRefresh {
       type: "start",
       crawl,
     });
-    const finish = (complete: boolean) => {
+    const { containerListingFailures, containerProofRefusals } = evidence;
+    const finish = (outcome: "complete" | "retry" | "refused") => {
       const next = transitionReconnectRefresh(this.state, {
         type: "finish",
         crawl,
-        complete,
+        outcome,
       });
       if (next === this.state) return;
       this.state = next;
@@ -45,17 +59,25 @@ export class ReconnectRefresh {
           type: "retry",
           crawl,
         });
-        this.runWhenReady(canRun, refresh);
+        this.runWhenReady(canRun, refresh, evidence);
       }, next.delayMs);
     };
     let fullyHydrated = false;
+    const settle = () => {
+      if (fullyHydrated && canRun()) return finish("complete");
+      const proofRefused =
+        evidence.containerProofRefusals > containerProofRefusals &&
+        evidence.containerListingFailures === containerListingFailures;
+      finish(proofRefused ? "refused" : "retry");
+    };
     void refresh({
+      reconnectIsCurrent: () =>
+        this.state.status === "crawling" &&
+        this.state.crawl === crawl &&
+        canRun(),
       onFullyHydrated: () => {
         fullyHydrated = true;
       },
-    }).then(
-      () => finish(fullyHydrated),
-      () => finish(false),
-    );
+    }).then(settle, () => finish("retry"));
   }
 }

@@ -13,7 +13,7 @@ test("an acknowledgement replaces the crawl and invalidates its completion and t
   const waiting = move(crawling, {
     type: "finish",
     crawl: first,
-    complete: false,
+    outcome: "retry",
   });
 
   for (const previous of [crawling, waiting]) {
@@ -26,10 +26,10 @@ test("an acknowledgement replaces the crawl and invalidates its completion and t
       crawl: second,
       delayMs: 1_000,
     });
-    for (const complete of [true, false]) {
-      expect(
-        move(replacement, { type: "finish", crawl: first, complete }),
-      ).toBe(replacement);
+    for (const outcome of ["complete", "refused", "retry"] as const) {
+      expect(move(replacement, { type: "finish", crawl: first, outcome })).toBe(
+        replacement,
+      );
     }
     expect(move(replacement, { type: "retry", crawl: first })).toBe(
       replacement,
@@ -40,7 +40,7 @@ test("an acknowledgement replaces the crawl and invalidates its completion and t
     const settled = move(replacement, {
       type: "finish",
       crawl: second,
-      complete: true,
+      outcome: "complete",
     });
     expect(settled).toEqual(idle);
     expect(move(settled, { type: "start", crawl: first })).toBe(settled);
@@ -58,7 +58,7 @@ test("each incomplete crawl waits for its own retry, with capped exponential bac
     const crawl = {};
     expect(move(state, { type: "retry", crawl })).toBe(state);
     state = move(state, { type: "start", crawl });
-    state = move(state, { type: "finish", crawl, complete: false });
+    state = move(state, { type: "finish", crawl, outcome: "retry" });
     expect(state).toEqual({ status: "backoff", crawl, delayMs });
     expect(move(state, { type: "start", crawl })).toBe(state);
     expect(move(state, { type: "retry", crawl: {} })).toBe(state);
@@ -68,4 +68,20 @@ test("each incomplete crawl waits for its own retry, with capped exponential bac
     status: "pending",
     delayMs: 1_000,
   });
+});
+
+test("a repeatedly refused proof waits for a new signal after two automatic retries", () => {
+  let state: ReconnectRefreshState = move(
+    { status: "idle" },
+    { type: "acknowledged" },
+  );
+  for (let i = 0; i < 3; i++) {
+    const crawl = {};
+    state = move(state, { type: "start", crawl });
+    state = move(state, { type: "finish", crawl, outcome: "refused" });
+    state = move(state, { type: "retry", crawl });
+  }
+  expect(state.status).toBe("deferred");
+  expect(move(state, { type: "runtimeChanged" }).status).toBe("pending");
+  expect(move(state, { type: "acknowledged" }).status).toBe("pending");
 });

@@ -55,6 +55,7 @@ const containerContentsStoresByScope = new WeakMap<
 >();
 
 interface ContainerContentsStoreEntry {
+  isDisposed: () => boolean;
   requestDocumentPriming: () => void;
   store: ContainerContentsStore;
   updateOptions: (options: ContainerContentsStoreOptions) => void;
@@ -410,6 +411,7 @@ function createContainerContentsStoreEntry(
   const writeMethods = createContainerWriteMethods(state, syncAgent);
 
   return {
+    isDisposed: () => state.syncLane?.isDisposed?.() ?? false,
     requestDocumentPriming: () => {
       state.documentStoresNeedPriming = true;
       syncAgent.scheduleSync();
@@ -453,7 +455,7 @@ export function getOrCreateContainerContentsStore(
   options: ContainerContentsStoreOptions = {},
 ): ContainerContentsStore {
   const existingEntry = containerContentsStoresByScope.get(domainScope);
-  if (existingEntry) {
+  if (existingEntry && !existingEntry.isDisposed()) {
     existingEntry.updateOptions(options);
     return existingEntry.store;
   }

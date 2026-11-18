@@ -42,7 +42,6 @@ import { createContainerContentsDocumentProjectionUserKeyResolver } from "../../
 import {
   type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
-  createContainerContentsStoreWorkflowRuntimeFromSnapshot,
 } from "../../workflows/container-contents/runtime";
 import { createContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import {
@@ -54,12 +53,12 @@ import {
   createOrganizationReadModelCoordinator,
   type OrganizationReadModelCoordinator,
 } from "../organizations/organizationReadModels";
-import { requireShareRecipient } from "../organizations/recipientAdmission";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
 } from "../runtime/workflowRuntime";
 import { discoverContainerDocumentsForRuntime } from "./documentDiscovery";
+import { createStoreRuntime } from "./storeRuntime";
 import type {
   ContainerContents,
   ContainerDocumentLinks,
@@ -454,21 +453,6 @@ class ContainerContentsService implements ContainerContents {
   }
 
   workflowRuntime(): ContainerContentsStoreWorkflowRuntime {
-    const input = this.runtimeService.workflowInput();
-    return createContainerContentsStoreWorkflowRuntimeFromSnapshot(
-      {
-        ...input,
-        organizations: this.runtimeService.containerContentsOrganizations,
-      },
-      this.runtimeService.adoptRootContainer,
-      // Admit against the trust store of the database this runtime writes.
-      (userId, accessLevel) =>
-        requireShareRecipient(
-          this.runtimeService,
-          input.infra.execSql,
-          userId,
-          accessLevel,
-        ),
-    );
+    return createStoreRuntime(this.runtimeService);
   }
 }

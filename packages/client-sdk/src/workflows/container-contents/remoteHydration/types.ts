@@ -120,6 +120,8 @@ export interface RemoteContainerHydrationState {
    * fell short while it ran.
    */
   containerListingFailures?: number | undefined;
+  /** Current-crawl items whose supplied proof failed verification. */
+  containerProofRefusals?: number | undefined;
   containersById: Map<string, ContainerState>;
   lifecycleGeneration?: number | undefined;
   persistence: ContainerContentsPersistence;

@@ -35,6 +35,7 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
 interface RemoteHydrationRequestInput {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
+  reconnectIsCurrent?: (() => boolean) | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
@@ -193,6 +194,8 @@ function waitForActiveInitialization(
 function retryRemoteHydrationAfterReset(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
+  // The reconnect state machine owns its retry across a reset.
+  if (input.reconnectIsCurrent) return Promise.resolve();
   return resumeRetainedRecoveryHydration(createResetRecoveryInput(input));
 }
 
@@ -295,10 +298,25 @@ function consumeQueuedHydrationScope(
   };
 }
 
+function captureHydrationScope(
+  input: RemoteHydrationRequestInput,
+): () => boolean {
+  const { state } = input;
+  const { lifecycleGeneration, structuralGeneration } = state;
+  return () =>
+    input.reconnectIsCurrent?.() !== false &&
+    isRequestGenerationCurrent({
+      state,
+      lifecycleGeneration,
+      structuralGeneration,
+    });
+}
+
 export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
   const { host, scheduleSync, state } = input;
+  if (input.reconnectIsCurrent?.() === false) return Promise.resolve();
   queueRequestedParentIds(input);
   const readinessBarrier = waitForRemoteHydrationReadiness(input);
   if (readinessBarrier) {
@@ -310,14 +328,8 @@ export function requestContainerContentsRemoteHydration(
 
   let appliedRemoteContainerChange = false;
   let retainInterruptedHydration = false;
-  const lifecycleGeneration = state.lifecycleGeneration;
-  const structuralGeneration = state.structuralGeneration;
-  const isCurrent = () =>
-    isRequestGenerationCurrent({
-      lifecycleGeneration,
-      state,
-      structuralGeneration,
-    });
+  const { lifecycleGeneration, structuralGeneration } = state;
+  const isCurrent = captureHydrationScope(input);
   const onFullyHydrated = input.recreateOnFullyHydratedAtStart
     ? input.recreateOnFullyHydratedAfterReset?.()
     : input.onFullyHydrated;
