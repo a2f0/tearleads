@@ -21,8 +21,14 @@ beforeAll(() => {
   ).toBe(0);
 });
 
-for (const environment of ["production", "staging", undefined]) {
-  test(`published legal documents stay visible in ${environment ?? "ordinary"} builds`, async () => {
+for (const [environment, supportSetting] of [
+  ["production", undefined],
+  ["production", "true"],
+  ["production", "false"],
+  ["staging", undefined],
+  [undefined, undefined],
+] as const) {
+  test(`website contacts and legal documents in ${environment ?? "ordinary"} builds (support setting ${supportSetting ?? "unset"})`, async () => {
     const output = await mkdtemp(resolve(tmpdir(), "tearleads-legal-build-"));
     const env: NodeJS.ProcessEnv = {
       ...process.env,
@@ -32,6 +38,8 @@ for (const environment of ["production", "staging", undefined]) {
         "https://billing.stripe.com/p/login/test",
       ASTRO_TELEMETRY_DISABLED: "1",
     };
+    if (supportSetting === undefined) delete env.PUBLIC_SUPPORT_EMAIL_ENABLED;
+    else env.PUBLIC_SUPPORT_EMAIL_ENABLED = supportSetting;
     if (environment === undefined) delete env.PUBLIC_ENVIRONMENT;
     else env.PUBLIC_ENVIRONMENT = environment;
     const child = Bun.spawn(
@@ -127,6 +135,15 @@ for (const environment of ["production", "staging", undefined]) {
       expect(
         await Bun.file(resolve(output, "downloads/linux/index.html")).text(),
       ).toContain("./installer");
+      const billing = await Bun.file(
+        resolve(output, "manage-subscription/index.html"),
+      ).text();
+      const billingContact =
+        supportSetting === "true"
+          ? "support@tearleads.com"
+          : legalDetails.email;
+      expect(billing).toContain(`href="mailto:${billingContact}"`);
+      expect(billing).toContain(`>${billingContact}</a>`);
       for (const [route, contentMarker] of [
         ["privacy-policy", "Limited error diagnostics"],
         ["terms-of-service", "Limits on liability"],
@@ -135,6 +152,7 @@ for (const environment of ["production", "staging", undefined]) {
           resolve(output, route, "index.html"),
         ).text();
         expect(html).toContain(`mailto:${legalDetails.email}`);
+        expect(html).not.toContain("mailto:support@tearleads.com");
         expect(html).toContain(legalDetails.operator);
         expect(html).toContain(contentMarker);
         // The related-documents nav marks the page itself as current.

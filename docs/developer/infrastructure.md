@@ -32,6 +32,140 @@ Always Use HTTPS setting, which the production website stack owns because it
 is zone-wide. Every client, provider webhook, and billing return URL that
 names a tearleads.com host uses `https://`.
 
+### Website email delivery to Balebase
+
+Google Workspace receives mail for `tearleads.com` and forwards each configured
+recipient to its own Balebase address. The direct SMTP pilot uses the
+`base.tearleads.com` subdomain. Create each binding in the production
+**Tearleads** organization. All organization members can read these inboxes.
+
+| Recipient | Balebase inbox | Delivery |
+| --- | --- | --- |
+| `legal@tearleads.com` | Legal | Google Workspace recipient mapping |
+| `support@tearleads.com` | Support | Google Workspace recipient mapping |
+| `legal@base.tearleads.com` | Legal pilot | Direct SMTP |
+| `support@base.tearleads.com` | Support pilot | Direct SMTP |
+
+#### Forward the website addresses
+
+1. In Balebase, add `tearleads.com` as an inbound mail domain. Copy the
+   complete TXT value beginning with `balebase-verification=`.
+2. Save that value, without DNS quotation marks, as
+   `TF_VAR_balebase_verification_txt` in the production tier's `app.env`.
+   Keep the setting for subsequent deployments. Omitting it after enrollment
+   stops the plan at the TXT record's destruction guard. The website stack
+   manages the record at `_balebase-verification.tearleads.com` and needs
+   DNS Edit permission for the zone. Review the saved plan in a private
+   directory using the production stack wrapper.
+
+   ```sh
+   RUN_DIR="$(mktemp -d)"
+   terraform/scripts/run-website-stack.sh prod plan -out="$RUN_DIR/website.tfplan"
+   ```
+
+   Confirm that the plan only adds the expected verification record. Apply
+   that plan and check the DNS answer.
+
+   ```sh
+   terraform/scripts/run-website-stack.sh prod apply "$RUN_DIR/website.tfplan"
+   dig +short TXT _balebase-verification.tearleads.com
+   ```
+
+3. When the DNS answer matches the issued value, verify the domain in
+   Balebase. Bind each apex recipient in the table to its named inbox. Copy
+   the separate forwarding address generated for each binding.
+4. In the Google Admin console, open **Apps → Google Workspace → Gmail →
+   Routing** for the top-level organizational unit. Under **Email forwarding
+   using recipient address map**, map each exact apex address to its own
+   copied destination. Keep the two mappings in separate rules so they can
+   be changed independently. Confirm an original recipient can receive mail
+   for each address before enabling dual delivery. Choose **All incoming
+   messages** and **Also route to original destination** for each rule.
+   [Google Workspace address mapping](https://support.google.com/a/answer/4524505)
+5. From an external mailbox, send a distinct test message to each apex
+   address. Check the original recipients and match each subject to the
+   expected Balebase inbox in the table. After propagation, each rule can
+   switch to Balebase-only delivery by clearing **Also route to original
+   destination**. Repeat that recipient's delivery check after switching.
+6. After confirming delivery to **Support**, set `PUBLIC_SUPPORT_EMAIL_ENABLED`
+   to `true` in the production tier's `app.env` and publish the website. Check
+   that the billing-help link on `/manage-subscription/` opens
+   `support@tearleads.com`. The Privacy Policy and Terms of Service continue
+   to link to `legal@tearleads.com`.
+
+To restore Google's original delivery for one address, remove only its
+recipient mapping and send a fresh test to the address. If withdrawing the
+published Support address, first set `PUBLIC_SUPPORT_EMAIL_ENABLED=false` and
+republish the website to restore the Legal billing-help link. Keep accepting
+mail at the old Support address for people who saved it. The apex proof stays
+published for the active bindings.
+
+#### Direct delivery pilot on base.tearleads.com
+
+The child MX sends mail directly to Balebase for both pilot recipients.
+It leaves the apex Google routing in place.
+
+1. In the production Tearleads organization in Balebase, add
+   `base.tearleads.com` and copy its TXT value. Save that value separately
+   as `TF_VAR_balebase_subdomain_verification_txt` in the production tier's
+   `app.env`. Keep the apex setting. Set
+   `TF_VAR_enable_balebase_subdomain_mx=false`. With a child challenge set,
+   each deployment requires an explicit MX setting.
+2. Use the production website stack plan and apply steps above. Confirm the
+   plan adds the child TXT record before applying. Check its public answer
+   with `dig +short TXT _balebase-verification.base.tearleads.com`, then
+   verify the subdomain in Balebase. Bind both exact pilot addresses to their
+   respective named inboxes in the table. Keep the child TXT published while
+   either pilot inbox is active because Balebase rechecks domain ownership.
+3. Before activating MX, query the authoritative servers and compare each
+   TXT answer to the issued child challenge. From a host that can reach
+   outbound TCP port 25, check that the Balebase receiver presents a valid
+   TLS certificate and accepts both bound pilot addresses. The SMTP check
+   ends after the recipient commands and sends no message.
+
+   ```sh
+   for ns in $(dig +short NS tearleads.com); do
+     dig +short @"$ns" TXT _balebase-verification.base.tearleads.com
+   done
+
+   python3 - <<'PYTHON'
+   import smtplib
+   import ssl
+
+   with smtplib.SMTP("mx.balebase.com", 25, timeout=15) as smtp:
+       smtp.ehlo()
+       smtp.starttls(context=ssl.create_default_context())
+       smtp.ehlo()
+       code, detail = smtp.mail("")
+       if code != 250:
+           raise SystemExit(f"MAIL FROM failed: {code} {detail!r}")
+       for recipient in ("legal@base.tearleads.com", "support@base.tearleads.com"):
+           code, detail = smtp.rcpt(recipient)
+           if code not in (250, 251):
+               raise SystemExit(f"{recipient}: RCPT TO failed: {code} {detail!r}")
+           print(f"Balebase accepts {recipient}")
+   PYTHON
+   ```
+
+4. After both checks pass, set `TF_VAR_enable_balebase_subdomain_mx=true`.
+   Plan again. Confirm the only change is an MX at `base.tearleads.com` with
+   priority 10 and destination `mx.balebase.com`. Apply that saved plan.
+5. Check `dig +short MX base.tearleads.com` for `10 mx.balebase.com.`
+   and `dig +short MX tearleads.com` for the Google hosts. From an external
+   mailbox, send a different subject to each of the four addresses in the
+   table. Check that each subject arrives in its expected inbox.
+
+To retire a single pilot address, direct its senders to the corresponding
+apex address and verify delivery there. Once mail in transit has arrived,
+disconnect only that pilot binding in Balebase. Confirm the other pilot
+address still receives an external test message.
+
+To withdraw the entire pilot, direct both sets of senders to their apex
+addresses, then set `TF_VAR_enable_balebase_subdomain_mx=false`. Keep both
+TXT settings and both Google mappings. Plan and apply removal of only the
+child MX, check the child and apex MX answers, and retest both apex addresses.
+Keep the pilot bindings available for cached MX records and mail in transit.
+
 ### The www Redirect
 
 `www.tearleads.com` answers 301 to `https://tearleads.com`, keeping the path
@@ -177,7 +311,10 @@ website, through
 each step. The production script asks for the domain unless given
 `--auto-approve`; the production teardown steps refuse to run outside it. The
 stack wrappers refuse a production `destroy`; the teardown applies saved destroy
-plans.
+plans. Before tearing down an enrolled production website, restore and verify
+delivery to the original mailboxes using the [website email
+procedure](#website-email-delivery-to-balebase) and withdraw any active
+subdomain pilot. The authorized teardown removes the verification records.
 
 The deployed API allows browser requests from every origin (`API_CORS_ORIGINS=*`)
 for [SDK hosts](sdk-hosting.md), with explicit bearer-token and protocol headers

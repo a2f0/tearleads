@@ -5,6 +5,10 @@ import Layout from "../layouts/Layout.astro";
 import { legalDetails } from "../legal";
 import "../styles/install.css";
 
+const billingHelpEmail =
+  import.meta.env.PUBLIC_SUPPORT_EMAIL_ENABLED === "true"
+    ? "support@tearleads.com"
+    : legalDetails.email;
 const portalHost = stripeCustomerPortalUrl
   ? new URL(stripeCustomerPortalUrl).host
   : null;
@@ -69,7 +73,7 @@ const portalHost = stripeCustomerPortalUrl
           opens the most recently created billing account with an active
           subscription, which may not be the one you want. If you can't
           reach a subscription through Stripe, email{" "}
-          <a href={`mailto:${legalDetails.email}`}>{legalDetails.email}</a>.
+          <a href={`mailto:${billingHelpEmail}`}>{billingHelpEmail}</a>.
         </li>
         <li>
           Organization admins can also manage billing in Org Manager → Billing.
