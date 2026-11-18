@@ -122,8 +122,8 @@ A device resuming from a legacy UUID cursor replays the lane once,
 in bounded pages, recovering earlier omissions.
 An access recheck for a conflicting removal supplies its parent cursor.
 The API checks that its committed counter covers the parent page before
-reading permissions on the same connection. A lagging replica leaves the
-page retryable. Retrying the same publication requires the same position.
+reading permissions in the same repeatable-read snapshot. A lagging replica
+leaves the page retryable. Retrying the same publication requires the same position.
 A repeated folder in one crawl is reapplied when its listing changes.
 Parent lanes checkpoint each applied page. Document lanes checkpoint after
 applying the complete lane. After a restart, each resumes from its last

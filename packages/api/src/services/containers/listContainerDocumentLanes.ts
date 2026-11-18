@@ -97,8 +97,8 @@ export async function listContainerDocumentLanes(
   const proof = request.afterParentPage;
   if (!proof)
     return listLanes(runtime, userId, request, await readDiscoveryKey(runtime));
-  // Keep the floor and subsequent authorization reads on one connection.
-  // READ COMMITTED takes a new snapshot after the publication row was checked.
+  // The publication and every grant in the permission path must be visible
+  // together. A replica snapshot behind the floor leaves this page retryable.
   return runtime.db.transaction(
     async (tx) => {
       const pinned = { ...runtime, db: tx };
@@ -126,7 +126,7 @@ export async function listContainerDocumentLanes(
         );
       return listLanes(pinned, userId, request, key);
     },
-    { isolationLevel: "read committed", accessMode: "read only" },
+    { isolationLevel: "repeatable read", accessMode: "read only" },
   );
 }
 

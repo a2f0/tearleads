@@ -12,6 +12,7 @@ import {
 } from "../../../test/helpers/postgresConcurrency";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
+import { listContainerDocumentLanes } from "../../services/containers/listContainerDocumentLanes";
 import { listContainerParentLanes } from "../../services/containers/listContainerParentLanes";
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
@@ -128,4 +129,65 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     );
   },
   30_000,
+);
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "a checkpointed permission probe keeps its snapshot across a concurrent publication",
+  async () => {
+    const {
+      registration: { userId, rootContainerId },
+    } = await registerServiceUser();
+    const runtime = createServiceTestRuntime();
+    const page = await listContainerParentLanes(runtime, userId, {
+      lanes: [{ parentId: null, laneId: "root", watermark: null }],
+    });
+    const watermark = page.results[0]?.page?.nextWatermark;
+    if (!watermark) throw new Error("Expected a parent checkpoint");
+    let consistent = false;
+    const transaction: typeof db.transaction = (run, config) =>
+      db.transaction(async (tx) => {
+        const position = async () =>
+          (
+            await tx.execute<{ value: string }>(
+              sql`select publication::text as value from drizzle.discovery_cursor_key where singleton`,
+            )
+          ).rows[0]?.value;
+        const before = await position();
+        await db
+          .update(containers)
+          .set({ updatedAt: new Date() })
+          .where(eq(containers.id, rootContainerId));
+        const result = await run(tx);
+        consistent = before === (await position());
+        return result;
+      }, config);
+    const pinned = new Proxy(db, {
+      get(target, property) {
+        return property === "transaction"
+          ? transaction
+          : Reflect.get(target, property);
+      },
+    });
+    const response = await listContainerDocumentLanes(
+      createServiceTestRuntime(pinned),
+      userId,
+      {
+        afterParentPage: { parentId: null, watermark },
+        lanes: [
+          {
+            containerId: rootContainerId,
+            laneId: "still-readable",
+            limit: 1,
+            watermark: null,
+          },
+        ],
+      },
+    );
+    expect(response.results[0]).toMatchObject({
+      laneId: "still-readable",
+      page: expect.anything(),
+    });
+    expect(consistent).toBe(true);
+  },
+  30000,
 );

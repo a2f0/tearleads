@@ -4,6 +4,7 @@ import { readAccessibleContainerRows } from "./listContainerRows";
 const timestamp = "2026-01-02T03:04:05.000Z";
 const row = {
   discoveryOrder: "27",
+  reconcileDescendants: false,
   id: "container",
   systemSlot: null,
   metadataDocumentId: "document",
@@ -25,6 +26,7 @@ test("accessible container rows keep every selected column", () => {
       {
         ...row,
         id: "child",
+        reconcileDescendants: true,
         parentId: "container",
         metadataDocumentId: null,
         systemSlot: "trash",
@@ -37,6 +39,7 @@ test("accessible container rows keep every selected column", () => {
     { ...row, discoveryOrder: 27n },
     {
       discoveryOrder: 27n,
+      reconcileDescendants: true,
       id: "child",
       systemSlot: "trash",
       metadataDocumentId: null,
@@ -64,6 +67,7 @@ test("accessible container rows reject a malformed shape", () => {
     [row],
     {},
     withoutParent,
+    { ...row, reconcileDescendants: undefined },
     withoutDocument,
     { ...row, id: null },
     { ...row, id: 1 },
