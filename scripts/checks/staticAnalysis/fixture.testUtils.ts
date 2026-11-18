@@ -28,9 +28,9 @@ export function isolatedGitEnv(): Record<string, string | undefined> {
   };
 }
 
-export function fixture() {
-  const cwd = mkdtempSync(join(tmpdir(), "tearleads-static-analysis-"));
-  const env = { ...isolatedGitEnv(), TEARLEADS_CHECK_ROOT: cwd };
+export function fixture(parent = tmpdir()) {
+  const cwd = mkdtempSync(join(parent, "tearleads-static-analysis-"));
+  const env = isolatedGitEnv();
   const git = (...args: string[]) =>
     execFileSync(
       "git",
@@ -49,12 +49,15 @@ export function fixture() {
     return git("rev-parse", "HEAD");
   };
   const scan = (...args: string[]) => {
-    const result = Bun.spawnSync([process.execPath, checker, ...args], {
-      cwd,
-      env,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const result = Bun.spawnSync(
+      [process.execPath, checker, "--check-root", cwd, ...args],
+      {
+        cwd,
+        env,
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
     return {
       code: result.exitCode,
       output: result.stdout.toString() + result.stderr.toString(),

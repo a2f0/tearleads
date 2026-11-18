@@ -28,7 +28,12 @@ test("an empty shell inventory cannot silently pass lint", () => {
   try {
     repo.git("add", ".");
     const result = Bun.spawnSync(
-      [process.execPath, resolve(import.meta.dir, "../lintScripts.ts")],
+      [
+        process.execPath,
+        resolve(import.meta.dir, "../lintScripts.ts"),
+        "--check-root",
+        repo.cwd,
+      ],
       { cwd: repo.cwd, env: repo.env, stdout: "pipe", stderr: "pipe" },
     );
     expect(result.exitCode).toBe(1);
@@ -93,7 +98,12 @@ test.each([
       const cwd = join(repo.cwd, subdirectory);
       mkdirSync(cwd, { recursive: true });
       const result = Bun.spawnSync(
-        [process.execPath, resolve(import.meta.dir, "../lintScripts.ts")],
+        [
+          process.execPath,
+          resolve(import.meta.dir, "../lintScripts.ts"),
+          "--check-root",
+          repo.cwd,
+        ],
         { cwd, env: repo.env, stdout: "pipe", stderr: "pipe" },
       );
       expect(result.exitCode).toBe(1);

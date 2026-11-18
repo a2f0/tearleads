@@ -28,8 +28,8 @@ below. Invoke them by path from the checkout or its parent workspace, for exampl
 From a matrix workspace, prefix a checkout shortcut with its path, such as
 `./checkouts/tearleads/scripts/deploy/deployProductionWebsite.sh`.
 Scripts find repository files from their installed location. Check and
-verification tools that support fixture trees accept an explicit
-`TEARLEADS_CHECK_ROOT`. Git hooks use the checkout supplied by Git.
+verification tools that support fixture trees take `--check-root <directory>`
+as their first arguments. Git hooks use the checkout supplied by Git.
 
 ## Scope evaluations
 

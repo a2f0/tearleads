@@ -22,7 +22,6 @@ assert_contains() {
 unset PROTOCOL_TLC_PARALLELISM PROTOCOL_TLC_FAILURE_LOG_DIR
 
 SOURCE_ROOT=$(CDPATH='' cd -P -- "$(dirname -- "$0")/../.." && pwd -P)
-CHECK_SCRIPT=$SOURCE_ROOT/scripts/checks/checkProtocolModels.sh
 FIXTURE_ROOT=$SOURCE_ROOT/scripts/checks/fixtures/protocolModels
 
 # Hooks export the caller's repository metadata. Fixture initialization must
@@ -39,7 +38,11 @@ interrupted_check=
 trap '[ -z "$interrupted_check" ] || kill -TERM "$interrupted_check" 2>/dev/null; rm -rf "$TEST_ROOT"' EXIT
 trap 'exit 1' HUP INT TERM
 
-export TEARLEADS_CHECK_ROOT="$TEST_ROOT"
+CHECK_SCRIPT=$TEST_ROOT/scripts/checks/checkProtocolModels.sh
+mkdir -p "$TEST_ROOT/scripts/checks"
+cp "$SOURCE_ROOT/scripts/checks/checkProtocolModels.sh" "$CHECK_SCRIPT"
+cp "$SOURCE_ROOT/scripts/checks/tlaToolsPin.sh" "$TEST_ROOT/scripts/checks/"
+cp "$SOURCE_ROOT/.mise.toml" "$TEST_ROOT/.mise.toml"
 git init --quiet --initial-branch=main "$TEST_ROOT"
 mkdir -p "$TEST_ROOT/bin" "$TEST_ROOT/tla-tools"
 cp -R "$FIXTURE_ROOT/formal" "$TEST_ROOT/formal"

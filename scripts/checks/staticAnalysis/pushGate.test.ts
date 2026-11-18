@@ -80,10 +80,11 @@ test("CI's check:fast runs every check the push gate runs", async () => {
   expect(fast).toContain("lint:architecture");
 });
 
-function stubFixture() {
-  const repo = fixture();
+function stubFixture(parent?: string) {
+  const repo = fixture(parent);
   for (const path of [
     "scripts/git/hooks/pre-commit",
+    "scripts/git/install-hooks.sh",
     "scripts/checks/checkFast.sh",
     "scripts/checks/fastChecks.sh",
     "scripts/lib/stepTimings.sh",
@@ -94,6 +95,7 @@ function stubFixture() {
   repo.write(
     "bin/bun",
     "#!/bin/sh\n" +
+      "[ -f scripts/checks/checkFast.sh ] || exit 24\n" +
       'printf "%s\\n" "$*" >> "$COMMAND_LOG"\n' +
       '[ "$*" != "$FAILING_COMMAND" ] || exit 23\n',
   );
@@ -149,6 +151,34 @@ test("check:fast runs the model passes unless CI defers them to their own job", 
     expect(ci).toContain("run check:protocol-traces\n");
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+test("standalone checks and hook installation select their own nested checkout", () => {
+  const parent = fixture();
+  try {
+    const repo = stubFixture(parent.cwd);
+    for (const script of [
+      "scripts/checks/checkFast.sh",
+      "scripts/git/install-hooks.sh",
+    ]) {
+      const result = repo.run(
+        { GIT_DIR: join(parent.cwd, ".git"), GIT_WORK_TREE: parent.cwd },
+        "",
+        "sh",
+        "-c",
+        'cd "$1" && exec sh "$2"',
+        "fixture",
+        parent.cwd,
+        join(repo.cwd, script),
+      );
+      expect(result.exitCode, result.stderr.toString()).toBe(0);
+    }
+    expect(readFileSync(repo.log, "utf8")).toContain(
+      "run agent-tool hooks install --apply",
+    );
+  } finally {
+    rmSync(parent.cwd, { recursive: true, force: true });
   }
 });
 

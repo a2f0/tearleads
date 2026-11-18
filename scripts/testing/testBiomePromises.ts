@@ -4,7 +4,7 @@ for (const { cmd, cwd } of [
   { cmd: [process.execPath, "run", "--cwd", "packages/client-sdk", "build"] },
   {
     cmd: [process.execPath, "test", "production.test.ts"],
-    cwd: `${import.meta.dir}/../checks/biome`,
+    cwd: `${checkRoot}/scripts/checks/biome`,
   },
 ]) {
   console.log(`[biome:promises] bun ${cmd.slice(1).join(" ")}`);

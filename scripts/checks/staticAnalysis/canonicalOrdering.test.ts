@@ -20,12 +20,14 @@ function fixture(files: Record<string, string>) {
     writeFileSync(join(cwd, path), source);
   }
   const lint = () => {
-    const result = Bun.spawnSync([process.execPath, linter], {
-      cwd,
-      env: { ...process.env, TEARLEADS_CHECK_ROOT: cwd },
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const result = Bun.spawnSync(
+      [process.execPath, linter, "--check-root", cwd],
+      {
+        cwd,
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
     return {
       code: result.exitCode,
       output: result.stdout.toString() + result.stderr.toString(),

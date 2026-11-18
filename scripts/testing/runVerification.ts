@@ -1,4 +1,4 @@
-import { checkRoot } from "../lib/checkRoot";
+import { checkArguments, clearGitLocation } from "../lib/checkRoot";
 import { verificationPlan, verificationUsage } from "./verificationPlan";
 import {
   saveVerificationReport,
@@ -137,11 +137,12 @@ async function verify(
 }
 
 try {
-  const args = process.argv.slice(2);
+  const { root: target, args } = checkArguments();
   if (args.includes("--help") && args.length <= 2) {
     console.log(verificationUsage);
   } else {
-    const root = verificationGit(checkRoot, "rev-parse", "--show-toplevel");
+    clearGitLocation();
+    const root = verificationGit(target, "rev-parse", "--show-toplevel");
     process.exitCode = await verify(root, verificationPlan(root, args));
   }
 } catch (error) {

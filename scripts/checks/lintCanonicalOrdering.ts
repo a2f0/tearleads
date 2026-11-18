@@ -1,10 +1,10 @@
-import { checkRoot } from "../lib/checkRoot";
+import { checkArguments } from "../lib/checkRoot";
 import {
   canonicalOrderingRoots,
   scanCanonicalOrdering,
 } from "./canonicalOrdering";
 
-const violations = scanCanonicalOrdering(checkRoot);
+const violations = scanCanonicalOrdering(checkArguments().root);
 
 if (violations.length > 0) {
   console.error(

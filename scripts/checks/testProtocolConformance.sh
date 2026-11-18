@@ -16,6 +16,7 @@
 
 set -eu
 
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
 cd "$(git -C "$(dirname -- "$0")" rev-parse --show-toplevel)/scripts"
 
 exec bun test \

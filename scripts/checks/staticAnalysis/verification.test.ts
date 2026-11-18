@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
+import { fixture } from "./fixture.testUtils";
 import { verificationFixture } from "./verification.testUtils";
 
 test("package verification replaces stale SDK output before API, app, and SDK tests", () => {
@@ -39,6 +40,27 @@ test("package verification replaces stale SDK output before API, app, and SDK te
     } finally {
       repo.cleanup();
     }
+  }
+});
+
+test("verification uses the selected checkout when invoked from a parent Git repository", () => {
+  const parent = fixture();
+  try {
+    parent.commit();
+    const repo = verificationFixture("", parent.cwd);
+    const result = repo.run(
+      ["package", "app"],
+      {
+        GIT_DIR: resolve(parent.cwd, ".git"),
+        GIT_WORK_TREE: parent.cwd,
+      },
+      parent.cwd,
+    );
+    expect(result.code, result.output).toBe(0);
+    expect(result.reports[0]?.before.head).toBe(repo.head);
+    expect(existsSync(resolve(parent.cwd, ".git/verification"))).toBe(false);
+  } finally {
+    rmSync(parent.cwd, { recursive: true, force: true });
   }
 });
 

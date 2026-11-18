@@ -1,7 +1,15 @@
-import { readFileSync, writeFileSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { lstatSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import { parseArgs } from "node:util";
-import { checkRoot } from "../lib/checkRoot";
+import { checkArguments } from "../lib/checkRoot";
 import {
   codeReferenceIssues,
   isCodeReferenceDocument,
@@ -25,8 +33,9 @@ import { probeExternalLinks } from "./externalLinks";
  *   bun run lint:doc-links -- docs/x.md    limit to named documents
  */
 
+const { root, args } = checkArguments();
 const { values, positionals } = parseArgs({
-  args: Bun.argv.slice(2),
+  args,
   allowPositionals: true,
   options: {
     external: { type: "boolean", default: false },
@@ -34,14 +43,29 @@ const { values, positionals } = parseArgs({
   },
 });
 
-const root = checkRoot;
 const repo = repositoryFiles(root, listRepositoryFiles(root));
-const documents =
-  positionals.length > 0
-    ? positionals.map((path) =>
-        relative(root, resolve(path)).split("\\").join("/"),
-      )
-    : documentsToCheck(repo);
+function repositoryPath(path: string): string {
+  const local = relative(root, path);
+  if (isAbsolute(local) || local === ".." || local.startsWith(`..${sep}`))
+    throw new Error(`Document is outside the checkout: ${path}`);
+  return local.split(sep).join("/");
+}
+
+const documents = positionals.length
+  ? positionals.map((path) => {
+      const absolute = resolve(path);
+      return repositoryPath(
+        join(realpathSync(dirname(absolute)), basename(absolute)),
+      );
+    })
+  : documentsToCheck(repo);
+// Check the symlink target as well before reading or rewriting a document.
+for (const document of documents) {
+  const path = join(root, document);
+  repositoryPath(
+    realpathSync(lstatSync(path).isSymbolicLink() ? path : dirname(path)),
+  );
+}
 
 if (values.fix) {
   for (const document of documents.filter(isCodeReferenceDocument)) {

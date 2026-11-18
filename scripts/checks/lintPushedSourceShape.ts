@@ -68,9 +68,13 @@ function main(): number {
       continue;
     }
     console.log(`${ref}: checking source shape for ${range}`);
-    const result = spawnSync(process.execPath, [lint, "--range", range], {
-      stdio: "inherit",
-    });
+    const result = spawnSync(
+      process.execPath,
+      [lint, "--check-root", process.cwd(), "--range", range],
+      {
+        stdio: "inherit",
+      },
+    );
     if (result.status !== 0) return result.status ?? 1;
   }
   return 0;

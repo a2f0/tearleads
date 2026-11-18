@@ -18,7 +18,6 @@ assert_contains() {
 }
 
 SOURCE_ROOT=$(CDPATH='' cd -P -- "$(dirname -- "$0")/../.." && pwd -P)
-CHECK_SCRIPT=$SOURCE_ROOT/scripts/checks/checkOpenApiCompatibility.sh
 FIXTURE_ROOT=$SOURCE_ROOT/scripts/checks/fixtures/openapiCompatibility
 TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/openapi-compatibility.XXXXXX")
 
@@ -31,7 +30,11 @@ done
 trap 'rm -rf "$TEST_ROOT"' EXIT
 trap 'exit 1' HUP INT TERM
 
-export TEARLEADS_CHECK_ROOT="$TEST_ROOT"
+CHECK_SCRIPT=$TEST_ROOT/scripts/checks/checkOpenApiCompatibility.sh
+mkdir -p "$TEST_ROOT/scripts/checks"
+cp "$SOURCE_ROOT/scripts/checks/checkOpenApiCompatibility.sh" "$CHECK_SCRIPT"
+cp "$SOURCE_ROOT/scripts/checks/checkOpenApiRefinementCompatibility.ts" "$TEST_ROOT/scripts/checks/"
+cp "$SOURCE_ROOT/.mise.toml" "$TEST_ROOT/.mise.toml"
 git init --quiet --initial-branch=main "$TEST_ROOT"
 git -C "$TEST_ROOT" config commit.gpgsign false
 git -C "$TEST_ROOT" config user.email test@tearleads.com
@@ -96,7 +99,6 @@ assert_contains "$override_output" "$revision_commit"
 # Keep the repository data isolated while resolving the real script from a
 # nested working directory. Real branches may carry temporary ignore entries.
 mkdir -p "$TEST_ROOT/nested"
-ln -s "$SOURCE_ROOT" "$TEST_ROOT/source"
 relative_output=$(
   cd "$TEST_ROOT/nested"
   GITHUB_ACTIONS='' \
@@ -105,7 +107,7 @@ relative_output=$(
     OASDIFF_TEST_PIN="$oasdiff_pin" \
     OASDIFF_TEST_MARKER="$TEST_ROOT/oasdiff-invocations" \
     MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
-    ../source/scripts/checks/checkOpenApiCompatibility.sh
+    ../scripts/checks/checkOpenApiCompatibility.sh
 ) || fail "a relative OpenAPI script path should resolve its own tool pin."
 assert_contains "$relative_output" "against HEAD"
 

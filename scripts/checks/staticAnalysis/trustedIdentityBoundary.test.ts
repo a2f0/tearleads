@@ -14,12 +14,15 @@ function lint(files: Record<string, string>) {
       mkdirSync(dirname(join(cwd, path)), { recursive: true });
       writeFileSync(join(cwd, path), `export const value = ${identifier};\n`);
     }
-    const result = Bun.spawnSync([process.execPath, checker], {
-      cwd,
-      env: { ...isolatedGitEnv(), TEARLEADS_CHECK_ROOT: cwd },
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const result = Bun.spawnSync(
+      [process.execPath, checker, "--check-root", cwd],
+      {
+        cwd,
+        env: isolatedGitEnv(),
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
     return {
       code: result.exitCode,
       output: result.stdout.toString() + result.stderr.toString(),
