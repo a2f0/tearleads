@@ -11,7 +11,7 @@ versions, credentials, build numbers, or Terraform plans from a previous run.
 | State | Full environment reset |
 | --- | --- |
 | Production database | Replace the independent PlanetScale database and its runtime/migration roles. |
-| Staging database | Replace the staging PlanetScale database and its roles, then initialize the current baseline. |
+| Staging database | Replace the staging PlanetScale database and its roles, then apply the current migrations. |
 | Encrypted blobs | Empty and replace only the selected application bucket and its bucket-scoped R2 credentials. |
 | Worker state | Publish the API maintenance Worker, whose `exports` tombstones delete both Durable Object namespaces (sessions, tickets, and hibernated socket state), then redeploy the API, which recreates them empty. A plain redeploy keeps that state. Never delete the API Worker. |
 | Hostnames | Retain. The API, app, and demo hostnames stay attached throughout; a reset changes no edge stack resource. |
@@ -425,14 +425,14 @@ inspected plans. Confirm the new database branch ID differs from the old ID and
 its connection verifies TLS. Use client connection evidence with
 `sslmode=verify-full`; a managed proxy's `pg_stat_ssl` backend row may describe
 a different transport leg and cannot establish client TLS. Verify there are no
-application tables before baseline initialization, and no old blobs in storage.
+application tables before migrations run, and no old blobs in storage.
 
 Run
 [`scripts/deploy/deployProduction.sh`](../../scripts/deploy/deployProduction.sh)
 or [`scripts/deploy/deployStaging.sh`](../../scripts/deploy/deployStaging.sh).
 The staging script applies its database and storage stacks itself; the
-production script requires both to exist already. The API deploy initializes the
-baseline schema with the migration login, syncs the Worker secrets, and
+production script requires both to exist already. The API deploy applies the
+current migrations with the migration login, syncs the Worker secrets, and
 publishes the Worker, which ends maintenance; its `exports` entries recreate
 both Durable Object namespaces empty (Wrangler prints `Created:` for each), so
 no old session can survive the reset. The edge stack apply in those scripts
@@ -444,8 +444,8 @@ during, and after the reset. The document sync cursor HMAC key persists in
 should rotate it.
 
 Verify current schema initialization and application-table emptiness before any
-test identities are created. Compare schema against the current baseline rather
-than a historical table count. Derive read-only SQL probes from the `postgres`
+test identities are created. Match the latest snapshot and the full migration
+history. Derive read-only SQL probes from the `postgres`
 stack's `api_connection` output in a private shell, with TLS verification.
 
 Use `--skip-terraform` only after infrastructure exists. Record completed

@@ -353,12 +353,16 @@ else if (tool === "psql") {
     if (fault("missing-migration")) files.pop();
     output(
       files.map((file, index) => [
-        (index + 1) * 1000,
-        createHash("sha256")
-          .update(
-            readFileSync(join(root, "repo/packages/api-shared/drizzle", file)),
-          )
-          .digest("hex"),
+        (index + 1) * 1000 + Number(fault("wrong-migration-time")),
+        fault("wrong-migration-hash")
+          ? "0".repeat(64)
+          : createHash("sha256")
+              .update(
+                readFileSync(
+                  join(root, "repo/packages/api-shared/drizzle", file),
+                ),
+              )
+              .digest("hex"),
       ]),
     );
   } else

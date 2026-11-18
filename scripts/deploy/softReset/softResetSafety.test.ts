@@ -125,6 +125,8 @@ test.each([
   ["old-relations", "verify-dropped", "empty-r2-bucket.sh"],
   ["old-blobs", "empty-blobs", "deployApi.sh"],
   ["old-branch", "verify-fresh", "deployApi.sh"],
+  ["wrong-migration-hash", "verify-schema", "deployAppWeb.sh"],
+  ["wrong-migration-time", "verify-schema", "deployAppWeb.sh"],
   ["missing-migration", "verify-schema", "deployAppWeb.sh"],
   ["wrong-schema", "verify-schema", "deployAppWeb.sh"],
 ])(

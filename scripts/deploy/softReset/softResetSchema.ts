@@ -1,39 +1,45 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { object } from "./softResetPlans";
 
-export function readResetSchema(root: string) {
+export interface ResetSchema {
+  readonly names: string[];
+  readonly migrations: [number, string][];
+}
+
+export function readResetSchema(root: string): ResetSchema {
   const folder = join(root, "packages/api-shared/drizzle");
   const files = new Set(
     readdirSync(folder).filter((name) => name.endsWith(".sql")),
   );
-  const journal = JSON.parse(
-    readFileSync(join(folder, "meta/_journal.json"), "utf8"),
+  const { entries } = object(
+    JSON.parse(readFileSync(join(folder, "meta/_journal.json"), "utf8")),
   );
-  if (!Array.isArray(journal.entries) || !journal.entries.length)
+  if (!Array.isArray(entries) || !entries.length)
     throw new Error("Empty or malformed reset migration journal.");
 
   const migrations: [number, string][] = [];
   let previousTime = 0;
-  for (const [index, entry] of journal.entries.entries()) {
-    const file = `${entry.tag}.sql`;
+  for (const [index, value] of entries.entries()) {
+    const { idx, tag, when } = object(value);
+    const file = `${tag}.sql`;
     if (
-      entry.idx !== index ||
-      typeof entry.tag !== "string" ||
-      !Number.isSafeInteger(entry.when) ||
-      entry.when <= previousTime ||
+      idx !== index ||
+      typeof tag !== "string" ||
+      typeof when !== "number" ||
+      !Number.isSafeInteger(when) ||
+      when <= previousTime ||
       !files.delete(file)
     ) {
       throw new Error(
         `Invalid reset migration journal entry at index ${index}.`,
       );
     }
+    // Drizzle records SHA-256 of the complete SQL file, including breakpoints.
     const sql = readFileSync(join(folder, file));
-    migrations.push([
-      entry.when,
-      createHash("sha256").update(sql).digest("hex"),
-    ]);
-    previousTime = entry.when;
+    migrations.push([when, createHash("sha256").update(sql).digest("hex")]);
+    previousTime = when;
   }
   if (files.size)
     throw new Error(
@@ -41,20 +47,22 @@ export function readResetSchema(root: string) {
     );
 
   const last = String(migrations.length - 1).padStart(4, "0");
-  const snapshot = JSON.parse(
-    readFileSync(join(folder, "meta", `${last}_snapshot.json`), "utf8"),
+  const { tables } = object(
+    JSON.parse(
+      readFileSync(join(folder, "meta", `${last}_snapshot.json`), "utf8"),
+    ),
   );
-  const names = Object.keys(snapshot.tables)
-    .map((key) => {
-      const table = snapshot.tables[key];
+  const names = Object.entries(object(tables))
+    .map(([key, value]) => {
+      const { name, schema } = object(value);
       if (
-        typeof table.name !== "string" ||
-        !/^[a-z_][a-z_0-9]*$/.test(table.name) ||
-        key !== `public.${table.name}` ||
-        (table.schema !== "" && table.schema !== "public")
+        typeof name !== "string" ||
+        !/^[a-z_][a-z_0-9]*$/.test(name) ||
+        key !== `public.${name}` ||
+        (schema !== "" && schema !== "public")
       )
         throw new Error("Unsupported table in the reset migration snapshot.");
-      return String(table.name);
+      return name;
     })
     .sort();
   if (!names.length)

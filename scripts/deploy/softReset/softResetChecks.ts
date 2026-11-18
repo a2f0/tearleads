@@ -7,7 +7,7 @@ import {
   parse,
 } from "./softResetPlans";
 import type { ResetRun } from "./softResetRuntime";
-import type { readResetSchema } from "./softResetSchema";
+import type { ResetSchema } from "./softResetSchema";
 
 export async function inventory(run: ResetRun, identity: Identity) {
   const output = async (stack: string, name?: string) =>
@@ -186,7 +186,7 @@ export async function emptyBucket(
 export async function databaseCheck(
   run: ResetRun,
   connection: ProviderRecord,
-  expected: "reachable" | "empty" | ReturnType<typeof readResetSchema>,
+  expected: "reachable" | "empty" | ResetSchema,
 ) {
   const env = {
     PGHOST: String(connection.postgres_host),

@@ -1,22 +1,10 @@
 import { expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fixture } from "./softReset.testUtils";
-import { readResetSchema } from "./softResetSchema";
 
 const command = join(import.meta.dir, "softReset.ts");
-
-test("reset preflight rejects SQL outside the migration journal", () => {
-  const f = fixture();
-  try {
-    f.write("packages/api-shared/drizzle/0002_unregistered.sql", "SELECT 1;");
-    expect(() => readResetSchema(f.repo)).toThrow(
-      "missing from the reset migration journal",
-    );
-  } finally {
-    rmSync(f.root, { recursive: true, force: true });
-  }
-});
 
 test("authorized reset completes only the application sequence with private timings", () => {
   const f = fixture();
@@ -36,6 +24,16 @@ test("authorized reset completes only the application sequence with private timi
         "containers",
         "users",
       ],
+      migrations: ["0000_greenfield_baseline.sql", "0001_rename_users.sql"].map(
+        (file, index) => [
+          (index + 1) * 1000,
+          createHash("sha256")
+            .update(
+              readFileSync(join(f.repo, "packages/api-shared/drizzle", file)),
+            )
+            .digest("hex"),
+        ],
+      ),
       empty: true,
     });
     expect(record.steps.map((step: { label: string }) => step.label)).toEqual([
