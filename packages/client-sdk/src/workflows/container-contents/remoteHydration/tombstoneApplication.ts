@@ -93,7 +93,7 @@ async function applyContainerTombstoneCascade(input: {
 }): Promise<{ current: boolean; removedCount: number; settled: boolean }> {
   const { childIdsByParentId, expectedContainerStates, state } = input;
   const resolved = await resolveTombstoneCascade(input);
-  if (!resolved)
+  if (!resolved || input.isCurrent?.() === false)
     return {
       current: input.isCurrent?.() !== false,
       removedCount: 0,
@@ -166,11 +166,31 @@ async function applyContainerTombstoneCascade(input: {
   };
 }
 
+function preserveOtherRoots(
+  state: RemoteContainerHydrationState,
+  liveContainerIds: ReadonlyArray<string>,
+  tombstoneRootIds: ReadonlySet<string>,
+  rootId: string,
+) {
+  const preservedContainerIds = new Set([
+    ...liveContainerIds,
+    ...tombstoneRootIds,
+    ...Array.from(state.containersById, ([id, state]) =>
+      state.container.metadataDocumentId === null ? id : null,
+    ).filter((id): id is string => id !== null),
+  ]);
+  if (state.containersById.get(rootId)?.container.metadataDocumentId !== null) {
+    preservedContainerIds.delete(rootId);
+  }
+  return preservedContainerIds;
+}
+
 export async function applyContainerTombstones(input: {
   parentId: string | null;
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
   isCurrent?: (() => boolean) | undefined;
+  isPaused?: (item: ListedRemoteContainerPageItem) => boolean;
   remoteContainerItems: ReadonlyArray<ListedRemoteContainerPageItem>;
   response: ListContainersResponse;
   state: RemoteContainerHydrationState;
@@ -179,9 +199,11 @@ export async function applyContainerTombstones(input: {
   // Its live listing keeps the folder and reconciles the previously held tree.
   const restored = input.remoteContainerItems.filter(
     (item) =>
-      item.reconcileDescendants && input.childIdsByParentId.get(item.id)?.size,
+      item.reconcileDescendants &&
+      !input.isPaused?.(item) &&
+      input.childIdsByParentId.get(item.id)?.size,
   );
-  const restoredIds = new Set(restored.map((item) => item.id));
+  const restoredById = new Map(restored.map((item) => [item.id, item]));
   const tombstones = [
     ...getApplicableContainerTombstones(input.response),
     ...restored.map((item) => ({
@@ -213,32 +235,30 @@ export async function applyContainerTombstones(input: {
     // Apply each root as its own CAS-protected cascade. Other explicit roots
     // stay out of this cascade so their own reason wins and one stale root
     // cannot block independent tombstones or live items on the page.
-    const preservedContainerIds = new Set([
-      ...liveContainerIds,
-      ...tombstoneRootIds,
-      ...Array.from(input.state.containersById, ([id, state]) =>
-        state.container.metadataDocumentId === null ? id : null,
-      ).filter((id): id is string => id !== null),
-    ]);
-    if (
-      input.state.containersById.get(tombstone.containerId)?.container
-        .metadataDocumentId !== null
-    ) {
-      preservedContainerIds.delete(tombstone.containerId);
-    }
+    const preservedContainerIds = preserveOtherRoots(
+      input.state,
+      liveContainerIds,
+      tombstoneRootIds,
+      tombstone.containerId,
+    );
+    const live = restoredById.get(tombstone.containerId);
     const result = await applyContainerTombstoneCascade({
-      reconcileDescendants: restoredIds.has(tombstone.containerId),
+      reconcileDescendants: live !== undefined,
       afterParentPage: input.response.nextWatermark
         ? { parentId: input.parentId, watermark: input.response.nextWatermark }
         : undefined,
       childIdsByParentId: input.childIdsByParentId,
       expectedContainerStates: input.expectedContainerStates,
-      isCurrent: input.isCurrent,
+      isCurrent: live
+        ? () => input.isCurrent?.() !== false && !input.isPaused?.(live)
+        : input.isCurrent,
       preservedContainerIds,
       state: input.state,
       tombstone,
     });
     changedCount += result.removedCount;
+    if (live && input.isPaused?.(live) && input.isCurrent?.() !== false)
+      continue;
     completed = completed && result.settled;
     if (!result.current) {
       return { changedCount, completed: false, current: false };

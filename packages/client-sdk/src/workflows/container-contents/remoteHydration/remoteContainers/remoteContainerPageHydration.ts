@@ -211,7 +211,9 @@ async function applyContainerParentLanePage(input: {
   }
 
   const remoteContainerItems = getApplicableRemoteContainerItems(response);
+  const isPaused = await loadPausedContainerFilter(state);
   const tombstoneResult = await applyContainerTombstones({
+    isPaused,
     parentId: lane.parentId,
     childIdsByParentId,
     expectedContainerStates,
@@ -237,7 +239,6 @@ async function applyContainerParentLanePage(input: {
   // A paused organization's containers stay as the device last saw them.
   // Skipping them here, after tombstones saw the full page, still lets the
   // lane complete and its watermark advance; their children are never queued.
-  const isPaused = await loadPausedContainerFilter(state);
   const appliedPage = await applyRemoteContainerPage({
     childIdsByParentId,
     expectedContainerStates,

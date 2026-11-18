@@ -70,6 +70,38 @@ interface PendingContainerDocumentLane {
   watermark: SyncWatermark | null;
 }
 
+// An old server can return both its historical unlink and the live placement
+// in one snapshot. The publication-ordered server excludes that unlink. If
+// both survived a crawl, pages observed different snapshots. Retry from the
+// durable checkpoint before handing either observation to local persistence.
+function hasConflictingPublications(
+  lane: PendingContainerDocumentLane,
+): boolean {
+  if (!lane.watermark?.id.startsWith("d1/") || !lane.tombstones.length)
+    return false;
+  const linkedIds = new Set(
+    lane.items
+      .filter((item) => item.linkedContainerIds.includes(lane.containerId))
+      .map((item) => item.id),
+  );
+  return lane.tombstones.some(
+    (row) =>
+      row.containerId === lane.containerId && linkedIds.has(row.documentId),
+  );
+}
+
+function completedListing(
+  lane: PendingContainerDocumentLane,
+): ContainerDocumentLaneListing {
+  if (hasConflictingPublications(lane)) return "unavailable";
+  return {
+    isFullListing: lane.isFullListing,
+    items: lane.items,
+    nextWatermark: lane.watermark,
+    tombstones: lane.tombstones,
+  };
+}
+
 /**
  * Pages every lane to exhaustion, batching first pages and continuations
  * alike. Each container keeps its own watermark, so one lane's failure or
@@ -117,12 +149,7 @@ export async function listAllContainerDocumentLanes(input: {
       lane.tombstones.push(...page.tombstones);
       lane.watermark = page.nextWatermark;
       if (!page.hasMore) {
-        listed.set(lane.containerId, {
-          isFullListing: lane.isFullListing,
-          items: lane.items,
-          nextWatermark: lane.watermark,
-          tombstones: lane.tombstones,
-        });
+        listed.set(lane.containerId, completedListing(lane));
       } else if (lane.watermark) {
         pending.push(lane);
       } else {

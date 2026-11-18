@@ -101,7 +101,6 @@ test("matching signed heads avoid repeat fetches and changed candidates survive 
     );
     await pinTestDiscoveryHead(execSql, "doc", "signed-head");
     const first = await verify([candidate("doc")], ["a"], await store.begin());
-    expect(first.freshlyLinked).toEqual([]);
     expect(await store.hasPending(["a"])).toBe(true); // Local apply has not committed yet.
     expect(await first.commit()).toBe(true);
     const repeated = await verify(
@@ -109,7 +108,6 @@ test("matching signed heads avoid repeat fetches and changed candidates survive 
       ["a"],
       await store.begin(),
     );
-    expect(repeated.freshlyLinked).toEqual([]);
     expect(calls).toBe(1);
     expect(repeated.inputs[0]?.linkedContainerIds).toEqual(["a"]);
     const lookups: (string | undefined)[] = [];
@@ -131,9 +129,7 @@ test("matching signed heads avoid repeat fetches and changed candidates survive 
     );
     // An omitted hash evicts a transport-cached projection before the request.
     expect(lookups).toEqual([undefined]);
-    expect(live.freshlyLinked).toEqual([
-      { containerId: "a", documentId: "doc" },
-    ]);
+    expect(live.inputs[0]?.linkedContainerIds).toEqual(["a"]);
     await store.stage(
       [{ ...candidate("doc"), accessEpoch: 2, accessStateHash: "new-head" }],
       await store.begin(),

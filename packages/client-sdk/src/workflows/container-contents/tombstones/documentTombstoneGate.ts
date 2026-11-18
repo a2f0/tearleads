@@ -88,7 +88,6 @@ function assertVerdictsCoverCandidates(
  */
 export async function settleContainerDocumentTombstones(input: {
   containerIds: ReadonlyArray<string>;
-  freshlyLinked?: ReadonlyArray<ContainerDocumentPlacement>;
   isCurrent?: () => Promise<boolean>;
   store: TombstoneGateStore;
   tombstones: ReadonlyArray<ContainerDocumentTombstone>;
@@ -107,23 +106,9 @@ export async function settleContainerDocumentTombstones(input: {
     return [];
   }
 
-  const evidence = await store.verifyContainerDocumentTombstones(candidates);
+  const verdicts = await store.verifyContainerDocumentTombstones(candidates);
   if (!(await isCurrent())) return [];
-  assertVerdictsCoverCandidates(candidates, evidence);
-  const freshlyLinked = new Set(input.freshlyLinked?.map(placementKey));
-  // The live verifier may already have read the signed head on an old-server
-  // overlap. Keep its placement visible and retry when the second read failed.
-  const verdicts = evidence.map(
-    (verdict): ContainerDocumentTombstoneVerdict =>
-      (verdict.kind === "unverified" || verdict.kind === "deferred") &&
-      freshlyLinked.has(placementKey(verdict.tombstone))
-        ? {
-            kind: "refuted",
-            tombstone: verdict.tombstone,
-            linkedContainerIds: [verdict.tombstone.containerId],
-          }
-        : verdict,
-  );
+  assertVerdictsCoverCandidates(candidates, verdicts);
   const verified = verdicts.flatMap((verdict) =>
     verdict.kind === "verified" ? [verdict.tombstone] : [],
   );

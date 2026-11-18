@@ -273,23 +273,6 @@ test("a verifier that skips or duplicates a tombstone is rejected", async () => 
   ).rejects.toThrow("one verdict per tombstone");
 });
 
-test.each(["unverified", "deferred"] as const)(
-  "a fresh signed live placement stays visible while an overlapping %s unlink retries",
-  async (kind) => {
-    const candidate = tombstone("doc", "folder");
-    const { calls, store } = createGateStore((tombstone) => ({
-      kind,
-      tombstone,
-    }));
-    await settleContainerDocumentTombstones({
-      containerIds: ["folder"],
-      freshlyLinked: [candidate],
-      store,
-      tombstones: [candidate],
-    });
-    expect(calls.held).toEqual([[{ ...candidate, refuted: true }]]);
-  },
-);
 test("a listing invalidated while verifying the removal cannot leave a hold", async () => {
   let current = true;
   const candidate = tombstone("doc", "folder");

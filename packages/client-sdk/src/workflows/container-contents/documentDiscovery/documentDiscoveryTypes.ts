@@ -181,8 +181,6 @@ export interface DiscoverContainerDocumentsOptions
     conflictingDocumentIds?: ReadonlySet<string>,
   ) => Promise<{
     inputs: ReadonlyArray<DiscoveredDocumentInput>;
-    /** Signed link sets read during this pass, excluding earlier SQLite evidence. */
-    freshlyLinked?: ReadonlyArray<ContainerDocumentPlacement>;
     /** False once a remote trust reset cancels this listing pass. */
     isCurrent: () => Promise<boolean>;
     /** Acknowledge only after local apply; true means no pending candidates remain. */

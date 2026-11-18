@@ -13,10 +13,7 @@ import {
   HEAD_LINK_SET_LOADS_PER_RUN,
 } from "../tombstones/documentTombstoneEvidence";
 import { groupPendingDocumentDiscoveries } from "./documentDiscoveryCandidates";
-import type {
-  ContainerDocumentPlacement,
-  DiscoverContainerDocumentsOptions,
-} from "./documentDiscoveryTypes";
+import type { DiscoverContainerDocumentsOptions } from "./documentDiscoveryTypes";
 import { documentHeadMatchesOrganization } from "./documentHeadScope";
 
 // A same-epoch head can predate a link addition. Only the named head or
@@ -63,7 +60,6 @@ async function verifyInput(
   store: DocumentDiscoveryEvidenceRepository,
   generation: number,
   organizationId: string | undefined,
-  freshlyLinked: ContainerDocumentPlacement[],
   requiresCurrentHead: boolean,
 ): Promise<DiscoveredDocumentInput | null | "unavailable"> {
   const localEpoch = await loadLocalEpoch(input.documentId).catch(
@@ -89,9 +85,6 @@ async function verifyInput(
   if (!head.accessStateHash) return "unavailable";
   if (!(await store.saveHead(input.documentId, head, generation)))
     return "unavailable";
-  if (requiresCurrentHead)
-    for (const containerId of head.linkedContainerIds)
-      freshlyLinked.push({ containerId, documentId: input.documentId });
   const {
     listedContainerIds: _listedContainerIds,
     requiresCurrentHead: _requiresCurrentHead,
@@ -140,7 +133,6 @@ export function createDiscoveredDocumentVerifier(
     );
     const verified = new Map<string, DiscoveredDocumentInput>();
     const settled: DiscoveredDocumentCandidate[] = [];
-    const freshlyLinked: ContainerDocumentPlacement[] = [];
     let next = 0;
     const worker = async () => {
       while (next < candidates.length) {
@@ -154,7 +146,6 @@ export function createDiscoveredDocumentVerifier(
           store,
           generation,
           organizationId,
-          freshlyLinked,
           rows.some((row) => row.requiresCurrentHead === true),
         );
         if (result === "unavailable") {
@@ -173,7 +164,6 @@ export function createDiscoveredDocumentVerifier(
     );
     return {
       inputs: [...verified.values()],
-      freshlyLinked,
       isCurrent,
       commit: async () => {
         await store.acknowledge(settled, generation);

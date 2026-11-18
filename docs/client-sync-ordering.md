@@ -138,13 +138,18 @@ denials or absence only if the local rows still match the pre-request snapshot.
 An inconclusive read leaves the page retryable. When a live folder's entity
 clock moves backwards, hydration verifies the current signed placement and
 requires the listed manifest hash and rechecks the signed checkpoint inside
-its local transaction. A folder that regained access carries a hint to check
-its cached descendants. A child that moved while the folder was inaccessible
-is removed only after its own access check. Listings omit older revocations
-when that path already grants access.
-Document removals, including
-those received after a live item on an earlier page, reach the signed-head
-check for locally held placements. A conflicting pending discovery retains its
+its local transaction. A folder moved back into a readable path carries a hint
+to check its cached descendants when its earlier revocation row survives. A
+child that moved while the folder was inaccessible is removed only after its
+own access check. Direct and group regrant workflows prune their earlier
+revocation rows, so those paths retain their existing reconciliation behavior.
+Listings omit older revocations when that path already grants access.
+The SDK skips restored-folder reconciliation while its organization is paused.
+A publication-ordered document crawl that returns both a live placement and
+its unlink observed different snapshots. The SDK retries that lane from its
+last saved cursor before applying any rows. A removal on the retried lane
+reaches the signed-head check for locally held placements. A conflicting
+pending discovery retains its
 requirement to read the current signed head across process restarts. These
 client-side recovery changes require the updated SDK. Earlier clients can read
 and resume the new cursors. On

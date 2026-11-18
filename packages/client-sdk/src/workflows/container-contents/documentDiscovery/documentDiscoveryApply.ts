@@ -2,7 +2,7 @@ import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { dedupeReferencedPrincipalStates } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { withoutDeferredDocumentLinks } from "../documentLinks/deferredDocumentLinks";
 import { settleContainerDocumentTombstones } from "../tombstones/documentTombstoneGate";
-import { unopposedDocumentTombstones } from "./documentDiscoveryInputs";
+import { getApplicableDocumentTombstones } from "./documentDiscoveryInputs";
 import type {
   DiscoverContainerDocumentsOptions,
   ListedContainerDocuments,
@@ -54,6 +54,7 @@ export async function applyListedContainerDocuments(
     ),
   );
 
+  const tombstones = getApplicableDocumentTombstones(listedDocuments);
   const verification = await options.verifyDiscoveredDocuments(
     listedDocuments.items.map((document) => ({
       accessEpoch: document.currentAccessEpoch,
@@ -67,8 +68,8 @@ export async function applyListedContainerDocuments(
     })),
     [containerId],
     generation,
-    unopposedDocumentTombstones(listedDocuments),
-    new Set(listedDocuments.tombstones.map((row) => row.documentId)),
+    tombstones,
+    new Set(tombstones.map((row) => row.documentId)),
   );
   if (!(await verification.isCurrent())) return null;
   const verifiedInputs = verification.inputs;
@@ -93,10 +94,7 @@ export async function applyListedContainerDocuments(
     containerIds: [containerId],
     store: options,
     isCurrent: verification.isCurrent,
-    freshlyLinked: verification.freshlyLinked ?? [],
-    // A later page can unlink a live item with an older entity clock.
-    // All removal hints reach the signed current-head gate for held placements.
-    tombstones: listedDocuments.tombstones,
+    tombstones,
   });
 
   const complete = await verification.commit();
