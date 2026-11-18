@@ -11,6 +11,7 @@ import {
   lockGroupReferenceExclusiveInTransaction,
   sortGroupReferenceIds,
 } from "./groupReferenceLock";
+import { rebuildCommitMemberEnvelopes } from "./memberEnvelopeReferences";
 import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
 import {
   lockOrganizationGroupMutationInTransaction,
@@ -89,25 +90,38 @@ async function commitRosterEnrollment(
     : null;
 }
 
+/** The group and organization legs, bound to their route principals. */
+function commitLegInputs(
+  input: CommitPolicyInput,
+  request: CommitOrganizationGroupPolicyRequest,
+): {
+  groupInput: PutPrincipalPolicyInput;
+  organizationInput: PutPrincipalPolicyInput;
+} {
+  return {
+    groupInput: {
+      ...request.groupPolicy,
+      expectedPrincipalId: input.groupId,
+      expectedPrincipalType: "group",
+      requesterUserId: input.requesterUserId,
+    },
+    organizationInput: {
+      ...request.organizationPolicy,
+      expectedPrincipalId: input.organizationId,
+      expectedPrincipalType: "organization",
+      requesterUserId: input.requesterUserId,
+    },
+  };
+}
+
 export async function runCommitOrganizationGroupPolicyWorkflow(
   db: ApiDatabase,
   input: CommitPolicyInput,
   identityTrustDomain: string,
 ): Promise<CommitOrganizationGroupPolicyResult> {
-  const groupInput: PutPrincipalPolicyInput = {
-    ...input.request.groupPolicy,
-    expectedPrincipalId: input.groupId,
-    expectedPrincipalType: "group",
-    requesterUserId: input.requesterUserId,
-  };
-  const organizationInput: PutPrincipalPolicyInput = {
-    ...input.request.organizationPolicy,
-    expectedPrincipalId: input.organizationId,
-    expectedPrincipalType: "organization",
-    requesterUserId: input.requesterUserId,
-  };
-  assertPutPrincipalPolicyRouteBinding(groupInput);
-  assertPutPrincipalPolicyRouteBinding(organizationInput);
+  const bound = commitLegInputs(input, input.request);
+  assertPutPrincipalPolicyRouteBinding(bound.groupInput);
+  assertPutPrincipalPolicyRouteBinding(bound.organizationInput);
 
   try {
     return await runPrincipalHistoryTransaction(db, async (tx) => {
@@ -116,7 +130,10 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
         input.organizationId,
         input.groupId,
       );
-      const outcome = await principalPolicyCommitOutcome(tx, input);
+      const request = await rebuildCommitMemberEnvelopes(tx, input);
+      const rebuilt = { ...input, request };
+      const { groupInput, organizationInput } = commitLegInputs(input, request);
+      const outcome = await principalPolicyCommitOutcome(tx, rebuilt);
       if (outcome.response) {
         return {
           policy: outcome.response,
@@ -134,7 +151,7 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
           404,
         );
       }
-      await lockEnrollmentReferences(tx, input, target.memberGroupId);
+      await lockEnrollmentReferences(tx, rebuilt, target.memberGroupId);
       // Check direct admin access against the intact predecessor directory.
       // Each apply still verifies the signed policy and its authority.
       // The organization lock remains held through all three policy writes.
@@ -145,7 +162,7 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
       );
       const member = await commitRosterEnrollment(
         tx,
-        input,
+        rebuilt,
         target.memberGroupId,
         identityTrustDomain,
       );

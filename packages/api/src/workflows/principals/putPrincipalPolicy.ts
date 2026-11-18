@@ -28,6 +28,7 @@ import {
   assertManagedPrincipalRosterMembership,
   assertOrganizationGroupsRosterMembership,
 } from "./managedPrincipalRosterMembership";
+import { rebuildOrganizationLegMemberEnvelopes } from "./memberEnvelopeReferences";
 import { isOrganizationAdminsGroup } from "./organizationAdminsGroup";
 import { assertPrincipalOrganizationIsSyncEntitled } from "./organizationSync";
 import { applyPrincipalContainerRematerializations } from "./principalContainerRematerialization";
@@ -444,12 +445,25 @@ export async function runPutPrincipalPolicyWorkflow(
 
   try {
     return await runPrincipalHistoryTransaction(db, async (tx) => {
-      const outcome = await principalOrganizationPolicyOutcome(tx, input);
+      const rebuilt: PutPrincipalPolicyInput = {
+        ...(await rebuildOrganizationLegMemberEnvelopes(
+          tx,
+          {
+            organizationId: input.expectedPrincipalId,
+            requesterUserId: input.requesterUserId,
+          },
+          input,
+        )),
+        expectedPrincipalId: input.expectedPrincipalId,
+        expectedPrincipalType: input.expectedPrincipalType,
+        requesterUserId: input.requesterUserId,
+      };
+      const outcome = await principalOrganizationPolicyOutcome(tx, rebuilt);
       if (outcome.response)
         return { policy: outcome.response, sharedWithYouUserIds: [] };
       const result = await putPrincipalPolicyInTransaction(
         tx,
-        input,
+        rebuilt,
         identityTrustDomain,
       );
       await outcome.save(result.policy);

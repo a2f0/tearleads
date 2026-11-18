@@ -10,9 +10,9 @@ then runs every check a full list gets.
 | Model action or predicate | Production seam |
 | --- | --- |
 | `Author` | `withHeldMemberEnvelopeChanges` sends a leg as `withMemberEnvelopeChanges` when the device holds the cited predecessor and its envelopes match their signed root; otherwise the leg goes in full. A faulty author's basis stands for changes computed against the wrong set |
-| `Rebuild` | `rebuildMemberEnvelopes` applies the changes to the envelopes `listPrincipalMemberEnvelopesForState` returns for `state.prevStateHash`, which never change once written, and refuses a leg outside the predecessor's key epoch |
+| `Rebuild` | Inside each write's transaction, once `requireDirectOrganizationAccess` confirms an admin and the leg names its route principal, `rebuildMemberEnvelopes` applies the changes to the envelopes `listPrincipalMemberEnvelopesForState` returns for `state.prevStateHash`, which never change once written, and refuses a leg outside the predecessor's key epoch |
 | `CheckRoot` | `validatePrincipalStateArtifacts` refuses a set whose root differs from the signed `memberEnvelopesRoot` |
-| `ReplayKey` / `HashRebuilt` | The services rebuild every leg before the workflow, so `principalPolicyCommitOutcome` hashes the rebuilt request and a retry in either form replays the commit |
+| `ReplayKey` / `HashRebuilt` | `rebuildCommitMemberEnvelopes` runs before `principalPolicyCommitOutcome` hashes the request, so a retry in either form replays the commit |
 | `StoredMatchesSigned` | `insertAndVerifyPrincipalMemberEnvelopeRows` stores the rebuilt rows and rechecks their root against the signed one |
 | `OwnCommitNeverRefused` | `principalPolicyCommitOutcome` answers a retry after a lost acknowledgement with the stored receipt, never a conflict |
 

@@ -6,7 +6,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { createTestUser } from "@tearleads/test-utils";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type {
   CommitOrganizationGroupPolicyRequest,
   PutPrincipalPolicyRequest,
@@ -18,6 +18,7 @@ import { addOrganizationMember } from "../../../test/helpers/organizationMembers
 import { registeredProjection } from "../../../test/helpers/policyProjection";
 import { requestPreparedPrincipalPolicy } from "../../../test/helpers/principalHistoryRequest";
 import {
+  buildOrganizationGroupPolicyCommitRequest,
   getDefaultOrganizationId,
   loadVerifiedPrincipalPolicy,
   runGetCurrentPrincipalPolicyWorkflow,
@@ -94,6 +95,7 @@ async function groupWithSameEpochAdd() {
   const sign = async (
     keyEpoch: number,
     memberEnvelopes: Envelope[],
+    signer: TestUser = owner,
   ): Promise<PutPrincipalPolicyRequest> => {
     const signed = await signPrincipalStateBundle({
       principalType: "group",
@@ -111,9 +113,9 @@ async function groupWithSameEpochAdd() {
       signedAt: new Date(
         Date.parse(current.state.signedAt) + 1_000,
       ).toISOString(),
-      signerUserId: owner.userId,
-      signerUserKeyFingerprint: owner.fingerprint,
-      signingPrivateKey: owner.signing.signingPrivateKey,
+      signerUserId: signer.userId,
+      signerUserKeyFingerprint: signer.fingerprint,
+      signingPrivateKey: signer.signing.signingPrivateKey,
     });
     return {
       encryptedPayload: signed.encryptedPayload,
@@ -193,12 +195,125 @@ test("a same-epoch group leg sent as changes stores the signed full set", async 
     stored.currentMemberEnvelopes.envelopes.map((envelope) => envelope.userId),
   ).toEqual([...f.retained, f.added].map((envelope) => envelope.userId).sort());
 
-  // A retry in the other form is the same request: it replays the commit.
+  // A retry in the other form, in any envelope order, is the same request:
+  // it replays the commit.
   invariant(body, "expected the sent request");
   const sent: CommitOrganizationGroupPolicyRequest = body;
-  const retried = await resend(f, { ...sent, groupPolicy: full });
-  expect(retried.status).toBe(200);
-  expect(await retried.json()).toEqual(original);
+  for (const memberEnvelopes of [
+    full.memberEnvelopes,
+    [...full.memberEnvelopes].reverse(),
+  ]) {
+    const retried = await resend(f, {
+      ...sent,
+      groupPolicy: { ...full, memberEnvelopes },
+    });
+    expect(retried.status).toBe(200);
+    expect(await retried.json()).toEqual(original);
+  }
+});
+
+test("a rebuild reveals nothing before the route and admin are checked", async () => {
+  const f = await groupWithSameEpochAdd();
+  const outsider = createTestUser();
+  await registerAndAuthenticateUsers(outsider);
+  // Signed by the outsider, so it passes the signer binding before the
+  // transaction and reaches the rebuild.
+  const full = await f.sign(
+    f.current.keyEpoch,
+    [...f.retained, f.added],
+    outsider,
+  );
+  const cited = byReference(full, [f.added]);
+  const unknown = {
+    ...cited,
+    state: { ...cited.state, prevStateHash: "0".repeat(64) },
+  };
+  const answers = [];
+  for (const groupPolicy of [cited, unknown]) {
+    const response = await routeApp.request(
+      `/organizations/${f.organizationId}/groups/${f.groupId}/policy-commit`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${outsider.token}`,
+        },
+        body: JSON.stringify(
+          await buildOrganizationGroupPolicyCommitRequest({
+            actor: outsider,
+            groupPolicy,
+            organizationId: f.organizationId,
+          }),
+        ),
+      },
+    );
+    answers.push({ body: await response.text(), status: response.status });
+  }
+  expect(answers[0]?.status).toBe(403);
+  expect(answers[1]).toEqual(answers[0]);
+});
+
+test("group create and delete refuse bad changes with a typed error", async () => {
+  const f = await groupWithSameEpochAdd();
+  const directory = await runGetCurrentPrincipalPolicyWorkflow(
+    db,
+    "organization",
+    f.organizationId,
+  );
+  const stale = (
+    leg: PutPrincipalPolicyRequest,
+  ): PutPrincipalPolicyRequest => ({
+    ...leg,
+    memberEnvelopeChanges: { removeUserIds: [], upsert: [] },
+    memberEnvelopes: [],
+    state: { ...leg.state, prevStateHash: "0".repeat(64) },
+  });
+  const created = await createGroupRequest({
+    actor: f.owner,
+    groupId: crypto.randomUUID(),
+    name: "Stale",
+  });
+  const responses = [
+    await routeApp.request(`/organizations/${f.organizationId}/groups`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${f.owner.token}`,
+      },
+      body: JSON.stringify({
+        ...created,
+        organizationPolicy: stale(created.organizationPolicy),
+      }),
+    }),
+    await routeApp.request(
+      `/organizations/${f.organizationId}/groups/${f.groupId}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${f.owner.token}`,
+        },
+        body: JSON.stringify({
+          organizationPolicy: stale(created.organizationPolicy),
+        }),
+      },
+    ),
+  ];
+  for (const response of responses) {
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "Member envelope changes cite an unknown predecessor state",
+    });
+  }
+  expect(
+    (
+      await runGetCurrentPrincipalPolicyWorkflow(
+        db,
+        "organization",
+        f.organizationId,
+      )
+    ).currentState.stateHash,
+  ).toBe(directory.currentState.stateHash);
 });
 
 test("changes that do not rebuild the signed root are refused whole", async () => {

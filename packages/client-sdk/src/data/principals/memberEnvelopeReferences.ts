@@ -88,9 +88,15 @@ export async function withHeldMemberEnvelopeChanges(
   mutation: AuthoredPrincipalMutation,
 ): Promise<AuthoredPrincipalMutation> {
   const repository = new PrincipalPolicyBundleRepository(execSql);
+  // The cache is optional: any failure to read or check it sends the leg in
+  // full rather than leaving the journaled request unsent.
   const compact = async (leg: PutPrincipalPolicyRequest) => {
-    const predecessor = await heldPredecessor(repository, leg);
-    return predecessor ? withMemberEnvelopeChanges(leg, predecessor) : leg;
+    try {
+      const predecessor = await heldPredecessor(repository, leg);
+      return predecessor ? withMemberEnvelopeChanges(leg, predecessor) : leg;
+    } catch {
+      return leg;
+    }
   };
   switch (mutation.kind) {
     case "compound": {

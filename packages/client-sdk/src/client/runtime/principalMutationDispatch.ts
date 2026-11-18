@@ -9,6 +9,7 @@ import {
   isDeleteOrganizationGroupResponse,
   isPrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
+import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { withHeldMemberEnvelopeChanges } from "../../data/principals/memberEnvelopeReferences";
 import type { AuthoredPrincipalMutation } from "../../data/principals/principalMutationJournal";
 import type { PrincipalMutationResponse } from "../../workflows/organizations";
@@ -84,6 +85,8 @@ function sendByReference(input: {
       input.journal.execSql,
       saved,
     );
+    // The cache read awaited: a switched session or database sends nothing.
+    assertProjectionVerificationCurrent(input.journal.stillCurrent);
     return input.dispatch(input.options, (dispatchOptions) =>
       dispatchAuthoredPrincipalMutation(
         input.api,

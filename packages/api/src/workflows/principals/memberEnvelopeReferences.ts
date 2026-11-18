@@ -1,12 +1,16 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type {
+  DatabaseSession,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
+import { groups, organizations } from "@tearleads/api-shared/schema";
 import type {
   CommitOrganizationGroupPolicyRequest,
-  CreateOrganizationGroupWithPolicyRequest,
-  DeleteOrganizationGroupRequest,
   PrincipalMemberEnvelopeRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
+import { and, eq } from "drizzle-orm";
 import { listPrincipalMemberEnvelopesForState } from "../../access/read/principalMemberEnvelopes";
+import { requireDirectOrganizationAccess } from "../organizations/access";
 import { PrincipalPolicyError } from "./shared";
 
 function distinct(values: readonly string[], label: string): Set<string> {
@@ -25,7 +29,7 @@ function distinct(values: readonly string[], label: string): Set<string> {
  * sent in full, and an outcome replay compares the rebuilt request, so either
  * form of a retry is recognized.
  */
-export async function rebuildMemberEnvelopes(
+async function rebuildMemberEnvelopes(
   executor: DatabaseSession,
   leg: PutPrincipalPolicyRequest,
 ): Promise<PutPrincipalPolicyRequest> {
@@ -80,43 +84,131 @@ export async function rebuildMemberEnvelopes(
       );
   }
   for (const envelope of changes.upsert) merged.set(envelope.userId, envelope);
-  return { ...rest, memberEnvelopes: [...merged.values()] };
+  return {
+    ...rest,
+    memberEnvelopes: [...merged.values()].sort((left, right) =>
+      left.userId < right.userId ? -1 : left.userId > right.userId ? 1 : 0,
+    ),
+  };
 }
 
-/** Every leg of a group policy commit, rebuilt. */
+interface RouteScope {
+  readonly organizationId: string;
+  readonly requesterUserId: string;
+}
+
+function hasChanges(
+  ...legs: ReadonlyArray<PutPrincipalPolicyRequest | undefined>
+): boolean {
+  return legs.some((leg) => leg?.memberEnvelopeChanges !== undefined);
+}
+
+/**
+ * Only an organization admin's legs, each naming its route principal, read a
+ * predecessor's envelopes, so the rebuild reveals no state the caller could
+ * not already write. Legs sent in full pass through untouched.
+ */
+async function rebuildBoundLeg(
+  tx: DatabaseTransaction,
+  leg: PutPrincipalPolicyRequest,
+  principalType: "group" | "organization",
+  principalId: string,
+): Promise<PutPrincipalPolicyRequest> {
+  if (!leg.memberEnvelopeChanges) return leg;
+  if (
+    leg.state.principalType !== principalType ||
+    leg.state.principalId !== principalId
+  )
+    throw new PrincipalPolicyError(
+      "Member envelope changes must name the route's principal",
+      400,
+    );
+  return rebuildMemberEnvelopes(tx, leg);
+}
+
+async function requireAdmin(
+  tx: DatabaseTransaction,
+  scope: RouteScope,
+): Promise<void> {
+  await requireDirectOrganizationAccess({
+    executor: tx,
+    organizationId: scope.organizationId,
+    requireAdmin: true,
+    userId: scope.requesterUserId,
+  });
+}
+
+/** Every leg of a group policy commit, rebuilt once the route is checked. */
 export async function rebuildCommitMemberEnvelopes(
-  executor: DatabaseSession,
-  request: CommitOrganizationGroupPolicyRequest,
+  tx: DatabaseTransaction,
+  input: RouteScope & {
+    readonly groupId: string;
+    readonly request: CommitOrganizationGroupPolicyRequest;
+  },
 ): Promise<CommitOrganizationGroupPolicyRequest> {
+  const { request } = input;
+  if (
+    !hasChanges(
+      request.groupPolicy,
+      request.memberPolicy,
+      request.organizationPolicy,
+    )
+  )
+    return request;
+  await requireAdmin(tx, input);
+  const [route] = await tx
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(groups)
+    .innerJoin(organizations, eq(organizations.id, groups.organizationId))
+    .where(
+      and(
+        eq(groups.id, input.groupId),
+        eq(groups.organizationId, input.organizationId),
+      ),
+    )
+    .limit(1);
+  if (!route)
+    throw new PrincipalPolicyError(
+      "Group does not belong to the committed organization",
+      404,
+    );
   return {
     ...request,
-    groupPolicy: await rebuildMemberEnvelopes(executor, request.groupPolicy),
+    groupPolicy: await rebuildBoundLeg(
+      tx,
+      request.groupPolicy,
+      "group",
+      input.groupId,
+    ),
     ...(request.memberPolicy
       ? {
-          memberPolicy: await rebuildMemberEnvelopes(
-            executor,
+          memberPolicy: await rebuildBoundLeg(
+            tx,
             request.memberPolicy,
+            "group",
+            route.memberGroupId,
           ),
         }
       : {}),
-    organizationPolicy: await rebuildMemberEnvelopes(
-      executor,
+    organizationPolicy: await rebuildBoundLeg(
+      tx,
       request.organizationPolicy,
+      "organization",
+      input.organizationId,
     ),
   };
 }
 
-/** The organization leg of a group create or delete, rebuilt. */
-export async function rebuildOrganizationLegMemberEnvelopes<
-  Request extends
-    | CreateOrganizationGroupWithPolicyRequest
-    | DeleteOrganizationGroupRequest,
->(executor: DatabaseSession, request: Request): Promise<Request> {
-  return {
-    ...request,
-    organizationPolicy: await rebuildMemberEnvelopes(
-      executor,
-      request.organizationPolicy,
-    ),
-  };
+/**
+ * The organization leg of a group create or delete, or a standalone
+ * organization policy write, rebuilt once its admin is checked.
+ */
+export async function rebuildOrganizationLegMemberEnvelopes(
+  tx: DatabaseTransaction,
+  scope: RouteScope,
+  leg: PutPrincipalPolicyRequest,
+): Promise<PutPrincipalPolicyRequest> {
+  if (!hasChanges(leg)) return leg;
+  await requireAdmin(tx, scope);
+  return rebuildBoundLeg(tx, leg, "organization", scope.organizationId);
 }

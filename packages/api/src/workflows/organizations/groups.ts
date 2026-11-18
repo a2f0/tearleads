@@ -11,6 +11,7 @@ import type {
 } from "@tearleads/validators/response";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { lockGroupReferenceExclusiveInTransaction } from "../principals/groupReferenceLock";
+import { rebuildOrganizationLegMemberEnvelopes } from "../principals/memberEnvelopeReferences";
 import { PrincipalHistoryPreparationUnavailable } from "../principals/principalHistoryPreparationUnavailable";
 import { runPrincipalHistoryTransaction } from "../principals/principalHistoryTransaction";
 import { lockOrganizationGroupMutationInTransaction } from "../principals/principalMutationLock";
@@ -175,7 +176,14 @@ export async function runDeleteOrganizationGroupWorkflow(
         identityTrustDomain,
         groupId,
         organizationId,
-        request: input,
+        request: {
+          ...input,
+          organizationPolicy: await rebuildOrganizationLegMemberEnvelopes(
+            tx,
+            { organizationId, requesterUserId: sessionUserId },
+            input.organizationPolicy,
+          ),
+        },
         sessionUserId,
         tx,
       });

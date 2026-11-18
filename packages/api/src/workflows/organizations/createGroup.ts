@@ -8,6 +8,7 @@ import type { CreateOrganizationGroupResponse } from "@tearleads/validators/resp
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { assertManagedPrincipalRosterMembership } from "../principals/managedPrincipalRosterMembership";
+import { rebuildOrganizationLegMemberEnvelopes } from "../principals/memberEnvelopeReferences";
 import { PrincipalHistoryPreparationUnavailable } from "../principals/principalHistoryPreparationUnavailable";
 import { runPrincipalHistoryTransaction } from "../principals/principalHistoryTransaction";
 import { lockOrganizationGroupMutationInTransaction } from "../principals/principalMutationLock";
@@ -91,11 +92,24 @@ async function prepareOrganizationGroupCreation(input: {
     tx: input.tx,
     userId: input.sessionUserId,
   });
+  // Organization leg envelope changes are rebuilt once the admin is checked.
+  const request: CreateOrganizationGroupWithPolicyRequest = {
+    ...input.request,
+    organizationPolicy: await rebuildOrganizationLegMemberEnvelopes(
+      input.tx,
+      {
+        organizationId: input.organizationId,
+        requesterUserId: input.sessionUserId,
+      },
+      input.request.organizationPolicy,
+    ),
+  };
   const outcome = await organizationGroupCreationOutcome(input.tx, {
     ...input,
-    groupId: input.request.groupId,
+    groupId: request.groupId,
+    request,
   });
-  if (outcome.response) return outcome;
+  if (outcome.response) return { outcome, request };
   await assertOrganizationCanSync(
     input.tx,
     input.organizationId,
@@ -117,7 +131,7 @@ async function prepareOrganizationGroupCreation(input: {
   ) {
     throw new OrganizationManagerError("Group principal already exists", 409);
   }
-  return outcome;
+  return { outcome, request };
 }
 
 async function appendCreatedGroupReadModelChanges(input: {
@@ -186,7 +200,7 @@ export async function runCreateOrganizationGroupWorkflow(
   validateOrganizationGroupCreation(input);
 
   return runPrincipalHistoryTransaction(db, async (tx) => {
-    const outcome = await prepareOrganizationGroupCreation({
+    const { outcome, request } = await prepareOrganizationGroupCreation({
       organizationId,
       request: input,
       sessionUserId,
@@ -195,11 +209,11 @@ export async function runCreateOrganizationGroupWorkflow(
     if (outcome.response) return outcome.response;
     assertOrganizationPolicyRouteBinding({
       organizationId,
-      policy: input.organizationPolicy,
+      policy: request.organizationPolicy,
       sessionUserId,
     });
     await assertCreatedGroupPolicyNameKey({
-      ciphertext: input.initialGroupPolicy.encryptedPayload.ciphertext,
+      ciphertext: request.initialGroupPolicy.encryptedPayload.ciphertext,
       executor: tx,
       organizationId,
     });
@@ -207,7 +221,7 @@ export async function runCreateOrganizationGroupWorkflow(
     const [insertedGroup] = await tx
       .insert(groupsTable)
       .values({
-        id: input.groupId,
+        id: request.groupId,
         organizationId,
       })
       .onConflictDoNothing({ target: groupsTable.id })
@@ -223,11 +237,11 @@ export async function runCreateOrganizationGroupWorkflow(
 
     const storedState = await storeVerifiedPrincipalPolicyInTransaction(
       {
-        state: input.initialGroupPolicy.state,
-        encryptedPayload: input.initialGroupPolicy.encryptedPayload,
-        projection: input.initialGroupPolicy.projection,
-        grants: input.initialGroupPolicy.grants,
-        memberEnvelopes: input.initialGroupPolicy.memberEnvelopes,
+        state: request.initialGroupPolicy.state,
+        encryptedPayload: request.initialGroupPolicy.encryptedPayload,
+        projection: request.initialGroupPolicy.projection,
+        grants: request.initialGroupPolicy.grants,
+        memberEnvelopes: request.initialGroupPolicy.memberEnvelopes,
       },
       tx,
       {
@@ -250,13 +264,13 @@ export async function runCreateOrganizationGroupWorkflow(
     // stood up naming someone outside the organization's active roster.
     await assertManagedPrincipalRosterMembership({
       organizationId,
-      principalId: input.groupId,
+      principalId: request.groupId,
       principalType: "group",
       tx,
     });
 
     await appendCreatedGroupReadModelChanges({
-      groupId: input.groupId,
+      groupId: request.groupId,
       organizationId,
       tx,
     });
@@ -271,7 +285,7 @@ export async function runCreateOrganizationGroupWorkflow(
     const organization = await putPrincipalPolicyInTransaction(
       tx,
       {
-        ...input.organizationPolicy,
+        ...request.organizationPolicy,
         expectedPrincipalId: organizationId,
         expectedPrincipalType: "organization",
         requesterUserId: sessionUserId,
