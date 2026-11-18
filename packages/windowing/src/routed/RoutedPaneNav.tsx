@@ -2,7 +2,6 @@ import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/csr/SidebarSimple"
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -12,6 +11,7 @@ import {
   useLauncherNavigationActions,
   useLauncherNavigationState,
 } from "../launcher/LauncherNavigationProvider";
+import { useLauncherEntryMenu } from "../launcher/useLauncherEntryMenu";
 import type { RoutedLayoutTier } from "../launcher/useRoutedLayoutTier";
 import { classNames } from "./classNames";
 import type { LauncherPlacement } from "./launcherPlacement";
@@ -74,31 +74,33 @@ function RoutedPaneNavLink({
   onNavigate: () => void;
 }) {
   const { getMiniAppHref, openMiniApp } = useLauncherNavigationActions();
-  const handleClick = useCallback(
-    (event: ReactMouseEvent<HTMLAnchorElement>) => {
-      if (isBrowserHandledNavClick(event)) {
-        return;
-      }
-      event.preventDefault();
-      openMiniApp({ appId });
-      onNavigate();
-    },
-    [appId, onNavigate, openMiniApp],
-  );
+  const open = () => {
+    openMiniApp({ appId });
+    onNavigate();
+  };
+  const { menu, triggerProps } = useLauncherEntryMenu(LinkIcon, open);
 
   return (
-    <a
-      aria-current={activeAppId === appId ? "page" : undefined}
-      className={classNames(
-        "routed-pane-nav-link",
-        activeAppId === appId && "routed-pane-nav-link--active",
-      )}
-      href={getMiniAppHref(appId)}
-      onClick={handleClick}
-    >
-      {LinkIcon && <LinkIcon aria-hidden="true" size={20} />}
-      <span className="routed-pane-nav-link-label">{label}</span>
-    </a>
+    <>
+      <a
+        {...triggerProps}
+        aria-current={activeAppId === appId ? "page" : undefined}
+        className={classNames(
+          "routed-pane-nav-link",
+          activeAppId === appId && "routed-pane-nav-link--active",
+        )}
+        href={getMiniAppHref(appId)}
+        onClick={(event) => {
+          if (isBrowserHandledNavClick(event)) return;
+          event.preventDefault();
+          open();
+        }}
+      >
+        {LinkIcon && <LinkIcon aria-hidden="true" size={20} />}
+        <span className="routed-pane-nav-link-label">{label}</span>
+      </a>
+      {menu}
+    </>
   );
 }
 
