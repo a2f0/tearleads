@@ -138,14 +138,21 @@ async function applyContainerTombstoneCascade(input: {
     }),
     {
       discoveryOnly: true,
-      expectedContainers: Array.from(affectedContainerIds, (containerId) => ({
-        containerId,
-        ...(resolved.denied?.has(containerId)
-          ? { confirmedAccessLoss: true as const }
-          : {}),
-        expectedContainer:
-          expectedContainerStates.get(containerId)?.container ?? null,
-      })),
+      expectedContainers: Array.from(affectedContainerIds, (containerId) => {
+        const metadata = state.containersById.get(containerId)?.record;
+        return {
+          containerId,
+          ...(resolved.denied?.has(containerId)
+            ? {
+                confirmedAccessLoss: {
+                  expectedMetadata: metadata ? { ...metadata } : null,
+                },
+              }
+            : {}),
+          expectedContainer:
+            expectedContainerStates.get(containerId)?.container ?? null,
+        };
+      }),
       stillCurrent: input.isCurrent,
     },
   );

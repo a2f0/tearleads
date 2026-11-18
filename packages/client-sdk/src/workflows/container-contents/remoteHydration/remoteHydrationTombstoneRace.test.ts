@@ -297,7 +297,12 @@ test.each(["newer", "older"] as const)(
             }): Promise<ListContainerParentLanesResponse> => {
               fetchCount += 1;
               if (fetchCount === 1) {
-                staleChild.record.documentId = "newer-stale-child-metadata";
+                staleChild.record.accessStateHash = "newer-stale-child-head";
+                await defaultContainerContentsPersistence.saveContainer(
+                  execSql,
+                  staleChild.container,
+                  staleChild.record,
+                );
               }
               return {
                 results: request.lanes.map(({ laneId }) => ({

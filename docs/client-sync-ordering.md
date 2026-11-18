@@ -139,6 +139,8 @@ checks current access to each affected descendant with bounded document-lane
 reads. It also checks a leaf whose cached timestamp is later than its removal.
 It retains readable descendants and applies confirmed
 denials or absence only if the local rows still match the pre-request snapshot.
+Before a confirmed removal commits, SQLite checks the held metadata content
+and signed head inside the deletion transaction.
 An inconclusive read leaves the page retryable. When a live folder's entity
 clock moves backwards, hydration verifies the current signed placement and
 requires the listed manifest hash and rechecks the signed checkpoint inside
