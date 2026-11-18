@@ -96,6 +96,7 @@ purge_cloudflare_cache_for_hosts() { printf 'purge|%s\\n' "$*" >> "$WEB_DEPLOY_L
   commitFixture(root, "checkout");
   commitFixture(matrix, "matrix");
   const commit = git(root, "rev-parse", "HEAD");
+  const shortCommit = git(root, "rev-parse", "--short", "HEAD");
   // The release identifies the whole checkout, even with a nested Git directory.
   git(join(root, "packages/app-web"), "init", "--quiet");
   await write(
@@ -105,11 +106,11 @@ set -eu
 case "$1 $2" in
   '--no-env-file --config=/dev/null') exec "$WEB_DEPLOY_BUN" "$@" ;;
   'run build')
+    printf 'build|%s|%s\\n' "$BUN_PUBLIC_APP_VARIANT" "$APP_WEB_TIER" >> "$WEB_DEPLOY_LOG"
     sh "$WEB_DEPLOY_ROOT/scripts/lib/withBuildInfoEnv.sh" sh -c 'test "$BUN_PUBLIC_GIT_SHA" = "$WEB_DEPLOY_EXPECTED_SHA"'
     test -z "\${SENTRY_AUTH_TOKEN:-}"
     test "$BUN_PUBLIC_API_BASE_URL" = "https://$WEB_DEPLOY_API_HOSTNAME"
     umask 077
-    printf 'build|%s|%s\\n' "$BUN_PUBLIC_APP_VARIANT" "$APP_WEB_TIER" >> "$WEB_DEPLOY_LOG"
     rm -rf dist
     mkdir -p dist/pdfjs/current
     printf '%s' "$BUN_PUBLIC_APP_VARIANT" > dist/index.html
@@ -170,7 +171,7 @@ esac
           PATH: `${join(root, "bin")}:${PATH ?? ""}`,
           WEB_DEPLOY_ROOT: root,
           WEB_DEPLOY_BUN: process.execPath,
-          WEB_DEPLOY_EXPECTED_SHA: git(root, "rev-parse", "--short", "HEAD"),
+          WEB_DEPLOY_EXPECTED_SHA: shortCommit,
           WEB_DEPLOY_LOG: log,
           WEB_DEPLOY_UPLOADS: uploads,
           WEB_DEPLOY_FAILURE: failure,
@@ -279,7 +280,11 @@ test("an exported app cannot publish with its parent's Sentry release", async ()
   const fixture = await deployFixture("production");
   try {
     await rm(join(fixture.root, ".git"), { recursive: true });
-    expect(fixture.run().exitCode).not.toBe(0);
+    const result = fixture.run();
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr.toString()).toContain(
+      "Sentry release requires a Git checkout with a commit",
+    );
     expect(await Bun.file(fixture.log).exists()).toBe(false);
   } finally {
     await fixture.cleanup();

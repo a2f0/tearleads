@@ -38,7 +38,7 @@ function selection() {
       "git",
       ["-C", selected.root, "rev-parse", "--absolute-git-dir"],
       { encoding: "utf8" },
-    ).trim();
+    ).replace(/\n$/, "");
     const index = realpathSync(resolve(candidate));
     if (dirname(index) === realpathSync(gitDir))
       process.env[indexVariable] = index;
