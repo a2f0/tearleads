@@ -14,9 +14,9 @@ that reaching a verification budget never prevents revocation.
 | `Rekey` / `RotationAllowed` | a rekey or revoke starts a new key; its own minting resolves only its parent's targets through `assertParentKekStateCurrent`, so its own overflow never refuses it |
 | `Recite` | `deriveUnrotatedContainerManifestState` refuses a recite at or past `MAX_CONTAINER_RECITATION_EPOCH` (512), an absolute epoch ceiling a rekey does not reset |
 | `held` / `Evict` | `writeVerifiedManifestBundlesInTransaction` stores bundles in the transaction that finalizes their projection's checkpoints, bounded and pruned oldest first; damaged rows are dropped by `loadVerifiedManifestCitations` |
-| `Citable` / `CiteHeldBytes` | `heldManifestCitations` copies the exact stored bytes a request cites, at most `KNOWN_MANIFEST_HINT_LIMIT` hashes |
-| `Omitted` / `OmitOnlyCited` | `encodeContainerWriterProjection` and `encodeDocumentWriterProjection` omit only hashes the request cited, after the ordinary build, authorization and stored-evidence verification |
-| `Rebuilds` / `RefetchUncited` | `decodeContainerWriterProjection` and `decodeDocumentWriterProjection` fill omissions only from the cited bytes; a gap makes `citedProjectionRead` refetch once with no hints |
+| `Citable` / `CiteHeldBytes` | `heldManifestCitations` copies the exact stored bytes a request cites, at most `KNOWN_MANIFEST_HINT_LIMIT` hashes, plus at most `KNOWN_DIRECTORY_HINT_LIMIT` held directory payloads that hash to their own signed organization states |
+| `Omitted` / `OmitOnlyCited` | `encodeContainerWriterProjection` and `encodeDocumentWriterProjection` omit only hashes (and directory payloads of states) the request cited, after the ordinary build, authorization and stored-evidence verification |
+| `Rebuilds` / `RefetchUncited` | `decodeContainerWriterProjection` and `decodeDocumentWriterProjection` fill omissions, directory payloads included, only from the cited bytes; a gap makes `citedProjectionRead` refetch once with no hints |
 
 The model abstracts one valid object history, with complete retained evidence
 and an authorized actor. A device's durable verified-bundle table is the set

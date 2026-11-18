@@ -33,7 +33,8 @@ belong to that organization's
 [checkpoints](./glossary/sync.md#checkpoint) reject conflicting chains. Missing
 required bindings, duplicate payloads, foreign groups, and unsigned evidence are
 refused before manifest authorization. Unrelated directory payload bodies are
-omitted.
+omitted, and so is a payload the request cites as held (see
+[directory payload citations](#directory-payload-citations)).
 
 Historical evidence does not become a current policy bundle or advance
 principal checkpoints. Current key unwrapping requires encrypted member
@@ -157,7 +158,8 @@ signatures, authorization, policy commitments, signer resolution, predecessor
 links, directory binding, and durable rollback and conflict checks all run. A
 stored bundle is evidence bytes, never a verification result, and a
 server-supplied hash or marker never becomes a client trust anchor. Policy
-evidence and current heads, keys and key material always travel. Stored rows
+evidence sources and current heads, keys and key material always travel; a
+directory payload travels unless the request cites it (below). Stored rows
 carry a SHA-256 digest of their exact JSON; a mismatched row is dropped instead
 of cited.
 
@@ -190,6 +192,26 @@ server work. The [manifest history
 model](../formal/container-keying/ManifestHistory.md) checks that citing only
 held bytes and omitting only cited hashes keep every honest read available under
 any eviction.
+
+### Directory payload citations
+
+The same header may also cite, as `d:<state hash>`, up to 8
+(`KNOWN_DIRECTORY_HINT_LIMIT`) organization states whose directory payloads the
+device holds in its verified policy bundles (`principal_policy_bundles`), its
+current organization state first, then the most recently stored. These sit
+beside the 48 manifest and KEK-level hints and never take their place. The API
+client cites a held payload only when its signed state recomputes to the state
+hash and the payload's bytes hash to the `payloadCiphertextHash` that state
+signs; the state hash commits that payload hash, so a refill is exactly the
+payload the server would serve for that state. The API loads and checks the
+evidence as for any reader, then serves `payload: null` for each directory
+payload whose organization state the request cited, and ignores unknown
+hashes. The client fills each null from the bytes it cited for that request
+and verifies the evidence exactly as when every payload travels: each payload
+is hashed against its signed organization state and bound to the group heads
+it lists. A null the request did not cite makes the response unusable, and the
+client refetches once with no hints. A device that holds no policy bundle, or
+cannot read them, cites no directory and receives every payload.
 
 Principal-state and [access-event](./glossary/access.md#access-event) signature
 results are separately memoized by the exact signature, message bytes, and resolved

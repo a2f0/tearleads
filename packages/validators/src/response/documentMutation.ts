@@ -33,7 +33,10 @@ import {
   OmittedManifestBundlesSchema,
   refineManifestBundleReferences,
 } from "./manifestBundleReferences";
-import { ProjectionPolicyEvidenceResponseSchema } from "./projectionPolicyEvidence";
+import {
+  ProjectionPolicyEvidenceResponseSchema,
+  ProjectionPolicyEvidenceWireResponseSchema,
+} from "./projectionPolicyEvidence";
 
 export {
   type DocumentContentKeyBundleResponse,
@@ -185,7 +188,7 @@ export const DocumentWriterProjectionWireResponseSchema =
     loosePlainObject({
       bundles: ManifestBundlesSchema,
       omittedBundles: OmittedManifestBundlesSchema,
-      policyEvidence: ProjectionPolicyEvidenceResponseSchema,
+      policyEvidence: ProjectionPolicyEvidenceWireResponseSchema,
       authorizingContainerPaths: nonEmptyArraySchema(
         ContainerKeyingPathWireResponseSchema,
       ),

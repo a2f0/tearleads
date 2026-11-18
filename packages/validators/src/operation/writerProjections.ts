@@ -46,7 +46,7 @@ export const getContainerWriterProjectionOperation = defineJsonOperation({
   id: "containers.writerProjection.get",
   summary: "Get a container writer projection",
   description:
-    "Returns everything a client needs to read and write under a container: the signed manifests on its authorizing container path, each path level's container KEK wraps and keyring, and the key targets. Requires current read access; write authority is checked again when a write commits. A 202 asks the client to retry the identical request after the server prepares policy history, and the `x-known-manifests` header lets a client skip manifests it already holds.",
+    "Returns everything a client needs to read and write under a container: the signed manifests on its authorizing container path, each path level's container KEK wraps and keyring, and the key targets. Requires current read access; write authority is checked again when a write commits. A 202 asks the client to retry the identical request after the server prepares policy history, and the `x-known-manifests` header lets a client skip manifests, KEK levels and directory payloads it already holds.",
   method: "GET",
   headers: KnownManifestsHeadersSchema,
   params: ContainerWriterProjectionPathParamsSchema,

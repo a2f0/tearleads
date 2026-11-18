@@ -102,8 +102,10 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // acknowledgement: 490,761 bytes received. Losing that cache (503,042) or
   // the return of directory keys (501,957) exceeds this ceiling. Container
   // mutations send manifest hashes alone: 130,342 bytes sent (134,118 with
-  // manifests, which exceeds this ceiling).
-  bodyBytes: { request: 132_000, response: 500_000 },
+  // manifests, which exceeds this ceiling). Projections cite the held
+  // organization directory: 489,462 bytes received (490,761 with it, which
+  // exceeds this ceiling).
+  bodyBytes: { request: 132_000, response: 490_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,

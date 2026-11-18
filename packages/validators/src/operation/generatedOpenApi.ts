@@ -570,7 +570,7 @@ export type paths = {
         };
         /**
          * Get a container writer projection
-         * @description Returns everything a client needs to read and write under a container: the signed manifests on its authorizing container path, each path level's container KEK wraps and keyring, and the key targets. Requires current read access; write authority is checked again when a write commits. A 202 asks the client to retry the identical request after the server prepares policy history, and the `x-known-manifests` header lets a client skip manifests it already holds.
+         * @description Returns everything a client needs to read and write under a container: the signed manifests on its authorizing container path, each path level's container KEK wraps and keyring, and the key targets. Requires current read access; write authority is checked again when a write commits. A 202 asks the client to retry the identical request after the server prepares policy history, and the `x-known-manifests` header lets a client skip manifests, KEK levels and directory payloads it already holds.
          */
         get: operations["containers.writerProjection.get"];
         put?: never;
@@ -2454,7 +2454,7 @@ export type components = {
             /** @description Manifest hashes from the organization's root to this container. */
             path: string[];
             /** @description Public principal policy history the cited manifests depend on. */
-            policyEvidence: components["schemas"]["ProjectionPolicyEvidenceResponse"];
+            policyEvidence: components["schemas"]["ProjectionPolicyEvidenceWireResponse"];
         } & {
             [key: string]: unknown;
         };
@@ -3091,7 +3091,7 @@ export type components = {
             /** @description Cited hashes left out because the request said the client holds them. */
             omittedBundles: string[];
             /** @description Public principal policy history the cited manifests depend on. */
-            policyEvidence: components["schemas"]["ProjectionPolicyEvidenceResponse"];
+            policyEvidence: components["schemas"]["ProjectionPolicyEvidenceWireResponse"];
         } & {
             [key: string]: unknown;
         };
@@ -4181,6 +4181,19 @@ export type components = {
             organization: components["schemas"]["PrincipalPolicyHistorySourceResponse"] | null;
             organizationPayloads: ({
                 payload: components["schemas"]["PrincipalStatePayloadResponse"];
+                reference: components["schemas"]["ReferencedPrincipalStateResponse"];
+            } & {
+                [key: string]: unknown;
+            })[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description Public principal policy history as served: a directory payload whose organization state the request cited as held (`d:` in `x-known-manifests`) is null, and the client fills it from the bytes it cited. */
+        ProjectionPolicyEvidenceWireResponse: {
+            groups: components["schemas"]["PrincipalPolicyHistorySourceResponse"][];
+            organization: components["schemas"]["PrincipalPolicyHistorySourceResponse"] | null;
+            organizationPayloads: ({
+                payload: components["schemas"]["PrincipalStatePayloadResponse"] | null;
                 reference: components["schemas"]["ReferencedPrincipalStateResponse"];
             } & {
                 [key: string]: unknown;

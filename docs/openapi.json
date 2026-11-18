@@ -2442,7 +2442,7 @@
             "description": "Manifest hashes from the organization's root to this container."
           },
           "policyEvidence": {
-            "$ref": "#/components/schemas/ProjectionPolicyEvidenceResponse",
+            "$ref": "#/components/schemas/ProjectionPolicyEvidenceWireResponse",
             "description": "Public principal policy history the cited manifests depend on."
           }
         },
@@ -4298,7 +4298,7 @@
             "description": "Cited hashes left out because the request said the client holds them."
           },
           "policyEvidence": {
-            "$ref": "#/components/schemas/ProjectionPolicyEvidenceResponse",
+            "$ref": "#/components/schemas/ProjectionPolicyEvidenceWireResponse",
             "description": "Public principal policy history the cited manifests depend on."
           },
           "authorizingContainerPaths": {
@@ -9001,6 +9001,60 @@
         ],
         "additionalProperties": {},
         "description": "Public principal policy history that a projection's manifests depend on, as read sources plus the signed directory payloads they need."
+      },
+      "ProjectionPolicyEvidenceWireResponse": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrincipalPolicyHistorySourceResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "organizationPayloads": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "reference": {
+                  "$ref": "#/components/schemas/ReferencedPrincipalStateResponse"
+                },
+                "payload": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PrincipalStatePayloadResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "reference",
+                "payload"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrincipalPolicyHistorySourceResponse"
+            }
+          }
+        },
+        "required": [
+          "organization",
+          "organizationPayloads",
+          "groups"
+        ],
+        "additionalProperties": {},
+        "description": "Public principal policy history as served: a directory payload whose organization state the request cited as held (`d:` in `x-known-manifests`) is null, and the client fills it from the bytes it cited."
       },
       "ProvisionedDocumentRequest": {
         "type": "object",
@@ -16052,7 +16106,7 @@
       "get": {
         "operationId": "containers.writerProjection.get",
         "summary": "Get a container writer projection",
-        "description": "Returns everything a client needs to read and write under a container: the signed manifests on its authorizing container path, each path level's container KEK wraps and keyring, and the key targets. Requires current read access; write authority is checked again when a write commits. A 202 asks the client to retry the identical request after the server prepares policy history, and the `x-known-manifests` header lets a client skip manifests it already holds.",
+        "description": "Returns everything a client needs to read and write under a container: the signed manifests on its authorizing container path, each path level's container KEK wraps and keyring, and the key targets. Requires current read access; write authority is checked again when a write commits. A 202 asks the client to retry the identical request after the server prepares policy history, and the `x-known-manifests` header lets a client skip manifests, KEK levels and directory payloads it already holds.",
         "tags": [
           "Containers"
         ],
@@ -16074,8 +16128,8 @@
             "required": false,
             "schema": {
               "type": "string",
-              "maxLength": 3215,
-              "description": "Comma-separated typed digests the device holds verified: m:<manifest hash> for an access-manifest bundle, k:<level digest> for a container KEK level; at most 48, unique"
+              "maxLength": 3751,
+              "description": "Comma-separated typed digests the device holds verified: m:<manifest hash> for an access-manifest bundle, k:<level digest> for a container KEK level (at most 48 of these), d:<organization state hash> for that state's directory payload (at most 8); unique"
             },
             "style": "simple"
           }
@@ -16192,7 +16246,7 @@
           },
           {
             "id": "request.known-manifest-hints",
-            "description": "x-known-manifests must list at most 48 unique typed digests, each m: or k: followed by a lowercase SHA-256 hex digest"
+            "description": "x-known-manifests must list unique typed digests, at most 48 m: or k: and at most 8 d:, each followed by a lowercase SHA-256 hex digest"
           }
         ]
       }
@@ -17732,8 +17786,8 @@
             "required": false,
             "schema": {
               "type": "string",
-              "maxLength": 3215,
-              "description": "Comma-separated typed digests the device holds verified: m:<manifest hash> for an access-manifest bundle, k:<level digest> for a container KEK level; at most 48, unique"
+              "maxLength": 3751,
+              "description": "Comma-separated typed digests the device holds verified: m:<manifest hash> for an access-manifest bundle, k:<level digest> for a container KEK level (at most 48 of these), d:<organization state hash> for that state's directory payload (at most 8); unique"
             },
             "style": "simple"
           }
@@ -17850,7 +17904,7 @@
           },
           {
             "id": "request.known-manifest-hints",
-            "description": "x-known-manifests must list at most 48 unique typed digests, each m: or k: followed by a lowercase SHA-256 hex digest"
+            "description": "x-known-manifests must list unique typed digests, at most 48 m: or k: and at most 8 d:, each followed by a lowercase SHA-256 hex digest"
           }
         ]
       }

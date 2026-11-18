@@ -62,10 +62,50 @@ test("known-manifest hints accept only bounded, unique typed digests", () => {
   ).toBe(true);
   expect(
     parseKnownManifestHints(`k:${hash(2)},m:${hash(3)},k:${hash(4)}`),
-  ).toEqual({ manifests: [hash(3)], kekLevels: [hash(2), hash(4)] });
+  ).toEqual({
+    manifests: [hash(3)],
+    kekLevels: [hash(2), hash(4)],
+    directories: [],
+  });
   expect(
-    formatKnownManifestHints({ manifests: [hash(3)], kekLevels: [hash(2)] }),
-  ).toBe(`k:${hash(2)},m:${hash(3)}`);
+    formatKnownManifestHints({
+      manifests: [hash(3)],
+      kekLevels: [hash(2)],
+      directories: [hash(5)],
+    }),
+  ).toBe(`k:${hash(2)},m:${hash(3)},d:${hash(5)}`);
+});
+
+test("directory hints have their own bound beside the manifest hints", () => {
+  const hash = (index: number) => index.toString(16).padStart(64, "0");
+  const accepts = (value: string) =>
+    getContainerWriterProjectionOperation.headers.safeParse({
+      "x-known-manifests": value,
+    }).success;
+  const typed = (prefix: string, count: number, offset = 0) =>
+    Array.from(
+      { length: count },
+      (_, index) => `${prefix}:${hash(index + offset)}`,
+    );
+  // A full manifest quota and a full directory quota fit one header.
+  const full = [...typed("m", 48), ...typed("d", 8, 100)].join(",");
+  expect(accepts(full)).toBe(true);
+  expect(parseKnownManifestHints(full)?.directories).toHaveLength(8);
+  // A directory never takes a manifest's place, nor the reverse.
+  expect(accepts([...typed("m", 48), ...typed("d", 9, 100)].join(","))).toBe(
+    false,
+  );
+  expect(accepts([...typed("m", 49), ...typed("d", 7, 100)].join(","))).toBe(
+    false,
+  );
+  expect(accepts(`d:${hash(1)},d:${hash(1)}`)).toBe(false);
+  expect(accepts(`d:${hash(255).toUpperCase()}`)).toBe(false);
+  // A directory and a manifest may share a digest; the type keeps them apart.
+  expect(parseKnownManifestHints(`d:${hash(1)},m:${hash(1)}`)).toEqual({
+    manifests: [hash(1)],
+    kekLevels: [],
+    directories: [hash(1)],
+  });
 });
 
 test("writer projection operations own their complete wire metadata", () => {

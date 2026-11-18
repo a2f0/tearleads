@@ -19,6 +19,11 @@ import {
   type DocumentWriterProjectionWireResponse,
   DocumentWriterProjectionWireResponseSchema,
 } from "./documentMutation";
+import {
+  decodeProjectionPolicyEvidence,
+  encodeProjectionPolicyEvidence,
+  type HeldDirectoryPayloads,
+} from "./policyEvidenceWire";
 
 type Bundle = AccessManifestBundleWireResponse;
 type ServedBundle = ServedAccessManifestBundleWireResponse;
@@ -96,18 +101,25 @@ const noHeldLevels: HeldKekLevelDigest = () => null;
 /**
  * Call only after authorization and stored-evidence verification. `known`
  * holds the request's manifest hints; only hashes this projection cites are
- * omitted. `heldLevel` names each KEK level the request holds exactly.
+ * omitted. `heldLevel` names each KEK level the request holds exactly, and
+ * `heldDirectories` the organization states whose directory payloads it
+ * holds.
  */
 export function encodeContainerWriterProjection(
   projection: ContainerWriterProjectionResponse,
   known: ReadonlySet<string> = new Set(),
   heldLevel: HeldKekLevelDigest = noHeldLevels,
+  heldDirectories: ReadonlySet<string> = new Set(),
 ): ContainerWriterProjectionWireResponse {
   const citations = bundleCitations(known);
   const encoded = encodeKeyingPath(projection, citations.cite, heldLevel);
   return {
     ...projection,
     ...encoded,
+    policyEvidence: encodeProjectionPolicyEvidence(
+      projection.policyEvidence,
+      heldDirectories,
+    ),
     bundles: citations.bundles(),
     omittedBundles: citations.omitted(),
   };
@@ -118,6 +130,7 @@ export function encodeDocumentWriterProjection(
   projection: DocumentWriterProjectionResponse,
   known: ReadonlySet<string> = new Set(),
   heldLevel: HeldKekLevelDigest = noHeldLevels,
+  heldDirectories: ReadonlySet<string> = new Set(),
 ): DocumentWriterProjectionWireResponse {
   const { cite, bundles, omitted } = bundleCitations(known);
   const authorizingContainerPaths = projection.authorizingContainerPaths.map(
@@ -125,6 +138,10 @@ export function encodeDocumentWriterProjection(
   );
   return {
     ...projection,
+    policyEvidence: encodeProjectionPolicyEvidence(
+      projection.policyEvidence,
+      heldDirectories,
+    ),
     authorizingContainerPaths,
     documentContainerManifestHistory:
       projection.documentContainerManifestHistory.map(cite),
@@ -336,26 +353,36 @@ function withHeldBundles<T extends object>(
 }
 
 /**
- * Null for any wire inconsistency or an omission `held` (bundles) or
- * `heldLevels` (KEK levels by digest) cannot fill; the caller treats either
+ * Null for any wire inconsistency or an omission `held` (bundles),
+ * `heldLevels` (KEK levels by digest) or `heldDirectories` (directory
+ * payloads by organization state hash) cannot fill; the caller treats either
  * as a shape failure.
  */
 export function decodeContainerWriterProjection(
   value: unknown,
   held: ReadonlyMap<string, ServedBundle> = new Map(),
   heldLevels: HeldLevels = new Map(),
+  heldDirectories: HeldDirectoryPayloads = new Map(),
 ): ContainerWriterProjectionResponse | null {
   const parsed = ContainerWriterProjectionWireResponseSchema.safeParse(value);
   if (!parsed.success) {
     return null;
   }
   const { bundles, omittedBundles, ...projection } = parsed.data;
+  const policyEvidence = decodeProjectionPolicyEvidence(
+    projection.policyEvidence,
+    heldDirectories,
+  );
   const resolve = bundleResolver(bundles, omittedBundles, held);
   const path = resolve
     ? decodeKeyingPath(projection, resolve, heldLevels)
     : null;
-  return path
-    ? withHeldBundles({ ...projection, ...path }, omittedBundles, held)
+  return path && policyEvidence
+    ? withHeldBundles(
+        { ...projection, ...path, policyEvidence },
+        omittedBundles,
+        held,
+      )
     : null;
 }
 
@@ -364,14 +391,19 @@ export function decodeDocumentWriterProjection(
   value: unknown,
   held: ReadonlyMap<string, ServedBundle> = new Map(),
   heldLevels: HeldLevels = new Map(),
+  heldDirectories: HeldDirectoryPayloads = new Map(),
 ): DocumentWriterProjectionResponse | null {
   const parsed = DocumentWriterProjectionWireResponseSchema.safeParse(value);
   if (!parsed.success) {
     return null;
   }
   const { bundles, omittedBundles, ...projection } = parsed.data;
+  const policyEvidence = decodeProjectionPolicyEvidence(
+    projection.policyEvidence,
+    heldDirectories,
+  );
   const resolve = bundleResolver(bundles, omittedBundles, held);
-  if (!resolve) {
+  if (!resolve || !policyEvidence) {
     return null;
   }
   const authorizingContainerPaths: ContainerKeyingPathResponse[] = [];
@@ -385,6 +417,7 @@ export function decodeDocumentWriterProjection(
   return withHeldBundles(
     {
       ...projection,
+      policyEvidence,
       authorizingContainerPaths: [firstPath, ...otherPaths],
       documentContainerManifestHistory:
         projection.documentContainerManifestHistory.map(resolve),

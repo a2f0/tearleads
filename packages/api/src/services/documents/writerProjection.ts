@@ -28,5 +28,6 @@ export async function getDocumentWriterProjection(
       projection.authorizingContainerPaths,
       hints?.kekLevels ?? [],
     ),
+    new Set(hints?.directories),
   );
 }

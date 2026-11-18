@@ -86,8 +86,10 @@ manifest its key history cites, in a few batched queries, and carries each
 distinct manifest bundle once however many paths and histories cite it. A
 request may cite at most 48 manifest bundles and
 [container KEK](./glossary/keys.md#container-kek) levels the device holds verified
-(`x-known-manifests`); their bytes are then omitted, and the device keeps at
-most 1,024 such rows, one level per container. Neither bound limits
+(`x-known-manifests`), plus at most 8 organization directory payloads it holds
+in verified policy bundles (`KNOWN_DIRECTORY_HINT_LIMIT`); their bytes are then
+omitted, and the device keeps at most 1,024 manifest and level rows, one level
+per container. Neither bound limits
 the history a reader receives; see
 [the incremental evidence contract](./projection-policy-evidence.md#cost-and-retained-history-tradeoff).
 For N ancestor

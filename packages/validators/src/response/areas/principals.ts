@@ -1,3 +1,4 @@
+export type { HeldDirectoryPayloads } from "../policyEvidenceWire";
 export {
   CommitOrganizationGroupPolicyConflictResponseSchema,
   type CurrentPrincipalMemberEnvelopesResponse,
@@ -61,4 +62,6 @@ export {
 export {
   type ProjectionPolicyEvidenceResponse,
   ProjectionPolicyEvidenceResponseSchema,
+  type ProjectionPolicyEvidenceWireResponse,
+  ProjectionPolicyEvidenceWireResponseSchema,
 } from "../projectionPolicyEvidence";

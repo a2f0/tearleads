@@ -26,6 +26,7 @@ import {
 const NO_CITATIONS: HeldProjectionCitations = {
   bundles: new Map(),
   kekLevels: new Map(),
+  directories: new Map(),
 };
 
 const PROJECTION_PATH =
@@ -65,8 +66,18 @@ function readProjection<T>(
     validator: input.validator,
     decode: (value) =>
       container
-        ? decodeContainerWriterProjection(value, held.bundles, held.kekLevels)
-        : decodeDocumentWriterProjection(value, held.bundles, held.kekLevels),
+        ? decodeContainerWriterProjection(
+            value,
+            held.bundles,
+            held.kekLevels,
+            held.directories,
+          )
+        : decodeDocumentWriterProjection(
+            value,
+            held.bundles,
+            held.kekLevels,
+            held.directories,
+          ),
     method: "GET",
     context,
     operation: container
@@ -113,7 +124,7 @@ async function citedProjectionRead<T>(
           { kind: input.kind, id, listing: options.projectionListing },
           options.signal,
         );
-  if (held.bundles.size + held.kekLevels.size === 0)
+  if (held.bundles.size + held.kekLevels.size + held.directories.size === 0)
     return readProjection(runtime, input, held, context);
   const hinted = await readProjection(
     runtime,
@@ -125,6 +136,7 @@ async function citedProjectionRead<T>(
         "x-known-manifests": formatKnownManifestHints({
           manifests: [...held.bundles.keys()],
           kekLevels: [...held.kekLevels.keys()],
+          directories: [...held.directories.keys()],
         }),
       },
       reportErrors: false,

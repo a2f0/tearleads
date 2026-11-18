@@ -1,0 +1,9 @@
+# Issue #2903 (P21, greenfield flag day): x-known-manifests also accepts up to
+# eight `d:` organization state hashes beside its 48 `m:` and `k:` digests, so
+# the header refinement's wording changes (it loosens the request). Remove these
+# exact diagnostics as soon as main contains the new contract.
+GET /containers/{containerId}/writer-projection: refinement 'request.known-manifest-hints' was reworded; treat semantic changes as breaking.
+
+# Issue #2903 P21: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+GET /documents/{documentId}/writer-projection: refinement 'request.known-manifest-hints' was reworded; treat semantic changes as breaking.
