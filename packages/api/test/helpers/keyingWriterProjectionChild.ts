@@ -122,7 +122,6 @@ export async function createChildContainerFixture(
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
-    manifest: bundle.manifest,
     parentContainerPathRefs: containerManifestRefs(parentContainerPath),
     principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,

@@ -10,6 +10,7 @@ import {
   observeVerifiedKekLevels,
   observeVerifiedProjectionBundles,
 } from "../checkpoints/checkpointContext";
+import { verifyWithHeldBundleRecovery } from "../checkpoints/heldBundleRecovery";
 import { verifyProjectionAuthorizationEvidence } from "../principalPolicy/projectionAuthorizationEvidence";
 import { projectionLifetimeGuard } from "../projectionLifetimes";
 import type {
@@ -21,8 +22,7 @@ import { assertProjectionVerificationCurrent } from "../types";
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { addContainerWriterProjectionBundles } from "./containerProjectionVerification";
 
-/** Authenticate immutable destination roles without advancing write-authority pins. */
-export async function verifyContainerDestinationProjection(input: {
+interface ContainerDestinationProjectionInput {
   readonly execSql: ExecSql;
   readonly openPrincipalPolicyBundleReader: OpenPrincipalPolicyBundleReader;
   readonly projection: ContainerWriterProjectionResponse;
@@ -31,11 +31,26 @@ export async function verifyContainerDestinationProjection(input: {
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
-}): Promise<{
+}
+
+interface VerifiedContainerDestination {
   readonly path: VerifiedContainerAccessManifest[];
   /** Every manifest verified on the way, including each head's lineage. */
   readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
-}> {
+}
+
+/** Authenticate immutable destination roles without advancing write-authority pins. */
+export function verifyContainerDestinationProjection(
+  input: ContainerDestinationProjectionInput,
+): Promise<VerifiedContainerDestination> {
+  return verifyWithHeldBundleRecovery(input, () =>
+    verifyContainerDestinationProjectionOnce(input),
+  );
+}
+
+async function verifyContainerDestinationProjectionOnce(
+  input: ContainerDestinationProjectionInput,
+): Promise<VerifiedContainerDestination> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   addContainerWriterProjectionBundles(
     bundlesByHash,

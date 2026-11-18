@@ -8,6 +8,7 @@ import {
 import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
+import { servedAccessManifestBundleDigest } from "../../../../access/read/accessManifestBundleDigest";
 import { storeVerifiedAccessManifestInTransaction } from "../../../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../../../access/write/containerKekStore";
 import {
@@ -364,6 +365,7 @@ export async function persistVerifiedMutation(
 
   return {
     ...(systemSlot ? { systemSlot } : {}),
+    bundleDigest: await servedAccessManifestBundleDigest(manifest),
     containerId: manifest.state.containerId,
     createdAt: container.createdAt.toISOString(),
     organizationId: manifest.state.organizationId,

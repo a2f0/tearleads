@@ -135,7 +135,6 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
       expectedManifestHash: "container-manifest-hash",
       keyEpoch: { id: "container-key-epoch-id" },
       keyring: null,
-      manifest: { objectKind: "container" },
       parentContainerPathRefs: [],
       predecessorBridge: null,
       previousManifestRef: null,

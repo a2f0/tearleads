@@ -18,6 +18,7 @@ export {
 export * from "./attachmentAccessTypes";
 export * from "./canonical";
 export {
+  computeAccessManifestBundleDigest,
   computeContainerKekLevelDigest,
   isKeyingCanonicalJson,
   readKeyingCanonicalJson,

@@ -96,12 +96,15 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // history reads naming a held head receive no current state: 0.54 MB
   // received. Directory rows and group members carry key fingerprints, not
   // public keys: 530,053 bytes received (541,249 with keys). Served bundles
-  // leave off the state their signed bytes name: 507,337 bytes received.
-  // Either return (keys 518,533, full states about 530,000) exceeds this
-  // ceiling. Policy legs in their predecessor's key epoch send member
-  // envelopes as changes to the held predecessor's set: 114,744 bytes sent
-  // with one recitation, 134,118 with every list in full.
-  bodyBytes: { request: 160_000, response: 515_000 },
+  // leave off the state their signed bytes name: 502,714 bytes received.
+  // Reads cite the heads this device authored and cached at
+  // acknowledgement: 490,761 bytes received. Losing that cache (503,042) or
+  // the return of directory keys (501,957) exceeds this ceiling. Container
+  // mutations send manifest hashes alone: 130,342 bytes sent (134,118 with
+  // manifests, which exceeds this ceiling). Policy legs in their
+  // predecessor's key epoch send member envelopes as changes to the held
+  // predecessor's set: P17_SENT bytes sent.
+  bodyBytes: { request: 132_000, response: 500_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,

@@ -48,6 +48,24 @@ function signedDocumentHead(request: {
   };
 }
 
+/** A container create's head, read from its signed event: epoch 1. */
+function createdContainerHead(request: {
+  readonly event: Record<string, unknown>;
+  readonly expectedManifestHash: string;
+}) {
+  const { objectId, organizationId } = request.event;
+  return {
+    manifest: {
+      objectKind: "container",
+      objectId,
+      organizationId,
+      epoch: 1,
+      previousManifestHash: null,
+    },
+    manifestHash: request.expectedManifestHash,
+  };
+}
+
 function checkpoint(input: {
   manifest: Record<string, unknown>;
   manifestHash: string;
@@ -101,10 +119,7 @@ function expectedProvisioningHeads(
   response: ReturnType<typeof requireCoreResponse>,
 ): AccessManifestCheckpoint[] {
   const bundles = [
-    {
-      manifest: request.initialRootContainer.manifest,
-      manifestHash: request.initialRootContainer.expectedManifestHash,
-    },
+    createdContainerHead(request.initialRootContainer),
     signedDocumentHead(request.initialRootMetadataDocument),
     asContainerMutationFixture(response.rosterProfileContainer.container)
       .accessManifest,

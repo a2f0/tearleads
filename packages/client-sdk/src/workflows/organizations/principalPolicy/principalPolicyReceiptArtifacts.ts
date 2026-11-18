@@ -1,6 +1,7 @@
 import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   compareCanonicalStrings,
+  computeAccessEventHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   computePrincipalStateHash,
@@ -13,6 +14,7 @@ import type {
 } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../../../data/keying/canonicalJson";
 import {
+  readAccessEvent,
   readContainerKeyEpoch,
   readContainerKeyWrap,
 } from "../../../data/keyingProjectionVerification/readers";
@@ -88,20 +90,27 @@ async function assertContainerMutationAcknowledgements(input: {
       }),
       "authored recipient target",
     );
-    // The request carries this client's own hash of the manifest it signed,
-    // and that manifest names its epoch and event by hash. A rotation's signed
-    // body commits its keyring hash, so a substituted keyring must refuse
-    // here, before journal recovery clears the saved request. A grant that
-    // keeps its epoch commits none; the container acknowledgement checks the
-    // retained keyring against the epoch's own.
+    // The request carries this client's own hash of the manifest it signed
+    // and the signed event, whose hashes the acknowledgement must name. The
+    // manifest hash commits the epoch, but the request no longer names it,
+    // so the receipt's epoch label is not compared here: journal recovery
+    // discards the receipt after this check, and the in-process path stores
+    // a head only through the plan-based container acknowledgement, which
+    // requires the plan's epoch. Every field compared here is one the
+    // server received in the request, so this binds the receipt to the
+    // request; it never proved a commit, with or without the epoch. A
+    // rotation's signed body commits its keyring hash, so a substituted
+    // keyring must refuse here, before journal recovery clears the saved
+    // request. A grant that keeps its epoch commits none; the container
+    // acknowledgement checks the retained keyring against the epoch's own.
     const committedKeyringHash = Reflect.get(
       Object(request.body),
       "keyringHash",
     );
     if (
       response.manifestHead.manifestHash !== request.expectedManifestHash ||
-      response.manifestHead.epoch !== Reflect.get(request.manifest, "epoch") ||
-      response.eventHash !== Reflect.get(request.manifest, "eventHash") ||
+      response.eventHash !==
+        (await computeAccessEventHash(readAccessEvent(request.event, label))) ||
       response.containerKek.containerKeyEpochId !== keyEpoch.id ||
       response.containerKek.containerKeyEpoch !== keyEpoch.keyEpoch ||
       response.containerKek.keyEpochHash !==

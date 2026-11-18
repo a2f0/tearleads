@@ -1,7 +1,8 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import type {
-  ContainerWriterProjectionResponse,
-  DocumentWriterProjectionResponse,
+import {
+  type ContainerWriterProjectionResponse,
+  type DocumentWriterProjectionResponse,
+  deriveDecodedProjection,
 } from "@tearleads/validators/response";
 import { MAX_INLINE_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import { ContainerAuthorAccessError } from "../../../data/containers/shared/authorAccess";
@@ -36,12 +37,12 @@ function firstStaleContainer(
       }
       return {
         isPathTarget: index === path.containerKeks.length - 1,
-        projection: {
+        projection: deriveDecodedProjection(path, {
           ...path,
           containerId: child.containerId,
           containerKeks: path.containerKeks.slice(0, index + 1),
           path: path.path.slice(0, index + 1),
-        },
+        }),
       };
     }
   }

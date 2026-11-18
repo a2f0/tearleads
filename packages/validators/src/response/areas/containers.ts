@@ -79,10 +79,15 @@ export {
   type ContainerUnavailableErrorCode,
 } from "../containerUnavailableError";
 export {
+  acceptDecodedProjection,
   containerKekWireLevel,
   decodeContainerWriterProjection,
   decodeDocumentWriterProjection,
+  deriveDecodedProjection,
   encodeContainerWriterProjection,
   encodeDocumentWriterProjection,
   type HeldKekLevelDigest,
+  heldBundlesUsedBy,
+  isRejectedDecodedProjection,
+  rejectDecodedProjection,
 } from "../writerProjectionWire";

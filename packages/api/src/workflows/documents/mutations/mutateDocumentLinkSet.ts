@@ -85,14 +85,14 @@ function requireMutationRotationBaseline(input: {
   return baseline ?? null;
 }
 
-function toDocumentLinkSetMutationResult(input: {
+async function toDocumentLinkSetMutationResult(input: {
   readonly contentKeyBundle: Awaited<
     ReturnType<typeof storeDocumentContentKeyBundleInTransaction>
   >;
   readonly documentId: string;
   readonly insertedUpdateIds: readonly string[];
   readonly manifest: Parameters<typeof documentMutationAcknowledgement>[0];
-}): DocumentLinkSetMutationWorkflowResult {
+}): Promise<DocumentLinkSetMutationWorkflowResult> {
   return {
     insertedUpdateIds: input.insertedUpdateIds,
     linkedContainerIds: input.contentKeyBundle.currentTargets.targets.map(
@@ -100,10 +100,10 @@ function toDocumentLinkSetMutationResult(input: {
     ),
     response: {
       id: input.documentId,
-      ...documentMutationAcknowledgement(
+      ...(await documentMutationAcknowledgement(
         input.manifest,
         input.contentKeyBundle,
-      ),
+      )),
     },
   };
 }
@@ -349,7 +349,7 @@ async function mutateDocumentLinkSetWithExecutor(
 
     return {
       organizationId: contentKeyBundle.currentTargets.organizationId,
-      result: toDocumentLinkSetMutationResult({
+      result: await toDocumentLinkSetMutationResult({
         contentKeyBundle,
         documentId: input.documentId,
         insertedUpdateIds,

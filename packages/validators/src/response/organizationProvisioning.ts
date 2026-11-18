@@ -5,6 +5,7 @@ import {
   arraySchema,
   loosePlainObject,
   nonEmptyStringSchema,
+  sha256HexStringSchema,
   uuidV4StringSchema,
 } from "../schema";
 import { OrganizationReplacementAuthorizationSchema } from "../util/organizationReplacement";
@@ -31,6 +32,7 @@ export const organizationProvisioningResponseShape = {
   organizationMetadataContainerId: z.string(),
   organizationProfileDocument: DocumentCreateResponseSchema.optional(),
   organizationProfileDocumentId: z.string().optional(),
+  rootBundleDigest: sha256HexStringSchema,
   rootContainerId: z.string(),
   rootMetadataAccessEpoch: z.number(),
   rootMetadataAccessStateHash: nonEmptyStringSchema,

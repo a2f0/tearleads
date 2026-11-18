@@ -9,13 +9,11 @@ import type {
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
-import { readProjectionAccessManifest } from "../../../../keyingProjectionRecords";
 import { loadLiveContainerOrganizations } from "../../liveContainerRows";
 import {
   ContainerMutationError,
   containerManifestAlreadyExists,
   containerUnavailable,
-  mutationShapeError,
   mutationStateStale,
 } from "../errors";
 import type { ContainerMutationContext } from "../types";
@@ -179,19 +177,19 @@ export async function assertMutationHeadCanAdvance(
   }
 }
 
+/**
+ * Derives the manifest a mutation commits from its signed event and the
+ * stored heads it cites, and requires it to hash to the request's
+ * `expectedManifestHash`: the request carries the hash, not the manifest.
+ */
 export async function verifyContainerManifestFromRequest(
-  request: Pick<ContainerMutationRequest, "manifest" | "expectedManifestHash">,
+  request: Pick<ContainerMutationRequest, "expectedManifestHash">,
   event: VerifiedAccessEvent,
   artifacts: VerifyContainerManifestFromRequestArtifacts,
 ): Promise<VerifiedContainerAccessManifest> {
   const result = await verifyContainerAccessManifest({
     event,
     expectedManifestHash: request.expectedManifestHash,
-    manifest: readProjectionAccessManifest(
-      request.manifest,
-      "Container mutation manifest",
-      mutationShapeError,
-    ),
     previousManifest: artifacts.previousManifest,
     principalPolicies: artifacts.principalPolicies,
     ...(artifacts.destinationParentContainerPath !== undefined

@@ -239,6 +239,7 @@ export {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventBodyHash,
   computeAccessEventHash,
+  computeAccessManifestBundleDigest,
   computeAccessManifestHash,
   computeBlobAccessManifestHash,
   computeBlobContentKeyTargetHash,

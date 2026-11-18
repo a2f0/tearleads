@@ -119,7 +119,6 @@ test("self-revoke refuses clearly without stranding a deeper grantee", async () 
             ...carried.plan.request,
             body,
             event: { ...event.event },
-            manifest: { ...manifest },
             expectedManifestHash: await computeAccessManifestHash(manifest),
             previousContainerPathRefs,
           },

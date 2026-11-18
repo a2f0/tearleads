@@ -325,7 +325,6 @@ export async function buildRootContainerRekeyMutation(input: {
       event: event.event as unknown as Record<string, unknown>,
       body: body as unknown,
       expectedManifestHash: manifestHash,
-      manifest: manifest as unknown as Record<string, unknown>,
       previousManifestRef: containerManifestRef(previousBundle),
       previousContainerPathRefs: [containerManifestRef(previousBundle)],
       keyEpoch: keyEpoch as unknown as Record<string, unknown>,

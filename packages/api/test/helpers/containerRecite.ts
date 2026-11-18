@@ -67,7 +67,6 @@ export async function buildReciteRequest(input: {
   return {
     body,
     event: { ...event.event },
-    manifest: bundle.manifest,
     expectedManifestHash: bundle.manifestHash,
     previousManifestRef: containerManifestRef(previousBundle),
     previousContainerPathRefs: containerManifestRefs(input.path),

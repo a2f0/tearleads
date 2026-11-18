@@ -35,7 +35,12 @@ export interface VerifyAccessManifestInput {
 
 export interface VerifyContainerAccessManifestInput {
   readonly authorizationMembership?: "current" | "referenced" | undefined;
-  readonly manifest: AccessManifest;
+  /**
+   * The manifest as received; omitted when the caller has only the expected
+   * hash, in which case the manifest derived from the state is verified
+   * against that hash.
+   */
+  readonly manifest?: AccessManifest | undefined;
   readonly expectedManifestHash: string;
   readonly event: VerifiedAccessEvent;
   readonly previousManifest?: VerifiedContainerAccessManifest | null;
@@ -51,7 +56,8 @@ export interface VerifyContainerAccessManifestInput {
 
 export interface VerifyDocumentLinkSetManifestInput {
   readonly authorizationMembership?: "current" | "referenced" | undefined;
-  readonly manifest: AccessManifest;
+  /** As for a container: omitted, the derived manifest is verified. */
+  readonly manifest?: AccessManifest | undefined;
   readonly expectedManifestHash: string;
   readonly event: VerifiedAccessEvent;
   readonly previousManifest?: VerifiedDocumentLinkSetStateEvidence | null;
