@@ -7,6 +7,7 @@ import { contactDocumentProjectorDefinition } from "../document-types/contact/co
 import { creditCardDocumentProjectorDefinition } from "../document-types/credit-card/creditCardDocumentDefinition";
 import { driverLicenseDocumentProjectorDefinition } from "../document-types/drivers-license/driverLicenseDocumentDefinition";
 import { envFileDocumentProjectorDefinition } from "../document-types/env-file/envFileDocumentDefinition";
+import { eyeglassPrescriptionDocumentProjectorDefinition } from "../document-types/eyeglass-prescription/eyeglassPrescriptionDocumentDefinition";
 import { genericFileDocumentProjectorDefinition } from "../document-types/generic-file/genericFileDocumentDefinition";
 import { imageDocumentProjectorDefinition } from "../document-types/image/imageDocumentDefinition";
 import { jsonFileDocumentProjectorDefinition } from "../document-types/json-file/jsonFileDocumentDefinition";
@@ -50,6 +51,7 @@ export const APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentP
     },
     envFileDocumentProjectorDefinition,
     bloodPressureDocumentProjectorDefinition,
+    eyeglassPrescriptionDocumentProjectorDefinition,
     weightDocumentProjectorDefinition,
     toolDocumentProjectorDefinition,
     applianceDocumentProjectorDefinition,

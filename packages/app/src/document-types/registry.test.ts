@@ -31,6 +31,7 @@ test("document type registry covers the supported inline document kinds", () => 
     "birth_certificate",
     "env_file",
     "blood_pressure",
+    "eyeglass_prescription",
     "weight",
     "tool",
     "appliance",
@@ -64,6 +65,9 @@ test("document type registry covers the supported inline document kinds", () => 
   expect(getDocumentTypeDefinition("blood_pressure").createLabel).toBe(
     "Blood Pressure",
   );
+  expect(getDocumentTypeDefinition("eyeglass_prescription").createLabel).toBe(
+    "Eyeglass Prescription",
+  );
   expect(getDocumentTypeDefinition("weight").createLabel).toBe("Weight");
   expect(getDocumentTypeDefinition("tool").createLabel).toBe("Tool");
   expect(getDocumentTypeDefinition("appliance").createLabel).toBe("Appliance");
@@ -87,6 +91,7 @@ test("creatable document types exclude upload-only file kinds", () => {
     "birth_certificate",
     "env_file",
     "blood_pressure",
+    "eyeglass_prescription",
     "weight",
     "tool",
     "appliance",
