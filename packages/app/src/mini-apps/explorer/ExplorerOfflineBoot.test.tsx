@@ -12,7 +12,6 @@ import {
   createTestHostConfig,
   generateIdentityAndWaitForDb,
   getPaneStatusText,
-  openExplorer,
   PANE_ASYNC_TEST_TIMEOUT_MS,
   renderPane,
   waitForPersistedPaneLocalIdentity,
@@ -192,16 +191,20 @@ test(
     });
     await waitFor(
       () => {
-        expect(getPaneStatusText(offline)).toMatch(/sqlite worker:\s*ready/);
+        const status = getPaneStatusText(offline);
+        expect(status).toMatch(/publicKey:\s*[0-9a-f]/);
+        expect(status).toMatch(/sqlite worker:\s*ready/);
       },
       { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
     );
 
-    // openExplorer waits for the rendered "Items in /" tree, so reaching this
-    // point already proves Explorer is not stuck on the top-level loading gate.
-    const explorerWindow = await openExplorer(offline);
+    const explorerWindow = await openExplorerWindow(offline);
     expect(
-      within(explorerWindow).getByRole("table", { name: "Items in /" }),
+      await within(explorerWindow).findByRole(
+        "table",
+        { name: "Items in /" },
+        { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+      ),
     ).toBeTruthy();
 
     offline.unmount();
