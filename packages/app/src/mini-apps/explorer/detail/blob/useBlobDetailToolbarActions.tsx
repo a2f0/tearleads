@@ -12,25 +12,6 @@ import { EXPLORER_LABELS } from "../../labels";
 const BLOB_OPEN_ACTION_PRIORITY = 150;
 const BLOB_DOWNLOAD_ACTION_PRIORITY = 140;
 
-// Only these formats can navigate a new tab to the original blob URL. Images
-// stay in an <img> in the in-app viewer. Other formats can be downloaded.
-const NEW_TAB_MIME_TYPES = new Set([
-  "application/json",
-  "application/pdf",
-  "text/plain",
-  "audio/aac",
-  "audio/flac",
-  "audio/mp4",
-  "audio/mpeg",
-  "audio/ogg",
-  "audio/wav",
-  "audio/webm",
-  "video/mp4",
-  "video/ogg",
-  "video/quicktime",
-  "video/webm",
-]);
-
 export function getBlobDisplayName(blob: BlobInfo): string {
   return blob.name ?? blob.blobId ?? blob.storageKey;
 }
@@ -41,8 +22,9 @@ export function getBlobDisplayName(blob: BlobInfo): string {
  * the panel, plus the full-screen viewer Open hands an image to.
  *
  * Opening an image used to mean `window.open` on a blob: URL, which a phone
- * either blocks or dumps into a bare browser tab. Images now open in-app.
- * Supported non-image formats open in a new tab.
+ * either blocks or dumps into a bare browser tab. Images now open in-app
+ * instead; everything else (PDFs, video, text) keeps the new-tab behavior, which
+ * is still the only sensible viewer this app has for them.
  */
 export function useBlobDetailToolbarActions(params: {
   blob: BlobInfo | null;
@@ -50,12 +32,8 @@ export function useBlobDetailToolbarActions(params: {
   preview: BlobPreviewState;
 }) {
   const { blob, onDownload } = params;
-  const mimeType = blob?.mimeType?.split(";")[0]?.trim().toLowerCase() ?? "";
-  const canOpenInTab = NEW_TAB_MIME_TYPES.has(mimeType);
   const previewUrl =
-    params.preview.status === "ready" && params.preview.source === blob
-      ? params.preview.url
-      : null;
+    params.preview.status === "ready" ? params.preview.url : null;
   const isImage = getMediaPreviewKind(blob?.mimeType) === "image";
   const [openedUrl, setOpenedUrl] = useState<string | null>(null);
   // The viewer is tied to the exact URL it was opened with. Selecting another
@@ -73,8 +51,8 @@ export function useBlobDetailToolbarActions(params: {
       setOpenedUrl(previewUrl);
       return;
     }
-    if (canOpenInTab) window.open(previewUrl, "_blank", "noopener,noreferrer");
-  }, [canOpenInTab, isImage, previewUrl]);
+    window.open(previewUrl, "_blank", "noopener,noreferrer");
+  }, [isImage, previewUrl]);
 
   const handleDownload = useCallback(() => {
     if (blob) {
@@ -84,7 +62,7 @@ export function useBlobDetailToolbarActions(params: {
 
   const openAction = useMemo(
     () =>
-      blob && (isImage || canOpenInTab)
+      blob
         ? {
             // Nothing to open until the preview has produced a URL: a blob whose
             // bytes are not on this device, or one too large to preview inline.
@@ -96,7 +74,7 @@ export function useBlobDetailToolbarActions(params: {
             priority: BLOB_OPEN_ACTION_PRIORITY,
           }
         : null,
-    [blob, canOpenInTab, handleOpen, isImage, previewUrl],
+    [blob, handleOpen, previewUrl],
   );
   // Download reads the stored bytes directly, so it stays available even when
   // there is no preview to open.

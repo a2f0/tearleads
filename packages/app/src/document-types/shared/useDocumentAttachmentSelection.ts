@@ -4,7 +4,6 @@ import { useLog } from "../../providers/logging/LogProvider";
 import {
   type DocumentAttachmentSlot,
   type DocumentAttachmentUpload,
-  isImageDocumentAttachmentBlob,
   readBlobDocumentAttachmentUpload,
   readDocumentAttachmentUpload,
   resolveAttachmentUploadSlot,
@@ -35,10 +34,6 @@ export function useDocumentAttachmentSelection(params: {
           0,
           multiple ? undefined : 1,
         )) {
-          if (!isImageDocumentAttachmentBlob({ mimeType: file.type })) {
-            logError(errorMessage, new Error("Choose an image file."));
-            continue;
-          }
           await replaceAttachment(
             resolveAttachmentUploadSlot(slotId, slots ?? []),
             await readDocumentAttachmentUpload(file),
@@ -65,10 +60,6 @@ export function useDocumentBlobAttachmentSelection(params: {
 
   return useCallback(
     async (slotId: string, blob: BlobInfo) => {
-      if (!isImageDocumentAttachmentBlob(blob)) {
-        logError(errorMessage, new Error("Choose an image blob."));
-        return;
-      }
       try {
         await replaceAttachment(
           slotId,

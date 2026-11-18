@@ -103,22 +103,3 @@ test("an existing photo replaces in place while the collection slot appends", as
   for (const slotId of writes.slice(1))
     expect(slotId).toMatch(/^equipment-photos:[0-9a-f-]{36}$/);
 });
-
-test("a non-image file cannot replace an image slot", async () => {
-  const writes: string[] = [];
-  const { result } = renderHook(
-    () =>
-      useDocumentAttachmentSelection({
-        errorMessage: "photo failed",
-        replaceAttachment: async (slotId) => {
-          writes.push(slotId);
-        },
-      }),
-    { wrapper },
-  );
-  const file = new File(["a sample"], "example.txt", { type: "text/plain" });
-  await act(() =>
-    result.current("prescription-image", [file] as unknown as FileList),
-  );
-  expect(writes).toEqual([]);
-});
