@@ -264,12 +264,8 @@ export function updateContainerContentsStoreRuntime(
     return;
   }
 
-  // Gaining authentication within a domain scope does not change identity
-  // (the scope is keyed on the signing fingerprint), so the locally-loaded
-  // tree stays valid. Reconcile it in place instead of resetting — resetting
-  // here is what blanked Explorer and forced a re-read on first open after
-  // register. Identity/storage changes are handled by scope rotation and the
-  // dbStatus-loss branch above.
+  // The signing fingerprint owns the locally loaded tree. When this scope
+  // gains authentication, keep the tree available while reconciling it.
   if (
     state.snapshot.ready &&
     (contextChanged || didRegainSyncPrerequisites(previousRuntime, nextRuntime))
