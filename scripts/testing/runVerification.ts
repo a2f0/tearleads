@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { checkArguments, requireGitRoot } from "../lib/checkRoot";
 import { verificationPlan, verificationUsage } from "./verificationPlan";
 import {
@@ -142,6 +143,16 @@ try {
     console.log(verificationUsage);
   } else {
     requireGitRoot(target);
+    // The checks run from this checkout. Carry the caller's tool locations into them.
+    for (const name of [
+      "OASDIFF_BIN",
+      "JAVA_BIN",
+      "TLA_TOOLS_ROOT",
+      "LEAN_TOOLCHAIN_ROOT",
+    ]) {
+      const value = process.env[name];
+      if (value) process.env[name] = resolve(value);
+    }
     process.exitCode = await verify(target, verificationPlan(target, args));
   }
 } catch (error) {

@@ -49,6 +49,10 @@ appendFileSync(".git/commands.ndjson", JSON.stringify(args) + "\\n");
 const step = args.includes("build:packages") || args.includes("build:runtime") ? "build"
   : args.includes("tsc") ? "typescript"
   : args.includes("check:fast") ? "static" : "tests";
+if (step === "static" && process.env.EXPECT_TOOLS) {
+  for (const name of ["OASDIFF_BIN", "JAVA_BIN", "TLA_TOOLS_ROOT", "LEAN_TOOLCHAIN_ROOT"])
+    if (process.env[name] !== process.env.EXPECT_TOOLS) process.exit(43);
+}
 if (step === process.env.FAILING_STEP) process.exit(23);
 if (step === "build" && process.env.WAIT_IN_BUILD === "true") await Bun.sleep(10000);
 if (step === "build") {

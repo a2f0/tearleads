@@ -55,8 +55,13 @@ test("verification uses the selected checkout when invoked from a parent Git rep
     parent.commit();
     const repo = verificationFixture("", parent.cwd);
     const result = repo.run(
-      ["package", "app"],
+      ["full"],
       {
+        OASDIFF_BIN: "./custom/tools",
+        JAVA_BIN: "./custom/tools",
+        TLA_TOOLS_ROOT: "./custom/tools",
+        LEAN_TOOLCHAIN_ROOT: "./custom/tools",
+        EXPECT_TOOLS: resolve(parent.cwd, "custom/tools"),
         GIT_DIR: resolve(parent.cwd, ".git"),
         GIT_WORK_TREE: parent.cwd,
       },
