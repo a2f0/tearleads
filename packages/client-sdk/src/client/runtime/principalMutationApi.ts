@@ -49,6 +49,7 @@ interface PrincipalMutationApiCustodyInput {
   readonly api: ApiClient;
   /** Binds a mutation's committed read-model lease to its session. */
   readonly readSessionGeneration?: (() => number) | undefined;
+  readonly signIn?: { readonly epoch: number; guard(): () => void };
   readonly readScope: () => PrincipalMutationRuntimeScope | null;
   readonly principalMutationTimeoutMs?: number | undefined;
 }
@@ -85,13 +86,16 @@ export function createPrincipalMutationApiCustody(
     input.principalMutationTimeoutMs,
   );
   let cached: {
+    epoch: number | undefined;
     scope: PrincipalMutationRuntimeScope | null;
     api: PrincipalMutationApi;
   } | null = null;
   return {
     bind(): PrincipalMutationApi {
       const scope = input.readScope();
-      if (cached && sameScope(scope, cached.scope)) return cached.api;
+      const epoch = input.signIn?.epoch;
+      if (cached && epoch === cached.epoch && sameScope(scope, cached.scope))
+        return cached.api;
       const context = (organizationId: string) =>
         mutationContext(input, scope, organizationId);
       const read: PrincipalMutationRecoveryApi["readPendingPrincipalMutation"] =
@@ -135,8 +139,12 @@ export function createPrincipalMutationApiCustody(
           });
         },
       } satisfies MutationOverrides;
-      const api = bindMutationMethods(input.api, methods);
-      cached = { scope, api };
+      const api = bindMutationMethods(
+        input.api,
+        methods,
+        input.signIn?.guard(),
+      );
+      cached = { epoch, scope, api };
       return api;
     },
   };
@@ -145,6 +153,7 @@ export function createPrincipalMutationApiCustody(
 function bindMutationMethods(
   api: ApiClient,
   methods: MutationOverrides,
+  assertCurrent?: () => void,
 ): PrincipalMutationApi {
   const boundMethods = new Map<
     PropertyKey,
@@ -158,7 +167,10 @@ function bindMutationMethods(
       if (typeof value !== "function") return value;
       const previous = boundMethods.get(property);
       if (previous?.source === value) return previous.bound;
-      const bound = value.bind(target);
+      const bound = (...args: unknown[]) => {
+        assertCurrent?.();
+        return Reflect.apply(value, target, args);
+      };
       boundMethods.set(property, { source: value, bound });
       return bound;
     },

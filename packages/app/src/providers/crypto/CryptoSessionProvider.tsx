@@ -70,8 +70,15 @@ const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
   null,
 );
 
+interface RootBootstrapAttempt {
+  readonly signIn: () => boolean;
+  readonly scope: ReturnType<typeof useTearleads>["domainScope"];
+  readonly dbClient: ReturnType<typeof useDatabase>["client"];
+  readonly signingFingerprint: string;
+}
+
 function useResetCryptoSession(
-  containerBootstrapped: MutableRefObject<string | null>,
+  containerBootstrapped: MutableRefObject<RootBootstrapAttempt | null>,
   signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"],
   resetSession: () => void,
 ) {
@@ -86,7 +93,7 @@ function useResetCryptoSession(
 }
 
 function useBootstrapCryptoSessionContainer(
-  containerBootstrapped: MutableRefObject<string | null>,
+  containerBootstrapped: MutableRefObject<RootBootstrapAttempt | null>,
   tearleads: ReturnType<typeof useTearleads>,
   containerId: string | null,
   signingFingerprint: string | null,
@@ -94,27 +101,32 @@ function useBootstrapCryptoSessionContainer(
   dbClient: ReturnType<typeof useDatabase>["client"],
   logError: (message: string, error: unknown) => void,
 ) {
+  const scope = tearleads.domainScope;
+  const signIn = tearleads.session.captureSignIn();
   useEffect(() => {
-    const bootstrapKey =
-      signingFingerprint && dbClient
-        ? `${signingFingerprint}:${dbStatus}`
-        : null;
-
+    const previous = containerBootstrapped.current;
     if (
       containerId !== null ||
       !signingFingerprint ||
       dbStatus !== "ready" ||
       !dbClient ||
-      containerBootstrapped.current === bootstrapKey
-    ) {
+      (previous?.scope === scope &&
+        previous.signIn() &&
+        previous?.dbClient === dbClient &&
+        previous.signingFingerprint === signingFingerprint)
+    )
       return;
-    }
-    containerBootstrapped.current = bootstrapKey;
-
+    const attempt = { scope, dbClient, signingFingerprint, signIn };
+    containerBootstrapped.current = attempt;
+    const current = () =>
+      containerBootstrapped.current === attempt &&
+      tearleads.domainScope === scope &&
+      signIn();
     void (async () => {
       try {
-        await tearleads.session.bootstrapLocalRootContainer();
+        await tearleads.session.bootstrapLocalRootContainer(current);
       } catch (error: unknown) {
+        if (!current()) return;
         containerBootstrapped.current = null;
         // Reloads and identity transitions retire the worker beneath pending
         // queries. The next ready client retries; real SQL failures still log.
@@ -129,6 +141,8 @@ function useBootstrapCryptoSessionContainer(
     dbClient,
     containerId,
     logError,
+    scope,
+    signIn,
     signingFingerprint,
     tearleads,
   ]);
@@ -212,13 +226,19 @@ function useRestorePersistedSession(input: {
 
     let cancelled = false;
     inFlightFingerprint.current = signingFingerprint;
+    const sameSignIn = tearleads.session.captureSignIn("restore");
     void restorePersistedCryptoSession({
+      isCurrent: () =>
+        !cancelled &&
+        sameSignIn() &&
+        tearleads.identity.signingFingerprint === signingFingerprint,
       localPersistence,
       signingFingerprint,
     })
       .then((persistedSession) => {
         if (
           cancelled ||
+          tearleads.session.authToken !== authToken ||
           tearleads.identity.signingFingerprint !== signingFingerprint
         ) {
           clearInFlightFingerprint();
@@ -228,7 +248,7 @@ function useRestorePersistedSession(input: {
         // Apply the restored session before marking the restore settled so a
         // consumer reacting to `sessionRestoreSettled` already sees the restored
         // userId (and does not, e.g., auto-register over a live session).
-        if (persistedSession) {
+        if (persistedSession && sameSignIn()) {
           tearleads.session.setContext(persistedSession);
           log("Restored persisted crypto session");
         }
@@ -371,7 +391,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   } = useDatabase();
   const { signingFingerprint, signingKeyPair } = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
-  const containerBootstrapped = useRef<string | null>(null);
+  const containerBootstrapped = useRef<RootBootstrapAttempt | null>(null);
   const sessionState = useSdkBackedCryptoSessionState(tearleads);
   const localSessionPersistence = useLocalCryptoSessionPersistence({
     createLocalKeyring: localKeyringLock.createLocalKeyring,

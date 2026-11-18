@@ -1,4 +1,6 @@
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
+import { renewalUnlessAborted } from "./sessionRefresh";
+import { retiredRequest } from "./sessionResponse";
 import type { HttpMethod, RequestFailure, RequestResultOptions } from "./types";
 
 /** Keep continuations within their authentication context without hiding commit uncertainty. */
@@ -8,13 +10,22 @@ export class PrincipalHistoryRequestContext {
   private renewedRead = false;
   private restartedRead = false;
 
+  static captureIdentity(runtime: ApiRequestRuntime) {
+    return {
+      credentialCurrent: runtime.captureCredential(),
+      session: runtime.responseRequest.sessionSignal?.(),
+    };
+  }
+
   constructor(
     private readonly runtime: ApiRequestRuntime,
     private readonly method: HttpMethod,
     private readonly path: string,
     options: RequestResultOptions | undefined,
     // Requests of one operation share the identity they started under.
-    private readonly identity = { token: runtime.getAuthToken() },
+    private readonly identity = PrincipalHistoryRequestContext.captureIdentity(
+      runtime,
+    ),
   ) {
     this.options = {
       ...options,
@@ -22,7 +33,6 @@ export class PrincipalHistoryRequestContext {
         options?.retryOnSessionExpired === false ? false : "renew-only",
       onSessionRenewed: () => {
         if (method === "GET" && !options?.signal?.aborted) {
-          this.identity.token = runtime.getAuthToken();
           this.renewedRead = true;
         }
       },
@@ -46,9 +56,27 @@ export class PrincipalHistoryRequestContext {
 
   cancelled(): boolean {
     return (
+      this.identity.session?.aborted === true ||
       this.options.signal?.aborted === true ||
-      this.runtime.getAuthToken() !== this.identity.token
+      this.identity.credentialCurrent() === false
     );
+  }
+
+  async withCredential<T>(
+    signal: AbortSignal | undefined,
+    run: () => T | Promise<T>,
+  ): Promise<T | null> {
+    const owner = this.identity.session;
+    const cancellation =
+      owner && signal ? AbortSignal.any([owner, signal]) : (owner ?? signal);
+    while (!cancellation?.aborted) {
+      const state = this.identity.credentialCurrent();
+      // Capture the verified bearer for dispatch in this same turn. A provisional
+      // installation must finish verification before a continuation can use it.
+      if (typeof state === "boolean") return state ? run() : null;
+      await renewalUnlessAborted(state, cancellation).catch(() => false);
+    }
+    return null;
   }
 
   beforeRequest(): void {
@@ -75,7 +103,7 @@ export class PrincipalHistoryRequestContext {
 
   failure(response?: Response, timedOut = false): RequestFailure {
     void response?.body?.cancel().catch(() => {});
-    return this.runtime.responseRequest.reportFailure({
+    const failure = {
       code: this.submitted
         ? "principal_history_outcome_unknown"
         : timedOut
@@ -102,6 +130,9 @@ export class PrincipalHistoryRequestContext {
       path: this.path,
       status: null,
       statusText: "",
-    });
+    } as const;
+    return this.identity.session?.aborted
+      ? { ...retiredRequest(this.method, this.path), ...failure }
+      : this.runtime.responseRequest.reportFailure(failure);
   }
 }

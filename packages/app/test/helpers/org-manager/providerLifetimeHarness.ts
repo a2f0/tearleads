@@ -209,6 +209,7 @@ export async function createProviderLifetimeHarness(
       return resolved;
     });
     restores.push(() => resolveVerified.mockRestore());
+    const profileExecSql = sdk.runtime.input().infra.execSql;
     const originalLoad = defaultDocumentsPersistence.loadDocument;
     const load = spyOn(
       defaultDocumentsPersistence,
@@ -217,7 +218,7 @@ export async function createProviderLifetimeHarness(
       const record = await originalLoad(...args);
       if (
         boundary === "document" &&
-        args[0] === database.execSql &&
+        args[0] === profileExecSql &&
         args[1] === preferredLocalId
       ) {
         await gate.pause();

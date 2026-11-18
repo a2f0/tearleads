@@ -1,9 +1,13 @@
 import { expect, test } from "bun:test";
-import { runConfirmedLogout } from "./useLogoutConfirmation";
+import { createDomainScope } from "@tearleads/client-sdk";
+import { act, renderHook } from "@testing-library/react";
+import {
+  runConfirmedLogout,
+  useLogoutConfirmationDialogState,
+} from "./useLogoutConfirmation";
 
 test("a delayed logout cannot clear or wipe a newly selected identity", async () => {
   let currentSigningFingerprint: string | null = "identity-a";
-  let localLogoutCount = 0;
   let purgeCount = 0;
   let clearedSessionListCount = 0;
 
@@ -12,9 +16,6 @@ test("a delayed logout cannot clear or wipe a newly selected identity", async ()
     keepLocalData: false,
     log: () => undefined,
     logError: () => undefined,
-    logout: () => {
-      localLogoutCount += 1;
-    },
     onAfterLocalLogout: () => {
       clearedSessionListCount += 1;
     },
@@ -22,8 +23,9 @@ test("a delayed logout cannot clear or wipe a newly selected identity", async ()
       purgeCount += 1;
     },
     session: {
-      logoutRemote: async () => {
+      logoutRemote: async (onLocalLogout) => {
         currentSigningFingerprint = "identity-b";
+        await onLocalLogout?.(() => true);
         return true;
       },
     },
@@ -31,7 +33,24 @@ test("a delayed logout cannot clear or wipe a newly selected identity", async ()
   });
 
   expect(result).toBe(true);
-  expect(localLogoutCount).toBe(0);
   expect(clearedSessionListCount).toBe(0);
   expect(purgeCount).toBe(0);
+});
+
+test("a completed logout closes only the dialog that submitted it", () => {
+  let scope = createDomainScope();
+  const { result, rerender, unmount } = renderHook(() =>
+    useLogoutConfirmationDialogState(scope),
+  );
+  try {
+    act(result.current.requestLogout);
+    const closeFirst = result.current.closeLogoutDialog;
+    scope = createDomainScope();
+    rerender();
+    act(result.current.requestLogout);
+    act(closeFirst);
+    expect(result.current.isOpen).toBe(true);
+  } finally {
+    unmount();
+  }
 });

@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.237",
+      "version": "0.1.238",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -317,7 +317,7 @@
     },
     "packages/sqlite-worker": {
       "name": "@tearleads/sqlite-worker",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "dependencies": {
         "@tearleads/sqlite-instance": "workspace:*",
       },

@@ -37,7 +37,7 @@ import {
   createSecurityIncidentService,
   type SecurityIncidents,
 } from "./client/securityIncidents";
-import { createSession } from "./client/session";
+import { createSession, sessionLifetime } from "./client/session";
 import type { Session } from "./client/session/sessionTypes";
 import {
   type DocumentProjectorRegistry,
@@ -87,7 +87,7 @@ export class Tearleads {
   private retirePrincipalHistoryProtection = () => {};
   // Tracks the storage/identity pair that owns domain-scoped runtime state.
   private domainScopeKey: string | null = null;
-  // Recreated when the storage database or signing identity changes.
+  // Recreated when the storage database, signing identity, or sign-in changes.
   private domainScopeValue: DomainScope = createDomainScope();
   private readonly logErrorHandler: (
     message: string | Error,
@@ -96,7 +96,6 @@ export class Tearleads {
   private readonly logHandler: (message: string) => void;
   private autoIdentityProvisioned = false;
   private autoIdentityProvisioningPromise: Promise<void> | null = null;
-  private expiredSessionLoginPromise: Promise<boolean> | null = null;
   // Rebound to the workflow runtime once it exists; the session is created first.
   private pinLocalUserIdentity: InternalRuntime["pinLocalUserIdentity"] =
     async () => {
@@ -171,6 +170,12 @@ export class Tearleads {
     });
     this.containerContents = createContainerContents(runtime);
     this.deviceFirst = createDeviceFirst(runtime, this.containerContents);
+    sessionLifetime(session).onBoundary = () => {
+      const previous = this.domainScopeValue;
+      this.deviceFirst.dispose();
+      disposeDomainSyncCoordinator(previous);
+      this.events.clear();
+    };
     this.organizations = createOrganizations(
       runtime,
       this.containerContents,
@@ -208,8 +213,8 @@ export class Tearleads {
     options: TearleadsOptions,
     reportSecurityIncident: SecurityIncidentReporter,
     identityTrustDomain: string | null,
-  ): Session {
-    return createSession({
+  ) {
+    const session = createSession({
       identityTrustDomain,
       api: this.apiClient,
       database: this.database,
@@ -219,12 +224,13 @@ export class Tearleads {
       logError: this.logError,
       boundUserIdForSigningKey: (signingKeyFingerprint) =>
         this.boundUserId(signingKeyFingerprint),
-      onUserIdentityAvailable: (userId, candidate) =>
-        this.pinLocalUserIdentity(userId, candidate),
+      onUserIdentityAvailable: (...args) => this.pinLocalUserIdentity(...args),
       primeProvisionedState: (input) => this.primeProvisionedState(input),
       provisionedSystemContainers: options.provisionedSystemContainers,
       reportSecurityIncident,
     });
+    this.apiClient.setOnSessionExpired(session.renewExpired);
+    return session;
   }
 
   private createApiClient(
@@ -246,8 +252,7 @@ export class Tearleads {
   private bindTrustedIdentityRuntime(runtime: InternalRuntime): void {
     this.retirePrincipalHistoryProtection =
       runtime.retirePrincipalHistoryProtection;
-    this.pinLocalUserIdentity = (userId, candidate) =>
-      runtime.pinLocalUserIdentity(userId, candidate);
+    this.pinLocalUserIdentity = runtime.pinLocalUserIdentity;
     this.primeProvisionedState = runtime.primeProvisionedState;
     this.boundUserId = (signingKeyFingerprint) =>
       runtime.boundUserId(signingKeyFingerprint);
@@ -278,7 +283,6 @@ export class Tearleads {
     this.apiClient.setOnNetworkFailure((error) =>
       this.apiNetworkFailures.notify(error.details),
     );
-    this.apiClient.setOnSessionExpired(() => this.loginAfterSessionExpired());
     this.apiClient.setOnPaymentRequired((organizationId) =>
       this.syncBillingGate.notifyPaymentRequired(organizationId),
     );
@@ -338,6 +342,7 @@ export class Tearleads {
     const nextScopeKey = JSON.stringify([
       this.database.id,
       this.identity.signingFingerprint,
+      sessionLifetime(this.session).epoch,
     ]);
     if (this.domainScopeKey !== nextScopeKey) {
       this.domainScopeKey = nextScopeKey;
@@ -360,29 +365,6 @@ export class Tearleads {
     this.retirePrincipalHistoryProtection();
     this.deviceFirst.dispose();
     disposeDomainSyncCoordinator(domainScope);
-  }
-
-  private loginAfterSessionExpired(): Promise<boolean> {
-    if (!this.session.authToken || !this.identity.signingKeyPair) {
-      this.session.logout();
-      return Promise.resolve(false);
-    }
-
-    // The API client replays requests the expired session sent, so a login is
-    // their renewal only when the loaded keys authenticate that known user.
-    const expiredUserId = this.session.userId;
-    this.expiredSessionLoginPromise ??= this.session
-      .login()
-      .then(
-        (renewed) =>
-          renewed &&
-          expiredUserId !== null &&
-          this.session.userId === expiredUserId,
-      )
-      .finally(() => {
-        this.expiredSessionLoginPromise = null;
-      });
-    return this.expiredSessionLoginPromise;
   }
 
   private startAutomaticIdentityProvisioning(): void {

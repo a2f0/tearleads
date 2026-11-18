@@ -112,6 +112,8 @@ export async function* readProjectionPolicyHistoryPages(
   runtime: ApiRequestRuntime,
   input: PrincipalPolicyHistorySourceResponse,
   options: ProjectionPolicyHistoryReadOptions = {},
+  // Default parameters run when the iterator is created, before its first pull.
+  identity = PrincipalHistoryRequestContext.captureIdentity(runtime),
 ): AsyncGenerator<RequestResult<PrincipalPolicySnapshotPage>, void> {
   const invalid = (message: string, status: number | null = null) =>
     runtime.responseRequest.reportFailure({
@@ -135,6 +137,7 @@ export async function* readProjectionPolicyHistoryPages(
     "GET",
     "/principals/history",
     options,
+    identity,
   );
   let pinnedBytes: string | undefined;
   while (true) {

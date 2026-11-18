@@ -86,6 +86,7 @@ export function createBinaryRequestOperationTransport(
       { "Content-Type": operation.requestMediaType, ...derived.headers },
       requestOptions.headers,
     );
+    const session = responseRequest.sessionSignal?.();
     const result = await responseRequest(
       derived.path,
       derived.method,
@@ -103,6 +104,7 @@ export function createBinaryRequestOperationTransport(
       result.data,
       derived.path,
       requestOptions,
+      session,
     );
   }
 

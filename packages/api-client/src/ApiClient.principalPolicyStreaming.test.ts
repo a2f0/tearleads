@@ -136,6 +136,23 @@ testApiClient(
   },
 );
 
+testApiClient(
+  "a retired policy iterator cannot start a new request",
+  async () => {
+    const { requests } = installPages(1);
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("original");
+    const pages = client.getPrincipalPolicyPages("group", principalId);
+    client.setAuthToken(null);
+    client.setAuthToken("replacement");
+    expect((await pages.next()).value).toMatchObject({
+      ok: false,
+      kind: "cancelled",
+    });
+    expect(requests).toEqual([]);
+  },
+);
+
 for (const change of ["identity", "cancellation"] as const) {
   testApiClient(
     `refuses completion after ${change} while the final page is being consumed`,

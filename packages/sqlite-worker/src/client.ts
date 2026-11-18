@@ -27,7 +27,7 @@ export interface DatabaseWorkerClient {
    * permanently destroying the on-disk data (vs {@link close}, which only
    * releases the handles). Callers terminate the worker after this resolves.
    */
-  delete(): Promise<DatabaseWorkerDeleted>;
+  delete(current?: () => boolean): Promise<DatabaseWorkerDeleted>;
   /**
    * Device reset: ask the worker to remove everything in this origin's OPFS.
    * Only a worker that has not opened persistent storage accepts it; the app
@@ -151,7 +151,7 @@ export function createDatabaseWorkerClient(
     params: undefined,
   ): Promise<DatabaseWorkerClosed>;
   function request(
-    method: "delete",
+    method: "prepareDelete" | "delete",
     params: undefined,
   ): Promise<DatabaseWorkerDeleted>;
   function request(
@@ -196,7 +196,11 @@ export function createDatabaseWorkerClient(
     close() {
       return request("close", undefined);
     },
-    delete() {
+    async delete(current) {
+      if (current) {
+        await request("prepareDelete", undefined);
+        if (!current()) return request("close", undefined);
+      }
       return request("delete", undefined);
     },
     wipeStorage() {

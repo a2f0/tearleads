@@ -435,3 +435,24 @@ test("identity manager confirms before destroying a key package", async () => {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
 });
+
+test("same-identity sign-in loads the current session list again", async () => {
+  const { restore, tearleads, view } =
+    await renderAuthenticatedIdentityManagerWithSessions([ACTIVE_SESSION]);
+  try {
+    expect(view.getByText("203.0.113.9")).toBeTruthy();
+    tearleads.session.listSessions = async () => [REMOTE_SESSION];
+    await act(async () => {
+      tearleads.session.setContext({
+        authToken: "test-token",
+        isAuthenticated: true,
+      });
+    });
+    await waitFor(() => expect(view.getByText("192.0.2.44")).toBeTruthy(), {
+      timeout: 1000,
+    });
+    expect(view.queryByText("203.0.113.9")).toBeNull();
+  } finally {
+    restore();
+  }
+});
