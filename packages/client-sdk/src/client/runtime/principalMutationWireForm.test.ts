@@ -222,3 +222,29 @@ test("the first attempt's refusal is reported only when it is the outcome", asyn
     sqlite.close();
   }
 });
+
+test("a first refusal is not reported after a session switch or cancellation", async () => {
+  const { saved, sqlite } = await heldSuccessor();
+  try {
+    for (const interrupt of ["switch", "cancel"] as const) {
+      reports = 0;
+      let current = true;
+      const controller = new AbortController();
+      await sendWithHeldEnvelopeChanges({
+        execSql: sqlite.execSql,
+        reportErrors: true,
+        saved,
+        send: async () => {
+          if (interrupt === "switch") current = false;
+          else controller.abort();
+          return refusal(409, "stale");
+        },
+        signal: controller.signal,
+        stillCurrent: () => current,
+      });
+      expect(reports).toBe(0);
+    }
+  } finally {
+    sqlite.close();
+  }
+});

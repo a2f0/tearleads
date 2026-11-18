@@ -78,7 +78,15 @@ export async function sendWithHeldEnvelopeChanges<
   // The first attempt's failure is reported only once it is the outcome.
   const result = await input.send(wire, false);
   if (!refusedUnreadChanges(result)) {
-    if (!result.ok && reportErrors) result.report();
+    // Reported only for the session that sent it, and never once cancelled.
+    if (
+      !result.ok &&
+      reportErrors &&
+      result.kind !== "cancelled" &&
+      !input.signal?.aborted &&
+      input.stillCurrent()
+    )
+      result.report();
     return result;
   }
   assertProjectionVerificationCurrent(input.stillCurrent);

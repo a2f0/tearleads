@@ -67,6 +67,7 @@ exec bun test \
   src/routes/containers/deleteScopeConcurrency.pg.test.ts \
   src/routes/containers/mutations.entitlementBoundary.pg.test.ts \
   src/routes/principals/policyCommitEnrollmentConcurrency.pg.test.ts \
+  src/routes/principals/memberEnvelopeReferenceLock.pg.test.ts \
   src/routes/principals/principalHistoryProcessRecovery.test.ts \
   src/routes/documents/accessMutationConcurrency.pg.test.ts \
   src/routes/documents/deleteCreateConcurrency.pg.test.ts \
