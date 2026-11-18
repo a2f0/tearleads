@@ -13,7 +13,7 @@ import {
   WsDocumentUpdateCreatedHintSchema,
   type WsInvalidationHint,
 } from "@tearleads/validators/realtime";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import {
   useTearleadsExternalStoreSnapshot,
@@ -290,12 +290,6 @@ export function useDeviceFirstBinding(input: {
   const tearleads = useTearleads();
   const { events, logLabel, runtime } = input;
   const domainScope = runtime.state.domainScope;
-  const processedEventKeysRef = useRef<Set<string>>(new Set());
-  const processedEventScopeRef = useRef(domainScope);
-  if (processedEventScopeRef.current !== domainScope) {
-    processedEventScopeRef.current = domainScope;
-    processedEventKeysRef.current = new Set();
-  }
   const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
   // Disposal can retire this handle while the provider and its domain stay mounted.
   useTearleadsExternalValue(coordinator.subscribe, coordinator.isDisposed);
@@ -304,6 +298,7 @@ export function useDeviceFirstBinding(input: {
     [coordinator, logLabel, tearleads],
   );
   const { reconciler, view } = deviceFirst;
+  const processedEventKeys = useMemo(() => new Set<string>(), [reconciler]);
   const viewSnapshot = useTearleadsExternalStoreSnapshot(view);
   // Stabilise routing by content: container snapshots can churn for sync-state
   // changes, but event routing only needs to re-run when the routed ids or their
@@ -343,7 +338,7 @@ export function useDeviceFirstBinding(input: {
       knownContainerIds: reconciliationRouting.knownContainerIds,
       linkedContainerIdsByDocumentId:
         viewSnapshot.linkedContainerIdsByDocumentId,
-      processedEventKeys: processedEventKeysRef.current,
+      processedEventKeys,
     });
     if (pendingEvents.length === 0) {
       return;
@@ -354,7 +349,14 @@ export function useDeviceFirstBinding(input: {
       knownContainerIds: reconciliationRouting.knownContainerIds,
       service: reconciler,
     });
-  }, [domainScope, events, reconciler, reconciliationRouting, view]);
+  }, [
+    domainScope,
+    events,
+    processedEventKeys,
+    reconciler,
+    reconciliationRouting,
+    view,
+  ]);
 
   return deviceFirst;
 }

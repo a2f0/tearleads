@@ -1,4 +1,5 @@
 import type { DomainScope } from "../shared/domainScope";
+import { createListenerSet } from "../shared/listenerSet";
 import {
   requestAllPumpDrivenLanes,
   requestLaneSync,
@@ -65,6 +66,12 @@ export interface DomainSyncCoordinator {
 
 const coordinatorsByScope = new WeakMap<DomainScope, DomainSyncCoordinator>();
 
+// A host watching a domain follows its replacement coordinator until it unsubscribes.
+const observersByScope = new WeakMap<
+  DomainScope,
+  ReturnType<typeof createListenerSet<[]>>
+>();
+
 function createSyncLaneHandle(
   coordinatorState: DomainSyncCoordinatorState,
   lane: SyncLaneState,
@@ -83,7 +90,7 @@ function createDomainSyncCoordinator(
   const coordinatorState: DomainSyncCoordinatorState = {
     disposed: false,
     lanes: new Map<string, SyncLaneState>(),
-    listeners: new Set(),
+    listeners: new Set([() => observersByScope.get(domainScope)?.notify()]),
     nextRegistrationIndex: 0,
     nextRunOrder: 0,
     wakePump: null,
@@ -234,7 +241,12 @@ export function subscribeToDomainSyncCoordinator(
   domainScope: DomainScope,
   listener: () => void,
 ): () => void {
-  return getOrCreateDomainSyncCoordinator(domainScope).subscribe(listener);
+  let observers = observersByScope.get(domainScope);
+  if (!observers) {
+    observers = createListenerSet();
+    observersByScope.set(domainScope, observers);
+  }
+  return observers.subscribe(listener);
 }
 
 export function beginDomainSyncUploadLane(
