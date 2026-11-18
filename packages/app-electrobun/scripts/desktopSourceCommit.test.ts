@@ -20,6 +20,7 @@ for (const checkout of [false, true]) {
           join(root, "scripts/lib", file),
         );
       await Bun.write(join(root, "package.json"), '{"version":"1.2.3"}');
+      const { PATH } = process.env;
       const git = (cwd: string, ...args: string[]) =>
         execFileSync(
           "git",
@@ -38,7 +39,7 @@ for (const checkout of [false, true]) {
             cwd,
             encoding: "utf8",
             env: {
-              PATH: process.env.PATH,
+              PATH,
               GIT_CONFIG_GLOBAL: "/dev/null",
               GIT_CONFIG_NOSYSTEM: "1",
             },
@@ -55,7 +56,6 @@ for (const checkout of [false, true]) {
       }
       await mkdir(join(root, "bin"));
       await symlink(process.execPath, join(root, "bin", "bun"));
-      const { PATH: inheritedPath } = process.env;
       for (const override of [exportedCommit, "", undefined]) {
         if (checkout || override) {
           expect(desktopSourceCommit(root, override)).toBe(
@@ -75,7 +75,7 @@ for (const checkout of [false, true]) {
           {
             cwd: root,
             env: {
-              PATH: `${root}/bin:${inheritedPath}`,
+              PATH: `${root}/bin:${PATH}`,
               BUILD_GIT_SHA: override,
               GIT_DIR: join(matrix, ".git"),
               GIT_WORK_TREE: matrix,
