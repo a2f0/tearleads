@@ -9,7 +9,7 @@ import {
   sep,
 } from "node:path";
 import { parseArgs } from "node:util";
-import { checkArguments } from "../lib/checkRoot";
+import { checkArguments, requireGitRoot } from "../lib/checkRoot";
 import {
   codeReferenceIssues,
   isCodeReferenceDocument,
@@ -43,6 +43,7 @@ const { values, positionals } = parseArgs({
   },
 });
 
+requireGitRoot(root);
 const repo = repositoryFiles(root, listRepositoryFiles(root));
 function repositoryPath(path: string): string {
   const local = relative(root, path);

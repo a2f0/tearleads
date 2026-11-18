@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { checkRoot } from "../lib/checkRoot";
+import { requireGitRoot } from "../lib/checkRoot";
 import {
   apiMigrationHistoryErrors,
   apiMigrationsPath,
@@ -53,15 +53,10 @@ function resolveBase(): { readonly commit: string; readonly label: string } {
 
 function readBaseFiles(commit: string): MigrationFiles {
   const files = new Map<string, string>();
-  const listing = git([
-    "ls-tree",
-    "-r",
-    "--name-only",
-    commit,
-    "--",
-    apiMigrationsPath,
-  ]);
-  for (const path of listing?.split("\n").filter(Boolean) ?? []) {
+  const listing =
+    git(["ls-tree", "-r", "--name-only", commit, "--", apiMigrationsPath]) ??
+    fail(`cannot read migration history at ${commit}`);
+  for (const path of listing.split("\n").filter(Boolean)) {
     const content =
       git(["show", `${commit}:${path}`]) ?? fail(`cannot read ${path}`);
     files.set(relative(apiMigrationsPath, path), content);
@@ -82,7 +77,7 @@ function readWorktreeFiles(): MigrationFiles {
   return files;
 }
 
-process.chdir(checkRoot());
+process.chdir(requireGitRoot());
 const base = resolveBase();
 const baseFiles = readBaseFiles(base.commit);
 if (baseFiles.size === 0) {

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import {
   apiMigrationHistoryErrors,
@@ -15,10 +15,24 @@ test("migration checks at the checkout root compare its own Git history", () => 
   const decoy = fixture();
   try {
     decoy.commit();
-    const result = Bun.spawnSync(
-      [process.execPath, "scripts/checks/lintApiMigrations.ts"],
-      {
-        cwd: repoRoot,
+    const nesting = join(
+      decoy.cwd,
+      process.platform === "win32" ? "inside" : "layer:inside",
+    );
+    mkdirSync(nesting);
+    const repo = fixture(nesting);
+    for (const file of [
+      "scripts/lib/checkRoot.ts",
+      "scripts/checks/lintApiMigrations.ts",
+      "scripts/checks/apiMigrationHistory.ts",
+    ])
+      repo.write(file, readFileSync(join(repoRoot, file), "utf8"));
+    for (const [file, content] of base)
+      repo.write(join(apiMigrationsPath, file), content);
+    repo.commit();
+    const run = () =>
+      Bun.spawnSync([process.execPath, "scripts/checks/lintApiMigrations.ts"], {
+        cwd: repo.cwd,
         env: {
           ...decoy.env,
           API_MIGRATIONS_BASE_REF: "HEAD",
@@ -27,10 +41,16 @@ test("migration checks at the checkout root compare its own Git history", () => 
           GIT_SHALLOW_FILE: join(decoy.cwd, "foreign-shallow"),
           GIT_GRAFT_FILE: join(decoy.cwd, "foreign-grafts"),
         },
-      },
-    );
+      });
+    const result = run();
     expect(result.exitCode, result.stderr.toString()).toBe(0);
     expect(result.stdout.toString()).toContain("API migrations append to HEAD");
+    rmSync(join(repo.cwd, ".git"), { recursive: true });
+    const exported = run();
+    expect(exported.exitCode).toBe(1);
+    expect(exported.stderr.toString()).toContain(
+      "requires its own Git checkout",
+    );
   } finally {
     rmSync(decoy.cwd, { recursive: true, force: true });
   }

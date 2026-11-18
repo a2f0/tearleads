@@ -1,11 +1,8 @@
-import { existsSync, realpathSync } from "node:fs";
-import { join } from "node:path";
-import { checkArguments } from "../lib/checkRoot";
+import { checkArguments, requireGitRoot } from "../lib/checkRoot";
 import { verificationPlan, verificationUsage } from "./verificationPlan";
 import {
   saveVerificationReport,
   type VerificationReport,
-  verificationGit,
   verificationReportPath,
   verificationSnapshot,
 } from "./verificationReport";
@@ -144,12 +141,7 @@ try {
   if (args.includes("--help") && args.length <= 2) {
     console.log(verificationUsage);
   } else {
-    if (
-      !existsSync(join(target, ".git")) ||
-      realpathSync(verificationGit(target, "rev-parse", "--show-toplevel")) !==
-        target
-    )
-      throw new Error(`Verification requires its own Git checkout: ${target}`);
+    requireGitRoot(target);
     process.exitCode = await verify(target, verificationPlan(target, args));
   }
 } catch (error) {

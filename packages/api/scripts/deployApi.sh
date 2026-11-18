@@ -33,6 +33,10 @@ esac
 unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
 REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 API_DIR="$REPO_ROOT/packages/api"
+if ! git -c core.fsmonitor=false -C "$REPO_ROOT" --git-dir=.git rev-parse HEAD >/dev/null; then
+  echo "API deployment requires its own Git checkout: $REPO_ROOT" >&2
+  exit 1
+fi
 
 # shellcheck source=../../../terraform/scripts/common.sh
 # shellcheck disable=SC1091
@@ -130,7 +134,7 @@ read_connection() {
 }
 
 BUNDLE_DIR="$CONNECTION_DIR/bundle"
-build_api_worker "$API_DIR" "$TIER" "$DEPLOY_CONFIG" "$BUNDLE_DIR"
+GIT_DIR="$REPO_ROOT/.git" GIT_WORK_TREE="$REPO_ROOT" build_api_worker "$API_DIR" "$TIER" "$DEPLOY_CONFIG" "$BUNDLE_DIR"
 
 echo "Running $TIER database migrations..."
 (

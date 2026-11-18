@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { realpathSync } from "node:fs";
-import { delimiter, dirname, resolve } from "node:path";
+import { existsSync, realpathSync } from "node:fs";
+import { join, resolve } from "node:path";
 
 const ownerRoot = realpathSync(resolve(import.meta.dir, "../.."));
 
@@ -17,12 +17,20 @@ export function checkRoot(root = ownerRoot): string {
     });
     for (const key of names.trim().split(/\s+/)) delete process.env[key];
   }
-  // An exported tree without its own .git must never discover its parent.
-  const ceilingVariable = "GIT_CEILING_DIRECTORIES";
-  const ceilings = process.env[ceilingVariable];
-  process.env[ceilingVariable] = [dirname(root), ceilings]
-    .filter(Boolean)
-    .join(delimiter);
+  return root;
+}
+
+// A source export nested in another repository must not use that history.
+export function requireGitRoot(root = checkRoot()): string {
+  if (
+    !existsSync(join(root, ".git")) ||
+    realpathSync(
+      execFileSync("git", ["-C", root, "rev-parse", "--show-toplevel"], {
+        encoding: "utf8",
+      }).trimEnd(),
+    ) !== root
+  )
+    throw new Error(`This command requires its own Git checkout: ${root}`);
   return root;
 }
 

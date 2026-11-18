@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { checkArguments } from "../lib/checkRoot";
+import { checkArguments, requireGitRoot } from "../lib/checkRoot";
 import {
   type FileSizeBudget,
   parseSourceShapeBaseline,
@@ -27,6 +27,7 @@ function selection() {
   const indexVariable = "GIT_INDEX_FILE";
   const candidate = process.env[indexVariable];
   const selected = checkArguments();
+  requireGitRoot(selected.root);
   if (
     selected.args[0] === "--staged" &&
     candidate &&

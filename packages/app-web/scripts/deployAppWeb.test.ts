@@ -65,7 +65,7 @@ purge_cloudflare_cache_for_hosts() { printf 'purge|%s\\n' "$*" >> "$WEB_DEPLOY_L
     }).trim();
   git(matrix, "init", "--quiet");
   git(root, "init", "--quiet");
-  const commitFixture = (cwd: string) =>
+  const commitFixture = (cwd: string, message: string) =>
     git(
       cwd,
       "-c",
@@ -77,10 +77,10 @@ purge_cloudflare_cache_for_hosts() { printf 'purge|%s\\n' "$*" >> "$WEB_DEPLOY_L
       "commit",
       "--allow-empty",
       "-qm",
-      "checkout",
+      message,
     );
-  commitFixture(root);
-  commitFixture(matrix);
+  commitFixture(root, "checkout");
+  commitFixture(matrix, "matrix");
   const commit = git(root, "rev-parse", "HEAD");
   // The release identifies the whole checkout, even with a nested Git directory.
   git(join(root, "packages/app-web"), "init", "--quiet");

@@ -445,3 +445,45 @@ for (const [label, storage] of [
     expect(run.deployedConfig).toBe("");
   });
 }
+
+test("API deployment requires the exported tree's own Git metadata", async () => {
+  const outer = await mkdtemp(resolve(tmpdir(), "tearleads-api-parent-"));
+  try {
+    const path = "checkouts/export/packages/api/scripts/deployApi.sh";
+    await mkdir(dirname(resolve(outer, path)), { recursive: true });
+    await cp(
+      resolve(import.meta.dir, "../../api/scripts/deployApi.sh"),
+      resolve(outer, path),
+    );
+    const env = {
+      PATH: "/usr/bin:/bin",
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_NOSYSTEM: "1",
+    };
+    for (const args of [
+      ["init", "--quiet"],
+      [
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.test",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "--allow-empty",
+        "-qm",
+        "outer",
+      ],
+    ])
+      expect(
+        Bun.spawnSync(["git", ...args], { cwd: outer, env }).exitCode,
+      ).toBe(0);
+    const result = Bun.spawnSync(["bash", path, "prod"], { cwd: outer, env });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.toString()).toContain(
+      "API deployment requires its own Git checkout",
+    );
+  } finally {
+    await rm(outer, { recursive: true, force: true });
+  }
+});
