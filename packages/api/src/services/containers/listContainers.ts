@@ -18,6 +18,10 @@ import {
   resolveReadableContainerAccessBatch,
 } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
+import {
+  containerHasDiscoveryAccess,
+  discoveryGrantSubjects,
+} from "./containerDiscoveryAccess";
 import { discoveryCursor } from "./discoveryCursor";
 import { readDiscoverySources } from "./discoverySnapshot";
 import {
@@ -118,12 +122,14 @@ function containerTombstonesQuery(input: {
   readonly watermark: SyncWatermark | null;
 }): SQL {
   return sql`
+    with ${discoveryGrantSubjects(input.userId)}
     select container_id as id, discovery_order::text as "discoveryOrder",
       depth, parent_id as "parentId", reason,
       ${syncTimestampExpression(sql`updated_at`)} as "updatedAt"
     from ${containerSyncTombstones}
     where user_id = ${input.userId}
       and ${tombstoneParentIdPredicate(input.parentId)}
+      and (reason <> 'access_revoked' or not ${containerHasDiscoveryAccess(sql`${containerSyncTombstones.containerId}`)})
       ${watermarkPredicate(sql`discovery_order`, textExpression(sql`container_id`), input.watermark)}
     order by discovery_order, container_id
     limit ${input.limit + 1}

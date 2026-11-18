@@ -1,6 +1,9 @@
 import { expect } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { containers } from "@tearleads/api-shared/schema";
+import {
+  containerSyncTombstones,
+  containers,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import { eq, inArray } from "drizzle-orm";
 import { buildMoveRequest } from "../../../test/helpers/containerMutationRotations";
@@ -345,6 +348,11 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     id: expectedDiscoveryId(),
     updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
+  const [historicalRemoval] = await db
+    .select()
+    .from(containerSyncTombstones)
+    .where(eq(containerSyncTombstones.containerId, source.containerId));
+  if (!historicalRemoval) throw new Error("Expected the loss to be recorded");
   const movedBundle = accessManifestFromResponse(movedAway);
   const restore = await buildMoveRequest({
     destinationParent: sharedOldParentBundle,
@@ -366,6 +374,16 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
       token: owner.token,
     }),
   );
+  expect(
+    await db
+      .select()
+      .from(containerSyncTombstones)
+      .where(eq(containerSyncTombstones.id, historicalRemoval.id)),
+  ).toEqual([]);
+  // A pre-upgrade move back left this row behind, possibly with a later clock.
+  await db
+    .insert(containerSyncTombstones)
+    .values({ ...historicalRemoval, updatedAt: new Date("2099-01-01") });
   const restored = await readLanePage(
     await listContainersForUser({
       parentId: oldParent.containerId,

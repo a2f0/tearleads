@@ -91,6 +91,8 @@ export async function applyListedContainerDocuments(
   const tombstoneDocumentSummaries = await settleContainerDocumentTombstones({
     containerIds: [containerId],
     store: options,
+    isCurrent: verification.isCurrent,
+    freshlyLinked: verification.freshlyLinked ?? [],
     // A later page can unlink a live item with an older entity clock.
     // All removal hints reach the signed current-head gate for held placements.
     tombstones: listedDocuments.tombstones,

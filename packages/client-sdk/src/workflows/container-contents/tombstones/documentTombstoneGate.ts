@@ -88,10 +88,13 @@ function assertVerdictsCoverCandidates(
  */
 export async function settleContainerDocumentTombstones(input: {
   containerIds: ReadonlyArray<string>;
+  freshlyLinked?: ReadonlyArray<ContainerDocumentPlacement>;
+  isCurrent?: () => Promise<boolean>;
   store: TombstoneGateStore;
   tombstones: ReadonlyArray<ContainerDocumentTombstone>;
 }): Promise<ReadonlyArray<DocumentSummary>> {
   const { store } = input;
+  const isCurrent = input.isCurrent ?? (async () => true);
   const held = await store.listHeldContainerDocumentTombstones(
     input.containerIds,
   );
@@ -104,8 +107,23 @@ export async function settleContainerDocumentTombstones(input: {
     return [];
   }
 
-  const verdicts = await store.verifyContainerDocumentTombstones(candidates);
-  assertVerdictsCoverCandidates(candidates, verdicts);
+  const evidence = await store.verifyContainerDocumentTombstones(candidates);
+  if (!(await isCurrent())) return [];
+  assertVerdictsCoverCandidates(candidates, evidence);
+  const freshlyLinked = new Set(input.freshlyLinked?.map(placementKey));
+  // The live verifier may already have read the signed head on an old-server
+  // overlap. Keep its placement visible and retry when the second read failed.
+  const verdicts = evidence.map(
+    (verdict): ContainerDocumentTombstoneVerdict =>
+      (verdict.kind === "unverified" || verdict.kind === "deferred") &&
+      freshlyLinked.has(placementKey(verdict.tombstone))
+        ? {
+            kind: "refuted",
+            tombstone: verdict.tombstone,
+            linkedContainerIds: [verdict.tombstone.containerId],
+          }
+        : verdict,
+  );
   const verified = verdicts.flatMap((verdict) =>
     verdict.kind === "verified" ? [verdict.tombstone] : [],
   );
@@ -137,20 +155,24 @@ export async function settleContainerDocumentTombstones(input: {
 
   const summaries =
     verified.length > 0
-      ? await store.applyContainerDocumentTombstones(verified)
+      ? await store.applyContainerDocumentTombstones(verified, isCurrent)
       : [];
   const retryKeys = new Set(refuted.map(placementKey));
   const visibleRetries = dedupePlacements(headLinkedPlacements).filter(
     (placement) => !retryKeys.has(placementKey(placement)),
   );
   if (visibleRetries.length > 0) {
-    await store.refuteContainerDocumentTombstoneHolds(visibleRetries);
+    await store.refuteContainerDocumentTombstoneHolds(
+      visibleRetries,
+      isCurrent,
+    );
   }
   const retries = [
     ...unverified,
     ...deferred,
     ...refuted.map((tombstone) => ({ ...tombstone, refuted: true })),
   ];
-  if (retries.length > 0) await store.holdContainerDocumentTombstones(retries);
+  if (retries.length > 0)
+    await store.holdContainerDocumentTombstones(retries, isCurrent);
   return summaries;
 }

@@ -244,10 +244,10 @@ test("discovery retries only the listed container's holds", async () => {
       "real-folder",
       "other",
     ]);
-    await store.holdContainerDocumentTombstones([
-      tombstone,
-      { ...tombstone, containerId: "other" },
-    ]);
+    await store.holdContainerDocumentTombstones(
+      [tombstone, { ...tombstone, containerId: "other" }],
+      async () => true,
+    );
 
     const retried: ContainerDocumentTombstone[][] = [];
     await discoverRealFolder(store, {

@@ -117,8 +117,9 @@ both come from the same snapshot. Each page orders by publication position and I
 Existing clients already save and echo both watermark strings. The opaque ID
 seals the position and row ID with authenticated encryption bound to the user,
 lane, and cursor timestamp. A server cursor-key rotation starts a bounded
-replay. A device resuming from a timestamp-only
-cursor replays the lane once, in bounded pages, recovering earlier omissions.
+replay. A device resuming from a legacy UUID cursor replays the lane once,
+in bounded pages, recovering earlier omissions.
+A repeated folder in one crawl is reapplied when its listing changes.
 Parent lanes checkpoint each applied page. Document lanes checkpoint after
 applying the complete lane. After a restart, each resumes from its last
 durable checkpoint, replaying any intervening pages.
@@ -133,6 +134,7 @@ An inconclusive read leaves the page retryable. When a live folder's entity
 clock moves backwards, hydration verifies the current signed placement and
 rechecks that checkpoint inside its local transaction. A move that restores
 inherited access prunes the superseded revocation for the moved subtree.
+Listings suppress older revocations when that path already grants access.
 Document removals, including
 those received after a live item on an earlier page, reach the signed-head
 check for locally held placements. These client-side recovery changes require

@@ -4,7 +4,6 @@ import {
   accessManifests,
   containers,
   documentUpdateSpans,
-  principalMembershipProjection,
 } from "@tearleads/api-shared/schema";
 import type { SyncWatermark } from "@tearleads/validators/response";
 import { type SQL, sql } from "drizzle-orm";
@@ -14,9 +13,8 @@ import {
   jsonTextProperty,
   readDateValue,
   textExpression,
-  uuidValue,
 } from "../../utils/postgresSql";
-import { currentPrincipalStateHashSql } from "../../workflows/principals/currentPrincipalStateSql";
+import { discoveryGrantSubjects } from "./containerDiscoveryAccess";
 import { watermarkPredicate } from "./syncPaging";
 import { readSyncTimestamp, syncTimestampExpression } from "./syncTimestamp";
 
@@ -117,25 +115,7 @@ export function accessibleContainersQuery(input: {
   return sql`
     -- Direct membership is the whole of reachability; principals contain only
     -- users, so there is no transitive tier to walk.
-    with recursive reachable_principals as (
-      select
-        pmp.principal_type,
-        pmp.principal_id
-      from ${principalMembershipProjection} pmp
-      where
-        pmp.user_id = ${uuidValue(input.userId)}
-        and pmp.state_hash = ${currentPrincipalStateHashSql({
-          principalId: sql`pmp.principal_id`,
-          principalType: sql`pmp.principal_type`,
-        })}
-    ),
-    grant_subjects as (
-      select
-        ${"user"} as principal_type,
-        ${uuidValue(input.userId)} as principal_id
-      union all
-      select principal_type, principal_id from reachable_principals
-    ),
+    with recursive ${discoveryGrantSubjects(input.userId)},
     target_parent_path as (
       select
         c.id,

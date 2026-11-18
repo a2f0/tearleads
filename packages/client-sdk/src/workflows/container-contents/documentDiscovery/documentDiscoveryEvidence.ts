@@ -13,7 +13,10 @@ import {
   HEAD_LINK_SET_LOADS_PER_RUN,
 } from "../tombstones/documentTombstoneEvidence";
 import { groupPendingDocumentDiscoveries } from "./documentDiscoveryCandidates";
-import type { DiscoverContainerDocumentsOptions } from "./documentDiscoveryTypes";
+import type {
+  ContainerDocumentPlacement,
+  DiscoverContainerDocumentsOptions,
+} from "./documentDiscoveryTypes";
 import { documentHeadMatchesOrganization } from "./documentHeadScope";
 
 // A same-epoch head can predate a link addition. Only the named head or
@@ -36,21 +39,23 @@ async function verifyInput(
   store: DocumentDiscoveryEvidenceRepository,
   generation: number,
   organizationId: string | undefined,
+  freshlyLinked: ContainerDocumentPlacement[],
 ): Promise<DiscoveredDocumentInput | null | "unavailable"> {
   const localEpoch = await loadLocalEpoch(input.documentId).catch(
     () => Number.MAX_SAFE_INTEGER,
   );
   const cached = await store.loadHead(input.documentId, input.accessStateHash);
   const minimumEpoch = Math.max(localEpoch, input.accessEpoch);
+  const usableCached =
+    cached && cached.accessEpoch >= minimumEpoch ? cached : null;
   const head =
-    cached && cached.accessEpoch >= minimumEpoch
-      ? cached
-      : await loadHead(
-          input.documentId,
-          input.accessEpoch >= localEpoch
-            ? (input.accessStateHash ?? undefined)
-            : undefined,
-        );
+    usableCached ??
+    (await loadHead(
+      input.documentId,
+      input.accessEpoch >= localEpoch
+        ? (input.accessStateHash ?? undefined)
+        : undefined,
+    ));
   if (head === "not-found") return null;
   if (!head || head.accessEpoch < Math.max(localEpoch, input.accessEpoch))
     return "unavailable";
@@ -64,6 +69,9 @@ async function verifyInput(
   if (!head.accessStateHash) return "unavailable";
   if (!(await store.saveHead(input.documentId, head, generation)))
     return "unavailable";
+  if (!usableCached)
+    for (const containerId of head.linkedContainerIds)
+      freshlyLinked.push({ containerId, documentId: input.documentId });
   const { listedContainerIds: _listedContainerIds, ...document } = input;
   return {
     ...document,
@@ -98,6 +106,7 @@ export function createDiscoveredDocumentVerifier(
     );
     const verified = new Map<string, DiscoveredDocumentInput>();
     const settled: DiscoveredDocumentCandidate[] = [];
+    const freshlyLinked: ContainerDocumentPlacement[] = [];
     let next = 0;
     const worker = async () => {
       while (next < candidates.length) {
@@ -111,6 +120,7 @@ export function createDiscoveredDocumentVerifier(
           store,
           generation,
           organizationId,
+          freshlyLinked,
         );
         if (result === "unavailable") {
           await Promise.all(rows.map((row) => store.defer(row, generation)));
@@ -128,6 +138,7 @@ export function createDiscoveredDocumentVerifier(
     );
     return {
       inputs: [...verified.values()],
+      freshlyLinked,
       isCurrent,
       commit: async () => {
         await store.acknowledge(settled, generation);

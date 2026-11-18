@@ -10,7 +10,7 @@ export async function finishRemoteHydration(input: {
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
-  seenContainerIds: ReadonlySet<string>;
+  seenContainerObservations: ReadonlyMap<string, string>;
   containerIdsBeforeHydration: ReadonlySet<string>;
   state: RemoteContainerHydrationState;
 }): Promise<void> {
@@ -20,7 +20,7 @@ export async function finishRemoteHydration(input: {
   if (input.changedCount > 0) {
     input.host.updateSnapshot();
     let insertedCount = 0;
-    for (const containerId of input.seenContainerIds) {
+    for (const containerId of input.seenContainerObservations.keys()) {
       if (!input.containerIdsBeforeHydration.has(containerId)) {
         insertedCount++;
       }

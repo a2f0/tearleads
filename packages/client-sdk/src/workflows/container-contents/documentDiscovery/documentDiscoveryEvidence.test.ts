@@ -101,6 +101,12 @@ test("matching signed heads avoid repeat fetches and changed candidates survive 
     );
     await pinTestDiscoveryHead(execSql, "doc", "signed-head");
     const first = await verify([candidate("doc")], ["a"], await store.begin());
+    expect(first.freshlyLinked).toEqual(
+      head.linkedContainerIds.map((containerId) => ({
+        containerId,
+        documentId: "doc",
+      })),
+    );
     expect(await store.hasPending(["a"])).toBe(true); // Local apply has not committed yet.
     expect(await first.commit()).toBe(true);
     const repeated = await verify(
@@ -108,6 +114,7 @@ test("matching signed heads avoid repeat fetches and changed candidates survive 
       ["a"],
       await store.begin(),
     );
+    expect(repeated.freshlyLinked).toEqual([]);
     expect(calls).toBe(1);
     expect(repeated.inputs[0]?.linkedContainerIds).toEqual(["a"]);
     await store.stage(

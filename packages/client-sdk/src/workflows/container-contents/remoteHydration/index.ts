@@ -452,7 +452,7 @@ export async function hydrateRemoteContainers(input: {
     return 0;
   }
 
-  const seenContainerIds = new Set<string>();
+  const seenContainerObservations = new Map<string, string>();
   const containerIdsBeforeHydration = new Set(state.containersById.keys());
   const childIdsByParentId = createContainerChildIndex(state.containersById);
   const { lanes, queueParentLane } = createContainerParentHydrationQueue({
@@ -478,7 +478,7 @@ export async function hydrateRemoteContainers(input: {
     isCurrent: input.isCurrent,
     lanes,
     queueParentLane: queueDiscoveredParentLane,
-    seenContainerIds,
+    seenContainerObservations,
     state,
   });
   const { changedCount } = result;
@@ -492,7 +492,7 @@ export async function hydrateRemoteContainers(input: {
     host,
     isCurrent: input.isCurrent,
     onFullyHydrated: input.onFullyHydrated,
-    seenContainerIds,
+    seenContainerObservations,
     state,
   });
   return changedCount;

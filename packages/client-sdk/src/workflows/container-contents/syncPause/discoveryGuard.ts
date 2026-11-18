@@ -2,14 +2,24 @@ import {
   ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
 } from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
-import { DocumentContainerProjectionRepository } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { upsertDiscoveredDocuments } from "../../../data/persistence/documents/documentsPersistence";
+import {
+  DocumentContainerProjectionRepository,
+  deleteContainerDocumentTombstonePlacementRows,
+} from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { ContainerDocumentTombstoneHoldRepository } from "../../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
+import {
+  applyContainerDocumentTombstones,
+  upsertDiscoveredDocuments,
+} from "../../../data/persistence/documents/documentsPersistence";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DiscoverContainerDocumentsOptions } from "../documentDiscovery/documentDiscoveryTypes";
 
 type PauseGuardedDiscovery = Pick<
   DiscoverContainerDocumentsOptions,
+  | "applyContainerDocumentTombstones"
+  | "holdContainerDocumentTombstones"
+  | "refuteContainerDocumentTombstoneHolds"
   | "replaceDocumentLinksBatch"
   | "saveContainerDocumentWatermark"
   | "upsertDiscoveredDocuments"
@@ -41,6 +51,35 @@ export function guardDocumentDiscoveryWrites(input: {
         : write(lockedExecSql),
     );
   return {
+    applyContainerDocumentTombstones: (rows, stillCurrent) =>
+      whileCurrent(
+        [],
+        (locked) =>
+          applyContainerDocumentTombstones(
+            locked,
+            rows,
+            deleteContainerDocumentTombstonePlacementRows,
+          ),
+        stillCurrent,
+      ),
+    holdContainerDocumentTombstones: (rows, stillCurrent) =>
+      whileCurrent(
+        undefined,
+        (locked) =>
+          new ContainerDocumentTombstoneHoldRepository(
+            locked,
+          ).holdContainerDocumentTombstones(rows),
+        stillCurrent,
+      ),
+    refuteContainerDocumentTombstoneHolds: (rows, stillCurrent) =>
+      whileCurrent(
+        undefined,
+        (locked) =>
+          new ContainerDocumentTombstoneHoldRepository(
+            locked,
+          ).refuteContainerDocumentTombstoneHolds(rows),
+        stillCurrent,
+      ),
     replaceDocumentLinksBatch: (inputs, stillCurrent) =>
       whileCurrent(
         undefined,
