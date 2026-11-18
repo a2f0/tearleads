@@ -32,6 +32,51 @@ Always Use HTTPS setting, which the production website stack owns because it
 is zone-wide. Every client, provider webhook, and billing return URL that
 names a tearleads.com host uses `https://`.
 
+### Legal contact delivery to Balebase
+
+Google Workspace receives mail for `tearleads.com`. To onboard the website's
+`legal@tearleads.com` address, verify the domain in the **Tearleads**
+organization in production Balebase, then forward that single recipient in
+Google Workspace. The website keeps its published address and Google keeps
+handling the zone's MX.
+
+1. In Balebase, add `tearleads.com` as an inbound mail domain. Copy the
+   complete TXT value beginning with `balebase-verification=`.
+2. Save that value, without DNS quotation marks, as
+   `TF_VAR_balebase_verification_txt` in the production tier's `app.env`.
+   Keep the setting for subsequent deployments. The production website stack
+   manages the record at `_balebase-verification.tearleads.com`; the token for
+   the zone needs DNS Edit. Review a saved plan in a private directory, then
+   apply it after confirming the expected TXT change:
+
+   ```sh
+   RUN_DIR="$(mktemp -d)"
+   terraform/scripts/run-website-stack.sh prod plan -out="$RUN_DIR/website.tfplan"
+   terraform/scripts/run-website-stack.sh prod apply "$RUN_DIR/website.tfplan"
+   dig +short TXT _balebase-verification.tearleads.com
+   ```
+
+3. When the DNS answer matches the issued value, verify the domain in
+   Balebase. Bind `legal@tearleads.com` to an inbox named **Legal** and
+   copy the generated forwarding address from that inbox.
+4. In the Google Admin console, open **Apps → Google Workspace → Gmail →
+   Routing** for the top-level organizational unit. Add an **Email forwarding
+   using recipient address map** rule mapping only `legal@tearleads.com`
+   to the copied address. Select **All incoming messages** and **Also route
+   to original destination** to keep a copy at the original recipient during
+   rollout. [Google Workspace address mapping](https://support.google.com/a/answer/4524505)
+5. Send a message with a unique subject from an external account to
+   `legal@tearleads.com`. Confirm receipt at the original destination and
+   in the Tearleads organization's **Legal** inbox in Balebase. Allow for
+   Google Workspace routing changes to propagate before switching to
+   Balebase-only delivery by clearing **Also route to original destination**.
+   Repeat the delivery check after switching.
+
+To roll back delivery, remove the legal recipient mapping in Google Workspace
+and confirm that a fresh external message reaches the original recipient.
+Once Google has stopped forwarding, retire the Balebase binding if needed.
+The TXT record can stay in place while Tearleads uses Balebase.
+
 ### The www Redirect
 
 `www.tearleads.com` answers 301 to `https://tearleads.com`, keeping the path

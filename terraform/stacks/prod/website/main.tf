@@ -15,3 +15,13 @@ resource "cloudflare_zone_setting" "always_use_https" {
   setting_id = "always_use_https"
   value      = "on"
 }
+
+# The website stack owns the zone-wide records for the public legal contact.
+resource "cloudflare_dns_record" "balebase_verification" {
+  count   = var.balebase_verification_txt == null ? 0 : 1
+  zone_id = module.website.zone_id
+  name    = "_balebase-verification.${var.domain}"
+  type    = "TXT"
+  content = jsonencode(var.balebase_verification_txt)
+  ttl     = 300
+}
