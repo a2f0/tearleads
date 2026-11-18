@@ -85,8 +85,13 @@ export async function hydrateRemoteContainers(input: {
       queueParentLane(containerId);
     }
   };
+  let unavailableDependency: Error | undefined;
   const result = await hydrateContainerParentLanes({
-    continuePastIncompletePages: !!input.reconnect,
+    reconnect: input.reconnect && {
+      recordUnavailable: (error) => {
+        unavailableDependency ??= error;
+      },
+    },
     childIdsByParentId,
     host,
     isCurrent: input.isCurrent,
@@ -111,6 +116,9 @@ export async function hydrateRemoteContainers(input: {
   });
   if (input.reconnect?.isCurrent() && canHydrateRemoteContainers(state)) {
     input.reconnect.record(result.outcome);
+    // A manual refresh sharing this crawl still observes its dependency failure.
+    if (input.resetAllLaneWatermarks && unavailableDependency)
+      throw unavailableDependency;
   }
   return changedCount;
 }

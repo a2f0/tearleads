@@ -19,6 +19,7 @@ import type {
   HydrationOutcome,
   ListedRemoteContainerPageItem,
   QueueContainerParentLane,
+  ReconnectPages,
   RemoteContainerHydrationHost,
   RemoteContainerHydrationState,
 } from "../types";
@@ -72,7 +73,7 @@ function matchesListedState(
 }
 
 async function applyRemoteContainerPage(input: {
-  continuePastIncompletePages: boolean;
+  reconnect?: ReconnectPages | undefined;
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
   expectedHydrationTombstones: FetchedContainerParentLanePage["expectedHydrationTombstones"];
@@ -100,7 +101,7 @@ async function applyRemoteContainerPage(input: {
     state.runtime.principalPolicies.createWarmer({
       operation: input.policyOperation,
     }),
-    input.continuePastIncompletePages,
+    !!input.reconnect,
     input.isCurrent,
   );
   const { items } = policies;
@@ -164,7 +165,7 @@ async function applyRemoteContainerPage(input: {
       (outcome) => {
         failure = outcome;
       },
-      input.continuePastIncompletePages,
+      input.reconnect?.recordUnavailable,
     );
     if (!upserted) {
       outcome = combineOutcomes(outcome, failure);
@@ -232,7 +233,7 @@ function queueNextPage(
 }
 
 async function checkpointPage(input: {
-  continuePastIncompletePages: boolean;
+  reconnect?: ReconnectPages | undefined;
   fetchedPage: FetchedContainerParentLanePage;
   isCurrent?: (() => boolean) | undefined;
   state: RemoteContainerHydrationState;
@@ -240,7 +241,7 @@ async function checkpointPage(input: {
   const { lane, response, syncLane } = input.fetchedPage;
   // Only a drained chain can advance a reconnect checkpoint. Otherwise a
   // cycle can alternate the durable cursor between successive attempts.
-  if (input.continuePastIncompletePages && response.hasMore) return true;
+  if (input.reconnect && response.hasMore) return true;
   const nextWatermark =
     response.nextWatermark ??
     (lane.continuationCursors ? (lane.watermark ?? null) : null);
@@ -253,7 +254,7 @@ async function checkpointPage(input: {
 }
 
 async function applyContainerParentLanePage(input: {
-  continuePastIncompletePages: boolean;
+  reconnect?: ReconnectPages | undefined;
   childIdsByParentId: ContainerChildIndex;
   fetchedPage: FetchedContainerParentLanePage;
   host: RemoteContainerHydrationHost;
@@ -312,7 +313,7 @@ async function applyContainerParentLanePage(input: {
   // lane complete and its watermark advance; their children are never queued.
   const isPaused = await loadPausedContainerFilter(state);
   const appliedPage = await applyRemoteContainerPage({
-    continuePastIncompletePages: input.continuePastIncompletePages,
+    reconnect: input.reconnect,
     childIdsByParentId,
     expectedContainerStates,
     expectedHydrationTombstones,
@@ -335,7 +336,7 @@ async function applyContainerParentLanePage(input: {
     return { changedCount, outcome: "retry", shouldStop: false };
   // A refused item leaves a gap in this lane. Later pages can still discover
   // independent children, but none may move its durable cursor past the gap.
-  if (outcome !== "complete" && !input.continuePastIncompletePages)
+  if (outcome !== "complete" && !input.reconnect)
     return { changedCount, outcome, shouldStop: false };
   const skipWatermarkWrite = lane.skipWatermarkWrite || outcome !== "complete";
   if (!skipWatermarkWrite && !(await checkpointPage(input))) {
@@ -370,7 +371,7 @@ function takeContainerParentLaneBatch(input: {
 }
 
 async function applyContainerParentLaneBatch(input: {
-  continuePastIncompletePages: boolean;
+  reconnect?: ReconnectPages | undefined;
   childIdsByParentId: ContainerChildIndex;
   fetchedPages: ReadonlyArray<FetchedContainerParentLanePage>;
   host: RemoteContainerHydrationHost;
@@ -405,7 +406,7 @@ async function applyContainerParentLaneBatch(input: {
     }
 
     const result = await applyContainerParentLanePage({
-      continuePastIncompletePages: input.continuePastIncompletePages,
+      reconnect: input.reconnect,
       childIdsByParentId,
       fetchedPage,
       host,
@@ -428,7 +429,7 @@ async function applyContainerParentLaneBatch(input: {
 }
 
 export async function hydrateContainerParentLanes(input: {
-  continuePastIncompletePages: boolean;
+  reconnect?: ReconnectPages | undefined;
   childIdsByParentId: ContainerChildIndex;
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
@@ -473,7 +474,7 @@ export async function hydrateContainerParentLanes(input: {
     }
 
     const result = await applyContainerParentLaneBatch({
-      continuePastIncompletePages: input.continuePastIncompletePages,
+      reconnect: input.reconnect,
       childIdsByParentId,
       fetchedPages,
       host,

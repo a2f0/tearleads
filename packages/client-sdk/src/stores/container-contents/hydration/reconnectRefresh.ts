@@ -1,3 +1,4 @@
+import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type {
   HydrationOutcome,
   ReconnectCrawl,
@@ -65,7 +66,13 @@ export class ReconnectRefresh {
       },
     }).then(
       () => finish(isCurrent() ? outcome : "retry"),
-      () => finish(isCurrent() ? "unexpectedFailure" : "retry"),
+      (error: unknown) =>
+        finish(
+          isCurrent() &&
+            !(error instanceof ProjectionDependencyUnavailableError)
+            ? "unexpectedFailure"
+            : "retry",
+        ),
     );
   }
 }

@@ -45,6 +45,7 @@ for (const failure of [
   "mixed",
   "dependency",
   "manual dependency",
+  "shared dependency",
   "policy",
   "expired",
   "runtime",
@@ -113,7 +114,7 @@ for (const failure of [
                   return directory.getContainerWriterProjection(id);
                 badProofReads += 1;
                 if (failure === "withheld") return null;
-                if (failure === "dependency" || failure === "manual dependency")
+                if (failure.includes("dependency"))
                   throw new ProjectionDependencyUnavailableError(
                     "signer unavailable",
                   );
@@ -200,6 +201,7 @@ for (const failure of [
           onFullyHydrated: () => {
             completed = true;
           },
+          resetAllLaneWatermarks: failure === "shared dependency",
           parentIds: [null],
           state,
         });
@@ -212,7 +214,9 @@ for (const failure of [
           expect(incidents).toHaveLength(0);
           return;
         }
-        await hydration;
+        if (failure === "shared dependency")
+          await expect(hydration).rejects.toThrow("signer unavailable");
+        else await hydration;
         expect(state.containersById.has(bad.id)).toBe(false);
         expect(await persistence.containerExists(execSql, bad.id)).toBe(false);
         for (const accepted of [sibling, descendant, later]) {
@@ -226,7 +230,7 @@ for (const failure of [
         expect(badProofReads).toBe(
           failure === "policy"
             ? 0
-            : failure === "expired" || failure === "dependency"
+            : failure === "expired" || failure.includes("dependency")
               ? 2
               : 1,
         );

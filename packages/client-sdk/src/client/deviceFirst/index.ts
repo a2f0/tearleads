@@ -1,6 +1,6 @@
 import type { DomainScope } from "../../data/shared/domainScope";
 import {
-  disposeDomainSyncCoordinator,
+  type DomainSyncCoordinator,
   getOrCreateDomainSyncCoordinator,
   isDatabaseUnavailableError,
 } from "../../data/sync/syncCoordinator";
@@ -81,10 +81,19 @@ export function createDeviceFirst(
 }
 
 interface DeviceFirstScopeEntry {
+  coordinator: DomainSyncCoordinator;
   contents: DeviceFirstContainerContents;
   disconnectReconciliationTriggers: () => void;
   unsubscribePersistedDocumentDeletions: () => void;
   unsubscribePersistedDocuments: () => void;
+}
+
+function stopScopeEntry(entry: DeviceFirstScopeEntry): void {
+  entry.contents.reconciler.stop();
+  entry.disconnectReconciliationTriggers();
+  entry.unsubscribePersistedDocumentDeletions();
+  entry.unsubscribePersistedDocuments();
+  entry.coordinator.dispose();
 }
 
 function createInitialDocumentProbeHost(
@@ -160,14 +169,9 @@ class DeviceFirstService implements DeviceFirst {
     // scope's reconciler subscribed and its coordinator pump live; tear them
     // all down. Force-stop each scope's coordinator (which runs the reconciler
     // lane) alongside stopping the service.
-    for (const [domainScope, entry] of this.entriesByScope) {
-      entry.contents.reconciler.stop();
-      entry.disconnectReconciliationTriggers();
-      entry.unsubscribePersistedDocumentDeletions();
-      entry.unsubscribePersistedDocuments();
-      disposeDomainSyncCoordinator(domainScope);
-    }
+    const entries = Array.from(this.entriesByScope.values());
     this.entriesByScope.clear();
+    for (const entry of entries) stopScopeEntry(entry);
   }
 
   private workflowRuntime(): ContainerContentsStoreWorkflowRuntime {
@@ -180,6 +184,11 @@ class DeviceFirstService implements DeviceFirst {
     const runtime = this.workflowRuntime();
     const domainScope = runtime.state.domainScope;
     const existing = this.entriesByScope.get(domainScope);
+    if (existing?.coordinator.isDisposed()) {
+      this.entriesByScope.delete(domainScope);
+      stopScopeEntry(existing);
+      return this.getOrCreateEntry(options);
+    }
     if (existing) {
       // Do not call updateRuntime here: facade selectors run during React
       // render, and updateRuntime emits synchronously. Hosts drive runtime
@@ -187,13 +196,14 @@ class DeviceFirstService implements DeviceFirst {
       return existing;
     }
 
+    const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
     const store = getOrCreateLocalProjectionStore({
       domainScope,
       runtime,
       options,
     });
     const service = createReconciliationService(
-      this.createReconciliationHost(store, domainScope),
+      this.createReconciliationHost(store, domainScope, coordinator),
     );
     const disconnectReconciliationTriggers = connectReconciliationTriggers({
       service,
@@ -219,6 +229,7 @@ class DeviceFirstService implements DeviceFirst {
     };
 
     const entry: DeviceFirstScopeEntry = {
+      coordinator,
       contents: {
         containerStore: store.getContainerStore(),
         reconciler: service,
@@ -235,6 +246,7 @@ class DeviceFirstService implements DeviceFirst {
   private createReconciliationHost(
     store: LocalProjectionStore,
     domainScope: ReconciliationHost["domainScope"],
+    coordinator: DomainSyncCoordinator,
   ): ReconciliationHost {
     const runtimeService = this.runtimeService;
     const containerContents = this.containerContents;
@@ -283,8 +295,7 @@ class DeviceFirstService implements DeviceFirst {
     return {
       clock: systemReconciliationClock,
       domainScope,
-      registerLane: (key, config) =>
-        getOrCreateDomainSyncCoordinator(domainScope).registerLane(key, config),
+      registerLane: (key, config) => coordinator.registerLane(key, config),
       canDiscoverContainerDocuments,
       getRuntimeStatus: () => {
         const input = runtimeService.workflowInput();
