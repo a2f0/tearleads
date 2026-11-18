@@ -7,6 +7,8 @@ import type {
 import type { ContainerContentsStoreWorkflowRuntime } from "../../../workflows/container-contents/runtime";
 import type { ContainerContentsSyncLane } from "../../../workflows/container-contents/syncLane";
 
+import type { ReconnectRefresh } from "../hydration/reconnectRefresh";
+
 export type ContainerContentsStoreRuntime =
   ContainerContentsStoreWorkflowRuntime;
 
@@ -27,7 +29,10 @@ export interface ContainerContentsStoreSyncAgent {
     isCurrent?: (() => boolean) | undefined,
   ) => Promise<void>;
   refreshLocalContainers: () => Promise<void>;
-  refresh: (options?: { resetAllLaneWatermarks?: boolean }) => Promise<boolean>;
+  refresh: (options?: {
+    onFullyHydrated?: () => void;
+    resetAllLaneWatermarks?: boolean;
+  }) => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   requestRemoteHydration: (options?: {
     followDiscoveredParentLanes?: boolean | undefined;
@@ -94,7 +99,7 @@ export interface ContainerContentsStoreSyncState {
   remoteHydrationPromise: Promise<void> | null;
   remoteHydrationGeneration: number | null;
   remoteHydrationStructuralGeneration: number | null;
-  remoteReconnectRefreshPending: boolean;
+  reconnectRefresh: ReconnectRefresh;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   /** True after this store has fully applied an authoritative root lane. */
   rootLaneHydrated: boolean;

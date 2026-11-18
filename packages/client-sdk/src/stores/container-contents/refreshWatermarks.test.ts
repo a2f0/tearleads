@@ -82,44 +82,51 @@ test("reconnect preserves child watermarks while an explicit refresh resets them
   }
 });
 
-test("a store opened after the connection was acknowledged still re-lists its lanes", async () => {
-  const { execSql, close } = await createTestExecSql(
-    `refresh-watermarks-late-store-${crypto.randomUUID()}`,
-  );
-  const domainScope = createDomainScope();
-  const listedLanes: (string | null)[] = [];
-  const apiClient = createMockApiClient({
-    listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
-      listedLanes.push(parentId ?? null);
-      return emptyListContainersResponse();
-    }),
-  });
-  const base = createContainerContentsTestRuntime({
-    apiClient,
-    domainScope,
-    execSql,
-    online: true,
-    containerId: "root",
-  });
-  // The socket's interest was acknowledged before this store existed.
-  const runtime = {
-    ...base,
-    state: { ...base.state, serverEventsConnectionGeneration: 1 },
-  };
-  try {
-    await seedLocalRootContainer(execSql, { rootContainerId: "root" });
-    const watermarks = new ContainerSyncWatermarkRepository(execSql);
-    await watermarks.markChecked(createContainerParentSyncLane(null));
-    await watermarks.markChecked(createContainerParentSyncLane("root"));
-    const store = createContainerContentsStore(runtime);
-    store.updateRuntime(runtime);
-    await waitFor(
-      () => listedLanes.includes("root"),
-      "A late-opened store never re-listed its lanes",
+test.each([false, true])(
+  "a late-opened store recovers the acknowledged connection (first listing unavailable: %s)",
+  async (failFirstListing) => {
+    const { execSql, close } = await createTestExecSql(
+      `refresh-watermarks-late-store-${crypto.randomUUID()}`,
     );
-    await waitForDomainSyncCoordinatorToSettle(domainScope);
-  } finally {
-    disposeDomainSyncCoordinator(domainScope);
-    close();
-  }
-});
+    const domainScope = createDomainScope();
+    const listedLanes: (string | null)[] = [];
+    const apiClient = createMockApiClient({
+      listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
+        listedLanes.push(parentId ?? null);
+        if (failFirstListing && listedLanes.length === 1) return null;
+        return emptyListContainersResponse();
+      }),
+    });
+    const base = createContainerContentsTestRuntime({
+      apiClient,
+      domainScope,
+      execSql,
+      online: true,
+      containerId: "root",
+    });
+    // The socket's interest was acknowledged before this store existed.
+    const runtime = {
+      ...base,
+      state: { ...base.state, serverEventsConnectionGeneration: 1 },
+    };
+    try {
+      await seedLocalRootContainer(execSql, { rootContainerId: "root" });
+      const watermarks = new ContainerSyncWatermarkRepository(execSql);
+      await watermarks.markChecked(createContainerParentSyncLane(null));
+      await watermarks.markChecked(createContainerParentSyncLane("root"));
+      const store = createContainerContentsStore(runtime);
+      store.updateRuntime(runtime);
+      await waitFor(
+        () =>
+          listedLanes.filter((lane) => lane === null).length >=
+            (failFirstListing ? 2 : 1) && listedLanes.includes("root"),
+        "The reconnect crawl did not recover without another runtime update",
+        2_500,
+      );
+      await waitForDomainSyncCoordinatorToSettle(domainScope);
+    } finally {
+      disposeDomainSyncCoordinator(domainScope);
+      close();
+    }
+  },
+);

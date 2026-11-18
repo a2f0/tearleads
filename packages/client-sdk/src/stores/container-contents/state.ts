@@ -5,10 +5,12 @@ import {
 } from "../../workflows/container-contents/projectionKeys";
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
 import { ContainerStateMap } from "./containerState/containerStateMap";
+import { ReconnectRefresh } from "./hydration/reconnectRefresh";
 import { didContainerWriteRuntimeChange } from "./remoteWrites/writeGeneration";
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncAgent,
+  ContainerContentsStoreSyncState,
 } from "./syncAgent/syncAgentTypes";
 import type {
   ContainerContentsSnapshot,
@@ -109,8 +111,9 @@ export function createContainerContentsStoreState(
     remoteHydrationStructuralGeneration: null,
     // A store opened after the socket's interest was acknowledged missed that
     // acknowledgement's re-list, which is how hints lost earlier are recovered.
-    remoteReconnectRefreshPending:
+    reconnectRefresh: new ReconnectRefresh(
       (initialRuntime.state.serverEventsConnectionGeneration ?? 0) > 0,
+    ),
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),
     rootLaneHydrated: false,
@@ -234,7 +237,7 @@ export function updateContainerContentsStoreRuntime(
   }
   state.runtime = nextRuntime;
   if (serverEventsConnectionChanged) {
-    state.remoteReconnectRefreshPending = true;
+    state.reconnectRefresh.acknowledge();
   }
 
   if (nextRuntime.infra.dbStatus !== "ready") {
@@ -296,21 +299,18 @@ export function updateContainerContentsStoreRuntime(
 }
 
 export function consumePendingContainerContentsReconnectRefresh(
-  state: {
-    remoteReconnectRefreshPending: boolean;
-    snapshot: { ready: boolean };
-  },
-  refresh: () => Promise<boolean>,
+  state: ContainerContentsStoreSyncState,
+  refresh: ContainerContentsStoreSyncAgent["refresh"],
 ): void {
-  if (!state.snapshot.ready || !state.remoteReconnectRefreshPending) return;
-  state.remoteReconnectRefreshPending = false;
-  void refresh().then(
-    (refreshed) => {
-      if (!refreshed) state.remoteReconnectRefreshPending = true;
-    },
-    () => {
-      state.remoteReconnectRefreshPending = true;
-    },
+  state.reconnectRefresh.runWhenReady(
+    () =>
+      state.snapshot.ready &&
+      state.initialized &&
+      state.runtime.infra.dbStatus === "ready" &&
+      state.runtime.auth.isAuthenticated &&
+      state.runtime.state.online &&
+      !state.syncLane?.isDisposed?.(),
+    refresh,
   );
 }
 

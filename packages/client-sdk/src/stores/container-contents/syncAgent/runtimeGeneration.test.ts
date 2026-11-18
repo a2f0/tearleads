@@ -16,7 +16,7 @@ import {
 } from "./index";
 
 function syncAgentDouble(
-  overrides: { refresh?: () => Promise<boolean> } = {},
+  overrides: { refresh?: ContainerContentsStoreSyncAgent["refresh"] } = {},
 ): ContainerContentsStoreSyncAgent {
   return {
     ensureInitialized: () => {},
@@ -65,7 +65,12 @@ test("server event reconnection forces remote lane reconciliation", () => {
   );
   state.initialized = true;
   updateContainerContentsSnapshot(state);
-  const refresh = mock(async () => true);
+  const refresh = mock<ContainerContentsStoreSyncAgent["refresh"]>(
+    async (options) => {
+      options?.onFullyHydrated?.();
+      return true;
+    },
+  );
 
   updateContainerContentsStoreRuntime(
     state,
@@ -147,7 +152,6 @@ test("reconnect during initialization retains a full remote relist", async () =>
       },
       syncAgent,
     );
-    expect(state.remoteReconnectRefreshPending).toBe(true);
     expect(listContainerParentLanes).not.toHaveBeenCalled();
 
     resolveLoad([]);
@@ -156,7 +160,7 @@ test("reconnect during initialization retains a full remote relist", async () =>
       () => listContainerParentLanes.mock.calls.length === 1,
       "reconnect relist did not run after initialization",
     );
-    expect(state.remoteReconnectRefreshPending).toBe(false);
+    await state.remoteHydrationPromise;
   } finally {
     await close();
   }

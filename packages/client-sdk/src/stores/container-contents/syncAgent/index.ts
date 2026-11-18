@@ -140,7 +140,7 @@ async function initializeContainerContentsStore(input: {
 function waitForStaleLocalRefreshBeforeInitialization(input: {
   handleRemoteEvents: () => void;
   host: RemoteContainerHydrationHost;
-  refreshAfterReconnect: () => Promise<boolean>;
+  refreshAfterReconnect: ContainerContentsStoreSyncAgent["refresh"];
   resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
@@ -179,7 +179,7 @@ function waitForStaleLocalRefreshBeforeInitialization(input: {
 function ensureContainerContentsStoreInitialized(input: {
   handleRemoteEvents: () => void;
   host: RemoteContainerHydrationHost;
-  refreshAfterReconnect: () => Promise<boolean>;
+  refreshAfterReconnect: ContainerContentsStoreSyncAgent["refresh"];
   resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
@@ -299,6 +299,7 @@ export function createContainerContentsStoreSyncAgent(input: {
     refreshAllRemoteHydration({
       // Explicit user refresh must rediscover children hidden by unsigned hints.
       resetAllLaneWatermarks: options?.resetAllLaneWatermarks,
+      onFullyHydrated: options?.onFullyHydrated,
       requestHydration: requestRefreshHydration,
       state,
     });
