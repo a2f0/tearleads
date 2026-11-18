@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import type { ScreenshotGalleryElement } from "@a2f0/agent-tool/screenshots/gallery";
+import { parseScreenshotManifest } from "@a2f0/agent-tool/screenshots/manifest";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { releaseNotice } from "./config";
 import { pngHeader, stageScreenshots } from "./stageScreenshots.testUtils";
@@ -164,19 +166,21 @@ test("stepping from the index hides the newly selected screen heading", async ()
     template.innerHTML = gallery;
     const heading = template.content.querySelector("h1");
     const viewer = template.content.querySelector("screenshot-gallery");
-    if (!heading || !viewer)
+    if (!heading || !viewer) {
       throw new Error("Missing gallery header or viewer");
+    }
     // Supply the built fixture manifest directly without fetching from the test host.
     viewer.removeAttribute("manifest");
     document.body.append(heading, viewer);
     await loadPageScripts(gallery);
-    const element = document.querySelector("screenshot-gallery");
-    if (!element) throw new Error("Missing screenshot gallery");
-    Object.assign(element, {
-      manifestData: await Bun.file(
-        join(output, "screenshot-gallery/manifest.json"),
-      ).json(),
-    });
+    const element =
+      document.querySelector<ScreenshotGalleryElement>("screenshot-gallery");
+    if (!element || !("manifestData" in element)) {
+      throw new Error("Screenshot gallery did not upgrade");
+    }
+    element.manifestData = parseScreenshotManifest(
+      await Bun.file(join(output, "screenshot-gallery/manifest.json")).json(),
+    );
     expect(heading.classList.contains("visually-hidden")).toBe(false);
     element.querySelector<HTMLButtonElement>('[data-action="next"]')?.click();
     expect(location.pathname).toMatch(/^\/screenshots\/mobile\/[^/]+\/$/);
