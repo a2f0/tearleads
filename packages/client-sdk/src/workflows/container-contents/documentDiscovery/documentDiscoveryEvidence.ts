@@ -92,7 +92,11 @@ async function verifyInput(
   if (requiresCurrentHead)
     for (const containerId of head.linkedContainerIds)
       freshlyLinked.push({ containerId, documentId: input.documentId });
-  const { listedContainerIds: _listedContainerIds, ...document } = input;
+  const {
+    listedContainerIds: _listedContainerIds,
+    requiresCurrentHead: _requiresCurrentHead,
+    ...document
+  } = input;
   return {
     ...document,
     containerId,
@@ -127,7 +131,9 @@ export function createDiscoveredDocumentVerifier(
     const removed = (tombstones ?? []).filter((row) =>
       lanes.has(row.containerId),
     );
-    if (!(await store.stage(inputs, generation, removed)))
+    if (
+      !(await store.stage(inputs, generation, removed, conflictingDocumentIds))
+    )
       return { inputs: [], isCurrent, commit: async () => true };
     const candidates = groupPendingDocumentDiscoveries(
       await store.pending(containerIds, HEAD_LINK_SET_LOADS_PER_RUN),
@@ -149,7 +155,7 @@ export function createDiscoveredDocumentVerifier(
           generation,
           organizationId,
           freshlyLinked,
-          conflictingDocumentIds?.has(input.documentId) === true,
+          rows.some((row) => row.requiresCurrentHead === true),
         );
         if (result === "unavailable") {
           await Promise.all(rows.map((row) => store.defer(row, generation)));

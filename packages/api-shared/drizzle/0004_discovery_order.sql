@@ -1,3 +1,6 @@
+-- Acquire the complete metadata lock set without waiting behind an active writer.
+LOCK TABLE public.documents, public.containers, public.container_document_sync_tombstones, public.container_sync_tombstones IN ACCESS EXCLUSIVE MODE NOWAIT;
+--> statement-breakpoint
 ALTER TABLE "container_document_sync_tombstones" ADD COLUMN IF NOT EXISTS "discovery_order" bigint DEFAULT 0 NOT NULL;
 --> statement-breakpoint
 ALTER TABLE "container_sync_tombstones" ADD COLUMN IF NOT EXISTS "discovery_order" bigint DEFAULT 0 NOT NULL;

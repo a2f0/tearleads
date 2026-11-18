@@ -123,10 +123,11 @@ async function migrateOnOneSession(
   const client = await pool.connect();
   try {
     const session = drizzleNodePostgres({ client, schema });
-    await migrateWithHistory(session, migrationsFolder, async (config) => {
-      await prepareDiscoveryMigration(session, migrationsFolder);
-      await migrateNodePostgres(session, config);
-    });
+    await migrateWithHistory(session, migrationsFolder, (config) =>
+      prepareDiscoveryMigration(session, migrationsFolder, () =>
+        migrateNodePostgres(session, config),
+      ),
+    );
   } finally {
     client.release();
   }

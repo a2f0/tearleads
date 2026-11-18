@@ -145,6 +145,62 @@ test("matching signed heads avoid repeat fetches and changed candidates survive 
   }
 });
 
+test("a deferred live and unlink conflict still requires the current signed head after restart", async () => {
+  const { execSql, close } = await createTestExecSql(
+    "discovery-conflict-restart",
+  );
+  try {
+    let now = 0;
+    const store = new DocumentDiscoveryEvidenceRepository(execSql, () => now);
+    const original = candidate("doc");
+    await pinTestDiscoveryHead(execSql, "doc", "signed-head");
+    await store.saveHead("doc", head, await store.begin());
+    const unavailable = createDiscoveredDocumentVerifier(
+      "org",
+      async () => null,
+      async () => 1,
+      store,
+    );
+    const waiting = await unavailable(
+      [original],
+      ["a"],
+      await store.begin(),
+      [],
+      new Set(["doc"]),
+    );
+    expect(waiting.inputs).toEqual([]);
+    expect(await waiting.commit()).toBe(false);
+    now = 15 * 60_000 + 1;
+    const reopened = new DocumentDiscoveryEvidenceRepository(
+      execSql,
+      () => now,
+    );
+    const requests: (string | undefined)[] = [];
+    const retry = createDiscoveredDocumentVerifier(
+      "org",
+      async (_id, hash) => {
+        requests.push(hash);
+        return {
+          ...head,
+          accessEpoch: 2,
+          accessStateHash: "after-unlink",
+          linkedContainerIds: [],
+        };
+      },
+      async () => 1,
+      reopened,
+    );
+    // A repeated live candidate can arrive independently of the already
+    // checkpointed unlink. It cannot clear the pending freshness requirement.
+    const result = await retry([original], ["a"], await reopened.begin());
+    expect(requests).toEqual([undefined]);
+    expect(result.inputs).toEqual([]);
+    expect(await result.commit()).toBe(true);
+  } finally {
+    close();
+  }
+});
+
 for (const available of [true, false]) {
   test(`discovery advances the lane on signed-head evidence (head available=${available})`, async () => {
     const { execSql, close } = await createTestExecSql(

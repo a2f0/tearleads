@@ -65,11 +65,32 @@ async function buildDiscoveryIndex(db: ApiDatabase, statement: string) {
   );
 }
 
+function unavailableLock(error: unknown): boolean {
+  for (let cause = error; cause instanceof Error; cause = cause.cause)
+    if ("code" in cause && cause.code === "55P03") return true;
+  return false;
+}
+
+async function retryDiscoveryCutover(run: () => Promise<void>) {
+  const deadline = Date.now() + 60_000;
+  while (true) {
+    try {
+      return await run();
+    } catch (error) {
+      if (!unavailableLock(error) || Date.now() >= deadline) throw error;
+      // The failed transaction has released every lock it acquired. Let
+      // the application's transaction finish before taking the complete set.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+}
+
 /** Called only for a PostgreSQL migrate, on the session that holds the
  * migration advisory lock and has already validated its journal. */
 export async function prepareDiscoveryMigration(
   db: ApiDatabase,
   folder: string,
+  migrate: () => Promise<void>,
 ) {
   const journal = readJournalMigrations(folder);
   const setup = journal.find(
@@ -78,18 +99,20 @@ export async function prepareDiscoveryMigration(
   const finish = journal.find(
     (migration) => migration.tag === "0005_publish_discovery_order",
   );
-  if (!setup || !finish) return;
+  if (!setup || !finish) return migrate();
   const applied = await readAppliedMigrations(db);
   if (
     !applied.length ||
     applied.some((row) => row.createdAt === finish.folderMillis)
   )
-    return;
+    return migrate();
   // Existing writers switch to deferred publication together. The old API can
   // continue reading immediately after these metadata-only locks are released.
-  await db.transaction(async (tx) => {
-    for (const statement of setup.sql) await tx.execute(sql.raw(statement));
-  });
+  await retryDiscoveryCutover(() =>
+    db.transaction(async (tx) => {
+      for (const statement of setup.sql) await tx.execute(sql.raw(statement));
+    }),
+  );
   for (const [table, removed] of sources) {
     await fillHistoricalRows(db, sql`public.${sql.identifier(table)}`, removed);
   }
@@ -98,4 +121,5 @@ export async function prepareDiscoveryMigration(
   await db.execute(
     sql`update drizzle.discovery_cursor_key set backfill_complete = true where singleton`,
   );
+  await retryDiscoveryCutover(migrate);
 }

@@ -135,9 +135,26 @@ test.skipIf(!serverUrl)(
       "create trigger pause_discovery_fixture before update on documents for each row execute function pause_discovery_fixture()",
     );
     await reader.query("select pg_advisory_lock(710112)");
+    await reader.query("begin");
+    await reader.query("lock table documents in row exclusive mode");
     const migrating = db.migrate({ migrationsFolder: sourceFolder });
     try {
       const deadline = Date.now() + 15000;
+      while (true) {
+        const attempted = await reader.query(
+          "select 1 from pg_stat_activity where datname = current_database() and pid <> pg_backend_pid() and (wait_event_type='Lock' or lower(query)='rollback')",
+        );
+        if (attempted.rowCount) break;
+        if (Date.now() > deadline)
+          throw new Error("Migration did not attempt cutover");
+        // PostgreSQL otherwise reuses the statistics snapshot in this writer transaction.
+        await reader.query("select pg_stat_clear_snapshot()");
+        await Bun.sleep(15);
+      }
+      // A document mutation touches its container after locking the document.
+      await reader.query("set local lock_timeout = '300ms'");
+      await reader.query("lock table containers in row exclusive mode");
+      await reader.query("commit");
       while (true) {
         const waiters = await reader.query(
           "select 1 from pg_stat_activity where pg_backend_pid() = any(pg_blocking_pids(pid))",
@@ -167,6 +184,7 @@ test.skipIf(!serverUrl)(
         ).rows[0].published,
       ).toBe(true);
     } finally {
+      await reader.query("rollback");
       await reader.query("select pg_advisory_unlock(710112)");
       await migrating;
     }

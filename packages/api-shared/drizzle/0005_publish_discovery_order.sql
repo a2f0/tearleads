@@ -2,6 +2,7 @@
 -- concurrently before the journaled migration. Empty installations and
 -- single-writer PGlite use the same schema directly.
 DO $$ BEGIN
+  LOCK TABLE public.documents, public.containers, public.container_document_sync_tombstones, public.container_sync_tombstones IN ACCESS EXCLUSIVE MODE NOWAIT;
   IF NOT (SELECT backfill_complete FROM drizzle.discovery_cursor_key WHERE singleton) THEN
     UPDATE public.containers SET discovery_order = public.historical_discovery_order(updated_at, false) WHERE discovery_order = 0;
     UPDATE public.documents SET discovery_order = public.historical_discovery_order(updated_at, false) WHERE discovery_order = 0;
