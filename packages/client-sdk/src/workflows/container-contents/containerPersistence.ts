@@ -18,6 +18,7 @@ export type {
   StoredContainerState,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
 export { sqlContainerContentsPersistence as defaultContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+export type { ContainerMetadataRevalidation } from "../../data/persistence/container-contents/containerMetadataRevalidations";
 export type { ContainerRecord } from "../../data/persistence/container-contents/containerPersistence";
 export {
   type ContainerSyncWatermarkLane,

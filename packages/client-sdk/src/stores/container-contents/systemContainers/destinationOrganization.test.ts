@@ -72,6 +72,7 @@ for (const forgeOrganization of [false, true]) {
           metadataDocumentId: "listed-metadata",
           metadataAccessEpoch: 1,
           metadataAccessStateHash: "listed-hash",
+          metadataVersionVector: "",
           metadataReferencedPrincipals: [],
           effectiveAccessLevel: "admin",
           createdAt: "2026-09-13T00:00:00.000Z",

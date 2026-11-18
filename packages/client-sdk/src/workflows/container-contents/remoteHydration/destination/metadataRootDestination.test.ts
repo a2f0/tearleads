@@ -75,6 +75,7 @@ test.each([true, false])(
         metadataDocumentId: metadata.key.containerId,
         metadataAccessEpoch: 1,
         metadataAccessStateHash: "listed-head",
+        metadataVersionVector: "",
         metadataReferencedPrincipals: [],
         effectiveAccessLevel: "admin",
         createdAt: "2026-09-17T00:00:00.000Z",

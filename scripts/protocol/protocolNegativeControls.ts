@@ -16,6 +16,7 @@ import { GROUP_GRANT_REVOCATION_NEGATIVE_CONTROLS } from "./protocolGroupGrantRe
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
 import { MEMBER_IDENTITY_NEGATIVE_CONTROLS } from "./protocolMemberIdentityNegativeControls";
+import { METADATA_LISTING_NEGATIVE_CONTROLS } from "./protocolMetadataListingNegativeControls";
 import type { NegativeControl } from "./protocolNegativeControlTypes";
 import { NO_BRICK_NEGATIVE_CONTROLS } from "./protocolNoBrickNegativeControls";
 import { ORGANIZATION_DIRECTORY_KEY_NEGATIVE_CONTROLS } from "./protocolOrganizationDirectoryKeyNegativeControls";
@@ -46,6 +47,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...SYNC_LANE_NEGATIVE_CONTROLS,
   ...HISTORY_NEGATIVE_CONTROLS,
   ...MEMBER_IDENTITY_NEGATIVE_CONTROLS,
+  ...METADATA_LISTING_NEGATIVE_CONTROLS,
   ...NO_BRICK_NEGATIVE_CONTROLS,
   ...CONTAINER_DEPTH_NEGATIVE_CONTROLS,
   ...CONTAINER_GRANT_SCOPE_NEGATIVE_CONTROLS,

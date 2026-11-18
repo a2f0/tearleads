@@ -69,6 +69,7 @@ import {
 
 export {
   containerHydrationTombstones,
+  containerMetadataRevalidations,
   containers,
   dormantContainerMetadata,
   dormantMetadataSweepRequests,

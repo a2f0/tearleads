@@ -42,6 +42,13 @@ type PersistOrganizationProvisioningStateInput = Pick<
   readonly canStartDurableMutation?: (() => boolean) | undefined;
   /** @internal Forwarded to the bootstrap persist; test-only seam. */
   readonly onPersistQueued?: (() => void) | undefined;
+  /**
+   * The commit position to record for every seeded document: registration's,
+   * or null for an additional organization, which reports none because
+   * another session of its creator can edit those documents before this
+   * device subscribes to them.
+   */
+  readonly commitLsn: string | null;
   readonly containerId: string;
   readonly dbClient: ExecSqlClientLike;
   readonly documentProjectors?: DocumentProjectorRegistryInput | undefined;
@@ -271,6 +278,7 @@ export async function persistOrganizationProvisioningState(
         acknowledgedAccessHeads: artifacts.acknowledgedAccessHeads,
         authoredDiscoveryHeads: artifacts.authoredDiscoveryHeads,
         canStartDurableMutation: input.canStartDurableMutation,
+        commitLsn: input.commitLsn,
         completeProvisioningAttempt: input.completeProvisioningAttempt,
         onPersistQueued: input.onPersistQueued,
         containerId: input.containerId,

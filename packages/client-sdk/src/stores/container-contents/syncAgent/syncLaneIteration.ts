@@ -1,10 +1,15 @@
 import { syncPendingContainerCreateIntents } from "../../../workflows/container-contents/container-state/create/createIntentSync";
 import { syncPendingContainerMoveIntents } from "../../../workflows/container-contents/container-state/move/moveIntentSync";
+import type {
+  ContainerMetadataRevalidation,
+  ExecSql,
+} from "../../../workflows/container-contents/containerPersistence";
 import {
   type DocumentMoveIntentSyncHost,
   syncPendingDocumentMoveIntents,
 } from "../../../workflows/container-contents/documentMove/documentMoveIntentSync";
 import { syncContainerMetadataState } from "../../../workflows/container-contents/metadata";
+import type { SyncedContainerMetadataState } from "../../../workflows/container-contents/metadata/metadataTypes";
 import type {
   ContainerState,
   RemoteContainerHydrationHost,
@@ -21,6 +26,12 @@ import {
   recoverStoreStaleRoot,
 } from "../documentWork/documentRecovery";
 import { createAcceptedMoveRetry } from "./acceptedMoveRetry";
+import {
+  coversAdvertisedMetadataVersion,
+  findOwedContainerMetadataRead,
+  restoreOwedContainerMetadataReads,
+  settleOwedContainerMetadataRead,
+} from "./metadataRevalidation";
 import {
   bumpMetadataSyncSeq,
   clearMetadataSyncQueueIfUnchanged,
@@ -157,6 +168,17 @@ async function syncSingleContainerMetadata(input: {
   const { containerState, encapsulationKeyPair, host, isCurrent, state } =
     input;
   const metadataDocumentId = containerState.record.documentId;
+  const readExecSql = state.runtime.infra.execSql;
+  // The durable request this read answers, read before the read begins.
+  const owedRead =
+    typeof metadataDocumentId === "string" &&
+    state.metadataDocumentIdsNeedingSync.has(metadataDocumentId)
+      ? await findOwedContainerMetadataRead(state, {
+          documentId: metadataDocumentId,
+          execSql: readExecSql,
+        })
+      : null;
+  if (!isCurrent()) return;
   // Snapshot this signal before the GET so a mid-pass event survives clearing.
   const consumedSeqById = new Map<string, number>();
   if (typeof metadataDocumentId === "string") {
@@ -202,25 +224,139 @@ async function syncSingleContainerMetadata(input: {
     return;
   }
 
-  for (const id of [metadataDocumentId, synced.record.documentId]) {
-    if (typeof id === "string") {
-      clearMetadataSyncQueueIfUnchanged({
-        consumedSeqById,
-        id,
-        needingSync: state.metadataDocumentIdsNeedingSync,
-        seqById: state.metadataSyncSignalSeqById,
-      });
-    }
-  }
+  const kept = keptMetadataSignals({ containerState, owedRead, synced });
+  const stillCurrent = await settleConsumedMetadataSignals({
+    consumedSeqById,
+    documentIds: [metadataDocumentId, synced.record.documentId],
+    isCurrent,
+    keepsSignals: kept.keep,
+    owedRead,
+    readExecSql,
+    state,
+  });
+  // A reset can land after the settlement's last check and before this resumes.
+  if (!stillCurrent || !isCurrent()) return;
   // syncContainerMetadataState settles its detached candidate into this live
   // object while preserving any metadata edit that completed or queued during
   // the remote pass. Do not install its returned detached record again here:
   // doing so would overwrite that preserved live edit.
   host.updateSnapshot();
 
-  if (synced.shouldRequestFollowupSync) {
+  // A pass that kept an owed read hands it to a fresh read next pass.
+  if (
+    synced.shouldRequestFollowupSync ||
+    (kept.followUp && isQueuedForRead(state, metadataDocumentId))
+  ) {
     requestContainerContentsStoreSync(state);
   }
+}
+
+/**
+ * Whether a completed read keeps its signals for another read, and whether to
+ * ask for that read now. A resumed pull reads only to its earlier bound, and a
+ * superseded result discarded what it pulled: both hand the read to a fresh
+ * pass. A replica lagging the listing can answer without the advertised edit;
+ * that debt waits for a later pass rather than a follow-up loop.
+ */
+function keptMetadataSignals(input: {
+  containerState: ContainerState;
+  owedRead: ContainerMetadataRevalidation | null;
+  synced: SyncedContainerMetadataState;
+}): { followUp: boolean; keep: boolean } {
+  const followUp =
+    input.synced.resumedEarlierPull === true ||
+    isSupersededMetadataSync(input.synced);
+  const behindListing =
+    input.owedRead !== null &&
+    !coversAdvertisedMetadataVersion(input.containerState.doc, input.owedRead);
+  return { followUp, keep: followUp || behindListing };
+}
+
+function isSupersededMetadataSync(
+  synced: Pick<
+    SyncedContainerMetadataState,
+    | "mutationSuperseded"
+    | "pullContinuationSuperseded"
+    | "syncIdentitySuperseded"
+  >,
+): boolean {
+  return (
+    synced.mutationSuperseded === true ||
+    synced.pullContinuationSuperseded === true ||
+    synced.syncIdentitySuperseded === true
+  );
+}
+
+function isQueuedForRead(
+  state: ContainerContentsStoreSyncState,
+  documentId: string | null | undefined,
+): boolean {
+  return (
+    typeof documentId === "string" &&
+    state.metadataDocumentIdsNeedingSync.has(documentId)
+  );
+}
+
+/**
+ * Clears the signals a completed metadata sync consumed and settles the read a
+ * listing owed: the sync pulled every update this client lacked, unless a
+ * newer signal queued the document again. A pass that keeps its signals
+ * settles nothing. Returns false once the pass is no longer current, before
+ * touching a replacement store's queue.
+ */
+async function settleConsumedMetadataSignals(input: {
+  consumedSeqById: ReadonlyMap<string, number>;
+  documentIds: ReadonlyArray<string | null | undefined>;
+  isCurrent: () => boolean;
+  keepsSignals: boolean;
+  owedRead: ContainerMetadataRevalidation | null;
+  readExecSql: ExecSql;
+  state: ContainerContentsStoreSyncState;
+}): Promise<boolean> {
+  if (input.keepsSignals) return true;
+  for (const id of new Set(input.documentIds)) {
+    if (typeof id !== "string") continue;
+    if (!input.isCurrent()) return false;
+    clearMetadataSyncQueueIfUnchanged({
+      consumedSeqById: input.consumedSeqById,
+      id,
+      needingSync: input.state.metadataDocumentIdsNeedingSync,
+      seqById: input.state.metadataSyncSignalSeqById,
+    });
+  }
+  if (input.owedRead) {
+    await settleOwedContainerMetadataRead(input.state, {
+      execSql: input.readExecSql,
+      revalidation: input.owedRead,
+    });
+  }
+  return input.isCurrent();
+}
+
+/**
+ * Syncs each held container's metadata, after requeueing reads a previous run
+ * still owed. Returns false once the pass is no longer current.
+ */
+async function syncEveryContainerMetadata(
+  input: Omit<
+    Parameters<typeof syncSingleContainerMetadata>[0],
+    "containerState"
+  > & {
+    isCreatePending: (containerId: string) => boolean;
+  },
+): Promise<boolean> {
+  const { isCurrent, state } = input;
+  if (!state.owedMetadataReadsRestored) {
+    await restoreOwedContainerMetadataReads(state, isCurrent);
+    if (!isCurrent()) return false;
+    state.owedMetadataReadsRestored = true;
+  }
+  for (const containerState of Array.from(state.containersById.values())) {
+    if (input.isCreatePending(containerState.container.id)) continue;
+    await syncSingleContainerMetadata({ ...input, containerState });
+    if (!isCurrent()) return false;
+  }
+  return true;
 }
 
 /**
@@ -311,17 +447,14 @@ export async function runContainerContentsStoreSyncIteration(
     requestContainerContentsStoreSync(state);
   }
 
-  for (const containerState of Array.from(state.containersById.values())) {
-    if (isCreatePending(containerState.container.id)) continue;
-    await syncSingleContainerMetadata({
-      ...input,
-      containerState,
-      encapsulationKeyPair,
-      isCurrent,
-    });
-    if (!isCurrent()) {
-      return;
-    }
+  const metadataSynced = await syncEveryContainerMetadata({
+    ...input,
+    encapsulationKeyPair,
+    isCreatePending,
+    isCurrent,
+  });
+  if (!metadataSynced) {
+    return;
   }
 
   // Root adoption notifies session consumers synchronously. Let container

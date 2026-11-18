@@ -31,6 +31,7 @@ const row = {
   updatedAt: timestamp,
   metadataAccessEpoch: 2,
   metadataAccessStateHash: "hash",
+  metadataVersion: { "17": 4 },
 };
 
 test("accessible container rows keep every selected column", async () => {
@@ -62,6 +63,7 @@ test("accessible container rows keep every selected column", async () => {
       updatedAt: timestamp,
       metadataAccessEpoch: null,
       metadataAccessStateHash: "",
+      metadataVersion: { "17": 4 },
     },
   ]);
 });

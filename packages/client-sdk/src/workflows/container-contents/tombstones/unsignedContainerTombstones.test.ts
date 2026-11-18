@@ -26,6 +26,7 @@ const rootItem: ListContainersResponse["items"][number] = {
   metadataAccessEpoch: 1,
   metadataAccessStateHash: "root-access",
   metadataDocumentId: "root-1-metadata",
+  metadataVersionVector: "",
   metadataReferencedPrincipals: [],
   organizationId: ORG,
   parentId: null,

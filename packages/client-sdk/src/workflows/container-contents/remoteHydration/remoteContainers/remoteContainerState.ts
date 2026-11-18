@@ -1,4 +1,9 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
+import {
+  decodeVersionVector,
+  encodeVersionVector,
+  satisfiesVersionVector,
+} from "@tearleads/loro";
 import { isProjectionVerificationCancelledError } from "../../../../data/keyingProjectionVerification/types";
 import {
   heldContainerBinding,
@@ -166,6 +171,45 @@ function installUpdatedRemoteContainerState(
     host.requestDocumentPriming?.();
 }
 
+/**
+ * A clean metadata document is read only when a hint names it, and a hint sent
+ * while this client was offline or not yet subscribed is lost. The listing
+ * reports the version vector of every update the server holds for the metadata
+ * document; when this client's copy does not cover it, an edit is unread. Owe
+ * the read before this hydration advances the lane watermark past the row.
+ */
+function coversMetadataVersion(
+  existingState: ContainerState,
+  remoteContainer: RemoteContainer,
+): boolean {
+  const listed = remoteContainer.metadataVersionVector;
+  try {
+    // A document with no stored update is covered by any copy.
+    if (decodeVersionVector(listed).toJSON().size === 0) return true;
+    return satisfiesVersionVector(
+      encodeVersionVector(existingState.doc),
+      listed,
+    );
+  } catch {
+    // An unreadable version proves nothing: owe the read, which pulls the
+    // truth, and let the rest of the page hydrate.
+    return false;
+  }
+}
+
+async function oweMetadataReadIfBehind(
+  host: RemoteContainerHydrationHost,
+  existingState: ContainerState,
+  remoteContainer: RemoteContainer,
+): Promise<void> {
+  if (!coversMetadataVersion(existingState, remoteContainer)) {
+    await host.requestMetadataRevalidation?.({
+      advertisedVersionVector: remoteContainer.metadataVersionVector,
+      documentId: remoteContainer.metadataDocumentId,
+    });
+  }
+}
+
 async function updateExistingRemoteContainerState(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
@@ -196,6 +240,7 @@ async function updateExistingRemoteContainerState(input: {
     previousLocalUpdatedAt,
     remoteContainer,
   });
+  await oweMetadataReadIfBehind(host, existingState, remoteContainer);
   const nextState = createUpdatedRemoteContainerState(
     existingState,
     remoteContainer,

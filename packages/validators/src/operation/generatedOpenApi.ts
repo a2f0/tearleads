@@ -2353,6 +2353,8 @@ export type components = {
             metadataDocumentId: string;
             /** @description Principal policy heads the metadata document's access depends on. */
             metadataReferencedPrincipals: components["schemas"]["ReferencedPrincipalStateResponse"][];
+            /** @description Loro version vector of every update the server holds for the metadata document, encoded like a sync update's version vectors. A client whose copy does not cover it owes the document a read. */
+            metadataVersionVector: string;
             organizationId: string;
             parentId: string | null;
             /** @description Opaque id of a system container's role, such as Trash, or null for an ordinary container. */
@@ -4237,6 +4239,10 @@ export type components = {
         RegistrationResponse: {
             /** @description Sign-in challenge to sign and send to `POST /auth/verify`, so the new identity can sign in without another request. */
             challenge: string;
+            /** @description Commit LSN read after the registration committed; the client keeps it for every seeded document and passes it as `minLsn` on that document's next read. Null when the position could not be read after the commit. */
+            commitLsn: string | null;
+            /** @description `tracked` for a durable backend position; `untracked` with the `0/0` sentinel when the backend cannot report one. */
+            commitLsnMode: "tracked" | "untracked";
             /** @description Ids of the seeded metadata updates the server committed with the provisioning. */
             committedCoreMetadataUpdateIds: string[];
             /** @description Ids of the seeded profile updates the server committed with the provisioning. */
