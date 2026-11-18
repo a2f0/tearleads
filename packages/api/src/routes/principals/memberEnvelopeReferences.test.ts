@@ -212,6 +212,109 @@ test("a same-epoch group leg sent as changes stores the signed full set", async 
   }
 });
 
+/** A same-epoch successor of the group's current head with the same set. */
+async function advanceGroupHead(
+  f: Awaited<ReturnType<typeof groupWithSameEpochAdd>>,
+) {
+  const head = await loadVerifiedPrincipalPolicy(db, "group", f.groupId);
+  const bundle = await runGetCurrentPrincipalPolicyWorkflow(
+    db,
+    "group",
+    f.groupId,
+  );
+  const signed = await signPrincipalStateBundle({
+    principalType: "group",
+    principalId: f.groupId,
+    version: head.version + 1,
+    prevStateHash: head.stateHash,
+    keyEpoch: head.keyEpoch,
+    encapsulationPublicKey: head.state.encapsulationPublicKey,
+    keyFingerprint: head.state.keyFingerprint,
+    members: head.projection.map(({ userId }) => ({ userId })),
+    projection: head.projection,
+    grants: [],
+    memberEnvelopes: bundle.currentMemberEnvelopes.envelopes.map(
+      ({ kemCipherText, memberKeyFingerprint, userId, wrappedKey }) => ({
+        kemCipherText,
+        memberKeyFingerprint,
+        userId,
+        wrappedKey,
+      }),
+    ),
+    payloadCiphertext: await groupPolicyPayload(f.groupId, head.projection),
+    signedAt: new Date(Date.parse(head.state.signedAt) + 1_000).toISOString(),
+    signerUserId: f.owner.userId,
+    signerUserKeyFingerprint: f.owner.fingerprint,
+    signingPrivateKey: f.owner.signing.signingPrivateKey,
+  });
+  const { response } = await commit(f, {
+    encryptedPayload: signed.encryptedPayload,
+    grants: signed.grants,
+    memberEnvelopes: signed.memberEnvelopes,
+    projection: signed.projection,
+    state: signed.state,
+  });
+  expect(response.status).toBe(200);
+  await response.arrayBuffer();
+}
+
+test("a retry in the other form replays its receipt after the head moves on", async () => {
+  for (const firstByReference of [true, false]) {
+    const f = await groupWithSameEpochAdd();
+    const full = await f.sign(f.current.keyEpoch, [...f.retained, f.added]);
+    // The full list in an order the rebuild does not produce.
+    const unsorted = {
+      ...full,
+      memberEnvelopes: [...full.memberEnvelopes].sort((left, right) =>
+        left.userId < right.userId ? 1 : -1,
+      ),
+    };
+    const compact = byReference(full, [f.added]);
+    const { body, response } = await commit(
+      f,
+      firstByReference ? compact : unsorted,
+    );
+    expect(response.status).toBe(200);
+    const original = await response.json();
+    await advanceGroupHead(f);
+    invariant(body, "expected the sent request");
+    const sent: CommitOrganizationGroupPolicyRequest = body;
+    const retried = await resend(f, {
+      ...sent,
+      groupPolicy: firstByReference ? unsorted : compact,
+    });
+    expect(retried.status).toBe(200);
+    expect(await retried.json()).toEqual(original);
+  }
+});
+
+test("an admin's changes must name the route principal before any lookup", async () => {
+  const f = await groupWithSameEpochAdd();
+  const full = await f.sign(f.current.keyEpoch, [...f.retained, f.added]);
+  const answers = [];
+  for (const prevStateHash of [full.state.prevStateHash, "0".repeat(64)]) {
+    const leg = byReference(
+      { ...full, state: { ...full.state, prevStateHash } },
+      [f.added],
+    );
+    // The custom group's leg posing as the Members leg.
+    const body = await buildOrganizationGroupPolicyCommitRequest({
+      actor: f.owner,
+      groupPolicy: full,
+      organizationId: f.organizationId,
+    });
+    const response = await resend(f, { ...body, memberPolicy: leg });
+    answers.push({ body: await response.text(), status: response.status });
+  }
+  expect(answers[0]).toEqual({
+    body: JSON.stringify({
+      error: "Member envelope changes must name the route's principal",
+    }),
+    status: 400,
+  });
+  expect(answers[1]).toEqual(answers[0]);
+});
+
 test("a rebuild reveals nothing before the route and admin are checked", async () => {
   const f = await groupWithSameEpochAdd();
   const outsider = createTestUser();
@@ -282,6 +385,20 @@ test("group create and delete refuse bad changes with a typed error", async () =
       },
       body: JSON.stringify({
         ...created,
+        initialGroupPolicy: {
+          ...created.initialGroupPolicy,
+          memberEnvelopeChanges: { removeUserIds: [], upsert: [] },
+        },
+      }),
+    }),
+    await routeApp.request(`/organizations/${f.organizationId}/groups`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${f.owner.token}`,
+      },
+      body: JSON.stringify({
+        ...created,
         organizationPolicy: stale(created.organizationPolicy),
       }),
     }),
@@ -299,7 +416,12 @@ test("group create and delete refuse bad changes with a typed error", async () =
       },
     ),
   ];
-  for (const response of responses) {
+  const [founding, ...stales] = responses;
+  expect(founding?.status).toBe(400);
+  expect(await founding?.json()).toEqual({
+    error: "Member envelope changes need a predecessor state",
+  });
+  for (const response of stales) {
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
       error: "Member envelope changes cite an unknown predecessor state",

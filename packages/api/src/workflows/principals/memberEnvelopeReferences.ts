@@ -10,6 +10,7 @@ import type {
 } from "@tearleads/validators/request";
 import { and, eq } from "drizzle-orm";
 import { listPrincipalMemberEnvelopesForState } from "../../access/read/principalMemberEnvelopes";
+import { getPrincipalStatesForReferences } from "../../access/read/principalStateStore";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { PrincipalPolicyError } from "./shared";
 
@@ -53,12 +54,24 @@ async function rebuildMemberEnvelopes(
     prevStateHash,
     executor,
   );
-  if (predecessor.length === 0)
+  // An empty set has no rows to carry its epoch: read the state itself.
+  const predecessorEpochs =
+    predecessor.length > 0
+      ? predecessor.map((envelope) => envelope.epoch)
+      : [
+          ...(
+            await getPrincipalStatesForReferences(
+              [{ principalId, principalType, stateHash: prevStateHash }],
+              executor,
+            )
+          ).values(),
+        ].map((state) => state.keyEpoch);
+  if (predecessorEpochs.length === 0)
     throw new PrincipalPolicyError(
       "Member envelope changes cite an unknown predecessor state",
       409,
     );
-  if (predecessor.some((envelope) => envelope.epoch !== keyEpoch))
+  if (predecessorEpochs.some((epoch) => epoch !== keyEpoch))
     throw new PrincipalPolicyError(
       "Member envelope changes require the predecessor's key epoch",
       400,

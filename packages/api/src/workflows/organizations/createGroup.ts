@@ -149,6 +149,13 @@ async function appendCreatedGroupReadModelChanges(input: {
 function validateOrganizationGroupCreation(
   input: CreateOrganizationGroupWithPolicyRequest,
 ): void {
+  // A founding policy has no predecessor to send changes against.
+  if (input.initialGroupPolicy.memberEnvelopeChanges !== undefined) {
+    throw new OrganizationManagerError(
+      "Member envelope changes need a predecessor state",
+      400,
+    );
+  }
   assertCreatedGroupPolicyName({
     ciphertext: input.initialGroupPolicy.encryptedPayload.ciphertext,
     groupId: input.groupId,

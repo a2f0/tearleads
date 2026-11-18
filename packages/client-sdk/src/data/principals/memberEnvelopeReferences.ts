@@ -1,4 +1,7 @@
-import { computePrincipalMemberEnvelopesRoot } from "@tearleads/crypto";
+import {
+  computePrincipalMemberEnvelopesRoot,
+  computePrincipalStateHash,
+} from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { PrincipalPolicyBundleRepository } from "../persistence/principalPolicy/principalPolicyBundleRepository";
@@ -75,9 +78,13 @@ async function heldPredecessor(
     leg.state.principalId,
   );
   if (bundle?.currentState.stateHash !== leg.state.prevStateHash) return null;
-  return (await computePrincipalMemberEnvelopesRoot(
-    bundle.currentMemberEnvelopes.envelopes,
-  )) === bundle.currentState.memberEnvelopesRoot
+  // The cached state must hash to the cited one and its envelopes to its
+  // signed root, or the changes would be computed against another set.
+  return (await computePrincipalStateHash(bundle.currentState)) ===
+    leg.state.prevStateHash &&
+    (await computePrincipalMemberEnvelopesRoot(
+      bundle.currentMemberEnvelopes.envelopes,
+    )) === bundle.currentState.memberEnvelopesRoot
     ? bundle
     : null;
 }

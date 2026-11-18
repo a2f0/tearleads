@@ -2,11 +2,11 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { principalPolicyCommits } from "@tearleads/api-shared/schema";
 import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { z } from "zod";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { loadExactReplayMutationResponses } from "./principalPolicyMutationAcknowledgements";
-import { principalPolicyOutcomeHash } from "./principalPolicyOutcomeHash";
+import { principalPolicyOutcomeHashes } from "./principalPolicyOutcomeHash";
 import { loadPrincipalPolicyOutcomeReference } from "./principalPolicyOutcomeReference";
 import { storedCommitPolicyReceiptSchema } from "./principalPolicyReceiptSchema";
 import { PrincipalPolicyError } from "./shared";
@@ -18,8 +18,8 @@ interface CommitOutcomeInput {
   readonly request: CommitOrganizationGroupPolicyRequest;
 }
 
-function commitRequestHash(input: CommitOutcomeInput): string {
-  return principalPolicyOutcomeHash([
+function commitRequestHashes(input: CommitOutcomeInput) {
+  return principalPolicyOutcomeHashes([
     "tearleads.principal-policy.commit.v1",
     input.organizationId,
     input.groupId,
@@ -35,13 +35,13 @@ export async function principalPolicyCommitOutcome(
   response: CommitOrganizationGroupPolicyResponse | null;
   save(policy: CommitOrganizationGroupPolicyResponse): Promise<void>;
 }> {
-  const requestHash = commitRequestHash(input);
+  const { matches, requestHash } = commitRequestHashes(input);
   const [row] = await executor
     .select()
     .from(principalPolicyCommits)
     .where(
       and(
-        eq(principalPolicyCommits.requestHash, requestHash),
+        inArray(principalPolicyCommits.requestHash, [...matches]),
         eq(principalPolicyCommits.organizationId, input.organizationId),
         eq(principalPolicyCommits.groupId, input.groupId),
         eq(principalPolicyCommits.requesterUserId, input.requesterUserId),

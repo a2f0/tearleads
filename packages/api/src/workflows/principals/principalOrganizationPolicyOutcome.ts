@@ -1,11 +1,11 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { principalPolicyCommits } from "@tearleads/api-shared/schema";
 import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { lockPrincipalMutationInTransaction } from "./principalMutationLock";
 import type { PutPrincipalPolicyInput } from "./principalPolicyMutationAuthorization";
-import { principalPolicyOutcomeHash } from "./principalPolicyOutcomeHash";
+import { principalPolicyOutcomeHashes } from "./principalPolicyOutcomeHash";
 import { loadPrincipalPolicyOutcomeReference } from "./principalPolicyOutcomeReference";
 import { PrincipalPolicyError } from "./shared";
 
@@ -20,7 +20,7 @@ export async function principalOrganizationPolicyOutcome(
     "organization",
     organizationId,
   );
-  const requestHash = principalPolicyOutcomeHash([
+  const { matches, requestHash } = principalPolicyOutcomeHashes([
     "tearleads.principal-policy.organization.v1",
     organizationId,
     input.requesterUserId,
@@ -31,7 +31,7 @@ export async function principalOrganizationPolicyOutcome(
     .from(principalPolicyCommits)
     .where(
       and(
-        eq(principalPolicyCommits.requestHash, requestHash),
+        inArray(principalPolicyCommits.requestHash, [...matches]),
         eq(principalPolicyCommits.organizationId, organizationId),
         eq(principalPolicyCommits.requesterUserId, input.requesterUserId),
         isNull(principalPolicyCommits.groupId),

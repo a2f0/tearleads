@@ -4,8 +4,8 @@ import type {
   CreateOrganizationGroupWithPolicyRequest,
   DeleteOrganizationGroupRequest,
 } from "@tearleads/validators/request";
-import { and, eq, isNull } from "drizzle-orm";
-import { principalPolicyOutcomeHash } from "../principals/principalPolicyOutcomeHash";
+import { and, eq, inArray, isNull } from "drizzle-orm";
+import { principalPolicyOutcomeHashes } from "../principals/principalPolicyOutcomeHash";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 
@@ -22,7 +22,7 @@ export async function organizationGroupOperationReceipt(
       | DeleteOrganizationGroupRequest;
   },
 ) {
-  const requestHash = principalPolicyOutcomeHash([
+  const { matches, requestHash } = principalPolicyOutcomeHashes([
     `tearleads.principal-policy.group-${input.operation}.v1`,
     input.organizationId,
     input.groupId,
@@ -37,7 +37,7 @@ export async function organizationGroupOperationReceipt(
     .from(principalPolicyCommits)
     .where(
       and(
-        eq(principalPolicyCommits.requestHash, requestHash),
+        inArray(principalPolicyCommits.requestHash, [...matches]),
         eq(principalPolicyCommits.organizationId, input.organizationId),
         eq(principalPolicyCommits.requesterUserId, input.sessionUserId),
         groupId === null
