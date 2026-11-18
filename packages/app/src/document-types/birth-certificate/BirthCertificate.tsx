@@ -112,12 +112,7 @@ export function BirthCertificate(params: {
   });
   return (
     <StructuredDocument
-      attachments={
-        <DocumentAttachmentSlots
-          {...doc.slotsProps}
-          className="structured-document-attachments--single"
-        />
-      }
+      attachments={<DocumentAttachmentSlots {...doc.slotsProps} />}
       fields={
         <BirthCertificateFieldsPane
           {...doc}
