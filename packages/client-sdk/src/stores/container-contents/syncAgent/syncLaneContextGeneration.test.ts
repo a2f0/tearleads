@@ -19,6 +19,7 @@ import type { ContainerContentsStoreSyncAgent } from "./index";
 import { runContainerContentsStoreSyncIteration } from "./syncLaneIteration";
 
 const contextChanges = [
+  { containerId: "root-a", name: "retired host", organizationId: "org-a" },
   { containerId: "root-a", name: "organization", organizationId: "org-b" },
   { containerId: "root-b", name: "root container", organizationId: "org-a" },
 ] as const;
@@ -47,8 +48,12 @@ for (const change of contextChanges) {
       execSql,
       organizationId: change.organizationId,
     });
+    let retired = false;
     const state = createContainerContentsStoreState(
-      originalRuntime,
+      {
+        ...originalRuntime,
+        liveHydrationStatus: () => (retired ? "retired" : "ready"),
+      },
       persistence,
     );
     updateContainerContentsSnapshot(state);
@@ -79,7 +84,8 @@ for (const change of contextChanges) {
     });
 
     expect(restorationStarted).toBe(true);
-    state.runtime = replacementRuntime;
+    if (change.name === "retired host") retired = true;
+    else state.runtime = replacementRuntime;
     releaseRestoration();
     await iteration;
 

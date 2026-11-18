@@ -20,6 +20,7 @@ import { openDocumentStore, requestDomainDocumentSync } from "../../documents";
 import { relinkDocumentStoreWithCommitSideEffect } from "../../documents/documentStore/internalRelink";
 import { DocumentRemoteWorkBusyError } from "../../documents/documentStore/sync/remoteWork";
 import { removeMissingSyncedContainerState } from "../containerState/missingSyncedContainerState";
+import { ownsContainerStore } from "../containerState/storeScope";
 import { runContainerDocumentWork } from "../documentWork";
 import {
   primeStoreDocuments,
@@ -71,6 +72,7 @@ function captureStructuralSyncGeneration(
   const resolveProjectionUserKey = state.resolveProjectionUserKey;
   const syncLane = state.syncLane;
   return () =>
+    ownsContainerStore(state) &&
     state.lifecycleGeneration === lifecycleGeneration &&
     state.structuralGeneration === structuralGeneration &&
     state.runtime.auth.organizationId === activeOrganizationId &&
@@ -78,8 +80,7 @@ function captureStructuralSyncGeneration(
     state.runtime.state.domainScope === domainScope &&
     state.runtime.infra.execSql === execSql &&
     state.resolveProjectionUserKey === resolveProjectionUserKey &&
-    state.syncLane === syncLane &&
-    !syncLane?.isDisposed?.();
+    state.syncLane === syncLane;
 }
 
 function createContainerContentsStoreDocumentMoveHost(
@@ -404,6 +405,7 @@ export async function runContainerContentsStoreSyncIteration(
   const domainScope = runtime.state.domainScope;
   const isCurrent = captureStructuralSyncGeneration(state, runtime);
 
+  if (!isCurrent()) return;
   await reconcileRestoredAccess(isCurrent);
   if (!isCurrent()) {
     return;
