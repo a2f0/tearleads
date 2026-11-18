@@ -18,6 +18,8 @@ import { registerUser } from "./registration";
  */
 function observedDatabase(options: { readonly failRootReads?: boolean }) {
   const events: ("begin" | "commit" | "read")[] = [];
+  // The first column of each root-level read's first row, as the server read it.
+  const readValues: unknown[] = [];
   const observed: ApiDatabase = new Proxy(db, {
     get(target, property) {
       if (property === "transaction") {
@@ -33,14 +35,16 @@ function observedDatabase(options: { readonly failRootReads?: boolean }) {
           events.push("read");
           if (options.failRootReads)
             throw new Error("WAL position unavailable");
-          return target.execute(...args);
+          const result = await target.execute(...args);
+          readValues.push(Object.values(result.rows[0] ?? {})[0]);
+          return result;
         };
       }
       const value = Reflect.get(target, property, target);
       return typeof value === "function" ? value.bind(target) : value;
     },
   });
-  return { events, observed };
+  return { events, observed, readValues };
 }
 
 async function registrationRequest() {
@@ -53,7 +57,7 @@ async function registrationRequest() {
 }
 
 test("registration reads its commit position after the transaction commits", async () => {
-  const { events, observed } = observedDatabase({});
+  const { events, observed, readValues } = observedDatabase({});
   const response = await registerUser(
     createServiceTestRuntime(observed),
     await registrationRequest(),
@@ -61,6 +65,8 @@ test("registration reads its commit position after the transaction commits", asy
   expect(events).toEqual(["begin", "commit", "read"]);
   expect(response.commitLsnMode).toBe("tracked");
   expect(response.commitLsn).toMatch(/^[0-9A-F]+\/[0-9A-F]+$/u);
+  // Exactly the position the post-commit read returned, not an older one.
+  expect(readValues).toEqual([response.commitLsn]);
 });
 
 test("organization creation reports no commit position", async () => {
