@@ -230,8 +230,10 @@ test("remote reset clears the global root feed and only the purged organization'
       ["container_parent", "root"],
       ["container_parent", "parent:old-root"],
       ["container_documents", "old-root"],
+      ["container_restoration", "old-root"],
       ["container_parent", "parent:keep-root"],
       ["container_documents", "keep-root"],
+      ["container_restoration", "keep-root"],
     ] as const;
     await db.insert(containerSyncWatermarks).values(
       cursors.map(([laneKind, laneId]) => ({
@@ -249,12 +251,12 @@ test("remote reset clears the global root feed and only the purged organization'
     });
 
     // One row per lane holds the cursor and its freshness marker.
-    expect(result.clearedSyncCursorCount).toBe(3);
+    expect(result.clearedSyncCursorCount).toBe(4);
     expect(
       (await db.select().from(containerSyncWatermarks))
         .map((row) => row.laneId)
         .sort(),
-    ).toEqual(["keep-root", "parent:keep-root"]);
+    ).toEqual(["keep-root", "keep-root", "parent:keep-root"]);
   } finally {
     close();
   }

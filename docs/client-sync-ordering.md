@@ -139,15 +139,17 @@ An inconclusive read leaves the page retryable. When a live folder's entity
 clock moves backwards, hydration verifies the current signed placement and
 requires the listed manifest hash and rechecks the signed checkpoint inside
 its local transaction. A folder moved back into a readable path carries a hint
-to check its cached descendants when its earlier revocation row survives. A
+to check its cached descendants when its earlier revocation row survives.
+The SDK records that revocation’s opaque ID after reconciliation. Later folder
+edits reuse the receipt. A new revocation has a different ID. A
 child that moved while the folder was inaccessible is removed only after its
 own access check. Direct and group regrant workflows prune their earlier
 revocation rows, so those paths retain their existing reconciliation behavior.
 Listings omit older revocations when that path already grants access.
 The SDK skips restored-folder reconciliation while its organization is paused.
-A publication-ordered document crawl that returns both a live placement and
-its unlink observed different snapshots. The SDK retries that lane from its
-last saved cursor before applying any rows. A removal on the retried lane
+Publication-ordered document lanes that cover both a live placement and its
+unlink observed different snapshots. The SDK retries those lanes from their
+last saved cursors before applying any rows. A removal on the retried lane
 reaches the signed-head check for locally held placements. A conflicting
 pending discovery retains its
 requirement to read the current signed head across process restarts. These

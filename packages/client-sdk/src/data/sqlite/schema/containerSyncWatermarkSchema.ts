@@ -19,7 +19,8 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  *
  * Columns:
  * - `laneKind`: Sync lane category, such as `container_parent` or
- *   `container_documents`.
+ *   `container_documents`. `container_restoration` stores the last reconciled
+ *   access loss for a folder.
  * - `laneId`: Lane identity. Root parent sync uses `root`, child sync uses a
  *   parent-prefixed container id, and document lanes use the container id.
  * - `watermarkUpdatedAt`: Server `updatedAt` value for the stored watermark;

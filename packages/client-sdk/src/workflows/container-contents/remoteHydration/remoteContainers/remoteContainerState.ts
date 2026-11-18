@@ -267,6 +267,7 @@ async function updateExistingRemoteContainerState(input: {
       verifiedPlacement: input.verifiedPlacement,
     },
     {
+      isCurrent: input.isCurrent,
       preserveDurableStructureWhenPending: true,
     },
   );

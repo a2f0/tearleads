@@ -5,6 +5,10 @@ import type {
 } from "@tearleads/validators/response";
 import { isCanonicalSignedAt } from "@tearleads/validators/util";
 import { removeIndexedContainerChild } from "./lanes/childIndex";
+import {
+  pendingFolderRestorations,
+  recordFolderRestoration,
+} from "./lanes/restorationReceipt";
 import { resolveTombstoneCascade } from "./lanes/tombstoneAccess";
 import { containerStateMatchesFingerprint } from "./remoteContainers/containerStateFingerprint";
 import type {
@@ -197,12 +201,11 @@ export async function applyContainerTombstones(input: {
 }): Promise<{ changedCount: number; completed: boolean; current: boolean }> {
   // A folder can regain access after one of its cached children moved away.
   // Its live listing keeps the folder and reconciles the previously held tree.
-  const restored = input.remoteContainerItems.filter(
-    (item) =>
-      item.reconcileDescendants &&
-      !input.isPaused?.(item) &&
-      input.childIdsByParentId.get(item.id)?.size,
-  );
+  const restored = await pendingFolderRestorations({
+    ...input,
+    items: input.remoteContainerItems,
+    execSql: input.state.runtime.infra.execSql,
+  });
   const restoredById = new Map(restored.map((item) => [item.id, item]));
   const tombstones = [
     ...getApplicableContainerTombstones(input.response),
@@ -242,6 +245,8 @@ export async function applyContainerTombstones(input: {
       tombstone.containerId,
     );
     const live = restoredById.get(tombstone.containerId);
+    const stillCurrent = () =>
+      input.isCurrent?.() !== false && !(live && input.isPaused?.(live));
     const result = await applyContainerTombstoneCascade({
       reconcileDescendants: live !== undefined,
       afterParentPage: input.response.nextWatermark
@@ -249,9 +254,7 @@ export async function applyContainerTombstones(input: {
         : undefined,
       childIdsByParentId: input.childIdsByParentId,
       expectedContainerStates: input.expectedContainerStates,
-      isCurrent: live
-        ? () => input.isCurrent?.() !== false && !input.isPaused?.(live)
-        : input.isCurrent,
+      isCurrent: stillCurrent,
       preservedContainerIds,
       state: input.state,
       tombstone,
@@ -259,7 +262,13 @@ export async function applyContainerTombstones(input: {
     changedCount += result.removedCount;
     if (live && input.isPaused?.(live) && input.isCurrent?.() !== false)
       continue;
-    completed = completed && result.settled;
+    const recorded = await recordFolderRestoration(
+      input.state.runtime.infra.execSql,
+      live,
+      result.settled,
+      stillCurrent,
+    );
+    completed = completed && recorded;
     if (!result.current) {
       return { changedCount, completed: false, current: false };
     }

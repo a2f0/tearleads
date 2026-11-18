@@ -12,6 +12,7 @@ import {
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
 const CONTAINER_PARENT_LANE = "container_parent";
+const CONTAINER_RESTORATION_LANE = "container_restoration";
 const CONTAINER_DOCUMENTS_LANE = "container_documents";
 const ROOT_CONTAINER_PARENT_LANE_ID = "root";
 const CONTAINER_PARENT_LANE_ID_PREFIX = "parent:";
@@ -25,7 +26,7 @@ export type ContainerSyncWatermarkLane =
       parentId: string | null;
     }
   | {
-      kind: typeof CONTAINER_DOCUMENTS_LANE;
+      kind: typeof CONTAINER_DOCUMENTS_LANE | typeof CONTAINER_RESTORATION_LANE;
       containerId: string;
     };
 
@@ -81,6 +82,7 @@ export function containerSyncWatermarkLaneKey(
         laneKind: lane.kind,
         laneId: containerParentLaneId(lane.parentId),
       };
+    case CONTAINER_RESTORATION_LANE:
     case CONTAINER_DOCUMENTS_LANE:
       return {
         laneKind: lane.kind,
@@ -119,7 +121,10 @@ export async function deleteContainerWatermarksInTransaction(
           inArray(containerSyncWatermarks.laneId, parentLaneIds),
         ),
         and(
-          eq(containerSyncWatermarks.laneKind, CONTAINER_DOCUMENTS_LANE),
+          inArray(containerSyncWatermarks.laneKind, [
+            CONTAINER_DOCUMENTS_LANE,
+            CONTAINER_RESTORATION_LANE,
+          ]),
           inArray(containerSyncWatermarks.laneId, documentLaneIds),
         ),
       ),

@@ -217,3 +217,45 @@ test("a changed publication lane retries before applying either placement or che
   });
   expect(requests).toEqual([cursor, next, cursor]);
 });
+
+test.each([
+  ["container-a", "container-b"],
+  ["container-b", "container-a"],
+])(
+  "a cross-lane unlink invalidates both contradictory listings in %s, %s order",
+  async (first, second) => {
+    const later = { ...watermarkA, id: "d1/later" };
+    const earlier = { ...watermarkA, id: "d1/earlier" };
+    const live = page(["document-a"]);
+    const listed = await listAllContainerDocumentLanes({
+      lanes: [first, second].map((containerId) => ({
+        containerId,
+        watermark: null,
+      })),
+      listContainerDocumentLanes: async (lanes) =>
+        lanes.map(({ containerId }) =>
+          containerId === "container-a"
+            ? {
+                ...page([]),
+                nextWatermark: later,
+                tombstones: [
+                  {
+                    containerId,
+                    documentId: "document-a",
+                    updatedAt: later.updatedAt,
+                  },
+                ],
+              }
+            : {
+                ...live,
+                nextWatermark: earlier,
+                items: live.items.map((item) => ({
+                  ...item,
+                  linkedContainerIds: ["container-a", "container-b"],
+                })),
+              },
+        ),
+    });
+    expect([...listed.values()]).toEqual(["unavailable", "unavailable"]);
+  },
+);

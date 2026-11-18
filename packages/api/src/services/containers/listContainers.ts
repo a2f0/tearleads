@@ -235,8 +235,8 @@ async function resolveVisibleContainerSummaries(input: {
 
     visibleContainers.push({
       ...(systemSlot ? { systemSlot } : {}),
-      ...(containerRow.reconcileDescendants
-        ? { reconcileDescendants: true }
+      ...(containerRow.restorationId
+        ? { restorationId: containerRow.restorationId }
         : {}),
       createdAt: containerRow.createdAt,
       depth: containerRow.depth,

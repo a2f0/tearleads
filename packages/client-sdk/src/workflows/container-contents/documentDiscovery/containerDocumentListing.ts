@@ -70,36 +70,49 @@ interface PendingContainerDocumentLane {
   watermark: SyncWatermark | null;
 }
 
-// An old server can return both its historical unlink and the live placement
-// in one snapshot. The publication-ordered server excludes that unlink. If
-// both survived a crawl, pages observed different snapshots. Retry from the
-// durable checkpoint before handing either observation to local persistence.
-function hasConflictingPublications(
-  lane: PendingContainerDocumentLane,
-): boolean {
-  if (!lane.watermark?.id.startsWith("d1/") || !lane.tombstones.length)
-    return false;
-  const linkedIds = new Set(
-    lane.items
-      .filter((item) => item.linkedContainerIds.includes(lane.containerId))
-      .map((item) => item.id),
-  );
-  return lane.tombstones.some(
-    (row) =>
-      row.containerId === lane.containerId && linkedIds.has(row.documentId),
-  );
+function removedDocumentPlacements(
+  listed: ReadonlyMap<string, ContainerDocumentLaneListing>,
+) {
+  const removals = new Map<string, Set<string>>();
+  for (const lane of listed.values()) {
+    if (
+      !lane ||
+      lane === "unavailable" ||
+      !lane.nextWatermark?.id.startsWith("d1/")
+    )
+      continue;
+    for (const row of lane.tombstones) {
+      const containers = removals.get(row.documentId) ?? new Set<string>();
+      containers.add(row.containerId);
+      removals.set(row.documentId, containers);
+    }
+  }
+  return removals;
 }
 
-function completedListing(
-  lane: PendingContainerDocumentLane,
-): ContainerDocumentLaneListing {
-  if (hasConflictingPublications(lane)) return "unavailable";
-  return {
-    isFullListing: lane.isFullListing,
-    items: lane.items,
-    nextWatermark: lane.watermark,
-    tombstones: lane.tombstones,
-  };
+// Publication-ordered lanes exclude historical unlinks for live placements.
+// Check the whole fetched batch before applying a lane: a linked document
+// carries its placements in other containers as well as the queried one.
+function discardConflictingDocumentPages(
+  listed: Map<string, ContainerDocumentLaneListing>,
+) {
+  const removals = removedDocumentPlacements(listed);
+  if (!removals.size) return;
+  const conflicted = new Set<string>();
+  for (const [id, lane] of listed) {
+    if (!lane || lane === "unavailable") continue;
+    for (const item of lane.items) {
+      const removed = removals.get(item.id);
+      if (!removed) continue;
+      for (const linked of item.linkedContainerIds.filter((container) =>
+        removed.has(container),
+      )) {
+        conflicted.add(id);
+        conflicted.add(linked);
+      }
+    }
+  }
+  for (const id of conflicted) listed.set(id, "unavailable");
 }
 
 /**
@@ -149,7 +162,12 @@ export async function listAllContainerDocumentLanes(input: {
       lane.tombstones.push(...page.tombstones);
       lane.watermark = page.nextWatermark;
       if (!page.hasMore) {
-        listed.set(lane.containerId, completedListing(lane));
+        listed.set(lane.containerId, {
+          isFullListing: lane.isFullListing,
+          items: lane.items,
+          nextWatermark: lane.watermark,
+          tombstones: lane.tombstones,
+        });
       } else if (lane.watermark) {
         pending.push(lane);
       } else {
@@ -157,6 +175,7 @@ export async function listAllContainerDocumentLanes(input: {
       }
     });
   }
+  discardConflictingDocumentPages(listed);
   return listed;
 }
 

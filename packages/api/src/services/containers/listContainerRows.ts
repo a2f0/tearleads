@@ -24,7 +24,7 @@ export interface AccessibleContainerRow {
   /** Raw column value; `listContainers` admits only a known system slot. */
   systemSlot: unknown;
   discoveryOrder: bigint;
-  reconcileDescendants: boolean;
+  restorationId: string | null;
   depth: number;
   id: string;
   metadataAccessEpoch?: number;
@@ -44,7 +44,10 @@ const accessibleContainerRowSchema = z.looseObject({
     .regex(/^-?\d+$/u)
     .transform(BigInt),
   id: z.string(),
-  reconcileDescendants: z.boolean(),
+  restorationId: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/u)
+    .nullable(),
   metadataDocumentId: z.string().nullable(),
   metadataVersion: z.record(z.string(), z.number().int().nonnegative()),
   organizationId: z.string(),
@@ -291,9 +294,10 @@ export function accessibleContainersQuery(input: {
       ${textExpression(sql`accessible.parent_id`)} as "parentId",
       ${intExpression(sql`accessible.depth`)} as "depth",
       accessible.discovery_order::text as "discoveryOrder",
-      exists (select 1 from ${containerSyncTombstones} loss
+      (select encode(sha256(convert_to(loss.id::text || '/' || loss.discovery_order::text, 'UTF8')), 'hex')
+        from ${containerSyncTombstones} loss
         where loss.user_id = ${input.userId} and loss.container_id = accessible.id
-          and loss.reason = 'access_revoked') as "reconcileDescendants",
+          and loss.reason = 'access_revoked') as "restorationId",
       ${syncTimestampExpression(sql`accessible.created_at`)} as "createdAt",
       ${syncTimestampExpression(sql`accessible.updated_at`)} as "updatedAt",
       ${intExpression(sql`accessible.epoch`)} as "metadataAccessEpoch",

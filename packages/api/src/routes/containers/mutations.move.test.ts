@@ -431,9 +431,32 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
   expect(restored.items).toEqual([
     expect.objectContaining({
       id: source.containerId,
-      reconcileDescendants: true,
+      restorationId: expect.stringMatching(/^[a-f0-9]{64}$/u),
     }),
   ]);
+  // An ordinary edit republishes the folder, while the access loss retains
+  // the same identity. A later loss of the same folder gets a new identity.
+  const readRestoration = async () =>
+    (
+      await readLanePage(
+        await listContainersForUser({
+          parentId: oldParent.containerId,
+          token: recipient.token,
+        }),
+      )
+    ).items.find((row) => row.id === source.containerId)?.restorationId;
+  await db
+    .update(containers)
+    .set({ updatedAt: new Date("2099-02-01") })
+    .where(eq(containers.id, source.containerId));
+  expect(await readRestoration()).toBe(restored.items[0]?.restorationId);
+  await db
+    .update(containerSyncTombstones)
+    .set({ updatedAt: new Date("2099-02-02") })
+    .where(eq(containerSyncTombstones.id, historicalRemoval.id));
+  const nextLoss = await readRestoration();
+  expect(nextLoss).toMatch(/^[a-f0-9]{64}$/u);
+  expect(nextLoss).not.toBe(restored.items[0]?.restorationId);
   const children = await readLanePage(
     await listContainersForUser({
       parentId: source.containerId,

@@ -33,7 +33,7 @@ test.each(["active", "paused", "pause-during-read"] as const)(
         );
       const item = {
         ...remoteContainer("restored", "parent"),
-        reconcileDescendants: true as const,
+        restorationId: "a".repeat(64),
       };
       const cursor = { id: "publication", updatedAt: timestamp };
       const state = {
@@ -71,30 +71,32 @@ test.each(["active", "paused", "pause-during-read"] as const)(
           },
         },
       } as unknown as RemoteContainerHydrationState;
-      const result = await applyContainerTombstones({
-        state,
-        parentId: "parent",
-        childIdsByParentId: new Map([
-          ["restored", new Set(["moved-away", "still-here"])],
-        ]),
-        expectedContainerStates: new Map(
-          local.map((row) => [
-            row.container.id,
-            {
-              container: row.container,
-              fingerprint: createContainerStateFingerprint(row),
-            },
+      const apply = () =>
+        applyContainerTombstones({
+          state,
+          parentId: "parent",
+          childIdsByParentId: new Map([
+            ["restored", new Set(["moved-away", "still-here"])],
           ]),
-        ),
-        isPaused: () => paused,
-        remoteContainerItems: [item],
-        response: {
-          items: [item],
-          tombstones: [],
-          nextWatermark: cursor,
-          hasMore: false,
-        },
-      });
+          expectedContainerStates: new Map(
+            local.map((row) => [
+              row.container.id,
+              {
+                container: row.container,
+                fingerprint: createContainerStateFingerprint(row),
+              },
+            ]),
+          ),
+          isPaused: () => paused,
+          remoteContainerItems: [item],
+          response: {
+            items: [item],
+            tombstones: [],
+            nextWatermark: cursor,
+            hasMore: false,
+          },
+        });
+      const result = await apply();
       expect(accessReads).toBe(mode === "paused" ? 0 : 1);
       expect(result.changedCount).toBe(paused ? 0 : 1);
       expect(containersById.has("moved-away")).toBe(paused);
@@ -105,6 +107,13 @@ test.each(["active", "paused", "pause-during-read"] as const)(
           "moved-away",
         ),
       ).toBe(paused);
+      if (mode === "active") {
+        await apply();
+        expect(accessReads).toBe(1);
+        item.restorationId = "b".repeat(64);
+        await apply();
+        expect(accessReads).toBe(2);
+      }
     } finally {
       await close();
     }

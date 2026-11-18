@@ -2140,9 +2140,11 @@
       "ContainerSummaryResponse": {
         "type": "object",
         "properties": {
-          "reconcileDescendants": {
-            "type": "boolean",
-            "const": true
+          "restorationId": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string"
           },
           "createdAt": {
             "type": "string"
