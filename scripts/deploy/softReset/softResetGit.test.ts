@@ -161,11 +161,18 @@ test("preflight root probe explicitly disables fsmonitor", () => {
         "prod",
         "credentials",
       ],
-      { cwd: f.repo, env: f.env },
+      { cwd: f.root, env: f.env },
     );
     expect(result.exitCode, result.stderr.toString()).toBe(0);
     expect(f.args()).toEqual([
-      ["-c", "core.fsmonitor=false", "rev-parse", "--show-toplevel"],
+      [
+        "-c",
+        "core.fsmonitor=false",
+        "-C",
+        join(f.repo, "scripts/deploy/softReset"),
+        "rev-parse",
+        "--show-toplevel",
+      ],
     ]);
     expect(existsSync(f.called)).toBe(false);
   } finally {
