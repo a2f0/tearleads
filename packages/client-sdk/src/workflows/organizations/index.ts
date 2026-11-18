@@ -116,6 +116,16 @@ export {
   updateOrganizationRosterEntry,
 } from "./readModel";
 export {
+  applyCommittedOrganizationReadModel,
+  awaitCommittedReadModelOffers,
+  beginCommittedReadModel,
+  type CommittedReadModelLease,
+  type CommittedReadModelOffer,
+  type CommittedReadModelOutcome,
+  claimCommittedReadModelOffer,
+  loadHeldOrganizationReadModelCursor,
+} from "./readModel/committedReadModel";
+export {
   loadLocalOrganizationDataUsage,
   type OrganizationDataUsage,
   type ReconcileOrganizationDataUsageInput,

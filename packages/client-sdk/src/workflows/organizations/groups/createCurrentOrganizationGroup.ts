@@ -1,4 +1,8 @@
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
+import {
+  committedReadModelDelta,
+  type OrganizationReadModelDeltaResponse,
+} from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { principalPolicyReferenceFromBundle } from "../../../data/principalContracts/principalPolicyAdminSigners";
@@ -26,6 +30,11 @@ import {
   resolveRequiredUserIdentities,
 } from "../trustedOrganizationUsers";
 
+/** The created group, with the read-model delta its create response carried. */
+export type CreatedCurrentOrganizationGroup = OrganizationGroupSummary & {
+  readonly readModel?: OrganizationReadModelDeltaResponse | undefined;
+};
+
 /** Create from bounded current evidence and publish its genuine genesis with the directory. */
 export async function createCurrentOrganizationGroup(input: {
   readonly apiClient: Pick<
@@ -44,7 +53,7 @@ export async function createCurrentOrganizationGroup(input: {
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
-}): Promise<OrganizationGroupSummary> {
+}): Promise<CreatedCurrentOrganizationGroup> {
   const { context } = input;
   assertProjectionVerificationCurrent(context.stillCurrent);
   const nameKey = canonicalGroupNameKey(input.name);
@@ -130,5 +139,14 @@ export async function createCurrentOrganizationGroup(input: {
     organizationResponse: stored.organizationPolicy,
   });
   assertProjectionVerificationCurrent(context.stillCurrent);
-  return { ...stored.group, name: input.name.trim(), nameUnreadable: false };
+  const created = {
+    ...stored.group,
+    name: input.name.trim(),
+    nameUnreadable: false,
+  };
+  const readModel = committedReadModelDelta(
+    stored.readModel,
+    input.organizationId,
+  );
+  return readModel ? { ...created, readModel } : created;
 }

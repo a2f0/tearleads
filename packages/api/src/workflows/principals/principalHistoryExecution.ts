@@ -27,6 +27,17 @@ export function withBoundedPrincipalHistory<T>(
   return executions.run(new Set(), work);
 }
 
+/**
+ * Run optional work so it reads only prepared principal history: inside a
+ * bounded workflow it keeps that workflow's bounds, and elsewhere it gets its
+ * own, so cold history is refused rather than walked.
+ */
+export function withPreparedPrincipalHistoryOnly<T>(
+  work: () => Promise<T>,
+): Promise<T> {
+  return executions.getStore() ? work() : withBoundedPrincipalHistory(work);
+}
+
 export function principalHistoryExecutionBudget(
   head: ReferencedPrincipalHead,
 ): PrincipalHistoryPreparationBudget {

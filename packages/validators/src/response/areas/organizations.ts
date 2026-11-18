@@ -1,9 +1,18 @@
 export {
+  type CommitOrganizationGroupPolicyResponse,
+  CommitOrganizationGroupPolicyResponseSchema,
+  type ContainerShareResponse,
+  ContainerShareResponseSchema,
   type CreateOrganizationGroupResponse,
   CreateOrganizationGroupResponseSchema,
+  committedReadModelDelta,
+  isCommitOrganizationGroupPolicyResponse,
+  isContainerShareResponse,
+  isCreateOrganizationGroupResponse,
+} from "../committedReadModel";
+export {
   type DeleteOrganizationGroupResponse,
   DeleteOrganizationGroupResponseSchema,
-  isCreateOrganizationGroupResponse,
   isDeleteOrganizationGroupResponse,
   isListOrganizationGroupsResponse,
   isOrganizationContainerGrantResponse,
@@ -95,6 +104,7 @@ export {
 export {
   isOrganizationReadModelResponse,
   type OrganizationReadModelDeltaResponse,
+  OrganizationReadModelDeltaSchema,
   type OrganizationReadModelDirectoryResponse,
   type OrganizationReadModelGrantsResponse,
   type OrganizationReadModelGroupMemberResponse,

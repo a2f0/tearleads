@@ -9,6 +9,7 @@ import {
   isCreateContainerWithMetadataDocumentOperationRequest,
   isCreateContainerWithMetadataDocumentOperationResponse,
   isDeleteContainerOperationResponse,
+  isShareContainerOperationResponse,
   moveContainerOperation,
   operationRequestPath,
   operationRequestPathWithQuery,
@@ -46,8 +47,7 @@ function containerMutationPath(
   operation:
     | typeof moveContainerOperation
     | typeof rekeyContainerOperation
-    | typeof revokeContainerOperation
-    | typeof shareContainerOperation,
+    | typeof revokeContainerOperation,
   containerId: string,
 ) {
   return operationRequestPath(operation, { containerId });
@@ -55,10 +55,14 @@ function containerMutationPath(
 
 export const containerShare = {
   isRequest: isContainerMutationOperationRequest,
-  isResponse: isContainerMutationOperationResponse,
+  isResponse: isShareContainerOperationResponse,
   method: shareContainerOperation.method,
-  path: (containerId: string) =>
-    containerMutationPath(shareContainerOperation, containerId),
+  path: (containerId: string, readModelCursor?: string) =>
+    operationRequestPathWithQuery(
+      shareContainerOperation,
+      { containerId },
+      { readModelCursor },
+    ),
 } as const;
 
 export const containerRevoke = {

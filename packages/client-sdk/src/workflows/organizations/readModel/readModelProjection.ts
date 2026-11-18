@@ -45,12 +45,17 @@ interface OrganizationReadModelProjectionInput {
   readonly organizationId: string;
 }
 
-export interface ReconcileOrganizationDirectoryAndGroupsInput
-  extends OrganizationReadModelProjectionInput {
-  readonly apiClient: OrganizationReadModelApi;
+/** Applying a page needs no API; `stillCurrent` is rechecked in the write. */
+interface ApplyReadModelPageInput extends OrganizationReadModelProjectionInput {
   readonly logError?:
     | ((message: string | Error, cause?: unknown) => void)
     | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
+}
+
+export interface ReconcileOrganizationDirectoryAndGroupsInput
+  extends ApplyReadModelPageInput {
+  readonly apiClient: OrganizationReadModelApi;
 }
 
 function toDirectoryAndGroups(
@@ -133,7 +138,7 @@ type PageRequestStep =
     };
 
 function localResult(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
   outcome: { readonly failed: boolean },
 ): ReconciliationStep {
@@ -162,7 +167,7 @@ function resetRequestCursor(state: ReconciliationState): void {
 
 /** Replays a page that applied stale, up to the retry budget. */
 function retryStaleApply(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
 ): ReconciliationStep {
   if (state.staleRetries >= MAX_STALE_RETRIES) {
@@ -239,7 +244,7 @@ async function requestReadModelPage(
 }
 
 function responseMatchesRequest(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
   response: OrganizationReadModelResponse,
 ): boolean {
@@ -257,7 +262,7 @@ function responseMatchesRequest(
 }
 
 function reconciliationIsCurrent(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
 ): boolean {
   return isOrganizationPresentationAccessAttemptCurrent(
@@ -274,7 +279,7 @@ type ApplyResponseStep =
     };
 
 async function applyResponse(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
   response: OrganizationReadModelResponse,
 ): Promise<ApplyResponseStep> {
@@ -283,6 +288,7 @@ async function applyResponse(
     return {
       kind: "applied",
       result: await repository.applyOrganizationReadModelResponse({
+        canCommit: input.stillCurrent,
         currentUserId: input.currentUserId,
         requestedCursor: state.expectedLocalCursor,
         response,
@@ -308,7 +314,7 @@ async function applyResponse(
 }
 
 async function prepareDeniedProjectionForApply(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
 ): Promise<ReconciliationStep | null> {
   if (state.preparedDeniedProjection) {
@@ -338,7 +344,7 @@ async function prepareDeniedProjectionForApply(
 
 /** The last page settles only if presentation access is still restorable. */
 function finalPageStep(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
   accessInput: OrganizationPresentationAccessInput,
 ): ReconciliationStep {
@@ -348,7 +354,7 @@ function finalPageStep(
 }
 
 async function applyReadModelPage(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  input: ApplyReadModelPageInput,
   state: ReconciliationState,
   response: OrganizationReadModelResponse,
 ): Promise<ReconciliationStep> {
@@ -358,14 +364,13 @@ async function applyReadModelPage(
 
   const accessInput = organizationPresentationAccessInput(input);
   return runOrganizationPresentationMutation(input.execSql, async () => {
-    if (!reconciliationIsCurrent(input, state)) {
+    if (
+      !reconciliationIsCurrent(input, state) ||
+      input.stillCurrent?.() === false
+    )
       return { kind: "done", value: null };
-    }
     const preparation = await prepareDeniedProjectionForApply(input, state);
-    if (preparation) {
-      return preparation;
-    }
-
+    if (preparation) return preparation;
     const applied = await applyResponse(input, state, response);
     if (applied.kind !== "applied") {
       return applied;
@@ -409,6 +414,40 @@ export async function loadLocalOrganizationGroupMembers(
         input.currentUserId,
       ),
   );
+}
+
+/**
+ * Apply one page as a feed read from `requestedCursor` returns it, with no
+ * request, while the projection still holds that cursor. Resolves `undefined`
+ * when it is not applied; it is never retried.
+ */
+export async function applyOrganizationReadModelPageAt(
+  input: ApplyReadModelPageInput & {
+    readonly requestedCursor: string;
+    readonly response: OrganizationReadModelResponse;
+  },
+): Promise<OrganizationDirectoryAndGroups | null | undefined> {
+  const accessAttempt = captureOrganizationPresentationAccessAttempt(
+    organizationPresentationAccessInput(input),
+    "readModel",
+  );
+  const projection = await loadProjection(input);
+  if (projection?.cursor !== input.requestedCursor) return undefined;
+  const applied = await applyReadModelPage(
+    input,
+    {
+      accessAttempt,
+      expectedLocalCursor: projection.cursor,
+      preparedDeniedProjection: true,
+      projection,
+      requestCursor: projection.cursor,
+      retriedBindingFailure: true,
+      retriedInvalidCursor: true,
+      staleRetries: MAX_STALE_RETRIES,
+    },
+    input.response,
+  );
+  return applied.kind === "done" ? applied.value : undefined;
 }
 
 /**

@@ -53,13 +53,13 @@ test("a cursor whose group-name hydration failed does not cover a hint", async (
     expect(readModelRequests).toBe(1);
     // Cursor N is stored, but its names never hydrated: a hint at N must
     // still reconcile so hydration is retried.
-    await expect(coordinator.loadAppliedCursor()).resolves.toBeNull();
+    await expect(coordinator.loadAppliedCursor(1n)).resolves.toBeNull();
 
     workflowInput = base;
     await expect(coordinator.reconcile()).resolves.toMatchObject({
       readModelCursor: response.nextCursor,
     });
-    await expect(coordinator.loadAppliedCursor()).resolves.toBe(
+    await expect(coordinator.loadAppliedCursor(1n)).resolves.toBe(
       response.nextCursor,
     );
   } finally {

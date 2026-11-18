@@ -105,7 +105,9 @@ async function appliedCursorCovers(
 ): Promise<boolean> {
   let applied: string | null;
   try {
-    applied = await tearleads.organizations.loadAppliedReadModelCursor();
+    applied = await tearleads.organizations.loadAppliedReadModelCursor(
+      hint.position,
+    );
   } catch {
     return false;
   }

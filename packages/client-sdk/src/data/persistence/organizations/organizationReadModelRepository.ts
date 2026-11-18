@@ -126,6 +126,8 @@ export class OrganizationReadModelRepository {
   }
 
   async applyOrganizationReadModelResponse(input: {
+    /** Checked in the commit's own synchronous slice; refused rolls back. */
+    readonly canCommit?: (() => boolean) | undefined;
     readonly currentUserId: string;
     readonly requestedCursor: string | null;
     readonly response: OrganizationReadModelResponse;
@@ -137,17 +139,20 @@ export class OrganizationReadModelRepository {
     // The requester prune also retires pruned users' usage projections.
     await ensureSqlTables(this.execSql, organizationAccessProjectionTables);
 
-    const disposition = await getClientSQLitePersistenceRuntime(
-      this.execSql,
-    ).transaction(
-      (tx): Promise<ApplyOrganizationReadModelResponseResult> =>
-        applyOrganizationReadModelResponseInTransaction(tx, {
-          currentUserId: input.currentUserId,
-          now: this.now,
-          requestedCursor: input.requestedCursor,
-          response: input.response,
-        }),
-    );
+    const runtime = getClientSQLitePersistenceRuntime(this.execSql);
+    const apply = (
+      tx: Parameters<Parameters<typeof runtime.transaction>[0]>[0],
+    ): Promise<ApplyOrganizationReadModelResponseResult> =>
+      applyOrganizationReadModelResponseInTransaction(tx, {
+        currentUserId: input.currentUserId,
+        now: this.now,
+        requestedCursor: input.requestedCursor,
+        response: input.response,
+      });
+    const disposition = input.canCommit
+      ? ((await runtime.guardedTransaction(apply, input.canCommit)).result ??
+        "stale")
+      : await runtime.transaction(apply);
     // An applied change follows an organization hint or mutation; in-flight
     // operations recover the directory again instead of reusing their memo.
     if (disposition === "applied")
@@ -227,6 +232,22 @@ export class OrganizationReadModelRepository {
     getOrCreatePrincipalPolicyCoordinator(this.execSql).invalidateRecovery(
       input.organizationId,
     );
+  }
+
+  /**
+   * The organization's stored projection cursor, shared by every requester on
+   * this device: the cursor a reconcile requests from. Null without one.
+   */
+  async loadOrganizationReadModelCursor(
+    organizationId: string,
+  ): Promise<string | null> {
+    await ensureSqlTables(this.execSql, organizationReadModelTables);
+    const [row] = await getClientSQLitePersistenceRuntime(this.execSql)
+      .db.select({ cursor: organizationReadModelState.cursor })
+      .from(organizationReadModelState)
+      .where(eq(organizationReadModelState.organizationId, organizationId))
+      .limit(1);
+    return row?.cursor ?? null;
   }
 
   /**

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { containerCreateMetadataSeedRefinement } from "../documentCreateSeedRefinements";
 import { documentSyncRequestRotationRefinement } from "../documentSyncRefinements";
 import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
+import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
   ContainerCreateWithMetadataDocumentRequestSchema,
   ContainerMutationRequestSchema,
@@ -10,6 +11,7 @@ import {
   isContainerCreateWithMetadataDocumentRequest,
   isContainerMutationRequest,
   isContainerRotationRequest,
+  OrganizationReadModelHeldCursorQuerySchema,
 } from "../request";
 import {
   ContainerCreateWithMetadataDocumentResponseSchema,
@@ -19,11 +21,13 @@ import {
   ContainerNotFoundErrorResponseSchema,
   ContainerReciteResponseSchema,
   ContainerRotationResponseSchema,
+  ContainerShareResponseSchema,
   ErrorResponseSchema,
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
   isContainerMutationResponse,
   isContainerRotationResponse,
+  isContainerShareResponse,
   PaymentRequiredErrorResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
@@ -98,31 +102,6 @@ export const createContainerWithMetadataDocumentOperation = defineJsonOperation(
   },
 );
 
-function defineContainerMutationOperation<
-  const Id extends string,
-  const Path extends `/${string}`,
->(input: {
-  readonly id: Id;
-  readonly path: Path;
-  readonly summary: string;
-  readonly description: string;
-}) {
-  return defineJsonOperation({
-    auth: "session",
-    body: ContainerMutationRequestSchema,
-    failureResponses: containerMutationFailureResponses,
-    failureStatuses: containerMutationFailureStatuses,
-    id: input.id,
-    summary: input.summary,
-    description: input.description,
-    method: "POST",
-    params: ContainerMutationPathParamsSchema,
-    path: input.path,
-    responses: { 200: ContainerMutationResponseSchema },
-    runtimeRefinements: containerMutationRuntimeRefinements,
-  });
-}
-
 /**
  * Rekey, revoke, and move mint a new key epoch, so they alone may carry the
  * descendant rekeys that must commit with them.
@@ -152,12 +131,24 @@ function defineContainerRotationOperation<
   });
 }
 
-export const shareContainerOperation = defineContainerMutationOperation({
+export const shareContainerOperation = defineJsonOperation({
+  auth: "session",
+  body: ContainerMutationRequestSchema,
+  failureResponses: containerMutationFailureResponses,
+  failureStatuses: containerMutationFailureStatuses,
   id: "containers.share",
   summary: "Share a container",
   description:
-    "Adds or changes a user or group grant on a container through a signed `container.grant` event, wrapping the current container KEK to the new recipients. Requires admin access through the container's path. Cited heads must be current: a stale container head returns 409 `container_mutation_state_stale`, and a stale principal policy returns 409 `principal_policy_stale` with the current heads.",
+    "Adds or changes a user or group grant on a container through a signed `container.grant` event, wrapping the current container KEK to the new recipients. Requires admin access through the container's path. Cited heads must be current: a stale container head returns 409 `container_mutation_state_stale`, and a stale principal policy returns 409 `principal_policy_stale` with the current heads. When `readModelCursor` names the read-model head the share's grants stamp advanced from, the response carries the read-model delta a feed read from that cursor returns.",
+  method: "POST",
+  params: ContainerMutationPathParamsSchema,
   path: "/containers/{containerId}/share",
+  query: OrganizationReadModelHeldCursorQuerySchema,
+  responses: { 200: ContainerShareResponseSchema },
+  runtimeRefinements: [
+    ...containerMutationRuntimeRefinements,
+    ...organizationReadModelResponseRuntimeRefinements,
+  ],
 });
 
 export const reciteContainerOperation = defineJsonOperation({
@@ -219,6 +210,7 @@ export const deleteContainerOperation = defineJsonOperation({
 
 export const isContainerMutationOperationRequest = isContainerMutationRequest;
 export const isContainerMutationOperationResponse = isContainerMutationResponse;
+export const isShareContainerOperationResponse = isContainerShareResponse;
 export const isContainerRotationOperationRequest = isContainerRotationRequest;
 export const isContainerRotationOperationResponse = isContainerRotationResponse;
 export const isCreateContainerWithMetadataDocumentOperationRequest =

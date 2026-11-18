@@ -68,9 +68,10 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // no metadata sync follows. Document, attachment and metadata syncs share
   // their coordinator drain's policy operation, so a drain discovers once, and
   // recites of ungranted containers no longer stamp the grants lane: measured
-  // 48 calls (50 before the grants-stamp gate, 62–68 before the seed). Keep
+  // 47 calls (48 before the share's response carried the sharer's read-model
+  // delta, 50 before the grants-stamp gate, 62–68 before the seed). Keep
   // eight calls of scheduling room.
-  total: 56,
+  total: 55,
   // Container mutations cite stored manifests by hash and principal policies
   // by head, so the share and its recitations echo neither path bundles nor
   // ~9.8 KB policies: 120 KB sent with create seeds (180 KB with policies,
@@ -115,8 +116,10 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /containers/:containerId/writer-projection": 7,
     "GET /documents/:documentId/attachments": 2,
     "GET /organizations/:organizationId/billing": 0,
-    // Measured 1 (4 before ungranted recites stopped stamping grants).
-    "GET /organizations/:organizationId/read-model": 3,
+    // None: the share's response carries the sharer's delta, which the
+    // hint's cursor check applies (measured 1 before it did, 4 before
+    // ungranted recites stopped stamping grants).
+    "GET /organizations/:organizationId/read-model": 0,
     "GET /principals/group/:groupId/policy": 0,
     // Measured 8: one per operation, pass or coordinator drain.
     "GET /principals/organization/:organizationId/policy": 10,
@@ -287,7 +290,8 @@ test(
       .slice(duplicateShareBaseline.requestStartIndex)
       .filter(
         (request) =>
-          request.method === "POST" && request.url.endsWith("/share"),
+          request.method === "POST" &&
+          new URL(request.url).pathname.endsWith("/share"),
       );
     expect(
       duplicateShareRequests,
@@ -358,7 +362,8 @@ test(
     const shareRequest = listProxiedApiRequests()
       .filter(
         (request) =>
-          request.method === "POST" && request.url.endsWith("/share"),
+          request.method === "POST" &&
+          new URL(request.url).pathname.endsWith("/share"),
       )
       .at(-1);
     expect(shareRequest?.status).toBe(200);

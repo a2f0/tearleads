@@ -6,6 +6,7 @@ import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators
 import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { toMutationError } from "../containers/mutations/errors";
 import { OrganizationManagerError } from "../organizations/errors";
+import { loadCommittedReadModelDeltaInTransaction } from "../organizations/readModelMutationDelta";
 import {
   lockGroupPolicyRematerializationInTransaction,
   lockGroupReferenceExclusiveInTransaction,
@@ -41,6 +42,8 @@ export interface CommitOrganizationGroupPolicyResult {
 interface CommitPolicyInput {
   readonly groupId: string;
   readonly organizationId: string;
+  /** The read-model cursor the caller holds, for the committed delta. */
+  readonly readModelCursor?: string | undefined;
   readonly request: CommitOrganizationGroupPolicyRequest;
   readonly requesterUserId: string;
 }
@@ -89,6 +92,91 @@ async function commitRosterEnrollment(
     : null;
 }
 
+/** The group, optional roster enrollment and directory commit, in one transaction. */
+async function commitInTransaction(
+  tx: DatabaseTransaction,
+  {
+    groupInput,
+    identityTrustDomain,
+    input,
+    organizationInput,
+  }: {
+    readonly groupInput: PutPrincipalPolicyInput;
+    readonly identityTrustDomain: string;
+    readonly input: CommitPolicyInput;
+    readonly organizationInput: PutPrincipalPolicyInput;
+  },
+): Promise<CommitOrganizationGroupPolicyResult> {
+  await lockOrganizationGroupMutationInTransaction(
+    tx,
+    input.organizationId,
+    input.groupId,
+  );
+  const outcome = await principalPolicyCommitOutcome(tx, input);
+  if (outcome.response) {
+    return {
+      policy: outcome.response,
+      sharedWithYouUserIds: [],
+      replayed: true,
+    };
+  }
+  const target = await loadRosterSyncTargetForPrincipal({
+    input: groupInput,
+    tx,
+  });
+  if (!target || target.organizationId !== input.organizationId) {
+    throw new PrincipalPolicyError(
+      "Group does not belong to the committed organization",
+      404,
+    );
+  }
+  await lockEnrollmentReferences(tx, input, target.memberGroupId);
+  // Check direct admin access against the intact predecessor directory.
+  // Each apply still verifies the signed policy and its authority.
+  // The organization lock remains held through all three policy writes.
+  const applyGroup = await preparePrincipalPolicyInTransaction(
+    tx,
+    groupInput,
+    identityTrustDomain,
+  );
+  const member = await commitRosterEnrollment(
+    tx,
+    input,
+    target.memberGroupId,
+    identityTrustDomain,
+  );
+  const group = await applyGroup();
+  const organization = await putPrincipalPolicyInTransaction(
+    tx,
+    organizationInput,
+    identityTrustDomain,
+  );
+  const policy = {
+    ...(member ? { memberPolicy: member.policy } : {}),
+    groupPolicy: group.policy,
+    organizationPolicy: organization.policy,
+  };
+  await outcome.save(policy);
+  // After the last write, and outside the stored receipt a replay returns.
+  const readModel = await loadCommittedReadModelDeltaInTransaction({
+    heldCursor: input.readModelCursor,
+    organizationId: input.organizationId,
+    sessionUserId: input.requesterUserId,
+    tx,
+  });
+  return {
+    policy: readModel ? { ...policy, readModel } : policy,
+    replayed: false,
+    sharedWithYouUserIds: [
+      ...new Set([
+        ...(member?.sharedWithYouUserIds ?? []),
+        ...group.sharedWithYouUserIds,
+        ...organization.sharedWithYouUserIds,
+      ]),
+    ],
+  };
+}
+
 export async function runCommitOrganizationGroupPolicyWorkflow(
   db: ApiDatabase,
   input: CommitPolicyInput,
@@ -110,69 +198,14 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
   assertPutPrincipalPolicyRouteBinding(organizationInput);
 
   try {
-    return await runPrincipalHistoryTransaction(db, async (tx) => {
-      await lockOrganizationGroupMutationInTransaction(
-        tx,
-        input.organizationId,
-        input.groupId,
-      );
-      const outcome = await principalPolicyCommitOutcome(tx, input);
-      if (outcome.response) {
-        return {
-          policy: outcome.response,
-          sharedWithYouUserIds: [],
-          replayed: true,
-        };
-      }
-      const target = await loadRosterSyncTargetForPrincipal({
-        input: groupInput,
-        tx,
-      });
-      if (!target || target.organizationId !== input.organizationId) {
-        throw new PrincipalPolicyError(
-          "Group does not belong to the committed organization",
-          404,
-        );
-      }
-      await lockEnrollmentReferences(tx, input, target.memberGroupId);
-      // Check direct admin access against the intact predecessor directory.
-      // Each apply still verifies the signed policy and its authority.
-      // The organization lock remains held through all three policy writes.
-      const applyGroup = await preparePrincipalPolicyInTransaction(
-        tx,
+    return await runPrincipalHistoryTransaction(db, (tx) =>
+      commitInTransaction(tx, {
         groupInput,
         identityTrustDomain,
-      );
-      const member = await commitRosterEnrollment(
-        tx,
         input,
-        target.memberGroupId,
-        identityTrustDomain,
-      );
-      const group = await applyGroup();
-      const organization = await putPrincipalPolicyInTransaction(
-        tx,
         organizationInput,
-        identityTrustDomain,
-      );
-      const policy = {
-        ...(member ? { memberPolicy: member.policy } : {}),
-        groupPolicy: group.policy,
-        organizationPolicy: organization.policy,
-      };
-      await outcome.save(policy);
-      return {
-        policy,
-        replayed: false,
-        sharedWithYouUserIds: [
-          ...new Set([
-            ...(member?.sharedWithYouUserIds ?? []),
-            ...group.sharedWithYouUserIds,
-            ...organization.sharedWithYouUserIds,
-          ]),
-        ],
-      };
-    });
+      }),
+    );
   } catch (error) {
     const containerMutationError = toMutationError(error);
     if (containerMutationError) {

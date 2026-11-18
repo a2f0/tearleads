@@ -16,7 +16,7 @@ import {
 } from "../../workflows/organizations";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
-import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
+import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 
 const projectedMembers: OrganizationGroupMembersResponse = {
   organizationId,
@@ -87,6 +87,15 @@ function coordinatorWithMembers(
     },
     async reconcileAfterMutation() {
       return null;
+    },
+    async applyCommittedReadModel() {
+      return undefined;
+    },
+    async reconcileAfterOwnMutation() {
+      return null;
+    },
+    sessionGuard() {
+      return () => true;
     },
     async loadAppliedCursor() {
       return null;

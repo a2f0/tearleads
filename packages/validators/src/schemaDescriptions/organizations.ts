@@ -32,6 +32,7 @@ import {
   OrganizationPolicyHistoryResponseSchema,
   OrganizationPresentationFailureResponseSchema,
   OrganizationProfileResponseSchema,
+  OrganizationReadModelDeltaSchema,
   OrganizationReadModelFailureResponseSchema,
   OrganizationReadModelResponseSchema,
   PrincipalContainerGrantResponseSchema,
@@ -226,6 +227,10 @@ describeSchema(
 describeSchema(
   CommitOrganizationGroupPolicyResponseSchema,
   "Acknowledges a group policy commit with the head of every policy it advanced.",
+  {
+    readModel:
+      "The read-model delta a feed read from `readModelCursor` returns once the commit lands. Present only when that cursor was the head the commit advanced from and the caller may read the feed.",
+  },
 );
 
 describeSchema(
@@ -340,6 +345,10 @@ describeSchema(
 describeSchema(
   CreateOrganizationGroupResponseSchema,
   "Acknowledges a new group and the organization policy that lists it.",
+  {
+    readModel:
+      "The read-model delta a feed read from `readModelCursor` returns once the group exists. Present only when that cursor was the head the create advanced from and the caller may read the feed.",
+  },
 );
 
 describeSchema(
@@ -436,6 +445,11 @@ describeSchema(
 describeSchema(
   OrganizationReadModelResponseSchema,
   "A page of the organization read model: an atomic snapshot when the request had no cursor, otherwise only the lanes changed since it. Display data only, never authority.",
+);
+
+describeSchema(
+  OrganizationReadModelDeltaSchema,
+  "A read-model delta page carried by a mutation response: exactly the page a feed read from the caller's held cursor returns once the mutation commits. Display data only, never authority.",
 );
 
 describeSchema(

@@ -138,6 +138,7 @@ export function createPrincipalPolicyRoute({
       commitOrganizationGroupPolicyOperation.params,
       "Invalid organization group policy route",
     ),
+    queryParamsValidator(commitOrganizationGroupPolicyOperation.query),
     async (c) => {
       const { groupId, organizationId } = c.req.valid("param");
       try {
@@ -146,6 +147,7 @@ export function createPrincipalPolicyRoute({
           {
             groupId,
             organizationId,
+            readModelCursor: c.req.valid("query").readModelCursor,
             request: c.req.valid("json"),
             requesterUserId: c.get("session").userId,
           },

@@ -552,7 +552,7 @@ export type paths = {
         put?: never;
         /**
          * Share a container
-         * @description Adds or changes a user or group grant on a container through a signed `container.grant` event, wrapping the current container KEK to the new recipients. Requires admin access through the container's path. Cited heads must be current: a stale container head returns 409 `container_mutation_state_stale`, and a stale principal policy returns 409 `principal_policy_stale` with the current heads.
+         * @description Adds or changes a user or group grant on a container through a signed `container.grant` event, wrapping the current container KEK to the new recipients. Requires admin access through the container's path. Cited heads must be current: a stale container head returns 409 `container_mutation_state_stale`, and a stale principal policy returns 409 `principal_policy_stale` with the current heads. When `readModelCursor` names the read-model head the share's grants stamp advanced from, the response carries the read-model delta a feed read from that cursor returns.
          */
         post: operations["containers.share"];
         delete?: never;
@@ -1200,7 +1200,7 @@ export type paths = {
         put?: never;
         /**
          * Create an organization group and advance its signed directory
-         * @description Creates a group with its initial signed principal policy and, in the same transaction, the organization policy successor that adds it to the signed group directory. Only organization administrators may call it. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.
+         * @description Creates a group with its initial signed principal policy and, in the same transaction, the organization policy successor that adds it to the signed group directory. Only organization administrators may call it. When `readModelCursor` names the read-model head the commit advanced from, the response carries the read-model delta a feed read from that cursor returns. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.
          */
         post: operations["organizations.groups.create"];
         delete?: never;
@@ -1259,7 +1259,7 @@ export type paths = {
         get?: never;
         /**
          * Advance a group policy and its signed directory head
-         * @description Commits a group's next signed principal policy, its member envelopes, the matching organization policy successor, and the container grant updates the change requires, all in one transaction. Only organization administrators may call it; a stale head returns 409. A 202 asks for the identical request to be retried after preparation, and only a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.
+         * @description Commits a group's next signed principal policy, its member envelopes, the matching organization policy successor, and the container grant updates the change requires, all in one transaction. Only organization administrators may call it; a stale head returns 409. When `readModelCursor` names the read-model head the commit advanced from, the response carries the read-model delta a feed read from that cursor returns. A 202 asks for the identical request to be retried after preparation, and only a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.
          */
         put: operations["organizations.groups.policy.commit"];
         post?: never;
@@ -2000,6 +2000,8 @@ export type components = {
             groupPolicy: components["schemas"]["PrincipalPolicyMutationResponse"];
             memberPolicy?: components["schemas"]["PrincipalPolicyMutationResponse"];
             organizationPolicy: components["schemas"]["PrincipalPolicyMutationResponse"];
+            /** @description The read-model delta a feed read from `readModelCursor` returns once the commit lands. Present only when that cursor was the head the commit advanced from and the caller may read the feed. */
+            readModel?: components["schemas"]["OrganizationReadModelDelta"];
         } & {
             [key: string]: unknown;
         };
@@ -2331,6 +2333,37 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a share by hash, as for any container mutation, and may carry the sharer's read-model delta. */
+        ContainerShareResponse: {
+            bundleDigest: string;
+            containerId: string;
+            containerKek: {
+                containerKeyEpoch: number;
+                containerKeyEpochId: string;
+                keyEpochHash: string;
+                keyringHash: string | null;
+                keyTargetHash: string;
+                parentContainerKeyEpochId: string | null;
+            } & {
+                [key: string]: unknown;
+            };
+            createdAt: string;
+            eventHash: string;
+            manifestHead: {
+                epoch: number;
+                manifestHash: string;
+            } & {
+                [key: string]: unknown;
+            };
+            organizationId: string;
+            parentId: string | null;
+            /** @description The read-model delta a feed read from `readModelCursor` returns once the share lands. Present only when the share stamped the grants lane, that cursor was the head it advanced from, and the caller may read the feed. */
+            readModel?: components["schemas"]["OrganizationReadModelDelta"];
+            systemSlot?: string | null;
+            updatedAt: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** @description One container in a listing, with the caller's effective access to it. */
         ContainerSummaryResponse: {
             createdAt: string;
@@ -2431,6 +2464,8 @@ export type components = {
         CreateOrganizationGroupResponse: {
             group: components["schemas"]["OrganizationGroupSummaryResponse"];
             organizationPolicy: components["schemas"]["PrincipalPolicyMutationResponse"];
+            /** @description The read-model delta a feed read from `readModelCursor` returns once the group exists. Present only when that cursor was the head the create advanced from and the caller may read the feed. */
+            readModel?: components["schemas"]["OrganizationReadModelDelta"];
         } & {
             [key: string]: unknown;
         };
@@ -3579,6 +3614,103 @@ export type components = {
             profileDocumentId: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /** @description A read-model delta page carried by a mutation response: exactly the page a feed read from the caller's held cursor returns once the mutation commits. Display data only, never authority. */
+        OrganizationReadModelDelta: {
+            currentUser: {
+                isOrgAdmin: boolean;
+            };
+            hasMore: boolean;
+            lanes: {
+                directory?: {
+                    organizationId: string;
+                    profileDocumentId: string | null;
+                    users: {
+                        createdAt: string;
+                        disabledAt: string | null;
+                        disabledByUserId: string | null;
+                        encapsulationKeyFingerprint: string;
+                        isPersonalOrganizationOwner: boolean;
+                        isSelf: boolean;
+                        joinedAt: string;
+                        leaveRequest: components["schemas"]["OrganizationLeaveRequest"] | null;
+                        profileDocumentId: string | null;
+                        signingKeyFingerprint: string;
+                        /** @enum {string} */
+                        status: "active" | "disabled";
+                        updatedAt: string;
+                        userId: string;
+                    }[];
+                };
+                grants?: {
+                    grants: {
+                        /** @enum {string} */
+                        accessLevel: "admin" | "read" | "write";
+                        containerId: string;
+                        createdAt: string;
+                        depth: number;
+                        groupId: string | null;
+                        isBuiltin: boolean;
+                        metadataAccessEpoch: number;
+                        metadataAccessStateHash: string;
+                        metadataDocumentId: string | null;
+                        parentId: string | null;
+                        signingKeyFingerprint: string | null;
+                        subjectId: string;
+                        /** @enum {string} */
+                        subjectType: "group" | "user";
+                        updatedAt: string;
+                        userId: string | null;
+                    }[];
+                    organizationId: string;
+                };
+                groupMemberships?: {
+                    deletedGroupIds: string[];
+                    groups: {
+                        groupId: string;
+                        members: {
+                            /** @enum {string} */
+                            role: "member" | "admin";
+                            userId: string;
+                        }[];
+                        stateHash: string;
+                    }[];
+                    organizationId: string;
+                };
+                groups?: {
+                    groups: {
+                        createdAt: string;
+                        currentState: {
+                            keyEpoch: number;
+                            keyFingerprint: string;
+                            memberCount: number;
+                            stateHash: string;
+                            version: number;
+                        } | null;
+                        groupId: string;
+                        isBuiltin: boolean;
+                        organizationId: string;
+                    }[];
+                    memberGroupId: string;
+                    organizationId: string;
+                };
+                organizationPolicy?: {
+                    currentState: {
+                        keyEpoch: number;
+                        keyFingerprint: string;
+                        memberCount: number;
+                        stateHash: string;
+                        version: number;
+                    };
+                    organizationId: string;
+                };
+            };
+            /** @constant */
+            mode: "delta";
+            nextCursor: string;
+            organizationId: string;
+            /** @constant */
+            version: 6;
         };
         /** @description A refused read-model request. */
         OrganizationReadModelFailureResponse: {
@@ -7161,7 +7293,9 @@ export interface operations {
     };
     "containers.share": {
         parameters: {
-            query?: never;
+            query?: {
+                readModelCursor?: string;
+            };
             header?: never;
             path: {
                 containerId: string;
@@ -7180,7 +7314,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ContainerMutationResponse"];
+                    "application/json": components["schemas"]["ContainerShareResponse"];
                 };
             };
             /** @description Bad Request */
@@ -10143,7 +10277,9 @@ export interface operations {
     };
     "organizations.groups.create": {
         parameters: {
-            query?: never;
+            query?: {
+                readModelCursor?: string;
+            };
             header?: never;
             path: {
                 organizationId: string;
@@ -10435,7 +10571,9 @@ export interface operations {
     };
     "organizations.groups.policy.commit": {
         parameters: {
-            query?: never;
+            query?: {
+                readModelCursor?: string;
+            };
             header?: never;
             path: {
                 groupId: string;

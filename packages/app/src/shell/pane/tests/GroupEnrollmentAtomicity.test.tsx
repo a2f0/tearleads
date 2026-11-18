@@ -58,7 +58,8 @@ test("adding an outsider to Admins shows progress and commits both memberships o
     .slice(requestStart)
     .filter(
       (request) =>
-        request.method === "PUT" && request.url.endsWith("/policy-commit"),
+        request.method === "PUT" &&
+        new URL(request.url).pathname.endsWith("/policy-commit"),
     );
   expect(commits).toHaveLength(1);
   expect(commits[0]?.status).toBe(200);
