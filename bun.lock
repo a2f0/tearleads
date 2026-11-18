@@ -317,7 +317,7 @@
     },
     "packages/sqlite-worker": {
       "name": "@tearleads/sqlite-worker",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "dependencies": {
         "@tearleads/sqlite-instance": "workspace:*",
       },
