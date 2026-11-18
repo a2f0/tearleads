@@ -148,8 +148,7 @@ clock moves backwards, hydration verifies the current signed placement and
 requires the listed manifest hash and rechecks the signed checkpoint inside
 its local transaction. A folder moved back into a readable path carries a hint
 to check its cached descendants when its earlier revocation row survives.
-The SDK records that revocation’s opaque ID after reconciliation. Later folder
-edits reuse the receipt. A new revocation has a different ID. A
+The SDK records the reconciled revocation ID. A
 child that moved while the folder was inaccessible is removed only after its
 own access check. Direct and group regrant workflows prune their earlier
 revocation rows, so those paths retain their existing reconciliation behavior.
@@ -182,6 +181,7 @@ work, including a concurrent index build interrupted before becoming valid.
 Fresh installations and PGlite apply the journal directly. See the
 [discovery preparation](../packages/api-shared/src/adapters/prepareDiscoveryMigration.ts)
 and [historical backfill](../packages/api-shared/drizzle/0005_publish_discovery_order.sql).
+Rotate the [discovery key after a database restore](./developer/api-persistence.md#restored-discovery-cursors).
 Drain the old API fleet before relying on opaque cursors across consecutive
 pages. Alternating old and new servers can restart a multi-page crawl until
 the old instances drain. The SDK can arrive before or after the API. A
