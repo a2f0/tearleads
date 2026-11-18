@@ -38,7 +38,7 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
   };
 
 interface RemoteHydrationRequestInput {
-  ownsBorrowedReset?: () => boolean;
+  ownsTreeReset?: () => boolean;
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
   reconnect?: ReconnectCrawl | undefined;
@@ -134,7 +134,7 @@ function createResetRecoveryInput(
 function resumeRetainedRecoveryHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
-  if (!ownsContainerStore(input.state)) return Promise.resolve();
+  if (!ownsHydrationRequest(input)) return Promise.resolve();
   queueRecoveryHydrationRequest(input);
   return hasRemoteHydrationPrerequisites(input.state)
     ? input.resumeRecoveryWork()
@@ -157,7 +157,7 @@ function prepareTreeReset(
     followDiscoveredParentLanes: true,
     resetAllLaneWatermarks: true,
     recreateOnFullyHydratedAtStart: false,
-    ownsBorrowedReset: coverReset.isOwned,
+    ownsTreeReset: coverReset.isOwned,
     onFullyHydrated: () => {
       coverReset.cover();
       return onCovered?.();
@@ -189,7 +189,7 @@ function waitForActiveRemoteHydration(
     input.resetAllLaneWatermarks &&
     input.followDiscoveredParentLanes
   ) {
-    queueTreeReset(state);
+    input = { ...input, ownsTreeReset: queueTreeReset(state) };
   }
   const requestQueuedHydration = () => {
     if (
@@ -246,7 +246,7 @@ function retryRemoteHydrationAfterReset(
     // A superseded crawl still owes the manual refresh whose reset it consumed.
     // Complete that request under the live store's own generation guard.
     if (
-      !input.ownsBorrowedReset?.() ||
+      !input.ownsTreeReset?.() ||
       input.state.runtime.liveHydrationStatus?.() === "retired"
     )
       return Promise.resolve();
@@ -357,7 +357,7 @@ function consumeQueuedHydrationScope(
 function ownsHydrationRequest(input: RemoteHydrationRequestInput): boolean {
   return (
     ownsContainerStore(input.state) &&
-    input.ownsBorrowedReset?.() !== false &&
+    input.ownsTreeReset?.() !== false &&
     input.reconnect?.isCurrent() !== false
   );
 }

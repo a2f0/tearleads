@@ -77,7 +77,9 @@ function createSyncLaneHandle(
   };
 }
 
-function createDomainSyncCoordinator(): DomainSyncCoordinator {
+function createDomainSyncCoordinator(
+  domainScope: DomainScope,
+): DomainSyncCoordinator {
   const coordinatorState: DomainSyncCoordinatorState = {
     disposed: false,
     lanes: new Map<string, SyncLaneState>(),
@@ -98,7 +100,10 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
       return beginUploadLane(coordinatorState, key, options);
     },
     dispose() {
+      if (coordinatorState.disposed) return;
       coordinatorState.disposed = true;
+      // A disposal listener can synchronously reopen this scope.
+      coordinatorsByScope.delete(domainScope);
       // Drop queued work so waitForIdle reports settled immediately and a
       // lane left re-requested by an in-flight run does not survive teardown.
       for (const lane of coordinatorState.lanes.values()) {
@@ -187,7 +192,7 @@ export function getOrCreateDomainSyncCoordinator(
     return existingCoordinator;
   }
 
-  const nextCoordinator = createDomainSyncCoordinator();
+  const nextCoordinator = createDomainSyncCoordinator(domainScope);
   coordinatorsByScope.set(domainScope, nextCoordinator);
   return nextCoordinator;
 }
@@ -216,14 +221,7 @@ export function requestDomainSyncLane(
 // Stop admitting work and remove this scope's coordinator. Active callbacks
 // drain under their existing watchdogs; getOrCreate builds a fresh coordinator.
 export function disposeDomainSyncCoordinator(domainScope: DomainScope): void {
-  const coordinator = coordinatorsByScope.get(domainScope);
-  if (!coordinator) {
-    return;
-  }
-
-  // A disposal listener can synchronously reopen this scope.
-  coordinatorsByScope.delete(domainScope);
-  coordinator.dispose();
+  coordinatorsByScope.get(domainScope)?.dispose();
 }
 
 export function getDomainSyncCoordinatorSnapshot(

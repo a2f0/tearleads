@@ -282,3 +282,55 @@ test("a restoration queued behind reconnect completes its claimed sweep", async 
     await close();
   }
 });
+
+test("a queued full refresh does not reset the next owner's watermark before handoff", async () => {
+  const { close, execSql } = await createTestExecSql("queued-manual-owner");
+  const lane = createContainerParentSyncLane(null);
+  const cursors = new ContainerSyncWatermarkRepository(execSql);
+  const initial = { id: "initial", updatedAt: "2026-01-01T00:00:00.000Z" };
+  const started = Promise.withResolvers<void>();
+  const held = Promise.withResolvers<void>();
+  let current = true;
+  const reads: unknown[] = [];
+  const state = createRequestState(execSql, async ({ lanes }) => {
+    reads.push(lanes[0]?.watermark);
+    started.resolve();
+    await held.promise;
+    return emptyRootLane;
+  });
+  const input = {
+    host: emptyHydrationHost,
+    state,
+    parentIds: [null],
+    followDiscoveredParentLanes: true,
+    scheduleSync: () => {},
+    resumeRecoveryWork: async () => {
+      await resumeContainerContentsRecoveryHydration(state);
+    },
+  };
+  try {
+    await cursors.saveWatermark(lane, initial);
+    const active = requestContainerContentsRemoteHydration({
+      ...input,
+      reconnect: { isCurrent: () => current, record: () => {} },
+    });
+    await started.promise;
+    const manual = requestContainerContentsRemoteHydration({
+      ...input,
+      resetAllLaneWatermarks: true,
+    });
+    current = false;
+    state.writeGeneration = 1;
+    state.structuralGeneration++;
+    state.runtime = {
+      ...state.runtime,
+      auth: { ...state.runtime.auth, organizationId: "replacement-org" },
+    };
+    held.resolve();
+    await Promise.all([active, manual]);
+    expect(reads).toEqual([initial]);
+  } finally {
+    held.resolve();
+    await close();
+  }
+});

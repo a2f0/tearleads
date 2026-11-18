@@ -201,14 +201,16 @@ function hasUnusableContinuation({
   lane,
   response,
 }: FetchedContainerParentLanePage): boolean {
-  if (!response.hasMore) return false;
   const next = response.nextWatermark;
-  return (
-    !next ||
-    lane.continuationCursors?.has(cursorKey(next)) === true ||
-    (next.id === lane.watermark?.id &&
-      next.updatedAt === lane.watermark.updatedAt)
-  );
+  if (!next) return response.hasMore;
+  // Opaque positions can advance with an older business timestamp.
+  // A drained lane may echo its current position, but never an earlier one.
+  if (
+    next.id === lane.watermark?.id &&
+    next.updatedAt === lane.watermark.updatedAt
+  )
+    return response.hasMore;
+  return lane.continuationCursors?.has(cursorKey(next)) === true;
 }
 
 function queueNextPage(

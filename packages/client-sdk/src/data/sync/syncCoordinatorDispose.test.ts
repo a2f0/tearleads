@@ -84,19 +84,23 @@ test("getOrCreate after dispose builds a fresh, working coordinator", async () =
   expect(ran).toBe(true);
 });
 
-test("a disposal subscriber can reopen a live lane in the same scope", () => {
-  const scope = createDomainScope();
-  const previous = getOrCreateDomainSyncCoordinator(scope);
-  let reopened = previous;
-  previous.subscribe(() => {
-    reopened = getOrCreateDomainSyncCoordinator(scope);
-  });
-  disposeDomainSyncCoordinator(scope);
-  try {
-    expect(reopened).not.toBe(previous);
-    expect(reopened.isDisposed()).toBe(false);
-    expect(getOrCreateDomainSyncCoordinator(scope)).toBe(reopened);
-  } finally {
-    disposeDomainSyncCoordinator(scope);
-  }
-});
+test.each(["scope", "handle"])(
+  "a %s disposal subscriber can reopen a live lane",
+  (entry) => {
+    const scope = createDomainScope();
+    const previous = getOrCreateDomainSyncCoordinator(scope);
+    let reopened = previous;
+    previous.subscribe(() => {
+      reopened = getOrCreateDomainSyncCoordinator(scope);
+    });
+    if (entry === "handle") previous.dispose();
+    else disposeDomainSyncCoordinator(scope);
+    try {
+      expect(reopened).not.toBe(previous);
+      expect(reopened.isDisposed()).toBe(false);
+      expect(getOrCreateDomainSyncCoordinator(scope)).toBe(reopened);
+    } finally {
+      disposeDomainSyncCoordinator(scope);
+    }
+  },
+);
