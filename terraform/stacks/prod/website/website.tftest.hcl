@@ -80,6 +80,7 @@ run "reject_reused_apex_challenge" {
   variables {
     balebase_verification_txt           = "balebase-verification=11111111-2222-4333-8444-555555555555"
     balebase_subdomain_verification_txt = "balebase-verification=11111111-2222-4333-8444-555555555555"
+    enable_balebase_subdomain_mx        = false
   }
   expect_failures = [var.balebase_subdomain_verification_txt]
 }
@@ -89,6 +90,7 @@ run "both_challenges_before_cutover" {
   variables {
     balebase_verification_txt           = "balebase-verification=11111111-2222-4333-8444-555555555555"
     balebase_subdomain_verification_txt = "balebase-verification=22222222-3333-4444-8555-666666666666"
+    enable_balebase_subdomain_mx        = false
   }
   assert {
     condition = (
@@ -122,11 +124,21 @@ run "publish_only_subdomain_mx" {
   }
 }
 
+run "reject_missing_switch_after_cutover" {
+  command = plan
+  variables {
+    balebase_verification_txt           = "balebase-verification=11111111-2222-4333-8444-555555555555"
+    balebase_subdomain_verification_txt = "balebase-verification=22222222-3333-4444-8555-666666666666"
+  }
+  expect_failures = [var.enable_balebase_subdomain_mx]
+}
+
 run "withdraw_only_subdomain_mx" {
   command = apply
   variables {
     balebase_verification_txt           = "balebase-verification=11111111-2222-4333-8444-555555555555"
     balebase_subdomain_verification_txt = "balebase-verification=22222222-3333-4444-8555-666666666666"
+    enable_balebase_subdomain_mx        = false
   }
   assert {
     condition = (

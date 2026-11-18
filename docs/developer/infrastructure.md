@@ -95,18 +95,47 @@ directly, using an MX record only on `base.tearleads.com`.
 1. In the production Tearleads organization in Balebase, add
    `base.tearleads.com` and copy its TXT value. Save that value separately
    as `TF_VAR_balebase_subdomain_verification_txt` in the production tier's
-   `app.env`. Keep the apex setting. Leave `TF_VAR_enable_balebase_subdomain_mx`
-   unset or false.
+   `app.env`. Keep the apex setting. Set
+   `TF_VAR_enable_balebase_subdomain_mx=false`. With a child challenge set,
+   each deployment requires an explicit MX setting.
 2. Use the production website stack plan and apply steps above. Confirm the
    plan adds the child TXT record before applying. Check its public answer
    with `dig +short TXT _balebase-verification.base.tearleads.com`, then
    verify the subdomain in Balebase. Bind the exact pilot address to its own
    named inbox, such as **Legal pilot**.
-3. Once the Balebase SMTP receiver is operational at `mx.balebase.com` and
-   the binding is ready, set `TF_VAR_enable_balebase_subdomain_mx=true`.
+3. Before activating MX, query the authoritative servers and compare each
+   TXT answer to the issued child challenge. From a host that can reach
+   outbound TCP port 25, check that the Balebase receiver presents a valid
+   TLS certificate and accepts the bound pilot address. The SMTP check ends
+   at the recipient command and sends no message.
+
+   ```sh
+   for ns in $(dig +short NS tearleads.com); do
+     dig +short @"$ns" TXT _balebase-verification.base.tearleads.com
+   done
+
+   python3 - <<'PYTHON'
+   import smtplib
+   import ssl
+
+   with smtplib.SMTP("mx.balebase.com", 25, timeout=15) as smtp:
+       smtp.ehlo()
+       smtp.starttls(context=ssl.create_default_context())
+       smtp.ehlo()
+       code, detail = smtp.mail("")
+       if code != 250:
+           raise SystemExit(f"MAIL FROM failed: {code} {detail!r}")
+       code, detail = smtp.rcpt("legal@base.tearleads.com")
+       if code not in (250, 251):
+           raise SystemExit(f"RCPT TO failed: {code} {detail!r}")
+       print("Balebase accepts the pilot recipient")
+   PYTHON
+   ```
+
+4. After both checks pass, set `TF_VAR_enable_balebase_subdomain_mx=true`.
    Plan again. Confirm the only change is an MX at `base.tearleads.com` with
    priority 10 and destination `mx.balebase.com`. Apply that saved plan.
-4. Check `dig +short MX base.tearleads.com` for `10 mx.balebase.com.`
+5. Check `dig +short MX base.tearleads.com` for `10 mx.balebase.com.`
    and `dig +short MX tearleads.com` for the Google hosts. Send two external
    test messages with distinct subjects, one to each address. Confirm the
    direct message appears in **Legal pilot** and the forwarded message

@@ -42,13 +42,16 @@ variable "balebase_subdomain_verification_txt" {
 }
 
 variable "enable_balebase_subdomain_mx" {
-  description = "Publish the MX for base.<domain> after Balebase verifies and binds its recipient."
+  description = "Set false to enroll or withdraw the subdomain, or true after its Balebase recipient is ready."
   type        = bool
-  default     = false
-  nullable    = false
+  default     = null
 
   validation {
-    condition     = !var.enable_balebase_subdomain_mx || var.balebase_subdomain_verification_txt != null
-    error_message = "Configure the base subdomain's own verification TXT before enabling its MX."
+    condition = (
+      var.balebase_subdomain_verification_txt == null
+      ? var.enable_balebase_subdomain_mx != true
+      : var.enable_balebase_subdomain_mx != null
+    )
+    error_message = "With a child TXT challenge, set the MX switch explicitly to true or false. Enable it only after verification and binding."
   }
 }

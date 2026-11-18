@@ -45,7 +45,7 @@ resource "cloudflare_dns_record" "balebase_subdomain_verification" {
 }
 
 resource "cloudflare_dns_record" "balebase_subdomain_mx" {
-  count    = var.enable_balebase_subdomain_mx ? 1 : 0
+  count    = var.enable_balebase_subdomain_mx == true ? 1 : 0
   zone_id  = module.website.zone_id
   name     = "base.${var.domain}"
   type     = "MX"
