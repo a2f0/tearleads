@@ -1,6 +1,10 @@
 import type { DomainScope } from "../../data/shared/domainScope";
 import type { OrganizationDirectoryAndGroups } from "../../workflows/organizations";
-import type { ActiveOrganizationDataRuntime } from "./organizationWorkflowRuntime";
+import type { InternalRuntime } from "../runtime/workflowRuntime";
+import {
+  type ActiveOrganizationDataRuntime,
+  isOrganizationDataRuntimeCurrent,
+} from "./organizationWorkflowRuntime";
 
 /** A read-model pass in flight: a feed read or a committed delta's apply. */
 export interface InFlightReadModelPass {
@@ -32,4 +36,16 @@ export function scopedMap<T>(
     byScope.set(scope, byKey);
   }
   return byKey;
+}
+
+/** Whether the scope and session `active` was read in are still current. */
+export function sessionIsCurrent(
+  runtimeService: InternalRuntime,
+  active: ActiveOrganizationDataRuntime,
+  sessionGeneration: number,
+): () => boolean {
+  const { domainScope } = active.runtime.state;
+  return () =>
+    runtimeService.sessionGeneration === sessionGeneration &&
+    isOrganizationDataRuntimeCurrent(runtimeService, active, domainScope);
 }

@@ -1,5 +1,6 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type { OrganizationReadModelDeltaResponse } from "@tearleads/validators/response";
+import { withPreparedPrincipalHistoryOnly } from "../principals/principalHistoryExecution";
 import {
   OrganizationManagerError,
   OrganizationReadModelCursorError,
@@ -47,13 +48,16 @@ export async function loadCommittedReadModelDeltaInTransaction(input: {
   try {
     // A savepoint keeps the optional read from aborting the mutation: an SQL
     // failure here rolls back to it, and the mutation commits as before.
-    return await input.tx.transaction((savepoint) =>
-      loadOrganizationReadModelDeltaInTransaction({
-        organizationId: input.organizationId,
-        requestedCursor: held,
-        sessionUserId: input.sessionUserId,
-        tx: savepoint,
-      }),
+    // Prepared history only: cold verification would hold the head lock.
+    return await withPreparedPrincipalHistoryOnly(() =>
+      input.tx.transaction((savepoint) =>
+        loadOrganizationReadModelDeltaInTransaction({
+          organizationId: input.organizationId,
+          requestedCursor: held,
+          sessionUserId: input.sessionUserId,
+          tx: savepoint,
+        }),
+      ),
     );
   } catch (error) {
     // The feed answers an access refusal with 403, 404 or 409, which the

@@ -45,11 +45,12 @@ interface OrganizationReadModelProjectionInput {
   readonly organizationId: string;
 }
 
-/** What applying a page needs: no API, so a committed delta can use it. */
+/** Applying a page needs no API; `stillCurrent` is rechecked in the write. */
 interface ApplyReadModelPageInput extends OrganizationReadModelProjectionInput {
   readonly logError?:
     | ((message: string | Error, cause?: unknown) => void)
     | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }
 
 export interface ReconcileOrganizationDirectoryAndGroupsInput
@@ -362,9 +363,11 @@ async function applyReadModelPage(
 
   const accessInput = organizationPresentationAccessInput(input);
   return runOrganizationPresentationMutation(input.execSql, async () => {
-    if (!reconciliationIsCurrent(input, state)) {
+    if (
+      !reconciliationIsCurrent(input, state) ||
+      input.stillCurrent?.() === false
+    )
       return { kind: "done", value: null };
-    }
     const preparation = await prepareDeniedProjectionForApply(input, state);
     if (preparation) {
       return preparation;

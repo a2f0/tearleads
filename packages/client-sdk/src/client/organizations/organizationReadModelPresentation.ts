@@ -19,6 +19,7 @@ export function presentOrganizationReadModelPass(
   runtimeService: InternalRuntime,
   active: ActiveOrganizationDataRuntime,
   pass: () => Promise<OrganizationDirectoryAndGroups | null | undefined>,
+  passIsCurrent: () => boolean = () => true,
 ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
   // Snapshot the server-denied flag before reconciling. A reconcile that
   // flips it back to readable means org access was just restored (e.g. the
@@ -38,7 +39,8 @@ export function presentOrganizationReadModelPass(
   );
   const domainScope = active.runtime.state.domainScope;
   const stillCurrent = () =>
-    isOrganizationDataRuntimeCurrent(runtimeService, active, domainScope);
+    isOrganizationDataRuntimeCurrent(runtimeService, active, domainScope) &&
+    passIsCurrent();
 
   return pass().then(async (directoryAndGroups) => {
     if (!stillCurrent()) return null;

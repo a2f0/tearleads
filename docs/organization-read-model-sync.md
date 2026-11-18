@@ -231,8 +231,9 @@ request's hint names. An unreadable cursor or one for
 another organization, a cursor behind that head, a replay that stamped
 nothing, and an access decision the feed would refuse all leave the field out;
 a refusal reaches the client through its own feed read instead. The read runs
-in a savepoint, so any failure in it omits the field and the mutation commits
-as before.
+in a savepoint and verifies only prepared principal history, so it never walks
+cold history under the writer's lock, and any failure in it omits the field
+while the mutation commits as before.
 
 The client applies a committed delta through the ordinary apply path, only once
 the mutation's acknowledgement verified and only while its projection still

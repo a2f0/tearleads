@@ -16,13 +16,14 @@ import {
   beginCommittedReadModel,
   takeCommittedReadModelOffer,
 } from "../../workflows/organizations/readModel/committedReadModel";
+import { runOrganizationPresentationMutation } from "../../workflows/organizations/readModel/organizationPresentationAccessState";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 
 const organizationId = organizationReadModelOrganizationId;
 const userId = organizationReadModelUserId;
 const cursorAt = (position: number) => organizationReadModelCursorAt(position);
 
-async function committedFixture(name: string) {
+async function committedFixture(name: string, feedGate?: Promise<void>) {
   const { close, execSql } = await createTestExecSql(name);
   await new OrganizationReadModelRepository(
     execSql,
@@ -35,6 +36,7 @@ async function committedFixture(name: string) {
   const apiClient = createMockApiClient({
     async getOrganizationReadModelResult(_organizationId, cursor) {
       requestedCursors.push(cursor);
+      await feedGate;
       return {
         data: organizationReadModelGroupsDelta({
           cursor: cursorAt(9),
@@ -350,6 +352,80 @@ test("a refresh that waited out a delta does not read for a new scope", async ()
     await applying;
     await expect(refreshed).resolves.toBeNull();
     expect(f.requestedCursors).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("a delta blocked behind another write applies nothing after a logout", async () => {
+  const f = await committedFixture("committed-read-model-blocked-test");
+  try {
+    const lease = await beginCommittedReadModel(f.scope);
+    const delta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(2),
+      groupName: "Operators",
+    });
+    lease.settle(delta);
+    let release = () => {};
+    const blocked = runOrganizationPresentationMutation(
+      f.execSql,
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const applying = f.coordinator.applyCommittedReadModel(
+      organizationId,
+      delta,
+    );
+    // Let the apply reach the serialized write before the logout.
+    for (let turn = 0; turn < 50; turn += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    f.advanceSession();
+    release();
+    await blocked;
+
+    expect(await applying).toBeFalsy();
+    await expect(
+      new OrganizationReadModelRepository(
+        f.execSql,
+      ).loadOrganizationReadModelCursor(organizationId),
+    ).resolves.toBe(cursorAt(1));
+  } finally {
+    f.close();
+  }
+});
+
+test("a fallback that waited out a feed read does not read for a new session", async () => {
+  let openFeed = () => {};
+  const f = await committedFixture(
+    "committed-read-model-fallback-wait-test",
+    new Promise<void>((resolve) => {
+      openFeed = resolve;
+    }),
+  );
+  try {
+    const lease = await beginCommittedReadModel(f.scope);
+    const delta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(1),
+      groupName: "Operators",
+    });
+    lease.settle(delta);
+    const feed = f.coordinator.reconcile();
+    const settled = f.coordinator.reconcileAfterOwnMutation(
+      organizationId,
+      delta,
+    );
+    for (let turn = 0; turn < 50; turn += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    f.advanceSession();
+    openFeed();
+    await feed;
+
+    await expect(settled).resolves.toBeUndefined();
+    expect(f.requestedCursors).toEqual([cursorAt(1)]);
   } finally {
     f.close();
   }

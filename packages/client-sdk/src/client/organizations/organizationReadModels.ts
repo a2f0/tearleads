@@ -33,6 +33,7 @@ import {
   committedScope,
   type InFlightReadModelPass,
   scopedMap,
+  sessionIsCurrent,
 } from "./organizationReadModelScopes";
 import {
   type ActiveOrganizationDataRuntime,
@@ -304,6 +305,7 @@ class OrganizationReadModelCoordinatorImpl
     active: ActiveOrganizationDataRuntime,
     kind: InFlightReadModelPass["kind"],
     pass: () => Promise<OrganizationDirectoryAndGroups | null | undefined>,
+    passIsCurrent?: () => boolean,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
     const byKey = this.reconciliationMap(active);
     const key = organizationAccessScopeKey(
@@ -320,6 +322,7 @@ class OrganizationReadModelCoordinatorImpl
       this.runtimeService,
       active,
       pass,
+      passIsCurrent,
     )
       .then(
         (presented) => {
@@ -386,30 +389,31 @@ class OrganizationReadModelCoordinatorImpl
     offer: CommittedReadModelOffer,
     sessionGeneration: number,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
-    const { domainScope } = active.runtime.state;
-    return this.presentReconciliation(active, "delta", async () => {
-      const held = await loadHeldOrganizationReadModelCursor(
-        committedScope(active, sessionGeneration),
-      );
-      if (
-        held !== offer.heldCursor ||
-        this.runtimeService.sessionGeneration !== sessionGeneration ||
-        !isOrganizationDataRuntimeCurrent(
-          this.runtimeService,
-          active,
-          domainScope,
-        )
-      )
-        return undefined;
-      return applyCommittedOrganizationReadModel({
-        currentUserId: active.userId,
-        execSql: active.runtime.infra.execSql,
-        logError: active.runtime.util.logError,
-        organizationId: active.organizationId,
-        requestedCursor: offer.heldCursor,
-        response: offer.delta,
-      });
-    }).catch((error: unknown) => {
+    const stillCurrent = sessionIsCurrent(
+      this.runtimeService,
+      active,
+      sessionGeneration,
+    );
+    return this.presentReconciliation(
+      active,
+      "delta",
+      async () => {
+        const held = await loadHeldOrganizationReadModelCursor(
+          committedScope(active, sessionGeneration),
+        );
+        if (held !== offer.heldCursor || !stillCurrent()) return undefined;
+        return applyCommittedOrganizationReadModel({
+          currentUserId: active.userId,
+          execSql: active.runtime.infra.execSql,
+          logError: active.runtime.util.logError,
+          organizationId: active.organizationId,
+          requestedCursor: offer.heldCursor,
+          response: offer.delta,
+          stillCurrent,
+        });
+      },
+      stillCurrent,
+    ).catch((error: unknown) => {
       active.runtime.util.logError(
         "Failed to apply a committed organization read-model delta",
         error,
@@ -427,17 +431,16 @@ class OrganizationReadModelCoordinatorImpl
       organizationId,
     );
     if (!active) return undefined;
-    const { domainScope } = active.runtime.state;
-    const applied = await this.applyCommittedReadModel(organizationId, delta);
-    if (applied) return applied;
-    // The fallback reads for the scope that committed, or not at all.
-    return isOrganizationDataRuntimeCurrent(
+    const stillCurrent = sessionIsCurrent(
       this.runtimeService,
       active,
-      domainScope,
-    )
-      ? this.reconcileAfterMutation(active.organizationId)
-      : undefined;
+      this.runtimeService.sessionGeneration,
+    );
+    const applied = await this.applyCommittedReadModel(organizationId, delta);
+    if (applied) return applied;
+    // The fallback reads for the session that committed, or not at all.
+    await this.settleInFlightReconcile(active);
+    return stillCurrent() ? this.reconcile(active.organizationId) : undefined;
   }
 
   async loadAppliedCursor(organizationId?: string): Promise<string | null> {
